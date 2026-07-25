@@ -1,0 +1,18 @@
+{
+  "project_codename": "Imota Tilegarden",
+  "visitor_name": "Mote",
+  "token_name": "Coin",
+  "reward_object_name": "Bloomforge",
+  "tile_size": 1.8,
+  "tile_height": 0.46,
+  "stack_height": 0.78,
+  "initial_island_radius": 1,
+  "first_visitor_delay": 0.8,
+  "visitor_interval_min": 7.0,
+  "visitor_interval_max": 12.0,
+  "visitor_cap": 6,
+  "offline_visitor_cap": 4,
+  "recycle_seed_cost": 4,
+  "autosave_interval": 45.0,
+  "save_version": 2
+}

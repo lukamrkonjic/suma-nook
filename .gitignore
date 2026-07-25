@@ -1,0 +1,14 @@
+# Godot editor/import cache
+.godot/
+*.import
+
+# Exported builds
+builds/
+export.cfg
+
+# macOS
+.DS_Store
+
+# Local save/test artifacts
+*.log
+test_output/
