@@ -1,0 +1,48 @@
+[gd_resource type="Resource" script_class="CozyPalette" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/palette.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+colors = {
+"background_day": Color(0.906, 0.882, 0.8, 1),
+"background_rain": Color(0.196, 0.231, 0.18, 1),
+"grass": Color(0.749, 0.78, 0.165, 1),
+"grass_lush": Color(0.659, 0.737, 0.184, 1),
+"dark_foliage": Color(0.275, 0.325, 0.176, 1),
+"bright_foliage": Color(0.561, 0.655, 0.2, 1),
+"moss": Color(0.431, 0.486, 0.192, 1),
+"soil": Color(0.541, 0.29, 0.157, 1),
+"dark_soil": Color(0.392, 0.208, 0.114, 1),
+"wood": Color(0.463, 0.314, 0.149, 1),
+"dark_wood": Color(0.298, 0.2, 0.094, 1),
+"pale_stone": Color(0.847, 0.784, 0.69, 1),
+"dark_stone": Color(0.612, 0.561, 0.475, 1),
+"terracotta": Color(0.718, 0.431, 0.208, 1),
+"water": Color(0.561, 0.682, 0.667, 1),
+"gold": Color(0.882, 0.714, 0.251, 1),
+"fabric": Color(0.71, 0.337, 0.231, 1),
+"fabric_accent": Color(0.878, 0.757, 0.451, 1),
+"metal": Color(0.545, 0.522, 0.471, 1),
+"skin": Color(0.91, 0.722, 0.541, 1),
+"hair": Color(0.353, 0.227, 0.133, 1),
+"eyes": Color(0.184, 0.165, 0.149, 1),
+"petal_pink": Color(0.851, 0.498, 0.651, 1),
+"petal_white": Color(0.929, 0.906, 0.835, 1),
+"petal_red": Color(0.78, 0.318, 0.239, 1),
+"mushroom_red": Color(0.78, 0.318, 0.239, 1),
+"crystal": Color(0.561, 0.816, 0.78, 1),
+"fire_core": Color(0.969, 0.855, 0.353, 1),
+"fire_outer": Color(0.91, 0.518, 0.173, 1),
+"smoke": Color(0.851, 0.831, 0.769, 1),
+"magic": Color(0.91, 0.639, 0.235, 1),
+"ui_panel": Color(0.949, 0.929, 0.871, 0.96),
+"ui_panel_dark": Color(0.271, 0.247, 0.196, 1),
+"ui_accent": Color(0.718, 0.431, 0.208, 1),
+"ui_good": Color(0.561, 0.655, 0.2, 1),
+"ui_bad": Color(0.78, 0.318, 0.239, 1),
+"ui_rare": Color(0.882, 0.714, 0.251, 1)
+}
+skin_tones = PackedColorArray(0.949, 0.8, 0.635, 1, 0.91, 0.722, 0.541, 1, 0.769, 0.553, 0.38, 1, 0.545, 0.365, 0.235, 1, 0.392, 0.267, 0.18, 1)
+hair_colors = PackedColorArray(0.353, 0.227, 0.133, 1, 0.176, 0.145, 0.11, 1, 0.788, 0.62, 0.31, 1, 0.635, 0.302, 0.161, 1, 0.78, 0.78, 0.741, 1, 0.475, 0.541, 0.353, 1)
+outfit_colors = PackedColorArray(0.71, 0.337, 0.231, 1, 0.302, 0.42, 0.365, 1, 0.42, 0.365, 0.541, 1, 0.788, 0.62, 0.31, 1, 0.361, 0.42, 0.549, 1)

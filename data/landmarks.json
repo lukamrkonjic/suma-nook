@@ -1,0 +1,26 @@
+{
+  "landmarks": [
+    {
+      "id": "overgrown_watchpost",
+      "name": "The Overgrown Watchpost",
+      "asset_id": "landmark_watchpost",
+      "reclaimed_dressing_asset": "landmark_watchpost_reclaimed_dressing",
+      "footprint": [[0, 0], [1, 0], [0, 1], [1, 1]],
+      "valid_terrain_tags": ["ruin"],
+      "min_progress_tiles": 4,
+      "min_distance": 3,
+      "max_distance": 5,
+      "horizon_weight": 1.0,
+      "rarity": "rare",
+      "enemies": [
+        { "enemy": "thornling_stalker", "count": 2 },
+        { "enemy": "thornling_lobber", "count": 1 }
+      ],
+      "guardian": "watchpost_guardian",
+      "guardian_reward": "cape_watchpost",
+      "reward_table": "ruin_spoils",
+      "salvage": { "carved_stone": 6, "old_metal": 4, "relic_fragment": 3 },
+      "narrative_tag": "watchpost"
+    }
+  ]
+}

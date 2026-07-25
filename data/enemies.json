@@ -1,0 +1,7 @@
+{
+  "enemies": [
+    { "id": "thornling_stalker", "name": "Thornling Stalker", "asset_id": "enemy_thornling_stalker", "health": 3, "damage": 1, "speed": 2.2, "range": 0.9, "telegraph": 0.65, "recover": 0.8, "loot_table": "ruin_spoils" },
+    { "id": "thornling_lobber", "name": "Thornling Lobber", "asset_id": "enemy_thornling_lobber", "health": 2, "damage": 1, "speed": 1.4, "range": 4.5, "telegraph": 0.9, "recover": 1.4, "ranged": true, "loot_table": "ruin_spoils" },
+    { "id": "watchpost_guardian", "name": "The Overgrown Warden", "asset_id": "enemy_watchpost_guardian", "health": 10, "damage": 1, "speed": 1.5, "range": 1.3, "telegraph": 1.0, "recover": 1.1, "guardian": true, "loot_table": "ruin_spoils" }
+  ]
+}

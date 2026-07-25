@@ -1,18 +1,46 @@
 {
-  "project_codename": "Suma Nook",
-  "visitor_name": "Woodland Wisp",
-  "token_name": "Forest Light",
-  "reward_object_name": "World Growth",
-  "tile_size": 1.8,
-  "tile_height": 0.46,
-  "stack_height": 0.78,
-  "initial_island_radius": 1,
-  "first_visitor_delay": 0.8,
-  "visitor_interval_min": 7.0,
-  "visitor_interval_max": 12.0,
-  "visitor_cap": 6,
-  "offline_visitor_cap": 4,
-  "recycle_seed_cost": 4,
-  "autosave_interval": 45.0,
-  "save_version": 3
+  "save_version": 1,
+  "save_path": "user://suma_nook_world.json",
+  "tile_size": 2.0,
+  "block_depth": 0.9,
+
+  "walk_speed": 4.0,
+  "walk_accel": 26.0,
+  "walk_decel": 32.0,
+  "turn_speed": 12.0,
+  "dodge_speed": 8.5,
+  "dodge_seconds": 0.32,
+  "interact_range": 1.6,
+
+  "player_max_health": 5,
+  "player_hit_invuln_seconds": 0.8,
+  "health_regen_seconds_per_point": 6.0,
+
+  "camera_min_size": 7.0,
+  "camera_max_size": 26.0,
+  "camera_default_size": 13.0,
+  "camera_pitch_deg": -34.0,
+  "camera_default_yaw_deg": 45.0,
+  "camera_follow_speed": 4.5,
+  "camera_rotate_seconds": 0.28,
+  "build_mode_size_bonus": 4.0,
+
+  "fishing_wait_min": 1.2,
+  "fishing_wait_max": 3.2,
+  "fishing_repeat_pause": 0.7,
+  "rare_roll_chance": 0.22,
+  "rare_pity_max_dry": 9,
+  "new_tile_pity_max_duplicates": 4,
+  "tutorial_fragment_by_catch": 3,
+
+  "grove_rest_visual_scale": 0.82,
+
+  "horizon_check_tiles": [4, 7, 11, 16],
+  "landmark_connect_adjacent": true,
+
+  "autosave_interval": 40.0,
+  "pattern_dust_per_duplicate": 1,
+  "reroll_dust_cost": 3,
+
+  "guaranteed_first_parcel_options": ["tile_grove_mature", "tile_grove_birch", "tile_grove_mossy"]
 }

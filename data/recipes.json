@@ -1,0 +1,27 @@
+{
+  "recipes": [
+    { "id": "recipe_meadow_parcel", "name": "Meadow Parcel", "category": "land", "inputs": { "land_fragment": 3, "smooth_stone": 2 }, "output": "parcel_meadow", "output_kind": "parcel", "unlock": { "fishing": 4 } },
+    { "id": "recipe_grove_parcel", "name": "Grove Parcel", "category": "land", "inputs": { "land_fragment": 3, "softwood": 3 }, "output": "parcel_grove", "output_kind": "parcel", "unlock": { "woodcutting": 3 } },
+    { "id": "recipe_stone_parcel", "name": "Stone Parcel", "category": "land", "inputs": { "land_fragment": 3, "carved_stone": 2 }, "output": "parcel_stone", "output_kind": "parcel", "unlock": { "mining": 2 } },
+    { "id": "recipe_wild_parcel", "name": "Wild Parcel", "category": "land", "inputs": { "land_fragment": 4 }, "output": "parcel_wild", "output_kind": "parcel", "unlock": {} },
+    { "id": "recipe_reroll", "name": "Pattern Reroll", "category": "land", "inputs": { "pattern_dust": 3 }, "output": "reroll_charge", "output_kind": "item", "unlock": {} },
+
+    { "id": "recipe_bench", "name": "Keeper's Bench", "category": "decorations", "inputs": { "softwood": 2, "reeds": 2 }, "output": "struct_bench", "unlock": { "fishing": 3 } },
+    { "id": "recipe_stool", "name": "Stool", "category": "decorations", "inputs": { "softwood": 1, "driftwood": 1 }, "output": "struct_stool", "unlock": {} },
+    { "id": "recipe_table", "name": "Round Table", "category": "decorations", "inputs": { "softwood": 2, "hardwood": 1 }, "output": "struct_table", "unlock": { "woodcutting": 3 } },
+    { "id": "recipe_fence", "name": "Fence", "category": "decorations", "inputs": { "softwood": 2 }, "output": "struct_fence", "batchable": true, "unlock": { "woodcutting": 2 } },
+    { "id": "recipe_gate", "name": "Gate", "category": "decorations", "inputs": { "softwood": 2, "old_metal": 1 }, "output": "struct_gate", "unlock": { "woodcutting": 2 } },
+    { "id": "recipe_lantern", "name": "Warm Lantern", "category": "decorations", "inputs": { "driftwood": 1, "resin": 1, "old_metal": 1 }, "output": "struct_lantern", "unlock": { "woodcutting": 4 } },
+    { "id": "recipe_campfire", "name": "Campfire", "category": "buildings", "inputs": { "driftwood": 2, "smooth_stone": 3 }, "output": "struct_campfire", "unlock": {} },
+    { "id": "recipe_shelter", "name": "Tiny Shelter", "category": "buildings", "inputs": { "softwood": 4, "hardwood": 2, "reeds": 2 }, "output": "struct_shelter", "unlock": { "woodcutting": 6 } },
+    { "id": "recipe_planter", "name": "Planter", "category": "decorations", "inputs": { "softwood": 1, "reeds": 1 }, "output": "struct_planter", "unlock": {} },
+    { "id": "recipe_pot", "name": "Terracotta Pot", "category": "decorations", "inputs": { "smooth_stone": 2 }, "output": "struct_pot", "unlock": {} },
+    { "id": "recipe_dock", "name": "Small Dock", "category": "buildings", "inputs": { "driftwood": 3, "reeds": 2 }, "output": "struct_dock", "unlock": { "fishing": 5 } },
+    { "id": "recipe_sign", "name": "Signpost", "category": "decorations", "inputs": { "softwood": 1 }, "output": "struct_sign", "unlock": {} },
+    { "id": "recipe_ruin_arch", "name": "Reclaimed Arch", "category": "buildings", "inputs": { "relic_fragment": 2, "carved_stone": 2 }, "output": "struct_ruin_arch", "unlock": {} },
+    { "id": "recipe_stone_wall", "name": "Old Stone Wall", "category": "decorations", "inputs": { "carved_stone": 1, "smooth_stone": 2 }, "output": "struct_stone_wall", "unlock": {} },
+    { "id": "recipe_fishing_marker", "name": "Fishing Marker", "category": "decorations", "inputs": { "driftwood": 1, "reeds": 1, "shell": 1 }, "output": "struct_fishing_marker", "unlock": { "fishing": 8 } },
+
+    { "id": "recipe_axe_fine", "name": "Fine Axe", "category": "tools", "inputs": { "hardwood": 2, "old_metal": 2, "resin": 1 }, "output": "tool_axe_fine", "output_kind": "item", "unlock": { "woodcutting": 5 } }
+  ]
+}

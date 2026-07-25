@@ -1,46 +1,22 @@
-extends Node
+extends SceneTree
+## Headless validation suite. Run:
+##   /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/test_runner.gd
+## Must print "ALL TESTS PASSED".
 
-const GameDataScript := preload("res://scripts/game_data.gd")
-const GridScript := preload("res://scripts/grid_manager.gd")
-const EconomyScript := preload("res://scripts/economy_manager.gd")
-const StorageScript := preload("res://scripts/storage_manager.gd")
-const CollectionScript := preload("res://scripts/collection_manager.gd")
-const RewardScript := preload("res://scripts/reward_manager.gd")
-const SaveScript := preload("res://scripts/save_manager.gd")
-const ProgressionScript := preload("res://scripts/forest_progression.gd")
-
-const TEST_SAVE := "user://tilegarden-test-save.json"
-
-var failures: Array[String] = []
+var failures: PackedStringArray = []
 var assertions := 0
-var data: GameData
 
 
-func _ready() -> void:
-	data = GameDataScript.new()
-	check(data.load_all(), "all data files load")
-	_test_placement_overlap()
-	_test_ground_adjacency()
-	_test_rotation_footprint()
-	_test_token_transactions()
-	_test_weighted_reward()
-	_test_reward_modifiers()
-	_test_recycling()
-	_test_collection_discovery()
-	_test_save_round_trip()
-	_test_missing_definition()
-	_test_reachable_destination()
-	_test_initial_content_contract()
-	_test_nine_tile_start()
-	_test_forest_growth_milestone()
+func _init() -> void:
+	_run()
 	if failures.is_empty():
-		print("SUMA NOOK VALIDATION PASSED — %d assertions across 14 suites" % assertions)
-		_quit_clean(0)
+		print("ALL TESTS PASSED — %d assertions" % assertions)
+		quit(0)
 	else:
-		for failure: String in failures:
-			push_error("TEST FAILURE: %s" % failure)
-		print("TILEGARDEN VALIDATION FAILED — %d failures / %d assertions" % [failures.size(), assertions])
-		_quit_clean(1)
+		for failure in failures:
+			printerr("FAIL: " + failure)
+		print("TESTS FAILED — %d failures / %d assertions" % [failures.size(), assertions])
+		quit(1)
 
 
 func check(condition: bool, message: String) -> void:
@@ -49,200 +25,43 @@ func check(condition: bool, message: String) -> void:
 		failures.append(message)
 
 
-func fresh_grid(radius := 2) -> GridManager:
-	var result := GridScript.new() as GridManager
-	result.setup(data)
-	result.make_initial_island(radius)
-	return result
+func fresh_core(seed_value := 12345) -> GameCore:
+	var core := GameCore.new()
+	core.setup("res://data", seed_value)
+	core.save_manager.save_path = "user://test_save.json"
+	core.save_manager.backup_path = "user://test_save.json.backup"
+	var profile := PlayerProfile.new()
+	profile.display_name = "Testkeeper"
+	core.new_game(profile)
+	return core
 
 
-func _test_placement_overlap() -> void:
-	var target := fresh_grid()
-	var id := target.place_prop(&"moss_rock", Vector3i(1, 1, 1), 0)
-	check(not id.is_empty(), "first prop placement succeeds")
-	var overlap := target.can_place_prop(data.item(&"seed_crate"), Vector3i(1, 1, 1), 0)
-	check(not bool(overlap.valid), "overlapping prop placement is rejected")
-	var adjacent := target.can_place_prop(data.item(&"seed_crate"), Vector3i(1, 1, 0), 0)
-	check(bool(adjacent.valid), "adjacent prop placement remains valid")
-	target.free()
+func _run() -> void:
+	_test_registries()
+	_test_starting_world()
 
 
-func _test_ground_adjacency() -> void:
-	var target := fresh_grid()
-	check(bool(target.can_place_ground(Vector3i(3, 0, 0)).valid), "ground beside island is valid")
-	check(not bool(target.can_place_ground(Vector3i(8, 0, 8)).valid), "detached ground is invalid")
-	check(target.place_ground(&"ground_loam", Vector3i(3, 0, 0)), "valid ground can be placed")
-	target.free()
+func _test_registries() -> void:
+	var regs := Registries.new()
+	check(regs.load_all(), "all data files load and cross-validate: " + ", ".join(regs.load_errors))
+	check(regs.skills.size() == 3, "three skills defined")
+	check(regs.tiles.size() >= 15, "at least 15 tile variants")
+	check(regs.skill("mining").future, "mining is a future skill")
+	var fishing := regs.skill("fishing")
+	check(fishing.xp_to_next(1) > 0 and fishing.xp_to_next(2) > fishing.xp_to_next(1), "xp curve increases")
 
 
-func _test_rotation_footprint() -> void:
-	var bench := data.item(&"root_bench")
-	check(bench.rotated_footprint(0) == Vector2i(2, 1), "unrotated footprint is 2x1")
-	check(bench.rotated_footprint(1) == Vector2i(1, 2), "quarter-turn footprint is 1x2")
-	var target := fresh_grid()
-	var horizontal := target.footprint_cells(bench, Vector3i(0, 1, 0), 0)
-	var vertical := target.footprint_cells(bench, Vector3i(0, 1, 0), 1)
-	check(horizontal != vertical and horizontal.size() == vertical.size(), "rotation changes occupied cells without changing area")
-	target.free()
-
-
-func _test_token_transactions() -> void:
-	var manager := EconomyScript.new() as EconomyManager
-	manager.setup(data)
-	check(manager.add(&"meadow_coin", 3), "valid coins can be added")
-	check(manager.spend(&"meadow_coin", 2), "available coins can be spent")
-	check(manager.amount(&"meadow_coin") == 1, "coin balance is correct")
-	check(not manager.spend(&"meadow_coin", 2), "overspending is rejected")
-	manager.free()
-
-
-func _test_weighted_reward() -> void:
-	var manager := RewardScript.new() as RewardManager
-	manager.setup(data, 99)
-	manager.offers_made = 10
-	manager.offers_by_pool["meadow"] = 10
-	for _i: int in 30:
-		var id := manager.draw(&"meadow_coin")
-		check(data.item(id) != null, "weighted reward returns a valid definition")
-		check("meadow" in data.item(id).reward_pools, "weighted reward stays in the coin's themed set")
-	manager.free()
-
-
-func _test_reward_modifiers() -> void:
-	var manager := RewardScript.new() as RewardManager
-	manager.setup(data, 772)
-	manager.offers_by_pool["hearth"] = 10
-	var context := {"placed_definition_counts": {"still_bell": 1}}
-	for _i: int in 24:
-		var id := manager.draw(&"hearth_coin", context)
-		check(data.item(id).category != &"furniture", "a placed Hushbell suppresses furniture rewards")
-	var summary := manager.modifier_summary({
-		"placed_definition_counts": {"wish_lantern": 1, "still_bell": 1},
-	})
-	check(summary.size() == 2, "placed functional pieces expose both live odds effects")
-	manager.free()
-
-
-func _test_recycling() -> void:
-	var manager := EconomyScript.new() as EconomyManager
-	manager.setup(data)
-	check(manager.sell(2) == 0, "a partial sale does not create a coin")
-	check(manager.sell(2) == 1, "configured sale threshold creates one coin")
-	check(manager.amount(&"meadow_coin") == 1 and manager.recycle_progress == 0, "sale balance and remainder are correct")
-	manager.free()
-
-
-func _test_collection_discovery() -> void:
-	var manager := CollectionScript.new() as CollectionManager
-	manager.setup(data)
-	check(manager.record_obtained(&"sapling"), "first collection record reports discovery")
-	check(not manager.record_obtained(&"sapling"), "duplicate record is not a first discovery")
-	check(manager.total(&"sapling") == 2, "collection total counts duplicates")
-	check(manager.new_markers.has(&"sapling"), "new discovery marker is retained")
-	manager.free()
-
-
-func _test_save_round_trip() -> void:
-	SaveScript.delete_paths(TEST_SAVE)
-	var target := fresh_grid()
-	target.place_ground(&"ground_stone", Vector3i(3, 0, 0))
-	target.place_prop(&"moss_rock", Vector3i(2, 1, 1), 1)
-	var manager := SaveScript.new() as TilegardenSaveManager
-	manager.setup(1, TEST_SAVE)
-	var payload := {
-		"world_seed": 77,
-		"grid": target.snapshot(),
-		"economy": {"tokens": {"meadow_coin": 4}, "recycle_progress": 2},
-		"storage": {"moonflowers": 3},
-	}
-	check(manager.write_save(payload), "atomic test save succeeds")
-	var loaded := manager.read_save()
-	check(int(loaded.world_seed) == 77, "world seed survives save/load")
-	check((loaded.grid.ground as Array).size() == target.ground.size(), "ground survives save/load")
-	check(int(loaded.economy.tokens.meadow_coin) == 4, "coin count survives save/load")
-	check(int(loaded.storage.moonflowers) == 3, "storage count survives save/load")
-	SaveScript.delete_paths(TEST_SAVE)
-	manager.free()
-	target.free()
-
-
-func _test_missing_definition() -> void:
-	var target := fresh_grid()
-	var state := target.snapshot()
-	state.props.append({
-		"instance_id": "missing-1",
-		"definition_id": "retired_item",
-		"coord": [1, 1, 1],
-		"rotation": 0,
-	})
-	var missing: Array[String] = []
-	target.restore_snapshot(state, missing)
-	check("retired_item" in missing, "missing definitions are reported")
-	check(not target.props.has("missing-1"), "missing definitions are skipped safely")
-	target.free()
-
-
-func _test_reachable_destination() -> void:
-	var target := fresh_grid()
-	target.place_prop(&"seed_crate", Vector3i(1, 1, 1), 0)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 5
-	var start := Vector3i(-2, 1, -2)
-	var destination := target.random_reachable_destination(start, rng)
-	var path := target.reachable_path(start, destination)
-	check(target.is_walkable(destination), "visitor destination is walkable")
-	check(not path.is_empty() and path[0] == start and path.back() == destination, "visitor destination has a complete reachable path")
-	target.free()
-
-
-func _test_initial_content_contract() -> void:
-	check(data.tokens.size() == 3, "MVP contains three themed coin categories")
-	check(data.ground_ids().size() == 4, "MVP contains four visually distinct ground definitions")
-	check(data.items.size() >= 18 and data.items.size() <= 24, "MVP content stays within vertical-slice scale")
-	for pool: String in ["meadow", "hearth", "tide"]:
-		var sequence: Array = (data.beginner.sequence_by_pool as Dictionary)[pool]
-		var first := StringName(str(sequence[0]))
-		var third := StringName(str(sequence[2]))
-		check(data.item(first).is_ground() and data.item(third).is_ground(),
-			"%s beginner rewards guarantee early expansion" % pool)
-	check(data.item(&"wish_lantern").modifier_kind == &"boost", "the boost curio is data-driven")
-	check(data.item(&"still_bell").modifier_kind == &"block", "the suppressor curio is data-driven")
-
-
-func _test_nine_tile_start() -> void:
-	var target := fresh_grid(1)
-	check(target.ground.size() == 9, "a new world begins as an exact 3x3 square")
-	check(target.walkable_cells().size() == 9, "all nine starting tiles are walkable")
-	check(target.is_walkable(Vector3i(0, 1, 0)), "the player can stand on the center tile")
-	target.free()
-
-
-func _test_forest_growth_milestone() -> void:
-	var target := fresh_grid(1)
-	var coins := EconomyScript.new() as EconomyManager
-	coins.setup(data)
-	var stash := StorageScript.new() as StorageManager
-	stash.setup(data)
-	var guide := CollectionScript.new() as CollectionManager
-	guide.setup(data)
-	var progress := ProgressionScript.new() as ForestProgression
-	progress.setup(target, coins, stash, guide, 77)
-	progress.tiles_grown = 2
-	coins.add(&"meadow_coin", 1)
-	var result := progress.complete_growth()
-	check(progress.tiles_grown == 3, "successful growth advances world progression")
-	check(coins.amount(&"meadow_coin") == 0, "growth spends exactly one Forest Light")
-	check(str(result.get("unlock", "")) == "sapling", "the first growth milestone unlocks a sapling")
-	check(stash.amount(&"sapling") == 1, "milestone rewards enter the woodland pack")
-	progress.free()
-	guide.free()
-	stash.free()
-	coins.free()
-	target.free()
-
-
-func _quit_clean(code: int) -> void:
-	data = null
-	var tree := get_tree()
-	tree.create_timer(0.10).timeout.connect(tree.quit.bind(code))
-	queue_free()
+func _test_starting_world() -> void:
+	var core := fresh_core()
+	check(core.grid.cells.size() == 9, "fresh save starts with exactly nine cells")
+	var families := {}
+	for coord: Vector2i in core.grid.cells:
+		families[core.grid.tile_def(coord).id] = true
+	check(families.size() >= 3, "starting world uses coordinated variants, not nine identical tiles")
+	var has_pond := false
+	for coord: Vector2i in core.grid.cells:
+		if core.grid.tile_def(coord).anchor_id == "pond_anchor":
+			has_pond = true
+	check(has_pond, "starting world contains a fishable pond")
+	check(core.grid.is_walkable(Vector2i.ZERO), "home cell walkable")
+	check(core.equipment.owns("tool_rod_basic"), "starter rod owned")

@@ -1,0 +1,31 @@
+{
+  "anchors": [
+    {
+      "id": "pond_anchor",
+      "skill": "fishing",
+      "name": "Quiet Pond",
+      "loot_table": "fishing_common",
+      "cycle_actions": 0,
+      "regen_seconds": 0,
+      "upgrade_levels": 3
+    },
+    {
+      "id": "grove_anchor",
+      "skill": "woodcutting",
+      "name": "Living Grove",
+      "loot_table": "woodcutting_common",
+      "cycle_actions": 4,
+      "regen_seconds": 40,
+      "upgrade_levels": 3
+    },
+    {
+      "id": "stone_anchor",
+      "skill": "mining",
+      "name": "Stone Seam",
+      "loot_table": "mining_common",
+      "cycle_actions": 4,
+      "regen_seconds": 50,
+      "upgrade_levels": 3
+    }
+  ]
+}

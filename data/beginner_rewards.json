@@ -1,9 +1,0 @@
-{
-  "sequence_by_pool": {
-    "meadow": ["ground_grass", "moonflowers", "ground_grass"],
-    "hearth": ["ground_loam", "glow_lantern", "ground_stone"],
-    "tide": ["ground_water", "stone_planter", "ground_water"]
-  },
-  "expansion_pity_after": 6,
-  "expansion_ids": ["ground_grass", "ground_loam", "ground_stone", "ground_water"]
-}

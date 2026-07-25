@@ -1,0 +1,60 @@
+{
+  "tables": [
+    {
+      "id": "fishing_common",
+      "entries": [
+        { "item": "fish_dawnfin", "weight": 34 },
+        { "item": "fish_mosscarp", "weight": 26 },
+        { "item": "reeds", "weight": 16, "min": 1, "max": 2 },
+        { "item": "driftwood", "weight": 14 },
+        { "item": "smooth_stone", "weight": 8 },
+        { "item": "shell", "weight": 6 }
+      ]
+    },
+    {
+      "id": "fishing_rare",
+      "entries": [
+        { "item": "fish_glimmer", "weight": 5, "rare": true },
+        { "item": "land_fragment", "weight": 12 },
+        { "item": "parcel_wild", "weight": 3, "rare": true },
+        { "item": "pattern_dust", "weight": 6 }
+      ]
+    },
+    {
+      "id": "woodcutting_common",
+      "entries": [
+        { "item": "softwood", "weight": 46, "min": 1, "max": 2 },
+        { "item": "hardwood", "weight": 16 },
+        { "item": "resin", "weight": 12 },
+        { "item": "smooth_stone", "weight": 6 }
+      ]
+    },
+    {
+      "id": "woodcutting_rare",
+      "entries": [
+        { "item": "seedwood", "weight": 5, "rare": true },
+        { "item": "land_fragment", "weight": 10 },
+        { "item": "parcel_wild", "weight": 3, "rare": true },
+        { "item": "pattern_dust", "weight": 6 }
+      ]
+    },
+    {
+      "id": "mining_common",
+      "entries": [
+        { "item": "smooth_stone", "weight": 40, "min": 1, "max": 2 },
+        { "item": "carved_stone", "weight": 18 },
+        { "item": "old_metal", "weight": 12 }
+      ]
+    },
+    {
+      "id": "ruin_spoils",
+      "entries": [
+        { "item": "old_metal", "weight": 30, "min": 1, "max": 2 },
+        { "item": "carved_stone", "weight": 30, "min": 1, "max": 2 },
+        { "item": "relic_fragment", "weight": 20 },
+        { "item": "pattern_dust", "weight": 12 },
+        { "item": "parcel_stone", "weight": 8, "rare": true }
+      ]
+    }
+  ]
+}

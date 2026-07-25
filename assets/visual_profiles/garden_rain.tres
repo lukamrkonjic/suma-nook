@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="VisualStyleProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/visual_style_profile.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+profile_id = "garden_rain"
+background_color = Color(0.29, 0.33, 0.27, 1)
+ambient_color = Color(0.5, 0.56, 0.5, 1)
+ambient_energy = 0.55
+sun_color = Color(0.62, 0.7, 0.68, 1)
+sun_energy = 0.5
+sun_pitch_deg = -58.0
+sun_yaw_deg = -100.0
+shadow_opacity = 0.5
+shadow_blur = 2.4
+ssao_enabled = true
+ssao_intensity = 1.6
+ssao_radius = 0.7
+glow_enabled = true
+glow_intensity = 0.7
+glow_hdr_threshold = 1.1
+exposure = 1.0
+fog_enabled = true
+fog_color = Color(0.29, 0.33, 0.27, 1)
+fog_density = 0.015
+rain_enabled = true
+local_light_multiplier = 1.0

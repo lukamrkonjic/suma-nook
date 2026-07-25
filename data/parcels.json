@@ -1,0 +1,8 @@
+{
+  "parcels": [
+    { "id": "parcel_wild", "name": "Wild Land Parcel", "option_count": 3, "families": { "home_meadow": 3, "living_grove": 3, "stonebound": 2 } },
+    { "id": "parcel_meadow", "name": "Meadow Parcel", "option_count": 3, "families": { "home_meadow": 5, "living_grove": 1 } },
+    { "id": "parcel_grove", "name": "Grove Parcel", "option_count": 3, "families": { "living_grove": 5, "home_meadow": 1 } },
+    { "id": "parcel_stone", "name": "Stone Parcel", "option_count": 3, "families": { "stonebound": 5, "living_grove": 1 } }
+  ]
+}

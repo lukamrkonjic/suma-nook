@@ -1,0 +1,74 @@
+{
+  "skills": [
+    {
+      "id": "fishing",
+      "name": "Fishing",
+      "icon": "🎣",
+      "description": "Calm casts into your own waters. The pond gives fish, driftwood, and — sometimes — pieces of new land.",
+      "max_level": 20,
+      "xp_curve": "gentle",
+      "tool_type": "rod",
+      "action_seconds": 2.6,
+      "action_xp": 12,
+      "loot_table": "fishing_common",
+      "rare_table": "fishing_rare",
+      "parcel_families": ["home_meadow", "living_grove"],
+      "animation_tag": "fish",
+      "audio_tag": "fishing",
+      "unlocks": [
+        { "level": 2, "kind": "parcel", "id": "parcel_wild", "note": "First Land Parcel" },
+        { "level": 3, "kind": "recipe", "id": "recipe_bench", "note": "Bench recipe" },
+        { "level": 4, "kind": "recipe", "id": "recipe_meadow_parcel", "note": "Craftable Meadow Parcels" },
+        { "level": 5, "kind": "recipe", "id": "recipe_dock", "note": "Small dock" },
+        { "level": 6, "kind": "tile", "id": "tile_grass_pond_edge", "note": "Pond-edge tiles join the parcel pool" },
+        { "level": 8, "kind": "recipe", "id": "recipe_fishing_marker", "note": "Fishing marker" },
+        { "level": 10, "kind": "tile", "id": "tile_garden", "note": "Raised garden tiles join the pool" }
+      ]
+    },
+    {
+      "id": "woodcutting",
+      "name": "Woodcutting",
+      "icon": "🪓",
+      "description": "Tend living groves. The trees rest and regrow — your world keeps its forest while giving you timber.",
+      "max_level": 20,
+      "xp_curve": "gentle",
+      "tool_type": "axe",
+      "action_seconds": 1.9,
+      "action_xp": 14,
+      "loot_table": "woodcutting_common",
+      "rare_table": "woodcutting_rare",
+      "parcel_families": ["living_grove", "stonebound"],
+      "animation_tag": "chop",
+      "audio_tag": "woodcutting",
+      "unlocks": [
+        { "level": 2, "kind": "recipe", "id": "recipe_fence", "note": "Fence recipe" },
+        { "level": 3, "kind": "recipe", "id": "recipe_grove_parcel", "note": "Craftable Grove Parcels" },
+        { "level": 4, "kind": "recipe", "id": "recipe_lantern", "note": "Lantern recipe" },
+        { "level": 5, "kind": "recipe", "id": "recipe_axe_fine", "note": "Fine axe" },
+        { "level": 6, "kind": "recipe", "id": "recipe_shelter", "note": "Tiny shelter" },
+        { "level": 7, "kind": "tile", "id": "tile_grove_autumn", "note": "Autumn groves join the pool" },
+        { "level": 9, "kind": "anchor_upgrade", "id": "grove_anchor", "note": "Grove upgrade I" }
+      ]
+    },
+    {
+      "id": "mining",
+      "name": "Mining",
+      "icon": "⛏",
+      "description": "Stonebound land hums under the pick. (Coming with the mountain update — the hooks are already alive.)",
+      "future": true,
+      "max_level": 20,
+      "xp_curve": "gentle",
+      "tool_type": "pick",
+      "action_seconds": 2.2,
+      "action_xp": 13,
+      "loot_table": "mining_common",
+      "rare_table": "",
+      "parcel_families": ["stonebound"],
+      "animation_tag": "chop",
+      "audio_tag": "woodcutting",
+      "unlocks": [
+        { "level": 2, "kind": "recipe", "id": "recipe_stone_parcel", "note": "Craftable Stone Parcels" }
+      ]
+    }
+  ]
+}
