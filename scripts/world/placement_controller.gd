@@ -195,6 +195,21 @@ func _target_socket(cell: Vector2i) -> int:
 
 # ------------------------------------------------------------------ clicks
 
+## Programmatic placement at an explicit cell — used by acceptance tests and
+## available for future gamepad cursor support. Same path as a mouse click.
+func try_place_at(cell: Vector2i) -> bool:
+	_hover_cell = cell
+	_hover_valid = _validate(cell)
+	if not _hover_valid:
+		return false
+	click()
+	return true
+
+
+func pick_up_at(cell: Vector2i) -> void:
+	_pick_up_from(cell)
+
+
 func click() -> void:
 	if not active:
 		return
@@ -286,7 +301,10 @@ func _place_deed() -> void:
 
 ## Pick up an existing structure (preferred) or a movable tile under the cursor.
 func _try_pick_up() -> void:
-	var cell := _cell_under_mouse()
+	_pick_up_from(_cell_under_mouse())
+
+
+func _pick_up_from(cell: Vector2i) -> void:
 	var state := core.grid.cell(cell)
 	if state == null:
 		return

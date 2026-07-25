@@ -44,6 +44,10 @@ func _ready() -> void:
 	_connect_flows()
 
 	var user_args := OS.get_cmdline_user_args()
+	for arg in user_args:
+		if arg.begins_with("--save="):   # test harness isolation
+			core.save_manager.save_path = arg.trim_prefix("--save=")
+			core.save_manager.backup_path = core.save_manager.save_path + ".backup"
 	if _handle_dev_shot(user_args):
 		return
 	if core.save_manager.has_save() and core.load_game():

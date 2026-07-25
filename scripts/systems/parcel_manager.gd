@@ -54,15 +54,15 @@ func open(parcel_id: String) -> Array[String]:
 	opened_count += 1
 	pending_parcel_id = parcel_id
 	pending_options = _roll_options(def)
-	options_revealed.emit(parcel_id, pending_options)
-	return pending_options
+	options_revealed.emit(parcel_id, pending_options.duplicate())
+	return pending_options.duplicate()
 
 
 func choose(option_index: int) -> String:
 	if option_index < 0 or option_index >= pending_options.size():
 		return ""
 	var tile_id := pending_options[option_index]
-	pending_options.clear()
+	pending_options = [] as Array[String]   # reassign, never clear — callers may hold the old array
 	pending_parcel_id = ""
 	var was_new := collection.record("tiles", tile_id)
 	var dust := 0
@@ -91,8 +91,8 @@ func reroll() -> Array[String]:
 		inventory.take("pattern_dust", registries.tunei("reroll_dust_cost", 3))
 	var def := registries.parcel(pending_parcel_id)
 	pending_options = _roll_options(def)
-	options_revealed.emit(pending_parcel_id, pending_options)
-	return pending_options
+	options_revealed.emit(pending_parcel_id, pending_options.duplicate())
+	return pending_options.duplicate()
 
 
 func _roll_options(def: Defs.ParcelDefinition) -> Array[String]:
