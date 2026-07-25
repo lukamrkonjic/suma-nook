@@ -25,7 +25,9 @@ func setup(game_data: GameData) -> void:
 	tile_size = float(data.tuning.get("tile_size", tile_size))
 	tile_height = float(data.tuning.get("tile_height", tile_height))
 	stack_height = float(data.tuning.get("stack_height", stack_height))
-	blocked_cells[Vector3i(0, 1, 0)] = "Bloomforge"
+	# The new game begins with nine genuinely walkable tiles. World machinery lives in
+	# the UI rather than reserving the center of the player's tiny starting nook.
+	blocked_cells.clear()
 
 
 func make_initial_island(radius: int) -> void:

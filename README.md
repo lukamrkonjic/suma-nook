@@ -1,64 +1,53 @@
-# Imota Tilegarden
+# Suma Nook
 
-A standalone cozy 3D design-toy / idler prototype built in Godot 4.6.
+A walkable pixel-forest worldbuilding prototype made in Godot 4.6.
 
-The garden is a floating modular diorama. Original Mote visitors arrive with themed coins;
-the Bloomforge converts each coin into a randomized piece from the matching set. Ground,
-plants, furniture, lights, curios, and water all enter the same physical placement loop.
+You create a tiny forest keeper and wake in a square clearing made from exactly nine tiles.
+Woodland wisps bring Forest Light. Each light lets you grow one new cardinal-adjacent tile,
+so the world expands according to the paths and shapes you choose. Growth milestones unlock
+pixel-art plants, furniture, lanterns, and landmarks for your woodland pack.
 
-## Core loop
+## Play loop
 
-1. A Mote wanders into the garden carrying a Meadow, Hearth, or Tide Coin.
-2. Click the Mote to collect its coin.
-3. Drag that coin onto the Bloomforge, or select it and press **Spend**.
-4. The Bloomforge rolls a pool-correct reward. The piece settles beside it in the world.
-5. Click the new piece, rotate it, then place it. Ground expands the connected diorama.
-6. Pick any placed piece back up to move, store, or sell it.
+1. Name and customize your character's skin, hair, and outfit.
+2. Walk the full 3×3 starting world with WASD, arrow keys, or by clicking a tile.
+3. Click a glowing woodland wisp to gather one Forest Light. Wisps use a large invisible
+   click target so the small sprite is easy to collect.
+4. Press **G** or **Grow Tile**, then click an empty space sharing a full side with the world.
+5. The placement creates a randomized moss, path, or stone tile and charges one light only
+   after the placement succeeds.
+6. At 3, 6, 10, 15, and 22 grown tiles, new forest decorations enter the pack.
+7. Place, rotate, move, store, and recycle unlocked decorations as the nook becomes a large
+   personal adventure space.
 
-The first rewards in every set guarantee ground early. A separate ground-pity rule prevents
-long progression stalls.
+The old Bloomforge is retained only as a compatibility seam for early prototype tests. It is
+not part of the player-facing loop.
 
-## How coins and unlocks work
+## Pixel-art direction
 
-- The first visitor appears after about **0.8 seconds**. New visitors arrive every **7–12
-  seconds**, up to six present at once.
-- Hover a visitor to enlarge its floating coin, then click anywhere on its generous 3D hit
-  area. The coin flies into the matching counter at the upper-left.
-- Visitors roll Meadow, Hearth, or Tide Coins at roughly 47%, 34%, and 20% respectively.
-- Spending a coin at the Bloomforge rolls one physical piece from that coin's themed set.
-  The first time a piece appears, it is immediately discovered in **Collection**.
-- Click the piece beside the Bloomforge, then place or store it. Ground pieces expand the
-  garden and make room for more decoration.
-- Selling held pieces fills the coin press. Every four sale-value points creates one Meadow
-  Coin.
-- Up to four visitors are generated from offline time when the save is loaded.
-
-## Design-toy systems
-
-- Three themed sets with separate coin probabilities and collection pages.
-- Four thick modular ground types: turf, honey planks, cloudstone, and glasswater.
-- Sixteen original placeable props and curios, including lights, stackable pieces, flora,
-  fences, furniture, and animated landmarks.
-- **Botanist's Beacon** boosts flora odds while placed.
-- **Carpenter's Hushbell** suppresses furniture rewards while placed.
-- Storage preserves exact item identities. Selling fills a visible press; four value creates
-  a Meadow Coin.
-- Sunroom, Ember Dusk, and Soft Rain change background, key/fill light, fog, and ambient
-  effects. The selection persists in the save.
-- Visitors continue to accrue while the game is idle, up to the configured cap.
+- All characters, wisps, trees, bushes, flowers, props, and UI are hand-authored at runtime
+  on small pixel grids with one shared woodland palette.
+- Textures use nearest filtering. There is no screen-space pixelation shader.
+- Ground remains a thick isometric diorama block, but its top and sides use hard-edged pixel
+  patterns and square shadows.
+- A deep forest frame, tiled moss floor, fireflies, hard shadows, Greenwood, Firefly Dusk,
+  and Moss Rain make the starting clearing feel lush before the player expands it.
 
 ## Controls
 
 | Input | Action |
 |---|---|
-| Left click | Collect visitor, claim reward, pick or place a piece |
-| Drag a coin | Spend it at the Bloomforge |
+| WASD / arrow keys | Walk one connected tile |
+| Left click tile | Pathfind to that tile |
+| Left click wisp | Gather Forest Light |
+| G / Grow Tile | Start one adjacent tile growth |
+| Left click while placing | Confirm tile or decoration |
+| Right click / Escape | Cancel placement or close a panel |
 | Mouse wheel | Zoom |
 | Middle-drag | Pan |
 | Q / E | Rotate camera |
-| R | Rotate held piece |
-| Delete / Backspace | Store held piece |
-| Right click / Escape | Cancel or close panel |
+| R | Rotate a held decoration |
+| Delete / Backspace | Store held decoration |
 | Cmd/Ctrl-Z | Undo |
 | Cmd/Ctrl-Shift-Z | Redo |
 | Cmd/Ctrl-S | Save |
@@ -67,43 +56,39 @@ long progression stalls.
 
 ```bash
 /Applications/Godot.app/Contents/MacOS/Godot \
-  --path /Users/luka/Documents/dev/imota-tilegarden-mvp
+  --path /Users/luka/Documents/dev/suma-nook
 ```
 
 ## Validate
 
 ```bash
 /Applications/Godot.app/Contents/MacOS/Godot --headless \
-  --path /Users/luka/Documents/dev/imota-tilegarden-mvp \
+  --path /Users/luka/Documents/dev/suma-nook \
   res://tests/test_runner.tscn
 
 /Applications/Godot.app/Contents/MacOS/Godot --headless \
-  --path /Users/luka/Documents/dev/imota-tilegarden-mvp \
+  --path /Users/luka/Documents/dev/suma-nook \
   res://tests/full_loop_runner.tscn
 ```
 
-Current result: 123 deterministic assertions and 36 full-scene assertions pass.
+Current result: **130 deterministic assertions** and **46 full-scene assertions** pass.
 
 ## Visual captures
 
-- [Smooth Sunroom diorama](docs/v3_diorama.png)
-- [Clickable visitor with coin](docs/v3_mote.png)
-- [Expanded garden](docs/v3_expanded.png)
-- [Ember Dusk](docs/v3_dusk.png)
-- [Soft Rain](docs/v3_rain.png)
+- [Character creator](docs/suma_creator.png)
+- [Nine-tile beginning](docs/suma_initial.png)
+- [Expanded pixel forest](docs/suma_expanded.png)
 
-## Content data
+## Important implementation files
 
-- `data/tokens.json`: coin identity, palette, visitor weight, and themed reward pool.
-- `data/items.json`: visuals, pool membership, weights, footprint, stack rules, value,
-  visitor tags, and optional loot modifiers.
-- `data/beginner_rewards.json`: per-set onboarding sequences and expansion pity.
-- `data/tuning.json`: names, timings, caps, tile scale, sale threshold, and save version.
-
-All meshes and materials are generated by `scripts/visual_factory.gd`; no third-party game
-assets, source, UI, characters, or branding are copied.
+- `scripts/player_character.gd`: custom appearance, click pathing, cardinal movement, save state.
+- `scripts/forest_progression.gd`: Forest Light cost, tile palette, growth count, milestones.
+- `scripts/pixel_art.gd`: all runtime-authored pixel textures and shared palette.
+- `scripts/visual_factory.gd`: pixel tiles, sprite props, shadows, placement visuals.
+- `scripts/world_builder.gd`: deep forest frame, atmosphere, weather, and lighting.
+- `scripts/main.gd`: character creator, walking, wisp collection, tile-growth transaction.
 
 ## Save note
 
-Save schema version 2 intentionally rejects version 1. This is a pre-release prototype and
-the coin IDs changed as part of the mechanic correction.
+This redesign intentionally uses save schema version 3 and a new
+`user://suma-nook-save.json` path. It does not load the old Tilegarden prototype save.

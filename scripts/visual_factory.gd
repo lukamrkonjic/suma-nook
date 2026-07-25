@@ -1,8 +1,11 @@
 extends RefCounted
 class_name VisualFactory
 
-# A bright, original toy-diorama palette. Geometry stays deliberately simple, while
-# higher segment counts and native-resolution rendering keep the silhouettes soft.
+const PixelArt := preload("res://scripts/pixel_art.gd")
+
+# The world is a pixel-art diorama: chunky textured earth tiles hold true low-resolution
+# sprites. There is no screen-space pixelation shader, so silhouettes remain deliberate
+# and readable instead of looking like blurred 3D art viewed through a filter.
 const COLORS := {
 	"lime": Color("#93a92d"),
 	"lime_light": Color("#b6c43b"),
@@ -34,30 +37,72 @@ static var _meshes: Dictionary = {}
 
 static func build_visual(kind: StringName, category: StringName = &"decor") -> Node3D:
 	var root := Node3D.new()
-	root.name = "ToyVisual"
-	match String(kind):
-		"ground_grass": _ground_grass(root)
-		"ground_loam": _ground_planks(root)
-		"ground_stone": _ground_stone(root)
-		"ground_water": _ground_water(root)
-		"sapling": _tree(root)
-		"berry_bush": _bush(root)
-		"moonflowers": _flowers(root)
-		"moss_rock": _rock(root)
-		"root_bench": _bench(root)
-		"glow_lantern": _lantern(root)
-		"twig_fence": _fence(root)
-		"seed_crate": _crate(root)
-		"old_stump": _stump(root)
-		"mushroom_ring": _mushrooms(root)
-		"way_sign": _sign(root)
-		"root_arch": _arch(root)
-		"tea_table": _table(root)
-		"stone_planter": _planter(root)
-		"wish_lantern": _beacon(root)
-		"still_bell": _hushbell(root)
-		_: _unknown(root, category)
+	root.name = "PixelVisual"
+	if String(kind).begins_with("ground_"):
+		_pixel_ground(root, kind)
+	else:
+		_pixel_prop(root, kind, category)
 	return root
+
+
+static func _pixel_ground(root: Node3D, kind: StringName) -> void:
+	var side_color := Color("#2c4730")
+	match kind:
+		&"ground_loam":
+			side_color = Color("#4c3025")
+		&"ground_stone":
+			side_color = Color("#414d49")
+		&"ground_water":
+			side_color = Color("#315f5c")
+	var side := StandardMaterial3D.new()
+	side.albedo_color = side_color
+	side.roughness = 1.0
+	side.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	_part(root, _box(Vector3(1.78, 0.46, 1.78)), side,
+		Vector3(0, -0.23, 0), Vector3.ZERO, Vector3.ONE, "EarthBlock")
+	var top := StandardMaterial3D.new()
+	top.albedo_color = Color.WHITE
+	top.albedo_texture = PixelArt.tile_texture(kind)
+	top.roughness = 1.0
+	top.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	_part(root, _box(Vector3(1.80, 0.055, 1.80)), top,
+		Vector3(0, 0.015, 0), Vector3.ZERO, Vector3.ONE, "PixelTop")
+	if kind == &"ground_grass":
+		var details := Sprite3D.new()
+		details.name = "MossTuft"
+		details.texture = PixelArt.prop_texture(&"moonflowers")
+		details.pixel_size = 0.015
+		details.position = Vector3(0.52, 0.22, 0.52)
+		details.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		details.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		details.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+		details.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(details)
+
+
+static func _pixel_prop(root: Node3D, kind: StringName, _category: StringName) -> void:
+	var sprite := Sprite3D.new()
+	sprite.name = "PixelSprite"
+	sprite.texture = PixelArt.prop_texture(kind)
+	sprite.pixel_size = 0.035
+	sprite.position.y = 0.84
+	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	sprite.shaded = true
+	sprite.double_sided = true
+	sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	root.add_child(sprite)
+	var shadow := MeshInstance3D.new()
+	shadow.name = "PixelShadow"
+	var shadow_mesh := QuadMesh.new()
+	shadow_mesh.size = Vector2(0.9, 0.42)
+	shadow.mesh = shadow_mesh
+	shadow.rotation.x = -PI * 0.5
+	shadow.position = Vector3(0, 0.018, 0)
+	shadow.material_override = transparent_material("pixel_shadow", Color(0.04, 0.10, 0.07, 0.28))
+	shadow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(shadow)
 
 
 static func coin_color(token_id: StringName) -> Color:
@@ -74,6 +119,7 @@ static func material(key: String, color: Color, emission := Color.TRANSPARENT) -
 	mat.albedo_color = color
 	mat.roughness = 0.82
 	mat.metallic = 0.0
+	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	if emission.a > 0.0:
 		mat.emission_enabled = true
 		mat.emission = emission
@@ -90,6 +136,7 @@ static func transparent_material(key: String, color: Color) -> StandardMaterial3
 	mat.albedo_color = color
 	mat.roughness = 0.28
 	mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_ALWAYS
+	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	_materials[key] = mat
 	return mat
 

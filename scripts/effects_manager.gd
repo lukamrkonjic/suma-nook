@@ -28,6 +28,7 @@ func setup_ambient() -> void:
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.albedo_color = Color(0.93, 0.86, 0.65, 0.65)
 	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	pollen_mesh.material = mat
 	pollen.mesh = pollen_mesh
 	add_child(pollen)
@@ -58,11 +59,8 @@ func burst(world_position: Vector3, category: StringName = &"dust", strong := fa
 		&"sparks":
 			color = Color("#efd0ae")
 	particles.color = color
-	var mesh := SphereMesh.new()
-	mesh.radius = 0.025 if not strong else 0.04
-	mesh.height = mesh.radius * 1.4
-	mesh.radial_segments = 5
-	mesh.rings = 2
+	var mesh := QuadMesh.new()
+	mesh.size = Vector2.ONE * (0.055 if not strong else 0.085)
 	mesh.material = Factory.material("particle_%s" % category, color, color if category == &"sparks" else Color.TRANSPARENT)
 	particles.mesh = mesh
 	add_child(particles)
@@ -72,19 +70,24 @@ func burst(world_position: Vector3, category: StringName = &"dust", strong := fa
 
 func magical_boundary(world_position: Vector3) -> void:
 	burst(world_position, &"sparks", true)
-	var ring := MeshInstance3D.new()
-	var mesh := TorusMesh.new()
-	mesh.inner_radius = 0.32
-	mesh.outer_radius = 0.38
-	mesh.rings = 8
-	mesh.ring_segments = 16
-	ring.mesh = mesh
-	ring.material_override = Factory.material("boundary_ring", Color("#9db8d6"), Color("#9db8d6"))
+	var ring := Node3D.new()
+	ring.name = "PixelMagicRing"
 	ring.position = world_position + Vector3(0, 0.12, 0)
 	add_child(ring)
+	for i: int in 12:
+		var glint := MeshInstance3D.new()
+		var mesh := BoxMesh.new()
+		mesh.size = Vector3(0.08, 0.035, 0.08)
+		glint.mesh = mesh
+		glint.material_override = Factory.material("boundary_ring", Color("#9db8d6"), Color("#9db8d6"))
+		var angle := float(i) / 12.0 * TAU
+		glint.position = Vector3(cos(angle) * 0.38, 0, sin(angle) * 0.38)
+		glint.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		ring.add_child(glint)
 	ring.scale = Vector3.ONE * 0.2
 	var tween := ring.create_tween()
 	tween.set_parallel(true)
 	tween.tween_property(ring, "scale", Vector3.ONE * 1.5, 0.55).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tween.tween_property(ring, "transparency", 1.0, 0.55)
+	for glint: MeshInstance3D in ring.get_children():
+		tween.tween_property(glint, "transparency", 1.0, 0.55)
 	tween.chain().tween_callback(ring.queue_free)

@@ -72,16 +72,22 @@ func _create_pick_area(tile_size: float) -> void:
 func set_preview_valid(valid: bool) -> void:
 	is_valid_preview = valid
 	_set_overlay(Factory.overlay_material(valid))
+	for child: Node in _visual.find_children("*", "Sprite3D", true, false):
+		(child as Sprite3D).modulate = Color("#b9e67b") if valid else Color("#e67373")
 
 
 func set_hovered(active: bool) -> void:
 	if is_preview:
 		return
 	_set_overlay(Factory.hover_material() if active else null)
+	for child: Node in _visual.find_children("*", "Sprite3D", true, false):
+		(child as Sprite3D).modulate = Color("#fff0a6") if active else Color.WHITE
 
 
 func clear_overlay() -> void:
 	_set_overlay(null)
+	for child: Node in _visual.find_children("*", "Sprite3D", true, false):
+		(child as Sprite3D).modulate = Color.WHITE
 
 
 func _set_overlay(material: Material) -> void:

@@ -19,6 +19,7 @@ enum State {
 }
 
 const Factory := preload("res://scripts/visual_factory.gd")
+const PixelArt := preload("res://scripts/pixel_art.gd")
 
 var variant := 0
 var token_id := &"meadow_coin"
@@ -71,7 +72,7 @@ func _process(delta: float) -> void:
 	if body_root != null and state not in [State.REWARDING_PLAYER, State.LEAVING, State.INTERACTING]:
 		body_root.scale.y = 1.0 + sin(_state_time * 2.0 + variant) * 0.025
 	if seed_node != null and has_seed:
-		seed_node.position.y = 0.80 + sin(_state_time * 2.6 + variant) * 0.055
+		seed_node.position.y = 0.36 + sin(_state_time * 2.6 + variant) * 0.045
 		seed_node.rotation.y = _state_time * 1.1
 	match state:
 		State.ARRIVING, State.WANDERING, State.LEAVING:
@@ -219,101 +220,37 @@ func _play_rare_idle() -> void:
 
 func _build_visual() -> void:
 	body_root = Node3D.new()
-	body_root.name = "MoteBody"
+	body_root.name = "ForestWispBody"
 	body_root.position.y = _base_body_y
 	add_child(body_root)
-	var body := MeshInstance3D.new()
-	var body_mesh := SphereMesh.new()
-	body_mesh.radius = 0.34
-	body_mesh.height = 0.60
-	body_mesh.radial_segments = 9
-	body_mesh.rings = 5
-	body.mesh = body_mesh
-	var body_colors := [Color("#91b76f"), Color("#b190c2"), Color("#d39a61")]
-	body.material_override = Factory.material("mote_body_%d" % variant, body_colors[variant])
+	var body := Sprite3D.new()
+	body.name = "PixelWisp"
+	body.texture = PixelArt.wisp_texture(variant, false)
+	body.pixel_size = 0.042
+	body.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	body.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	body.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	body_root.add_child(body)
-	# Original visitor silhouettes: sprout hood, curled ears, or sunny bonnet.
-	match variant:
-		0:
-			var hood := MeshInstance3D.new()
-			var hood_mesh := CylinderMesh.new()
-			hood_mesh.top_radius = 0.05
-			hood_mesh.bottom_radius = 0.38
-			hood_mesh.height = 0.36
-			hood_mesh.radial_segments = 8
-			hood.mesh = hood_mesh
-			hood.material_override = Factory.material("mote_hood", Color("#9fb52e"))
-			hood.position.y = 0.27
-			body_root.add_child(hood)
-		1:
-			for side: float in [-1.0, 1.0]:
-				var ear := MeshInstance3D.new()
-				var ear_mesh := SphereMesh.new()
-				ear_mesh.radius = 0.16
-				ear_mesh.height = 0.22
-				ear_mesh.radial_segments = 7
-				ear_mesh.rings = 3
-				ear.mesh = ear_mesh
-				ear.material_override = Factory.material("mote_root_ear", Color("#c3683a"))
-				ear.position = Vector3(side * 0.30, 0.13, 0)
-				ear.rotation.z = side * 0.6
-				ear.scale = Vector3(0.55, 1.2, 0.45)
-				body_root.add_child(ear)
-		2:
-			var cap := MeshInstance3D.new()
-			var cap_mesh := CylinderMesh.new()
-			cap_mesh.top_radius = 0.08
-			cap_mesh.bottom_radius = 0.42
-			cap_mesh.height = 0.20
-			cap_mesh.radial_segments = 9
-			cap.mesh = cap_mesh
-			cap.material_override = Factory.material("mote_cap", Color("#e59a32"))
-			cap.position.y = 0.32
-			body_root.add_child(cap)
-	# Simple faces stay readable without competing with the diorama.
-	for x: float in [-0.105, 0.105]:
-		var eye := MeshInstance3D.new()
-		var eye_mesh := SphereMesh.new()
-		eye_mesh.radius = 0.035
-		eye_mesh.height = 0.055
-		eye_mesh.radial_segments = 6
-		eye_mesh.rings = 3
-		eye.mesh = eye_mesh
-		eye.material_override = Factory.material("mote_eye", Color("#44362d"))
-		eye.position = Vector3(x, 0.06, -0.31)
-		body_root.add_child(eye)
 	_build_seed()
 
 
 func _build_seed() -> void:
 	seed_node = Node3D.new()
-	seed_node.name = "CarriedCoin"
-	seed_node.position = Vector3(0.36, 0.75, -0.06)
+	seed_node.name = "CarriedForestLight"
+	seed_node.position = Vector3(0.38, 0.40, -0.06)
 	body_root.add_child(seed_node)
-	var coin := MeshInstance3D.new()
-	var coin_mesh := CylinderMesh.new()
-	coin_mesh.top_radius = 0.155
-	coin_mesh.bottom_radius = 0.155
-	coin_mesh.height = 0.065
-	coin_mesh.radial_segments = 16
-	coin.mesh = coin_mesh
-	var token := Factory.coin_color(token_id)
-	coin.material_override = Factory.material("coin_%s" % token_id, token, token.lightened(0.10))
-	coin.rotation.x = PI * 0.5
-	seed_node.add_child(coin)
-	var stamp := MeshInstance3D.new()
-	var stamp_mesh := CylinderMesh.new()
-	stamp_mesh.top_radius = 0.064
-	stamp_mesh.bottom_radius = 0.064
-	stamp_mesh.height = 0.070
-	stamp_mesh.radial_segments = 12
-	stamp.mesh = stamp_mesh
-	stamp.material_override = Factory.material("coin_stamp_%s" % token_id, token.lightened(0.30))
-	stamp.rotation.x = PI * 0.5
-	stamp.position.z = -0.012
-	seed_node.add_child(stamp)
+	var light_sprite := Sprite3D.new()
+	light_sprite.texture = PixelArt.light_texture()
+	light_sprite.pixel_size = 0.038
+	light_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	light_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	light_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	light_sprite.shaded = false
+	light_sprite.no_depth_test = true
+	seed_node.add_child(light_sprite)
 	var light := OmniLight3D.new()
-	light.light_color = token
+	light.light_color = Color("#f0c45c")
 	light.light_energy = 0.55
 	light.omni_range = 1.5
 	seed_node.add_child(light)

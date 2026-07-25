@@ -1,9 +1,13 @@
 extends CanvasLayer
 class_name TilegardenHUD
 
+const PixelArt := preload("res://scripts/pixel_art.gd")
+
 signal seed_drag_started(token_id: StringName)
 signal seed_drag_released(token_id: StringName, screen_position: Vector2)
 signal offer_pressed(token_id: StringName)
+signal grow_requested
+signal character_confirmed(player_name: String, appearance: Dictionary)
 signal storage_toggled
 signal collection_toggled
 signal retrieve_requested(definition_id: StringName)
@@ -15,13 +19,13 @@ signal save_requested
 signal settings_requested
 signal scene_requested
 
-const UI_INK := Color("#514337")
-const UI_MUTED := Color("#817466")
-const UI_CREAM := Color("#fffaf0")
-const UI_CARD := Color(1.0, 0.98, 0.91, 0.94)
-const UI_LINE := Color("#d9cdbb")
-const UI_LIME := Color("#91a82b")
-const UI_ORANGE := Color("#d76c2a")
+const UI_INK := Color("#172b24")
+const UI_MUTED := Color("#9db69b")
+const UI_CREAM := Color("#f3e9c8")
+const UI_CARD := Color(0.08, 0.17, 0.12, 0.94)
+const UI_LINE := Color("#527044")
+const UI_LIME := Color("#a9d65e")
+const UI_ORANGE := Color("#e6a75b")
 
 
 class CoinGlyph extends Control:
@@ -59,12 +63,19 @@ var selected_label: Label
 var recycle_bar: ProgressBar
 var modifier_badge: Label
 var scene_button: Button
+var grow_button: Button
+var growth_label: Label
+var milestone_label: Label
 var toast: Label
 var hint: Label
 var drag_glyph: CoinGlyph
 var dragging_token := &""
 var last_token := &"meadow_coin"
 var _toast_tween: Tween
+var character_overlay: Control
+var character_preview: TextureRect
+var character_name: LineEdit
+var character_appearance := {"skin": 1, "hair": 0, "outfit": 0}
 
 
 func setup(
@@ -104,40 +115,55 @@ func _build_ui() -> void:
 	add_child(root)
 	root.theme = _make_theme()
 
-	var coin_card := PanelContainer.new()
-	coin_card.position = Vector2(22, 20)
-	coin_card.custom_minimum_size = Vector2(0, 54)
-	root.add_child(coin_card)
-	var coin_row := HBoxContainer.new()
-	coin_row.add_theme_constant_override("separation", 7)
-	coin_card.add_child(coin_row)
+	var light_card := PanelContainer.new()
+	light_card.position = Vector2(24, 22)
+	light_card.custom_minimum_size = Vector2(318, 104)
+	root.add_child(light_card)
+	var light_box := VBoxContainer.new()
+	light_box.add_theme_constant_override("separation", 5)
+	light_card.add_child(light_box)
+	var eyebrow := Label.new()
+	eyebrow.text = "✦  FOREST LIGHT"
+	eyebrow.add_theme_font_size_override("font_size", 15)
+	eyebrow.add_theme_color_override("font_color", UI_ORANGE)
+	light_box.add_child(eyebrow)
+	var light_row := HBoxContainer.new()
+	light_row.add_theme_constant_override("separation", 8)
+	light_box.add_child(light_row)
+	var meadow_button := Button.new()
+	meadow_button.custom_minimum_size = Vector2(118, 42)
+	meadow_button.tooltip_text = "Forest wisps carry light. Click a wisp to collect it."
+	meadow_button.pressed.connect(func() -> void: grow_requested.emit())
+	light_row.add_child(meadow_button)
+	seed_buttons[&"meadow_coin"] = meadow_button
+	grow_button = Button.new()
+	grow_button.text = "GROW TILE  [G]"
+	grow_button.custom_minimum_size = Vector2(156, 42)
+	grow_button.tooltip_text = "Spend one Forest Light, then choose an empty edge of your world."
+	grow_button.pressed.connect(func() -> void: grow_requested.emit())
+	light_row.add_child(grow_button)
 	for token_id: StringName in data.tokens:
-		var button := Button.new()
-		button.custom_minimum_size = Vector2(158, 40)
-		button.tooltip_text = "Drag this coin to the Bloomforge, or select it and press Spend"
-		button.gui_input.connect(func(event: InputEvent) -> void:
-			_handle_coin_button_input(event, token_id))
-		button.pressed.connect(func() -> void:
-			last_token = token_id
-			offer_button.disabled = economy.amount(last_token) <= 0)
-		coin_row.add_child(button)
-		seed_buttons[token_id] = button
+		if token_id == &"meadow_coin":
+			continue
+		var hidden_button := Button.new()
+		hidden_button.visible = false
+		hidden_button.position = Vector2(-200, -200)
+		root.add_child(hidden_button)
+		seed_buttons[token_id] = hidden_button
 	offer_button = Button.new()
-	offer_button.text = "Spend"
-	offer_button.custom_minimum_size = Vector2(78, 40)
-	offer_button.tooltip_text = "Spend the selected coin at the Bloomforge"
+	offer_button.visible = false
 	offer_button.pressed.connect(func() -> void: offer_pressed.emit(last_token))
-	coin_row.add_child(offer_button)
+	root.add_child(offer_button)
 
 	var right_card := PanelContainer.new()
 	right_card.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	right_card.position = Vector2(-430, 20)
-	right_card.custom_minimum_size = Vector2(408, 54)
+	right_card.position = Vector2(-474, 22)
+	right_card.custom_minimum_size = Vector2(450, 58)
 	root.add_child(right_card)
 	var right_row := HBoxContainer.new()
 	right_row.add_theme_constant_override("separation", 6)
 	right_card.add_child(right_row)
-	var storage_button := _small_button("Storage", "Open stored items")
+	var storage_button := _small_button("Pack", "Open discovered decorations")
 	storage_button.pressed.connect(func() -> void:
 		storage_panel.visible = not storage_panel.visible
 		collection_panel.visible = false
@@ -145,7 +171,7 @@ func _build_ui() -> void:
 			rebuild_storage()
 		storage_toggled.emit())
 	right_row.add_child(storage_button)
-	var collection_button := _small_button("Collection", "Open the themed collection")
+	var collection_button := _small_button("Guide", "Open your woodland discoveries")
 	collection_button.pressed.connect(func() -> void:
 		collection_panel.visible = not collection_panel.visible
 		storage_panel.visible = false
@@ -153,7 +179,7 @@ func _build_ui() -> void:
 			rebuild_collection()
 		collection_toggled.emit())
 	right_row.add_child(collection_button)
-	scene_button = _small_button("Sunroom", "Cycle lighting, effects, and background")
+	scene_button = _small_button("Greenwood", "Cycle forest weather and time")
 	scene_button.pressed.connect(func() -> void: scene_requested.emit())
 	right_row.add_child(scene_button)
 	var settings_button := _small_button("Sound", "Open sound controls")
@@ -163,13 +189,13 @@ func _build_ui() -> void:
 	right_row.add_child(settings_button)
 
 	hint = Label.new()
-	hint.text = "EARN COINS: click a visitor  •  UNLOCK PIECES: spend coins at the Bloomforge"
+	hint.text = "WASD / ARROWS walk  •  click a tile to travel  •  click a wisp for light  •  G grows the world"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	hint.position = Vector2(-270, 88)
-	hint.size = Vector2(540, 30)
-	hint.add_theme_color_override("font_color", UI_INK)
-	hint.add_theme_font_size_override("font_size", 17)
+	hint.position = Vector2(-410, 102)
+	hint.size = Vector2(820, 30)
+	hint.add_theme_color_override("font_color", UI_CREAM)
+	hint.add_theme_font_size_override("font_size", 16)
 	root.add_child(hint)
 	var hint_tween := create_tween()
 	hint_tween.tween_interval(14.0)
@@ -178,7 +204,7 @@ func _build_ui() -> void:
 	modifier_badge = Label.new()
 	modifier_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	modifier_badge.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	modifier_badge.position = Vector2(-250, 120)
+	modifier_badge.position = Vector2(-250, 132)
 	modifier_badge.size = Vector2(500, 28)
 	modifier_badge.add_theme_color_override("font_color", UI_ORANGE)
 	modifier_badge.add_theme_font_size_override("font_size", 14)
@@ -188,18 +214,108 @@ func _build_ui() -> void:
 	toast = Label.new()
 	toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	toast.set_anchors_preset(Control.PRESET_CENTER)
-	toast.position = Vector2(-300, -260)
-	toast.size = Vector2(600, 42)
+	toast.position = Vector2(-360, -258)
+	toast.size = Vector2(720, 42)
 	toast.modulate.a = 0.0
 	toast.add_theme_font_size_override("font_size", 20)
-	toast.add_theme_color_override("font_outline_color", Color(1, 1, 1, 0.85))
-	toast.add_theme_constant_override("outline_size", 6)
+	toast.add_theme_color_override("font_outline_color", UI_INK)
+	toast.add_theme_constant_override("outline_size", 8)
 	root.add_child(toast)
+
+	var progress_card := PanelContainer.new()
+	progress_card.position = Vector2(24, 138)
+	progress_card.custom_minimum_size = Vector2(318, 72)
+	root.add_child(progress_card)
+	var progress_box := VBoxContainer.new()
+	progress_box.add_theme_constant_override("separation", 2)
+	progress_card.add_child(progress_box)
+	growth_label = Label.new()
+	growth_label.text = "YOUR NOOK  •  9 TILES"
+	growth_label.add_theme_color_override("font_color", UI_LIME)
+	progress_box.add_child(growth_label)
+	milestone_label = Label.new()
+	milestone_label.text = "3 more tiles → Sapling"
+	milestone_label.add_theme_color_override("font_color", UI_MUTED)
+	milestone_label.add_theme_font_size_override("font_size", 14)
+	progress_box.add_child(milestone_label)
 
 	_build_context_panel()
 	_build_storage_panel()
 	_build_collection_panel()
 	_build_settings_panel()
+	_build_character_creator()
+
+
+func _build_character_creator() -> void:
+	character_overlay = Control.new()
+	character_overlay.name = "CharacterCreator"
+	character_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	character_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	character_overlay.visible = false
+	root.add_child(character_overlay)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color("#10251d")
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	character_overlay.add_child(shade)
+	var frame := PanelContainer.new()
+	frame.set_anchors_preset(Control.PRESET_CENTER)
+	frame.position = Vector2(-275, -245)
+	frame.size = Vector2(550, 490)
+	character_overlay.add_child(frame)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 12)
+	frame.add_child(box)
+	var title := Label.new()
+	title.text = "WHO WAKES IN THE NOOK?"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_color_override("font_color", UI_LIME)
+	box.add_child(title)
+	var intro := Label.new()
+	intro.text = "Choose your tiny forest keeper. You begin on nine tiles,\nthen gather light and grow the world one piece at a time."
+	intro.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	intro.add_theme_color_override("font_color", UI_CREAM)
+	box.add_child(intro)
+	character_preview = TextureRect.new()
+	character_preview.custom_minimum_size = Vector2(120, 150)
+	character_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	character_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	character_preview.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	box.add_child(character_preview)
+	character_name = LineEdit.new()
+	character_name.placeholder_text = "Your name"
+	character_name.text = "Fern"
+	character_name.max_length = 16
+	character_name.custom_minimum_size = Vector2(0, 44)
+	character_name.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(character_name)
+	var choices := HBoxContainer.new()
+	choices.alignment = BoxContainer.ALIGNMENT_CENTER
+	choices.add_theme_constant_override("separation", 8)
+	box.add_child(choices)
+	for row: Array in [["SKIN", "skin", 4], ["HAIR", "hair", 4], ["OUTFIT", "outfit", 4]]:
+		var button := Button.new()
+		button.text = "%s  ◀ ▶" % row[0]
+		button.custom_minimum_size = Vector2(145, 44)
+		var key := str(row[1])
+		var count := int(row[2])
+		button.pressed.connect(func() -> void:
+			character_appearance[key] = posmod(int(character_appearance[key]) + 1, count)
+			_refresh_character_preview())
+		choices.add_child(button)
+	var begin := Button.new()
+	begin.text = "ENTER THE GREENWOOD"
+	begin.custom_minimum_size = Vector2(0, 54)
+	begin.add_theme_font_size_override("font_size", 19)
+	begin.pressed.connect(func() -> void:
+		var chosen_name := character_name.text.strip_edges()
+		if chosen_name.is_empty():
+			chosen_name = "Fern"
+		character_overlay.visible = false
+		character_confirmed.emit(chosen_name, character_appearance.duplicate(true)))
+	box.add_child(begin)
+	_refresh_character_preview()
 
 
 func _build_context_panel() -> void:
@@ -219,7 +335,7 @@ func _build_context_panel() -> void:
 	var store := _small_button("Store", "Put the held piece in storage")
 	store.pressed.connect(func() -> void: store_requested.emit())
 	row.add_child(store)
-	var sell := _small_button("Sell", "Sell the held piece toward a Meadow Coin")
+	var sell := _small_button("Recycle", "Recycle the held piece toward Forest Light")
 	sell.pressed.connect(func() -> void: recycle_requested.emit())
 	row.add_child(sell)
 	var cancel := _small_button("Cancel", "Return the held piece")
@@ -238,12 +354,12 @@ func _build_storage_panel() -> void:
 	box.add_theme_constant_override("separation", 8)
 	storage_panel.add_child(box)
 	var title := Label.new()
-	title.text = "STORAGE"
+	title.text = "WOODLAND PACK"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 22)
 	box.add_child(title)
 	var explanation := Label.new()
-	explanation.text = "Stored pieces are safe. Selling fills the coin press."
+	explanation.text = "Milestones add decorations here. Place them anywhere in your growing nook."
 	explanation.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	explanation.add_theme_color_override("font_color", UI_MUTED)
 	box.add_child(explanation)
@@ -271,12 +387,12 @@ func _build_collection_panel() -> void:
 	box.add_theme_constant_override("separation", 8)
 	collection_panel.add_child(box)
 	var title := Label.new()
-	title.text = "YOUR COLLECTION"
+	title.text = "FIELD GUIDE"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 24)
 	box.add_child(title)
 	var subtitle := Label.new()
-	subtitle.text = "Discover every piece in the Meadow, Hearth, and Tide sets."
+	subtitle.text = "Grow farther into the greenwood to remember new plants, paths, and relics."
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.add_theme_color_override("font_color", UI_MUTED)
 	box.add_child(subtitle)
@@ -333,7 +449,7 @@ func _small_button(text_value: String, tooltip: String) -> Button:
 	var button := Button.new()
 	button.text = text_value
 	button.tooltip_text = tooltip
-	button.custom_minimum_size = Vector2(84, 40)
+	button.custom_minimum_size = Vector2(96, 40)
 	return button
 
 
@@ -410,7 +526,7 @@ func set_held(definition_id: StringName) -> void:
 func set_scene_name(value: String) -> void:
 	if scene_button != null:
 		scene_button.text = value
-	var dark_scene := value != "Sunroom"
+	var dark_scene := true
 	if hint != null:
 		hint.add_theme_color_override("font_color", UI_CREAM if dark_scene else UI_INK)
 	if modifier_badge != null:
@@ -421,8 +537,29 @@ func set_scene_name(value: String) -> void:
 func set_modifier_summary(values: PackedStringArray) -> void:
 	if modifier_badge == null:
 		return
-	modifier_badge.visible = not values.is_empty()
-	modifier_badge.text = "Loot odds: %s" % "  ·  ".join(values)
+	modifier_badge.visible = false
+
+
+func show_character_creator(default_state: Dictionary = {}) -> void:
+	if not default_state.is_empty():
+		character_name.text = str(default_state.get("name", "Fern"))
+		character_appearance = (default_state.get("appearance", character_appearance) as Dictionary).duplicate(true)
+	_refresh_character_preview()
+	character_overlay.visible = true
+
+
+func set_forest_progress(light: int, total_tiles: int, next_milestone: String) -> void:
+	if grow_button != null:
+		grow_button.disabled = light <= 0
+	if growth_label != null:
+		growth_label.text = "YOUR NOOK  •  %d TILES" % total_tiles
+	if milestone_label != null:
+		milestone_label.text = next_milestone
+
+
+func _refresh_character_preview() -> void:
+	if character_preview != null:
+		character_preview.texture = PixelArt.character_texture(character_appearance)
 
 
 func show_toast(message: String, positive := true) -> void:
@@ -447,7 +584,7 @@ func rebuild_storage() -> void:
 		child.queue_free()
 	if storage.counts.is_empty():
 		var empty := Label.new()
-		empty.text = "Nothing tucked away yet.\nHold any piece and choose Store."
+		empty.text = "Your pack is empty.\nGrow three new tiles to unlock your first sapling."
 		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		storage_list.add_child(empty)
 		return
@@ -468,7 +605,7 @@ func rebuild_collection() -> void:
 		child.queue_free()
 	for pool: String in ["meadow", "hearth", "tide"]:
 		var header := Label.new()
-		header.text = "%s SET" % pool.to_upper()
+		header.text = "%s MEMORIES" % pool.to_upper()
 		header.add_theme_font_size_override("font_size", 18)
 		header.add_theme_color_override("font_color", _pool_color(pool))
 		collection_list.add_child(header)
@@ -513,10 +650,12 @@ func _on_tokens_changed(token_id: StringName, amount: int) -> void:
 	var token := data.token(token_id)
 	var button := seed_buttons.get(token_id) as Button
 	if button != null:
-		button.text = "●  %s   %d" % [token.display_name.trim_suffix(" Coin"), amount]
-		button.add_theme_color_override("font_color", token.palette[1] if token.palette.size() > 1 else UI_INK)
+		button.text = "✦  %d" % amount if token_id == &"meadow_coin" else str(amount)
+		button.add_theme_color_override("font_color", UI_ORANGE if token_id == &"meadow_coin" else UI_INK)
 		button.disabled = amount <= 0
 	offer_button.disabled = economy.amount(last_token) <= 0
+	if grow_button != null:
+		grow_button.disabled = economy.amount(&"meadow_coin") <= 0
 
 
 func _on_recycle_progress(progress: int, target: int) -> void:
@@ -524,7 +663,7 @@ func _on_recycle_progress(progress: int, target: int) -> void:
 		return
 	recycle_bar.max_value = target
 	recycle_bar.value = progress
-	recycle_bar.tooltip_text = "%d / %d sale value toward a Meadow Coin" % [progress, target]
+	recycle_bar.tooltip_text = "%d / %d reclaimed value toward one Forest Light" % [progress, target]
 
 
 func _make_coin_glyph(token_id: StringName) -> CoinGlyph:
@@ -551,19 +690,23 @@ func _pulse_control(control: Control) -> void:
 
 func _make_theme() -> Theme:
 	var theme := Theme.new()
-	theme.default_font_size = 16
-	theme.set_color("font_color", "Label", UI_INK)
-	theme.set_color("font_color", "Button", UI_INK)
-	theme.set_color("font_hover_color", "Button", Color("#2f2822"))
-	theme.set_color("font_pressed_color", "Button", Color("#2f2822"))
-	theme.set_color("font_disabled_color", "Button", Color(UI_MUTED, 0.55))
-	theme.set_stylebox("panel", "PanelContainer", _style(UI_CARD, UI_LINE, 14, 12))
-	theme.set_stylebox("normal", "Button", _style(Color(1, 1, 1, 0.66), Color(1, 1, 1, 0), 10, 10))
-	theme.set_stylebox("hover", "Button", _style(Color("#fff9e9"), Color("#e0cda9"), 10, 10))
-	theme.set_stylebox("pressed", "Button", _style(Color("#f2e6cc"), Color("#cfb98e"), 10, 10))
-	theme.set_stylebox("disabled", "Button", _style(Color(0.92, 0.89, 0.82, 0.46), Color(1, 1, 1, 0), 10, 10))
-	theme.set_stylebox("background", "ProgressBar", _style(Color("#e5ddce"), Color(1, 1, 1, 0), 8, 1))
-	theme.set_stylebox("fill", "ProgressBar", _style(Color("#aabc38"), Color(1, 1, 1, 0), 8, 1))
+	theme.default_font = load("res://assets/fonts/Knightwood.ttf")
+	theme.default_font_size = 17
+	theme.set_color("font_color", "Label", UI_CREAM)
+	theme.set_color("font_color", "Button", UI_CREAM)
+	theme.set_color("font_color", "LineEdit", UI_CREAM)
+	theme.set_color("font_hover_color", "Button", Color("#fff3a3"))
+	theme.set_color("font_pressed_color", "Button", UI_LIME)
+	theme.set_color("font_disabled_color", "Button", Color(UI_MUTED, 0.42))
+	theme.set_stylebox("panel", "PanelContainer", _style(UI_CARD, UI_LINE, 0, 12))
+	theme.set_stylebox("normal", "Button", _style(Color("#274432"), Color("#527044"), 0, 10))
+	theme.set_stylebox("hover", "Button", _style(Color("#355a3a"), UI_LIME, 0, 10))
+	theme.set_stylebox("pressed", "Button", _style(Color("#1c3428"), UI_ORANGE, 0, 10))
+	theme.set_stylebox("disabled", "Button", _style(Color(0.09, 0.16, 0.12, 0.72), Color("#354d39"), 0, 10))
+	theme.set_stylebox("normal", "LineEdit", _style(Color("#132a20"), UI_LINE, 0, 10))
+	theme.set_stylebox("focus", "LineEdit", _style(Color("#183426"), UI_LIME, 0, 10))
+	theme.set_stylebox("background", "ProgressBar", _style(Color("#172b24"), Color("#354d39"), 0, 1))
+	theme.set_stylebox("fill", "ProgressBar", _style(UI_LIME, UI_LIME, 0, 1))
 	return theme
 
 
@@ -571,7 +714,7 @@ func _style(fill: Color, border: Color, radius: int, pad: int) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
 	box.bg_color = fill
 	box.border_color = border
-	box.set_border_width_all(1 if border.a > 0.0 else 0)
+	box.set_border_width_all(2 if border.a > 0.0 else 0)
 	box.set_corner_radius_all(radius)
 	box.content_margin_left = pad
 	box.content_margin_right = pad

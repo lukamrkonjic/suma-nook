@@ -7,6 +7,7 @@ const StorageScript := preload("res://scripts/storage_manager.gd")
 const CollectionScript := preload("res://scripts/collection_manager.gd")
 const RewardScript := preload("res://scripts/reward_manager.gd")
 const SaveScript := preload("res://scripts/save_manager.gd")
+const ProgressionScript := preload("res://scripts/forest_progression.gd")
 
 const TEST_SAVE := "user://tilegarden-test-save.json"
 
@@ -30,8 +31,10 @@ func _ready() -> void:
 	_test_missing_definition()
 	_test_reachable_destination()
 	_test_initial_content_contract()
+	_test_nine_tile_start()
+	_test_forest_growth_milestone()
 	if failures.is_empty():
-		print("TILEGARDEN VALIDATION PASSED — %d assertions across 12 suites" % assertions)
+		print("SUMA NOOK VALIDATION PASSED — %d assertions across 14 suites" % assertions)
 		_quit_clean(0)
 	else:
 		for failure: String in failures:
@@ -204,6 +207,38 @@ func _test_initial_content_contract() -> void:
 			"%s beginner rewards guarantee early expansion" % pool)
 	check(data.item(&"wish_lantern").modifier_kind == &"boost", "the boost curio is data-driven")
 	check(data.item(&"still_bell").modifier_kind == &"block", "the suppressor curio is data-driven")
+
+
+func _test_nine_tile_start() -> void:
+	var target := fresh_grid(1)
+	check(target.ground.size() == 9, "a new world begins as an exact 3x3 square")
+	check(target.walkable_cells().size() == 9, "all nine starting tiles are walkable")
+	check(target.is_walkable(Vector3i(0, 1, 0)), "the player can stand on the center tile")
+	target.free()
+
+
+func _test_forest_growth_milestone() -> void:
+	var target := fresh_grid(1)
+	var coins := EconomyScript.new() as EconomyManager
+	coins.setup(data)
+	var stash := StorageScript.new() as StorageManager
+	stash.setup(data)
+	var guide := CollectionScript.new() as CollectionManager
+	guide.setup(data)
+	var progress := ProgressionScript.new() as ForestProgression
+	progress.setup(target, coins, stash, guide, 77)
+	progress.tiles_grown = 2
+	coins.add(&"meadow_coin", 1)
+	var result := progress.complete_growth()
+	check(progress.tiles_grown == 3, "successful growth advances world progression")
+	check(coins.amount(&"meadow_coin") == 0, "growth spends exactly one Forest Light")
+	check(str(result.get("unlock", "")) == "sapling", "the first growth milestone unlocks a sapling")
+	check(stash.amount(&"sapling") == 1, "milestone rewards enter the woodland pack")
+	progress.free()
+	guide.free()
+	stash.free()
+	coins.free()
+	target.free()
 
 
 func _quit_clean(code: int) -> void:

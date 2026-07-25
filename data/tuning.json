@@ -1,8 +1,8 @@
 {
-  "project_codename": "Imota Tilegarden",
-  "visitor_name": "Mote",
-  "token_name": "Coin",
-  "reward_object_name": "Bloomforge",
+  "project_codename": "Suma Nook",
+  "visitor_name": "Woodland Wisp",
+  "token_name": "Forest Light",
+  "reward_object_name": "World Growth",
   "tile_size": 1.8,
   "tile_height": 0.46,
   "stack_height": 0.78,
@@ -14,5 +14,5 @@
   "offline_visitor_cap": 4,
   "recycle_seed_cost": 4,
   "autosave_interval": 45.0,
-  "save_version": 2
+  "save_version": 3
 }

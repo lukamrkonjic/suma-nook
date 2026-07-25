@@ -5,7 +5,7 @@ signal saved(path: String)
 signal loaded(path: String, missing_definition_ids: Array[String])
 signal save_failed(message: String)
 
-const SAVE_PATH := "user://tilegarden-save.json"
+const SAVE_PATH := "user://suma-nook-save.json"
 
 var save_version := 1
 var save_path := SAVE_PATH

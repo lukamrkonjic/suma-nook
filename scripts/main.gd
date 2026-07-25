@@ -16,6 +16,8 @@ const GroveheartScript := preload("res://scripts/groveheart.gd")
 const HudScript := preload("res://scripts/hud.gd")
 const EffectsScript := preload("res://scripts/effects_manager.gd")
 const WorldBuilderScript := preload("res://scripts/world_builder.gd")
+const PlayerScript := preload("res://scripts/player_character.gd")
+const ProgressionScript := preload("res://scripts/forest_progression.gd")
 const ItemScene := preload("res://scenes/build_item.tscn")
 
 const INTERNAL_SIZE := Vector2i(1280, 720)
@@ -42,6 +44,8 @@ var groveheart: Groveheart
 var hud: TilegardenHUD
 var effects: EffectsManager
 var environment_style: WorldBuilder
+var player: SumaPlayerCharacter
+var progression: ForestProgression
 var waiting_reward: BuildItem
 var world_seed := WORLD_SEED
 var autosave_elapsed := 0.0
@@ -58,6 +62,7 @@ var _pending_reward_first_time := false
 var _performance_probe := false
 var _probe_started_usec := 0
 var _onboarding_visitor_announced := false
+var character_created := false
 
 
 func _ready() -> void:
@@ -128,10 +133,10 @@ func _build_viewport() -> void:
 	game_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	game_viewport.handle_input_locally = true
 	game_viewport.physics_object_picking = true
-	game_viewport.msaa_3d = Viewport.MSAA_4X
-	game_viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
+	game_viewport.msaa_3d = Viewport.MSAA_DISABLED
+	game_viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 	game_viewport.use_taa = false
-	game_viewport.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_LINEAR
+	game_viewport.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
 	viewport_container.add_child(game_viewport)
 	world = Node3D.new()
 	world.name = "WorldRoot"
@@ -182,6 +187,7 @@ func _build_systems() -> void:
 	world.add_child(groveheart)
 	groveheart.position = grid.world_position(Vector3i(0, 1, 0))
 	groveheart.setup()
+	groveheart.visible = false
 	effects = EffectsScript.new()
 	effects.name = "EffectsRoot"
 	world.add_child(effects)
@@ -194,6 +200,8 @@ func _build_systems() -> void:
 	hud = HudScript.new()
 	game_viewport.add_child(hud)
 	hud.setup(game_data, economy, storage, collection, grid)
+	progression = ProgressionScript.new()
+	add_child(progression)
 
 
 func _load_or_create() -> void:
@@ -201,6 +209,7 @@ func _load_or_create() -> void:
 	_loaded_state = state
 	if state.is_empty():
 		grid.make_initial_island(int(game_data.tuning.get("initial_island_radius", 2)))
+		economy.add(&"meadow_coin", 1)
 	else:
 		var missing: Array[String] = []
 		world_seed = int(state.get("world_seed", WORLD_SEED))
@@ -210,14 +219,36 @@ func _load_or_create() -> void:
 		collection.restore_snapshot(state.get("collection", {}), missing)
 		rewards.restore_snapshot(state.get("rewards", {}))
 		camera_rig.restore_snapshot(state.get("camera", {}))
-		environment_style.set_preset(StringName(str(state.get("environment_preset", "sunroom"))))
+		environment_style.set_preset(StringName(str(state.get("environment_preset", "greenwood"))))
 		_restore_audio_snapshot(state.get("audio", {}))
 		_loaded_timestamp = float(state.get("timestamp", 0.0))
 		if not missing.is_empty():
 			hud.show_toast("Loaded safely; unavailable definitions were skipped: %s" % ", ".join(missing), false)
 	grid_renderer.setup(grid, game_data)
+	progression.setup(grid, economy, storage, collection, world_seed)
+	if not state.is_empty():
+		progression.restore_snapshot(state.get("progression", {}))
+	player = PlayerScript.new()
+	world.add_child(player)
+	var player_state: Dictionary = state.get("player", {})
+	player.setup(
+		grid,
+		str(player_state.get("name", "Fern")),
+		player_state.get("appearance", {"skin": 1, "hair": 0, "outfit": 0}),
+		Vector3i(0, 1, 0)
+	)
+	if not player_state.is_empty():
+		player.restore_snapshot(player_state)
+	character_created = not player_state.is_empty()
+	player.can_control = not state.is_empty()
+	if state.is_empty() and _showcase_mode.is_empty():
+		hud.call_deferred("show_character_creator")
+	elif state.is_empty():
+		player.can_control = true
+		character_created = true
 	_update_modifier_summary()
 	hud.set_scene_name(environment_style.display_name())
+	_update_forest_progress()
 	var state_after_render := _loaded_state
 	if not state_after_render.is_empty():
 		visitors.call_deferred("restore_snapshot", state_after_render.get("visitors", []))
@@ -258,8 +289,12 @@ func _connect_signals() -> void:
 	hud.collection_toggled.connect(func() -> void: audio.play(&"collection_open"))
 	hud.settings_requested.connect(func() -> void: audio.play(&"ui_confirm"))
 	hud.scene_requested.connect(_cycle_environment)
+	hud.grow_requested.connect(start_growth)
+	hud.character_confirmed.connect(_on_character_confirmed)
 	placement.hold_changed.connect(func(active: bool, definition_id: StringName) -> void:
-		hud.set_held(definition_id if active else &""))
+		hud.set_held(definition_id if active else &"")
+		if player != null:
+			player.can_control = not active and not hud.character_overlay.visible)
 	placement.action_feedback.connect(func(message: String, positive: bool) -> void:
 		hud.show_toast(message, positive)
 		audio.play(&"valid_drop" if positive else &"invalid_drop"))
@@ -272,6 +307,8 @@ func _connect_signals() -> void:
 		effects.burst(groveheart.global_position + Vector3(0, 0.7, 0), &"sparks")
 		save_game(false))
 	grid.grid_changed.connect(_update_modifier_summary)
+	grid.grid_changed.connect(_update_forest_progress)
+	economy.tokens_changed.connect(func(_token: StringName, _amount: int) -> void: _update_forest_progress())
 	camera_rig.rotated.connect(func() -> void: audio.play(&"camera_rotate"))
 	visitors.seed_launch_requested.connect(_on_mote_seed_launch)
 	visitors.mote_clicked.connect(func(_mote: Mote) -> void:
@@ -282,8 +319,13 @@ func _connect_signals() -> void:
 		audio.play(&"mote_chirp", 0.07, -2.0)
 		if not _onboarding_visitor_announced:
 			_onboarding_visitor_announced = true
-			hud.show_toast("A visitor brought a coin — click them to collect it.", true))
+			hud.show_toast("A woodland wisp brought Forest Light — click the wisp to collect it.", true))
 	save_manager.save_failed.connect(func(message: String) -> void: hud.show_toast(message, false))
+	progression.discovery_unlocked.connect(func(definition_id: StringName, message: String) -> void:
+		var definition := game_data.item(definition_id)
+		hud.show_toast("%s  %s is now in your pack." % [message, definition.display_name], true)
+		audio.play(&"discovery")
+		_update_forest_progress())
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -327,9 +369,18 @@ func _unhandled_input(event: InputEvent) -> void:
 				if item.instance_id == "reward-waiting":
 					claim_waiting_reward()
 					return
+				if item.definition != null and item.definition.is_ground() and player != null and player.can_control:
+					player.move_to(Vector3i(item.grid_coord.x, 1, item.grid_coord.z))
+					return
 				if placement.begin_move(item):
 					audio.play(&"pickup")
 					item.animate_pickup()
+					return
+			if player != null and player.can_control:
+				var world_point := camera_rig.screen_to_ground(event.position, 0.08)
+				var walk_coord := grid.coord_from_world(world_point)
+				if grid.ground.has(Vector3i(walk_coord.x, 0, walk_coord.z)):
+					player.move_to(Vector3i(walk_coord.x, 1, walk_coord.z))
 					return
 	if event is InputEventKey and event.pressed and not event.echo:
 		var command: bool = event.ctrl_pressed or event.meta_pressed
@@ -362,6 +413,22 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_S:
 				if command:
 					save_game(true)
+				elif player != null:
+					player.try_step(Vector3i(0, 0, 1))
+			KEY_W, KEY_UP:
+				if player != null:
+					player.try_step(Vector3i(0, 0, -1))
+			KEY_A, KEY_LEFT:
+				if player != null:
+					player.try_step(Vector3i(-1, 0, 0))
+			KEY_D, KEY_RIGHT:
+				if player != null:
+					player.try_step(Vector3i(1, 0, 0))
+			KEY_DOWN:
+				if player != null:
+					player.try_step(Vector3i(0, 0, 1))
+			KEY_G:
+				start_growth()
 
 
 func _pick_mote_at(screen_position: Vector2) -> Mote:
@@ -398,6 +465,42 @@ func _on_seed_drag_released(token_id: StringName, screen_position: Vector2) -> v
 		offer_seed(token_id)
 	else:
 		hud.show_toast("Drop the coin on the Bloomforge to spend it.", false)
+
+
+func start_growth() -> bool:
+	if progression == null or player == null:
+		return false
+	if placement.is_holding():
+		hud.show_toast("Finish placing the current piece first.", false)
+		return false
+	if not progression.can_grow():
+		hud.show_toast("You need Forest Light. Click a glowing woodland wisp to gather one.", false)
+		return false
+	var sample_coord := player.grid_coord + Vector3i(progression.tiles_grown + 2, 0, 1)
+	var ground_id := progression.next_ground_id(sample_coord)
+	if not placement.begin_growth(ground_id):
+		return false
+	audio.play(&"pickup")
+	hud.show_toast("Choose any glowing empty edge. One Forest Light grows one new tile.", true)
+	return true
+
+
+func _on_character_confirmed(player_name: String, appearance: Dictionary) -> void:
+	player.set_appearance(player_name, appearance)
+	character_created = true
+	player.can_control = true
+	hud.show_toast("Welcome, %s. Walk the nine tiles, meet a wisp, then grow beyond the clearing." % player.display_name, true)
+	save_game(false)
+
+
+func _update_forest_progress() -> void:
+	if progression == null or hud == null or grid == null:
+		return
+	hud.set_forest_progress(
+		progression.forest_light(),
+		grid.ground.size(),
+		progression.next_milestone_text()
+	)
 
 
 func offer_seed(token_id: StringName) -> void:
@@ -507,18 +610,27 @@ func _on_mote_seed_launch(mote: Mote, token_id: StringName, world_position: Vect
 	audio.play(&"seed_travel", 0.03, -2.0)
 	effects.burst(world_position, &"sparks")
 	var start := camera_rig.world_to_screen(world_position)
-	hud.animate_seed_collection(start, token_id, func() -> void:
-		economy.add(token_id, 1)
+	hud.animate_seed_collection(start, &"meadow_coin", func() -> void:
+		economy.add(&"meadow_coin", 1)
 		audio.play(&"seed_lands", 0.025)
 		mote.reward_delivered()
-		hud.show_toast("%s earned — spend it at the Bloomforge." % game_data.token(token_id).display_name, true)
+		hud.show_toast("Forest Light gathered — press G or Grow Tile to expand your nook.", true)
+		_update_forest_progress()
 		save_game(false))
 
 
-func _on_placement_completed(definition_id: StringName, _source: StringName) -> void:
+func _on_placement_completed(definition_id: StringName, source: StringName) -> void:
 	var definition := game_data.item(definition_id)
 	audio.play(StringName("place_%s" % definition.placement_audio_category))
 	effects.burst(grid.world_position(placement.hover_coord) + Vector3(0, 0.15, 0), definition.particle_category)
+	if source == &"growth":
+		var result := progression.complete_growth()
+		if result.is_empty():
+			hud.show_toast("The new tile grew, but the light balance changed unexpectedly.", false)
+		else:
+			hud.show_toast("The greenwood grew to %d tiles." % grid.ground.size(), true)
+			camera_rig.target = camera_rig.target.lerp(grid.world_position(placement.hover_coord), 0.24)
+		_update_forest_progress()
 	save_game(false)
 
 
@@ -549,6 +661,8 @@ func save_game(show_feedback := false) -> void:
 		return
 	if save_manager == null or grid == null:
 		return
+	if not character_created:
+		return
 	var payload := {
 		"world_seed": world_seed,
 		"grid": grid.snapshot(),
@@ -565,6 +679,8 @@ func save_game(show_feedback := false) -> void:
 			"token_id": String(_pending_reward_token),
 		},
 		"audio": _audio_snapshot(),
+		"player": player.snapshot() if player != null else {},
+		"progression": progression.snapshot() if progression != null else {},
 	}
 	if save_manager.write_save(payload) and show_feedback:
 		audio.play(&"save")
@@ -611,7 +727,9 @@ func _apply_showcase_mode() -> void:
 		return
 	match _showcase_mode:
 		"initial":
-			_capture_frame = 60
+			visitors.spawn_timer = 999.0
+			visitors.spawn_mote(&"meadow_coin", Vector3i(1, 1, 1))
+			_capture_frame = 90
 		"mote":
 			visitors.spawn_timer = 999.0
 			visitors.spawn_mote(&"meadow_coin", Vector3i(1, 1, 1))
@@ -628,19 +746,19 @@ func _apply_showcase_mode() -> void:
 			placement.call_deferred("begin_from_storage", &"root_bench")
 			_capture_frame = 75
 		"expanded":
-			_capture_frame = 75
+			_capture_frame = 90
 			camera_rig.target_ortho_size = 17.0
 			_build_showcase_garden()
 		"dusk":
 			_capture_frame = 75
 			camera_rig.target_ortho_size = 17.0
-			environment_style.set_preset(&"ember_dusk")
+			environment_style.set_preset(&"firefly_dusk")
 			hud.set_scene_name(environment_style.display_name())
 			_build_showcase_garden()
 		"rain":
 			_capture_frame = 75
 			camera_rig.target_ortho_size = 17.0
-			environment_style.set_preset(&"soft_rain")
+			environment_style.set_preset(&"moss_rain")
 			hud.set_scene_name(environment_style.display_name())
 			_build_showcase_garden()
 		"collection":
@@ -685,4 +803,5 @@ func _build_showcase_garden() -> void:
 	]
 	for row: Array in showcase_props:
 		grid.place_prop(row[0], row[1], row[2])
+	progression.tiles_grown = maxi(0, grid.ground.size() - 9)
 	grid.grid_changed.emit()

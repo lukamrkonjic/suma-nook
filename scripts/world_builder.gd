@@ -4,19 +4,21 @@ class_name WorldBuilder
 signal preset_changed(preset_id: StringName, display_name: String)
 
 const Factory := preload("res://scripts/visual_factory.gd")
-const PRESETS := [&"sunroom", &"ember_dusk", &"soft_rain"]
+const PixelArt := preload("res://scripts/pixel_art.gd")
+const PRESETS := [&"greenwood", &"firefly_dusk", &"moss_rain"]
 
 var environment: Environment
 var sun: DirectionalLight3D
 var fill: DirectionalLight3D
 var floor_mesh: MeshInstance3D
 var effect_root: Node3D
-var preset_id := &"sunroom"
+var forest_root: Node3D
+var preset_id := &"greenwood"
 var _time := 0.0
 
 
-func setup(initial_preset: StringName = &"sunroom") -> void:
-	name = "DioramaEnvironment"
+func setup(initial_preset: StringName = &"greenwood") -> void:
+	name = "PixelForestEnvironment"
 	_build()
 	set_preset(initial_preset)
 
@@ -30,12 +32,12 @@ func _process(delta: float) -> void:
 			continue
 		var mote := child as MeshInstance3D
 		var speed := float(mote.get_meta("speed", 1.0))
-		if preset_id == &"soft_rain":
+		if preset_id == &"moss_rain":
 			mote.position.y -= delta * speed
 			mote.position.x -= delta * 0.35
 			if mote.position.y < -0.1:
 				mote.position.y = 9.0 + float(mote.get_index() % 5)
-		elif preset_id == &"ember_dusk":
+		else:
 			mote.position.y += sin(_time * speed + mote.get_index()) * delta * 0.24
 			mote.position.x += cos(_time * 0.5 + mote.get_index()) * delta * 0.05
 
@@ -48,31 +50,32 @@ func cycle_preset() -> StringName:
 
 
 func set_preset(id: StringName) -> void:
-	preset_id = id if id in PRESETS else &"sunroom"
+	preset_id = id if id in PRESETS else &"greenwood"
 	_clear_effects()
 	match preset_id:
-		&"ember_dusk":
+		&"firefly_dusk":
 			_apply_colors(
-				Color("#2e2928"), Color("#3b302c"), Color("#9e8d82"),
-				Color("#ffb06c"), 0.72, Color("#2e2928"))
+				Color("#10251d"), Color("#173527"), Color("#7da474"),
+				Color("#f0b56a"), 0.78, Color("#10251d"))
 			_build_fireflies()
-		&"soft_rain":
+		&"moss_rain":
 			_apply_colors(
-				Color("#66796c"), Color("#75897a"), Color("#b8cbb4"),
-				Color("#d9e4c6"), 0.50, Color("#66796c"))
+				Color("#223a31"), Color("#29483a"), Color("#9cb89b"),
+				Color("#c8d5a6"), 0.56, Color("#223a31"))
 			_build_rain()
 		_:
 			_apply_colors(
-				Color("#e9e3c9"), Color("#f3ead1"), Color("#fff3d2"),
-				Color("#ffe2a2"), 0.62, Color("#e9e3c9"))
+				Color("#1a3828"), Color("#244b32"), Color("#b3cb91"),
+				Color("#f1d58a"), 0.82, Color("#1a3828"))
+			_build_fireflies()
 	preset_changed.emit(preset_id, display_name())
 
 
 func display_name() -> String:
 	match preset_id:
-		&"ember_dusk": return "Ember Dusk"
-		&"soft_rain": return "Soft Rain"
-		_: return "Sunroom"
+		&"firefly_dusk": return "Firefly Dusk"
+		&"moss_rain": return "Moss Rain"
+		_: return "Greenwood"
 
 
 func _build() -> void:
@@ -80,9 +83,9 @@ func _build() -> void:
 	environment.background_mode = Environment.BG_COLOR
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	environment.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
-	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	environment.tonemap_exposure = 0.82
-	environment.ssao_enabled = true
+	environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+	environment.tonemap_exposure = 1.0
+	environment.ssao_enabled = false
 	environment.ssao_radius = 1.35
 	environment.ssao_intensity = 1.15
 	environment.ssao_power = 1.45
@@ -94,14 +97,14 @@ func _build() -> void:
 	add_child(world_environment)
 
 	sun = DirectionalLight3D.new()
-	sun.name = "SoftboxSun"
+	sun.name = "CanopySun"
 	sun.rotation_degrees = Vector3(-48, 38, 0)
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	sun.directional_shadow_max_distance = 36.0
 	sun.shadow_bias = 0.05
 	sun.shadow_normal_bias = 0.70
-	sun.shadow_blur = 1.6
+	sun.shadow_blur = 0.1
 	add_child(sun)
 
 	fill = DirectionalLight3D.new()
@@ -122,6 +125,40 @@ func _build() -> void:
 	effect_root = Node3D.new()
 	effect_root.name = "Atmosphere"
 	add_child(effect_root)
+	_build_forest_frame()
+
+
+func _build_forest_frame() -> void:
+	forest_root = Node3D.new()
+	forest_root.name = "DeepForestFrame"
+	add_child(forest_root)
+	for i: int in 40:
+		var angle := float(i) / 40.0 * TAU
+		var radius := 10.5 + float(posmod(i * 17, 27)) * 0.13
+		var tree := Sprite3D.new()
+		tree.name = "ForestTree_%02d" % i
+		tree.texture = PixelArt.forest_tree_texture(i)
+		tree.pixel_size = 0.050 + float(i % 3) * 0.004
+		tree.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		tree.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		tree.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+		tree.shaded = true
+		tree.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		tree.position = Vector3(cos(angle) * radius, 1.65, sin(angle) * radius)
+		forest_root.add_child(tree)
+	for i: int in 24:
+		var angle := float(i) / 24.0 * TAU + 0.13
+		var radius := 8.8 + float(posmod(i * 11, 13)) * 0.10
+		var undergrowth := Sprite3D.new()
+		undergrowth.name = "Undergrowth_%02d" % i
+		undergrowth.texture = PixelArt.prop_texture(&"moss_rock" if i % 5 == 0 else &"berry_bush")
+		undergrowth.pixel_size = 0.034
+		undergrowth.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		undergrowth.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		undergrowth.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+		undergrowth.shaded = true
+		undergrowth.position = Vector3(cos(angle) * radius, 0.75, sin(angle) * radius)
+		forest_root.add_child(undergrowth)
 
 
 func _apply_colors(
@@ -135,17 +172,23 @@ func _apply_colors(
 	environment.background_color = background
 	environment.ambient_light_color = ambient
 	environment.ambient_light_energy = 0.22
-	environment.fog_enabled = preset_id != &"sunroom"
+	environment.fog_enabled = preset_id != &"greenwood"
 	environment.fog_light_color = fog_color
 	environment.fog_light_energy = 0.55
-	environment.fog_density = 0.008 if preset_id == &"soft_rain" else 0.004
+	environment.fog_density = 0.008 if preset_id == &"moss_rain" else 0.004
 	environment.fog_depth_begin = 14.0
 	environment.fog_depth_end = 46.0
 	sun.light_color = sun_color
 	sun.light_energy = sun_energy
 	fill.light_color = ambient
 	fill.light_energy = 0.08
-	floor_mesh.material_override = Factory.material("backdrop_%s" % preset_id, floor_color)
+	var floor_material := StandardMaterial3D.new()
+	floor_material.albedo_color = floor_color
+	floor_material.roughness = 1.0
+	floor_material.albedo_texture = PixelArt.tile_texture(&"ground_grass")
+	floor_material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	floor_material.uv1_scale = Vector3(28, 28, 28)
+	floor_mesh.material_override = floor_material
 
 
 func _clear_effects() -> void:

@@ -61,6 +61,10 @@ func begin_reward(definition_id: StringName) -> bool:
 	return _begin_hold(definition_id, &"reward")
 
 
+func begin_growth(definition_id: StringName) -> bool:
+	return _begin_hold(definition_id, &"growth")
+
+
 func begin_from_storage(definition_id: StringName) -> bool:
 	if not storage.take(definition_id, 1):
 		action_feedback.emit("That item is no longer in storage.", false)
