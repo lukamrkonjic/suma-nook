@@ -52,11 +52,14 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	env.ssao_enabled = profile.ssao_enabled
 	env.ssao_intensity = profile.ssao_intensity
 	env.ssao_radius = profile.ssao_radius
-	env.ssao_power = 1.6
+	env.ssao_power = profile.ssao_power
+	env.ssao_detail = profile.ssao_detail
+	env.ssao_horizon = profile.ssao_horizon
+	env.ssao_sharpness = profile.ssao_sharpness
 	env.glow_enabled = profile.glow_enabled
 	env.glow_intensity = profile.glow_intensity
 	env.glow_hdr_threshold = profile.glow_hdr_threshold
-	env.glow_bloom = 0.05
+	env.glow_bloom = profile.glow_bloom
 	env.fog_enabled = profile.fog_enabled
 	env.fog_light_color = profile.fog_color
 	env.fog_density = profile.fog_density
@@ -67,7 +70,7 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	_sun.rotation_degrees = Vector3(profile.sun_pitch_deg, profile.sun_yaw_deg, 0.0)
 	_sun.shadow_opacity = profile.shadow_opacity
 	_sun.shadow_blur = profile.shadow_blur
-	_sun.light_angular_distance = 2.5
+	_sun.light_angular_distance = 1.8
 
 	_rain.emitting = profile.rain_enabled
 	profile_applied.emit(profile)

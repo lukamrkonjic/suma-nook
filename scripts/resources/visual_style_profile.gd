@@ -23,9 +23,14 @@ extends Resource
 @export var ssao_enabled := true
 @export var ssao_intensity := 1.4
 @export var ssao_radius := 0.7
+@export var ssao_power := 1.35
+@export var ssao_detail := 0.7
+@export var ssao_horizon := 0.05
+@export var ssao_sharpness := 0.85
 @export var glow_enabled := true
 @export var glow_intensity := 0.45
 @export var glow_hdr_threshold := 1.35
+@export var glow_bloom := 0.06
 @export var exposure := 1.0
 @export var fog_enabled := false
 @export var fog_color := Color(0.906, 0.882, 0.8)
