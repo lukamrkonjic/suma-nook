@@ -1,8 +1,7 @@
 extends Node
 ## Scene-level acceptance run: drives the REAL game (main.tscn) through the
-## complete MVP loop — creation → walk → fish → level → parcel → place →
-## woodcut → craft → build → move/undo → landmark → combat → gear → reclaim →
-## save → reload — capturing docs screenshots along the way.
+## complete current loop — creation → free walk → catch/release → ferry →
+## parcel choice → Tile Library → placement → woodland tending → save/reload.
 ## Run windowed:  godot --path . tests/full_loop_runner.tscn
 ## Prints "FULL LOOP PASSED" or FAIL lines, then quits.
 
@@ -23,6 +22,8 @@ func check(condition: bool, message: String) -> void:
 
 
 func shot(name: String) -> void:
+	if not OS.get_cmdline_user_args().has("--shots"):
+		return
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png("docs/" + name + ".png")
 	print("  [shot] docs/%s.png" % name)
@@ -57,11 +58,6 @@ func _run() -> void:
 	await _step_parcel()
 	await _step_place_tile()
 	await _step_woodcutting()
-	await _step_craft_and_build()
-	await _step_move_undo()
-	await _step_landmark()
-	await _step_combat()
-	await _step_resolve_and_collection()
 	await _step_save_reload()
 	if failures.is_empty():
 		print("FULL LOOP PASSED — %d checks" % checks)
@@ -158,30 +154,60 @@ func _step_movement() -> void:
 	main.camera_rig._unhandled_input(pan)
 	check(main.camera_rig._size_target > before_pan, "trackpad two-finger scroll zooms out")
 	main.camera_rig._size_target = default_zoom
+	await wait(0.2)
+	# Ground clicks create a dot and continuously walk to the selected point.
+	main.player.cancel_click_command()
+	main.player.position = main.core.grid.cell_to_world(Vector2i(0, 1))
+	main.player.velocity = Vector3.ZERO
+	await get_tree().physics_frame
+	var click_destination := main.core.grid.cell_to_world(Vector2i.ZERO) + Vector3(0.4, 0, 0.35)
+	var click_screen := main.camera_rig.camera.unproject_position(click_destination)
+	main.effects.click_marker(click_screen, false)
+	main._handle_world_click(click_screen)
+	var ground_marker := main.effects.find_child("ClickMarkerDot", true, false) as Node2D
+	check(ground_marker != null, "ground click shows the click dot")
+	check(ground_marker != null and ground_marker.position.distance_to(click_screen) < 0.1, "ground marker uses the literal click position")
+	check(main.player.has_click_command(), "ground click starts click-to-move")
+	var click_deadline := Time.get_ticks_msec() + 5000
+	while main.player.has_click_command() and Time.get_ticks_msec() < click_deadline:
+		await wait(0.1)
+	check(main.player.position.distance_to(click_destination) < 0.3, "click-to-move reaches the selected ground point")
 
 
 func _step_fishing() -> void:
 	print("STEP fishing")
-	var pond := Vector2i(1, -1)
-	main.player.position = main.core.grid.cell_to_world(pond) + Vector3(-1.0, 0, 0.6)
+	main.core.registries.tuning["fishing_wait_min"] = 0.1
+	main.core.registries.tuning["fishing_wait_max"] = 0.15
+	main.core.registries.tuning["fishing_repeat_pause"] = 0.1
+	var pond := Vector2i(0, -1)
+	main.player.cancel_click_command()
+	main.player.position = main.core.grid.cell_to_world(Vector2i.ZERO) + Vector3(0, 0, -0.45)
+	main.player.velocity = Vector3.ZERO
 	main.player._update_focus()
 	await wait(0.2)
 	check(main.player.focus().get("kind") == "anchor", "pond focus detected from a natural approach")
 	var items_before := _inventory_total()
-	main.skill_actions.try_interact()
+	var pond_screen := main.camera_rig.camera.unproject_position(main.core.grid.cell_to_world(pond) + Vector3(0, 0.55, 0))
+	main.effects.click_marker(pond_screen, true)
+	main._handle_world_click(pond_screen)
+	var interaction_marker := main.effects.find_child("ClickMarkerAction", true, false) as Node2D
+	check(interaction_marker != null, "interactable click shows the action circle")
+	check(interaction_marker != null and interaction_marker.position.distance_to(pond_screen) < 0.1, "interaction marker uses the literal click position")
 	await wait(0.8)
-	check(main.player.state in [PlayerController.State.FISHING_CAST, PlayerController.State.FISHING_WAIT], "one interaction starts the fishing loop")
+	check(main.player.state in [PlayerController.State.FISHING_CAST, PlayerController.State.FISHING_WAIT], "one click starts the fishing loop")
 	await shot("screenshot_fishing")
+	var xp_before: int = main.core.skills.xp["fishing"]
 	var deadline := Time.get_ticks_msec() + 9000
-	while _inventory_total() <= items_before and Time.get_ticks_msec() < deadline:
+	while main.core.skills.xp["fishing"] <= xp_before and Time.get_ticks_msec() < deadline:
 		await wait(0.2)
-	check(_inventory_total() > items_before, "a catch resolves without extra clicks")
+	check(main.core.skills.xp["fishing"] > xp_before, "a catch resolves and grants XP without extra clicks")
+	check(_inventory_total() == items_before, "catch-and-release adds no fish item")
 	# auto-repeat: wait for a second catch with zero input
-	var after_first := _inventory_total()
+	var after_first: int = main.core.skills.xp["fishing"]
 	deadline = Time.get_ticks_msec() + 9000
-	while _inventory_total() <= after_first and Time.get_ticks_msec() < deadline:
+	while main.core.skills.xp["fishing"] <= after_first and Time.get_ticks_msec() < deadline:
 		await wait(0.2)
-	check(_inventory_total() > after_first, "fishing auto-repeats")
+	check(main.core.skills.xp["fishing"] > after_first, "fishing auto-repeats")
 	check(main.core.skills.xp["fishing"] > 0 or main.core.skills.level("fishing") > 1, "fishing xp granted")
 	# movement cancels gracefully
 	Input.action_press("move_left")
@@ -192,20 +218,30 @@ func _step_fishing() -> void:
 
 
 func _step_parcel() -> void:
-	print("STEP parcel")
-	# Reach level 2 (guaranteed parcel) without hours of fishing.
-	var def := main.core.registries.skill("fishing")
-	main.core.skills.add_xp("fishing", def.xp_to_next(1))
+	print("STEP ferry parcel")
+	main.skill_actions.cancel_all()
+	main.player.set_state(PlayerController.State.FREE)
+	main.core.registries.arrival_config["ferry_approach_seconds"] = 0.45
+	main.core.registries.arrival_config["ferry_dock_seconds"] = 0.12
+	main.core.registries.arrival_config["ferry_departure_seconds"] = 0.3
+	check(main.core.arrivals.trigger_arrival(), "periodic scheduler triggers the ferry")
+	await wait(0.18)
+	check(main.ferry_presentation.active, "ferry visibly approaches from beyond northern water")
+	await wait(0.7)
+	check(main.delivery_point.package_is_visible(), "ferry unloads one package at the dock")
+	check(main.core.arrivals.has_waiting_package(), "unopened package pauses delivery accumulation")
+	main.player.position = main.core.grid.cell_to_world(Vector2i.ZERO)
+	main.player._update_focus()
+	check(main.player.focus().get("kind") == "delivery_package", "dock package is the primary nearby interaction")
+	main.skill_actions.try_interact()
 	await wait(0.3)
-	check(main.core.inventory.count("parcel_wild") >= 1, "level 2 granted the first Land Parcel")
-	main.parcel_reveal.open_best_available()
-	await wait(0.9)
 	check(main.parcel_reveal.is_open(), "reveal modal opens")
 	check(main.core.parcels.pending_options.size() == 3, "three tile options offered")
 	await shot("screenshot_land_parcel_reveal")
 	main.parcel_reveal._choose(0)
 	await wait(0.8)
 	check(main.core.stock.total_tiles() == 1, "chosen tile in stock")
+	check(main.core.inventory.counts.is_empty(), "ferry reward bypasses material inventory")
 
 
 func _step_place_tile() -> void:
@@ -217,7 +253,7 @@ func _step_place_tile() -> void:
 	main.placement.rotate_held()
 	check(int(main.placement.held["rotation"]) == 1, "rotation steps")
 	check(not main.placement.try_place_at(Vector2i(6, 6)), "detached placement rejected with feedback")
-	var target := Vector2i(2, -1)
+	var target := Vector2i(2, 0)
 	check(main.placement.try_place_at(target), "adjacent placement accepted")
 	check(main.core.grid.has_cell(target), "tile placed into the world")
 	await wait(0.6)
@@ -235,16 +271,16 @@ func _step_place_tile() -> void:
 
 func _step_woodcutting() -> void:
 	print("STEP woodcutting")
-	var grove := Vector2i(2, -1)
+	var grove := Vector2i(2, 0)
 	if main.core.grid.tile_def(grove).anchor_id == "":
 		main.core.grid.remove_tile(grove)
 		main.core.grid.place_tile(grove, "tile_grove_mature", 0)
-	main.player.position = main.core.grid.cell_to_world(grove) + Vector3(-0.9, 0, -0.4)
+	main.player.position = main.core.grid.cell_to_world(grove) + Vector3(0.85, 0, 0.35)
 	main.player.set_state(PlayerController.State.FREE)
 	main.player._update_focus()
 	await wait(0.2)
 	check(main.player.focus().get("kind") == "anchor", "grove anchor focus detected")
-	var wood_before := main.core.inventory.count("softwood") + main.core.inventory.count("hardwood")
+	var inventory_before := _inventory_total()
 	main.skill_actions.try_interact()
 	await wait(0.9)
 	await shot("screenshot_woodcutting")
@@ -252,8 +288,7 @@ func _step_woodcutting() -> void:
 	while main.core.grid.cell(grove) != null and not main.core.grid.cell(grove).anchor_resting and Time.get_ticks_msec() < deadline:
 		await wait(0.3)
 	check(main.core.grid.cell(grove).anchor_resting, "grove enters its resting cycle")
-	var wood_after := main.core.inventory.count("softwood") + main.core.inventory.count("hardwood")
-	check(wood_after > wood_before, "timber gained")
+	check(_inventory_total() == inventory_before, "Woodland Tending adds no logs or materials")
 	check(main.core.skills.xp["woodcutting"] > 0, "woodcutting xp gained")
 	# resting grove regenerates
 	main.core.grid.cell(grove).anchor_regen_left = 0.4
@@ -374,7 +409,13 @@ func _step_resolve_and_collection() -> void:
 
 func _step_save_reload() -> void:
 	print("STEP save & reload")
-	main.player.position = Vector3(1.37, 0.0, 0.81)   # deliberately between tile centers
+	main.skill_actions.cancel_all()
+	main.player.set_state(PlayerController.State.FREE)
+	check(main.core.arrivals.set_presentation("postcard"), "arrival presentation switches without reward changes")
+	check(main.core.arrivals.trigger_arrival(), "postcard presentation uses the same scheduler")
+	await wait(0.6)
+	check(main.core.arrivals.has_waiting_package(), "postcard leaves the same saved Land Parcel payload")
+	main.player.position = Vector3(0.37, 0.0, 0.41)   # deliberately between tile centers
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	var expect_cells := main.core.grid.cells.size()
@@ -386,8 +427,9 @@ func _step_save_reload() -> void:
 	check(main.core.grid.cells.size() == expect_cells, "world shape survives reload")
 	check(main.core.skills.xp["fishing"] == expect_xp, "skills survive reload")
 	check(main.player.position.distance_to(expect_pos) < 0.05, "exact continuous player position survives reload (%.3f drift)" % main.player.position.distance_to(expect_pos))
-	check(main.core.equipment.equipped.has("back"), "equipped gear survives reload")
-	check(main.core.landmarks.active[0].phase == LandmarkManager.PHASE_RECLAIMED, "landmark state survives reload")
+	check(main.core.arrivals.has_waiting_package(), "unopened delivery survives reload")
+	check(main.delivery_point.package_is_visible(), "restored delivery is interactable at the dock")
+	check(get_tree().get_nodes_in_group("enemies").is_empty(), "no monsters or combat encounters appear")
 
 
 func _inventory_total() -> int:

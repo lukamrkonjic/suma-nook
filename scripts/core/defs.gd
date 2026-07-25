@@ -20,6 +20,10 @@ class SkillDefinition:
 	var loot_table: String = ""
 	var rare_table: String = ""
 	var parcel_families: Array[String] = []
+	var direct_tile_reward_chance: float = -1.0
+	var direct_tile_reward_pool: Array[String] = []
+	var collection_category: String = ""
+	var collection_entries: Array[String] = []
 	var animation_tag: String = ""
 	var audio_tag: String = ""
 	var unlocks: Array = []           # [{level:int, kind:String, id:String, note:String}]
@@ -40,6 +44,12 @@ class SkillDefinition:
 		s.rare_table = d.get("rare_table", "")
 		for family in d.get("parcel_families", []):
 			s.parcel_families.append(String(family))
+		s.direct_tile_reward_chance = float(d.get("direct_tile_reward_chance", -1.0))
+		for tile_id in d.get("direct_tile_reward_pool", []):
+			s.direct_tile_reward_pool.append(String(tile_id))
+		s.collection_category = String(d.get("collection_category", ""))
+		for entry_id in d.get("collection_entries", []):
+			s.collection_entries.append(String(entry_id))
 		s.animation_tag = d.get("animation_tag", s.id)
 		s.audio_tag = d.get("audio_tag", s.id)
 		s.unlocks = d.get("unlocks", [])

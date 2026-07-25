@@ -1,6 +1,6 @@
 class_name PlayerVisual
 extends Node3D
-## Builds the chunky keeper proxy from character_proxy.glb, applies the
+## Builds the rounded life-sim keeper from character_proxy.glb, applies the
 ## profile's customization (skin, hair, eyes, outfit), attaches equipment
 ## visuals, and drives all procedural animation (walk bob, chop, cast, dodge,
 ## hit flash, celebrate). A future Tier C rigged character replaces this by
@@ -45,19 +45,27 @@ func _collect_parts() -> void:
 		if hair != null:
 			_hair_nodes.append(hair)
 	# The bun/fall sub-meshes follow their parent style visibility.
-	for extra_name in ["Hair02_bun", "Hair03_fall"]:
+	for extra_name in [
+		"Hair00_bangL", "Hair00_bangR", "Hair01_tuft",
+		"Hair02_bun", "Hair03_fall",
+	]:
 		var extra := _find(extra_name)
 		if extra != null:
 			_hair_nodes.append(extra)
-	for eye_name in ["EyeL", "EyeR"]:
+	for eye_name in ["EyeL", "EyeR", "EyeHighlightL", "EyeHighlightR"]:
 		var eye := _find(eye_name) as MeshInstance3D
 		if eye != null:
 			_eye_nodes.append(eye)
 
 	# Shoulder pivots so arms swing naturally; hands ride along.
-	_arm_r = _wrap_pivot("ArmRPivot", Vector3(0.3, 0.8, 0.0), ["ArmR", "HandR"])
-	_arm_l = _wrap_pivot("ArmLPivot", Vector3(-0.3, 0.8, 0.0), ["ArmL", "HandL"])
-	_head_group = _wrap_pivot("HeadPivot", Vector3(0, 0.92, 0), ["Head", "EyeL", "EyeR", "Hair00", "Hair01", "Hair02", "Hair02_bun", "Hair03", "Hair03_fall"])
+	_arm_r = _wrap_pivot("ArmRPivot", Vector3(0.22, 0.66, 0.0), ["ArmR", "HandR"])
+	_arm_l = _wrap_pivot("ArmLPivot", Vector3(-0.22, 0.66, 0.0), ["ArmL", "HandL"])
+	_head_group = _wrap_pivot("HeadPivot", Vector3(0, 0.69, 0), [
+		"Head", "EarL", "EarR", "EyeL", "EyeR", "EyeHighlightL",
+		"EyeHighlightR", "Nose", "CheekL", "CheekR", "MouthL", "MouthR",
+		"Hair00", "Hair00_bangL", "Hair00_bangR", "Hair01", "Hair01_tuft",
+		"Hair02", "Hair02_bun", "Hair03", "Hair03_fall",
+	])
 
 	_tool_mount = Node3D.new()
 	_tool_mount.name = "ToolMount"
@@ -69,7 +77,7 @@ func _collect_parts() -> void:
 	add_child(_back_mount)
 	_head_mount = Node3D.new()
 	_head_mount.name = "HeadMount"
-	_head_mount.position = Vector3(0, 0.2, 0)
+	_head_mount.position = Vector3(0, 0.42, 0)
 	_head_group.add_child(_head_mount)
 
 
@@ -99,10 +107,15 @@ func apply_profile(profile: PlayerProfile) -> void:
 	var skin := palette.skin_tones[clampi(profile.skin_index, 0, palette.skin_tones.size() - 1)]
 	var hair := palette.hair_colors[clampi(profile.hair_color_index, 0, palette.hair_colors.size() - 1)]
 	var outfit := palette.outfit_colors[clampi(profile.outfit_index, 0, palette.outfit_colors.size() - 1)]
-	_tint_parts(["Head", "HandL", "HandR"], materials.tinted("skin", skin))
-	_tint_parts(["Hair00", "Hair01", "Hair02", "Hair02_bun", "Hair03", "Hair03_fall"], materials.tinted("hair", hair))
+	_tint_parts(["Head", "EarL", "EarR", "HandL", "HandR"], materials.tinted("skin", skin))
+	_tint_parts(["Nose"], materials.tinted("skin", skin.darkened(0.08)))
+	_tint_parts(["CheekL", "CheekR"], materials.tinted("petal_pink", skin.lerp(palette.color("petal_pink"), 0.34)))
+	_tint_parts([
+		"Hair00", "Hair00_bangL", "Hair00_bangR", "Hair01", "Hair01_tuft",
+		"Hair02", "Hair02_bun", "Hair03", "Hair03_fall",
+	], materials.tinted("hair", hair))
 	_tint_parts(["Torso", "ArmL", "ArmR"], materials.tinted("fabric", outfit))
-	_tint_parts(["Belt"], materials.material("fabric_accent"))
+	_tint_parts(["Belt", "Collar"], materials.material("fabric_accent"))
 	for i in _hair_nodes.size():
 		var node := _hair_nodes[i]
 		var style_index := profile.hair_style
@@ -144,7 +157,9 @@ func apply_equipment(equipment: EquipmentManager, held_tool_type := "") -> void:
 		_tool_mount.add_child(tool_visual)
 	var head_item := equipment.equipped_in("head")
 	if head_item != null and head_item.asset_id != "":
-		_head_mount.add_child(assets.instantiate(head_item.asset_id))
+		var head_visual := assets.instantiate(head_item.asset_id)
+		head_visual.scale = Vector3.ONE * 1.35
+		_head_mount.add_child(head_visual)
 	var back_item := equipment.equipped_in("back")
 	if back_item != null and back_item.asset_id != "":
 		_back_mount.add_child(assets.instantiate(back_item.asset_id))

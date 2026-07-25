@@ -53,6 +53,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		_yaw_target += 90.0
 	elif event.is_action_pressed("camera_rotate_right"):
 		_yaw_target -= 90.0
+	elif event.is_action_pressed("camera_zoom_in"):
+		_zoom_by(-core.registries.tunef("camera_wheel_zoom_step", 1.0))
+	elif event.is_action_pressed("camera_zoom_out"):
+		_zoom_by(core.registries.tunef("camera_wheel_zoom_step", 1.0))
 	elif event is InputEventMouseButton and event.pressed:
 		var wheel := event as InputEventMouseButton
 		var wheel_amount := maxf(0.1, wheel.factor)

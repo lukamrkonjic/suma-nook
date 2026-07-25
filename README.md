@@ -1,17 +1,16 @@
-# Suma Nook — living world progression MVP
+# Suma Nook — cozy ferry-fed world builder
 
-A cozy RPG-builder where you level skills to earn the materials and land
-pieces used to physically grow and beautify your own miniature world, one
-handcrafted tile at a time.
+A cozy diorama builder where periodic ferry deliveries bring finished pieces
+of land. Walk freely, choose tiles from Land Parcels, place and decorate them,
+and enjoy optional catch-and-release Fishing and Woodland Tending for XP,
+journal discoveries, and rare direct world rewards.
 
-You begin as a small keeper on exactly nine tiles floating in warm cream fog.
-Fishing brings materials and fragments of new land; Land Parcels reveal three
-handcrafted tile choices; placed tiles bring groves, and groves bring
-Woodcutting, crafting, and buildings. Dark silhouettes appear on the horizon —
-build toward them, clear their thornlings, and fold reclaimed ruins into a
-world that is a physical record of everything you've done.
+You begin on a nine-cell island: six land cells and three connected water cells
+across its northern edge. A little ferry approaches the dock, unloads one
+Land Parcel, and leaves you three handcrafted tile choices. There is no
+material-loot grind, combat loop, survival pressure, or delivery FOMO.
 
-**"I begin with almost nothing. Everything I do becomes part of my world."**
+**"A small world arrives one beautiful piece at a time."**
 
 - Design pillars: `DESIGN_PILLARS.md` · Scope: `MVP_SCOPE.md` · Report:
   `MVP_REPORT.md` · Rework history: `REWORK_AUDIT.md`
@@ -32,14 +31,16 @@ world that is a physical record of everything you've done.
 
 | Input | Action |
 |---|---|
-| WASD / arrows / left stick | walk (continuous, camera-relative) |
-| E or left click | contextual interact (fish, chop, attack, storage, claim) |
+| WASD / left stick | walk (continuous, camera-relative; overrides click travel) |
+| Left click ground | walk there |
+| Left click object / E | approach and interact / contextual interact |
 | Space | dodge |
 | B | building mode · click place · click placed piece to move |
 | R | rotate held piece · X store held piece |
-| Q / X | rotate camera 90° · mouse wheel zoom |
+| ← / → or Q / X | rotate camera 90° with the grid |
+| ↑ / ↓ or mouse wheel / trackpad | zoom camera |
 | Esc / right click | cancel / close |
-| I C K J M | storage · character · skills · collection · world map |
+| I C K J M | Tile/Build Libraries · character · hobbies · collection · world map |
 | H | return home safely |
 | Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z | undo / redo placement |
 | F1 | debug panel (dev builds only) |
@@ -62,11 +63,10 @@ generators · `legacy/` pre-rework prototype (unreferenced, safe to delete).
 Everything is data-first; the checklists below are complete — no engine code
 changes needed unless stated.
 
-**A skill** — add to `data/skills.json` (id, xp curve, tool_type, loot
-tables, unlocks). Add its loot tables (`loot_tables.json`), an anchor
-(`anchors.json`) and tiles that host it (`tiles.json`). If it needs a new
-action sequence beyond fish/chop patterns, extend `SkillActions` — the mining
-definition already ships to prove the data path.
+**A hobby** — add to `data/skills.json` (stable id, XP curve, tool type,
+direct tile reward chance/pool, collection category/entries, milestones), an
+anchor in `anchors.json`, and host tiles in `tiles.json`. Ordinary hobby
+actions intentionally have no common material drop table.
 
 **A tile** — model it in `art_source/procedural/build_assets.py` (or drop a
 GLB with semantic material names into `assets/3d/final/`), run

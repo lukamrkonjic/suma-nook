@@ -68,21 +68,22 @@ func _build_cell(coord: Vector2i) -> void:
 	add_child(holder)
 	_tile_nodes[coord] = holder
 
-	var visual := assets.instantiate(def.asset_id)
+	var visual := _make_open_water_tile() if def.id == "tile_open_water" else assets.instantiate(def.asset_id)
 	visual.rotation.y = state.rotation * PI * 0.5
 	holder.add_child(visual)
 
 	# Ground collider: one box whose top is exactly y=0 — identical heights on
 	# every tile means zero collision seams between connected tiles.
-	var body := StaticBody3D.new()
-	body.collision_layer = GROUND_LAYER
-	var shape := CollisionShape3D.new()
-	var box := BoxShape3D.new()
-	box.size = Vector3(core.grid.tile_size, 0.9, core.grid.tile_size)
-	shape.shape = box
-	shape.position.y = -0.45
-	body.add_child(shape)
-	holder.add_child(body)
+	if def.walkable:
+		var body := StaticBody3D.new()
+		body.collision_layer = GROUND_LAYER
+		var shape := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = Vector3(core.grid.tile_size, 0.9, core.grid.tile_size)
+		shape.shape = box
+		shape.position.y = -0.45
+		body.add_child(shape)
+		holder.add_child(body)
 
 	# Pond tiles: low blocker over the water basin so the player wades the
 	# shore but not the deep middle. Matches the basin authored in the GLB.
@@ -101,6 +102,27 @@ func _build_cell(coord: Vector2i) -> void:
 		_build_structure(holder, s)
 
 	_apply_anchor_visual(holder, state, def, false)
+
+
+func _make_open_water_tile() -> Node3D:
+	var root := Node3D.new()
+	root.name = "tile_open_water"
+	var bed := MeshInstance3D.new()
+	var bed_mesh := BoxMesh.new()
+	bed_mesh.size = Vector3(core.grid.tile_size, 0.82, core.grid.tile_size)
+	bed.mesh = bed_mesh
+	bed.position.y = -0.49
+	bed.material_override = materials.material("dark_soil")
+	root.add_child(bed)
+	var surface := MeshInstance3D.new()
+	surface.name = "ContinuousWater"
+	var water_mesh := BoxMesh.new()
+	water_mesh.size = Vector3(core.grid.tile_size + 0.012, 0.14, core.grid.tile_size + 0.012)
+	surface.mesh = water_mesh
+	surface.position.y = -0.08
+	surface.material_override = materials.material("water")
+	root.add_child(surface)
+	return root
 
 
 func _build_structure(holder: Node3D, s: WorldGrid.StructureState) -> void:
@@ -192,8 +214,10 @@ func _rebuild_edges() -> void:
 		child.queue_free()
 	var size := core.grid.tile_size
 	for coord: Vector2i in core.grid.cells:
+		if not core.grid.is_walkable(coord):
+			continue
 		for offset: Vector2i in WorldGrid.NEIGHBORS:
-			if core.grid.has_cell(coord + offset):
+			if core.grid.has_cell(coord + offset) and core.grid.is_walkable(coord + offset):
 				continue
 			var wall := StaticBody3D.new()
 			wall.collision_layer = BLOCKER_LAYER
@@ -210,6 +234,11 @@ func _rebuild_edges() -> void:
 # ------------------------------------------------------------------ landmarks
 
 func _sync_landmarks() -> void:
+	if not core.registries.feature("hostile_landmarks_enabled", false):
+		for node in _landmark_nodes.values():
+			node.queue_free()
+		_landmark_nodes.clear()
+		return
 	var seen := {}
 	for state in core.landmarks.active:
 		seen[state.landmark_id] = true

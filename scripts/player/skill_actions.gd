@@ -7,6 +7,7 @@ extends Node
 signal action_feedback(kind: String, data: Dictionary)   # renderer/audio hooks
 signal storage_requested
 signal landmark_prompt_requested(node: Node3D)
+signal delivery_package_requested
 
 var core: GameCore
 var player: PlayerController
@@ -31,22 +32,39 @@ func _on_player_state_changed(new_state: PlayerController.State) -> void:
 
 
 func try_interact() -> void:
+	interact_with(player.focus())
+
+
+## Direct-target companion to proximity focus, used when a click command
+## reaches the object the player actually selected.
+func interact_with(focus: Dictionary) -> void:
 	if player.state != PlayerController.State.FREE:
 		return
-	var focus := player.focus()
 	match focus.get("kind", ""):
 		"anchor":
+			var coord: Vector2i = focus.get("coord", Vector2i(9999, 9999))
+			var state := core.grid.cell(coord)
+			if state == null or state.anchor_resting:
+				return
 			var anchor: Defs.AnchorDefinition = focus["anchor"]
 			if anchor.skill_id == "fishing":
-				_start_fishing(focus["coord"])
+				_start_fishing(coord)
 			elif anchor.skill_id == "woodcutting":
-				_start_chopping(focus["coord"])
+				_start_chopping(coord)
 		"storage":
 			storage_requested.emit()
+		"delivery_package":
+			delivery_package_requested.emit()
 		"enemy":
-			attack(focus["node"])
+			if not core.registries.feature("combat_enabled", false):
+				return
+			var enemy_node := focus.get("node") as Node3D
+			if is_instance_valid(enemy_node):
+				attack(enemy_node)
 		"landmark_prompt":
-			landmark_prompt_requested.emit(focus["node"])
+			var prompt_node := focus.get("node") as Node3D
+			if is_instance_valid(prompt_node):
+				landmark_prompt_requested.emit(prompt_node)
 
 
 # ------------------------------------------------------------------ fishing
@@ -88,14 +106,14 @@ func _fishing_cycle(my_loop: int, coord: Vector2i) -> void:
 	visual.play("fish_catch")
 	effects.hide_bobber()
 	var skill := core.registries.skill("fishing")
-	# The catch arcs to the player; rewards resolve at the landing moment.
-	await effects.arc_reward(cast_point, player.global_position + Vector3(0, 0.7, 0))
+	# The catch is briefly visible, admired, and released automatically.
+	await effects.catch_and_release(cast_point, player.global_position + Vector3(0, 0.85, 0))
 	if my_loop != _loop_id:
 		return
+	var result := core.rewards.resolve_hobby_action(skill)
 	core.skills.record_action("fishing")
-	core.skills.add_xp("fishing", skill.action_xp)
-	var grants := core.rewards.roll_action_loot(skill, core.equipment.stat_total("yield_bonus"), core.equipment.stat_total("rare_bonus"))
-	action_feedback.emit("fish_catch", {"grants": grants, "point": player.global_position})
+	core.skills.add_xp("fishing", result.xp_awarded)
+	action_feedback.emit("fish_catch", {"result": result.to_dict(), "point": player.global_position})
 	await _wait(core.registries.tunef("fishing_repeat_pause", 0.7))
 	if my_loop != _loop_id:
 		return
@@ -134,10 +152,10 @@ func _chop_cycle(my_loop: int, coord: Vector2i) -> void:
 	var impact_point := core.grid.cell_to_world(coord) + Vector3(0.45, 0.7, 0.45)
 	effects.burst("fx_wood_chip", impact_point, 6)
 	effects.shake_vegetation(coord)
+	var result := core.rewards.resolve_hobby_action(core.registries.skill("woodcutting"))
 	core.skills.record_action("woodcutting")
-	core.skills.add_xp("woodcutting", core.registries.skill("woodcutting").action_xp)
-	var grants := core.rewards.roll_action_loot(core.registries.skill("woodcutting"), core.equipment.stat_total("yield_bonus"), core.equipment.stat_total("rare_bonus"))
-	action_feedback.emit("chop_impact", {"grants": grants, "point": impact_point})
+	core.skills.add_xp("woodcutting", result.xp_awarded)
+	action_feedback.emit("chop_impact", {"result": result.to_dict(), "point": impact_point})
 	state.anchor_actions_done += 1
 	if state.anchor_actions_done >= anchor.cycle_actions + state.anchor_upgrade:
 		state.anchor_resting = true
@@ -156,7 +174,7 @@ func _chop_cycle(my_loop: int, coord: Vector2i) -> void:
 # ------------------------------------------------------------------ combat
 
 func attack(enemy_node: Node3D) -> void:
-	if player.state != PlayerController.State.FREE:
+	if not core.registries.feature("combat_enabled", false) or player.state != PlayerController.State.FREE:
 		return
 	var my_loop := _loop_id + 1
 	_loop_id = my_loop

@@ -1,5 +1,5 @@
 {
-  "save_version": 1,
+  "save_version": 2,
   "save_path": "user://suma_nook_world.json",
   "tile_size": 2.0,
   "block_depth": 0.9,
@@ -27,6 +27,9 @@
   "camera_trackpad_zoom_speed": 0.28,
   "camera_pinch_zoom_speed": 6.0,
   "build_mode_size_bonus": 3.2,
+  "click_target_screen_radius": 54.0,
+  "click_ground_stop_radius": 0.12,
+  "click_interaction_stop_radius": 1.2,
 
   "fishing_wait_min": 1.2,
   "fishing_wait_max": 3.2,
@@ -37,6 +40,9 @@
   "tutorial_fragment_by_catch": 3,
 
   "grove_rest_visual_scale": 0.82,
+
+  "default_direct_tile_reward_chance": 0.025,
+  "fishing_collection_chance": 0.45,
 
   "horizon_check_tiles": [4, 7, 11, 16],
   "landmark_connect_adjacent": true,

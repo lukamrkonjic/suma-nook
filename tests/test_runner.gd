@@ -37,28 +37,39 @@ func fresh_core(seed_value := 12345) -> GameCore:
 
 
 func _run() -> void:
+	_test_input_bindings()
 	_test_registries()
 	_test_starting_world()
-	_test_xp_and_unlocks()
-	_test_deterministic_rng()
-	_test_fishing_rewards_and_tutorial()
-	_test_rare_pity()
-	_test_parcels_choice_and_duplicates()
-	_test_new_tile_pity()
+	_test_xp_only_hobbies()
+	_test_hobby_journal_and_direct_rewards()
+	_test_disabled_legacy_systems()
+	_test_arrival_and_parcel_loop()
+	_test_arrival_queue_and_presentation_swap()
 	_test_tile_adjacency_overlap_rotation()
 	_test_connectivity_and_relocation()
 	_test_sockets_and_overlap_prevention()
 	_test_anchor_cycle_and_regen()
-	_test_crafting_transactions()
-	_test_equipment()
-	_test_landmark_lifecycle()
-	_test_guardian_idempotency()
-	_test_pack_and_salvage()
-	_test_deed_replacement()
-	_test_save_round_trip()
+	_test_rework_save_round_trip()
 	_test_missing_definition_load()
-	_test_interrupted_reveal_recovery()
-	_test_player_defeat_safety()
+
+
+func _test_input_bindings() -> void:
+	check(_action_has_key("move_up", KEY_W), "W remains bound to character movement")
+	check(_action_has_key("move_left", KEY_A), "A remains bound to character movement")
+	check(not _action_has_key("move_up", KEY_UP), "up arrow no longer moves the character")
+	check(not _action_has_key("move_left", KEY_LEFT), "left arrow no longer moves the character")
+	check(_action_has_key("camera_rotate_right", KEY_LEFT), "left arrow uses the reversed camera spin")
+	check(_action_has_key("camera_rotate_left", KEY_RIGHT), "right arrow uses the reversed camera spin")
+	check(_action_has_key("camera_zoom_in", KEY_UP), "up arrow zooms the camera in")
+	check(_action_has_key("camera_zoom_out", KEY_DOWN), "down arrow zooms the camera out")
+
+
+func _action_has_key(action: StringName, physical_keycode: Key) -> bool:
+	for event in InputMap.action_get_events(action):
+		var key_event := event as InputEventKey
+		if key_event != null and key_event.physical_keycode == physical_keycode:
+			return true
+	return false
 
 
 func _test_registries() -> void:
@@ -67,6 +78,9 @@ func _test_registries() -> void:
 	check(regs.skills.size() == 3, "three skills defined")
 	check(regs.tiles.size() >= 15, "at least 15 tile variants")
 	check(regs.skill("mining").future, "mining is a future (data-only) skill")
+	check(not regs.feature("legacy_material_loot_enabled"), "ordinary material loot is disabled")
+	check(not regs.feature("combat_enabled"), "combat is disabled")
+	check(regs.feature("ferry_arrivals_enabled"), "periodic arrivals are enabled")
 	var fishing := regs.skill("fishing")
 	check(fishing.xp_to_next(1) > 0 and fishing.xp_to_next(2) > fishing.xp_to_next(1), "xp curve increases")
 
@@ -74,17 +88,121 @@ func _test_registries() -> void:
 func _test_starting_world() -> void:
 	var core := fresh_core()
 	check(core.grid.cells.size() == 9, "fresh save starts with exactly nine cells")
-	var families := {}
+	var water: Array[Vector2i] = []
+	var walkable := 0
 	for coord: Vector2i in core.grid.cells:
-		families[core.grid.tile_def(coord).id] = true
-	check(families.size() >= 3, "starting world uses coordinated variants, not nine identical tiles")
-	var has_pond := false
-	for coord: Vector2i in core.grid.cells:
-		if core.grid.tile_def(coord).anchor_id == "pond_anchor":
-			has_pond = true
-	check(has_pond, "starting world contains a fishable pond")
+		if core.grid.tile_def(coord).id == "tile_open_water":
+			water.append(coord)
+		if core.grid.is_walkable(coord):
+			walkable += 1
+	check(water.size() == 3, "starting world has exactly three water cells")
+	check(water.has(Vector2i(-1, -1)) and water.has(Vector2i(0, -1)) and water.has(Vector2i(1, -1)), "water occupies the northern/top row")
+	check(walkable == 6, "the other six starting cells are walkable land")
+	check(water[0].distance_squared_to(water[1]) <= 4 and water[1].distance_squared_to(water[2]) <= 4, "the water cells form one connected edge")
 	check(core.grid.is_walkable(Vector2i.ZERO), "home cell walkable")
+	check(core.grid.world_to_cell(core.profile.position) == Vector2i.ZERO, "player spawns safely on central land")
 	check(core.equipment.owns("tool_rod_basic"), "starter rod owned")
+
+
+func _test_xp_only_hobbies() -> void:
+	var core := fresh_core(404)
+	var inventory_before := core.inventory.counts.duplicate()
+	for hobby_id in ["fishing", "woodcutting"]:
+		var skill := core.registries.skill(hobby_id)
+		var old_chance := skill.direct_tile_reward_chance
+		skill.direct_tile_reward_chance = 0.0
+		var result := core.rewards.resolve_hobby_action(skill)
+		core.skills.record_action(hobby_id)
+		core.skills.add_xp(hobby_id, result.xp_awarded)
+		check(result.xp_awarded == skill.action_xp, "%s action returns configured XP" % hobby_id)
+		check(core.skills.xp_progress(hobby_id)["current"] == skill.action_xp, "%s XP reaches hobby progression" % hobby_id)
+		check(not result.has_world_reward(), "ordinary %s action has no forced world reward" % hobby_id)
+		skill.direct_tile_reward_chance = old_chance
+	check(str(core.inventory.counts) == str(inventory_before), "Fishing and Woodland Tending add no common inventory items")
+	check(core.rewards.roll_action_loot(core.registries.skill("fishing")).is_empty(), "disabled legacy fishing table cannot produce materials")
+	check(core.rewards.roll_action_loot(core.registries.skill("woodcutting")).is_empty(), "disabled legacy wood table cannot produce materials")
+
+
+func _test_hobby_journal_and_direct_rewards() -> void:
+	var core := fresh_core(505)
+	var fishing := core.registries.skill("fishing")
+	core.registries.tuning["fishing_collection_chance"] = 1.0
+	var old_entries := fishing.collection_entries.duplicate()
+	fishing.collection_entries = ["test_sunfish"] as Array[String]
+	var first := core.rewards.resolve_hobby_action(fishing)
+	check(first.collection_discovery_id == "test_sunfish", "first-time fish resolves a journal entry")
+	check(first.was_new_discovery, "first journal catch is marked new")
+	check(core.collection.is_discovered("fish", "test_sunfish"), "journal metadata is recorded")
+	check(core.inventory.counts.is_empty(), "journal discovery creates no fish item stack")
+	var before_tiles := core.stock.tile_count("tile_open_water")
+	var old_chance := fishing.direct_tile_reward_chance
+	var old_pool := fishing.direct_tile_reward_pool.duplicate()
+	fishing.direct_tile_reward_chance = 1.0
+	fishing.direct_tile_reward_pool = ["tile_open_water"] as Array[String]
+	var rare := core.rewards.resolve_hobby_action(fishing)
+	check(rare.optional_tile_reward_id == "tile_open_water", "rare hobby reward is already a finished tile")
+	check(core.stock.tile_count("tile_open_water") == before_tiles + 1, "rare tile enters the Tile Library directly")
+	check(core.inventory.counts.is_empty(), "rare world reward bypasses material inventory")
+	fishing.collection_entries = old_entries
+	fishing.direct_tile_reward_chance = old_chance
+	fishing.direct_tile_reward_pool = old_pool
+
+
+func _test_disabled_legacy_systems() -> void:
+	var core := fresh_core()
+	check(core.crafting.available_recipes().is_empty(), "material crafting recipes are hidden")
+	check(not core.crafting.craft("recipe_meadow_parcel"), "material-to-land crafting is disabled")
+	for i in 20:
+		core.stock.add_tile("tile_grass")
+		var coord := Vector2i(2 + i, 0)
+		core.place_tile_from_stock(coord, "tile_grass", 0)
+	check(core.landmarks.active.is_empty(), "world growth creates no hostile landmarks")
+	check(not core.registries.feature("monsters_enabled"), "monster spawning flag remains disabled")
+	check(not core.registries.feature("hostile_landmarks_enabled"), "hostile landmark flag remains disabled")
+
+
+func _test_arrival_and_parcel_loop() -> void:
+	var core := fresh_core(606)
+	var requested: Array = []
+	core.arrivals.arrival_requested.connect(func(payload): requested.append(payload))
+	core.arrivals.time_until_next = 0.01
+	core.tick(0.02)
+	check(requested.size() == 1, "arrival timer requests exactly one presentation")
+	check(core.arrivals.state == ArrivalScheduler.ARRIVING, "arrival enters presentation state")
+	var payload := requested[0] as LandParcelPayload
+	check(payload.parcel_id == "parcel_wild", "ferry payload is a Land Parcel")
+	core.arrivals.mark_delivery_ready(payload)
+	check(core.arrivals.has_waiting_package(), "ferry unloads one waiting package")
+	var options := core.arrivals.open_waiting(core.parcels)
+	check(options.size() == 3, "dock package reveals three tile choices")
+	check(core.arrivals.state == ArrivalScheduler.OPENED, "scheduler pauses while parcel choice is open")
+	var chosen := core.parcels.choose(0)
+	check(chosen == options[0], "selected parcel option is authoritative")
+	check(core.stock.tile_count(chosen) == 1, "selected tile enters the Tile Library")
+	for index in range(1, options.size()):
+		if options[index] != chosen:
+			check(core.stock.tile_count(options[index]) == 0, "unselected tile does not enter any inventory")
+	core.arrivals.resolve_delivery()
+	check(core.arrivals.state == ArrivalScheduler.IDLE, "next timer begins after the choice is stored")
+	check(core.arrivals.time_until_next >= 300.0, "later arrival uses configured relaxed timing")
+
+
+func _test_arrival_queue_and_presentation_swap() -> void:
+	var core := fresh_core(707)
+	var requests := [0]
+	core.arrivals.arrival_requested.connect(func(_payload): requests[0] += 1)
+	check(core.arrivals.set_presentation("postcard"), "debug presentation can switch to postcard")
+	check(core.arrivals.presentation_id == "postcard", "presentation selection is state only")
+	check(core.arrivals.trigger_arrival(), "postcard uses the same scheduler")
+	check(requests[0] == 1, "selected presentation receives one generic request")
+	var payload := core.arrivals.current_payload
+	core.arrivals.mark_delivery_ready(payload)
+	check(not core.arrivals.trigger_arrival(), "unopened package blocks delivery accumulation")
+	var fishing := core.registries.skill("fishing")
+	fishing.direct_tile_reward_chance = 0.0
+	core.rewards.resolve_hobby_action(fishing)
+	check(core.arrivals.has_waiting_package(), "player can perform a hobby while ferry package waits")
+	check(core.arrivals.deliveries_created == 0, "waiting never creates unattended delivery stacks")
 
 
 func _test_xp_and_unlocks() -> void:
@@ -379,14 +497,14 @@ func _test_deed_replacement() -> void:
 	check(placed != null and placed.phase == LandmarkManager.PHASE_RECLAIMED, "re-placed landmark is peaceful")
 
 
-func _test_save_round_trip() -> void:
+func _test_rework_save_round_trip() -> void:
 	var core := fresh_core(31415)
 	core.skills.add_xp("fishing", 55)
-	core.inventory.grant("softwood", 7, false, true)
 	core.stock.add_tile("tile_grove_birch")
-	core.profile.position = Vector3(1.234, 0.0, -2.345)   # between tile centers
+	core.profile.position = Vector3(0.234, 0.0, 0.345)   # continuous, between tile centers
 	core.profile.facing = 1.11
-	core.grid.cell(Vector2i(1, -1)).anchor_upgrade = 1
+	core.arrivals.trigger_arrival()
+	core.arrivals.mark_delivery_ready(core.arrivals.current_payload)
 	var rng_next := core.rng.randi_range("probe", 0, 999999)
 	check(core.save(), "save writes")
 	var restored := GameCore.new()
@@ -395,12 +513,13 @@ func _test_save_round_trip() -> void:
 	restored.save_manager.backup_path = core.save_manager.backup_path
 	check(restored.load_game(), "save loads")
 	check(restored.skills.xp["fishing"] == core.skills.xp["fishing"], "xp round-trips")
-	check(restored.inventory.count("softwood") == 7, "inventory round-trips")
+	check(restored.inventory.counts.is_empty(), "active material inventory stays empty")
 	check(restored.stock.tile_count("tile_grove_birch") == 1, "stock round-trips")
 	check(restored.grid.cells.size() == core.grid.cells.size(), "grid round-trips")
-	check(restored.profile.position.is_equal_approx(Vector3(1.234, 0.0, -2.345)), "exact float player position round-trips")
+	check(restored.profile.position.is_equal_approx(Vector3(0.234, 0.0, 0.345)), "exact float player position round-trips")
 	check(absf(restored.profile.facing - 1.11) < 0.0001, "facing round-trips")
-	check(restored.grid.cell(Vector2i(1, -1)).anchor_upgrade == 1, "anchor state round-trips")
+	check(restored.arrivals.has_waiting_package(), "unopened ferry parcel survives restart")
+	check(restored.arrivals.current_payload.parcel_id == "parcel_wild", "delivery payload survives restart")
 	# RNG stream continues identically after reload (probe stream was consumed once pre-save)
 	var loaded_next := restored.rng.randi_range("probe", 0, 999999)
 	var fresh_again := GameCore.new()

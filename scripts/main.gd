@@ -15,6 +15,9 @@ var world_root: Node3D
 var lighting: LightingRig
 var renderer: WorldRenderer
 var effects: EffectsManager
+var delivery_point: DeliveryPoint
+var ferry_presentation: FerryArrivalPresentation
+var postcard_presentation: InstantPostcardArrivalPresentation
 var player: PlayerController
 var player_visual: PlayerVisual
 var camera_rig: CameraRig
@@ -76,6 +79,11 @@ func _handle_dev_shot(user_args: PackedStringArray) -> bool:
 		renderer.rebuild_all()
 		player.position = core.profile.position
 		_start_gameplay(true)
+	if user_args.has("--ferry"):
+		core.arrivals.trigger_arrival()
+	elif user_args.has("--package"):
+		core.arrivals.trigger_arrival()
+		debug_force_ferry_departure()
 	if user_args.has("--rain"):
 		core.grid.add_structure(Vector2i(-1, 0), "struct_campfire", 0, 0)
 		core.grid.add_structure(Vector2i(0, 1), "struct_lantern", 2, 0)
@@ -111,6 +119,19 @@ func _build_world_scene() -> void:
 	effects.name = "Effects"
 	world_root.add_child(effects)
 	effects.setup(assets)
+
+	delivery_point = DeliveryPoint.new()
+	world_root.add_child(delivery_point)
+	delivery_point.setup(materials, core.grid.tile_size, Vector3(0, 0, -1))
+
+	ferry_presentation = FerryArrivalPresentation.new()
+	ferry_presentation.name = "FerryArrivalPresentation"
+	world_root.add_child(ferry_presentation)
+	ferry_presentation.setup(materials)
+	postcard_presentation = InstantPostcardArrivalPresentation.new()
+	postcard_presentation.name = "InstantPostcardArrivalPresentation"
+	world_root.add_child(postcard_presentation)
+	postcard_presentation.setup(materials)
 
 	player = PlayerController.new()
 	player.name = "Player"
@@ -183,25 +204,35 @@ func _connect_flows() -> void:
 
 	skill_actions.action_feedback.connect(_on_action_feedback)
 	skill_actions.storage_requested.connect(func(): panels.toggle("inventory"))
+	skill_actions.delivery_package_requested.connect(_open_delivery_package)
 	skill_actions.landmark_prompt_requested.connect(func(node):
 		panels.show_landmark_choice(String(node.get_meta("landmark_id"))))
 
 	placement.action_result.connect(_on_placement_result)
 	player.interaction_focus_changed.connect(_on_focus_changed)
+	player.click_interaction_reached.connect(_on_click_interaction_reached)
 
 	core.skills.level_up.connect(func(_s, _l, _u):
 		audio.play_event("levelup")
 		player_visual.play("celebrate")
 		hud.update_tutorial())
 	core.collection.discovered.connect(func(_c, _i): audio.play_event("discovery"))
-	core.combat.health_changed.connect(_on_health_changed)
-	core.combat.player_defeated.connect(_on_player_defeated)
-	core.combat.enemy_hit.connect(func(_s, _r): audio.play_event("enemy_hit"))
-	core.combat.enemy_defeated.connect(_on_enemy_defeated)
+	if core.registries.feature("combat_enabled", false):
+		core.combat.health_changed.connect(_on_health_changed)
+		core.combat.player_defeated.connect(_on_player_defeated)
+		core.combat.enemy_hit.connect(func(_s, _r): audio.play_event("enemy_hit"))
+		core.combat.enemy_defeated.connect(_on_enemy_defeated)
 	core.landmarks.opportunity_appeared.connect(_on_opportunity)
 	core.landmarks.landmark_revealed.connect(_on_landmark_revealed)
 	core.landmarks.landmark_reclaimed.connect(_on_landmark_reclaimed)
 	core.rewards.loot_granted.connect(_on_loot)
+	core.rewards.hobby_result_resolved.connect(_on_hobby_result)
+	core.arrivals.arrival_requested.connect(_on_arrival_requested)
+	core.arrivals.delivery_ready.connect(_on_delivery_ready)
+	core.arrivals.delivery_resolved.connect(func(): delivery_point.hide_package())
+	ferry_presentation.arrival_started.connect(_on_presentation_arrival_started)
+	ferry_presentation.delivery_ready.connect(_on_presentation_delivery_ready)
+	postcard_presentation.delivery_ready.connect(_on_presentation_delivery_ready)
 	lighting.profile_applied.connect(_on_profile_applied)
 	if lighting.current_profile != null:
 		_on_profile_applied(lighting.current_profile)
@@ -220,6 +251,8 @@ func _start_character_creation() -> void:
 	core._compose_starting_world()
 	renderer.rebuild_all()
 	player.position = core.grid.cell_to_world(Vector2i.ZERO)
+	# Present the actual front of the avatar while customization is open.
+	player.rotation.y = PI
 	camera_rig.zoom_for_creator()
 	player.set_state(PlayerController.State.DISABLED)
 	creator.creation_finished.connect(_on_creation_finished)
@@ -244,10 +277,12 @@ func _start_gameplay(fresh: bool) -> void:
 		player.rotation.y = core.profile.facing
 		player_visual.apply_profile(core.profile)
 		player_visual.apply_equipment(core.equipment)
-		_spawn_saved_encounters()
+		if core.registries.feature("hostile_landmarks_enabled", false):
+			_spawn_saved_encounters()
 		hud._refresh_all()
 	hud.update_tutorial()
 	hud.toast("Welcome%s, %s." % ["" if fresh else " back", core.profile.display_name], "good")
+	core.arrivals.announce_restored_delivery()
 
 
 func _process(delta: float) -> void:
@@ -285,6 +320,33 @@ func _tick_anchor_visuals() -> void:
 
 # ------------------------------------------------------------------ input routing
 
+func _input(event: InputEvent) -> void:
+	if not event is InputEventMouseButton:
+		return
+	var mouse := event as InputEventMouseButton
+	if not mouse.pressed or mouse.button_index != MOUSE_BUTTON_LEFT:
+		return
+	var interactive := _hovered_clickable_control() != null
+	if (
+		not interactive
+		and _gameplay_started
+		and not placement.active
+		and not panels.is_open()
+		and not parcel_reveal.is_open()
+	):
+		interactive = not _interaction_at_screen(mouse.position).is_empty()
+	effects.click_marker(mouse.position, interactive)
+
+
+func _hovered_clickable_control() -> Control:
+	var control := get_viewport().gui_get_hovered_control()
+	while control != null:
+		if control is BaseButton or control is Range or control is LineEdit or control is TextEdit:
+			return control
+		control = control.get_parent() as Control
+	return null
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not _gameplay_started:
 		return
@@ -317,6 +379,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if placement.active:
 			placement.click()
 		else:
+			player.cancel_click_command()
 			skill_actions.try_interact()
 	elif event.is_action_pressed("cancel"):
 		if panels.is_open():
@@ -325,6 +388,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			placement.cancel_click()
 		else:
 			skill_actions.cancel_all()
+			player.cancel_click_command()
 			player.set_state(PlayerController.State.FREE)
 	elif event is InputEventMouseButton and event.pressed:
 		var mouse := event as InputEventMouseButton
@@ -332,7 +396,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if placement.active:
 				placement.click()
 			else:
-				skill_actions.try_interact()
+				_handle_world_click(mouse.position)
 		elif mouse.button_index == MOUSE_BUTTON_RIGHT:
 			if placement.active:
 				placement.cancel_click()
@@ -341,6 +405,154 @@ func _unhandled_input(event: InputEvent) -> void:
 		if key.physical_keycode == KEY_X and placement.active:
 			placement.store_held()
 			audio.play_event("store")
+
+
+# ------------------------------------------------------------------ click commands
+
+func _handle_world_click(screen_position: Vector2) -> void:
+	if panels.is_open() or parcel_reveal.is_open():
+		return
+	var interaction := _interaction_at_screen(screen_position)
+	var destination: Variant
+	if interaction.is_empty():
+		destination = _ground_point_at_screen(screen_position)
+		if destination == null:
+			return
+		var cell := core.grid.world_to_cell(destination)
+		if not core.grid.is_walkable(cell):
+			return
+	else:
+		destination = interaction["point"]
+	skill_actions.cancel_all()
+	if player.state != PlayerController.State.FREE:
+		player.set_state(PlayerController.State.FREE)
+	player.set_click_command(destination, interaction)
+
+
+func _ground_point_at_screen(screen_position: Vector2) -> Variant:
+	var origin := camera_rig.camera.project_ray_origin(screen_position)
+	var direction := camera_rig.camera.project_ray_normal(screen_position)
+	if absf(direction.y) < 0.0001:
+		return null
+	var distance := -origin.y / direction.y
+	if distance < 0.0:
+		return null
+	var point := origin + direction * distance
+	point.y = 0.0
+	return point
+
+
+func _interaction_at_screen(screen_position: Vector2) -> Dictionary:
+	var best: Dictionary = {}
+	var best_distance := INF
+	var base_radius := core.registries.tunef("click_target_screen_radius", 54.0)
+
+	for enemy in get_tree().get_nodes_in_group("enemies"):
+		if not core.registries.feature("combat_enabled", false):
+			break
+		var enemy_node := enemy as Node3D
+		if not is_instance_valid(enemy_node):
+			continue
+		var point := enemy_node.global_position
+		var candidate := _screen_candidate(
+			screen_position,
+			point + Vector3(0, 0.55, 0),
+			base_radius,
+			{"kind": "enemy", "node": enemy_node, "point": point}
+		)
+		if not candidate.is_empty() and candidate["_distance"] < best_distance:
+			best = candidate
+			best_distance = candidate["_distance"]
+
+	for marker in get_tree().get_nodes_in_group("landmark_prompts"):
+		if not core.registries.feature("hostile_landmarks_enabled", false):
+			break
+		var marker_node := marker as Node3D
+		if not is_instance_valid(marker_node):
+			continue
+		var point := marker_node.global_position
+		var candidate := _screen_candidate(
+			screen_position,
+			point + Vector3(0, 1.05, 0),
+			base_radius,
+			{"kind": "landmark_prompt", "node": marker_node, "point": point}
+		)
+		if not candidate.is_empty() and candidate["_distance"] < best_distance:
+			best = candidate
+			best_distance = candidate["_distance"]
+
+	for package in get_tree().get_nodes_in_group("delivery_packages"):
+		var package_node := package as Node3D
+		if not is_instance_valid(package_node) or not package_node.visible:
+			continue
+		var candidate := _screen_candidate(
+			screen_position,
+			package_node.global_position + Vector3(0, 0.25, 0),
+			base_radius * 1.2,
+			{
+				"kind": "delivery_package",
+				"node": package_node,
+				"point": delivery_point.player_interaction.global_position,
+			}
+		)
+		if not candidate.is_empty():
+			candidate["_distance"] -= base_radius
+		if not candidate.is_empty() and candidate["_distance"] < best_distance:
+			best = candidate
+			best_distance = candidate["_distance"]
+
+	for coord: Vector2i in core.grid.cells:
+		var state := core.grid.cell(coord)
+		var tile_def := core.grid.tile_def(coord)
+		var center := core.grid.cell_to_world(coord)
+		if tile_def != null and tile_def.anchor_id != "" and not state.anchor_resting:
+			var anchor := core.registries.anchor(tile_def.anchor_id)
+			if anchor != null and core.skills.is_playable(anchor.skill_id):
+				var interaction_point := center
+				if not tile_def.walkable and tile_def.water_cells.has("open_water"):
+					interaction_point += Vector3(0, 0, 1.25)
+				var candidate := _screen_candidate(
+					screen_position,
+					center + Vector3(0, 0.55, 0),
+					base_radius * 1.35,
+					{"kind": "anchor", "coord": coord, "anchor": anchor, "point": interaction_point}
+				)
+				if not candidate.is_empty() and candidate["_distance"] < best_distance:
+					best = candidate
+					best_distance = candidate["_distance"]
+		for structure in state.structures:
+			var structure_def := core.registries.structure(structure.structure_id)
+			if structure_def == null or not structure_def.provides.has("storage_access"):
+				continue
+			var point := center + core.grid.socket_offset(structure.socket_index)
+			var candidate := _screen_candidate(
+				screen_position,
+				point + Vector3(0, 0.45, 0),
+				base_radius,
+				{"kind": "storage", "coord": coord, "point": point}
+			)
+			if not candidate.is_empty() and candidate["_distance"] < best_distance:
+				best = candidate
+				best_distance = candidate["_distance"]
+
+	best.erase("_distance")
+	return best
+
+
+func _screen_candidate(
+	screen_position: Vector2,
+	visual_point: Vector3,
+	radius: float,
+	interaction: Dictionary
+) -> Dictionary:
+	if camera_rig.camera.is_position_behind(visual_point):
+		return {}
+	var distance := screen_position.distance_to(camera_rig.camera.unproject_position(visual_point))
+	if distance > radius:
+		return {}
+	var candidate := interaction.duplicate()
+	candidate["_distance"] = distance
+	return candidate
 
 
 # ------------------------------------------------------------------ cross-cutting flows
@@ -353,13 +565,11 @@ func _on_action_feedback(kind: String, data: Dictionary) -> void:
 			audio.play_event("fish_bite")
 		"fish_catch":
 			audio.play_event("fish_catch")
-			_reward_sound(data.get("grants", []))
 			hud.update_tutorial()
 		"chop_windup":
 			audio.play_event("chop_windup")
 		"chop_impact":
 			audio.play_event("chop_impact")
-			_reward_sound(data.get("grants", []))
 			hud.update_tutorial()
 		"grove_rest":
 			audio.play_event("grove_rest")
@@ -386,6 +596,7 @@ func _on_loot(grants: Array) -> void:
 
 func _on_tile_chosen(tile_id: String) -> void:
 	audio.play_event("parcel_select")
+	core.arrivals.resolve_delivery()
 	hud.update_tutorial()
 	hud.toast("%s added to your build storage." % core.registries.tile(tile_id).display_name, "good")
 	placement.hold_new("tile", tile_id)
@@ -408,13 +619,64 @@ func _on_focus_changed(focus: Dictionary) -> void:
 			var skill := core.registries.skill(anchor.skill_id)
 			hud.set_prompt("E — %s (%s)" % [skill.display_name, anchor.display_name])
 		"storage":
-			hud.set_prompt("E — open storage")
+			hud.set_prompt("E — open Tile & Build Library")
+		"delivery_package":
+			hud.set_prompt("E — open the ferry's Land Parcel")
 		"enemy":
 			hud.set_prompt("E — attack   ·   Space — dodge")
 		"landmark_prompt":
 			hud.set_prompt("E — claim the watchpost")
 		_:
 			hud.set_prompt("")
+
+
+func _on_click_interaction_reached(interaction: Dictionary) -> void:
+	if interaction.get("kind", "") == "delivery_package":
+		_open_delivery_package()
+	else:
+		skill_actions.interact_with(interaction)
+
+
+func _open_delivery_package() -> void:
+	var options := core.arrivals.open_waiting(core.parcels)
+	if options.is_empty():
+		return
+	delivery_point.hide_package()
+	audio.play_event("parcel_open")
+	parcel_reveal.open_best_available()
+
+
+func _on_arrival_requested(payload: LandParcelPayload) -> void:
+	var presentation: ArrivalPresentationBase = (
+		postcard_presentation
+		if core.arrivals.presentation_id == "postcard"
+		else ferry_presentation
+	)
+	presentation.play(delivery_point, payload, core.registries.arrival_config)
+
+
+func _on_presentation_arrival_started() -> void:
+	audio.play_event("parcel_appear")
+	hud.toast("A little ferry is approaching the northern dock.", "good")
+
+
+func _on_presentation_delivery_ready(payload: LandParcelPayload) -> void:
+	core.arrivals.mark_delivery_ready(payload)
+
+
+func _on_delivery_ready(payload: LandParcelPayload) -> void:
+	delivery_point.show_package(payload)
+	audio.play_event("parcel_appear")
+	hud.toast("A Land Parcel is waiting at the northern dock.", "good")
+
+
+func _on_hobby_result(result: HobbyActionResult) -> void:
+	if result.was_new_discovery:
+		hud.toast("New journal discovery: %s" % result.collection_discovery_id.replace("_", " ").capitalize(), "good")
+	if result.optional_tile_reward_id != "":
+		var tile := core.registries.tile(result.optional_tile_reward_id)
+		hud.toast("Rare find — %s added to your Tile Library!" % tile.display_name, "rare")
+		audio.play_event("reward_rare")
 
 
 func _on_health_changed(current: int, _maximum: int) -> void:
@@ -500,6 +762,27 @@ func toggle_weather() -> void:
 	lighting.toggle_profile()
 
 
+func debug_force_ferry_departure() -> void:
+	if ferry_presentation.active:
+		ferry_presentation.force_departure()
+	elif postcard_presentation.active:
+		postcard_presentation.force_departure()
+	else:
+		core.arrivals.force_departure_ready()
+
+
+func debug_grant_dock_parcel() -> void:
+	if core.arrivals.state == ArrivalScheduler.IDLE:
+		core.arrivals.trigger_arrival()
+	debug_force_ferry_departure()
+
+
+func debug_toggle_arrival_presentation() -> void:
+	var next := "postcard" if core.arrivals.presentation_id == "ferry" else "ferry"
+	if core.arrivals.set_presentation(next):
+		hud.toast("Arrival presentation: %s" % next.capitalize(), "good")
+
+
 func _on_profile_applied(profile: VisualStyleProfile) -> void:
 	audio.set_rain(profile.rain_enabled)
 	hud.apply_weather_contrast(profile.rain_enabled)
@@ -517,7 +800,9 @@ func reload_from_save() -> void:
 		for encounter in _encounters.values():
 			encounter.queue_free()
 		_encounters.clear()
-		_spawn_saved_encounters()
+		if core.registries.feature("hostile_landmarks_enabled", false):
+			_spawn_saved_encounters()
+		core.arrivals.announce_restored_delivery()
 		hud._refresh_all()
 		hud.toast("Save reloaded.", "good")
 

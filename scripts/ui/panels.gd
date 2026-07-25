@@ -74,34 +74,23 @@ func _scroll_list(height := 380.0) -> Dictionary:
 # ------------------------------------------------------------------ inventory
 
 func _inventory_panel() -> Dictionary:
-	var win := kit.window("Storage", Vector2(460, 520))
+	var win := kit.window("Tile & Build Libraries", Vector2(500, 520))
 	var parts := _scroll_list()
 	win["content"].add_child(parts["scroll"])
 	var list: VBoxContainer = parts["list"]
-	var sections := [
-		["Land Parcels", "parcel"], ["Materials", "material"], ["Tools", "tool"],
-		["Equipment", "equipment"], ["Relics", "relic"],
-	]
-	for section in sections:
-		var entries := core.inventory.items_in_category(section[1])
-		if section[1] == "material":
-			entries = entries.filter(func(e): return not e["item"].tags.has("fish")) + core.inventory.items_in_category("material").filter(func(e): return e["item"].tags.has("fish"))
-		if entries.is_empty():
-			continue
-		list.add_child(kit.label(section[0], 19))
-		for entry in entries:
-			var def: Defs.ItemDefinition = entry["item"]
-			var row := HBoxContainer.new()
-			var name_label := kit.label("%s ×%d" % [def.display_name, entry["count"]], 16)
-			name_label.add_theme_color_override("font_color", kit.rarity_color(def.rarity))
-			name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			name_label.tooltip_text = def.description
-			row.add_child(name_label)
-			list.add_child(row)
-	if core.inventory.reroll_charges > 0:
-		list.add_child(kit.label("Pattern Rerolls ×%d" % core.inventory.reroll_charges, 16))
-	if core.stock.total_tiles() > 0:
-		list.add_child(kit.label("Unplaced land: %d tile(s) — see Build mode" % core.stock.total_tiles(), 15))
+	list.add_child(kit.label("Tile Library", 20))
+	for tile_id: String in core.stock.tiles:
+		var tile := core.registries.tile(tile_id)
+		list.add_child(kit.label("⬢ %s ×%d" % [tile.display_name, core.stock.tile_count(tile_id)], 16))
+	if core.stock.tiles.is_empty():
+		list.add_child(kit.label("No unplaced tiles yet. The ferry brings Land Parcels.", 14))
+	list.add_child(kit.label("Build Library", 20))
+	for structure_id: String in core.stock.structures:
+		var structure := core.registries.structure(structure_id)
+		list.add_child(kit.label("⌂ %s ×%d" % [structure.display_name, core.stock.structure_count(structure_id)], 16))
+	if core.stock.structures.is_empty():
+		list.add_child(kit.label("No stored decorations yet.", 14))
+	list.add_child(kit.label("Press B to place anything from either library.", 14))
 	return win
 
 
@@ -109,6 +98,9 @@ func _inventory_panel() -> Dictionary:
 
 func _crafting_panel() -> Dictionary:
 	var win := kit.window("Crafting", Vector2(540, 560))
+	if not core.registries.feature("material_crafting_enabled", false):
+		win["content"].add_child(kit.label("Material-based crafting is not part of this peaceful world-building iteration.", 16))
+		return win
 	var parts := _scroll_list(430.0)
 	win["content"].add_child(parts["scroll"])
 	var list: VBoxContainer = parts["list"]
@@ -195,6 +187,8 @@ func _character_panel() -> Dictionary:
 	var list: VBoxContainer = parts["list"]
 	list.add_child(kit.label("Equipped", 19))
 	for slot in EquipmentManager.SLOTS:
+		if not core.registries.feature("combat_enabled", false) and slot != "tool":
+			continue
 		var def := core.equipment.equipped_in(slot)
 		var row := HBoxContainer.new()
 		var slot_label := kit.label("%s: %s" % [slot.capitalize(), def.display_name if def else "—"], 16)
@@ -213,6 +207,8 @@ func _character_panel() -> Dictionary:
 		var def := core.registries.item(item_id)
 		if def == null:
 			continue
+		if not core.registries.feature("combat_enabled", false) and def.slot != "tool":
+			continue
 		var row := HBoxContainer.new()
 		var name_label := kit.label(def.display_name, 16)
 		name_label.add_theme_color_override("font_color", kit.rarity_color(def.rarity))
@@ -227,8 +223,9 @@ func _character_panel() -> Dictionary:
 				toggle("character"))
 			row.add_child(on)
 		list.add_child(row)
-	var stats := kit.label("damage %d · defense %d" % [core.combat.attack_damage(), core.combat.defense()], 14)
-	list.add_child(stats)
+	if core.registries.feature("combat_enabled", false):
+		var stats := kit.label("damage %d · defense %d" % [core.combat.attack_damage(), core.combat.defense()], 14)
+		list.add_child(stats)
 	return win
 
 
@@ -243,10 +240,7 @@ func _collection_panel() -> Dictionary:
 		["Land tiles", "tiles", core.registries.tiles.size()],
 		["Structures", "structures", core.registries.structures.size()],
 		["Fish", "fish", 3],
-		["Materials", "materials", 0],
-		["Gear", "gear", 0],
-		["Landmarks", "landmarks", core.registries.landmarks.size()],
-		["Creatures", "creatures", core.registries.enemies.size()],
+		["Woodland notes", "woodland", 3],
 	]
 	for section in categories:
 		var found := core.collection.discovered_in(section[1])
@@ -272,7 +266,7 @@ func _display_name_for(category: String, id: String) -> String:
 		"structures": return core.registries.structure(id).display_name if core.registries.structure(id) else id
 		"landmarks": return core.registries.landmark(id).display_name if core.registries.landmark(id) else id
 		"creatures": return core.registries.enemy(id).display_name if core.registries.enemy(id) else id
-		_: return core.registries.item(id).display_name if core.registries.item(id) else id
+		_: return core.registries.item(id).display_name if core.registries.item(id) else id.replace("_", " ").capitalize()
 
 
 # ------------------------------------------------------------------ map
@@ -309,6 +303,7 @@ class _WorldMap:
 				match def.family:
 					"living_grove": color = Color(0.35, 0.42, 0.2)
 					"stonebound": color = Color(0.62, 0.57, 0.48)
+					"waterside": color = Color(0.47, 0.65, 0.65)
 			draw_rect(Rect2(pos + Vector2.ONE, Vector2(cell_px - 2, cell_px - 2)), color)
 			if coord == core.grid.home_cell:
 				draw_circle(pos + Vector2(cell_px, cell_px) * 0.5, cell_px * 0.18, Color(0.9, 0.75, 0.3))
@@ -355,7 +350,7 @@ func _settings_panel() -> Dictionary:
 	hold_check.set_pressed_no_signal(true)
 	hold_check.add_theme_font_override("font", kit.font)
 	list.add_child(hold_check)
-	list.add_child(kit.label("Camera: Q/X rotate · wheel zoom · H return home", 14))
+	list.add_child(kit.label("Camera: ←/→ or Q/X rotate · ↑/↓ or wheel zoom · H return home", 14))
 	return win
 
 
@@ -367,15 +362,15 @@ func _debug_panel() -> Dictionary:
 	win["content"].add_child(parts["scroll"])
 	var list: VBoxContainer = parts["list"]
 	var actions := [
-		["Grant 5 Land Fragments", func(): core.inventory.grant("land_fragment", 5)],
-		["Grant materials bundle", func(): core.rewards.grant_fixed({"softwood": 8, "hardwood": 4, "reeds": 6, "driftwood": 5, "smooth_stone": 6, "old_metal": 4, "carved_stone": 4, "relic_fragment": 2, "resin": 3, "shell": 2})],
-		["Grant Wild Parcel", func(): core.inventory.grant("parcel_wild", 1)],
+		["Trigger ferry arrival", func(): core.arrivals.trigger_arrival()],
+		["Force ferry delivery/departure", func(): settings_bridge.call("debug_force_ferry_departure")],
+		["Grant parcel at dock", func(): settings_bridge.call("debug_grant_dock_parcel")],
+		["Speed arrival timer ×60", func(): core.arrivals.debug_speed_multiplier = 60.0],
+		["Pause / resume arrival timer", func(): core.arrivals.paused = not core.arrivals.paused],
+		["Switch ferry / postcard", func(): settings_bridge.call("debug_toggle_arrival_presentation")],
 		["Grant 100 Fishing XP", func(): core.skills.add_xp("fishing", 100)],
-		["Grant 100 Woodcutting XP", func(): core.skills.add_xp("woodcutting", 100)],
-		["Reset rare pity", func(): core.rewards.rare_dry_streak.clear()],
-		["Force horizon check", func(): core.landmarks.on_world_grown()],
-		["Grant guardian cape", func(): core.equipment.acquire("cape_watchpost")],
-		["Heal full", func(): core.combat.heal_full()],
+		["Grant 100 Woodland Tending XP", func(): core.skills.add_xp("woodcutting", 100)],
+		["Force a themed tile reward", func(): core.stock.add_tile("tile_grove_mature")],
 		["Speed regen (all groves)", _debug_speed_regen],
 		["Save now", func(): core.save()],
 		["Reload save", func(): settings_bridge.call("reload_from_save")],
@@ -385,9 +380,13 @@ func _debug_panel() -> Dictionary:
 		var b := kit.button(action[0])
 		b.pressed.connect(action[1])
 		list.add_child(b)
-	list.add_child(kit.label("Pity: %s · tutorial catches: %d · parcels opened: %d · dup streak: %d" % [
-		str(core.rewards.rare_dry_streak), core.rewards.tutorial_catches,
-		core.parcels.opened_count, core.parcels.duplicate_streak], 13))
+	list.add_child(kit.label("Arrival: %s · %.1fs · presentation: %s · parcels opened: %d" % [
+		core.arrivals.state, core.arrivals.time_until_next,
+		core.arrivals.presentation_id, core.parcels.opened_count], 13))
+	list.add_child(kit.label("Combat=%s · monsters=%s · material loot=%s" % [
+		str(core.registries.feature("combat_enabled")),
+		str(core.registries.feature("monsters_enabled")),
+		str(core.registries.feature("legacy_material_loot_enabled"))], 13))
 	list.add_child(kit.label("Seed: %d" % core.rng.world_seed, 13))
 	return win
 

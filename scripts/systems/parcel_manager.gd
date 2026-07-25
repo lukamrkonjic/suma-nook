@@ -58,6 +58,21 @@ func open(parcel_id: String) -> Array[String]:
 	return pending_options.duplicate()
 
 
+## Ferry/postcard delivery path: reveals a parcel without routing it through
+## the generic material inventory.
+func deliver(parcel_id: String) -> Array[String]:
+	if has_pending():
+		return pending_options.duplicate()
+	var def := registries.parcel(parcel_id)
+	if def == null:
+		return []
+	opened_count += 1
+	pending_parcel_id = parcel_id
+	pending_options = _roll_options(def)
+	options_revealed.emit(parcel_id, pending_options.duplicate())
+	return pending_options.duplicate()
+
+
 func choose(option_index: int) -> String:
 	if option_index < 0 or option_index >= pending_options.size():
 		return ""

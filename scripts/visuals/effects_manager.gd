@@ -1,15 +1,20 @@
 class_name EffectsManager
 extends Node3D
-## Small pooled world-space effects: particle bursts from fx meshes, the
-## fishing bobber + ripples, reward arcs, vegetation shakes, placement dust.
+## Small effects: world-space particles, bobber + ripples, reward arcs,
+## vegetation shakes, placement dust, and screen-space click confirmation.
 
 var assets: AssetLibrary
 var _bobber: Node3D
 var _bobber_tween: Tween
+var _click_layer: CanvasLayer
 
 
 func setup(asset_library: AssetLibrary) -> void:
 	assets = asset_library
+	_click_layer = CanvasLayer.new()
+	_click_layer.name = "ClickFeedbackLayer"
+	_click_layer.layer = 200
+	add_child(_click_layer)
 	_bobber = assets.instantiate("equip_bobber")
 	_bobber.visible = false
 	add_child(_bobber)
@@ -70,6 +75,55 @@ func arc_reward(from: Vector3, to: Vector3) -> void:
 	mote.queue_free()
 
 
+## Catch-and-release is an experience, not a pickup: a tiny stylized fish arcs
+## to the keeper, pauses just long enough to read, then splashes home.
+func catch_and_release(from: Vector3, reveal_at: Vector3) -> void:
+	var fish := Node3D.new()
+	fish.name = "CatchAndReleaseFish"
+	add_child(fish)
+	var body := MeshInstance3D.new()
+	var body_mesh := SphereMesh.new()
+	body_mesh.radius = 0.16
+	body_mesh.height = 0.28
+	body.mesh = body_mesh
+	body.scale = Vector3(1.45, 0.75, 0.72)
+	body.rotation.z = PI * 0.5
+	body.material_override = assets.materials.material("gold")
+	fish.add_child(body)
+	var tail := MeshInstance3D.new()
+	var tail_mesh := BoxMesh.new()
+	tail_mesh.size = Vector3(0.18, 0.14, 0.05)
+	tail.mesh = tail_mesh
+	tail.position.x = -0.2
+	tail.rotation.z = PI * 0.25
+	tail.material_override = assets.materials.material("fabric_accent")
+	fish.add_child(tail)
+	fish.position = from
+	fish.scale = Vector3.ONE * 0.2
+	var midpoint := (from + reveal_at) * 0.5 + Vector3(0, 1.45, 0)
+	var tween := fish.create_tween()
+	tween.set_parallel()
+	tween.tween_property(fish, "scale", Vector3.ONE, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	var arc_in := func(t: float) -> void:
+		var a := from.lerp(midpoint, t)
+		var b := midpoint.lerp(reveal_at, t)
+		fish.position = a.lerp(b, t)
+	tween.tween_method(arc_in, 0.0, 1.0, 0.48)
+	await tween.finished
+	await get_tree().create_timer(0.42).timeout
+	var release_mid := (reveal_at + from) * 0.5 + Vector3(0, 0.75, 0)
+	tween = fish.create_tween()
+	var arc_out := func(t: float) -> void:
+		var a := reveal_at.lerp(release_mid, t)
+		var b := release_mid.lerp(from, t)
+		fish.position = a.lerp(b, t)
+	tween.tween_method(arc_out, 0.0, 1.0, 0.36).set_trans(Tween.TRANS_QUAD)
+	tween.parallel().tween_property(fish, "scale", Vector3.ONE * 0.25, 0.36)
+	await tween.finished
+	fish.queue_free()
+	ripple(from)
+
+
 func burst(fx_asset: String, point: Vector3, count: int, up_bias := 2.4) -> void:
 	for i in count:
 		var chip := assets.instantiate(fx_asset)
@@ -102,6 +156,71 @@ func shake_vegetation(coord: Vector2i) -> void:
 
 func placement_poof(point: Vector3, kind: String) -> void:
 	burst("fx_leaf" if kind == "grass" else "fx_smoke_puff", point + Vector3(0, 0.15, 0), 7, 1.6)
+
+
+## A quiet screen-space confirmation at the literal cursor position. A thin
+## halo carries visibility while the dot/cross remains small and understated.
+func click_marker(screen_position: Vector2, interactive: bool) -> void:
+	if _click_layer == null:
+		return
+	var marker := Node2D.new()
+	marker.name = "ClickMarkerAction" if interactive else "ClickMarkerDot"
+	marker.position = screen_position
+	_click_layer.add_child(marker)
+
+	var halo := Node2D.new()
+	halo.name = "Halo"
+	halo.scale = Vector2.ONE * 0.5
+	halo.add_child(_marker_ring(8.0, Color(1.0, 0.95, 0.82, 0.48 if interactive else 0.4), 1.25))
+	if interactive:
+		halo.add_child(_marker_ring(11.0, Color(1.0, 0.9, 0.7, 0.24), 0.9))
+	marker.add_child(halo)
+
+	var glyph := Node2D.new()
+	glyph.name = "Glyph"
+	glyph.scale = Vector2.ONE * 0.82
+	marker.add_child(glyph)
+	var ink := Color(1.0, 0.95, 0.84, 0.96)
+	var shadow := Color(0.12, 0.09, 0.05, 0.24)
+	glyph.add_child(_marker_disc(3.7, shadow))
+	glyph.add_child(_marker_disc(2.65, ink))
+	if interactive:
+		glyph.add_child(_marker_ring(6.2, Color(0.12, 0.09, 0.05, 0.18), 3.0))
+		glyph.add_child(_marker_ring(6.0, Color(1.0, 0.9, 0.68, 0.94), 1.35))
+
+	var halo_tween := halo.create_tween()
+	halo_tween.set_parallel()
+	halo_tween.tween_property(halo, "scale", Vector2.ONE * 1.45, 0.36).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	halo_tween.tween_property(halo, "modulate:a", 0.0, 0.36).set_trans(Tween.TRANS_QUAD)
+
+	var glyph_tween := glyph.create_tween()
+	glyph_tween.tween_property(glyph, "scale", Vector2.ONE, 0.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	glyph_tween.tween_interval(0.1)
+	glyph_tween.tween_property(glyph, "modulate:a", 0.0, 0.18).set_trans(Tween.TRANS_QUAD)
+	glyph_tween.tween_callback(marker.queue_free)
+
+
+func _marker_ring(radius: float, color: Color, width: float) -> Line2D:
+	var ring := Line2D.new()
+	var points := PackedVector2Array()
+	for index in 25:
+		points.append(Vector2.RIGHT.rotated(TAU * float(index) / 24.0) * radius)
+	ring.points = points
+	ring.width = width
+	ring.default_color = color
+	ring.joint_mode = Line2D.LINE_JOINT_ROUND
+	ring.antialiased = true
+	return ring
+
+
+func _marker_disc(radius: float, color: Color) -> Polygon2D:
+	var disc := Polygon2D.new()
+	var points := PackedVector2Array()
+	for index in 16:
+		points.append(Vector2.RIGHT.rotated(TAU * float(index) / 16.0) * radius)
+	disc.polygon = points
+	disc.color = color
+	return disc
 
 
 func _fade_out(node: Node3D, seconds: float) -> void:

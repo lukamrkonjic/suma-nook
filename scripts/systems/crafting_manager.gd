@@ -26,6 +26,8 @@ func _init(regs: Registries, inv: InventoryManager, stock_mgr: StockManager, ski
 
 func available_recipes() -> Array:
 	var result: Array = []
+	if not registries.feature("material_crafting_enabled", false):
+		return result
 	for recipe: Defs.RecipeDefinition in registries.recipes.values():
 		if skills.recipe_available(recipe):
 			result.append(recipe)
@@ -34,11 +36,15 @@ func available_recipes() -> Array:
 
 
 func can_craft(recipe_id: String) -> bool:
+	if not registries.feature("material_crafting_enabled", false):
+		return false
 	var recipe := registries.recipe(recipe_id)
 	return recipe != null and skills.recipe_available(recipe) and inventory.has_all(recipe.inputs)
 
 
 func craft(recipe_id: String, batches := 1) -> bool:
+	if not registries.feature("material_crafting_enabled", false):
+		return false
 	var recipe := registries.recipe(recipe_id)
 	if recipe == null or not skills.recipe_available(recipe):
 		return false

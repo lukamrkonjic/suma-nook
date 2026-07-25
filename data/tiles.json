@@ -1,5 +1,6 @@
 {
   "tiles": [
+    { "id": "tile_open_water", "name": "Quiet Water", "family": "waterside", "asset_id": "tile_open_water", "weight": 1.4, "walkable": false, "water_cells": ["open_water"], "anchor": "pond_anchor", "decor_sockets": 0, "structure_sockets": 0, "placement_sound": "water", "special_trait": "A continuous piece of calm water." },
     { "id": "tile_grass", "name": "Open Meadow", "family": "home_meadow", "asset_id": "tile_grass", "weight": 3.0, "placement_sound": "grass", "collection_hint": "The gentle default. Everything grows from here." },
     { "id": "tile_grass_flower", "name": "Flower-Edge Meadow", "family": "home_meadow", "asset_id": "tile_grass_flower", "weight": 2.0, "placement_sound": "grass", "special_trait": "Wildflowers bloom along the edges." },
     { "id": "tile_grass_pond_edge", "name": "Pond-Edge Meadow", "family": "home_meadow", "asset_id": "tile_grass_pond_edge", "weight": 1.2, "rarity": "uncommon", "water_cells": ["pond"], "anchor": "pond_anchor", "placement_sound": "water", "special_trait": "A fishable pool of your own.", "unlock_level": { "fishing": 6 } },

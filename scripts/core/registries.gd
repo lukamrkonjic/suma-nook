@@ -5,6 +5,8 @@ extends RefCounted
 ## whole new definition type = one loader + one dictionary here.
 
 var tuning: Dictionary = {}
+var features: Dictionary = {}
+var arrival_config: Dictionary = {}
 var skills: Dictionary = {}
 var items: Dictionary = {}
 var tiles: Dictionary = {}
@@ -21,6 +23,8 @@ var load_errors: PackedStringArray = []
 func load_all(base_path := "res://data") -> bool:
 	load_errors.clear()
 	tuning = _read(base_path + "/tuning.json")
+	features = _read(base_path + "/features.json")
+	arrival_config = _read(base_path + "/arrival_config.json")
 	_load_list(base_path + "/skills.json", "skills", skills, Defs.SkillDefinition.from_dict)
 	_load_list(base_path + "/items.json", "items", items, Defs.ItemDefinition.from_dict)
 	_load_list(base_path + "/tiles.json", "tiles", tiles, Defs.TileDefinition.from_dict)
@@ -47,6 +51,10 @@ func tunef(key: String, fallback: float = 0.0) -> float:
 
 func tunei(key: String, fallback: int = 0) -> int:
 	return int(tuning.get(key, fallback))
+
+
+func feature(key: String, fallback := false) -> bool:
+	return bool(features.get(key, fallback))
 
 
 func skill(id: String) -> Defs.SkillDefinition: return skills.get(id)

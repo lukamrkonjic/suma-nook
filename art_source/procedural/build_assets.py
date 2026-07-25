@@ -134,6 +134,17 @@ def cyl(name, r, depth, loc, material, verts=14, bevel=0.02, r2=None, flat=False
     return _finish(obj, material, bevel, flat=flat)
 
 
+def rod_between(name, start, end, radius, material, verts=10, bevel=0.0):
+    """Cylinder aligned between two points; useful for tiny face strokes."""
+    a = Vector(start)
+    b = Vector(end)
+    direction = b - a
+    obj = cyl(name, radius, direction.length, (a + b) * 0.5, material, verts=verts, bevel=bevel)
+    obj.rotation_mode = "QUATERNION"
+    obj.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(direction.normalized())
+    return obj
+
+
 def cone(name, r, depth, loc, material, verts=10, bevel=0.015, flat=False):
     bpy.ops.mesh.primitive_cone_add(vertices=verts, radius1=r, radius2=0.0, depth=depth, location=loc)
     obj = bpy.context.active_object
@@ -150,6 +161,16 @@ def blob(name, r, loc, material, squash=0.85, subdiv=2, jitter=0.0, rng=None, fl
     if jitter > 0.0 and rng is not None:
         for v in obj.data.vertices:
             v.co += Vector((rng.uniform(-jitter, jitter), rng.uniform(-jitter, jitter), rng.uniform(-jitter, jitter)))
+    return _finish(obj, material, 0.0, flat=flat)
+
+
+def ellipsoid(name, radii, loc, material, subdiv=2, flat=False):
+    """Smooth non-spherical volume with explicit width, depth, and height."""
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=subdiv, radius=1.0, location=loc)
+    obj = bpy.context.active_object
+    obj.name = name
+    obj.scale = Vector(radii)
+    bpy.ops.object.transform_apply(scale=True)
     return _finish(obj, material, 0.0, flat=flat)
 
 
@@ -635,35 +656,55 @@ def build_effects():
 # ---------------------------------------------------------------- character proxy
 
 def build_character():
-    """Chunky keeper proxy, ~1.35 m, 3 heads tall. Separate named parts so Godot
-    can pose them procedurally and recolor skin/hair/outfit per material."""
+    """Friendly life-sim keeper, ~1.35 m and just over two heads tall. The
+    silhouette is original, soft and toy-like; named pieces let Godot pose and
+    recolor the same mesh without a skeletal rig."""
     objs = []
-    # legs
-    objs.append(cyl("LegL", 0.085, 0.3, (-0.11, 0, 0.15), "dark_wood", verts=9))
-    objs.append(cyl("LegR", 0.085, 0.3, (0.11, 0, 0.15), "dark_wood", verts=9))
-    # tunic bell torso
-    objs.append(cyl("Torso", 0.3, 0.52, (0, 0, 0.54), "fabric", verts=12, r2=0.2, bevel=0.04))
-    objs.append(cyl("Belt", 0.235, 0.07, (0, 0, 0.72), "fabric_accent", verts=12, bevel=0.015))
-    # arms
-    arm_l = cyl("ArmL", 0.06, 0.36, (-0.3, 0, 0.62), "fabric", verts=8)
+    # Slim legs and compact shoes keep the avatar light rather than plush.
+    objs.append(cyl("LegL", 0.055, 0.28, (-0.082, 0.012, 0.18), "dark_wood", verts=10))
+    objs.append(cyl("LegR", 0.055, 0.28, (0.082, 0.012, 0.18), "dark_wood", verts=10))
+    objs.append(ellipsoid("ShoeL", (0.078, 0.105, 0.052), (-0.082, 0.04, 0.055), "dark_wood", subdiv=2))
+    objs.append(ellipsoid("ShoeR", (0.078, 0.105, 0.052), (0.082, 0.04, 0.055), "dark_wood", subdiv=2))
+    # A narrow straight shirt gives the head room without making the body fat.
+    objs.append(cyl("Torso", 0.19, 0.4, (0, 0, 0.49), "fabric", verts=16, r2=0.17, bevel=0.045))
+    objs.append(cyl("Belt", 0.177, 0.035, (0, 0, 0.32), "fabric_accent", verts=16, bevel=0.01))
+    objs.append(cyl("Collar", 0.125, 0.035, (0, -0.01, 0.7), "fabric_accent", verts=16, bevel=0.01))
+    # Thin tapered arms and restrained hands match the lighter body.
+    arm_l = cyl("ArmL", 0.047, 0.35, (-0.22, 0, 0.49), "fabric", verts=10, r2=0.04)
     arm_l.rotation_euler = Euler((0, 0.16, 0))
-    arm_r = cyl("ArmR", 0.06, 0.36, (0.3, 0, 0.62), "fabric", verts=8)
+    arm_r = cyl("ArmR", 0.047, 0.35, (0.22, 0, 0.49), "fabric", verts=10, r2=0.04)
     arm_r.rotation_euler = Euler((0, -0.16, 0))
     objs += [arm_l, arm_r]
-    objs.append(blob("HandL", 0.075, (-0.33, 0, 0.42), "skin", subdiv=2))
-    objs.append(blob("HandR", 0.075, (0.33, 0, 0.42), "skin", subdiv=2))
-    # big round head
-    objs.append(blob("Head", 0.26, (0, 0, 1.05), "skin", squash=0.94, subdiv=3))
-    objs.append(blob("EyeL", 0.032, (-0.09, -0.23, 1.08), "eyes", squash=1.25, subdiv=1))
-    objs.append(blob("EyeR", 0.032, (0.09, -0.23, 1.08), "eyes", squash=1.25, subdiv=1))
-    # hair styles (all exported; Godot shows one)
-    h0 = blob("Hair00", 0.27, (0, 0.02, 1.13), "hair", squash=0.72, subdiv=2)  # bowl
-    h1 = blob("Hair01", 0.27, (0, 0.03, 1.15), "hair", squash=0.6, subdiv=2)  # short crop
-    bun = blob("Hair02_bun", 0.09, (0, 0.2, 1.3), "hair", subdiv=2)
-    h2 = blob("Hair02", 0.27, (0, 0.02, 1.13), "hair", squash=0.66, subdiv=2)
-    h3 = blob("Hair03", 0.28, (0, 0.05, 1.1), "hair", squash=0.85, subdiv=2)  # long
-    h3b = box("Hair03_fall", (0.34, 0.14, 0.34), (0, 0.18, 0.94), "hair", bevel=0.05)
-    objs += [h0, h1, h2, bun, h3, h3b]
+    objs.append(blob("HandL", 0.064, (-0.25, -0.008, 0.32), "skin", subdiv=2))
+    objs.append(blob("HandR", 0.064, (0.25, -0.008, 0.32), "skin", subdiv=2))
+    # A broad but shallow oval head reads graphic from the front and slim in profile.
+    objs.append(ellipsoid("Head", (0.31, 0.275, 0.29), (0, 0, 1.03), "skin", subdiv=3))
+    objs.append(ellipsoid("EarL", (0.055, 0.04, 0.07), (-0.295, 0.0, 1.03), "skin", subdiv=2))
+    objs.append(ellipsoid("EarR", (0.055, 0.04, 0.07), (0.295, 0.0, 1.03), "skin", subdiv=2))
+    # Blender +Y becomes the character's Godot -Z forward after glTF import.
+    objs.append(ellipsoid("EyeL", (0.04, 0.022, 0.054), (-0.105, 0.265, 1.08), "eyes", subdiv=2))
+    objs.append(ellipsoid("EyeR", (0.04, 0.022, 0.054), (0.105, 0.265, 1.08), "eyes", subdiv=2))
+    objs.append(ellipsoid("EyeHighlightL", (0.011, 0.006, 0.014), (-0.116, 0.287, 1.1), "petal_white", subdiv=2))
+    objs.append(ellipsoid("EyeHighlightR", (0.011, 0.006, 0.014), (0.094, 0.287, 1.1), "petal_white", subdiv=2))
+    objs.append(ellipsoid("Nose", (0.018, 0.018, 0.022), (0, 0.279, 1.025), "skin", subdiv=2))
+    objs.append(ellipsoid("CheekL", (0.03, 0.012, 0.015), (-0.18, 0.263, 1.015), "petal_pink", subdiv=2))
+    objs.append(ellipsoid("CheekR", (0.03, 0.012, 0.015), (0.18, 0.263, 1.015), "petal_pink", subdiv=2))
+    objs.append(rod_between("MouthL", (-0.043, 0.274, 0.98), (0, 0.282, 0.965), 0.008, "eyes", verts=8))
+    objs.append(rod_between("MouthR", (0, 0.282, 0.965), (0.043, 0.274, 0.98), 0.008, "eyes", verts=8))
+    # Hair is built as shallow sculpted caps and flat fringe pieces, not balls.
+    h0 = ellipsoid("Hair00", (0.32, 0.285, 0.205), (0, -0.02, 1.17), "hair", subdiv=3)
+    h0_l = box("Hair00_bangL", (0.135, 0.055, 0.085), (-0.085, 0.263, 1.205), "hair", bevel=0.035)
+    h0_l.rotation_euler = Euler((0, -0.12, -0.12))
+    h0_r = box("Hair00_bangR", (0.13, 0.055, 0.08), (0.075, 0.266, 1.21), "hair", bevel=0.035)
+    h0_r.rotation_euler = Euler((0, 0.12, 0.12))
+    h1 = ellipsoid("Hair01", (0.315, 0.28, 0.175), (0, -0.02, 1.19), "hair", subdiv=3)
+    h1_tuft = box("Hair01_tuft", (0.13, 0.055, 0.075), (-0.055, 0.255, 1.235), "hair", bevel=0.03)
+    h1_tuft.rotation_euler = Euler((0, -0.1, -0.18))
+    h2 = ellipsoid("Hair02", (0.32, 0.285, 0.19), (0, -0.02, 1.18), "hair", subdiv=3)
+    bun = ellipsoid("Hair02_bun", (0.09, 0.085, 0.105), (0, -0.17, 1.385), "hair", subdiv=2)
+    h3 = ellipsoid("Hair03", (0.325, 0.29, 0.25), (0, -0.035, 1.14), "hair", subdiv=3)
+    h3b = ellipsoid("Hair03_fall", (0.245, 0.19, 0.29), (0, -0.13, 0.95), "hair", subdiv=3)
+    objs += [h0, h0_l, h0_r, h1, h1_tuft, h2, bun, h3, h3b]
     export("character_proxy", objs, proxy=True)
 
 

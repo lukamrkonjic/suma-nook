@@ -32,7 +32,8 @@ func setup(game_core: GameCore, ui_kit: UiKit, placement_controller: PlacementCo
 	core.inventory.item_gained.connect(_on_item_gained)
 	core.inventory.items_changed.connect(_refresh_parcel_button)
 	core.stock.stock_changed.connect(_refresh_build_strip)
-	core.combat.health_changed.connect(_on_health_changed)
+	if core.registries.feature("combat_enabled", false):
+		core.combat.health_changed.connect(_on_health_changed)
 	core.notified.connect(func(message, tone): toast(message, tone))
 	placement.mode_changed.connect(_on_build_mode)
 	placement.action_result.connect(_on_action_result)
@@ -144,7 +145,10 @@ func _refresh_all() -> void:
 		_refresh_skill(skill_id)
 	_refresh_parcel_button()
 	_refresh_build_strip()
-	_on_health_changed(core.combat.health, core.combat.max_health)
+	if core.registries.feature("combat_enabled", false):
+		_on_health_changed(core.combat.health, core.combat.max_health)
+	else:
+		_health_box.visible = false
 
 
 func _refresh_skill(skill_id: String) -> void:
@@ -159,12 +163,9 @@ func _refresh_skill(skill_id: String) -> void:
 
 
 func _refresh_parcel_button() -> void:
-	var total := 0
-	for entry in core.inventory.items_in_category("parcel"):
-		total += entry["count"]
-	_parcel_button.visible = total > 0 or core.parcels.has_pending()
+	_parcel_button.visible = core.parcels.has_pending()
 	if _parcel_button.visible:
-		_parcel_button.text = "Resume reveal ✨" if core.parcels.has_pending() else "Open Land Parcel ✨ (%d)" % total
+		_parcel_button.text = "Resume Land Parcel reveal ✨"
 
 
 func _refresh_build_strip() -> void:
@@ -190,7 +191,7 @@ func _refresh_build_strip() -> void:
 		b.pressed.connect(func(): build_piece_selected.emit("deed", landmark_id))
 		_build_strip.add_child(b)
 	if empty:
-		_build_strip.add_child(kit.label("Storage is empty — fish, chop, and craft to earn pieces.", 14))
+		_build_strip.add_child(kit.label("Your libraries are empty — the next ferry will bring a Land Parcel.", 14))
 
 
 # ------------------------------------------------------------------ events
@@ -214,6 +215,8 @@ func _on_level_up(skill_id: String, new_level: int, _unlocks: Array) -> void:
 func _on_item_gained(item_id: String, count: int, rare: bool) -> void:
 	var def := core.registries.item(item_id)
 	if def == null:
+		return
+	if not core.registries.feature("legacy_material_loot_enabled", false):
 		return
 	toast("+%d %s" % [count, def.display_name], "rare" if rare or def.rarity == "rare" else "common")
 	_refresh_parcel_button()
@@ -292,15 +295,15 @@ func toast(message: String, tone := "common") -> void:
 
 ## Derives the current opening hint straight from progression state.
 func update_tutorial() -> void:
-	if core.rewards.tutorial_catches == 0:
-		set_hint("This little world is yours. Try fishing at the water. (walk close, then E)")
-	elif not core.rewards.first_parcel_granted:
-		set_hint("Skills can reveal new pieces of land — keep fishing.")
-	elif core.parcels.opened_count == 0:
-		set_hint("A Land Parcel is waiting — open it from the button below.")
+	if core.arrivals.has_waiting_package():
+		set_hint("A Land Parcel is waiting at the northern dock.")
+	elif core.skills.lifetime_actions.get("fishing", 0) == 0:
+		set_hint("Try catch-and-release fishing along the northern water. (walk close, then E)")
+	elif core.parcels.has_pending():
+		set_hint("Choose one finished tile from the Land Parcel.")
 	elif core.grid.placed_tile_count() == 0 and core.stock.total_tiles() > 0:
 		set_hint("Place your new land beside the world you have. (B for build mode)")
 	elif core.grid.placed_tile_count() > 0 and core.skills.lifetime_actions.get("woodcutting", 0) == 0:
-		set_hint("Your new grove can be chopped — it will rest and regrow.")
+		set_hint("Tend your new grove — it will rest, then regrow.")
 	else:
 		set_hint("")

@@ -1,0 +1,8 @@
+{
+  "legacy_material_loot_enabled": false,
+  "material_crafting_enabled": false,
+  "combat_enabled": false,
+  "monsters_enabled": false,
+  "hostile_landmarks_enabled": false,
+  "ferry_arrivals_enabled": true
+}

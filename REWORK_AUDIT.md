@@ -1,4 +1,86 @@
-# Rework audit — living world progression MVP
+# Rework audit — ferry and XP-only hobbies
+
+## Current iteration (2026-07-25)
+
+### Project-selection correction
+
+The ferry/XP-only audit was first implemented in
+`/Users/luka/Documents/dev/imota-tilegarden-mvp` because the brief described
+that as the likely project. The visual game Luka intended is this repository:
+`/Users/luka/Documents/dev/suma-nook`.
+
+The Tilegarden work remains intact on its own
+`rework/ferry-and-xp-only-hobbies` branch. This Suma Nook branch adapts the
+same design to Suma Nook's existing architecture; it does not copy or replace
+Suma Nook's renderer, lighting, camera, character, props, or presentation.
+
+### Retained
+
+- Original low-poly diorama renderer, palette, lighting rig, assets, camera,
+  continuous character movement, click-to-move, click feedback, and character
+  creator.
+- The nine-cell authored home composition, rearranged only as required to make
+  its northern row water.
+- `StockManager` as the counted Tile/Build Library.
+- `ParcelManager` and its three-card randomized tile reveal.
+- Existing collection journal, hobby XP/levels, placement, and atomic save
+  systems.
+
+### Replaced in active play
+
+- Fishing and Woodland Tending now create `HobbyActionResult` values: XP,
+  journal/record metadata, and an optional direct finished tile. They do not
+  create fish, logs, reeds, resin, driftwood, or other material stacks.
+- Fishing displays and automatically releases the catch.
+- Land growth no longer depends on material crafting. Periodic deliveries are
+  the primary source of Land Parcels.
+- The generic material inventory UI is replaced by explicit Tile and Build
+  Libraries.
+- Fresh worlds use six land cells plus three connected open-water cells on the
+  **northern/top row** (`y = -1`), with a dock facing outward into the fog.
+
+### Modular arrival architecture
+
+- `ArrivalScheduler` owns saved timing, pause/queue rules, presentation ID, and
+  the current payload.
+- `LandParcelPayload` describes the delivered reward.
+- `DeliveryPoint` owns the approach, berth, package, departure, interaction,
+  and camera-interest transforms.
+- `FerryArrivalPresentation` owns only the ferry animation.
+- `InstantPostcardArrivalPresentation` proves that presentation can change
+  without changing schedule, parcel, Tile Library, or save logic.
+- Only one delivery can wait. The next timer begins after the chosen tile is
+  safely added to the Tile Library.
+
+### Disabled behind `data/features.json`
+
+- `legacy_material_loot_enabled = false`
+- `material_crafting_enabled = false`
+- `combat_enabled = false`
+- `monsters_enabled = false`
+- `hostile_landmarks_enabled = false`
+
+The older systems remain parseable and recoverable, but are not instantiated
+or surfaced in current play.
+
+### Save behavior
+
+Save schema v2 persists hobby progression, exact continuous player position,
+world/stock state, arrival timer and presentation, waiting delivery, and
+pending parcel options. Loading a v1 development save:
+
+- backs it up on the next atomic save;
+- preserves its former inventory under hidden `legacy_inventory`;
+- converts the original three northern starter cells into connected water;
+- relocates signature starter dressing to land where needed;
+- safely relocates the player if their saved position is now water.
+
+This is a pre-release schema change. The first load changes the three northern
+starter cells; a clean save reset is optional, not required.
+
+---
+
+## Historical living-world rework
 
 ## Selected repository
 
