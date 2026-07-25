@@ -511,12 +511,16 @@ def build_props():
         box("sh_wall_r", (0.1, 1.4, 1.0), (0.8, -0.05, 0.6), "wood", bevel=0.02),
         box("sh_wall_b", (1.7, 0.1, 1.0), (0, -0.7, 0.6), "wood", bevel=0.02),
     ]
-    roof_l = box("sh_roof_l", (1.06, 1.72, 0.09), (-0.48, 0.03, 1.34), "terracotta", bevel=0.03)
-    roof_l.rotation_euler = Euler((0, 0.62, 0))
-    roof_r = box("sh_roof_r", (1.06, 1.72, 0.09), (0.48, 0.03, 1.34), "terracotta", bevel=0.03)
-    roof_r.rotation_euler = Euler((0, -0.62, 0))
-    ridge = box("sh_ridge", (0.14, 1.74, 0.1), (0, 0.03, 1.58), "dark_wood", bevel=0.03)
-    shelter += [roof_l, roof_r, ridge]
+    # Roof: both halves pivot about the shared ridge line so they meet cleanly.
+    half_w = 1.06
+    pitch = 0.62
+    ridge_z = 1.1 + half_w * math.sin(pitch)
+    for side, name in ((-1, "sh_roof_l"), (1, "sh_roof_r")):
+        panel = box(name, (half_w, 1.72, 0.09), (side * half_w / 2 * math.cos(pitch), 0.03, ridge_z - half_w / 2 * math.sin(pitch)), "terracotta", bevel=0.03)
+        panel.rotation_euler = Euler((0, side * pitch, 0))
+        shelter.append(panel)
+    ridge = box("sh_ridge", (0.16, 1.76, 0.12), (0, 0.03, ridge_z + 0.02), "dark_wood", bevel=0.03)
+    shelter.append(ridge)
     export("prop_shelter", shelter)
 
     planter = [

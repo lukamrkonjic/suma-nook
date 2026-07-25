@@ -1,70 +1,90 @@
-# Suma Nook architecture
+# Suma Nook architecture (living world progression MVP)
 
-## Authoritative game state
+## Shape of the program
 
-`Main` constructs explicit references; there is no global singleton event bus.
+`GameCore` (RefCounted) is the composition root for ALL gameplay state — it
+owns the registries, the seeded RNG service, the `WorldGrid`, and one manager
+per concern. It has no scene-tree dependency, which is why the entire game
+logic runs under `tests/test_runner.gd` headlessly.
 
-- `GridManager` owns connected ground, placed props, occupancy, walkability, and BFS paths.
-- `SumaPlayerCharacter` owns character identity, appearance, current cell, and active path.
-- `ForestProgression` owns grown-tile count, claimed milestones, deterministic tile choice,
-  and the one-light growth transaction.
-- `EconomyManager` stores Forest Light in the existing stable `meadow_coin` balance.
-- `StorageManager` and `CollectionManager` own unlocked decorations and the field guide.
+`main.gd` builds the scene side around a GameCore: lighting rig, world
+renderer, effects, player, camera, placement controller, HUD/panels/reveal,
+audio. Scene controllers subscribe to manager signals; they never own state.
+There is no global event bus and no autoload: every dependency is passed
+explicitly in `setup()` calls, so ownership is traceable from `main.gd`.
 
-The initial island uses radius one, yielding exactly nine ground cells. No system blocks the
-center cell. Ground placement is valid only when the new cell shares a cardinal edge with an
-existing cell, which keeps every player-grown world connected.
+## The grid is for construction, never locomotion
 
-## Player and growth flow
+`WorldGrid` maps `Vector2i` → `CellState` (tile id, rotation, starter flag,
+anchor runtime, structures with stable instance ids, landmark tag). It owns
+adjacency/overlap/connectivity rules, socket allocation (1 major + N decor
+per tile), safe-relocation queries, and serialization.
 
-The HUD emits a chosen name and three palette indices. The player builds a nearest-filtered
-pixel sprite from those indices and can traverse only `GridManager.is_walkable()` cells.
-Clicks use the orthographic camera's ground ray and BFS; keyboard input requests one cardinal
-step.
+The player is a `CharacterBody3D` with a continuous float transform —
+camera-relative acceleration, `move_and_slide` every tick, dodge impulses.
+Grid coordinates are only ever *derived* from the position for placement and
+interaction queries. The save stores the exact float position and facing.
+Colliders: every tile contributes an identical-height ground box (zero seams);
+open edges get invisible boundary walls rebuilt on grid changes; pond basins
+carry a local blocker so the shore is walkable but the deep middle is not.
 
-Growth is a two-phase transaction:
+## Reward generosity contract
 
-1. `Main.start_growth()` verifies that one Forest Light exists and asks
-   `PlacementController` to hold a deterministic ground definition with source `growth`.
-2. Cancel costs nothing. A successful adjacent placement emits `placement_completed`;
-   `ForestProgression.complete_growth()` then spends exactly one light, advances the count,
-   and grants a milestone decoration when applicable.
+`RewardManager` + `ParcelManager` implement the anti-frustration rules:
+- named seeded RNG streams, serialized in the save (`RngService`);
+- tutorial guarantees (fragment by catch N; first parcel at Fishing 2; first
+  reveal is the grove trio so Woodcutting can never be luck-blocked);
+- rare pity ramps to certainty at a tuned dry-streak cap, per skill, saved;
+- duplicates → Pattern Dust + a new-discovery pity that forces an
+  undiscovered tile into a reveal after N duplicate choices;
+- every essential recipe unlocks deterministically from skill levels;
+- pending parcel reveals persist in the save (parcel consumption is atomic at
+  open; closing mid-reveal loses nothing).
 
-This ordering prevents failed or cancelled placements from eating currency.
+## Landmark lifecycle
 
-## Pixel-art renderer
+`LandmarkManager`: silhouette (beyond the world, in fog, footprint reserved,
+never overlapping land) → revealed (world touches footprint; cells become real
+ground; `LandmarkEncounter` spawns enemies from the saved roster) → reclaimed
+(guardian falls; idempotent reward via `reward_claimed`) → kept / packed into
+a deed (cells released, re-placeable) / salvaged (materials). Defeat is
+gentle: full heal at home, wounded enemies recover, defeated ones stay dead
+for the claim.
 
-`SumaPixelArt` creates small RGBA images for the hero, wisps, forest frame, props, tile
-patterns, and light glyphs. Every texture uses nearest filtering. `VisualFactory` renders
-ground as thick square diorama blocks and all props as shadow-casting `Sprite3D` nodes.
-There is deliberately no pixelation post-process.
+## Rendering & style
 
-`WorldBuilder` owns the tiled moss backdrop, distant tree and bush frame, hard canopy light,
-fireflies, rain, and the Greenwood / Firefly Dusk / Moss Rain palettes. `GridRenderer`
-reconciles world nodes only on state changes.
-
-## Wisps
-
-Woodland wisps retain the original visitor state machine and reachable-grid wandering:
-
-`SPAWNING -> ARRIVING -> WANDERING/INTERACTING -> READY_WITH_LIGHT ->
-REWARDING_PLAYER -> RELAXING -> LEAVING`.
-
-Each wisp has a generous capsule pick area on its own collision layer. Both direct 3D input
-and `Main`'s explicit ray fallback collect it, addressing missed clicks on small sprites.
-Collected rewards are normalized to Forest Light.
+One `LightingRig` (scene: `GardenStyleLightingRig.tscn`) drives environment,
+key light, SSAO, glow, fog, and rain from `VisualStyleProfile` resources
+(day/rain). `MaterialLibrary` builds shared flat matte materials from the
+`CozyPalette` resource; `AssetLibrary` instantiates GLBs by stable asset id
+and rebinds semantic material names to the library — palette edits reskin the
+whole game with no re-export. Assets come from the headless Blender pipeline
+(`art_source/procedural/build_assets.py`); Tier C hero swaps are file
+replacements at the same asset id. `WorldRenderer` reconciles grid state into
+nodes on change signals — no per-frame world scans.
 
 ## Persistence
 
-Schema version 3 saves plain JSON through validated temporary-write, backup-rotation, and
-atomic rename. It includes grid, player identity and palette, growth count and milestones,
-Forest Light, storage, discoveries, visitors, camera, weather, audio, and held placement.
-The save lives at `user://suma-nook-save.json`; the pre-redesign Tilegarden save is
-intentionally not migrated.
+`SaveManager`: versioned JSON at `user://suma_nook_world.json`, temp-write →
+parse-validate → atomic rename, rotating `.backup`, refuses future versions,
+tolerates missing definitions (dropped with warnings). Autosave on meaningful
+events (placement, level-up, claims) with a periodic dirty-flag timer.
+Everything round-trips: grid, anchors, structures (instance ids), inventory,
+stock, equipment + appearance unlocks, collection, skills, pity, pending
+reveals, landmark states, RNG stream states, and the float player transform.
 
 ## Scale path
 
-The current sprite nodes are appropriate for the vertical slice. At hundreds or thousands
-of tiles, the state contract stays unchanged while `GridRenderer` can chunk ground into
-material-keyed `MultiMeshInstance3D` batches and stream distant decoration sprites by camera
-bounds.
+Cell storage is dictionary-keyed by coordinate; renderer updates are
+per-changed-cell; edge walls rebuild per grid change (O(cells)); anchors tick
+only while resting. For much larger worlds the WorldRenderer can partition
+holders into chunk parents and stream by camera bounds without touching the
+state contract. Visitor hooks (seating/viewing/social tags on structures)
+exist as metadata only — deliberately unimplemented.
+
+## Testing
+
+- `tests/test_runner.gd` — 100-assertion headless core suite (must print
+  ALL TESTS PASSED).
+- `tests/full_loop_runner.tscn` — drives the real scene through the complete
+  MVP acceptance loop (57+ checks, captures the docs screenshots).

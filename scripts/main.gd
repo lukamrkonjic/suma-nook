@@ -77,6 +77,9 @@ func _handle_dev_shot(user_args: PackedStringArray) -> bool:
 		player.position = core.profile.position
 		_start_gameplay(true)
 	if user_args.has("--rain"):
+		core.grid.add_structure(Vector2i(-1, 0), "struct_campfire", 0, 0)
+		core.grid.add_structure(Vector2i(0, 1), "struct_lantern", 2, 0)
+		renderer.rebuild_all()
 		lighting.apply_profile(lighting.rain_profile)
 	for arg in user_args:
 		if arg.begins_with("--zoom="):
@@ -444,14 +447,14 @@ func _on_opportunity(state: LandmarkManager.LandmarkState) -> void:
 
 
 func _on_landmark_revealed(state: LandmarkManager.LandmarkState) -> void:
-	hud.toast("The fog pulls back — the %s is awake." % core.registries.landmark(state.landmark_id).display_name, "warn")
+	hud.toast("The fog pulls back — %s is awake." % core.registries.landmark(state.landmark_id).display_name, "warn")
 	audio.play_event("enemy_telegraph")
 	_spawn_encounter(state)
 
 
 func _on_landmark_reclaimed(state: LandmarkManager.LandmarkState) -> void:
 	audio.play_event("landmark_reclaimed")
-	hud.toast("The %s is peaceful now. It's yours." % core.registries.landmark(state.landmark_id).display_name, "levelup")
+	hud.toast("%s is peaceful now. It's yours." % core.registries.landmark(state.landmark_id).display_name, "levelup")
 	core.autosave_soon()
 
 

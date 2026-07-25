@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 profile_id = "garden_rain"
-background_color = Color(0.29, 0.33, 0.27, 1)
+background_color = Color(0.37, 0.41, 0.34, 1)
 ambient_color = Color(0.5, 0.56, 0.5, 1)
 ambient_energy = 0.55
 sun_color = Color(0.62, 0.7, 0.68, 1)

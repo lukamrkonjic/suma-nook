@@ -1,11 +1,13 @@
 # Tests
 
-`test_runner.tscn` contains 130 focused assertions across 14 suites, including the exact
-nine-tile start, full walkability, light spending, and the first forest milestone.
+```bash
+# Core logic (headless, ~5 s) — must print ALL TESTS PASSED
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/test_runner.gd
 
-`full_loop_runner.tscn` contains 46 scene assertions. It instantiates the real main scene and
-waits through wisp clicking, Forest Light delivery, character walking, player-directed tile
-growth, milestone unlocks, decoration placement, undo/redo, and save persistence. A small
-legacy Bloomforge path remains covered as a compatibility seam.
+# Full MVP acceptance loop in the real scene (windowed, ~90 s) — must print FULL LOOP PASSED
+/Applications/Godot.app/Contents/MacOS/Godot --path . --resolution 1600x900 \
+  tests/full_loop_runner.tscn -- --save=user://loop_test_save.json
+```
 
-Both tests use isolated `user://` test-save paths and clean them before exiting.
+The loop runner also refreshes the `docs/screenshot_*.png` set. Both runners
+use isolated save paths and never touch the real save.

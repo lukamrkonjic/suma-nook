@@ -98,7 +98,10 @@ func _step_movement() -> void:
 	for i in 40:
 		await get_tree().physics_frame
 		samples.append(player.position)
+		if i % 15 == 5:   # frame-sequence proof of continuous locomotion
+			await shot("movement_sequence_%d" % (i / 15))
 	Input.action_release("move_up")
+	await shot("screenshot_free_walking")
 	await wait(0.35)
 	var stopped := player.position
 	var moved := start.distance_to(stopped)
