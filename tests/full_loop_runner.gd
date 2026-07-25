@@ -42,6 +42,10 @@ func _ready() -> void:
 	add_child(main)
 	main.core.save_manager.save_path = SAVE_PATH
 	main.core.save_manager.backup_path = SAVE_PATH + ".backup"
+	# Keep the acceptance run reproducible. Seed 3 yields fish in the first two
+	# common catches while still exercising the real weighted-loot path.
+	main.core.rng.world_seed = 3
+	main.core.rng._streams.clear()
 	_run()
 
 

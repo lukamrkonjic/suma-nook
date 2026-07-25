@@ -96,3 +96,15 @@ calibration target for the Style Lab, not a guess.
 - No outlines, no pixelation, no gradients in the background, no photoreal textures,
 - no blue-gray stone (stone stays warm), no black shadows, no glossy plastic (roughness
   high everywhere except water/gold), no thin geometry that vanishes at distance.
+
+## Runtime calibration decisions
+
+- The nine-tile opening is framed at an 8.8 orthographic size. This makes the starting
+  diorama the focal object while retaining generous background space; build mode backs
+  out by 3.2 units so adjacent placement cells remain visible.
+- Horizontal grass and pale-stone albedos are compensated under the production key
+  light instead of copying Blender viewport values blindly. Vertical foliage, wood,
+  character, and UI colors retain their authored display values so shadow-facing
+  surfaces do not crush toward black.
+- Rain uses the flat environment color without depth fog. Depth fog was tinting the
+  horizon-free background to black, which violated the green-gray diorama target.

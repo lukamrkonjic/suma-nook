@@ -16,14 +16,14 @@
   "player_hit_invuln_seconds": 0.8,
   "health_regen_seconds_per_point": 6.0,
 
-  "camera_min_size": 7.0,
-  "camera_max_size": 26.0,
-  "camera_default_size": 13.0,
+  "camera_min_size": 6.0,
+  "camera_max_size": 28.0,
+  "camera_default_size": 8.8,
   "camera_pitch_deg": -34.0,
   "camera_default_yaw_deg": 45.0,
   "camera_follow_speed": 4.5,
   "camera_rotate_seconds": 0.28,
-  "build_mode_size_bonus": 4.0,
+  "build_mode_size_bonus": 3.2,
 
   "fishing_wait_min": 1.2,
   "fishing_wait_max": 3.2,

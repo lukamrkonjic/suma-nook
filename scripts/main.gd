@@ -203,6 +203,8 @@ func _connect_flows() -> void:
 	core.landmarks.landmark_reclaimed.connect(_on_landmark_reclaimed)
 	core.rewards.loot_granted.connect(_on_loot)
 	lighting.profile_applied.connect(_on_profile_applied)
+	if lighting.current_profile != null:
+		_on_profile_applied(lighting.current_profile)
 
 
 # ------------------------------------------------------------------ boot flows
@@ -500,6 +502,7 @@ func toggle_weather() -> void:
 
 func _on_profile_applied(profile: VisualStyleProfile) -> void:
 	audio.set_rain(profile.rain_enabled)
+	hud.apply_weather_contrast(profile.rain_enabled)
 	for light in get_tree().get_nodes_in_group("warm_lights"):
 		var omni := light as OmniLight3D
 		omni.light_energy = float(omni.get_meta("base_energy", 1.0)) * (1.0 if profile.rain_enabled else profile.local_light_multiplier)

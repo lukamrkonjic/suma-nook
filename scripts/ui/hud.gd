@@ -255,6 +255,18 @@ func set_hint(text: String) -> void:
 	_hint_label.text = text
 
 
+## Keeps unboxed world-space guidance legible across the pale day and dark
+## rain backdrops without adding a large UI panel over the diorama.
+func apply_weather_contrast(rain_enabled: bool) -> void:
+	var hint_color := Color(0.92, 0.89, 0.8) if rain_enabled else Color(0.35, 0.31, 0.24)
+	var prompt_color := Color(0.97, 0.94, 0.86) if rain_enabled else kit.text_color()
+	for entry in [[_hint_label, hint_color], [_prompt_label, prompt_color]]:
+		var label := entry[0] as Label
+		label.add_theme_color_override("font_color", entry[1])
+		label.add_theme_color_override("font_outline_color", Color(0.12, 0.15, 0.12, 0.8))
+		label.add_theme_constant_override("outline_size", 3 if rain_enabled else 0)
+
+
 func toast(message: String, tone := "common") -> void:
 	var card := kit.card()
 	var l := kit.label(message, 15)

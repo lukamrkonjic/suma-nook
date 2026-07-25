@@ -10,7 +10,7 @@ var camera: Camera3D
 
 var _yaw := 45.0
 var _yaw_target := 45.0
-var _size_target := 13.0
+var _size_target := 8.8
 var _pitch_node: Node3D
 var _rotating := false
 
@@ -20,7 +20,7 @@ func setup(game_core: GameCore, follow_target: Node3D) -> void:
 	target = follow_target
 	_yaw = core.registries.tunef("camera_default_yaw_deg", 45.0)
 	_yaw_target = _yaw
-	_size_target = core.registries.tunef("camera_default_size", 13.0)
+	_size_target = core.registries.tunef("camera_default_size", 8.8)
 	rotation_degrees.y = _yaw
 
 	_pitch_node = Node3D.new()
@@ -55,9 +55,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton and event.pressed:
 		var wheel := event as InputEventMouseButton
 		if wheel.button_index == MOUSE_BUTTON_WHEEL_UP:
-			_size_target = clampf(_size_target - 1.2, core.registries.tunef("camera_min_size", 7.0), core.registries.tunef("camera_max_size", 26.0))
+			_size_target = clampf(_size_target - 1.2, core.registries.tunef("camera_min_size", 6.0), core.registries.tunef("camera_max_size", 28.0))
 		elif wheel.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			_size_target = clampf(_size_target + 1.2, core.registries.tunef("camera_min_size", 7.0), core.registries.tunef("camera_max_size", 26.0))
+			_size_target = clampf(_size_target + 1.2, core.registries.tunef("camera_min_size", 6.0), core.registries.tunef("camera_max_size", 28.0))
 
 
 ## Camera-relative movement basis projected to the ground plane.
@@ -69,8 +69,8 @@ func horizontal_basis() -> Basis:
 
 
 func set_build_mode(enabled: bool) -> void:
-	var base := core.registries.tunef("camera_default_size", 13.0)
-	_size_target = base + (core.registries.tunef("build_mode_size_bonus", 4.0) if enabled else 0.0)
+	var base := core.registries.tunef("camera_default_size", 8.8)
+	_size_target = base + (core.registries.tunef("build_mode_size_bonus", 3.2) if enabled else 0.0)
 
 
 func zoom_for_creator() -> void:
@@ -78,7 +78,7 @@ func zoom_for_creator() -> void:
 
 
 func restore_gameplay_zoom() -> void:
-	_size_target = core.registries.tunef("camera_default_size", 13.0)
+	_size_target = core.registries.tunef("camera_default_size", 8.8)
 
 
 func save_state() -> Dictionary:
@@ -88,5 +88,5 @@ func save_state() -> Dictionary:
 func restore_state(data: Dictionary) -> void:
 	_yaw_target = float(data.get("yaw", 45.0))
 	rotation_degrees.y = _yaw_target
-	_size_target = float(data.get("size", core.registries.tunef("camera_default_size", 13.0)))
+	_size_target = float(data.get("size", core.registries.tunef("camera_default_size", 8.8)))
 	camera.size = _size_target

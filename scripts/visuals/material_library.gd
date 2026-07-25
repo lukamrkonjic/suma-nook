@@ -26,7 +26,7 @@ func material(key: String) -> StandardMaterial3D:
 	m.albedo_color = palette.color(key)
 	m.roughness = 0.35 if METALLIC.has(key) else 0.93
 	m.metallic = METALLIC.get(key, 0.0)
-	m.metallic_specular = 0.35
+	m.metallic_specular = 0.5 if METALLIC.has(key) else 0.2
 	if EMISSIVE.has(key):
 		m.emission_enabled = true
 		m.emission = palette.color(key)
@@ -34,8 +34,8 @@ func material(key: String) -> StandardMaterial3D:
 	if key == "water":
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		m.albedo_color.a = 0.82
-		m.roughness = 0.12
-		m.metallic_specular = 0.6
+		m.roughness = 0.28
+		m.metallic_specular = 0.5
 	if key == "crystal":
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		m.albedo_color.a = 0.9
