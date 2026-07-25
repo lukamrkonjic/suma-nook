@@ -23,6 +23,9 @@
   "camera_default_yaw_deg": 45.0,
   "camera_follow_speed": 4.5,
   "camera_rotate_seconds": 0.28,
+  "camera_wheel_zoom_step": 1.0,
+  "camera_trackpad_zoom_speed": 0.28,
+  "camera_pinch_zoom_speed": 6.0,
   "build_mode_size_bonus": 3.2,
 
   "fishing_wait_min": 1.2,

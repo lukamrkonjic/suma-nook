@@ -1,8 +1,9 @@
 class_name CameraRig
 extends Node3D
 ## Orthographic diorama camera: 45° yaw steps, ~34° pitch, smooth follow,
-## bounded zoom. Frames the world; follows the player gently. Movement input
-## stays camera-relative through every rotation (horizontal_basis()).
+## bounded zoom from mouse wheels, trackpad scroll, and pinch gestures. Frames
+## the world; follows the player gently. Movement input stays camera-relative
+## through every rotation (horizontal_basis()).
 
 var core: GameCore
 var target: Node3D
@@ -54,10 +55,28 @@ func _unhandled_input(event: InputEvent) -> void:
 		_yaw_target -= 90.0
 	elif event is InputEventMouseButton and event.pressed:
 		var wheel := event as InputEventMouseButton
+		var wheel_amount := maxf(0.1, wheel.factor)
 		if wheel.button_index == MOUSE_BUTTON_WHEEL_UP:
-			_size_target = clampf(_size_target - 1.2, core.registries.tunef("camera_min_size", 6.0), core.registries.tunef("camera_max_size", 28.0))
+			_zoom_by(-core.registries.tunef("camera_wheel_zoom_step", 1.0) * wheel_amount)
 		elif wheel.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			_size_target = clampf(_size_target + 1.2, core.registries.tunef("camera_min_size", 6.0), core.registries.tunef("camera_max_size", 28.0))
+			_zoom_by(core.registries.tunef("camera_wheel_zoom_step", 1.0) * wheel_amount)
+	elif event is InputEventMagnifyGesture:
+		var magnify := event as InputEventMagnifyGesture
+		_zoom_by((1.0 - magnify.factor) * core.registries.tunef("camera_pinch_zoom_speed", 6.0))
+	elif event is InputEventPanGesture:
+		var pan := event as InputEventPanGesture
+		# Vertical two-finger travel zooms; horizontal travel is left untouched
+		# so diagonal trackpad gestures do not cause surprising scale changes.
+		if absf(pan.delta.y) > absf(pan.delta.x):
+			_zoom_by(pan.delta.y * core.registries.tunef("camera_trackpad_zoom_speed", 0.28))
+
+
+func _zoom_by(amount: float) -> void:
+	_size_target = clampf(
+		_size_target + amount,
+		core.registries.tunef("camera_min_size", 6.0),
+		core.registries.tunef("camera_max_size", 28.0)
+	)
 
 
 ## Camera-relative movement basis projected to the ground plane.

@@ -139,6 +139,25 @@ func _step_movement() -> void:
 	check(before.distance_to(player.position) > 0.5, "movement stays camera-relative after rotation")
 	main.camera_rig._yaw_target -= 90.0
 	await wait(0.5)
+	# All desktop zoom inputs converge on the same smooth bounded target.
+	var default_zoom := main.camera_rig._size_target
+	var wheel := InputEventMouseButton.new()
+	wheel.button_index = MOUSE_BUTTON_WHEEL_UP
+	wheel.pressed = true
+	wheel.factor = 0.5
+	main.camera_rig._unhandled_input(wheel)
+	check(main.camera_rig._size_target < default_zoom, "mouse wheel zooms in")
+	var after_wheel := main.camera_rig._size_target
+	var pinch := InputEventMagnifyGesture.new()
+	pinch.factor = 1.1
+	main.camera_rig._unhandled_input(pinch)
+	check(main.camera_rig._size_target < after_wheel, "trackpad pinch zooms in")
+	var before_pan := main.camera_rig._size_target
+	var pan := InputEventPanGesture.new()
+	pan.delta = Vector2(0, 2)
+	main.camera_rig._unhandled_input(pan)
+	check(main.camera_rig._size_target > before_pan, "trackpad two-finger scroll zooms out")
+	main.camera_rig._size_target = default_zoom
 
 
 func _step_fishing() -> void:
