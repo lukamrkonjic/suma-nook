@@ -1,0 +1,829 @@
+{
+  "experiment": "Modly Blender conservative smoothing",
+  "blender_version": "5.2.0 LTS",
+  "angle_degrees": 40.0,
+  "assets": [
+    {
+      "asset": "tree1",
+      "working_copy": "C:\\Dev\\suma-nook\\tests\\modly_blender_smoothing\\source_copies\\tree1_original.glb",
+      "working_copy_bytes": 2367140,
+      "working_copy_sha256": "10D74D3E055181383EB3EF2D3C60F95570983502AF29A1973235B3A95B85BE4E",
+      "before_render": "C:\\Dev\\suma-nook\\tests\\modly_blender_smoothing\\renders\\tree1_before.png",
+      "after_render": "C:\\Dev\\suma-nook\\tests\\modly_blender_smoothing\\renders\\tree1_after.png",
+      "comparison_render": "C:\\Dev\\suma-nook\\tests\\modly_blender_smoothing\\renders\\tree1_comparison.png",
+      "exported_glb": "C:\\Dev\\suma-nook\\tests\\modly_blender_smoothing\\exports\\tree1_smooth_test.glb",
+      "exported_glb_bytes": 2389396,
+      "exported_glb_sha256": "74270714273B35DAB48B4BE367DFBB29C7F0D8C70F60B6803E45553ADAECA185",
+      "reimport_render": "C:\\Dev\\suma-nook\\tests\\modly_blender_smoothing\\renders\\tree1_reimport.png",
+      "blend_scene": "C:\\Dev\\suma-nook\\tests\\modly_blender_smoothing\\blender_scenes\\tree1_smooth_test.blend",
+      "exported_selected_object_count": 2,
+      "smoothing": {
+        "operator": "bpy.ops.object.shade_smooth_by_angle",
+        "angle_degrees": 40.0,
+        "keep_sharp_edges": true,
+        "result": [
+          "FINISHED"
+        ],
+        "normals_recalculated": []
+      },
+      "original_import": {
+        "label": "original_import",
+        "source": "C:\\Dev\\suma-nook\\tests\\modly_blender_smoothing\\source_copies\\tree1_original.glb",
+        "object_count": 2,
+        "mesh_object_count": 1,
+        "empty_count": 1,
+        "armature_count": 0,
+        "material_count": 1,
+        "texture_node_count": 2,
+        "bounds_min": [
+          -0.280197,
+          -0.254728,
+          -0.499995
+        ],
+        "bounds_max": [
+          0.280197,
+          0.254728,
+          0.499995
+        ],
+        "dimensions": [
+          0.560393,
+          0.509457,
+          0.99999
+        ],
+        "origin_to_ground_delta": 0.499995,
+        "totals": {
+          "vertices": 2531,
+          "edges": 4841,
+          "faces": 2500,
+          "triangles": 2500,
+          "connected_components": 210,
+          "non_manifold_edges": 2182,
+          "invalid_normals": 0,
+          "smooth_faces": 0
+        },
+        "extreme_scale_objects": [],
+        "origins_far_from_geometry": [],
+        "exact_duplicate_object_groups": [],
+        "hierarchy": [
+          {
+            "name": "world",
+            "type": "EMPTY",
+            "children": [
+              {
+                "name": "geometry_0",
+                "type": "MESH",
+                "children": []
+              }
+            ]
+          }
+        ],
+        "meshes": [
+          {
+            "object": "geometry_0",
+            "mesh": "geometry_0",
+            "vertices": 2531,
+            "edges": 4841,
+            "faces": 2500,
+            "triangles": 2500,
+            "connected_components": 210,
+            "isolated_vertices": 0,
+            "non_manifold_edges": 2182,
+            "boundary_edges": 2182,
+            "wire_edges": 0,
+            "normal_samples": 7500,
+            "invalid_normals": 0,
+            "smooth_faces": 0,
+            "material_slots": [
+              {
+                "name": "Material_0",
+                "use_nodes": true,
+                "alpha": 1.0,
+                "surface_render_method": "DITHERED",
+                "textures": [
+                  {
+                    "node": "Image Texture",
+                    "image": "Image_0",
+                    "size": [
+                      1024,
+                      1024
+                    ],
+                    "packed": true,
+                    "filepath": "",
+                    "external_file_exists": false,
+                    "colorspace": "sRGB"
+                  },
+                  {
+                    "node": "Image Texture.001",
+                    "image": "Image_1",
+                    "size": [
+                      1024,
+                      1024
+                    ],
+                    "packed": true,
+                    "filepath": "",
+                    "external_file_exists": false,
+                    "colorspace": "Non-Color"
+                  }
+                ]
+              }
+            ],
+            "location": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "rotation_degrees": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "dimensions": [
+              0.560393,
+              0.509457,
+              0.99999
+            ]
+          }
+        ]
+      },
+      "after_smoothing": {
+        "label": "after_smoothing",
+        "source": "C:\\Dev\\suma-nook\\tests\\modly_blender_smoothing\\source_copies\\tree1_original.glb",
+        "object_count": 2,
+        "mesh_object_count": 1,
+        "empty_count": 1,
+        "armature_count": 0,
+        "material_count": 1,
+        "texture_node_count": 2,
+        "bounds_min": [
+          -0.280197,
+          -0.254728,
+          -0.499995
+        ],
+        "bounds_max": [
+          0.280197,
+          0.254728,
+          0.499995
+        ],
+        "dimensions": [
+          0.560393,
+          0.509457,
+          0.99999
+        ],
+        "origin_to_ground_delta": 0.499995,
+        "totals": {
+          "vertices": 2531,
+          "edges": 4841,
+          "faces": 2500,
+          "triangles": 2500,
+          "connected_components": 210,
+          "non_manifold_edges": 2182,
+          "invalid_normals": 0,
+          "smooth_faces": 2500
+        },
+        "extreme_scale_objects": [],
+        "origins_far_from_geometry": [],
+        "exact_duplicate_object_groups": [],
+        "hierarchy": [
+          {
+            "name": "world",
+            "type": "EMPTY",
+            "children": [
+              {
+                "name": "geometry_0",
+                "type": "MESH",
+                "children": []
+              }
+            ]
+          }
+        ],
+        "meshes": [
+          {
+            "object": "geometry_0",
+            "mesh": "geometry_0",
+            "vertices": 2531,
+            "edges": 4841,
+            "faces": 2500,
+            "triangles": 2500,
+            "connected_components": 210,
+            "isolated_vertices": 0,
+            "non_manifold_edges": 2182,
+            "boundary_edges": 2182,
+            "wire_edges": 0,
+            "normal_samples": 7500,
+            "invalid_normals": 0,
+            "smooth_faces": 2500,
+            "material_slots": [
+              {
+                "name": "Material_0",
+                "use_nodes": true,
+                "alpha": 1.0,
+                "surface_render_method": "DITHERED",
+                "textures": [
+                  {
+                    "node": "Image Texture",
+                    "image": "Image_0",
+                    "size": [
+                      1024,
+                      1024
+                    ],
+                    "packed": true,
+                    "filepath": "",
+                    "external_file_exists": false,
+                    "colorspace": "sRGB"
+                  },
+                  {
+                    "node": "Image Texture.001",
+                    "image": "Image_1",
+                    "size": [
+                      1024,
+                      1024
+                    ],
+                    "packed": true,
+                    "filepath": "",
+                    "external_file_exists": false,
+                    "colorspace": "Non-Color"
+                  }
+                ]
+              }
+            ],
+            "location": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "rotation_degrees": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "dimensions": [
+              0.560393,
+              0.509457,
+              0.99999
+            ]
+          }
+        ]
+      },
+      "fresh_reimport": {
+        "label": "fresh_reimport",
+        "source": "C:\\Dev\\suma-nook\\tests\\modly_blender_smoothing\\exports\\tree1_smooth_test.glb",
+        "object_count": 2,
+        "mesh_object_count": 1,
+        "empty_count": 1,
+        "armature_count": 0,
+        "material_count": 1,
+        "texture_node_count": 2,
+        "bounds_min": [
+          -0.280197,
+          -0.254728,
+          -0.499995
+        ],
+        "bounds_max": [
+          0.280197,
+          0.254728,
+          0.499995
+        ],
+        "dimensions": [
+          0.560393,
+          0.509457,
+          0.99999
+        ],
+        "origin_to_ground_delta": 0.499995,
+        "totals": {
+          "vertices": 2744,
+          "edges": 4962,
+          "faces": 2500,
+          "triangles": 2500,
+          "connected_components": 298,
+          "non_manifold_edges": 2424,
+          "invalid_normals": 0,
+          "smooth_faces": 2419
+        },
+        "extreme_scale_objects": [],
+        "origins_far_from_geometry": [],
+        "exact_duplicate_object_groups": [],
+        "hierarchy": [
+          {
+            "name": "world",
+            "type": "EMPTY",
+            "children": [
+              {
+                "name": "geometry_0",
+                "type": "MESH",
+                "children": []
+              }
+            ]
+          }
+        ],
+        "meshes": [
+          {
+            "object": "geometry_0",
+            "mesh": "geometry_0",
+            "vertices": 2744,
+            "edges": 4962,
+            "faces": 2500,
+            "triangles": 2500,
+            "connected_components": 298,
+            "isolated_vertices": 0,
+            "non_manifold_edges": 2424,
+            "boundary_edges": 2424,
+            "wire_edges": 0,
+            "normal_samples": 7500,
+            "invalid_normals": 0,
+            "smooth_faces": 2419,
+            "material_slots": [
+              {
+                "name": "Material_0",
+                "use_nodes": true,
+                "alpha": 1.0,
+                "surface_render_method": "DITHERED",
+                "textures": [
+                  {
+                    "node": "Image Texture",
+                    "image": "Image_0",
+                    "size": [
+                      1024,
+                      1024
+                    ],
+                    "packed": true,
+                    "filepath": "",
+                    "external_file_exists": false,
+                    "colorspace": "sRGB"
+                  },
+                  {
+                    "node": "Image Texture.001",
+                    "image": "Image_1",
+                    "size": [
+                      1024,
+                      1024
+                    ],
+                    "packed": true,
+                    "filepath": "",
+                    "external_file_exists": false,
+                    "colorspace": "Non-Color"
+                  }
+                ]
+              }
+            ],
+            "location": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "rotation_degrees": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "dimensions": [
+              0.560393,
+              0.509457,
+              0.99999
+            ]
+          }
+        ]
+      },
+      "validation": {
+        "polygon_count_preserved_by_smoothing": true,
+        "polygon_count_preserved_by_export": true,
+        "mesh_count_preserved": true,
+        "material_count_preserved": true,
+        "texture_assignments_preserved": true,
+        "maximum_dimension_delta": 0.0,
+        "scale_orientation_bounds_preserved": true,
+        "smoothed_faces_after_export": 2419,
+        "smoothing_survived_export": true,
+        "render_pixel_difference": {
+          "mean_absolute_difference": 0.0,
+          "maximum_absolute_difference": 0.0
+        }
+      }
+    },
+    {
+      "asset": "tree2",
+      "working_copy": "C:\\Dev\\suma-nook\\tests\\modly_blender_smoothing\\source_copies\\tree2_original.glb",
+      "working_copy_bytes": 1787668,
+      "working_copy_sha256": "61ED960B9288BA7C7EDEA08BA288C26A6255F4CFD36518621DF4472531C6F90F",
+      "before_render": "C:\\Dev\\suma-nook\\tests\\modly_blender_smoothing\\renders\\tree2_before.png",
+      "after_render": "C:\\Dev\\suma-nook\\tests\\modly_blender_smoothing\\renders\\tree2_after.png",
+      "comparison_render": "C:\\Dev\\suma-nook\\tests\\modly_blender_smoothing\\renders\\tree2_comparison.png",
+      "exported_glb": "C:\\Dev\\suma-nook\\tests\\modly_blender_smoothing\\exports\\tree2_smooth_test.glb",
+      "exported_glb_bytes": 1821752,
+      "exported_glb_sha256": "BA05407602600EA5A816A8FEDD6306DB6260E69B572F013AA7B30B30278C7E0F",
+      "reimport_render": "C:\\Dev\\suma-nook\\tests\\modly_blender_smoothing\\renders\\tree2_reimport.png",
+      "blend_scene": "C:\\Dev\\suma-nook\\tests\\modly_blender_smoothing\\blender_scenes\\tree2_smooth_test.blend",
+      "exported_selected_object_count": 2,
+      "smoothing": {
+        "operator": "bpy.ops.object.shade_smooth_by_angle",
+        "angle_degrees": 40.0,
+        "keep_sharp_edges": true,
+        "result": [
+          "FINISHED"
+        ],
+        "normals_recalculated": []
+      },
+      "original_import": {
+        "label": "original_import",
+        "source": "C:\\Dev\\suma-nook\\tests\\modly_blender_smoothing\\source_copies\\tree2_original.glb",
+        "object_count": 2,
+        "mesh_object_count": 1,
+        "empty_count": 1,
+        "armature_count": 0,
+        "material_count": 1,
+        "texture_node_count": 2,
+        "bounds_min": [
+          -0.377739,
+          -0.209191,
+          -0.499995
+        ],
+        "bounds_max": [
+          0.377739,
+          0.209191,
+          0.499995
+        ],
+        "dimensions": [
+          0.755477,
+          0.418381,
+          0.99999
+        ],
+        "origin_to_ground_delta": 0.499995,
+        "totals": {
+          "vertices": 2815,
+          "edges": 5045,
+          "faces": 2500,
+          "triangles": 2500,
+          "connected_components": 280,
+          "non_manifold_edges": 2590,
+          "invalid_normals": 0,
+          "smooth_faces": 0
+        },
+        "extreme_scale_objects": [],
+        "origins_far_from_geometry": [],
+        "exact_duplicate_object_groups": [],
+        "hierarchy": [
+          {
+            "name": "world",
+            "type": "EMPTY",
+            "children": [
+              {
+                "name": "geometry_0",
+                "type": "MESH",
+                "children": []
+              }
+            ]
+          }
+        ],
+        "meshes": [
+          {
+            "object": "geometry_0",
+            "mesh": "geometry_0",
+            "vertices": 2815,
+            "edges": 5045,
+            "faces": 2500,
+            "triangles": 2500,
+            "connected_components": 280,
+            "isolated_vertices": 0,
+            "non_manifold_edges": 2590,
+            "boundary_edges": 2590,
+            "wire_edges": 0,
+            "normal_samples": 7500,
+            "invalid_normals": 0,
+            "smooth_faces": 0,
+            "material_slots": [
+              {
+                "name": "Material_0",
+                "use_nodes": true,
+                "alpha": 1.0,
+                "surface_render_method": "DITHERED",
+                "textures": [
+                  {
+                    "node": "Image Texture",
+                    "image": "Image_0",
+                    "size": [
+                      1024,
+                      1024
+                    ],
+                    "packed": true,
+                    "filepath": "",
+                    "external_file_exists": false,
+                    "colorspace": "sRGB"
+                  },
+                  {
+                    "node": "Image Texture.001",
+                    "image": "Image_1",
+                    "size": [
+                      1024,
+                      1024
+                    ],
+                    "packed": true,
+                    "filepath": "",
+                    "external_file_exists": false,
+                    "colorspace": "Non-Color"
+                  }
+                ]
+              }
+            ],
+            "location": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "rotation_degrees": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "dimensions": [
+              0.755477,
+              0.418381,
+              0.99999
+            ]
+          }
+        ]
+      },
+      "after_smoothing": {
+        "label": "after_smoothing",
+        "source": "C:\\Dev\\suma-nook\\tests\\modly_blender_smoothing\\source_copies\\tree2_original.glb",
+        "object_count": 2,
+        "mesh_object_count": 1,
+        "empty_count": 1,
+        "armature_count": 0,
+        "material_count": 1,
+        "texture_node_count": 2,
+        "bounds_min": [
+          -0.377739,
+          -0.209191,
+          -0.499995
+        ],
+        "bounds_max": [
+          0.377739,
+          0.209191,
+          0.499995
+        ],
+        "dimensions": [
+          0.755477,
+          0.418381,
+          0.99999
+        ],
+        "origin_to_ground_delta": 0.499995,
+        "totals": {
+          "vertices": 2815,
+          "edges": 5045,
+          "faces": 2500,
+          "triangles": 2500,
+          "connected_components": 280,
+          "non_manifold_edges": 2590,
+          "invalid_normals": 0,
+          "smooth_faces": 2500
+        },
+        "extreme_scale_objects": [],
+        "origins_far_from_geometry": [],
+        "exact_duplicate_object_groups": [],
+        "hierarchy": [
+          {
+            "name": "world",
+            "type": "EMPTY",
+            "children": [
+              {
+                "name": "geometry_0",
+                "type": "MESH",
+                "children": []
+              }
+            ]
+          }
+        ],
+        "meshes": [
+          {
+            "object": "geometry_0",
+            "mesh": "geometry_0",
+            "vertices": 2815,
+            "edges": 5045,
+            "faces": 2500,
+            "triangles": 2500,
+            "connected_components": 280,
+            "isolated_vertices": 0,
+            "non_manifold_edges": 2590,
+            "boundary_edges": 2590,
+            "wire_edges": 0,
+            "normal_samples": 7500,
+            "invalid_normals": 0,
+            "smooth_faces": 2500,
+            "material_slots": [
+              {
+                "name": "Material_0",
+                "use_nodes": true,
+                "alpha": 1.0,
+                "surface_render_method": "DITHERED",
+                "textures": [
+                  {
+                    "node": "Image Texture",
+                    "image": "Image_0",
+                    "size": [
+                      1024,
+                      1024
+                    ],
+                    "packed": true,
+                    "filepath": "",
+                    "external_file_exists": false,
+                    "colorspace": "sRGB"
+                  },
+                  {
+                    "node": "Image Texture.001",
+                    "image": "Image_1",
+                    "size": [
+                      1024,
+                      1024
+                    ],
+                    "packed": true,
+                    "filepath": "",
+                    "external_file_exists": false,
+                    "colorspace": "Non-Color"
+                  }
+                ]
+              }
+            ],
+            "location": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "rotation_degrees": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "dimensions": [
+              0.755477,
+              0.418381,
+              0.99999
+            ]
+          }
+        ]
+      },
+      "fresh_reimport": {
+        "label": "fresh_reimport",
+        "source": "C:\\Dev\\suma-nook\\tests\\modly_blender_smoothing\\exports\\tree2_smooth_test.glb",
+        "object_count": 2,
+        "mesh_object_count": 1,
+        "empty_count": 1,
+        "armature_count": 0,
+        "material_count": 1,
+        "texture_node_count": 2,
+        "bounds_min": [
+          -0.377739,
+          -0.209191,
+          -0.499995
+        ],
+        "bounds_max": [
+          0.377739,
+          0.209191,
+          0.499995
+        ],
+        "dimensions": [
+          0.755477,
+          0.418381,
+          0.99999
+        ],
+        "origin_to_ground_delta": 0.499995,
+        "totals": {
+          "vertices": 3291,
+          "edges": 5316,
+          "faces": 2500,
+          "triangles": 2500,
+          "connected_components": 478,
+          "non_manifold_edges": 3132,
+          "invalid_normals": 0,
+          "smooth_faces": 2348
+        },
+        "extreme_scale_objects": [],
+        "origins_far_from_geometry": [],
+        "exact_duplicate_object_groups": [],
+        "hierarchy": [
+          {
+            "name": "world",
+            "type": "EMPTY",
+            "children": [
+              {
+                "name": "geometry_0",
+                "type": "MESH",
+                "children": []
+              }
+            ]
+          }
+        ],
+        "meshes": [
+          {
+            "object": "geometry_0",
+            "mesh": "geometry_0",
+            "vertices": 3291,
+            "edges": 5316,
+            "faces": 2500,
+            "triangles": 2500,
+            "connected_components": 478,
+            "isolated_vertices": 0,
+            "non_manifold_edges": 3132,
+            "boundary_edges": 3132,
+            "wire_edges": 0,
+            "normal_samples": 7500,
+            "invalid_normals": 0,
+            "smooth_faces": 2348,
+            "material_slots": [
+              {
+                "name": "Material_0",
+                "use_nodes": true,
+                "alpha": 1.0,
+                "surface_render_method": "DITHERED",
+                "textures": [
+                  {
+                    "node": "Image Texture",
+                    "image": "Image_0",
+                    "size": [
+                      1024,
+                      1024
+                    ],
+                    "packed": true,
+                    "filepath": "",
+                    "external_file_exists": false,
+                    "colorspace": "sRGB"
+                  },
+                  {
+                    "node": "Image Texture.001",
+                    "image": "Image_1",
+                    "size": [
+                      1024,
+                      1024
+                    ],
+                    "packed": true,
+                    "filepath": "",
+                    "external_file_exists": false,
+                    "colorspace": "Non-Color"
+                  }
+                ]
+              }
+            ],
+            "location": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "rotation_degrees": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "dimensions": [
+              0.755477,
+              0.418381,
+              0.99999
+            ]
+          }
+        ]
+      },
+      "validation": {
+        "polygon_count_preserved_by_smoothing": true,
+        "polygon_count_preserved_by_export": true,
+        "mesh_count_preserved": true,
+        "material_count_preserved": true,
+        "texture_assignments_preserved": true,
+        "maximum_dimension_delta": 0.0,
+        "scale_orientation_bounds_preserved": true,
+        "smoothed_faces_after_export": 2348,
+        "smoothing_survived_export": true,
+        "render_pixel_difference": {
+          "mean_absolute_difference": 0.0,
+          "maximum_absolute_difference": 0.0
+        }
+      }
+    }
+  ]
+}

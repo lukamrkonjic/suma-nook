@@ -1,0 +1,19 @@
+{
+  "purpose": "Disposable Modly GLB import, conservative smoothing, export, and re-import test",
+  "blender": "5.2.0 LTS",
+  "sources": [
+    {
+      "original_path": "C:\\Users\\Luka\\Desktop\\tree1.glb",
+      "working_copy": "source_copies/tree1_original.glb",
+      "bytes": 2367140,
+      "sha256": "10D74D3E055181383EB3EF2D3C60F95570983502AF29A1973235B3A95B85BE4E"
+    },
+    {
+      "original_path": "C:\\Users\\Luka\\Desktop\\tree2.glb",
+      "working_copy": "source_copies/tree2_original.glb",
+      "bytes": 1787668,
+      "sha256": "61ED960B9288BA7C7EDEA08BA288C26A6255F4CFD36518621DF4472531C6F90F"
+    }
+  ],
+  "production_integration": false
+}

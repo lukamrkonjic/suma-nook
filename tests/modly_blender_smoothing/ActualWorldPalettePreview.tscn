@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tests/modly_blender_smoothing/actual_world_palette_preview.gd" id="1"]
+
+[node name="ActualWorldPalettePreview" type="Node"]
+script = ExtResource("1")
