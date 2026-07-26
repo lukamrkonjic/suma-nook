@@ -59,7 +59,7 @@ func _ready() -> void:
 		_start_character_creation()
 
 
-## Dev harness: `godot -- --shot=docs/foo.png [--mist|--rain] [--zoom=10.5] [--creator]`
+## Dev harness: `godot -- --shot=docs/foo.png [--mist|--rain] [--admin] [--zoom=10.5]`
 ## boots a fresh throwaway world, waits for frames to settle, captures, quits.
 func _handle_dev_shot(user_args: PackedStringArray) -> bool:
 	var shot_path := ""
@@ -94,6 +94,8 @@ func _handle_dev_shot(user_args: PackedStringArray) -> bool:
 	for arg in user_args:
 		if arg.begins_with("--zoom="):
 			camera_rig.set_zoom_immediate(float(arg.trim_prefix("--zoom=")))
+	if user_args.has("--admin"):
+		panels.toggle("debug")
 	get_tree().create_timer(2.2).timeout.connect(func():
 		var image := get_viewport().get_texture().get_image()
 		image.save_png(shot_path)
@@ -195,6 +197,7 @@ func _connect_flows() -> void:
 	hud.open_parcel_requested.connect(func():
 		audio.play_event("parcel_open")
 		parcel_reveal.open_best_available())
+	hud.admin_requested.connect(func(): panels.toggle("debug"))
 	hud.build_piece_selected.connect(func(kind, id):
 		audio.play_event("build_preview")
 		placement.hold_new(kind, id))
@@ -763,6 +766,56 @@ func toggle_weather() -> void:
 	lighting.toggle_profile()
 
 
+func debug_set_weather(weather_id: String) -> void:
+	lighting.set_weather(weather_id)
+	hud.toast("Weather: %s" % weather_id.capitalize(), "good")
+
+
+func debug_set_time_of_day(preset_id: String) -> void:
+	lighting.set_time_of_day(preset_id)
+	hud.toast("Time of day: %s" % preset_id.capitalize(), "good")
+
+
+func debug_set_background(preset_id: String) -> void:
+	lighting.set_background_preset(preset_id)
+	hud.toast("Background: %s" % preset_id.capitalize(), "good")
+
+
+func debug_reset_visuals() -> void:
+	lighting.reset_admin_overrides()
+	hud.toast("Visual overrides reset.", "good")
+
+
+func debug_grant_all_items(amount := 99) -> void:
+	for item_id: String in core.registries.items:
+		var def := core.registries.item(item_id)
+		core.inventory.grant(item_id, amount, def.rarity == "rare", true)
+		if def.slot != "":
+			core.equipment.acquire(item_id)
+			core.collection.record("gear", item_id, 0)
+	hud.toast("Granted every item ×%d." % amount, "levelup")
+
+
+func debug_grant_all_tiles(amount := 10) -> void:
+	for tile_id: String in core.registries.tiles:
+		core.stock.add_tile(tile_id, amount)
+		core.collection.record("tiles", tile_id, 0)
+	hud.toast("Granted every tile ×%d." % amount, "levelup")
+
+
+func debug_grant_all_structures(amount := 10) -> void:
+	for structure_id: String in core.registries.structures:
+		core.stock.add_structure(structure_id, amount)
+		core.collection.record("structures", structure_id, 0)
+	hud.toast("Granted every structure ×%d." % amount, "levelup")
+
+
+func debug_grant_all_content() -> void:
+	debug_grant_all_items()
+	debug_grant_all_tiles()
+	debug_grant_all_structures()
+
+
 func debug_force_ferry_departure() -> void:
 	if ferry_presentation.active:
 		ferry_presentation.force_departure()
@@ -786,10 +839,10 @@ func debug_toggle_arrival_presentation() -> void:
 
 func _on_profile_applied(profile: VisualStyleProfile) -> void:
 	audio.set_rain(profile.rain_enabled)
-	hud.apply_weather_contrast(profile.rain_enabled)
+	hud.apply_weather_contrast(profile.rain_enabled or lighting.is_dark_background())
 	for light in get_tree().get_nodes_in_group("warm_lights"):
 		var omni := light as OmniLight3D
-		omni.light_energy = float(omni.get_meta("base_energy", 1.0)) * (1.0 if profile.rain_enabled else profile.local_light_multiplier)
+		omni.light_energy = lighting.local_light_energy(float(omni.get_meta("base_energy", 1.0)))
 
 
 func reload_from_save() -> void:

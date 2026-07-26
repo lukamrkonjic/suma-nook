@@ -357,10 +357,46 @@ func _settings_panel() -> Dictionary:
 # ------------------------------------------------------------------ debug (dev builds only)
 
 func _debug_panel() -> Dictionary:
-	var win := kit.window("Debug", Vector2(500, 560))
-	var parts := _scroll_list(440.0)
+	var win := kit.window("Admin Debug Controls", Vector2(660, 720))
+	var parts := _scroll_list(590.0)
 	win["content"].add_child(parts["scroll"])
 	var list: VBoxContainer = parts["list"]
+	list.add_child(kit.label("Content library", 20))
+	for action in [
+		["Get every item ×99", func(): settings_bridge.call("debug_grant_all_items")],
+		["Get every tile ×10", func(): settings_bridge.call("debug_grant_all_tiles")],
+		["Get every structure ×10", func(): settings_bridge.call("debug_grant_all_structures")],
+		["Get absolutely everything", func(): settings_bridge.call("debug_grant_all_content")],
+	]:
+		var content_button := kit.button(action[0], action[0] == "Get absolutely everything")
+		content_button.pressed.connect(action[1])
+		list.add_child(content_button)
+
+	var lighting := settings_bridge.get("lighting") as LightingRig
+	if lighting != null:
+		_debug_choice_row(list, "Weather", [
+			["Day", "day"],
+			["Mist", "mist"],
+			["Rain", "rain"],
+		], "debug_set_weather", lighting.weather_id())
+		_debug_choice_row(list, "Time of day", [
+			["Morning", "morning"],
+			["Noon", "noon"],
+			["Sunset", "sunset"],
+			["Night", "night"],
+		], "debug_set_time_of_day", lighting.time_of_day_id)
+		_debug_choice_row(list, "Background", [
+			["Profile", "profile"],
+			["Cream", "cream"],
+			["Mist", "mist"],
+			["Dusk", "dusk"],
+			["Night", "night"],
+		], "debug_set_background", lighting.background_preset_id)
+		var reset_visuals := kit.button("Reset visual overrides")
+		reset_visuals.pressed.connect(func(): settings_bridge.call("debug_reset_visuals"))
+		list.add_child(reset_visuals)
+
+	list.add_child(kit.label("World and progression", 20))
 	var actions := [
 		["Trigger ferry arrival", func(): core.arrivals.trigger_arrival()],
 		["Force ferry delivery/departure", func(): settings_bridge.call("debug_force_ferry_departure")],
@@ -370,7 +406,6 @@ func _debug_panel() -> Dictionary:
 		["Switch ferry / postcard", func(): settings_bridge.call("debug_toggle_arrival_presentation")],
 		["Grant 100 Fishing XP", func(): core.skills.add_xp("fishing", 100)],
 		["Grant 100 Woodland Tending XP", func(): core.skills.add_xp("woodcutting", 100)],
-		["Force a themed tile reward", func(): core.stock.add_tile("tile_grove_mature")],
 		["Speed regen (all groves)", _debug_speed_regen],
 		["Save now", func(): core.save()],
 		["Reload save", func(): settings_bridge.call("reload_from_save")],
@@ -389,6 +424,28 @@ func _debug_panel() -> Dictionary:
 		str(core.registries.feature("legacy_material_loot_enabled"))], 13))
 	list.add_child(kit.label("Seed: %d" % core.rng.world_seed, 13))
 	return win
+
+
+func _debug_choice_row(
+	list: VBoxContainer,
+	title: String,
+	choices: Array,
+	method_name: String,
+	active_id: String
+) -> void:
+	list.add_child(kit.label(title, 20))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	list.add_child(row)
+	for choice in choices:
+		var preset_id := String(choice[1])
+		var button := kit.button(String(choice[0]), preset_id == active_id)
+		button.pressed.connect(_debug_apply_visual_choice.bind(method_name, preset_id))
+		row.add_child(button)
+
+
+func _debug_apply_visual_choice(method_name: String, preset_id: String) -> void:
+	settings_bridge.call(method_name, preset_id)
 
 
 func _debug_speed_regen() -> void:

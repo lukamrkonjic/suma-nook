@@ -6,6 +6,7 @@ extends CanvasLayer
 
 signal open_parcel_requested
 signal build_piece_selected(kind: String, id: String)
+signal admin_requested
 
 var core: GameCore
 var kit: UiKit
@@ -20,6 +21,7 @@ var _build_bar: PanelContainer
 var _build_strip: HBoxContainer
 var _parcel_button: Button
 var _bottom_buttons: HBoxContainer
+var _admin_card: PanelContainer
 
 
 func setup(game_core: GameCore, ui_kit: UiKit, placement_controller: PlacementController) -> void:
@@ -119,6 +121,26 @@ func _build_layout() -> void:
 	_parcel_button.visible = false
 	_parcel_button.pressed.connect(func(): open_parcel_requested.emit())
 	_bottom_buttons.add_child(_parcel_button)
+
+	# Discoverable debug entry point. The full controls open in the existing
+	# modal debug window so this card can stay compact over the game world.
+	if OS.is_debug_build():
+		_admin_card = kit.card()
+		_admin_card.name = "AdminCard"
+		_admin_card.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+		_admin_card.position += Vector2(-14, -14)
+		_admin_card.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		_admin_card.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		root.add_child(_admin_card)
+		var admin_col := VBoxContainer.new()
+		admin_col.add_theme_constant_override("separation", 4)
+		_admin_card.add_child(admin_col)
+		var admin_label := kit.label("DEBUG ADMIN", 12)
+		admin_label.add_theme_color_override("font_color", Color(0.48, 0.39, 0.26))
+		admin_col.add_child(admin_label)
+		var admin_button := kit.button("Open controls", true)
+		admin_button.pressed.connect(func(): admin_requested.emit())
+		admin_col.add_child(admin_button)
 
 	# Build bar — bottom strip with stock pieces (hidden outside build mode).
 	_build_bar = kit.card()

@@ -23,6 +23,8 @@ var _motes: GPUParticles3D
 var _bg_layer: CanvasLayer
 var _bg_rect: ColorRect
 var _bg_material: ShaderMaterial
+var time_of_day_id := "noon"
+var background_preset_id := "profile"
 
 
 func _ready() -> void:
@@ -134,6 +136,8 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 
 	_rain.emitting = profile.rain_enabled
 	_motes.emitting = profile.motes_enabled
+	_apply_time_of_day()
+	_apply_background_preset()
 	profile_applied.emit(profile)
 
 
@@ -146,10 +150,153 @@ func toggle_profile() -> void:
 		apply_profile(day_profile)
 
 
+func set_weather(weather_id: String) -> void:
+	match weather_id:
+		"day":
+			apply_profile(day_profile)
+		"mist":
+			apply_profile(mist_profile)
+		"rain":
+			apply_profile(rain_profile)
+
+
+func set_time_of_day(preset_id: String) -> void:
+	if preset_id not in ["morning", "noon", "sunset", "night"]:
+		return
+	time_of_day_id = preset_id
+	_apply_time_of_day()
+	profile_applied.emit(current_profile)
+
+
+func set_background_preset(preset_id: String) -> void:
+	if preset_id not in ["profile", "cream", "mist", "dusk", "night"]:
+		return
+	background_preset_id = preset_id
+	_apply_background_preset()
+	profile_applied.emit(current_profile)
+
+
+func reset_admin_overrides() -> void:
+	time_of_day_id = "noon"
+	background_preset_id = "profile"
+	apply_profile(day_profile)
+
+
+func weather_id() -> String:
+	if current_profile == mist_profile:
+		return "mist"
+	if current_profile == rain_profile:
+		return "rain"
+	return "day"
+
+
+func is_dark_background() -> bool:
+	return background_preset_id == "night" or (
+		background_preset_id == "profile"
+		and current_profile != null
+		and current_profile.rain_enabled
+	)
+
+
 ## Scales warm local lights (campfires, lanterns) so they whisper by day and
 ## carry the scene by rain/dusk.
 func local_light_energy(base_energy: float) -> float:
-	return base_energy * (current_profile.local_light_multiplier if current_profile else 1.0)
+	var profile_multiplier := current_profile.local_light_multiplier if current_profile else 1.0
+	var time_multiplier := 1.0
+	match time_of_day_id:
+		"morning":
+			time_multiplier = 1.15
+		"sunset":
+			time_multiplier = 1.5
+		"night":
+			time_multiplier = 2.2
+	return base_energy * profile_multiplier * time_multiplier
+
+
+func _apply_time_of_day() -> void:
+	if current_profile == null:
+		return
+	var env := _environment.environment
+	_sun.light_color = current_profile.sun_color
+	_sun.light_energy = current_profile.sun_energy
+	_sun.rotation_degrees = Vector3(current_profile.sun_pitch_deg, current_profile.sun_yaw_deg, 0.0)
+	env.ambient_light_energy = current_profile.ambient_energy
+	env.glow_enabled = current_profile.glow_enabled
+	env.glow_intensity = current_profile.glow_intensity
+	match time_of_day_id:
+		"morning":
+			_sun.light_color = current_profile.sun_color.lerp(Color(1.0, 0.78, 0.58), 0.38)
+			_sun.light_energy = current_profile.sun_energy * 0.78
+			_sun.rotation_degrees.x = -28.0
+			env.ambient_light_energy = current_profile.ambient_energy * 0.82
+		"sunset":
+			_sun.light_color = current_profile.sun_color.lerp(Color(1.0, 0.48, 0.25), 0.62)
+			_sun.light_energy = current_profile.sun_energy * 0.62
+			_sun.rotation_degrees.x = -15.0
+			env.ambient_light_energy = current_profile.ambient_energy * 0.55
+			env.glow_enabled = true
+			env.glow_intensity = maxf(current_profile.glow_intensity, 0.28)
+		"night":
+			_sun.light_color = Color(0.42, 0.56, 0.9)
+			_sun.light_energy = current_profile.sun_energy * 0.2
+			_sun.rotation_degrees.x = -38.0
+			env.ambient_light_energy = maxf(0.12, current_profile.ambient_energy * 0.28)
+			env.glow_enabled = true
+			env.glow_intensity = maxf(current_profile.glow_intensity, 0.42)
+
+
+func _apply_background_preset() -> void:
+	if current_profile == null:
+		return
+	match background_preset_id:
+		"cream":
+			_set_flat_background(day_profile.background_color)
+		"mist":
+			_set_gradient_background(
+				mist_profile.gradient_top,
+				mist_profile.gradient_mid,
+				mist_profile.gradient_bottom,
+				0.0
+			)
+		"dusk":
+			_set_gradient_background(
+				Color(0.39, 0.34, 0.5),
+				Color(0.72, 0.47, 0.43),
+				Color(0.9, 0.67, 0.48),
+				0.0
+			)
+		"night":
+			_set_gradient_background(
+				Color(0.055, 0.075, 0.14),
+				Color(0.09, 0.15, 0.22),
+				Color(0.12, 0.2, 0.24),
+				1.0
+			)
+		_:
+			if current_profile.background_gradient:
+				_set_gradient_background(
+					current_profile.gradient_top,
+					current_profile.gradient_mid,
+					current_profile.gradient_bottom,
+					1.0 if current_profile.stars_enabled else 0.0
+				)
+			else:
+				_set_flat_background(current_profile.background_color)
+
+
+func _set_flat_background(color: Color) -> void:
+	_environment.environment.background_mode = Environment.BG_COLOR
+	_environment.environment.background_color = color
+	_bg_layer.visible = false
+
+
+func _set_gradient_background(top: Color, middle: Color, bottom: Color, stars: float) -> void:
+	_environment.environment.background_mode = Environment.BG_CANVAS
+	_bg_layer.visible = true
+	_bg_material.set_shader_parameter("top_color", top)
+	_bg_material.set_shader_parameter("mid_color", middle)
+	_bg_material.set_shader_parameter("bottom_color", bottom)
+	_bg_material.set_shader_parameter("stars_amount", stars)
 
 
 func _build_rain() -> GPUParticles3D:

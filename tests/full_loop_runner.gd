@@ -59,6 +59,7 @@ func _run() -> void:
 	await _step_place_tile()
 	await _step_woodcutting()
 	await _step_save_reload()
+	await _step_admin_controls()
 	if failures.is_empty():
 		print("FULL LOOP PASSED — %d checks" % checks)
 	else:
@@ -430,6 +431,38 @@ func _step_save_reload() -> void:
 	check(main.core.arrivals.has_waiting_package(), "unopened delivery survives reload")
 	check(main.delivery_point.package_is_visible(), "restored delivery is interactable at the dock")
 	check(get_tree().get_nodes_in_group("enemies").is_empty(), "no monsters or combat encounters appear")
+
+
+func _step_admin_controls() -> void:
+	print("STEP admin controls")
+	check(main.hud.find_child("AdminCard", true, false) != null, "Admin card is visible in debug builds")
+	main.debug_set_weather("mist")
+	check(main.lighting.weather_id() == "mist", "Admin selects an explicit weather profile")
+	main.debug_set_time_of_day("sunset")
+	check(main.lighting.time_of_day_id == "sunset", "Admin selects sunset lighting")
+	main.debug_set_background("night")
+	check(main.lighting.background_preset_id == "night", "Admin selects a night background")
+	check(main.lighting.is_dark_background(), "dark background enables high-contrast HUD text")
+	main.debug_reset_visuals()
+	check(
+		main.lighting.weather_id() == "day"
+		and main.lighting.time_of_day_id == "noon"
+		and main.lighting.background_preset_id == "profile",
+		"Admin visual reset restores day defaults"
+	)
+	var item_id := String(main.core.registries.items.keys()[0])
+	var item_before := main.core.inventory.count(item_id)
+	main.debug_grant_all_items(2)
+	check(main.core.inventory.count(item_id) == item_before + 2, "Admin grants every item")
+	check(main.core.equipment.owns("tool_axe_fine"), "Admin item grant unlocks equipment ownership")
+	var tile_id := String(main.core.registries.tiles.keys()[0])
+	var tile_before := main.core.stock.tile_count(tile_id)
+	main.debug_grant_all_tiles(2)
+	check(main.core.stock.tile_count(tile_id) == tile_before + 2, "Admin grants every tile")
+	var structure_id := String(main.core.registries.structures.keys()[0])
+	var structure_before := main.core.stock.structure_count(structure_id)
+	main.debug_grant_all_structures(2)
+	check(main.core.stock.structure_count(structure_id) == structure_before + 2, "Admin grants every structure")
 
 
 func _inventory_total() -> int:
