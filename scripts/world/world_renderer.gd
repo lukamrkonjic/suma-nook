@@ -12,10 +12,13 @@ var core: GameCore
 var assets: AssetLibrary
 var materials: MaterialLibrary
 
+const WATER_LEVEL := -0.14
+
 var _tile_nodes: Dictionary = {}        # Vector2i -> Node3D
 var _landmark_nodes: Dictionary = {}    # landmark_id -> Node3D
 var _edge_root: Node3D
 var _silhouette_material: StandardMaterial3D
+var _water_surface: WaterSurface
 
 
 func setup(game_core: GameCore, asset_library: AssetLibrary) -> void:
@@ -30,8 +33,13 @@ func setup(game_core: GameCore, asset_library: AssetLibrary) -> void:
 	_silhouette_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_silhouette_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 
+	_water_surface = WaterSurface.new()
+	_water_surface.name = "ContinuousWaterSurface"
+	add_child(_water_surface)
+
 	core.grid.cell_changed.connect(_on_cell_changed)
 	core.grid.grid_changed.connect(_rebuild_edges)
+	core.grid.grid_changed.connect(_rebuild_water_surface)
 	core.landmarks.opportunity_appeared.connect(func(_s): _sync_landmarks())
 	core.landmarks.landmark_revealed.connect(func(_s): _sync_landmarks())
 	core.landmarks.landmark_reclaimed.connect(func(_s): _sync_landmarks())
@@ -46,6 +54,7 @@ func rebuild_all() -> void:
 	for coord: Vector2i in core.grid.cells:
 		_build_cell(coord)
 	_rebuild_edges()
+	_rebuild_water_surface()
 	_sync_landmarks()
 
 
@@ -55,6 +64,7 @@ func _on_cell_changed(coord: Vector2i) -> void:
 		_tile_nodes.erase(coord)
 	if core.grid.has_cell(coord):
 		_build_cell(coord)
+	_rebuild_water_surface()
 
 
 func _build_cell(coord: Vector2i) -> void:
@@ -68,7 +78,7 @@ func _build_cell(coord: Vector2i) -> void:
 	add_child(holder)
 	_tile_nodes[coord] = holder
 
-	var visual := _make_open_water_tile() if def.id == "tile_open_water" else assets.instantiate(def.asset_id)
+	var visual := _make_open_water_tile(coord) if def.id == "tile_open_water" else assets.instantiate(def.asset_id)
 	visual.rotation.y = state.rotation * PI * 0.5
 	holder.add_child(visual)
 
@@ -104,27 +114,67 @@ func _build_cell(coord: Vector2i) -> void:
 	_apply_anchor_visual(holder, state, def, false)
 
 
-func _make_open_water_tile() -> Node3D:
-	# Proportions match the Blender land blocks: bottom at -0.62, water surface
-	# a readable step below the land tops so shorelines stay visible.
+## Open water: modeled sand floor GLB + authored underwater dressing. The
+## visible surface is ONE contiguous mesh over all water cells (see
+## _rebuild_water_surface), so waves and color are seamless across tiles.
+func _make_open_water_tile(coord: Vector2i) -> Node3D:
 	var root := Node3D.new()
 	root.name = "tile_open_water"
-	var bed := MeshInstance3D.new()
-	var bed_mesh := BoxMesh.new()
-	bed_mesh.size = Vector3(core.grid.tile_size, 0.54, core.grid.tile_size)
-	bed.mesh = bed_mesh
-	bed.position.y = -0.35
-	bed.material_override = materials.material("water_deep")
-	root.add_child(bed)
-	var surface := MeshInstance3D.new()
-	surface.name = "ContinuousWater"
-	var water_mesh := BoxMesh.new()
-	water_mesh.size = Vector3(core.grid.tile_size + 0.012, 0.12, core.grid.tile_size + 0.012)
-	surface.mesh = water_mesh
-	surface.position.y = -0.14
-	surface.material_override = materials.material("water")
-	root.add_child(surface)
+	root.add_child(assets.instantiate("tile_water_floor"))
+	_dress_underwater(root, coord)
 	return root
+
+
+## Deterministic per-cell underwater dressing: 2-4 clusters weighted toward
+## shorelines (eelgrass, broadleaf, rocks; reeds/lilies only near land).
+func _dress_underwater(root: Node3D, coord: Vector2i) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(coord) + 7331
+	var shore_dirs: Array[Vector2i] = []
+	for offset: Vector2i in WorldGrid.NEIGHBORS:
+		var neighbor := coord + offset
+		if core.grid.has_cell(neighbor) and core.grid.tile_def(neighbor) != null \
+				and core.grid.tile_def(neighbor).id != "tile_open_water":
+			shore_dirs.append(offset)
+	var placed := 0
+	var budget := 2 + (rng.randi() % 2) + (1 if shore_dirs.size() > 0 else 0)
+	for dir in shore_dirs:
+		if placed >= budget:
+			break
+		var inset := 0.62
+		var pos := Vector3(dir.x * inset, WATER_LEVEL - 0.26, dir.y * inset)
+		pos += Vector3(rng.randf_range(-0.25, 0.25), 0, rng.randf_range(-0.25, 0.25))
+		var pool := ["prop_uw_eelgrass_a", "prop_uw_eelgrass_b", "prop_uw_eelgrass_c",
+				"prop_uw_reeds_a", "prop_uw_reeds_b", "prop_uw_broadleaf_a"]
+		_place_uw(root, pool[rng.randi() % pool.size()], pos, rng)
+		placed += 1
+	if placed < budget and rng.randf() < 0.85:
+		var pool := ["prop_uw_rocks_a", "prop_uw_rocks_b", "prop_uw_rocks_c",
+				"prop_uw_broadleaf_b", "prop_uw_eelgrass_b"]
+		_place_uw(root, pool[rng.randi() % pool.size()],
+				Vector3(rng.randf_range(-0.5, 0.5), WATER_LEVEL - 0.27, rng.randf_range(-0.5, 0.5)), rng)
+		placed += 1
+	if shore_dirs.size() > 0 and rng.randf() < 0.3:
+		_place_uw(root, "prop_lily_a" if rng.randf() < 0.6 else "prop_lily_b",
+				Vector3(shore_dirs[0].x * 0.45 + rng.randf_range(-0.2, 0.2), WATER_LEVEL + 0.005,
+						shore_dirs[0].y * 0.45 + rng.randf_range(-0.2, 0.2)), rng)
+
+
+func _place_uw(root: Node3D, asset_id: String, pos: Vector3, rng: RandomNumberGenerator) -> void:
+	var node := assets.instantiate(asset_id)
+	node.position = pos
+	node.rotation.y = rng.randf_range(0.0, TAU)
+	root.add_child(node)
+
+
+func _rebuild_water_surface() -> void:
+	var cells: Array = []
+	for coord: Vector2i in core.grid.cells:
+		var def := core.grid.tile_def(coord)
+		if def != null and def.id == "tile_open_water":
+			cells.append(coord)
+	_water_surface.rebuild(cells, func(c: Vector2i) -> Vector3: return core.grid.cell_to_world(c),
+			core.grid.tile_size, WATER_LEVEL, materials.material("water"))
 
 
 func _build_structure(holder: Node3D, s: WorldGrid.StructureState) -> void:

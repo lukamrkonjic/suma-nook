@@ -1,6 +1,6 @@
 class_name LightingRig
 extends Node3D
-## The one shared lighting/atmosphere setup (scenes/visual/GardenStyleLightingRig.tscn).
+## The one shared lighting/atmosphere setup (scenes/visual/GGDayLightingRig.tscn).
 ## Gameplay and the Match Lab both instance this scene; apply_profile() drives every
 ## environment knob from a VisualStyleProfile resource. No other scene may add its
 ## own DirectionalLight3D or WorldEnvironment.
@@ -52,7 +52,7 @@ func _ready() -> void:
 	add_child(_rain)
 
 	if day_profile == null:
-		day_profile = load("res://assets/visual_profiles/garden_galaxy_day.tres")
+		day_profile = load("res://assets/visual_profiles/gg_day_profile.tres")
 	if rain_profile == null:
 		rain_profile = load("res://assets/visual_profiles/garden_rain.tres")
 	apply_profile(day_profile)
@@ -66,10 +66,13 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = profile.ambient_color
 	env.ambient_light_energy = profile.ambient_energy
-	# Calibration baseline: neutral tone mapping so raw albedos stay
-	# predictable. Filmic/ACES may be trialed later only if the reference
-	# comparison visibly improves.
-	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+	match profile.tonemap:
+		"aces":
+			env.tonemap_mode = Environment.TONE_MAPPER_ACES
+		"filmic":
+			env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+		_:
+			env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	env.tonemap_exposure = profile.exposure
 	env.adjustment_enabled = false
 	env.ssao_enabled = profile.ssao_enabled

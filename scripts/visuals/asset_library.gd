@@ -5,7 +5,7 @@ extends RefCounted
 ## carry asset ids, this class resolves them. Tier C swaps (proxy -> hero) are
 ## file replacements at the same id — zero code changes.
 
-const SEARCH_PATHS := ["res://assets/3d/final/%s.glb", "res://assets/3d/proxies/%s.glb"]
+const SEARCH_PATHS := ["res://assets/3d/reworked/%s.glb", "res://assets/3d/final/%s.glb", "res://assets/3d/proxies/%s.glb"]
 
 var materials: MaterialLibrary
 var _cache: Dictionary = {}

@@ -34,7 +34,7 @@ var _gameplay_started := false
 
 
 func _ready() -> void:
-	palette = load("res://assets/palettes/cozy_diorama_palette.tres")
+	palette = load("res://assets/palettes/gg_material_palette.tres")
 	materials = MaterialLibrary.new(palette)
 	assets = AssetLibrary.new(materials)
 	kit = UiKit.new(palette)
@@ -108,7 +108,7 @@ func _build_world_scene() -> void:
 	world_root.name = "GameWorld"
 	add_child(world_root)
 
-	lighting = (load("res://scenes/visual/GardenStyleLightingRig.tscn") as PackedScene).instantiate()
+	lighting = (load("res://scenes/visual/GGDayLightingRig.tscn") as PackedScene).instantiate()
 	world_root.add_child(lighting)
 
 	renderer = WorldRenderer.new()
@@ -122,7 +122,7 @@ func _build_world_scene() -> void:
 
 	delivery_point = DeliveryPoint.new()
 	world_root.add_child(delivery_point)
-	delivery_point.setup(materials, core.grid.tile_size, Vector3(0, 0, -1))
+	delivery_point.setup(materials, core.grid.tile_size, Vector3(0, 0, -1), assets)
 
 	ferry_presentation = FerryArrivalPresentation.new()
 	ferry_presentation.name = "FerryArrivalPresentation"

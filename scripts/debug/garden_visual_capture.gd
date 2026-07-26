@@ -78,11 +78,11 @@ var _post: MeshInstance3D
 
 
 func _ready() -> void:
-	var palette: CozyPalette = load("res://assets/palettes/cozy_diorama_palette.tres")
+	var palette: CozyPalette = load("res://assets/palettes/gg_material_palette.tres")
 	_materials = MaterialLibrary.new(palette)
 	_assets = AssetLibrary.new(_materials)
 
-	_lighting = (load("res://scenes/visual/GardenStyleLightingRig.tscn") as PackedScene).instantiate()
+	_lighting = (load("res://scenes/visual/GGDayLightingRig.tscn") as PackedScene).instantiate()
 	add_child(_lighting)
 
 	for entry in TILES:
@@ -180,8 +180,9 @@ var _probe_entries := []  # [value_or_color, world_pos]
 
 func _spawn_probe_swatches() -> void:
 	var cam_basis := Basis.from_euler(Vector3(deg_to_rad(CAMERA_PITCH), deg_to_rad(CAMERA_YAW), 0.0))
-	# Swatch wall on the camera axis, in front of the diorama.
-	var origin := PIVOT + cam_basis.z * 20.0
+	# Swatch wall on the camera axis, in front of the diorama and safely
+	# inside the tight near/far range (near is 25 — 20 m would be clipped).
+	var origin := PIVOT + cam_basis.z * 8.0
 	var count := 0
 	for i in 33:
 		var v := i / 32.0
@@ -237,7 +238,7 @@ func _profile_for(name: String) -> VisualStyleProfile:
 		"c":
 			return load("res://assets/visual_profiles/garden_galaxy_candidate_c.tres")
 		_:
-			return load("res://assets/visual_profiles/garden_galaxy_day.tres")
+			return load("res://assets/visual_profiles/gg_day_profile.tres")
 
 
 ## The rig's gradient backdrop lives in the window viewport; the capture

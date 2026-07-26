@@ -16,18 +16,18 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-SAT = 0.93  # environment adjustment_saturation (applied post-tonemap)
+SAT = 1.0  # no color adjustments in the GG day rig
 
 # Lighting model inputs — keep in sync with garden_galaxy_day.tres.
 SUN_COLOR = (1.0, 0.9451, 0.8235)
-SUN_ENERGY = 1.25
-AMB_COLOR = (0.8471, 0.8157, 0.749)
-AMB_ENERGY = 0.74
+SUN_ENERGY = 1.08
+AMB_COLOR = (0.8471, 0.7725, 0.6941)
+AMB_ENERGY = 0.72
 SUN_DIR = None  # computed from pitch/yaw below
-PITCH, YAW = -58.0, -85.0
-TOP_TINT = (1.04, 1.03, 0.98)
-SIDE_TINT = (0.96, 0.94, 0.91)
-SHADOW_OPACITY = 0.88
+PITCH, YAW = -60.0, -65.0
+TOP_TINT = (1.0, 1.0, 1.0)
+SIDE_TINT = (1.0, 1.0, 1.0)
+SHADOW_OPACITY = 0.42
 
 LUMA = np.array([0.2126, 0.7152, 0.0722])
 
@@ -117,14 +117,23 @@ def main():
     print()
     print("== Raw albedos for sunlit TOP faces ==")
     for name, target in [
-        ("grass (#CCC224)", "CCC224"),
-        ("grass bright (#D5CE39)", "D5CE39"),
-        ("stone pale (#D7CCBB)", "D7CCBB"),
-        ("stone mid (#CBB899)", "CBB899"),
-        ("wood honey (#E4BB4E)", "E4BB4E"),
-        ("cardboard (#D5A84D scr)", "D5A84D"),
-        ("terracotta top (#CA702D)", "CA702D"),
-        ("soil top (#965B16)", "965B16"),
+        ("grass_primary (#C7BF29)", "C7BF29"),
+        ("grass_sunlit (#D0C72B)", "D0C72B"),
+        ("grass_secondary (#BAB321)", "BAB321"),
+        ("moss_bright (#A3B928)", "A3B928"),
+        ("leaf_bright (#A3AC43)", "A3AC43"),
+        ("leaf_medium (#82833F)", "82833F"),
+        ("pine_light (#838F15)", "838F15"),
+        ("pine_medium (#656F0C)", "656F0C"),
+        ("stone_light (#D8C5B1)", "D8C5B1"),
+        ("stone_mid_light (#CDB797)", "CDB797"),
+        ("wood_light (#D8A242)", "D8A242"),
+        ("wood_gold (#C78831)", "C78831"),
+        ("wood_primary (#B87222)", "B87222"),
+        ("terracotta_light (#CB814C)", "CB814C"),
+        ("soil_orange (#985119)", "985119"),
+        ("warm_white (#FCF4C7)", "FCF4C7"),
+        ("skin_light (#E6B350)", "E6B350"),
     ]:
         req_lin = invert_screen_target(hex_to_rgb01(target))
         albedo_lin = req_lin / LF_TOP
@@ -132,9 +141,10 @@ def main():
     print()
     print("== Raw albedos for ambient-lit SIDE faces ==")
     for name, target in [
-        ("soil_side (#965B16)", "965B16"),
-        ("charcoal (#3B312A)", "3B312A"),
-        ("terracotta side (#CA702D)", "CA702D"),
+        ("earth_mid side (#A86635)", "A86635"),
+        ("earth_shadow side (#925F3D)", "925F3D"),
+        ("warm_near_black (#3C2413)", "3C2413"),
+        ("wood_brown side (#7E533A)", "7E533A"),
     ]:
         req_lin = invert_screen_target(hex_to_rgb01(target))
         albedo_lin = req_lin / LF_SIDE

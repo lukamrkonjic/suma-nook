@@ -1,0 +1,40 @@
+[gd_resource type="Resource" script_class="VisualStyleProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/visual_style_profile.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+profile_id = "gg_day"
+background_color = Color(0.8235, 0.7804, 0.6667, 1)
+ambient_color = Color(0.8471, 0.7725, 0.6941, 1)
+ambient_energy = 0.72
+background_gradient = false
+stars_enabled = false
+sun_color = Color(1.0, 0.9451, 0.8235, 1)
+sun_energy = 1.08
+sun_specular = 0.55
+sun_pitch_deg = -60.0
+sun_yaw_deg = -65.0
+shadow_opacity = 0.42
+shadow_blur = 0.6
+sun_angular_distance = 4.0
+shadow_bias = 0.015
+shadow_normal_bias = 0.6
+ssao_enabled = true
+ssao_intensity = 0.55
+ssao_radius = 0.28
+ssao_power = 1.0
+ssao_detail = 0.5
+ssao_horizon = 0.06
+ssao_sharpness = 0.9
+glow_enabled = false
+glow_intensity = 0.35
+glow_hdr_threshold = 1.6
+glow_bloom = 0.04
+exposure = 1.0
+tonemap = "filmic"
+contrast = 1.0
+saturation = 1.0
+fog_enabled = false
+rain_enabled = false
+local_light_multiplier = 0.55

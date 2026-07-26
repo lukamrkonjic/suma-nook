@@ -22,11 +22,11 @@ var lighting: LightingRig
 
 
 func _ready() -> void:
-	var palette: CozyPalette = load("res://assets/palettes/cozy_diorama_palette.tres")
+	var palette: CozyPalette = load("res://assets/palettes/gg_material_palette.tres")
 	var materials := MaterialLibrary.new(palette)
 	var assets := AssetLibrary.new(materials)
 
-	lighting = (load("res://scenes/visual/GardenStyleLightingRig.tscn") as PackedScene).instantiate()
+	lighting = (load("res://scenes/visual/GGDayLightingRig.tscn") as PackedScene).instantiate()
 	add_child(lighting)
 
 	for entry in ROSTER:

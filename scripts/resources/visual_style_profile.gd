@@ -46,6 +46,8 @@ extends Resource
 @export var glow_hdr_threshold := 1.6
 @export var glow_bloom := 0.04
 @export var exposure := 1.0
+## "linear" during raw calibration, "filmic" for the GG day rig, "aces" optional.
+@export var tonemap := "filmic"
 @export var contrast := 1.0
 @export var saturation := 1.0
 @export var fog_enabled := false
