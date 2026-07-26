@@ -23,7 +23,7 @@
     { "id": "struct_box", "name": "Cardboard Box", "asset_id": "prop_cardboard_box", "kind": "decoration", "socket_type": "decor", "placement_sound": "wood", "placement_tags": ["container", "small"], "can_be_stacked": true, "support_slots": [
       { "id": "top", "offset": [0.0, 0.53, 0.0], "accepts": ["tiny"] }
     ] },
-    { "id": "struct_dock", "name": "Small Dock", "asset_id": "prop_dock", "kind": "building", "socket_type": "structure", "allowed_surfaces": ["water"], "provides": ["fishing_spot"], "placement_sound": "wood", "placement_tags": ["building", "large"], "can_be_stacked": false, "support_slots": [] },
+    { "id": "struct_dock", "name": "Small Dock", "asset_id": "prop_dock", "kind": "building", "socket_type": "structure", "allowed_surfaces": ["water"], "collision_profile": "walkable_surface", "provides": ["fishing_spot"], "placement_sound": "wood", "placement_tags": ["building", "large"], "can_be_stacked": false, "support_slots": [] },
     { "id": "struct_sign", "name": "Signpost", "asset_id": "prop_sign", "kind": "decoration", "socket_type": "decor", "placement_sound": "wood", "placement_tags": ["sign", "medium"], "can_be_stacked": false, "support_slots": [] },
     { "id": "struct_ruin_arch", "name": "Reclaimed Arch", "asset_id": "prop_ruin_arch", "kind": "building", "socket_type": "structure", "visitor_tags": ["viewing"], "placement_sound": "stone", "placement_tags": ["building", "large"], "can_be_stacked": false, "support_slots": [] },
     { "id": "struct_stone_wall", "name": "Old Stone Wall", "asset_id": "prop_stone_wall", "kind": "decoration", "socket_type": "decor", "blocks_movement": true, "placement_sound": "stone", "placement_tags": ["barrier", "large"], "can_be_stacked": false, "support_slots": [] },

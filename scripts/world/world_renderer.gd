@@ -106,6 +106,9 @@ func _on_slot_changed(coord: Vector2i, elevation: int) -> void:
 	if elevation > 0:
 		_refresh_covered_surface(coord, elevation - 1)
 	if elevation == 0:
+		# A moved dock can add or remove a traversable surface on water, so the
+		# perimeter opening must follow authoritative structure state.
+		_rebuild_edges()
 		_rebuild_water_surface()
 
 
@@ -241,13 +244,19 @@ func _build_structure(holder: Node3D, s: WorldGrid.StructureState) -> void:
 			"grove_rest_visual_scale",
 			0.82
 		)
+	if def.collision_profile == "walkable_surface":
+		_align_walkable_surface(visual)
 	_add_placeable_pick_target(
 		visual,
 		s.instance_id,
 		holder.get_meta("grid_coord"),
 		int(holder.get_meta("elevation"))
 	)
-	_add_structure_blocker(visual)
+	match def.collision_profile:
+		"blocker":
+			_add_structure_blocker(visual)
+		"walkable_surface":
+			_add_walkable_structure_surface(visual)
 	if def.provides.has("light"):
 		_add_warm_light(
 			visual,
@@ -279,6 +288,52 @@ func _add_structure_blocker(visual: Node3D) -> void:
 	)
 	shape.shape = box
 	shape.position = bounds.position + bounds.size * 0.5
+	body.add_child(shape)
+	visual.add_child(body)
+
+
+## Deck assets may contain legs or piles below their walking plane. Align the
+## highest authored surface with the supporting tile's y=0 plane, then give it
+## a thin floor collider rather than turning the complete bounds into a wall.
+func _align_walkable_surface(visual: Node3D) -> void:
+	var bounds_data := _visual_local_bounds(visual)
+	if not bool(bounds_data.get("found", false)):
+		return
+	var bounds: AABB = bounds_data["bounds"]
+	visual.position.y -= bounds.end.y
+	visual.set_meta("walkable_surface_local_y", bounds.end.y)
+
+
+func _add_walkable_structure_surface(visual: Node3D) -> void:
+	var bounds_data := _visual_local_bounds(visual)
+	if not bool(bounds_data.get("found", false)):
+		return
+	var bounds: AABB = bounds_data["bounds"]
+	var surface_y := float(
+		visual.get_meta("walkable_surface_local_y", bounds.end.y)
+	)
+	var body := StaticBody3D.new()
+	body.name = "WalkableStructureSurface"
+	body.collision_layer = BLOCKER_LAYER
+	body.collision_mask = 0
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	var thickness := 0.10
+	# A tiny physical inset keeps CharacterBody3D's safety margin from catching
+	# the deck's vertical edge where it meets an ordinary tile. The authored
+	# planks remain visually flush at y=0.
+	var seam_inset := 0.03
+	box.size = Vector3(
+		maxf(0.18, bounds.size.x * 0.96),
+		thickness,
+		maxf(0.18, bounds.size.z * 0.96)
+	)
+	shape.shape = box
+	shape.position = Vector3(
+		bounds.get_center().x,
+		surface_y - seam_inset - thickness * 0.5,
+		bounds.get_center().z
+	)
 	body.add_child(shape)
 	visual.add_child(body)
 
@@ -845,10 +900,13 @@ func _rebuild_edges() -> void:
 		child.queue_free()
 	var size := core.grid.tile_size
 	for coord: Vector2i in core.grid.cells:
-		if not core.grid.is_walkable(coord):
+		if not core.grid.is_traversable(coord):
 			continue
 		for offset: Vector2i in WorldGrid.NEIGHBORS:
-			if core.grid.has_cell(coord + offset) and core.grid.is_walkable(coord + offset):
+			if (
+				core.grid.has_cell(coord + offset)
+				and core.grid.is_traversable(coord + offset)
+			):
 				continue
 			var wall := StaticBody3D.new()
 			wall.collision_layer = BLOCKER_LAYER

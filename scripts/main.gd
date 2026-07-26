@@ -535,7 +535,7 @@ func _handle_world_click(screen_position: Vector2) -> void:
 		if destination == null:
 			return
 		var cell := core.grid.world_to_cell(destination)
-		if not core.grid.is_walkable(cell):
+		if not core.grid.is_traversable(cell):
 			return
 	else:
 		destination = interaction["point"]

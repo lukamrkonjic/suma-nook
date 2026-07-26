@@ -243,6 +243,28 @@ func is_walkable(coord: Vector2i) -> bool:
 	return def != null and def.walkable and top_elevation(coord) == 0
 
 
+## Player traversal can also be supplied by an object such as a dock. Keep
+## this separate from terrain walkability so home placement and safe-refuge
+## logic never mistake water for permanent land.
+func has_walkable_structure_surface(coord: Vector2i) -> bool:
+	if top_elevation(coord) != 0:
+		return false
+	var state := cell(coord)
+	if state == null:
+		return false
+	for structure: StructureState in state.structures:
+		if structure.parent_instance_id != 0:
+			continue
+		var definition := registries.structure(structure.structure_id)
+		if definition != null and definition.collision_profile == "walkable_surface":
+			return true
+	return false
+
+
+func is_traversable(coord: Vector2i) -> bool:
+	return is_walkable(coord) or has_walkable_structure_surface(coord)
+
+
 func is_adjacent_to_world(coord: Vector2i) -> bool:
 	for offset: Vector2i in NEIGHBORS:
 		if cells.has(coord + offset):

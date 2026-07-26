@@ -288,7 +288,7 @@ func load_game() -> bool:
 	view_state = data.get("view", view_state).duplicate(true)
 	visual_state = data.get("visual", visual_state).duplicate(true)
 	play_seconds = float(data.get("play_seconds", 0.0))
-	if not grid.is_walkable(grid.world_to_cell(profile.position)):
+	if not grid.is_traversable(grid.world_to_cell(profile.position)):
 		profile.position = grid.cell_to_world(grid.nearest_walkable(grid.world_to_cell(profile.position)))
 	_dirty = bool(migration["changed"]) or bool(reconciliation["changed"])
 	return true

@@ -119,6 +119,10 @@ func _test_registries() -> void:
 		regs.tile("tile_grass_pond_edge").collision_profile == "pond_basin",
 		"pond collision is selected by its definition instead of a renderer id check"
 	)
+	check(
+		regs.structure("struct_dock").collision_profile == "walkable_surface",
+		"the dock is classified as a walkable surface rather than a solid object blocker"
+	)
 	var fishing := regs.skill("fishing")
 	check(fishing.xp_to_next(1) > 0 and fishing.xp_to_next(2) > fishing.xp_to_next(1), "xp curve increases")
 
@@ -625,6 +629,16 @@ func _test_sockets_and_overlap_prevention() -> void:
 		and starter_dock.rotation == 2,
 		"the opening dock is a movable world object on the middle water tile"
 	)
+	check(
+		core.registries.structure(starter_dock.structure_id).collision_profile
+		== "walkable_surface",
+		"the opening dock keeps its walkable collision contract"
+	)
+	check(
+		not core.grid.is_walkable(Vector2i(0, -1))
+		and core.grid.is_traversable(Vector2i(0, -1)),
+		"a dock makes its water cell traversable without reclassifying it as land"
+	)
 	var water := Vector2i(1, -1)
 	check(
 		core.grid.can_place_structure_at(water, 0, "struct_dock"),
@@ -643,6 +657,15 @@ func _test_sockets_and_overlap_prevention() -> void:
 		dock != null
 		and core.grid.structure_local_transform(dock.instance_id).origin.is_equal_approx(Vector3.ZERO),
 		"water-only docks are centered on their water tile"
+	)
+	check(
+		core.grid.is_traversable(water),
+		"a newly placed dock makes its destination water cell traversable"
+	)
+	core.grid.remove_structure(water, dock.instance_id)
+	check(
+		not core.grid.is_traversable(water),
+		"removing a dock removes the temporary traversal surface from that water cell"
 	)
 
 

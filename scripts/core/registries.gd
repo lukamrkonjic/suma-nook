@@ -248,6 +248,11 @@ func _validate() -> void:
 			)
 		if def.socket_type not in ["decor", "structure"]:
 			load_errors.append("structure %s has invalid socket type %s" % [def.id, def.socket_type])
+		if def.collision_profile not in ["blocker", "walkable_surface", "none"]:
+			load_errors.append(
+				"structure %s has invalid collision profile %s"
+				% [def.id, def.collision_profile]
+			)
 		if def.allowed_surface_kinds.is_empty():
 			load_errors.append("structure %s has no allowed placement surfaces" % def.id)
 		for surface_kind: String in def.allowed_surface_kinds:

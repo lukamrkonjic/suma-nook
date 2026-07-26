@@ -238,6 +238,9 @@ class StructureDefinition:
 	var kind: String = "decoration"    # building|decoration|path|utility
 	var socket_type: String = "decor"  # decor (up to tile.decor_sockets) | structure (major)
 	var blocks_movement := false
+	# Physical interaction profile. Ordinary placeables are solid obstacles;
+	# deck-like structures expose a tile-height walking surface instead.
+	var collision_profile: String = "blocker"  # blocker|walkable_surface|none
 	var light_height := 0.7
 	var light_flicker := false
 	var placement_sound: String = "wood"
@@ -266,6 +269,7 @@ class StructureDefinition:
 		s.kind = d.get("kind", "decoration")
 		s.socket_type = d.get("socket_type", "decor")
 		s.blocks_movement = bool(d.get("blocks_movement", false))
+		s.collision_profile = String(d.get("collision_profile", "blocker"))
 		s.light_height = float(d.get("light_height", 0.7))
 		s.light_flicker = bool(d.get("light_flicker", false))
 		s.placement_sound = d.get("placement_sound", "wood")

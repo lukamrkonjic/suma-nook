@@ -425,13 +425,62 @@ func _step_movement() -> void:
 	var player := main.player
 	var collidable_objects := true
 	for structure_visual: Node3D in main.renderer._structure_nodes.values():
-		if structure_visual.find_child(
-			"PlaceableMovementBlocker",
-			true,
-			false
-		) == null:
+		var blocker := structure_visual.find_child(
+			"PlaceableMovementBlocker", true, false
+		)
+		var walkable_surface := structure_visual.find_child(
+			"WalkableStructureSurface", true, false
+		)
+		if blocker == null and walkable_surface == null:
 			collidable_objects = false
-	check(collidable_objects, "every placed object owns a physical movement blocker")
+	check(
+		collidable_objects,
+		"every placed object owns either a blocker or an explicit walkable surface"
+	)
+	var dock_coord := GameCore.STARTER_DOCK_COORD
+	var dock_state: WorldGrid.StructureState = main.core.grid.cell(dock_coord).structures[0]
+	var dock_visual: Node3D = main.renderer._structure_nodes[dock_state.instance_id]
+	check(
+		dock_visual.find_child("PlaceableMovementBlocker", true, false) == null
+		and dock_visual.find_child("WalkableStructureSurface", true, false) != null,
+		"the dock uses a thin walking surface instead of an impassable full-bounds wall"
+	)
+	var dock_bounds := _node_mesh_bounds(dock_visual)
+	check(
+		absf(dock_visual.position.y + dock_bounds.end.y) < 0.015,
+		"the visible dock deck aligns with ordinary ground elevation"
+	)
+
+	var dock_land_coord := dock_coord + Vector2i.DOWN
+	player.position = main.core.grid.cell_to_world(dock_land_coord)
+	player.velocity = Vector3.ZERO
+	player.set_state(PlayerController.State.FREE)
+	await wait(0.15)
+	var dock_direction := (
+		main.core.grid.cell_to_world(dock_coord)
+		- main.core.grid.cell_to_world(dock_land_coord)
+	).normalized()
+	var dock_basis := main.camera_rig.horizontal_basis()
+	var dock_input_x := dock_direction.dot(dock_basis.x)
+	var dock_input_y := dock_direction.dot(dock_basis.z)
+	var dock_actions: Array[StringName] = []
+	dock_actions.append(&"move_right" if dock_input_x > 0.0 else &"move_left")
+	dock_actions.append(&"move_down" if dock_input_y > 0.0 else &"move_up")
+	for action in dock_actions:
+		Input.action_press(action)
+	for _frame in 75:
+		await get_tree().physics_frame
+		if player.current_cell() == dock_coord:
+			break
+	for action in dock_actions:
+		Input.action_release(action)
+	await wait(0.2)
+	check(
+		player.current_cell() == dock_coord
+		and absf(player.position.y) < 0.08,
+		"the player walks from land onto the ground-height dock without jumping "
+		+ "(cell %s, position %s)" % [player.current_cell(), player.position]
+	)
 
 	var jump_has_space := false
 	for input_event in InputMap.action_get_events("jump"):
