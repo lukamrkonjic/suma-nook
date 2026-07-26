@@ -11,6 +11,10 @@ const STACK_COORD := Vector2i(0, 1)
 var main: Main
 var failures: PackedStringArray = []
 var checks := 0
+var support_demo_coord := Vector2i(3, 1)
+var support_demo_stool_iid := -1
+var support_demo_box_iid := -1
+var support_demo_lantern_iid := -1
 
 
 func check(condition: bool, message: String) -> void:
@@ -53,6 +57,9 @@ func _ready() -> void:
 func _run() -> void:
 	await wait(0.5)
 	await _step_creation()
+	await _step_tile_geometry_contract()
+	await _step_build_mode_selection_rules()
+	await _step_object_support_graph()
 	await _step_movement()
 	await _step_fishing()
 	await _step_parcel()
@@ -93,9 +100,360 @@ func _step_creation() -> void:
 	await shot("screenshot_starting_world")
 
 
+func _step_tile_geometry_contract() -> void:
+	print("STEP compact flat tile geometry")
+	check(
+		is_equal_approx(main.core.grid.tile_size, 1.7)
+		and is_equal_approx(main.core.grid.block_depth, 0.5),
+		"runtime grid uses compact 1.70 x 0.50 x 1.70 m blocks"
+	)
+	var all_fit := true
+	var all_end_at_surface := true
+	var all_are_free_of_baked_decor := true
+	var grove_mesh_counts_ok := true
+	for tile_def: Defs.TileDefinition in main.core.registries.tiles.values():
+		var asset_id := (
+			"tile_water_floor"
+			if tile_def.render_profile == "continuous_water"
+			else tile_def.asset_id
+		)
+		var visual := main.assets.instantiate(asset_id)
+		add_child(visual)
+		var bounds := _node_mesh_bounds(visual)
+		if (
+			bounds.size.x > main.core.grid.tile_size + 0.03
+			or bounds.size.z > main.core.grid.tile_size + 0.03
+		):
+			all_fit = false
+		if bounds.end.y > 0.015:
+			all_end_at_surface = false
+		for mesh_node in visual.find_children("*", "MeshInstance3D", true, false):
+			var lower := String(mesh_node.name).to_lower()
+			if (
+				lower.contains("tree")
+				or lower.contains("trunk")
+				or lower.contains("leaf")
+				or lower.contains("tier")
+				or lower.contains("flower")
+				or lower.contains("crystal")
+				or lower.contains("found")
+			):
+				all_are_free_of_baked_decor = false
+		if tile_def.id.begins_with("tile_grove_"):
+			var grove_mesh_count := visual.find_children("*", "MeshInstance3D", true, false).size()
+			grove_mesh_counts_ok = grove_mesh_counts_ok and grove_mesh_count == 2
+		visual.free()
+	check(all_fit, "every tile visual fits the smaller horizontal footprint")
+	check(all_end_at_surface, "every tile visual stays at or below its y=0 surface")
+	check(all_are_free_of_baked_decor, "tile GLBs contain no baked trees or raised decor")
+	check(grove_mesh_counts_ok, "former grove tiles are flat body-and-cap variants")
+	var dock := main.assets.instantiate("prop_dock")
+	add_child(dock)
+	var dock_bounds := _node_mesh_bounds(dock)
+	check(
+		dock_bounds.position.y < -0.4
+		and dock_bounds.end.y < 0.2
+		and absf(dock_bounds.position.y) > dock_bounds.end.y * 2.0,
+		"dock piles extend below the deck/waterline rather than rendering upside down"
+	)
+	dock.free()
+
+
+func _step_build_mode_selection_rules() -> void:
+	print("STEP build-mode selection rules")
+	main.placement.set_active(true)
+
+	main.placement.pick_up_at(GameCore.FIRST_WATER_COORD)
+	check(main.placement.held.is_empty(), "the first water tile remains movement-locked")
+
+	var movable_water := Vector2i(1, -1)
+	main.placement.pick_up_at(movable_water)
+	check(
+		main.placement.held.get("kind", "") == "tile",
+		"the other opening water tiles can be picked up"
+	)
+	main.placement.cancel_click()
+	check(main.core.grid.has_cell(movable_water), "cancelling restores a moved opening water tile")
+
+	var dock_coord := GameCore.STARTER_DOCK_COORD
+	var dock_state: WorldGrid.StructureState = main.core.grid.cell(dock_coord).structures[0]
+	main.placement._pick_up_from(dock_coord, 0, dock_state.instance_id)
+	check(
+		main.placement.held.get("id", "") == "struct_dock",
+		"the center-water fishing dock is a selectable movable object"
+	)
+	main.placement.cancel_click()
+
+	var original_home := main.core.grid.home_cell
+	main.placement.pick_up_at(original_home)
+	check(
+		main.placement.held.get("kind", "") == "tile",
+		"the opening home tile can move after relocating its safety anchor"
+	)
+	main.placement.cancel_click()
+	check(
+		main.core.grid.home_cell == original_home and main.core.grid.has_cell(original_home),
+		"cancelling a home-tile move restores both tile and home anchor"
+	)
+
+	var chest_cell := Vector2i(1, 0)
+	var chest_state := main.core.grid.cell(chest_cell)
+	var chest_iid: int = chest_state.structures[0].instance_id
+	var chest_visual := main.renderer.structure_node(chest_iid)
+	var chest_mesh: MeshInstance3D = null
+	var chest_meshes := chest_visual.find_children("*", "MeshInstance3D", true, false)
+	if not chest_meshes.is_empty():
+		chest_mesh = chest_meshes[0] as MeshInstance3D
+	check(chest_mesh != null, "placeable exposes mesh geometry for object picking")
+	if chest_mesh != null:
+		await get_tree().physics_frame
+		var pick_point := chest_mesh.global_transform * chest_mesh.get_aabb().get_center()
+		var screen_point := main.camera_rig.camera.unproject_position(pick_point)
+		var hit := main.renderer.pick_structure_at_screen(main.camera_rig.camera, screen_point)
+		check(
+			int(hit.get("instance_id", -1)) == chest_iid,
+			"the object ray selects the visible decoration rather than its tile"
+		)
+		main.renderer.set_hovered_structure(chest_iid)
+		check(
+			main.renderer.hovered_structure_id() == chest_iid
+			and (chest_mesh.layers & WorldRenderer.OUTLINE_VISIBILITY_LAYER) != 0,
+			"hovering adds the object to the outer-silhouette mask"
+		)
+		main.placement._pick_up_from(chest_cell, 0, chest_iid)
+		check(
+			int(
+				main.placement.held.get("moving", {}).get(
+					"origin",
+					{}
+				).get("iid", -1)
+			) == chest_iid,
+			"click-targeted pickup moves the selected object instance"
+		)
+		main.placement.cancel_click()
+
+	var empty_tile_coord := Vector2i(1, 1)
+	var empty_holder := main.renderer.tile_node(empty_tile_coord, 0)
+	var empty_tile_meshes := empty_holder.find_children("*", "MeshInstance3D", true, false)
+	var empty_tile_mesh := (
+		empty_tile_meshes[0] as MeshInstance3D
+		if not empty_tile_meshes.is_empty()
+		else null
+	)
+	check(empty_tile_mesh != null, "tile exposes mesh geometry for exact picking")
+	if empty_tile_mesh != null:
+		var tile_pick_point := (
+			empty_tile_mesh.global_transform
+			* empty_tile_mesh.get_aabb().get_center()
+		)
+		var tile_screen_point := main.camera_rig.camera.unproject_position(tile_pick_point)
+		var tile_hit := main.renderer.pick_placeable_at_screen(
+			main.camera_rig.camera,
+			tile_screen_point
+		)
+		check(
+			tile_hit.get("kind", "") == "tile"
+			and tile_hit.get("coord", Vector2i.ZERO) == empty_tile_coord,
+			"the placeable ray resolves an unobstructed tile independently"
+		)
+
+	var chest_holder := main.renderer.tile_node(chest_cell, 0)
+	var refreshed_chest_visual := main.renderer.structure_node(chest_iid)
+	var refreshed_chest_mesh := refreshed_chest_visual.find_children(
+		"*",
+		"MeshInstance3D",
+		true,
+		false
+	)[0] as MeshInstance3D
+	var chest_tile_meshes := chest_holder.get_child(0).find_children(
+		"*",
+		"MeshInstance3D",
+		true,
+		false
+	)
+	var chest_tile_mesh := (
+		chest_tile_meshes[0] as MeshInstance3D
+		if not chest_tile_meshes.is_empty()
+		else null
+	)
+	main.renderer.set_hovered_tile(chest_cell, 0, true)
+	check(
+		chest_tile_mesh != null
+		and (chest_tile_mesh.layers & WorldRenderer.OUTLINE_VISIBILITY_LAYER) != 0
+		and (refreshed_chest_mesh.layers & WorldRenderer.OUTLINE_VISIBILITY_LAYER) != 0,
+		"hovering a tile outlines the tile and every supported object as one selection"
+	)
+	main.renderer.clear_structure_hover()
+
+	var occupied_cell := Vector2i(-1, 1)
+	check(
+		not main.core.grid.can_place_structure_at(occupied_cell, 0, "struct_pot"),
+		"a tile already containing a decal rejects a second decal"
+	)
+	main.placement.set_active(false)
+
+
+func _step_object_support_graph() -> void:
+	print("STEP modular object supports")
+	var origin := Vector2i(2, 1)
+	var destination := Vector2i(3, 1)
+	main.core.grid.place_tile(origin, "tile_grass")
+	main.core.grid.place_tile(destination, "tile_grass")
+	main.core.stock.add_structure("struct_stool")
+	main.core.stock.add_structure("struct_box")
+	main.core.stock.add_structure("struct_lantern")
+	main.core.stock.add_structure("struct_pot")
+	main.placement.set_active(true)
+
+	main.placement.hold_new("structure", "struct_stool")
+	check(
+		main.placement.try_place_at_layer(origin, 0),
+		"a stool places as the tile's one direct decoration"
+	)
+	var stool: WorldGrid.StructureState = main.core.grid.cell(origin).structures[0]
+	main.placement.hold_new("structure", "struct_box")
+	check(
+		main.placement.try_place_on_structure(stool.instance_id, "top"),
+		"a small box targets the stool's named top support"
+	)
+	var box: WorldGrid.StructureState = main.core.grid.structure_children(
+		stool.instance_id
+	)[0]
+	main.placement.hold_new("structure", "struct_lantern")
+	check(
+		main.placement.try_place_on_structure(box.instance_id, "top"),
+		"a tiny lantern composes a third object level"
+	)
+	var lantern: WorldGrid.StructureState = main.core.grid.structure_children(
+		box.instance_id
+	)[0]
+	main.placement.hold_new("structure", "struct_pot")
+	check(
+		not main.placement.try_place_on_structure(lantern.instance_id),
+		"a terminal lantern rejects an additional object"
+	)
+	main.placement.cancel_click()
+	main.placement.hold_new("tile", "tile_grass")
+	check(
+		not main.placement.try_place_at_layer(origin, 1),
+		"a land block cannot be placed on an object stack"
+	)
+	main.placement.cancel_click()
+
+	main.renderer.set_hovered_structure(lantern.instance_id)
+	var stool_visual := main.renderer.structure_node(stool.instance_id)
+	var box_visual := main.renderer.structure_node(box.instance_id)
+	var lantern_visual := main.renderer.structure_node(lantern.instance_id)
+	var stool_mesh := stool_visual.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
+	var box_mesh := box_visual.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
+	var lantern_mesh := lantern_visual.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
+	check(
+		(lantern_mesh.layers & WorldRenderer.OUTLINE_VISIBILITY_LAYER) != 0
+		and (stool_mesh.layers & WorldRenderer.OUTLINE_VISIBILITY_LAYER) == 0,
+		"hovering the top item outlines only that movable subtree"
+	)
+	main.renderer.clear_structure_hover()
+	main.renderer.set_hovered_structure(box.instance_id)
+	check(
+		(box_mesh.layers & WorldRenderer.OUTLINE_VISIBILITY_LAYER) != 0
+		and (lantern_mesh.layers & WorldRenderer.OUTLINE_VISIBILITY_LAYER) != 0
+		and (stool_mesh.layers & WorldRenderer.OUTLINE_VISIBILITY_LAYER) == 0,
+		"hovering a middle object outlines it and every supported object above it"
+	)
+	main.renderer.clear_structure_hover()
+
+	main.placement._pick_up_from(origin, 0, stool.instance_id)
+	check(
+		main.placement.held["moving"]["stack"].size() == 3,
+		"picking up a supporter carries its complete object subtree"
+	)
+	check(
+		main.placement.try_place_at_layer(destination, 0),
+		"the full stack can move to a new tile atomically"
+	)
+	check(
+		main.core.grid.find_structure(lantern.instance_id)["coord"] == destination
+		and main.core.grid.find_structure(box.instance_id)["structure"].parent_instance_id
+			== stool.instance_id,
+		"moving the base preserves descendant ids and support edges"
+	)
+	main.placement.undo()
+	check(
+		main.core.grid.find_structure(lantern.instance_id)["coord"] == origin,
+		"undo moves the complete support graph back together"
+	)
+	main.placement.redo()
+	check(
+		main.core.grid.find_structure(lantern.instance_id)["coord"] == destination,
+		"redo reapplies the complete support-graph move"
+	)
+	var lantern_visual_after := main.renderer.structure_node(lantern.instance_id)
+	var lantern_lights := lantern_visual_after.find_children(
+		"*",
+		"OmniLight3D",
+		true,
+		false
+	)
+	var lantern_light := (
+		lantern_lights[0] as OmniLight3D
+		if not lantern_lights.is_empty()
+		else null
+	)
+	var lantern_light_position := (
+		lantern_light.position
+		if lantern_light != null
+		else Vector3.ZERO
+	)
+	await wait(0.75)
+	check(
+		lantern_light != null
+		and lantern_light.position.is_equal_approx(lantern_light_position)
+		and not main.core.registries.structure("struct_lantern").light_flicker,
+		"the lamp light stays fixed at its bulb instead of pulsing along the post"
+	)
+	support_demo_coord = destination
+	support_demo_stool_iid = stool.instance_id
+	support_demo_box_iid = box.instance_id
+	support_demo_lantern_iid = lantern.instance_id
+	await wait(0.25)
+	await shot("screenshot_object_support_graph")
+	main.placement.set_active(false)
+
+
 func _step_movement() -> void:
 	print("STEP continuous movement")
 	var player := main.player
+	var collidable_objects := true
+	for structure_visual: Node3D in main.renderer._structure_nodes.values():
+		if structure_visual.find_child(
+			"PlaceableMovementBlocker",
+			true,
+			false
+		) == null:
+			collidable_objects = false
+	check(collidable_objects, "every placed object owns a physical movement blocker")
+
+	var jump_has_space := false
+	for input_event in InputMap.action_get_events("jump"):
+		var key_event := input_event as InputEventKey
+		if key_event != null and key_event.physical_keycode == KEY_SPACE:
+			jump_has_space = true
+	check(jump_has_space, "Space is the default jump binding")
+	var jump_start_y := player.position.y
+	var jump_peak_y := jump_start_y
+	var jump_event := InputEventAction.new()
+	jump_event.action = "jump"
+	jump_event.pressed = true
+	player._unhandled_input(jump_event)
+	for _frame in 70:
+		await get_tree().physics_frame
+		jump_peak_y = maxf(jump_peak_y, player.position.y)
+	check(
+		jump_peak_y - jump_start_y > main.core.grid.block_depth
+		and jump_peak_y - jump_start_y < main.core.grid.block_depth * 2.0,
+		"jump clears one elevation layer but cannot clear two"
+	)
+
 	var start := player.position
 	var samples: Array[Vector3] = []
 	Input.action_press("move_up")
@@ -158,6 +516,23 @@ func _step_movement() -> void:
 	pan.delta = Vector2(0, 2)
 	main.camera_rig._unhandled_input(pan)
 	check(main.camera_rig._size_target > before_pan, "trackpad two-finger scroll zooms out")
+	var framing_pan_before: Array = main.camera_rig.save_state()["pan"]
+	main.camera_rig._pan_by_pixels(Vector2(90.0, -45.0))
+	await wait(0.2)
+	var framing_pan_after: Array = main.camera_rig.save_state()["pan"]
+	check(
+		not Vector2(
+			float(framing_pan_after[0]),
+			float(framing_pan_after[1])
+		).is_equal_approx(
+			Vector2(
+				float(framing_pan_before[0]),
+				float(framing_pan_before[1])
+			)
+		),
+		"middle-mouse drag panning moves and persists the world framing"
+	)
+	main.camera_rig.reset_pan()
 	main.camera_rig._size_target = default_zoom
 	await wait(0.2)
 	# Ground clicks create a dot and continuously walk to the selected point.
@@ -277,28 +652,47 @@ func _step_place_tile() -> void:
 func _step_woodcutting() -> void:
 	print("STEP woodcutting")
 	var grove := Vector2i(2, 0)
-	if main.core.grid.tile_def(grove).anchor_id == "":
-		main.core.grid.remove_tile(grove)
-		main.core.grid.place_tile(grove, "tile_grove_mature", 0)
-	main.player.position = main.core.grid.cell_to_world(grove) + Vector3(0.85, 0, 0.35)
+	check(
+		main.core.grid.tile_def(grove).anchor_id == "",
+		"woodland terrain does not own the resource interaction"
+	)
+	main.placement.hold_new("structure", "struct_pine")
+	check(main.placement.try_place_at(grove), "starter tree places independently on the new tile")
+	main.placement.set_active(false)
+	var trees: Array[WorldGrid.StructureState] = []
+	for structure: WorldGrid.StructureState in main.core.grid.cell(grove).structures:
+		var definition := main.core.registries.structure(structure.structure_id)
+		if definition != null and definition.anchor_id == "grove_anchor":
+			trees.append(structure)
+	check(trees.size() == 1, "the placed tree is the tile's only Woodland Tending object")
+	var tree := trees[0]
+	var tree_point := (
+		main.core.grid.cell_to_world(grove)
+		+ main.core.grid.structure_local_transform(tree.instance_id).origin
+	)
+	main.player.position = tree_point + Vector3(0.8, 0, 0.3)
 	main.player.set_state(PlayerController.State.FREE)
 	main.player._update_focus()
 	await wait(0.2)
-	check(main.player.focus().get("kind") == "anchor", "grove anchor focus detected")
+	check(
+		main.player.focus().get("kind") == "anchor"
+		and int(main.player.focus().get("instance_id", 0)) == tree.instance_id,
+		"the exact tree object owns focus and Woodland Tending"
+	)
 	var inventory_before := _inventory_total()
 	main.skill_actions.try_interact()
 	await wait(0.9)
 	await shot("screenshot_woodcutting")
 	var deadline := Time.get_ticks_msec() + 12000
-	while main.core.grid.cell(grove) != null and not main.core.grid.cell(grove).anchor_resting and Time.get_ticks_msec() < deadline:
+	while not tree.anchor_resting and Time.get_ticks_msec() < deadline:
 		await wait(0.3)
-	check(main.core.grid.cell(grove).anchor_resting, "grove enters its resting cycle")
+	check(tree.anchor_resting, "tree enters its object-owned resting cycle")
 	check(_inventory_total() == inventory_before, "Woodland Tending adds no logs or materials")
 	check(main.core.skills.xp["woodcutting"] > 0, "woodcutting xp gained")
-	# resting grove regenerates
-	main.core.grid.cell(grove).anchor_regen_left = 0.4
+	# The tree regenerates without mutating its supporting terrain.
+	tree.anchor_regen_left = 0.4
 	await wait(1.0)
-	check(not main.core.grid.cell(grove).anchor_resting, "grove regenerates after resting")
+	check(not tree.anchor_resting, "tree regenerates after resting")
 
 
 func _step_elevation_stacking() -> void:
@@ -342,6 +736,14 @@ func _step_elevation_stacking() -> void:
 		raised_node != null and raised_node.position.is_equal_approx(target_position),
 		"raised tile settles exactly onto its supporting block"
 	)
+	var support_bounds := _node_mesh_bounds(support_node)
+	var raised_bounds := _node_mesh_bounds(raised_node)
+	var support_top := support_node.position.y + support_bounds.end.y
+	var raised_bottom := raised_node.position.y + raised_bounds.position.y
+	check(
+		absf(support_top - raised_bottom) <= 0.015,
+		"stacked tile meshes touch exactly without a flying gap"
+	)
 
 	main.core.stock.add_structure("struct_pot")
 	main.placement.hold_new("structure", "struct_pot")
@@ -362,6 +764,20 @@ func _step_elevation_stacking() -> void:
 	check(
 		main.core.grid.cell_at(STACK_COORD, 1).structures.size() == 1,
 		"redo restores the decoration to the same elevation"
+	)
+	var base_state := main.core.grid.cell_at(STACK_COORD, 0)
+	main.placement._try_pick_up_tile(STACK_COORD, 0, base_state)
+	check(
+		main.placement.held.get("kind", "") == "tile"
+		and main.placement.held["moving"]["stack"].size() == 2
+		and not main.core.grid.has_cell(STACK_COORD),
+		"picking the bottom tile detaches the complete tile-and-object hierarchy"
+	)
+	main.placement.cancel_click()
+	check(
+		main.core.grid.top_elevation(STACK_COORD) == 1
+		and main.core.grid.cell_at(STACK_COORD, 1).structures.size() == 1,
+		"cancelling an atomic hierarchy move restores every tile and object"
 	)
 	main.placement.set_active(false)
 	main.camera_rig.set_zoom_immediate(18.0)
@@ -504,6 +920,16 @@ func _step_save_reload() -> void:
 		and main.core.grid.cell_at(STACK_COORD, 1).structures.size() == 1,
 		"elevated blocks and their decoration survive reload"
 	)
+	var restored_box := main.core.grid.find_structure(support_demo_box_iid)
+	var restored_lantern := main.core.grid.find_structure(support_demo_lantern_iid)
+	check(
+		not restored_box.is_empty()
+		and restored_box["coord"] == support_demo_coord
+		and restored_box["structure"].parent_instance_id == support_demo_stool_iid
+		and not restored_lantern.is_empty()
+		and restored_lantern["structure"].parent_instance_id == support_demo_box_iid,
+		"the named object support graph survives reconciliation and reload"
+	)
 	check(main.core.skills.xp["fishing"] == expect_xp, "skills survive reload")
 	check(main.player.position.distance_to(expect_pos) < 0.05, "exact continuous player position survives reload (%.3f drift)" % main.player.position.distance_to(expect_pos))
 	check(main.core.arrivals.has_waiting_package(), "unopened delivery survives reload")
@@ -513,7 +939,9 @@ func _step_save_reload() -> void:
 
 func _step_save_while_holding() -> void:
 	print("STEP save-safe placement transactions")
-	var tile_coord := Vector2i(2, 0)
+	# Exercise tile ownership on a clear opening block; the parcel tile at
+	# (2,0) now intentionally carries the independently placed starter tree.
+	var tile_coord := Vector2i(-1, 0)
 	var tile_before := main.core.grid.cell(tile_coord)
 	main.placement.set_active(true)
 	main.placement.pick_up_at(tile_coord)
@@ -590,6 +1018,29 @@ func _step_admin_controls() -> void:
 		main.panels.find_child("OpenAssetWorldButton", true, false) != null,
 		"Admin controls expose the curated Asset World"
 	)
+	var mist_choice := main.panels.find_child(
+		"DebugChoice_debug_set_weather_mist",
+		true,
+		false
+	) as Button
+	var day_choice := main.panels.find_child(
+		"DebugChoice_debug_set_weather_day",
+		true,
+		false
+	) as Button
+	check(
+		mist_choice != null and day_choice != null and day_choice.button_pressed,
+		"Admin visual choices expose their selected toggle state"
+	)
+	if mist_choice != null and day_choice != null:
+		mist_choice.button_pressed = true
+		await wait(0.05)
+		check(
+			mist_choice.button_pressed
+			and not day_choice.button_pressed
+			and main.lighting.weather_id() == "mist",
+			"clicking an Admin weather choice updates both state and selection"
+		)
 	main.panels.close()
 	await wait(0.1)
 	main.debug_set_weather("mist")
@@ -695,6 +1146,25 @@ func _step_admin_controls() -> void:
 	var structure_before := main.core.stock.structure_count(structure_id)
 	main.debug_grant_all_structures(2)
 	check(main.core.stock.structure_count(structure_id) == structure_before + 2, "Admin grants every structure")
+
+
+func _node_mesh_bounds(root: Node3D) -> AABB:
+	var minimum := Vector3(INF, INF, INF)
+	var maximum := Vector3(-INF, -INF, -INF)
+	var found := false
+	var root_inverse := root.global_transform.affine_inverse()
+	for child in root.find_children("*", "MeshInstance3D", true, false):
+		var mesh := child as MeshInstance3D
+		if mesh.mesh == null:
+			continue
+		var relative := root_inverse * mesh.global_transform
+		var mesh_bounds := mesh.get_aabb()
+		for endpoint in 8:
+			var point := relative * mesh_bounds.get_endpoint(endpoint)
+			minimum = minimum.min(point)
+			maximum = maximum.max(point)
+			found = true
+	return AABB(minimum, maximum - minimum) if found else AABB()
 
 
 func _inventory_total() -> int:

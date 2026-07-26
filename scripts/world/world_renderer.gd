@@ -5,6 +5,8 @@ extends Node3D
 ## State-diff driven (cell_changed / grid_changed) — never per-frame scans.
 
 const BLOCKER_LAYER := 1
+const PLACEABLE_PICK_LAYER := 1 << 7
+const OUTLINE_VISIBILITY_LAYER := 1 << 19
 const REST_TWEEN_SECONDS := 0.5
 
 var core: GameCore
@@ -14,11 +16,19 @@ var materials: MaterialLibrary
 const WATER_LEVEL := -0.14
 
 var _tile_nodes: Dictionary = {}        # Vector3i(x, elevation, grid_y) -> Node3D
+var _structure_nodes: Dictionary = {}   # stable structure instance id -> visual
 var _landmark_nodes: Dictionary = {}    # landmark_id -> Node3D
 var _edge_root: Node3D
 var _silhouette_material: StandardMaterial3D
 var _water_surface: WaterSurface
 var _tile_visual_factory: TileVisualFactory
+var _outlined_meshes: Array[MeshInstance3D] = []
+var _hovered_structure_id := -1
+var _hover_signature := ""
+var _outline_viewport: SubViewport
+var _outline_camera: Camera3D
+var _outline_overlay: TextureRect
+var _outline_source_camera: Camera3D
 
 
 func setup(game_core: GameCore, asset_library: AssetLibrary) -> void:
@@ -33,6 +43,7 @@ func setup(game_core: GameCore, asset_library: AssetLibrary) -> void:
 	_silhouette_material.albedo_color = Color(0.16, 0.18, 0.15, 0.92)
 	_silhouette_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_silhouette_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_setup_screen_space_outline()
 
 	_water_surface = WaterSurface.new()
 	_water_surface.name = "ContinuousWaterSurface"
@@ -48,10 +59,35 @@ func setup(game_core: GameCore, asset_library: AssetLibrary) -> void:
 	rebuild_all()
 
 
+func _process(_delta: float) -> void:
+	if (
+		_hover_signature == ""
+		or _outline_source_camera == null
+		or not is_instance_valid(_outline_source_camera)
+	):
+		return
+	_sync_outline_camera()
+
+
+func _sync_outline_camera() -> void:
+	_outline_camera.global_transform = _outline_source_camera.global_transform
+	_outline_camera.projection = _outline_source_camera.projection
+	_outline_camera.fov = _outline_source_camera.fov
+	_outline_camera.size = _outline_source_camera.size
+	_outline_camera.near = _outline_source_camera.near
+	_outline_camera.far = _outline_source_camera.far
+	_outline_camera.keep_aspect = _outline_source_camera.keep_aspect
+	_outline_camera.frustum_offset = _outline_source_camera.frustum_offset
+	_outline_camera.h_offset = _outline_source_camera.h_offset
+	_outline_camera.v_offset = _outline_source_camera.v_offset
+
+
 func rebuild_all() -> void:
+	clear_structure_hover()
 	for key in _tile_nodes.keys():
 		_tile_nodes[key].queue_free()
 	_tile_nodes.clear()
+	_structure_nodes.clear()
 	for slot: Dictionary in core.grid.all_cell_slots():
 		_build_cell(slot["coord"], int(slot["elevation"]), false)
 	_rebuild_edges()
@@ -62,6 +98,7 @@ func rebuild_all() -> void:
 func _on_slot_changed(coord: Vector2i, elevation: int) -> void:
 	var key := core.grid.slot_key(coord, elevation)
 	if _tile_nodes.has(key):
+		_unregister_holder_structures(_tile_nodes[key])
 		_tile_nodes[key].queue_free()
 		_tile_nodes.erase(key)
 	if core.grid.has_cell_at(coord, elevation):
@@ -92,6 +129,7 @@ func _build_cell(coord: Vector2i, elevation: int, animate := false) -> void:
 	_attach_ambient_motion(visual, Vector2i(coord.x + elevation * 1009, coord.y))
 
 	_tile_visual_factory.add_collision(holder, def, state.rotation)
+	_add_tile_pick_target(holder, visual, coord, elevation)
 
 	for s in state.structures:
 		_build_structure(holder, s)
@@ -191,37 +229,102 @@ func _build_structure(holder: Node3D, s: WorldGrid.StructureState) -> void:
 		return
 	var visual := assets.instantiate(def.asset_id)
 	visual.name = "struct_%d" % s.instance_id
-	visual.position = core.grid.socket_offset(s.socket_index)
-	visual.rotation.y = s.rotation * PI * 0.5
+	# All visuals stay siblings under the tile holder so selecting a jar does
+	# not outline its stool (or vice versa). The persistent support graph is
+	# resolved into a composed transform instead of a scene-tree hierarchy.
+	visual.transform = core.grid.structure_local_transform(s.instance_id)
 	holder.add_child(visual)
 	visual.set_meta("instance_id", s.instance_id)
-	if def.blocks_movement:
-		var body := StaticBody3D.new()
-		body.collision_layer = BLOCKER_LAYER
-		var shape := CollisionShape3D.new()
-		var box := BoxShape3D.new()
-		box.size = Vector3(0.9, 1.0, 0.5) if def.id.contains("fence") or def.id.contains("wall") else Vector3(0.8, 1.0, 0.8)
-		shape.shape = box
-		shape.position.y = 0.5
-		body.add_child(shape)
-		visual.add_child(body)
+	_structure_nodes[s.instance_id] = visual
+	if def.anchor_id != "" and s.anchor_resting:
+		visual.scale = Vector3.ONE * core.registries.tunef(
+			"grove_rest_visual_scale",
+			0.82
+		)
+	_add_placeable_pick_target(
+		visual,
+		s.instance_id,
+		holder.get_meta("grid_coord"),
+		int(holder.get_meta("elevation"))
+	)
+	_add_structure_blocker(visual)
 	if def.provides.has("light"):
-		_add_warm_light(visual, 1.1 if def.id == "struct_campfire" else 0.6)
+		_add_warm_light(
+			visual,
+			1.1 if def.id == "struct_campfire" else 0.6,
+			def.light_height,
+			def.light_flicker
+		)
 	if def.id == "struct_campfire":
 		_animate_flame(visual)
 	_attach_ambient_motion(visual, Vector2i(s.instance_id, s.rotation))
 
 
-func _add_warm_light(parent: Node3D, energy: float) -> void:
+func _add_structure_blocker(visual: Node3D) -> void:
+	var bounds_data := _visual_local_bounds(visual)
+	if not bool(bounds_data.get("found", false)):
+		return
+	var bounds: AABB = bounds_data["bounds"]
+	var body := StaticBody3D.new()
+	body.name = "PlaceableMovementBlocker"
+	body.collision_layer = BLOCKER_LAYER
+	body.collision_mask = 0
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	var raw_size := bounds.size
+	box.size = Vector3(
+		maxf(0.18, raw_size.x * 0.78),
+		maxf(0.15, raw_size.y * 0.92),
+		maxf(0.18, raw_size.z * 0.78)
+	)
+	shape.shape = box
+	shape.position = bounds.position + bounds.size * 0.5
+	body.add_child(shape)
+	visual.add_child(body)
+
+
+func _visual_local_bounds(visual: Node3D) -> Dictionary:
+	var found := false
+	var minimum := Vector3.ZERO
+	var maximum := Vector3.ZERO
+	var visual_inverse := visual.global_transform.affine_inverse()
+	for child in visual.find_children("*", "MeshInstance3D", true, false):
+		var mesh_instance := child as MeshInstance3D
+		if mesh_instance.mesh == null:
+			continue
+		var local_transform := visual_inverse * mesh_instance.global_transform
+		var mesh_bounds := mesh_instance.get_aabb()
+		for corner_index in 8:
+			var point := local_transform * mesh_bounds.get_endpoint(corner_index)
+			if not found:
+				minimum = point
+				maximum = point
+				found = true
+			else:
+				minimum = minimum.min(point)
+				maximum = maximum.max(point)
+	return {
+		"found": found,
+		"bounds": AABB(minimum, maximum - minimum),
+	}
+
+
+func _add_warm_light(
+	parent: Node3D,
+	energy: float,
+	height: float,
+	flicker: bool
+) -> void:
 	var light := OmniLight3D.new()
 	light.light_color = Color(1.0, 0.72, 0.4)
 	light.omni_range = 4.5
-	light.position.y = 0.7
+	light.position.y = height
 	light.light_energy = energy
 	light.set_meta("base_energy", energy)
 	light.add_to_group("warm_lights")
 	parent.add_child(light)
-	_animate_local_light(light)
+	if flicker:
+		_animate_local_light(light)
 
 
 func _animate_flame(campfire: Node3D) -> void:
@@ -292,7 +395,7 @@ func animation_manifest() -> Dictionary:
 		"warm_light_flicker": {
 			"looping": true,
 			"half_cycle": 0.33,
-			"position_offsets": [Vector3(0.05, 0.02, -0.03), Vector3(-0.04, -0.01, 0.04)],
+			"energy_multiplier_range": [0.92, 1.05],
 			"curve": "sine_in_out",
 		},
 	}
@@ -326,10 +429,10 @@ func _attach_ambient_motion(root: Node3D, seed_key: Vector2i) -> void:
 
 
 func _animate_local_light(light: OmniLight3D) -> void:
-	var base_position := light.position
+	var base_energy := light.light_energy
 	var tween := light.create_tween().set_loops()
-	tween.tween_property(light, "position", base_position + Vector3(0.05, 0.02, -0.03), 0.33).set_trans(Tween.TRANS_SINE)
-	tween.tween_property(light, "position", base_position + Vector3(-0.04, -0.01, 0.04), 0.33).set_trans(Tween.TRANS_SINE)
+	tween.tween_property(light, "light_energy", base_energy * 1.05, 0.33).set_trans(Tween.TRANS_SINE)
+	tween.tween_property(light, "light_energy", base_energy * 0.92, 0.33).set_trans(Tween.TRANS_SINE)
 
 
 ## Grove rest: vegetation gently shrinks and desaturates while regrowing —
@@ -361,11 +464,376 @@ func refresh_anchor(coord: Vector2i) -> void:
 		_apply_anchor_visual(_tile_nodes[key], state, def, true)
 
 
+func refresh_structure_anchor(instance_id: int, animate := true) -> void:
+	var found := core.grid.find_structure(instance_id)
+	var visual := structure_node(instance_id)
+	if found.is_empty() or visual == null:
+		return
+	var structure: WorldGrid.StructureState = found["structure"]
+	var target_scale := (
+		Vector3.ONE * core.registries.tunef("grove_rest_visual_scale", 0.82)
+		if structure.anchor_resting
+		else Vector3.ONE
+	)
+	if not animate:
+		visual.scale = target_scale
+		return
+	var tween := visual.create_tween()
+	tween.tween_property(visual, "scale", target_scale, REST_TWEEN_SECONDS).set_trans(
+		Tween.TRANS_BACK
+	).set_ease(Tween.EASE_OUT)
+
+
 func tile_node(coord: Vector2i, elevation: int = -1) -> Node3D:
 	var target_elevation := core.grid.top_elevation(coord) if elevation < 0 else elevation
 	if target_elevation < 0:
 		return null
 	return _tile_nodes.get(core.grid.slot_key(coord, target_elevation))
+
+
+# ------------------------------------------------------------------ placeable picking / hover
+
+func _setup_screen_space_outline() -> void:
+	_outline_viewport = SubViewport.new()
+	_outline_viewport.name = "PlaceableOutlineViewport"
+	_outline_viewport.transparent_bg = true
+	_outline_viewport.world_3d = get_world_3d()
+	_outline_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	_outline_viewport.handle_input_locally = false
+	add_child(_outline_viewport)
+
+	_outline_camera = Camera3D.new()
+	_outline_camera.name = "PlaceableOutlineCamera"
+	_outline_camera.cull_mask = OUTLINE_VISIBILITY_LAYER
+	_outline_camera.current = true
+	_outline_viewport.add_child(_outline_camera)
+
+	var canvas := CanvasLayer.new()
+	canvas.name = "PlaceableOutlineCanvas"
+	canvas.layer = 5
+	add_child(canvas)
+	_outline_overlay = TextureRect.new()
+	_outline_overlay.name = "PlaceableOutlineOverlay"
+	_outline_overlay.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_outline_overlay.stretch_mode = TextureRect.STRETCH_SCALE
+	_outline_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_outline_overlay.texture = _outline_viewport.get_texture()
+	_outline_overlay.visible = false
+	canvas.add_child(_outline_overlay)
+
+	var shader := Shader.new()
+	shader.code = """
+shader_type canvas_item;
+render_mode unshaded;
+
+uniform vec4 outline_color : source_color = vec4(1.0, 0.99, 0.96, 1.0);
+uniform float outline_width_pixels = 2.25;
+
+void fragment() {
+	vec2 px = TEXTURE_PIXEL_SIZE * outline_width_pixels;
+	float center = texture(TEXTURE, UV).a;
+	float around = 0.0;
+	around = max(around, texture(TEXTURE, UV + vec2(px.x, 0.0)).a);
+	around = max(around, texture(TEXTURE, UV - vec2(px.x, 0.0)).a);
+	around = max(around, texture(TEXTURE, UV + vec2(0.0, px.y)).a);
+	around = max(around, texture(TEXTURE, UV - vec2(0.0, px.y)).a);
+	around = max(around, texture(TEXTURE, UV + px).a);
+	around = max(around, texture(TEXTURE, UV - px).a);
+	around = max(around, texture(TEXTURE, UV + vec2(px.x, -px.y)).a);
+	around = max(around, texture(TEXTURE, UV + vec2(-px.x, px.y)).a);
+	float outline = smoothstep(0.08, 0.65, around) * (1.0 - smoothstep(0.02, 0.35, center));
+	COLOR = vec4(outline_color.rgb, outline_color.a * outline);
+}
+"""
+	var material := ShaderMaterial.new()
+	material.shader = shader
+	_outline_overlay.material = material
+	_resize_outline_viewport()
+	get_viewport().size_changed.connect(_resize_outline_viewport)
+
+
+func _resize_outline_viewport() -> void:
+	if _outline_viewport == null:
+		return
+	var size := Vector2i(get_viewport().get_visible_rect().size)
+	_outline_viewport.size = Vector2i(maxi(1, size.x), maxi(1, size.y))
+	_outline_overlay.position = Vector2.ZERO
+	_outline_overlay.size = Vector2(_outline_viewport.size)
+
+
+func _add_placeable_pick_target(
+	visual: Node3D,
+	instance_id: int,
+	coord: Vector2i,
+	elevation: int
+) -> void:
+	var body := StaticBody3D.new()
+	body.name = "PlaceablePickTarget"
+	body.collision_layer = PLACEABLE_PICK_LAYER
+	body.collision_mask = 0
+	body.set_meta("placeable_kind", "structure")
+	body.set_meta("structure_instance_id", instance_id)
+	body.set_meta("grid_coord", coord)
+	body.set_meta("elevation", elevation)
+	visual.add_child(body)
+
+	var visual_inverse := visual.global_transform.affine_inverse()
+	for child in visual.find_children("*", "MeshInstance3D", true, false):
+		var mesh_instance := child as MeshInstance3D
+		if mesh_instance.mesh == null:
+			continue
+		var trimesh := mesh_instance.mesh.create_trimesh_shape()
+		if trimesh == null:
+			continue
+		var shape := CollisionShape3D.new()
+		shape.shape = trimesh
+		shape.transform = visual_inverse * mesh_instance.global_transform
+		body.add_child(shape)
+
+	if body.get_child_count() == 0:
+		var fallback := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = Vector3(0.75, 1.0, 0.75)
+		fallback.shape = box
+		fallback.position.y = 0.5
+		body.add_child(fallback)
+
+
+func _add_tile_pick_target(
+	holder: Node3D,
+	visual: Node3D,
+	coord: Vector2i,
+	elevation: int
+) -> void:
+	var body := StaticBody3D.new()
+	body.name = "TilePickTarget"
+	body.collision_layer = PLACEABLE_PICK_LAYER
+	body.collision_mask = 0
+	body.set_meta("placeable_kind", "tile")
+	body.set_meta("grid_coord", coord)
+	body.set_meta("elevation", elevation)
+	holder.add_child(body)
+	var holder_inverse := holder.global_transform.affine_inverse()
+	for child in visual.find_children("*", "MeshInstance3D", true, false):
+		var mesh_instance := child as MeshInstance3D
+		if mesh_instance.mesh == null:
+			continue
+		var trimesh := mesh_instance.mesh.create_trimesh_shape()
+		if trimesh == null:
+			continue
+		var shape := CollisionShape3D.new()
+		shape.shape = trimesh
+		shape.transform = holder_inverse * mesh_instance.global_transform
+		body.add_child(shape)
+	if body.get_child_count() == 0:
+		var fallback := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = Vector3(
+			core.grid.tile_size * 0.96,
+			core.grid.block_depth,
+			core.grid.tile_size * 0.96
+		)
+		fallback.shape = box
+		fallback.position.y = -core.grid.block_depth * 0.5
+		body.add_child(fallback)
+
+
+func pick_placeable_at_screen(camera: Camera3D, screen_position: Vector2) -> Dictionary:
+	if camera == null or not is_inside_tree():
+		return {}
+	_outline_source_camera = camera
+	var origin := camera.project_ray_origin(screen_position)
+	var direction := camera.project_ray_normal(screen_position)
+	var query := PhysicsRayQueryParameters3D.create(
+		origin,
+		origin + direction * 1000.0,
+		PLACEABLE_PICK_LAYER
+	)
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty():
+		return {}
+	var collider := hit.get("collider") as CollisionObject3D
+	if collider == null or not collider.has_meta("placeable_kind"):
+		return {}
+	var result := {
+		"kind": String(collider.get_meta("placeable_kind")),
+		"coord": collider.get_meta("grid_coord"),
+		"elevation": int(collider.get_meta("elevation")),
+		"point": hit.get("position", Vector3.ZERO),
+	}
+	if result["kind"] == "structure":
+		result["instance_id"] = int(collider.get_meta("structure_instance_id"))
+	return result
+
+
+func pick_structure_at_screen(camera: Camera3D, screen_position: Vector2) -> Dictionary:
+	var result := pick_placeable_at_screen(camera, screen_position)
+	return result if result.get("kind", "") == "structure" else {}
+
+
+func set_hovered_structure(instance_id: int, include_descendants := true) -> void:
+	var signature := "structure:%d:%s" % [instance_id, str(include_descendants)]
+	if _hover_signature == signature:
+		return
+	var nodes: Array[Node3D] = []
+	var structures := (
+		core.grid.structure_subtree(instance_id)
+		if include_descendants
+		else []
+	)
+	if not include_descendants:
+		var found := core.grid.find_structure(instance_id)
+		if not found.is_empty():
+			structures = [found["structure"]]
+	for structure: WorldGrid.StructureState in structures:
+		var visual := structure_node(structure.instance_id)
+		if visual != null:
+			nodes.append(visual)
+	_set_hover_nodes(nodes, signature, instance_id)
+
+
+func set_hovered_tile(
+	coord: Vector2i,
+	elevation: int,
+	include_above := true
+) -> void:
+	var signature := "tile:%d:%d:%d:%s" % [
+		coord.x,
+		coord.y,
+		elevation,
+		str(include_above),
+	]
+	if _hover_signature == signature:
+		return
+	var nodes: Array[Node3D] = []
+	var top := core.grid.top_elevation(coord) if include_above else elevation
+	for layer in range(elevation, top + 1):
+		var holder := tile_node(coord, layer)
+		if holder != null:
+			nodes.append(holder)
+	_set_hover_nodes(nodes, signature, -1)
+
+
+func _set_hover_nodes(
+	nodes: Array[Node3D],
+	signature: String,
+	structure_instance_id: int
+) -> void:
+	clear_structure_hover()
+	if nodes.is_empty():
+		return
+	if _outline_source_camera == null or not is_instance_valid(_outline_source_camera):
+		_outline_source_camera = get_viewport().get_camera_3d()
+	if _outline_source_camera == null:
+		return
+	_sync_outline_camera()
+	_hovered_structure_id = structure_instance_id
+	_hover_signature = signature
+	var seen := {}
+	for node: Node3D in nodes:
+		for child in node.find_children("*", "MeshInstance3D", true, false):
+			var mesh_instance := child as MeshInstance3D
+			if seen.has(mesh_instance.get_instance_id()):
+				continue
+			seen[mesh_instance.get_instance_id()] = true
+			mesh_instance.set_meta("_outline_previous_layers", mesh_instance.layers)
+			mesh_instance.layers |= OUTLINE_VISIBILITY_LAYER
+			_outlined_meshes.append(mesh_instance)
+	_outline_overlay.visible = true
+	_outline_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+
+
+func clear_structure_hover() -> void:
+	for mesh_instance: MeshInstance3D in _outlined_meshes:
+		if is_instance_valid(mesh_instance):
+			mesh_instance.layers = int(
+				mesh_instance.get_meta("_outline_previous_layers", mesh_instance.layers & ~OUTLINE_VISIBILITY_LAYER)
+			)
+			mesh_instance.remove_meta("_outline_previous_layers")
+	_outlined_meshes.clear()
+	if _outline_overlay != null:
+		_outline_overlay.visible = false
+	if _outline_viewport != null:
+		_outline_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	_hovered_structure_id = -1
+	_hover_signature = ""
+
+
+func hovered_structure_id() -> int:
+	return _hovered_structure_id
+
+
+func structure_node(instance_id: int) -> Node3D:
+	var visual := _structure_nodes.get(instance_id) as Node3D
+	if visual == null or not is_instance_valid(visual):
+		_structure_nodes.erase(instance_id)
+		return null
+	return visual
+
+
+func support_slot_world_transform(parent_instance_id: int, slot_id: String) -> Transform3D:
+	var found := core.grid.find_structure(parent_instance_id)
+	if found.is_empty():
+		return Transform3D.IDENTITY
+	var holder := tile_node(found["coord"], int(found["elevation"]))
+	if holder == null:
+		return Transform3D.IDENTITY
+	return holder.global_transform * core.grid.support_slot_local_transform(
+		parent_instance_id,
+		slot_id
+	)
+
+
+func structure_preview_position(instance_id: int) -> Vector3:
+	var visual := structure_node(instance_id)
+	if visual == null:
+		return Vector3.ZERO
+	var bounds_found := false
+	var highest := visual.global_position.y
+	for child in visual.find_children("*", "MeshInstance3D", true, false):
+		var mesh := child as MeshInstance3D
+		if mesh.mesh == null:
+			continue
+		var local_aabb := mesh.get_aabb()
+		for corner_index in 8:
+			var corner := mesh.global_transform * local_aabb.get_endpoint(corner_index)
+			highest = maxf(highest, corner.y)
+			bounds_found = true
+	return Vector3(
+		visual.global_position.x,
+		highest if bounds_found else visual.global_position.y + 0.5,
+		visual.global_position.z
+	)
+
+
+func animate_structure_settle(instance_id: int) -> void:
+	var visual := structure_node(instance_id)
+	if visual == null:
+		return
+	var target := visual.position
+	visual.position.y += 0.12
+	visual.scale = Vector3.ONE * 0.94
+	var tween := visual.create_tween().set_parallel(true)
+	tween.tween_property(visual, "position", target, 0.22).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+	tween.tween_property(visual, "scale", Vector3.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+func _unregister_holder_structures(holder: Node3D) -> void:
+	var holder_was_outlined := false
+	for outlined: MeshInstance3D in _outlined_meshes:
+		if is_instance_valid(outlined) and holder.is_ancestor_of(outlined):
+			holder_was_outlined = true
+			break
+	if holder_was_outlined:
+		clear_structure_hover()
+	for child in holder.find_children("*", "Node3D", true, false):
+		var node := child as Node3D
+		if not node.has_meta("instance_id"):
+			continue
+		var instance_id := int(node.get_meta("instance_id"))
+		_structure_nodes.erase(instance_id)
 
 
 # ------------------------------------------------------------------ edges

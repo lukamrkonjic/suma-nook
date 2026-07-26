@@ -32,7 +32,7 @@ var world_reconciler: WorldStateReconciler
 var autosave_timer := 0.0
 var autosave_paused := false
 var play_seconds := 0.0
-var view_state: Dictionary = {"yaw": 45.0, "distance": 40.0}
+var view_state: Dictionary = {"yaw": 45.0, "distance": 32.0, "pan": [0.0, 0.0]}
 var visual_state: Dictionary = {
 	"weather": "day",
 	"time_of_day": "noon",
@@ -41,6 +41,9 @@ var visual_state: Dictionary = {
 }
 var _dirty := false
 var legacy_inventory: Dictionary = {}
+
+const FIRST_WATER_COORD := Vector2i(-1, -1)
+const STARTER_DOCK_COORD := Vector2i(0, -1)
 
 
 func setup(data_path := "res://data", seed_value := 0) -> bool:
@@ -103,6 +106,9 @@ func new_game(new_profile: PlayerProfile) -> void:
 	equipment.acquire("tool_rod_basic")
 	equipment.acquire("tool_axe_basic")
 	equipment.equip("tool_rod_basic")
+	# Trees begin unplaced in the Build Library. The storage chest is the only
+	# progression utility deliberately authored into the opening world.
+	stock.add_structure("struct_pine")
 	collection.record("gear", "tool_rod_basic")
 	collection.record("gear", "tool_axe_basic")
 	for coord: Vector2i in grid.cells:
@@ -110,7 +116,9 @@ func new_game(new_profile: PlayerProfile) -> void:
 	save()
 
 
-## The composed 3×3: six land tiles and one continuous northern water edge.
+## The composed opening zone: a continuous three-tile northern water edge and
+## two deliberately repeated forest/path/forest rows. Only the first water
+## block is movement-locked; every other opening tile uses the normal move flow.
 func _compose_starting_world() -> void:
 	grid.cells.clear()
 	grid.stacked_cells.clear()
@@ -119,21 +127,25 @@ func _compose_starting_world() -> void:
 		Vector2i(0, -1): ["tile_open_water", 0],
 		Vector2i(1, -1): ["tile_open_water", 0],
 		Vector2i(-1, 0): ["tile_grass", 0],
-		Vector2i(0, 0): ["tile_grass", 0],
-		Vector2i(1, 0): ["tile_grass_flower", 0],
-		Vector2i(-1, 1): ["tile_grass_flower", 2],
+		Vector2i(0, 0): ["tile_path", 0],
+		Vector2i(1, 0): ["tile_grass", 0],
+		Vector2i(-1, 1): ["tile_grass", 0],
 		Vector2i(0, 1): ["tile_path", 0],
 		Vector2i(1, 1): ["tile_grass", 0],
 	}
 	for coord: Vector2i in layout:
-		grid.place_tile(coord, layout[coord][0], layout[coord][1], true)
-	# A resting place, storage, and a few pretty props — composed, not scattered.
+		grid.place_tile(
+			coord,
+			layout[coord][0],
+			layout[coord][1],
+			true,
+			coord == FIRST_WATER_COORD
+		)
+	# Opening furniture is independent from its terrain. Trees/vegetation do
+	# not spawn by default; the first tree waits in the Build Library.
 	grid.add_structure(Vector2i(-1, 1), "struct_bench", 2, 1)
 	grid.add_structure(Vector2i(1, 0), "struct_chest", 2, 0)
-	grid.add_structure(Vector2i(1, 0), "struct_pot", 1, 0)
-	grid.add_structure(Vector2i(1, 1), "struct_lantern", 3, 0)
-	grid.add_structure(Vector2i(-1, 0), "struct_pine", 3, 0)
-	grid.add_structure(Vector2i(-1, 0), "struct_bush", 2, 0)
+	grid.add_structure(STARTER_DOCK_COORD, "struct_dock", 0, 2)
 	for coord: Vector2i in grid.cells:
 		for s in grid.cell(coord).structures:
 			collection.record("structures", s.structure_id, 0)
@@ -202,6 +214,19 @@ func _tick_anchors(delta: float) -> void:
 			state.anchor_actions_done = 0
 			grid.slot_changed.emit(coord, 0)
 			grid.cell_changed.emit(coord)
+	for slot: Dictionary in grid.all_cell_slots():
+		var cell_state: WorldGrid.CellState = slot["state"]
+		for structure: WorldGrid.StructureState in cell_state.structures:
+			if not structure.anchor_resting:
+				continue
+			structure.anchor_regen_left -= delta
+			if structure.anchor_regen_left <= 0.0:
+				structure.anchor_resting = false
+				structure.anchor_actions_done = 0
+				grid.slot_changed.emit(
+					slot["coord"],
+					int(slot["elevation"])
+				)
 
 
 func autosave_soon() -> void:

@@ -32,7 +32,7 @@
       "id": "woodcutting",
       "name": "Woodland Tending",
       "icon": "🪓",
-      "description": "Prune and tend living groves for XP. Trees rest briefly, then return without leaving an empty dirt patch.",
+      "description": "Prune and tend placeable living trees for XP. Each tree rests briefly, then recovers wherever you planted it.",
       "max_level": 20,
       "xp_curve": "gentle",
       "tool_type": "axe",

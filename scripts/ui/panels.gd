@@ -462,10 +462,20 @@ func _debug_choice_row(
 	var row := HFlowContainer.new()
 	row.add_theme_constant_override("separation", 6)
 	list.add_child(row)
+	var group := ButtonGroup.new()
+	group.allow_unpress = false
 	for choice in choices:
 		var preset_id := String(choice[1])
-		var button := kit.button(String(choice[0]), preset_id == active_id)
-		button.pressed.connect(_debug_apply_visual_choice.bind(method_name, preset_id))
+		var button := kit.choice_button(
+			String(choice[0]),
+			preset_id == active_id
+		)
+		button.name = "DebugChoice_%s_%s" % [method_name, preset_id]
+		button.button_group = group
+		button.toggled.connect(func(selected: bool) -> void:
+			if selected:
+				_debug_apply_visual_choice(method_name, preset_id)
+		)
 		row.add_child(button)
 
 
@@ -476,6 +486,12 @@ func _debug_apply_visual_choice(method_name: String, preset_id: String) -> void:
 func _debug_speed_regen() -> void:
 	for coord: Vector2i in core.grid.cells:
 		core.grid.cell(coord).anchor_regen_left = 0.5
+	for slot: Dictionary in core.grid.all_cell_slots():
+		var state: WorldGrid.CellState = slot["state"]
+		for structure: WorldGrid.StructureState in state.structures:
+			var definition := core.registries.structure(structure.structure_id)
+			if definition != null and definition.anchor_id != "" and structure.anchor_resting:
+				structure.anchor_regen_left = 0.5
 
 
 # ------------------------------------------------------------------ landmark resolve dialog

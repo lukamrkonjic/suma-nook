@@ -18,7 +18,7 @@ Modeling standards (docs/visual_rework/ASSET_AUDIT.md):
   - grass: 3-7 broad tapered curved blades, grouped, never scattered noise;
   - composition: bare tile by default; at most one functional or hero motif.
 
-Deterministic (fixed seeds). 1 unit = 1 m; tile = 2.0 m; land top z=0.
+Deterministic (fixed seeds). 1 unit = 1 m; tile = 1.70 m; land top z=0.
 """
 
 import math
@@ -33,10 +33,13 @@ ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "assets" / "3d" / "reworked"
 OUT.mkdir(parents=True, exist_ok=True)
 
-TILE = 2.0
-BLOCK_DEPTH = 0.56          # visible side ~0.28 of tile width
+TILE = 1.70
+# Garden Galaxy's audited ordinary ground collider is 1.0 x 0.5 x 1.0,
+# centred at y=-0.25. Keep its confirmed half-metre vertical stacking step
+# while retaining enough horizontal room for Suma Nook's existing props.
+BLOCK_DEPTH = 0.50
 WATER_SURFACE_Y = -0.14     # matches the contiguous water renderer
-WATER_FLOOR_Y = -0.42       # ~0.14 tile widths below the surface
+WATER_FLOOR_Y = -0.36
 
 # ---------------------------------------------------------------- palette
 # Mirrors assets/palettes/gg_material_palette.tres — keep in sync.
@@ -445,12 +448,24 @@ def export(asset_id, objs):
 
 # ---------------------------------------------------------------- terrain
 def tile_block(prefix, top_mat, side_mat):
-    """Quiet land block: crisp vertical mass and one restrained top chamfer."""
+    """Quiet land block whose complete visual envelope ends at z=0."""
     body = rbox(f"{prefix}_body", (TILE - 0.004, TILE - 0.004, BLOCK_DEPTH - 0.1),
                 (0, 0, -(BLOCK_DEPTH + 0.1) / 2), side_mat, bevel=0.018, segments=1)
-    cap = rbox(f"{prefix}_cap", (TILE, TILE, 0.13), (0, 0, -0.055),
+    cap = rbox(f"{prefix}_cap", (TILE, TILE, 0.13), (0, 0, -0.065),
                top_mat, bevel=0.024, segments=1)
     return [body, cap]
+
+
+def tile_body(prefix, side_mat):
+    """Block body without a full cap, used by flush segmented surfaces."""
+    return [rbox(
+        f"{prefix}_body",
+        (TILE - 0.004, TILE - 0.004, BLOCK_DEPTH - 0.1),
+        (0, 0, -(BLOCK_DEPTH + 0.1) / 2),
+        side_mat,
+        bevel=0.018,
+        segments=1,
+    )]
 
 
 def grass_cluster(prefix, rng, kind="tuft"):
@@ -482,49 +497,39 @@ def build_terrain():
     t = tile_block("gf", "grass_sunlit", "earth_mid")
     export("tile_grass_flower", t)
 
-    # Garden bed
-    t = tile_block("gar", "grass_sunlit", "earth_mid")
-    t.append(rbox("gar_bed", (1.15, 1.15, 0.18), (0.15, 0.15, 0.09), "wood_gold", bevel=0.022, segments=1))
-    t.append(rbox("gar_fill", (0.95, 0.95, 0.1), (0.15, 0.15, 0.15), "soil_orange", bevel=0.018, flat=True))
-    t += move(petal_flower("gar_fl", rng, "petal_pink", petals=5, stem_h=0.24),
-              (0.15, 0.15, 0.2))
+    # Flat soil ground. Planters and flowers are independent placeables.
+    t = tile_block("gar", "soil_orange", "earth_mid")
     export("tile_garden", t)
 
-    # Paving: varied warm-ivory slabs, narrow warm seams, soft height steps.
-    t = tile_block("pa", "stone_warm_shadow", "stone_mid")
-    slabs = [
-        ((-0.5, -0.5), (0.94, 0.94)), ((0.52, -0.62), (0.86, 0.68)),
-        ((0.52, 0.28), (0.86, 0.98)), ((-0.5, 0.52), (0.94, 0.9)),
-    ]
-    for i, ((sx, sy), (w, d)) in enumerate(slabs):
-        t.append(rbox(f"pa_slab{i}", (w, d, 0.08),
-                      (sx, sy, 0.03 + rng.uniform(-0.005, 0.005)),
-                      "stone_light" if i != 2 else "stone_mid_light", bevel=0.022, segments=1))
+    # A continuous stone surface: path identity comes from colour, not raised
+    # pavers. Any future seams must be carved below the z=0 surface.
+    t = tile_block("path", "stone_light", "stone_warm_shadow")
     export("tile_path", t)
 
+    # Courtyard variation is carried by its flat cap colour, not raised trim.
     t = tile_block("co", "stone_light", "stone_mid")
-    t.append(rbox("co_center", (0.92, 0.92, 0.055), (0, 0, 0.026), "terracotta_light", bevel=0.018, segments=1))
-    for i, (x, y, w, d) in enumerate([(0, 0.73, 1.72, 0.3), (0, -0.73, 1.72, 0.3), (0.73, 0, 0.3, 1.16), (-0.73, 0, 0.3, 1.16)]):
-        t.append(rbox(f"co_ring{i}", (w, d, 0.045), (x, y, 0.02), "terracotta_primary", bevel=0.012, segments=1))
     export("tile_courtyard", t)
 
     # Pond edge: sloped sandy shore into readable shallow water.
     t = []
     t.append(rbox("gp_body", (TILE, TILE, 0.2), (0, 0, -BLOCK_DEPTH + 0.1), "earth_mid", bevel=0.02, flat=True))
-    rim = 0.4
+    rim = 0.34
     for i, (x, y, w, d) in enumerate([(0, -TILE / 2 + rim / 2, TILE + 0.02, rim), (0, TILE / 2 - rim / 2, TILE + 0.02, rim),
                                       (-TILE / 2 + rim / 2, 0, rim, TILE + 0.02), (TILE / 2 - rim / 2, 0, rim, TILE + 0.02)]):
         t.append(rbox(f"gp_rim{i}", (w, d, BLOCK_DEPTH), (x, y, -BLOCK_DEPTH / 2), "earth_mid", bevel=0.02, flat=True))
-        t.append(rbox(f"gp_cap{i}", (w, d, 0.13), (x, y, -0.055), "grass_primary", bevel=0.024, segments=1))
+        t.append(rbox(f"gp_cap{i}", (w, d, 0.13), (x, y, -0.065), "grass_primary", bevel=0.024, segments=1))
     # sloped sand shore ring — tucked inside the basin, meeting the floor
-    for i, (x, y, yaw) in enumerate([(0, -0.47, 0), (0, 0.47, math.pi), (-0.47, 0, -math.pi / 2), (0.47, 0, math.pi / 2)]):
-        panel = rbox(f"gp_slope{i}", (1.02, 0.3, 0.05), (x, y, -0.36), "uw_sand_light", bevel=0.01, flat=True)
+    shore = TILE * 0.22
+    shore_span = TILE - rim * 1.75
+    for i, (x, y, yaw) in enumerate([(0, -shore, 0), (0, shore, math.pi), (-shore, 0, -math.pi / 2), (shore, 0, math.pi / 2)]):
+        panel = rbox(f"gp_slope{i}", (shore_span, 0.25, 0.05), (x, y, -0.39), "uw_sand_light", bevel=0.01, flat=True)
         panel.rotation_euler = Euler((-0.62 if yaw in (0.0,) else 0.62 if yaw == math.pi else 0.0, 0, 0))
         if yaw not in (0.0, math.pi):
             panel.rotation_euler = Euler((0, 0.62 if x > 0 else -0.62, 0))
         t.append(panel)
-    t.append(rbox("gp_floor", (1.15, 1.15, 0.07), (0, 0, -0.46), "uw_sand_light", bevel=0.012, flat=True))
-    water = rbox("WaterSurface", (TILE - 0.5, TILE - 0.5, 0.03), (0, 0, -0.2), "water", bevel=0.0)
+    basin_size = TILE - rim * 1.8
+    t.append(rbox("gp_floor", (basin_size, basin_size, 0.07), (0, 0, -0.43), "uw_sand_light", bevel=0.012, flat=True))
+    water = rbox("WaterSurface", (TILE - rim * 1.45, TILE - rim * 1.45, 0.03), (0, 0, -0.2), "water", bevel=0.0)
     t.append(water)
     export("tile_grass_pond_edge", t)
 
@@ -535,37 +540,27 @@ def build_terrain():
     t = tile_block("sm", "moss_primary", "stone_mid")
     export("tile_stone_mossy", t)
 
+    # Ruins and crystals are decorations, not raised tile geometry.
     t = tile_block("sr", "stone_mid_light", "stone_mid")
-    t.append(rbox("sr_found1", (1.1, 0.26, 0.36), (0, 0.5, 0.18), "stone_light", bevel=0.02, segments=1))
-    t.append(rbox("sr_found2", (0.26, 0.9, 0.28), (0.55, -0.2, 0.14), "stone_light", bevel=0.02, segments=1))
     export("tile_stone_ruin", t)
 
     t = tile_block("scr", "stone_mid_light", "stone_mid")
-    for i in range(3):
-        h = rng.uniform(0.35, 0.7)
-        c = rcyl(f"scr_c{i}", rng.uniform(0.09, 0.15), h, (rng.uniform(-0.45, 0.45), rng.uniform(-0.45, 0.45), h / 2), "crystal", verts=6, bevel=0.01, flat=True)
-        c.rotation_euler = Euler((rng.uniform(-0.15, 0.15), rng.uniform(-0.15, 0.15), rng.uniform(0, 3.14)))
-        t.append(c)
     export("tile_stone_crystal", t)
 
-    t = tile_block("ro", "stone_mid_light", "stone_mid")
-    for i, (x, y) in enumerate([(-0.55, -0.3), (0.0, -0.28), (0.55, -0.32), (-0.28, 0.32), (0.28, 0.3)]):
-        t.append(rbox(f"ro_s{i}", (0.5, 0.52, 0.055), (x + rng.uniform(-0.02, 0.02), y, 0.026), "stone_light", bevel=0.016, segments=1))
+    # The old road follows the same flat-surface contract.
+    t = tile_block("road", "stone_mid_light", "stone_mid")
     export("tile_stone_road", t)
 
-    # Groves carry exactly one hero tree. Bushes and ground cover are separate
-    # decals so the player, rather than the tile mesh, composes the scene.
-    def grove(asset_id, seed, tree_fn):
-        r = random.Random(seed)
-        g = tile_block(asset_id, "grass_sunlit", "earth_mid")
-        g += move(tree_fn(r), (0.18, 0.16, 0))
-        export(asset_id, g)
-
-    grove("tile_grove_mature", 121, lambda r: _pine("gm", r, 1.95, 4))
-    grove("tile_grove_birch", 122, lambda r: _leafy_tree("gb", r, trunk_mat="warm_white", leaf_mat="leaf_bright"))
-    grove("tile_grove_mossy", 123, lambda r: _pine("gms", r, 1.5, 3, light="moss_bright", mid="moss_primary", deep="grass_shade"))
-    grove("tile_grove_autumn", 124, lambda r: _leafy_tree("ga", r, leaf_mat="terracotta_orange"))
-    grove("tile_grove_flowering", 125, lambda r: _leafy_tree("gfl", r, leaf_mat="soft_coral"))
+    # Grove rewards are flat palette variants. Trees are independent
+    # placeables, so moving a tile never carries a baked-in tree.
+    for asset_id, top_mat in [
+        ("tile_grove_mature", "grass_sunlit"),
+        ("tile_grove_birch", "leaf_soft_sage"),
+        ("tile_grove_mossy", "moss_primary"),
+        ("tile_grove_autumn", "earthy_olive"),
+        ("tile_grove_flowering", "grass_highlight"),
+    ]:
+        export(asset_id, tile_block("grove_ground", top_mat, "earth_mid"))
 
     # Open-water sand floor tile (surface comes from the water renderer).
     # Dish-shaped: shallow near tile edges, deep toward the center, so the
@@ -582,7 +577,7 @@ def build_terrain():
     for v in floor.data.vertices:
         if v.co.z > WATER_FLOOR_Y - 0.06:
             dist = math.hypot(v.co.x, v.co.y)
-            v.co.z -= 0.42 * max(0.0, 1.0 - dist / 1.25) ** 1.4
+            v.co.z -= 0.25 * max(0.0, 1.0 - dist / (TILE * 0.62)) ** 1.4
             v.co.z += rng.uniform(-0.012, 0.02)
     t.append(floor)
     t.append(rbox("wf_body", (TILE - 0.03, TILE - 0.03, 0.14),
@@ -935,22 +930,9 @@ def build_props():
     camp += [flame_outer, flame_core]
     export("prop_campfire", camp)
 
-    shelter = [
-        rbox("sh_floor", (1.7, 1.5, 0.11), (0, 0, 0.055), "wood_gold", bevel=0.026, segments=3),
-        rbox("sh_wall_l", (0.11, 1.4, 1.0), (-0.8, -0.05, 0.6), "wood_light", bevel=0.02, segments=3),
-        rbox("sh_wall_r", (0.11, 1.4, 1.0), (0.8, -0.05, 0.6), "wood_light", bevel=0.02, segments=3),
-        rbox("sh_wall_b", (1.7, 0.11, 1.0), (0, -0.7, 0.6), "wood_light", bevel=0.02, segments=3),
-    ]
-    half_w, pitch = 1.06, 0.62
-    ridge_z = 1.1 + half_w * math.sin(pitch)
-    for side, name in ((-1, "sh_roof_l"), (1, "sh_roof_r")):
-        panel = rbox(name, (half_w, 1.74, 0.1),
-                     (side * half_w / 2 * math.cos(pitch), 0.03, ridge_z - half_w / 2 * math.sin(pitch)),
-                     "terracotta_light", bevel=0.026, segments=3)
-        panel.rotation_euler = Euler((0, side * pitch, 0))
-        shelter.append(panel)
-    shelter.append(rbox("sh_ridge", (0.17, 1.78, 0.13), (0, 0.03, ridge_z + 0.02), "wood_deep", bevel=0.026, segments=3))
-    export("prop_shelter", shelter)
+    # prop_shelter is an authored imported asset with its own focused,
+    # reproducible processor. Do not overwrite it with the old blockout here;
+    # see process_stylized_pyramid_tent.py.
 
     marker = [rcyl("fmk_pole", 0.055, 0.62, (0, 0, 0.31), "wood_light", verts=18, bevel=0.01),
               lobe("fmk_buoy", 0.1, (0, 0, 0.68), "coral", squash=0.92)]
@@ -1137,6 +1119,9 @@ def clear_scene():
 def main():
     clear_scene()
     build_terrain()
+    if "--terrain-only" in sys.argv:
+        print("GG TERRAIN BUILD COMPLETE")
+        return
     build_vegetation()
     build_props()
     build_character()

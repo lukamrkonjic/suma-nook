@@ -58,6 +58,7 @@ func _run() -> void:
 	_test_elevation_stacking()
 	_test_connectivity_and_relocation()
 	_test_sockets_and_overlap_prevention()
+	_test_object_support_graph()
 	_test_anchor_cycle_and_regen()
 	_test_crafting_transactions()
 	_test_equipment()
@@ -67,6 +68,7 @@ func _run() -> void:
 	_test_deed_replacement()
 	_test_rework_save_round_trip()
 	_test_v1_save_migration()
+	_test_v5_tree_anchor_migration()
 	_test_missing_definition_load()
 	_test_content_alias_migration()
 	_test_world_reconciliation()
@@ -104,6 +106,11 @@ func _test_registries() -> void:
 	check(not regs.feature("combat_enabled"), "combat is disabled")
 	check(regs.feature("ferry_arrivals_enabled"), "periodic arrivals are enabled")
 	check(
+		is_equal_approx(regs.tunef("tile_size", 0.0), 1.7)
+		and is_equal_approx(regs.tunef("block_depth", 0.0), 0.5),
+		"tile dimensions use the compact 1.70 m footprint and audited 0.50 m stacking step"
+	)
+	check(
 		regs.tile("tile_open_water").render_profile == "continuous_water"
 		and regs.tile("tile_open_water").collision_profile == "none",
 		"open water presentation is selected by behavior profiles"
@@ -130,8 +137,8 @@ func _test_gg_render_contract() -> void:
 	check(regs.load_all(), "render-contract tuning registry loads")
 	check(
 		regs.tunef("camera_min_size", 40.0) <= 14.0
-		and regs.tunef("camera_default_size", 40.0) == 40.0,
-		"camera supports a deep close-up without changing the default composition"
+		and regs.tunef("camera_default_size", 40.0) == 32.0,
+		"camera supports a deep close-up with the closer default composition"
 	)
 	check(
 		profile.shadow_max_distance >= 75.0,
@@ -202,6 +209,56 @@ func _test_starting_world() -> void:
 	check(water.has(Vector2i(-1, -1)) and water.has(Vector2i(0, -1)) and water.has(Vector2i(1, -1)), "water occupies the northern/top row")
 	check(walkable == 6, "the other six starting cells are walkable land")
 	check(water[0].distance_squared_to(water[1]) <= 4 and water[1].distance_squared_to(water[2]) <= 4, "the water cells form one connected edge")
+	for y in [0, 1]:
+		check(
+			core.grid.tile_def(Vector2i(-1, y)).id == "tile_grass"
+			and core.grid.tile_def(Vector2i(0, y)).id == "tile_path"
+			and core.grid.tile_def(Vector2i(1, y)).id == "tile_grass",
+			"opening land row %d is forest / path / forest" % y
+		)
+	var locked: Array[Vector2i] = []
+	for coord: Vector2i in core.grid.cells:
+		if core.grid.cell(coord).movement_locked:
+			locked.append(coord)
+	check(
+		locked == [GameCore.FIRST_WATER_COORD],
+		"only the first water tile is movement-locked"
+	)
+	for coord: Vector2i in core.grid.cells:
+		check(
+			core.grid.cell(coord).structures.size() <= 1,
+			"opening tile %s has at most one independently placeable object" % coord
+		)
+	var placed_tree_count := 0
+	var chest_count := 0
+	for slot: Dictionary in core.grid.all_cell_slots():
+		var state: WorldGrid.CellState = slot["state"]
+		for structure: WorldGrid.StructureState in state.structures:
+			var definition := core.registries.structure(structure.structure_id)
+			if definition != null and definition.anchor_id == "grove_anchor":
+				placed_tree_count += 1
+			if (
+				definition != null
+				and definition.provides.has("storage_access")
+				and slot["coord"] == Vector2i(1, 0)
+			):
+				chest_count += 1
+	check(placed_tree_count == 0, "fresh worlds do not pre-place any trees")
+	check(chest_count == 1, "the inventory chest starts as one independent object")
+	check(core.stock.structure_count("struct_pine") == 1, "the starter tree waits in build stock")
+	for tile_id: String in [
+		"tile_grove_mature",
+		"tile_grove_birch",
+		"tile_grove_mossy",
+		"tile_grove_autumn",
+		"tile_grove_flowering",
+	]:
+		check(core.registries.tile(tile_id).anchor_id == "", "%s is cosmetic terrain only" % tile_id)
+	for tree_id: String in ["struct_pine", "struct_pine_tall", "struct_pine_young"]:
+		check(
+			core.registries.structure(tree_id).anchor_id == "grove_anchor",
+			"%s independently owns Woodland Tending" % tree_id
+		)
 	check(core.grid.is_walkable(Vector2i.ZERO), "home cell walkable")
 	check(core.grid.world_to_cell(core.profile.position) == Vector2i.ZERO, "player spawns safely on central land")
 	check(core.equipment.owns("tool_rod_basic"), "starter rod owned")
@@ -453,6 +510,30 @@ func _test_elevation_stacking() -> void:
 		not core.grid.can_place_tile_at(coord, 3, "tile_grass"),
 		"a decorated support rejects a land block that would overlap it"
 	)
+	check(
+		core.registries.tile("tile_grass_flower").stackable
+		and core.registries.tile("tile_grass_flower").supports_tiles,
+		"ordinary flat tile definitions inherit modular stacking defaults"
+	)
+	var moved_column := core.grid.detach_tile_stack(coord, 1)
+	var column_destination := Vector2i(2, 1)
+	core.grid.place_tile(column_destination, "tile_path")
+	check(
+		moved_column.size() == 2
+		and core.grid.restore_tile_stack(column_destination, 1, moved_column),
+		"a selected middle tile moves itself and every upper layer atomically"
+	)
+	check(
+		core.grid.top_elevation(column_destination) == 2
+		and core.grid.cell_at(column_destination, 2).structures.has(elevated_pot),
+		"an atomic tile move retains the complete supported object hierarchy"
+	)
+	moved_column = core.grid.detach_tile_stack(column_destination, 1)
+	check(
+		core.grid.restore_tile_stack(coord, 1, moved_column),
+		"an atomic tile column can return to its original support"
+	)
+	core.grid.remove_tile(column_destination)
 
 	var stairs := Defs.TileDefinition.from_dict({
 		"id": "tile_test_stairs",
@@ -520,27 +601,160 @@ func _test_sockets_and_overlap_prevention() -> void:
 	while core.grid.free_socket(coord, "decor") >= 0:
 		core.grid.add_structure(coord, "struct_pot", core.grid.free_socket(coord, "decor"))
 		placed += 1
-	check(placed == def.decor_sockets, "decor sockets are finite (%d)" % def.decor_sockets)
-	check(core.grid.free_socket(coord, "decor") == -1, "no infinite stacking on one cell")
+	check(
+		placed == 1,
+		"one direct object occupies the tile even when its visual definition exposes %d sockets"
+		% def.decor_sockets
+	)
+	check(core.grid.free_socket(coord, "decor") == -1, "a second direct object cannot use the tile")
 	var major := core.grid.free_socket(coord, "structure")
-	check(major == 0, "major socket distinct from decor sockets")
-	core.grid.add_structure(coord, "struct_campfire", major)
-	check(core.grid.free_socket(coord, "structure") == -1, "single major structure per cell")
+	check(major == -1, "major and decoration types share the one tile-root position")
+	check(
+		core.grid.add_structure(coord, "struct_campfire", 0) == null,
+		"a major structure cannot overlap a direct decoration"
+	)
+	var pot: WorldGrid.StructureState = core.grid.cell(coord).structures[0]
+	check(
+		core.grid.structure_local_transform(pot.instance_id).origin.is_equal_approx(Vector3.ZERO),
+		"direct objects use the exact center of their tile"
+	)
+
+	var starter_dock := core.grid.cell(Vector2i(0, -1)).structures[0]
+	check(
+		starter_dock.structure_id == "struct_dock"
+		and starter_dock.rotation == 2,
+		"the opening dock is a movable world object on the middle water tile"
+	)
+	var water := Vector2i(1, -1)
+	check(
+		core.grid.can_place_structure_at(water, 0, "struct_dock"),
+		"the dock accepts the water surface type"
+	)
+	check(
+		not core.grid.can_place_structure_at(coord, 0, "struct_dock"),
+		"the dock rejects solid terrain"
+	)
+	check(
+		not core.grid.can_place_structure_at(water, 0, "struct_bench"),
+		"ordinary furniture rejects water surfaces"
+	)
+	var dock := core.grid.add_structure(water, "struct_dock", 0)
+	check(
+		dock != null
+		and core.grid.structure_local_transform(dock.instance_id).origin.is_equal_approx(Vector3.ZERO),
+		"water-only docks are centered on their water tile"
+	)
+
+
+func _test_object_support_graph() -> void:
+	var core := fresh_core()
+	var first := Vector2i(7, 7)
+	var second := Vector2i(8, 7)
+	core.grid.place_tile(first, "tile_grass")
+	core.grid.place_tile(second, "tile_grass")
+	for definition: Defs.StructureDefinition in core.registries.structures.values():
+		check(
+			definition.placement_policy_explicit,
+			"every structure explicitly declares its scalable support policy: " + definition.id
+		)
+
+	var stool := core.grid.add_structure(first, "struct_stool", 1)
+	check(stool != null, "a supporter can be rooted directly on a tile")
+	check(
+		not core.grid.can_place_structure_at(first, 0, "struct_pot"),
+		"one direct object per tile elevation remains enforced"
+	)
+	var box := core.grid.add_structure_on(stool.instance_id, "struct_box", "top")
+	check(
+		box != null
+		and box.parent_instance_id == stool.instance_id
+		and box.support_slot_id == "top",
+		"a small stackable object occupies a named stool support"
+	)
+	check(
+		core.grid.add_structure_on(stool.instance_id, "struct_pot", "top") == null,
+		"a named support slot accepts exactly one child"
+	)
+	var lantern := core.grid.add_structure_on(box.instance_id, "struct_lantern", "top")
+	check(
+		lantern != null and lantern.parent_instance_id == box.instance_id,
+		"typed supports compose into a multi-level object graph"
+	)
+	check(
+		core.grid.add_structure_on(lantern.instance_id, "struct_pot") == null,
+		"a terminal object cannot hold another item"
+	)
+	check(
+		not core.grid.can_place_tile_at(first, 1, "tile_grass"),
+		"a land tile can never be placed on an object graph"
+	)
+	var stool_transform := core.grid.structure_local_transform(stool.instance_id)
+	var box_transform := core.grid.structure_local_transform(box.instance_id)
+	var lantern_transform := core.grid.structure_local_transform(lantern.instance_id)
+	check(
+		box_transform.origin.y > stool_transform.origin.y
+		and lantern_transform.origin.y > box_transform.origin.y,
+		"support transforms compose upward without floating gaps from tile elevation"
+	)
+
+	var detached := core.grid.detach_structure_stack(stool.instance_id)
+	check(
+		detached.size() == 3
+		and core.grid.find_structure(stool.instance_id).is_empty(),
+		"moving a supporter detaches its complete descendant stack atomically"
+	)
+	check(
+		core.grid.restore_structure_stack(second, 0, detached, 0, "", 1, 1),
+		"a detached object stack restores intact at a new tile root"
+	)
+	check(
+		core.grid.find_structure(box.instance_id)["structure"].parent_instance_id
+			== stool.instance_id,
+		"moving a base preserves every internal support edge"
+	)
+
+	var snapshot := core.grid.to_save_dict()
+	var restored_grid := WorldGrid.new(core.registries)
+	restored_grid.from_save_dict(snapshot)
+	var restored_box := restored_grid.find_structure(box.instance_id)
+	var restored_lantern := restored_grid.find_structure(lantern.instance_id)
+	check(
+		not restored_box.is_empty()
+		and restored_box["structure"].parent_instance_id == stool.instance_id
+		and restored_box["structure"].support_slot_id == "top"
+		and restored_lantern["structure"].parent_instance_id == box.instance_id,
+		"support graph ids and named slots round-trip through save data"
+	)
 
 
 func _test_anchor_cycle_and_regen() -> void:
 	var core := fresh_core()
-	core.stock.add_tile("tile_grove_mature")
-	core.place_tile_from_stock(Vector2i(2, 0), "tile_grove_mature", 0)
-	var state := core.grid.cell(Vector2i(2, 0))
+	core.grid.place_tile(Vector2i(2, 0), "tile_grass", 0)
+	var tree := core.grid.add_structure(Vector2i(2, 0), "struct_pine", 1)
 	var anchor := core.registries.anchor("grove_anchor")
-	state.anchor_actions_done = anchor.cycle_actions
-	state.anchor_resting = true
-	state.anchor_regen_left = 2.0
+	check(tree != null, "a tree can be placed independently on ordinary terrain")
+	tree.anchor_actions_done = anchor.cycle_actions
+	tree.anchor_resting = true
+	tree.anchor_regen_left = 2.0
 	core.tick(1.0)
-	check(state.anchor_resting, "grove still resting mid-regen")
+	check(tree.anchor_resting, "tree still resting mid-regen")
+	var restored_grid := WorldGrid.new(core.registries)
+	restored_grid.from_save_dict(core.grid.to_save_dict())
+	var restored_tree: WorldGrid.StructureState = restored_grid.find_structure(
+		tree.instance_id
+	).get("structure")
+	check(
+		restored_tree != null
+		and restored_tree.anchor_resting
+		and restored_tree.anchor_actions_done == anchor.cycle_actions
+		and is_equal_approx(restored_tree.anchor_regen_left, 1.0),
+		"tree resource state round-trips on the movable object instance"
+	)
 	core.tick(1.5)
-	check(not state.anchor_resting and state.anchor_actions_done == 0, "grove regenerates and resets after its rest")
+	check(
+		not tree.anchor_resting and tree.anchor_actions_done == 0,
+		"tree regenerates and resets independently from its tile"
+	)
 
 
 func _test_crafting_transactions() -> void:
@@ -738,7 +952,7 @@ func _test_v1_save_migration() -> void:
 	}
 	var result := core.save_migrator.migrate(raw)
 	var migrated: Dictionary = result["data"]
-	check(migrated["save_version"] == 4, "v1 saves migrate through every schema version")
+	check(migrated["save_version"] == 7, "v1 saves migrate through every schema version")
 	check(
 		(migrated["inventory"].get("counts", {}) as Dictionary).is_empty(),
 		"v1 material inventory leaves the active gameplay inventory"
@@ -748,7 +962,9 @@ func _test_v1_save_migration() -> void:
 		"v1 material ownership is retained in the legacy archive"
 	)
 	var northern_water := 0
-	var starter_props := 0
+	var old_starter_plants := 0
+	var starter_chests := 0
+	var starter_docks := 0
 	for cell: Dictionary in migrated["grid"]["cells"]:
 		if (
 			int(cell.get("e", 0)) == 0
@@ -759,8 +975,87 @@ func _test_v1_save_migration() -> void:
 	check(northern_water == 3, "v1 northern starter edge migrates to continuous water")
 	for cell: Dictionary in migrated["grid"]["cells"]:
 		if int(cell.get("x", 0)) == -1 and int(cell.get("y", 0)) == 0:
-			starter_props = cell.get("structs", []).size()
-	check(starter_props == 2, "v1 starter props are restored without duplication")
+			old_starter_plants = cell.get("structs", []).size()
+		if int(cell.get("x", 0)) == 1 and int(cell.get("y", 0)) == 0:
+			for structure: Dictionary in cell.get("structs", []):
+				if String(structure.get("id", "")) == "struct_chest":
+					starter_chests += 1
+		if int(cell.get("x", 0)) == 0 and int(cell.get("y", 0)) == -1:
+			for structure: Dictionary in cell.get("structs", []):
+				if String(structure.get("id", "")) == "struct_dock":
+					starter_docks += 1
+	check(old_starter_plants == 0, "legacy starter trees are removed from the opening world")
+	check(starter_chests == 1, "the starter chest remains a placed object after migration")
+	check(starter_docks == 1, "the decorative legacy dock migrates into one movable object")
+	check(
+		int(migrated.get("stock", {}).get("structures", {}).get("struct_pine", 0)) == 1,
+		"the legacy starter tree is returned to build stock"
+	)
+	var migrated_support_fields := true
+	for cell: Dictionary in migrated["grid"]["cells"]:
+		for structure: Dictionary in cell.get("structs", []):
+			migrated_support_fields = (
+				migrated_support_fields
+				and structure.has("parent")
+				and structure.has("support")
+				and structure.has("a_done")
+				and structure.has("a_rest")
+				and structure.has("a_regen")
+				and structure.has("a_up")
+			)
+	check(
+		migrated_support_fields,
+		"legacy objects migrate with support edges and object-owned resource state"
+	)
+
+
+func _test_v5_tree_anchor_migration() -> void:
+	var core := fresh_core()
+	var result := core.save_migrator.migrate({
+		"save_version": 5,
+		"grid": {
+			"cells": [{
+				"x": 4,
+				"y": 2,
+				"e": 0,
+				"tile": "tile_grove_mossy",
+				"rot": 0,
+				"starter": false,
+				"locked": false,
+				"landmark": "",
+				"a_done": 2,
+				"a_rest": true,
+				"a_regen": 7.5,
+				"a_up": 1,
+				"structs": [],
+			}],
+			"next_iid": 12,
+			"home": [0, 0],
+		},
+		"stock": {},
+	})
+	var migrated: Dictionary = result["data"]
+	var cell: Dictionary = migrated["grid"]["cells"][0]
+	var structures: Array = cell["structs"]
+	check(structures.size() == 1, "legacy grove terrain becomes one independent tree object")
+	var tree: Dictionary = structures[0]
+	check(
+		String(tree.get("id", "")) == "struct_pine"
+		and int(tree.get("iid", 0)) == 12
+		and int(tree.get("a_done", 0)) == 2
+		and bool(tree.get("a_rest", false))
+		and is_equal_approx(float(tree.get("a_regen", 0.0)), 7.5)
+		and int(tree.get("a_up", 0)) == 1,
+		"legacy Woodland Tending progress transfers onto the tree"
+	)
+	check(
+		int(cell.get("a_done", -1)) == 0
+		and not bool(cell.get("a_rest", true))
+		and is_zero_approx(float(cell.get("a_regen", -1.0)))
+		and int(cell.get("a_up", -1)) == 0,
+		"former grove terrain no longer owns resource state"
+	)
+	check(int(migrated["grid"]["next_iid"]) == 13, "tree migration advances instance ids safely")
 
 
 func _test_missing_definition_load() -> void:
@@ -836,9 +1131,28 @@ func _test_world_reconciliation() -> void:
 	invalid_decor.structure_id = "struct_bench"
 	invalid_decor.socket_index = 99
 	water.structures.append(invalid_decor)
-	var a := core.grid.add_structure(Vector2i(0, 1), "struct_pot", 1)
-	var b := core.grid.add_structure(Vector2i(0, 1), "struct_lantern", 2)
+	var repair_coord := Vector2i(0, 0)
+	var a := core.grid.add_structure(repair_coord, "struct_pot", 1)
+	var excess := WorldGrid.StructureState.new()
+	excess.instance_id = core.grid.next_instance_id
+	core.grid.next_instance_id += 1
+	excess.structure_id = "struct_lantern"
+	excess.socket_index = 2
+	core.grid.cell(repair_coord).structures.append(excess)
+	var impossible_child := WorldGrid.StructureState.new()
+	impossible_child.instance_id = core.grid.next_instance_id
+	core.grid.next_instance_id += 1
+	impossible_child.structure_id = "struct_lantern"
+	impossible_child.parent_instance_id = a.instance_id
+	impossible_child.support_slot_id = "top"
+	core.grid.cell(repair_coord).structures.append(impossible_child)
+	core.grid.place_tile(Vector2i(2, 0), "tile_grass")
+	var b := core.grid.add_structure(Vector2i(2, 0), "struct_lantern", 1)
 	b.instance_id = a.instance_id
+	var graph_coord := Vector2i(3, 0)
+	core.grid.place_tile(graph_coord, "tile_grass")
+	var valid_stool := core.grid.add_structure(graph_coord, "struct_stool", 1)
+	var valid_box := core.grid.add_structure_on(valid_stool.instance_id, "struct_box", "top")
 	core.grid.home_cell = Vector2i(999, 999)
 	var report := core.world_reconciler.reconcile(core.grid, core.stock)
 	check(report["changed"], "invalid loaded relationships trigger deterministic reconciliation")
@@ -846,7 +1160,17 @@ func _test_world_reconciliation() -> void:
 	check(core.stock.tile_count("tile_grass") >= 1, "unsupported elevated tile returns to storage")
 	check(core.stock.structure_count("struct_bench") >= 1, "invalid decoration returns to storage")
 	check(water.structures.is_empty(), "tile socket rules are reapplied during load repair")
+	check(
+		core.grid.cell(repair_coord).structures.size() == 1
+		and core.stock.structure_count(excess.structure_id) >= 2,
+		"extra roots and children on terminal objects return to storage"
+	)
 	check(a.instance_id != b.instance_id, "duplicate structure instance ids are repaired")
+	check(
+		core.grid.find_structure(valid_box.instance_id)["structure"].parent_instance_id
+			== valid_stool.instance_id,
+		"valid named support edges survive deterministic reconciliation"
+	)
 	check(core.grid.has_cell(core.grid.home_cell), "invalid saved home cell moves onto preserved land")
 
 

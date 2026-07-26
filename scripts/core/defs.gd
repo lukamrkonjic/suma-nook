@@ -176,13 +176,17 @@ class TileDefinition:
 		t.special_trait = d.get("special_trait", "")
 		t.collection_hint = d.get("collection_hint", "")
 		t.obtainable = bool(d.get("obtainable", true))
-		t.stackable = bool(d.get("stackable", false))
-		t.supports_tiles = bool(d.get("supports_tiles", false))
-		t.supports_decor = bool(d.get("supports_decor", t.walkable))
 		t.surface_kind = d.get(
 			"surface_kind",
-			"water" if not t.water_cells.is_empty() else ("flat" if t.supports_tiles else "uneven")
+			"water" if not t.water_cells.is_empty() else "flat"
 		)
+		# Ordinary flat land is modular by default: it may be moved into a
+		# column and may support another land tile. Special surfaces opt out
+		# explicitly (water, stairs, basins, and other uneven pieces).
+		var flat_land := t.walkable and t.surface_kind == "flat"
+		t.stackable = bool(d.get("stackable", flat_land))
+		t.supports_tiles = bool(d.get("supports_tiles", flat_land))
+		t.supports_decor = bool(d.get("supports_decor", t.walkable))
 		t.render_profile = d.get(
 			"render_profile",
 			"continuous_water" if t.water_cells.has("open_water") else "standard"
@@ -194,34 +198,108 @@ class TileDefinition:
 		return t
 
 
+class SupportSlotDefinition:
+	extends RefCounted
+	var id: String
+	var offset := Vector3.ZERO
+	var accepts: Array[String] = []
+
+	static func from_dict(d: Dictionary) -> SupportSlotDefinition:
+		var slot := SupportSlotDefinition.new()
+		slot.id = String(d.get("id", "top"))
+		var raw_offset: Array = d.get("offset", [0.0, 0.5, 0.0])
+		if raw_offset.size() >= 3:
+			slot.offset = Vector3(
+				float(raw_offset[0]),
+				float(raw_offset[1]),
+				float(raw_offset[2])
+			)
+		for tag in d.get("accepts", []):
+			slot.accepts.append(String(tag))
+		return slot
+
+	func accepts_definition(candidate: StructureDefinition) -> bool:
+		if candidate == null or not candidate.can_be_stacked:
+			return false
+		if accepts.has("*"):
+			return true
+		for tag: String in candidate.placement_tags:
+			if accepts.has(tag):
+				return true
+		return false
+
+
 class StructureDefinition:
 	extends Resource
 	var id: String
 	var display_name: String
 	var asset_id: String
+	var anchor_id: String = ""         # optional resource interaction owned by this object
 	var kind: String = "decoration"    # building|decoration|path|utility
 	var socket_type: String = "decor"  # decor (up to tile.decor_sockets) | structure (major)
 	var blocks_movement := false
+	var light_height := 0.7
+	var light_flicker := false
 	var placement_sound: String = "wood"
 	var visitor_tags: Array[String] = []  # future-visitor metadata (seating, viewing...)
 	var provides: Array[String] = []   # capability tags: storage_access, light, rest
 	var allow_elevated := true
+	# Direct tile placement is surface-typed. Ordinary objects stay on solid
+	# terrain; water-only pieces such as docks opt into "water" explicitly.
+	var allowed_surface_kinds: Array[String] = ["flat", "stairs", "uneven"]
+	# Object-support contract. These are deliberately separate axes:
+	# - can_be_stacked: this object may be a child of another object's support.
+	# - support_slots: typed local surfaces this object offers to children.
+	# A stool can provide a slot without itself being allowed on another stool;
+	# a small ornament can be stackable while providing no further support.
+	var placement_tags: Array[String] = []
+	var can_be_stacked := false
+	var support_slots: Array[SupportSlotDefinition] = []
+	var placement_policy_explicit := false
 
 	static func from_dict(d: Dictionary) -> StructureDefinition:
 		var s := StructureDefinition.new()
 		s.id = d.get("id", "")
 		s.display_name = d.get("name", s.id.capitalize())
 		s.asset_id = d.get("asset_id", "")
+		s.anchor_id = d.get("anchor", "")
 		s.kind = d.get("kind", "decoration")
 		s.socket_type = d.get("socket_type", "decor")
 		s.blocks_movement = bool(d.get("blocks_movement", false))
+		s.light_height = float(d.get("light_height", 0.7))
+		s.light_flicker = bool(d.get("light_flicker", false))
 		s.placement_sound = d.get("placement_sound", "wood")
 		s.allow_elevated = bool(d.get("allow_elevated", s.socket_type == "decor"))
+		s.allowed_surface_kinds.clear()
+		for surface in d.get("allowed_surfaces", ["flat", "stairs", "uneven"]):
+			s.allowed_surface_kinds.append(String(surface))
 		for tag in d.get("visitor_tags", []):
 			s.visitor_tags.append(String(tag))
 		for cap in d.get("provides", []):
 			s.provides.append(String(cap))
+		s.placement_policy_explicit = (
+			d.has("placement_tags")
+			and d.has("can_be_stacked")
+			and d.has("support_slots")
+		)
+		for tag in d.get("placement_tags", []):
+			s.placement_tags.append(String(tag))
+		s.can_be_stacked = bool(d.get("can_be_stacked", false))
+		for raw_slot: Dictionary in d.get("support_slots", []):
+			s.support_slots.append(SupportSlotDefinition.from_dict(raw_slot))
 		return s
+
+	func support_slot(slot_id: String) -> SupportSlotDefinition:
+		for slot: SupportSlotDefinition in support_slots:
+			if slot.id == slot_id:
+				return slot
+		return null
+
+	func supports_objects() -> bool:
+		return not support_slots.is_empty()
+
+	func supports_surface(surface_kind: String) -> bool:
+		return allowed_surface_kinds.has(surface_kind)
 
 
 class RecipeDefinition:

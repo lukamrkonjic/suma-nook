@@ -12,7 +12,7 @@
     {
       "id": "grove_anchor",
       "skill": "woodcutting",
-      "name": "Living Grove",
+      "name": "Living Tree",
       "loot_table": "woodcutting_common",
       "cycle_actions": 4,
       "regen_seconds": 40,

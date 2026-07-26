@@ -112,6 +112,9 @@ func ensure_compatibility_definition(kind: String, id: String) -> Resource:
 					"kind": "decoration",
 					"socket_type": "decor",
 					"allow_elevated": true,
+					"placement_tags": ["recovered"],
+					"can_be_stacked": true,
+					"support_slots": [],
 				})
 			return structures[id]
 		"items":
@@ -239,8 +242,42 @@ func _validate() -> void:
 	for def: Defs.StructureDefinition in structures.values():
 		if def.asset_id == "":
 			load_errors.append("structure %s has no asset id" % def.id)
+		if def.anchor_id != "" and not anchors.has(def.anchor_id):
+			load_errors.append(
+				"structure %s references missing anchor %s" % [def.id, def.anchor_id]
+			)
 		if def.socket_type not in ["decor", "structure"]:
 			load_errors.append("structure %s has invalid socket type %s" % [def.id, def.socket_type])
+		if def.allowed_surface_kinds.is_empty():
+			load_errors.append("structure %s has no allowed placement surfaces" % def.id)
+		for surface_kind: String in def.allowed_surface_kinds:
+			if surface_kind not in ["flat", "stairs", "uneven", "water"]:
+				load_errors.append(
+					"structure %s allows invalid surface kind %s"
+					% [def.id, surface_kind]
+				)
+		if not def.placement_policy_explicit:
+			load_errors.append(
+				"structure %s must explicitly classify placement_tags, can_be_stacked, and support_slots"
+				% def.id
+			)
+		if def.placement_tags.is_empty():
+			load_errors.append("structure %s has no placement tags" % def.id)
+		var support_slot_ids := {}
+		for slot: Defs.SupportSlotDefinition in def.support_slots:
+			if slot.id == "":
+				load_errors.append("structure %s has an unnamed support slot" % def.id)
+			elif support_slot_ids.has(slot.id):
+				load_errors.append(
+					"structure %s duplicates support slot %s" % [def.id, slot.id]
+				)
+			else:
+				support_slot_ids[slot.id] = true
+			if slot.accepts.is_empty():
+				load_errors.append(
+					"structure %s support slot %s accepts no placement tags"
+					% [def.id, slot.id]
+				)
 	for def: Defs.AnchorDefinition in anchors.values():
 		if not skills.has(def.skill_id):
 			load_errors.append("anchor %s references missing skill %s" % [def.id, def.skill_id])

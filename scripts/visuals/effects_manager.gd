@@ -154,6 +154,20 @@ func shake_vegetation(coord: Vector2i) -> void:
 	tween.tween_property(visual, "rotation:z", 0.0, 0.1)
 
 
+func shake_structure(instance_id: int) -> void:
+	var renderer := get_parent().find_child("WorldRenderer", false, false) as WorldRenderer
+	if renderer == null:
+		return
+	var visual := renderer.structure_node(instance_id)
+	if visual == null:
+		return
+	var base_rotation := visual.rotation.z
+	var tween := visual.create_tween()
+	tween.tween_property(visual, "rotation:z", base_rotation + 0.035, 0.06)
+	tween.tween_property(visual, "rotation:z", base_rotation - 0.025, 0.08)
+	tween.tween_property(visual, "rotation:z", base_rotation, 0.1)
+
+
 func placement_poof(point: Vector3, kind: String) -> void:
 	burst("fx_leaf" if kind == "grass" else "fx_smoke_puff", point + Vector3(0, 0.15, 0), 7, 1.6)
 

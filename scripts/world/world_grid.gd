@@ -18,9 +18,27 @@ class StructureState:
 	var structure_id: String
 	var socket_index: int = 0   # 0 = major/center, 1..n = decor sockets
 	var rotation: int = 0       # quarter turns
+	var parent_instance_id: int = 0  # 0 = directly supported by the tile
+	var support_slot_id: String = "" # named slot on parent_instance_id
+	# Resource runtime belongs to the placeable instance, not its terrain.
+	var anchor_actions_done: int = 0
+	var anchor_resting := false
+	var anchor_regen_left: float = 0.0
+	var anchor_upgrade: int = 0
 
 	func to_dict() -> Dictionary:
-		return {"iid": instance_id, "id": structure_id, "socket": socket_index, "rot": rotation}
+		return {
+			"iid": instance_id,
+			"id": structure_id,
+			"socket": socket_index,
+			"rot": rotation,
+			"parent": parent_instance_id,
+			"support": support_slot_id,
+			"a_done": anchor_actions_done,
+			"a_rest": anchor_resting,
+			"a_regen": anchor_regen_left,
+			"a_up": anchor_upgrade,
+		}
 
 	static func from_dict(d: Dictionary) -> StructureState:
 		var s := StructureState.new()
@@ -28,6 +46,12 @@ class StructureState:
 		s.structure_id = String(d.get("id", ""))
 		s.socket_index = int(d.get("socket", 0))
 		s.rotation = int(d.get("rot", 0))
+		s.parent_instance_id = int(d.get("parent", 0))
+		s.support_slot_id = String(d.get("support", ""))
+		s.anchor_actions_done = int(d.get("a_done", 0))
+		s.anchor_resting = bool(d.get("a_rest", false))
+		s.anchor_regen_left = float(d.get("a_regen", 0.0))
+		s.anchor_upgrade = int(d.get("a_up", 0))
 		return s
 
 
@@ -35,7 +59,8 @@ class CellState:
 	extends RefCounted
 	var tile_id: String
 	var rotation: int = 0
-	var starter := false        # part of the original 3×3 — never removable
+	var starter := false        # part of the original composed opening zone
+	var movement_locked := false  # explicit, save-safe exception to tile moving
 	var landmark_id: String = ""  # non-empty when a landmark occupies this cell
 	# Resource anchor runtime state (only used when the tile def has an anchor)
 	var anchor_actions_done: int = 0
@@ -49,7 +74,8 @@ class CellState:
 		for s in structures:
 			structs.append(s.to_dict())
 		return {
-			"tile": tile_id, "rot": rotation, "starter": starter, "landmark": landmark_id,
+			"tile": tile_id, "rot": rotation, "starter": starter,
+			"locked": movement_locked, "landmark": landmark_id,
 			"a_done": anchor_actions_done, "a_rest": anchor_resting,
 			"a_regen": anchor_regen_left, "a_up": anchor_upgrade, "structs": structs,
 		}
@@ -59,6 +85,7 @@ class CellState:
 		c.tile_id = String(d.get("tile", ""))
 		c.rotation = int(d.get("rot", 0))
 		c.starter = bool(d.get("starter", false))
+		c.movement_locked = bool(d.get("locked", false))
 		c.landmark_id = String(d.get("landmark", ""))
 		c.anchor_actions_done = int(d.get("a_done", 0))
 		c.anchor_resting = bool(d.get("a_rest", false))
@@ -76,13 +103,16 @@ var next_instance_id: int = 1
 var home_cell := Vector2i.ZERO
 
 var tile_size: float:
-	get: return registries.tunef("tile_size", 2.0)
+	get: return registries.tunef("tile_size", 1.7)
 
 var block_depth: float:
-	get: return registries.tunef("block_depth", 0.9)
+	get: return registries.tunef("block_depth", 0.5)
 
 var max_stack_elevation: int:
 	get: return registries.tunei("max_stack_elevation", 6)
+
+var max_object_stack_depth: int:
+	get: return registries.tunei("max_object_stack_depth", 6)
 
 
 func _init(regs: Registries) -> void:
@@ -155,6 +185,24 @@ func all_cell_slots() -> Array[Dictionary]:
 		var coord_b: Vector2i = b["coord"]
 		return coord_a.y < coord_b.y if coord_a.x == coord_b.x else coord_a.x < coord_b.x
 	)
+	return result
+
+
+## Contiguous tile hierarchy beginning at a selected elevation. Entries keep
+## their relative elevation so the whole column can be moved atomically.
+func tile_stack_from(coord: Vector2i, base_elevation: int) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var top := top_elevation(coord)
+	if base_elevation < 0 or top < base_elevation:
+		return result
+	for elevation in range(base_elevation, top + 1):
+		var state := cell_at(coord, elevation)
+		if state == null:
+			break
+		result.append({
+			"relative_elevation": elevation - base_elevation,
+			"state": state,
+		})
 	return result
 
 
@@ -243,14 +291,10 @@ func cell_to_world(coord: Vector2i, elevation: int = 0) -> Vector3:
 	return Vector3(coord.x * tile_size, elevation * block_depth, coord.y * tile_size)
 
 
-## Deterministic local socket offsets inside a cell (socket 0 = major center).
-func socket_offset(socket_index: int) -> Vector3:
-	match socket_index:
-		0: return Vector3.ZERO
-		1: return Vector3(-0.55, 0.0, -0.55)
-		2: return Vector3(0.6, 0.0, -0.5)
-		3: return Vector3(-0.5, 0.0, 0.6)
-		_: return Vector3(0.55, 0.0, 0.55)
+## Every direct tile-root object is centered. Socket ids remain stable
+## persistence/type selectors; they no longer encode arbitrary corner offsets.
+func socket_offset(_socket_index: int) -> Vector3:
+	return Vector3.ZERO
 
 
 func free_socket(coord: Vector2i, socket_type: String, elevation: int = 0) -> int:
@@ -258,31 +302,235 @@ func free_socket(coord: Vector2i, socket_type: String, elevation: int = 0) -> in
 	var def := tile_def_at(coord, elevation)
 	if state == null or def == null or state.landmark_id != "":
 		return -1
-	var taken := {}
 	for s in state.structures:
-		taken[s.socket_index] = true
+		if s.parent_instance_id != 0:
+			continue
+		# One direct object per tile/elevation. Object children use named support
+		# slots and therefore do not consume another tile-root position.
+		return -1
 	if socket_type == "structure":
-		return -1 if def.structure_sockets <= 0 or taken.has(0) else 0
-	for index in range(1, def.decor_sockets + 1):
-		if not taken.has(index):
-			return index
-	return -1
+		return 0 if def.structure_sockets > 0 else -1
+	return 1 if def.decor_sockets > 0 else -1
 
 
 func can_place_structure_at(coord: Vector2i, elevation: int, structure_id: String) -> bool:
 	var tile := tile_def_at(coord, elevation)
 	var structure := registries.structure(structure_id)
-	if tile == null or structure == null or not tile.supports_decor:
+	if (
+		tile == null
+		or structure == null
+		or not tile.supports_decor
+		or not structure.supports_surface(tile.surface_kind)
+	):
 		return false
 	if elevation > 0 and not structure.allow_elevated:
 		return false
 	return free_socket(coord, structure.socket_type, elevation) >= 0
 
 
+func structure_children(instance_id: int) -> Array[StructureState]:
+	var result: Array[StructureState] = []
+	var found := find_structure(instance_id)
+	if found.is_empty():
+		return result
+	var state: CellState = found["state"]
+	for structure: StructureState in state.structures:
+		if structure.parent_instance_id == instance_id:
+			result.append(structure)
+	result.sort_custom(func(a: StructureState, b: StructureState) -> bool:
+		return a.instance_id < b.instance_id
+	)
+	return result
+
+
+func structure_subtree(instance_id: int) -> Array[StructureState]:
+	var result: Array[StructureState] = []
+	var pending: Array[int] = [instance_id]
+	var seen := {}
+	while not pending.is_empty():
+		var current: int = pending.pop_front()
+		if seen.has(current):
+			continue
+		seen[current] = true
+		var found := find_structure(current)
+		if found.is_empty():
+			continue
+		var structure: StructureState = found["structure"]
+		result.append(structure)
+		for child: StructureState in structure_children(current):
+			pending.append(child.instance_id)
+	return result
+
+
+func structure_depth(instance_id: int) -> int:
+	var depth := 0
+	var seen := {}
+	var found := find_structure(instance_id)
+	while not found.is_empty():
+		var structure: StructureState = found["structure"]
+		if structure.parent_instance_id == 0:
+			return depth
+		if seen.has(structure.instance_id):
+			return max_object_stack_depth
+		seen[structure.instance_id] = true
+		depth += 1
+		found = find_structure(structure.parent_instance_id)
+	return max_object_stack_depth
+
+
+func structure_stack_height(stack: Array[StructureState]) -> int:
+	if stack.is_empty():
+		return 0
+	var root_id := stack[0].instance_id
+	var by_id := {}
+	for structure: StructureState in stack:
+		by_id[structure.instance_id] = structure
+	var highest := 0
+	for structure: StructureState in stack:
+		var depth := 0
+		var current := structure
+		var seen := {}
+		while current.instance_id != root_id:
+			if seen.has(current.instance_id) or not by_id.has(current.parent_instance_id):
+				return max_object_stack_depth
+			seen[current.instance_id] = true
+			depth += 1
+			current = by_id[current.parent_instance_id]
+		highest = maxi(highest, depth)
+	return highest
+
+
+func free_support_slot(
+	parent_instance_id: int,
+	candidate_structure_id: String,
+	requested_slot_id: String = ""
+) -> String:
+	var parent_found := find_structure(parent_instance_id)
+	if parent_found.is_empty():
+		return ""
+	var parent_state: StructureState = parent_found["structure"]
+	var parent_def := registries.structure(parent_state.structure_id)
+	var candidate_def := registries.structure(candidate_structure_id)
+	if (
+		parent_def == null
+		or candidate_def == null
+		or not candidate_def.can_be_stacked
+		or structure_depth(parent_instance_id) + 1 >= max_object_stack_depth
+	):
+		return ""
+	var occupied := {}
+	var cell_state: CellState = parent_found["state"]
+	for structure: StructureState in cell_state.structures:
+		if structure.parent_instance_id == parent_instance_id:
+			occupied[structure.support_slot_id] = true
+	for slot: Defs.SupportSlotDefinition in parent_def.support_slots:
+		if (
+			(requested_slot_id == "" or slot.id == requested_slot_id)
+			and not occupied.has(slot.id)
+			and slot.accepts_definition(candidate_def)
+		):
+			return slot.id
+	return ""
+
+
+func can_place_structure_on(
+	parent_instance_id: int,
+	candidate_structure_id: String,
+	requested_slot_id: String = ""
+) -> bool:
+	return free_support_slot(
+		parent_instance_id,
+		candidate_structure_id,
+		requested_slot_id
+	) != ""
+
+
+func structure_local_transform(instance_id: int) -> Transform3D:
+	var found := find_structure(instance_id)
+	if found.is_empty():
+		return Transform3D.IDENTITY
+	var state: CellState = found["state"]
+	var by_id := {}
+	for structure: StructureState in state.structures:
+		by_id[structure.instance_id] = structure
+	return _structure_local_transform_in_state(instance_id, by_id, {})
+
+
+## Same transform resolver for a temporarily detached cell. Placement ghosts
+## use this so supported objects remain visually attached during an atomic
+## tile-column move.
+func structure_local_transform_in_cell(
+	state: CellState,
+	instance_id: int
+) -> Transform3D:
+	if state == null:
+		return Transform3D.IDENTITY
+	var by_id := {}
+	for structure: StructureState in state.structures:
+		by_id[structure.instance_id] = structure
+	return _structure_local_transform_in_state(instance_id, by_id, {})
+
+
+func _structure_local_transform_in_state(
+	instance_id: int,
+	by_id: Dictionary,
+	visiting: Dictionary
+) -> Transform3D:
+	if not by_id.has(instance_id) or visiting.has(instance_id):
+		return Transform3D.IDENTITY
+	visiting[instance_id] = true
+	var structure: StructureState = by_id[instance_id]
+	var local_basis := Basis(Vector3.UP, structure.rotation * PI * 0.5)
+	if structure.parent_instance_id == 0:
+		visiting.erase(instance_id)
+		return Transform3D(local_basis, socket_offset(structure.socket_index))
+	if not by_id.has(structure.parent_instance_id):
+		visiting.erase(instance_id)
+		return Transform3D(local_basis, socket_offset(structure.socket_index))
+	var parent: StructureState = by_id[structure.parent_instance_id]
+	var parent_def := registries.structure(parent.structure_id)
+	var slot := (
+		parent_def.support_slot(structure.support_slot_id)
+		if parent_def != null
+		else null
+	)
+	if slot == null:
+		visiting.erase(instance_id)
+		return Transform3D(local_basis, socket_offset(structure.socket_index))
+	var parent_transform := _structure_local_transform_in_state(
+		structure.parent_instance_id,
+		by_id,
+		visiting
+	)
+	visiting.erase(instance_id)
+	return parent_transform * Transform3D(local_basis, slot.offset)
+
+
+func support_slot_local_transform(parent_instance_id: int, slot_id: String) -> Transform3D:
+	var found := find_structure(parent_instance_id)
+	if found.is_empty():
+		return Transform3D.IDENTITY
+	var parent: StructureState = found["structure"]
+	var parent_def := registries.structure(parent.structure_id)
+	var slot := parent_def.support_slot(slot_id) if parent_def != null else null
+	if slot == null:
+		return structure_local_transform(parent_instance_id)
+	return structure_local_transform(parent_instance_id) * Transform3D(
+		Basis.IDENTITY,
+		slot.offset
+	)
+
+
 # ------------------------------------------------------------------ mutation
 
-func place_tile(coord: Vector2i, tile_id: String, rotation: int = 0, starter := false) -> CellState:
-	return place_tile_at(coord, 0, tile_id, rotation, starter)
+func place_tile(
+	coord: Vector2i,
+	tile_id: String,
+	rotation: int = 0,
+	starter := false,
+	movement_locked := false
+) -> CellState:
+	return place_tile_at(coord, 0, tile_id, rotation, starter, movement_locked)
 
 
 func place_tile_at(
@@ -290,12 +538,14 @@ func place_tile_at(
 	elevation: int,
 	tile_id: String,
 	rotation: int = 0,
-	starter := false
+	starter := false,
+	movement_locked := false
 ) -> CellState:
 	var state := CellState.new()
 	state.tile_id = tile_id
 	state.rotation = posmod(rotation, 4)
 	state.starter = starter
+	state.movement_locked = movement_locked
 	restore_cell_at(coord, elevation, state)
 	return state
 
@@ -322,24 +572,93 @@ func move_tile(from: Vector2i, to: Vector2i) -> bool:
 
 
 func move_tile_at(from: Vector2i, from_elevation: int, to: Vector2i, to_elevation: int) -> bool:
-	var state := cell_at(from, from_elevation)
-	if state == null or has_cell_at(to, to_elevation) or top_elevation(from) > from_elevation:
+	var stack := detach_tile_stack(from, from_elevation)
+	if stack.is_empty():
 		return false
-	if to_elevation == 0:
-		if not can_place_tile(to):
+	if restore_tile_stack(to, to_elevation, stack):
+		return true
+	restore_tile_stack(from, from_elevation, stack, false)
+	return false
+
+
+func can_restore_tile_stack(
+	coord: Vector2i,
+	base_elevation: int,
+	stack: Array
+) -> bool:
+	if stack.is_empty() or base_elevation < 0:
+		return false
+	var previous_state: CellState = null
+	var expected_relative := 0
+	for entry: Dictionary in stack:
+		var relative := int(entry.get("relative_elevation", -1))
+		var state: CellState = entry.get("state")
+		var elevation := base_elevation + relative
+		if (
+			state == null
+			or relative != expected_relative
+			or elevation > max_stack_elevation
+			or has_cell_at(coord, elevation)
+		):
 			return false
-	elif not can_place_tile_at(to, to_elevation, state.tile_id):
+		var definition := registries.tile(state.tile_id)
+		if definition == null:
+			return false
+		if relative == 0:
+			if base_elevation == 0:
+				if not can_place_tile(coord):
+					return false
+			elif not can_place_tile_at(coord, base_elevation, state.tile_id):
+				return false
+		else:
+			var support_def := registries.tile(previous_state.tile_id)
+			if (
+				not definition.stackable
+				or support_def == null
+				or not support_def.supports_tiles
+				or support_def.surface_kind != "flat"
+				or not previous_state.structures.is_empty()
+				or previous_state.landmark_id != ""
+			):
+				return false
+		previous_state = state
+		expected_relative += 1
+	return true
+
+
+func detach_tile_stack(coord: Vector2i, base_elevation: int) -> Array[Dictionary]:
+	var stack := tile_stack_from(coord, base_elevation)
+	if stack.is_empty():
+		return stack
+	for index in range(stack.size() - 1, -1, -1):
+		var elevation := base_elevation + int(stack[index]["relative_elevation"])
+		if elevation == 0:
+			cells.erase(coord)
+		else:
+			stacked_cells.erase(slot_key(coord, elevation))
+		_emit_slot_changed(coord, elevation)
+	grid_changed.emit()
+	return stack
+
+
+func restore_tile_stack(
+	coord: Vector2i,
+	base_elevation: int,
+	stack: Array,
+	validate := true
+) -> bool:
+	if validate and not can_restore_tile_stack(coord, base_elevation, stack):
 		return false
-	if from_elevation == 0:
-		cells.erase(from)
-	else:
-		stacked_cells.erase(slot_key(from, from_elevation))
-	if to_elevation == 0:
-		cells[to] = state
-	else:
-		stacked_cells[slot_key(to, to_elevation)] = state
-	_emit_slot_changed(from, from_elevation)
-	_emit_slot_changed(to, to_elevation)
+	if stack.is_empty():
+		return false
+	for entry: Dictionary in stack:
+		var elevation := base_elevation + int(entry["relative_elevation"])
+		var state: CellState = entry["state"]
+		if elevation == 0:
+			cells[coord] = state
+		else:
+			stacked_cells[slot_key(coord, elevation)] = state
+		_emit_slot_changed(coord, elevation)
 	grid_changed.emit()
 	return true
 
@@ -361,17 +680,72 @@ func add_structure(
 	elevation: int = 0
 ) -> StructureState:
 	var state := cell_at(coord, elevation)
-	if state == null:
+	var tile := tile_def_at(coord, elevation)
+	var structure := registries.structure(structure_id)
+	if (
+		state == null
+		or tile == null
+		or structure == null
+		or not tile.supports_decor
+		or not structure.supports_surface(tile.surface_kind)
+		or (elevation > 0 and not structure.allow_elevated)
+		or _has_tile_root_structure(state)
+	):
 		return null
+	if structure.socket_type == "structure":
+		if socket_index != 0 or tile.structure_sockets <= 0:
+			return null
+	else:
+		if socket_index < 1 or socket_index > tile.decor_sockets:
+			return null
 	var s := StructureState.new()
 	s.instance_id = next_instance_id
 	next_instance_id += 1
 	s.structure_id = structure_id
 	s.socket_index = socket_index
 	s.rotation = posmod(rotation, 4)
+	s.parent_instance_id = 0
+	s.support_slot_id = ""
 	state.structures.append(s)
 	_emit_slot_changed(coord, elevation)
 	return s
+
+
+func _has_tile_root_structure(state: CellState) -> bool:
+	for structure: StructureState in state.structures:
+		if structure.parent_instance_id == 0:
+			return true
+	return false
+
+
+func add_structure_on(
+	parent_instance_id: int,
+	structure_id: String,
+	support_slot_id: String = "",
+	rotation: int = 0
+) -> StructureState:
+	var parent_found := find_structure(parent_instance_id)
+	if parent_found.is_empty():
+		return null
+	var resolved_slot := free_support_slot(
+		parent_instance_id,
+		structure_id,
+		support_slot_id
+	)
+	if resolved_slot == "":
+		return null
+	var structure := StructureState.new()
+	structure.instance_id = next_instance_id
+	next_instance_id += 1
+	structure.structure_id = structure_id
+	structure.socket_index = 0
+	structure.rotation = posmod(rotation, 4)
+	structure.parent_instance_id = parent_instance_id
+	structure.support_slot_id = resolved_slot
+	var state: CellState = parent_found["state"]
+	state.structures.append(structure)
+	_emit_slot_changed(parent_found["coord"], int(parent_found["elevation"]))
+	return structure
 
 
 func remove_structure(coord: Vector2i, instance_id: int, elevation: int = -1) -> StructureState:
@@ -383,6 +757,9 @@ func remove_structure(coord: Vector2i, instance_id: int, elevation: int = -1) ->
 	var state := cell_at(coord, elevation)
 	if state == null:
 		return null
+	for child: StructureState in state.structures:
+		if child.parent_instance_id == instance_id:
+			return null
 	for i in state.structures.size():
 		if state.structures[i].instance_id == instance_id:
 			var s := state.structures[i]
@@ -390,6 +767,82 @@ func remove_structure(coord: Vector2i, instance_id: int, elevation: int = -1) ->
 			_emit_slot_changed(coord, elevation)
 			return s
 	return null
+
+
+func detach_structure_stack(instance_id: int) -> Array[StructureState]:
+	var found := find_structure(instance_id)
+	var removed: Array[StructureState] = []
+	if found.is_empty():
+		return removed
+	var state: CellState = found["state"]
+	var subtree := structure_subtree(instance_id)
+	var ids := {}
+	for structure: StructureState in subtree:
+		ids[structure.instance_id] = true
+	for structure: StructureState in state.structures:
+		if ids.has(structure.instance_id):
+			removed.append(structure)
+	for index in range(state.structures.size() - 1, -1, -1):
+		if ids.has(state.structures[index].instance_id):
+			state.structures.remove_at(index)
+	_emit_slot_changed(found["coord"], int(found["elevation"]))
+	return removed
+
+
+func restore_structure_stack(
+	coord: Vector2i,
+	elevation: int,
+	stack: Array[StructureState],
+	parent_instance_id: int,
+	support_slot_id: String,
+	socket_index: int,
+	rotation: int
+) -> bool:
+	if stack.is_empty():
+		return false
+	var root: StructureState = stack[0]
+	var subtree_height := structure_stack_height(stack)
+	if subtree_height >= max_object_stack_depth:
+		return false
+	var resolved_support := support_slot_id
+	if parent_instance_id == 0:
+		var definition := registries.structure(root.structure_id)
+		if (
+			definition == null
+			or not can_place_structure_at(coord, elevation, root.structure_id)
+		):
+			return false
+		if socket_index < 0:
+			socket_index = free_socket(coord, definition.socket_type, elevation)
+	else:
+		var parent_found := find_structure(parent_instance_id)
+		if (
+			parent_found.is_empty()
+			or parent_found["coord"] != coord
+			or int(parent_found["elevation"]) != elevation
+			or structure_depth(parent_instance_id) + 1 + subtree_height
+				>= max_object_stack_depth
+		):
+			return false
+		resolved_support = free_support_slot(
+			parent_instance_id,
+			root.structure_id,
+			support_slot_id
+		)
+		if resolved_support == "":
+			return false
+	var state := cell_at(coord, elevation)
+	if state == null:
+		return false
+	root.parent_instance_id = parent_instance_id
+	root.support_slot_id = resolved_support if parent_instance_id != 0 else ""
+	root.socket_index = socket_index if parent_instance_id == 0 else 0
+	root.rotation = posmod(rotation, 4)
+	for structure: StructureState in stack:
+		state.structures.append(structure)
+		next_instance_id = maxi(next_instance_id, structure.instance_id + 1)
+	_emit_slot_changed(coord, elevation)
+	return true
 
 
 func find_structure(instance_id: int) -> Dictionary:
@@ -400,6 +853,7 @@ func find_structure(instance_id: int) -> Dictionary:
 				return {
 					"coord": slot["coord"],
 					"elevation": slot["elevation"],
+					"state": state,
 					"structure": s,
 				}
 	return {}

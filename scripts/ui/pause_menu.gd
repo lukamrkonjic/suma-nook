@@ -266,7 +266,8 @@ func _build_controls_page() -> void:
 	list.add_child(kit.section_label("Keeper"))
 	for entry in [
 		["Move", ["W", "A", "S", "D"], "Walk freely across connected land."],
-		["Interact", ["E"], "Use the focused pond, parcel, or grove."],
+		["Jump", ["Space"], "Clear objects and one raised land layer."],
+		["Interact", ["E"], "Use the focused pond, parcel, or tree."],
 		["Shape land", ["B"], "Open build mode and your tile library."],
 		["Rotate piece", ["R"], "Turn the held tile or decoration."],
 		["Store piece", ["X"], "Return a held piece to its library."],
@@ -277,8 +278,9 @@ func _build_controls_page() -> void:
 	list.add_child(kit.section_label("Camera"))
 	for entry in [
 		["Zoom", ["Wheel", "Up", "Down"], "Move from full-diorama view to close inspection."],
+		["Pan", ["Middle mouse"], "Drag the diorama to inspect another area."],
 		["Rotate view", ["Q", "X", "Left", "Right"], "Orbit by a quarter turn."],
-		["Return home", ["H"], "Walk back to the home tile."],
+		["Return home", ["H"], "Return the keeper and camera to the home tile."],
 	]:
 		list.add_child(_control_row(entry[0], entry[1], entry[2]))
 

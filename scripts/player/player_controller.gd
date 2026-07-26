@@ -51,7 +51,7 @@ func _physics_process(delta: float) -> void:
 		_:
 			_free_move(delta)
 	if not is_on_floor():
-		velocity.y -= 24.0 * delta
+		velocity.y -= core.registries.tunef("jump_gravity", 18.0) * delta
 	else:
 		velocity.y = maxf(velocity.y, 0.0)
 	move_and_slide()
@@ -95,6 +95,18 @@ func _free_move(delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if state == State.DISABLED:
+		return
+	if (
+		event.is_action_pressed("jump")
+		and is_on_floor()
+		and state in [State.FREE, State.BUILDING]
+		and not move_locked
+	):
+		velocity.y = core.registries.tunef("jump_velocity", 5.0)
+		floor_snap_length = 0.0
+		get_tree().create_timer(0.12).timeout.connect(func():
+			floor_snap_length = 0.4
+		)
 		return
 	if (
 		core.registries.feature("combat_enabled", false)
@@ -255,12 +267,7 @@ func _click_route_cell_open(coord: Vector2i, goal: Vector2i) -> bool:
 		return false
 	var state := core.grid.cell(coord)
 	for structure in state.structures:
-		var structure_def := core.registries.structure(structure.structure_id)
-		if (
-			structure.socket_index == 0
-			and structure_def != null
-			and structure_def.blocks_movement
-		):
+		if structure.parent_instance_id == 0:
 			return false
 	return true
 
@@ -272,8 +279,8 @@ func focus() -> Dictionary:
 
 
 ## Continuous, proximity-based interaction: nearest valid target within range,
-## no tile-center requirement. Targets: pond edges (fish), grove anchors
-## (chop), chest (storage), enemies (attack), reclaimed landmarks (resolve).
+## no tile-center requirement. Terrain owns water/mineral anchors; independently
+## placed trees own woodland anchors; the chest remains an ordinary structure.
 func _update_focus() -> void:
 	if state != State.FREE:
 		return
@@ -299,14 +306,47 @@ func _update_focus() -> void:
 				if core.skills.is_playable(anchor.skill_id) and not cell_state.anchor_resting:
 					best = {"kind": "anchor", "coord": coord, "anchor": anchor, "point": interaction_point}
 					best_distance = distance
-			for s in cell_state.structures:
-				var struct_def := core.registries.structure(s.structure_id)
-				if struct_def != null and struct_def.provides.has("storage_access"):
-					var struct_pos := center + core.grid.socket_offset(s.socket_index)
-					var struct_distance := position.distance_to(struct_pos)
-					if struct_distance < best_distance:
-						best = {"kind": "storage", "coord": coord, "point": struct_pos}
-						best_distance = struct_distance
+	for slot: Dictionary in core.grid.all_cell_slots():
+		var coord: Vector2i = slot["coord"]
+		if absi(coord.x - my_cell.x) > 1 or absi(coord.y - my_cell.y) > 1:
+			continue
+		var elevation := int(slot["elevation"])
+		var cell_state: WorldGrid.CellState = slot["state"]
+		var cell_origin := core.grid.cell_to_world(coord, elevation)
+		for structure: WorldGrid.StructureState in cell_state.structures:
+			var struct_def := core.registries.structure(structure.structure_id)
+			if struct_def == null:
+				continue
+			var struct_pos := (
+				cell_origin
+				+ core.grid.structure_local_transform(structure.instance_id).origin
+			)
+			var struct_distance := position.distance_to(struct_pos)
+			if (
+				struct_def.anchor_id != ""
+				and not structure.anchor_resting
+				and struct_distance < best_distance
+			):
+				var anchor := core.registries.anchor(struct_def.anchor_id)
+				if anchor != null and core.skills.is_playable(anchor.skill_id):
+					best = {
+						"kind": "anchor",
+						"coord": coord,
+						"elevation": elevation,
+						"instance_id": structure.instance_id,
+						"anchor": anchor,
+						"point": struct_pos,
+					}
+					best_distance = struct_distance
+			if struct_def.provides.has("storage_access") and struct_distance < best_distance:
+				best = {
+					"kind": "storage",
+					"coord": coord,
+					"elevation": elevation,
+					"instance_id": structure.instance_id,
+					"point": struct_pos,
+				}
+				best_distance = struct_distance
 	for package in get_tree().get_nodes_in_group("delivery_packages"):
 		var package_node := package as Node3D
 		if not is_instance_valid(package_node) or not package_node.visible:
@@ -332,6 +372,11 @@ func _update_focus() -> void:
 			if distance < best_distance:
 				best = {"kind": "landmark_prompt", "node": marker_node, "point": marker_node.global_position}
 				best_distance = distance
-	if best.get("kind") != _focus.get("kind") or best.get("coord") != _focus.get("coord") or best.get("node") != _focus.get("node"):
+	if (
+		best.get("kind") != _focus.get("kind")
+		or best.get("coord") != _focus.get("coord")
+		or best.get("instance_id") != _focus.get("instance_id")
+		or best.get("node") != _focus.get("node")
+	):
 		_focus = best
 		interaction_focus_changed.emit(best)

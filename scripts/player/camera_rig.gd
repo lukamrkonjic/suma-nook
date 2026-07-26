@@ -14,9 +14,11 @@ var camera: Camera3D
 
 var _yaw := 45.0
 var _yaw_target := 45.0
-var _size_target := 40.0
+var _size_target := 32.0
 var _pitch_node: Node3D
 var _rotating := false
+var _pan_offset := Vector3.ZERO
+var _middle_panning := false
 
 
 func setup(game_core: GameCore, follow_target: Node3D) -> void:
@@ -24,7 +26,7 @@ func setup(game_core: GameCore, follow_target: Node3D) -> void:
 	target = follow_target
 	_yaw = core.registries.tunef("camera_default_yaw_deg", 45.0)
 	_yaw_target = _yaw
-	_size_target = core.registries.tunef("camera_default_size", 40.0)
+	_size_target = core.registries.tunef("camera_default_size", 32.0)
 	rotation_degrees.y = _yaw
 
 	_pitch_node = Node3D.new()
@@ -45,7 +47,7 @@ func setup(game_core: GameCore, follow_target: Node3D) -> void:
 
 func _process(delta: float) -> void:
 	if target != null:
-		var goal := target.global_position
+		var goal := target.global_position + _pan_offset
 		global_position = global_position.lerp(goal, minf(1.0, core.registries.tunef("camera_follow_speed", 4.5) * delta))
 	var yaw_difference := absf(angle_difference(rotation.y, deg_to_rad(_yaw_target)))
 	if yaw_difference > deg_to_rad(0.25) and not _rotating:
@@ -75,13 +77,20 @@ func _unhandled_input(event: InputEvent) -> void:
 		_zoom_by(-core.registries.tunef("camera_wheel_zoom_step", 1.0))
 	elif event.is_action_pressed("camera_zoom_out"):
 		_zoom_by(core.registries.tunef("camera_wheel_zoom_step", 1.0))
-	elif event is InputEventMouseButton and event.pressed:
+	elif event is InputEventMouseButton:
 		var wheel := event as InputEventMouseButton
-		var wheel_amount := maxf(0.1, wheel.factor)
-		if wheel.button_index == MOUSE_BUTTON_WHEEL_UP:
-			_zoom_by(-core.registries.tunef("camera_wheel_zoom_step", 1.0) * wheel_amount)
-		elif wheel.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			_zoom_by(core.registries.tunef("camera_wheel_zoom_step", 1.0) * wheel_amount)
+		if wheel.button_index == MOUSE_BUTTON_MIDDLE:
+			_middle_panning = wheel.pressed
+			get_viewport().set_input_as_handled()
+		elif wheel.pressed:
+			var wheel_amount := maxf(0.1, wheel.factor)
+			if wheel.button_index == MOUSE_BUTTON_WHEEL_UP:
+				_zoom_by(-core.registries.tunef("camera_wheel_zoom_step", 1.0) * wheel_amount)
+			elif wheel.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+				_zoom_by(core.registries.tunef("camera_wheel_zoom_step", 1.0) * wheel_amount)
+	elif event is InputEventMouseMotion and _middle_panning:
+		_pan_by_pixels((event as InputEventMouseMotion).relative)
+		get_viewport().set_input_as_handled()
 	elif event is InputEventMagnifyGesture:
 		var magnify := event as InputEventMagnifyGesture
 		_zoom_by((1.0 - magnify.factor) * core.registries.tunef("camera_pinch_zoom_speed", 6.0))
@@ -91,6 +100,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		# so diagonal trackpad gestures do not cause surprising scale changes.
 		if absf(pan.delta.y) > absf(pan.delta.x):
 			_zoom_by(pan.delta.y * core.registries.tunef("camera_trackpad_zoom_speed", 0.28))
+
+
+func _pan_by_pixels(relative: Vector2) -> void:
+	var basis := horizontal_basis()
+	var world_per_pixel := _size_target * 0.0008
+	_pan_offset += (
+		-basis.x * relative.x * world_per_pixel
+		+ basis.z * relative.y * world_per_pixel
+	)
+	_pan_offset.y = 0.0
+	if _pan_offset.length() > 30.0:
+		_pan_offset = _pan_offset.normalized() * 30.0
+	core.autosave_soon()
 
 
 func _zoom_by(amount: float) -> void:
@@ -106,7 +128,7 @@ func _zoom_by(amount: float) -> void:
 func set_zoom_immediate(framing_size: float) -> void:
 	_size_target = clampf(
 		framing_size,
-		core.registries.tunef("camera_min_size", 40.0),
+		core.registries.tunef("camera_min_size", 14.0),
 		core.registries.tunef("camera_max_size", 70.0)
 	)
 	if camera != null:
@@ -124,8 +146,8 @@ func horizontal_basis() -> Basis:
 
 
 func set_build_mode(enabled: bool) -> void:
-	var base := core.registries.tunef("camera_default_size", 40.0)
-	_size_target = base + (core.registries.tunef("build_mode_size_bonus", 5.0) if enabled else 0.0)
+	var base := core.registries.tunef("camera_default_size", 32.0)
+	_size_target = base + (core.registries.tunef("build_mode_size_bonus", 3.0) if enabled else 0.0)
 	zoom_changed.emit(_size_target)
 
 
@@ -136,7 +158,7 @@ func zoom_for_creator() -> void:
 
 
 func restore_gameplay_zoom() -> void:
-	_size_target = core.registries.tunef("camera_default_size", 40.0)
+	_size_target = core.registries.tunef("camera_default_size", 32.0)
 	zoom_changed.emit(_size_target)
 
 
@@ -145,7 +167,16 @@ func zoom_distance() -> float:
 
 
 func save_state() -> Dictionary:
-	return {"yaw": _yaw_target, "distance": _size_target}
+	return {
+		"yaw": _yaw_target,
+		"distance": _size_target,
+		"pan": [_pan_offset.x, _pan_offset.z],
+	}
+
+
+func reset_pan() -> void:
+	_pan_offset = Vector3.ZERO
+	core.autosave_soon()
 
 
 ## Machine-readable description of the live camera and its control envelope.
@@ -163,12 +194,12 @@ func runtime_manifest() -> Dictionary:
 		"distance": camera.position.z,
 		"target_distance": _size_target,
 		"zoom_limits": {
-			"minimum": core.registries.tunef("camera_min_size", 40.0),
+			"minimum": core.registries.tunef("camera_min_size", 14.0),
 			"maximum": core.registries.tunef("camera_max_size", 70.0),
 			"wheel_step": core.registries.tunef("camera_wheel_zoom_step", 5.0),
 			"trackpad_speed": core.registries.tunef("camera_trackpad_zoom_speed", 1.4),
 			"pinch_speed": core.registries.tunef("camera_pinch_zoom_speed", 25.0),
-			"build_mode_bonus": core.registries.tunef("build_mode_size_bonus", 5.0),
+			"build_mode_bonus": core.registries.tunef("build_mode_size_bonus", 3.0),
 		},
 		"motion": {
 			"follow_damping_per_second": core.registries.tunef("camera_follow_speed", 10.0),
@@ -182,13 +213,16 @@ func runtime_manifest() -> Dictionary:
 func restore_state(data: Dictionary) -> void:
 	_yaw_target = float(data.get("yaw", 45.0))
 	rotation_degrees.y = _yaw_target
-	var stored_distance := float(data.get("distance", data.get("size", core.registries.tunef("camera_default_size", 40.0))))
+	var stored_distance := float(data.get("distance", data.get("size", core.registries.tunef("camera_default_size", 32.0))))
 	# Migrate experimental saves that stored an orthographic-equivalent span.
 	if not data.has("distance") and stored_distance < 25.0:
 		stored_distance /= 2.0 * tan(deg_to_rad(core.registries.tunef("camera_fov_deg", 15.0) * 0.5))
 	_size_target = clampf(
 		stored_distance,
-		core.registries.tunef("camera_min_size", 40.0),
+		core.registries.tunef("camera_min_size", 14.0),
 		core.registries.tunef("camera_max_size", 70.0)
 	)
+	var stored_pan: Array = data.get("pan", [0.0, 0.0])
+	if stored_pan.size() >= 2:
+		_pan_offset = Vector3(float(stored_pan[0]), 0.0, float(stored_pan[1]))
 	set_zoom_immediate(_size_target)

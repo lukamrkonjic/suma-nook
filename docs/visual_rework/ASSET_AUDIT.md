@@ -11,11 +11,11 @@ first, so same-id GLBs override `final/` with zero code changes).
 | tile_grass | 2 | flat cap, razor bevel, noisy scatter | rebuilt | reworked/tile_grass.glb — clean cap with restrained one-segment chamfer; no baked clutter |
 | tile_grass_flower | 2 | stick flowers, scatter | rebuilt | reworked/tile_grass_flower.glb — clean sunlit palette variant, no baked decoration |
 | tile_grass_pond_edge | 2 | vertical red basin, glass water | rebuilt | reworked/…glb — sloped sandy shore, sand floor, water-shader surface |
-| tile_path | 2 | flat gray slabs, hard edges | rebuilt | reworked/tile_path.glb — varied warm-ivory slabs, restrained one-segment chamfers |
-| tile_garden | 2 | boxy bed | rebuilt | reworked/tile_garden.glb |
-| tile_courtyard | 2 | flat rings | rebuilt | reworked/tile_courtyard.glb |
-| tile_grove_* (5) | 2 | cone trees, ball bushes | rebuilt | reworked/tile_grove_*.glb — one hero tree per tile, no ground-cover scatter |
-| tile_stone_* (5) | 2 | tetra rocks, gray palette | rebuilt | reworked/tile_stone_*.glb — plain warm-ivory/moss bases; only named road, ruin and crystal variants carry structural features |
+| tile_path | 2 | flat gray slabs, hard edges | rebuilt | reworked/tile_path.glb — continuous warm-ivory surface with no raised paving geometry |
+| tile_garden | 2 | boxy raised bed | rebuilt | reworked/tile_garden.glb — flat soil ground; planters remain separate |
+| tile_courtyard | 2 | raised rings | rebuilt | reworked/tile_courtyard.glb — clean flat stone cap |
+| tile_grove_* (5) | 2 | trees baked into ground tiles | rebuilt | reworked/tile_grove_*.glb — flat palette variants; all trees are independent placeables |
+| tile_stone_* (5) | 2 | rocks/crystals/ruins baked above tiles | rebuilt | reworked/tile_stone_*.glb — flat bases, with road pieces flush and all readable decor separate |
 | tile_open_water | 1 | flat translucent plane per tile, bands, seams | rebuilt (system) | tile_water_floor.glb + WaterSurface + gg_water.gdshader |
 | prop_pine_a/b | 1 | stacked sharp cones, near-black base | rebuilt | reworked/prop_pine_a/b.glb + prop_pine_young — 3 real variants, lobed tiers |
 | prop_bush_a/b | 1 | single faceted icosphere | rebuilt | reworked/prop_bush_a/b/c.glb — coherent faceted masses with sparse leaf shells |

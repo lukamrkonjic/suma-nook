@@ -31,6 +31,12 @@ func migrate(raw: Dictionary) -> Dictionary:
 				_migrate_v2_to_v3(data)
 			3:
 				_migrate_v3_to_v4(data)
+			4:
+				_migrate_v4_to_v5(data)
+			5:
+				_migrate_v5_to_v6(data)
+			6:
+				_migrate_v6_to_v7(data)
 			_:
 				warnings.append("no explicit migration for save version %d" % version)
 		version += 1
@@ -71,11 +77,9 @@ func _migrate_v1_to_v2(data: Dictionary) -> void:
 	var next_iid := int(grid.get("next_iid", 1))
 	next_iid = _restore_starter_props(cells, Vector2i(-1, 0), [
 		["struct_pine", 3],
-		["struct_bush", 2],
 	], next_iid)
 	next_iid = _restore_starter_props(cells, Vector2i(1, 0), [
 		["struct_chest", 2],
-		["struct_pot", 1],
 	], next_iid)
 	grid["next_iid"] = next_iid
 	data["grid"] = grid
@@ -89,6 +93,156 @@ func _migrate_v2_to_v3(_data: Dictionary) -> void:
 
 func _migrate_v3_to_v4(data: Dictionary) -> void:
 	data["content_revision"] = compatibility.revision
+
+
+func _migrate_v4_to_v5(data: Dictionary) -> void:
+	# Version 5 introduces persistent object-support edges. Existing objects are
+	# tile-rooted, so the migration is lossless and intentionally conservative.
+	var grid: Dictionary = data.get("grid", {})
+	for cell: Dictionary in grid.get("cells", []):
+		for structure: Dictionary in cell.get("structs", []):
+			if not structure.has("parent"):
+				structure["parent"] = 0
+			if not structure.has("support"):
+				structure["support"] = ""
+
+
+func _migrate_v5_to_v6(data: Dictionary) -> void:
+	# Version 6 separates resource-bearing objects from their terrain. Legacy
+	# grove runtime is transferred onto a real tree instance so progress and
+	# ownership survive; the previously authored starter plants return to stock.
+	var grid: Dictionary = data.get("grid", {})
+	var cells: Array = grid.get("cells", [])
+	var next_iid := int(grid.get("next_iid", 1))
+	for cell: Dictionary in cells:
+		for structure: Dictionary in cell.get("structs", []):
+			_ensure_structure_anchor_fields(structure)
+			next_iid = maxi(next_iid, int(structure.get("iid", 0)) + 1)
+
+	var stock: Dictionary = data.get("stock", {})
+	var stored_structures: Dictionary = stock.get("structures", {})
+	for cell: Dictionary in cells:
+		var structures: Array = cell.get("structs", [])
+		if (
+			bool(cell.get("starter", false))
+			and int(cell.get("e", 0)) == 0
+			and int(cell.get("x", 0)) == -1
+			and int(cell.get("y", 0)) == 0
+		):
+			var retained: Array = []
+			for structure: Dictionary in structures:
+				var structure_id := String(structure.get("id", ""))
+				var is_legacy_starter_plant := (
+					int(structure.get("parent", 0)) == 0
+					and (
+						(structure_id == "struct_pine" and int(structure.get("socket", 0)) == 3)
+						or (structure_id == "struct_bush" and int(structure.get("socket", 0)) == 2)
+					)
+				)
+				if is_legacy_starter_plant:
+					stored_structures[structure_id] = (
+						int(stored_structures.get(structure_id, 0)) + 1
+					)
+				else:
+					retained.append(structure)
+			structures = retained
+			cell["structs"] = structures
+
+		if not String(cell.get("tile", "")).begins_with("tile_grove_"):
+			continue
+		var has_tree := false
+		for structure: Dictionary in structures:
+			var definition := registries.structure(String(structure.get("id", "")))
+			if definition != null and definition.anchor_id == "grove_anchor":
+				has_tree = true
+				break
+		if not has_tree:
+			var tree := {
+				"iid": next_iid,
+				"id": "struct_pine",
+				"socket": 1,
+				"rot": 0,
+				"parent": 0,
+				"support": "",
+				"a_done": int(cell.get("a_done", 0)),
+				"a_rest": bool(cell.get("a_rest", false)),
+				"a_regen": float(cell.get("a_regen", 0.0)),
+				"a_up": int(cell.get("a_up", 0)),
+			}
+			# Give the migrated resource object first claim on the tile's direct
+			# decor slot. If an old save also decorated this grove, reconciliation
+			# returns that decoration to stock instead of discarding tree progress.
+			structures.push_front(tree)
+			cell["structs"] = structures
+			next_iid += 1
+		cell["a_done"] = 0
+		cell["a_rest"] = false
+		cell["a_regen"] = 0.0
+		cell["a_up"] = 0
+
+	stock["structures"] = stored_structures
+	data["stock"] = stock
+	grid["cells"] = cells
+	grid["next_iid"] = next_iid
+	data["grid"] = grid
+
+
+func _migrate_v6_to_v7(data: Dictionary) -> void:
+	# The northern dock used to be an unpickable scene decoration. Version 7
+	# makes it authoritative world data without duplicating an existing dock.
+	var grid: Dictionary = data.get("grid", {})
+	var cells: Array = grid.get("cells", [])
+	var has_dock := false
+	var middle_water: Dictionary = {}
+	var next_iid := int(grid.get("next_iid", 1))
+	for cell: Dictionary in cells:
+		for structure: Dictionary in cell.get("structs", []):
+			next_iid = maxi(next_iid, int(structure.get("iid", 0)) + 1)
+			if String(structure.get("id", "")) == "struct_dock":
+				has_dock = true
+		if (
+			int(cell.get("e", 0)) == 0
+			and int(cell.get("x", 0)) == 0
+			and int(cell.get("y", 0)) == -1
+			and String(cell.get("tile", "")) == "tile_open_water"
+		):
+			middle_water = cell
+	if not has_dock and not middle_water.is_empty():
+		var structures: Array = middle_water.get("structs", [])
+		if structures.is_empty():
+			structures.append({
+				"iid": next_iid,
+				"id": "struct_dock",
+				"socket": 0,
+				"rot": 2,
+				"parent": 0,
+				"support": "",
+				"a_done": 0,
+				"a_rest": false,
+				"a_regen": 0.0,
+				"a_up": 0,
+			})
+			middle_water["structs"] = structures
+			next_iid += 1
+	grid["next_iid"] = next_iid
+	data["grid"] = grid
+	var view: Dictionary = data.get("view", {})
+	if is_equal_approx(float(view.get("distance", 40.0)), 40.0):
+		view["distance"] = registries.tunef("camera_default_size", 32.0)
+	if not view.has("pan"):
+		view["pan"] = [0.0, 0.0]
+	data["view"] = view
+
+
+func _ensure_structure_anchor_fields(structure: Dictionary) -> void:
+	if not structure.has("a_done"):
+		structure["a_done"] = 0
+	if not structure.has("a_rest"):
+		structure["a_rest"] = false
+	if not structure.has("a_regen"):
+		structure["a_regen"] = 0.0
+	if not structure.has("a_up"):
+		structure["a_up"] = 0
 
 
 func _restore_starter_props(
@@ -112,6 +266,12 @@ func _restore_starter_props(
 					"id": String(prop[0]),
 					"socket": int(prop[1]),
 					"rot": 0,
+					"parent": 0,
+					"support": "",
+					"a_done": 0,
+					"a_rest": false,
+					"a_regen": 0.0,
+					"a_up": 0,
 				})
 				next_iid += 1
 			entry["structs"] = structures

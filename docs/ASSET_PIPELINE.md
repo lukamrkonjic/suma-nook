@@ -4,8 +4,12 @@ One shared technical contract for every 3D asset; three creation tiers.
 
 ## Technical contract
 
-- 1 Godot unit = 1 m. Tile size is `WorldGrid.TILE_SIZE` = 2.0 m; land block top sits at
-  y = 0.0, block extends down to y = -0.9. Assets stand on y = 0.
+- 1 Godot unit = 1 m. Tiles use a compact 1.70 m horizontal footprint; the land
+  block top sits at y = 0.0 and extends to y = -0.50. Every elevation step is
+  exactly 0.50 m so stacked visuals and collision touch without a gap.
+- Tile GLBs may use recessed seams or basins below y = 0, but ordinary tile
+  geometry must never extend above y = 0. Trees, planters, crystals, ruins and
+  other readable silhouettes are independent placeables.
 - Y-up, forward = -Z, origin at bottom-center (pivot exceptions documented per asset).
 - Rotation/scale applied; clean object and material names; no embedded lights/cameras;
   no hidden high-poly duplicates; simplified collision authored in Godot, not Blender.

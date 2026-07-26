@@ -8,12 +8,14 @@ extends Node3D
 signal mode_changed(active: bool)
 signal held_changed(held: Dictionary)
 signal action_result(ok: bool, message: String, kind: String)
+signal hover_changed(display_name: String, collection_name: String)
 
 var core: GameCore
 var assets: AssetLibrary
 var camera_rig: CameraRig
 var player: PlayerController
 var effects: EffectsManager
+var world_renderer: WorldRenderer
 
 var active := false
 var held: Dictionary = {}      # {kind: tile|structure|deed, id, rotation, moving: {...}|null}
@@ -22,23 +24,34 @@ var _indicator: MeshInstance3D
 var _hover_cell := Vector2i(9999, 9999)
 var _hover_elevation := 0
 var _hover_valid := false
+var _hover_support_instance_id := 0
+var _hover_support_slot := ""
 var _undo_stack: Array[Dictionary] = []
 var _redo_stack: Array[Dictionary] = []
 var _pointer_down := false
 var _pointer_dragging := false
 var _pointer_press_position := Vector2.ZERO
 var _picked_on_pointer_press := false
+var _hover_info_signature := ""
 
 var _ghost_ok_material: StandardMaterial3D
 var _ghost_bad_material: StandardMaterial3D
 
 
-func setup(game_core: GameCore, asset_library: AssetLibrary, rig: CameraRig, player_controller: PlayerController, effects_manager: EffectsManager) -> void:
+func setup(
+	game_core: GameCore,
+	asset_library: AssetLibrary,
+	rig: CameraRig,
+	player_controller: PlayerController,
+	effects_manager: EffectsManager,
+	renderer: WorldRenderer
+) -> void:
 	core = game_core
 	assets = asset_library
 	camera_rig = rig
 	player = player_controller
 	effects = effects_manager
+	world_renderer = renderer
 	core.before_save.connect(prepare_for_save)
 	_ghost_ok_material = _ghost_material(Color(0.65, 0.85, 0.55, 0.55))
 	_ghost_bad_material = _ghost_material(Color(0.85, 0.5, 0.42, 0.5))
@@ -69,6 +82,8 @@ func set_active(enabled: bool) -> void:
 		return
 	active = enabled
 	if not active:
+		world_renderer.clear_structure_hover()
+		_emit_hover_info("", "", "")
 		_cancel_held(true)
 	camera_rig.set_build_mode(active)
 	player.set_state(PlayerController.State.BUILDING if active else PlayerController.State.FREE)
@@ -98,6 +113,15 @@ func _build_ghost() -> void:
 		_ghost = null
 	if held.is_empty():
 		return
+	if (
+		held.get("kind", "") == "tile"
+		and held.get("moving") != null
+		and held["moving"].has("stack")
+	):
+		_build_tile_stack_ghost(held["moving"]["stack"])
+		add_child(_ghost)
+		_set_ghost_material(_ghost_ok_material)
+		return
 	var asset_id := ""
 	match held["kind"]:
 		"tile":
@@ -105,7 +129,11 @@ func _build_ghost() -> void:
 			if tile_def == null:
 				action_result.emit(false, "That tile is no longer available.", "invalid")
 				return
-			asset_id = tile_def.asset_id
+			asset_id = (
+				"tile_water_floor"
+				if tile_def.render_profile == "continuous_water"
+				else tile_def.asset_id
+			)
 		"structure":
 			var structure_def := core.registries.structure(held["id"])
 			if structure_def == null:
@@ -119,8 +147,121 @@ func _build_ghost() -> void:
 				return
 			asset_id = landmark_def.asset_id
 	_ghost = assets.instantiate(asset_id)
+	if (
+		held.get("kind", "") == "structure"
+		and held.get("moving") != null
+		and held["moving"].has("stack")
+	):
+		_add_stack_descendants_to_ghost(held["moving"]["stack"])
 	add_child(_ghost)
 	_set_ghost_material(_ghost_ok_material)
+
+
+func _build_tile_stack_ghost(stack: Array) -> void:
+	_ghost = Node3D.new()
+	_ghost.name = "TileStackGhost"
+	if stack.is_empty():
+		return
+	var base_state: WorldGrid.CellState = stack[0]["state"]
+	var base_angle := base_state.rotation * PI * 0.5
+	var inverse_base := Transform3D(Basis(Vector3.UP, -base_angle), Vector3.ZERO)
+	for entry: Dictionary in stack:
+		var relative := int(entry["relative_elevation"])
+		var state: WorldGrid.CellState = entry["state"]
+		var definition := core.registries.tile(state.tile_id)
+		if definition == null:
+			continue
+		var asset_id := (
+			"tile_water_floor"
+			if definition.render_profile == "continuous_water"
+			else definition.asset_id
+		)
+		var tile_visual := assets.instantiate(asset_id)
+		tile_visual.name = "ghost_tile_e%d" % relative
+		tile_visual.position.y = relative * core.grid.block_depth
+		tile_visual.rotation.y = (state.rotation - base_state.rotation) * PI * 0.5
+		_ghost.add_child(tile_visual)
+		for structure: WorldGrid.StructureState in state.structures:
+			var structure_def := core.registries.structure(structure.structure_id)
+			if structure_def == null:
+				continue
+			var structure_visual := assets.instantiate(structure_def.asset_id)
+			structure_visual.name = "ghost_structure_%d" % structure.instance_id
+			var elevation_transform := Transform3D(
+				Basis.IDENTITY,
+				Vector3(0, relative * core.grid.block_depth, 0)
+			)
+			structure_visual.transform = (
+				elevation_transform
+				* inverse_base
+				* core.grid.structure_local_transform_in_cell(
+					state,
+					structure.instance_id
+				)
+			)
+			_ghost.add_child(structure_visual)
+
+
+func _add_stack_descendants_to_ghost(stack: Array[WorldGrid.StructureState]) -> void:
+	if _ghost == null or stack.size() <= 1:
+		return
+	var root: WorldGrid.StructureState = stack[0]
+	var by_id := {}
+	for structure: WorldGrid.StructureState in stack:
+		by_id[structure.instance_id] = structure
+	for structure: WorldGrid.StructureState in stack:
+		if structure.instance_id == root.instance_id:
+			continue
+		var definition := core.registries.structure(structure.structure_id)
+		if definition == null:
+			continue
+		var child_visual := assets.instantiate(definition.asset_id)
+		child_visual.name = "ghost_descendant_%d" % structure.instance_id
+		child_visual.transform = _stack_relative_transform(
+			structure.instance_id,
+			root.instance_id,
+			by_id,
+			{}
+		)
+		_ghost.add_child(child_visual)
+
+
+func _stack_relative_transform(
+	instance_id: int,
+	root_instance_id: int,
+	by_id: Dictionary,
+	visiting: Dictionary
+) -> Transform3D:
+	if instance_id == root_instance_id:
+		return Transform3D.IDENTITY
+	if not by_id.has(instance_id) or visiting.has(instance_id):
+		return Transform3D.IDENTITY
+	visiting[instance_id] = true
+	var structure: WorldGrid.StructureState = by_id[instance_id]
+	if not by_id.has(structure.parent_instance_id):
+		visiting.erase(instance_id)
+		return Transform3D.IDENTITY
+	var parent: WorldGrid.StructureState = by_id[structure.parent_instance_id]
+	var parent_def := core.registries.structure(parent.structure_id)
+	var slot := (
+		parent_def.support_slot(structure.support_slot_id)
+		if parent_def != null
+		else null
+	)
+	if slot == null:
+		visiting.erase(instance_id)
+		return Transform3D.IDENTITY
+	var parent_transform := _stack_relative_transform(
+		parent.instance_id,
+		root_instance_id,
+		by_id,
+		visiting
+	)
+	visiting.erase(instance_id)
+	return parent_transform * Transform3D(
+		Basis(Vector3.UP, structure.rotation * PI * 0.5),
+		slot.offset
+	)
 
 
 func _set_ghost_material(mat: StandardMaterial3D) -> void:
@@ -135,11 +276,20 @@ func _set_ghost_material(mat: StandardMaterial3D) -> void:
 # ------------------------------------------------------------------ per-frame preview
 
 func _process(delta: float) -> void:
-	if not active or held.is_empty():
+	if not active:
 		_indicator.visible = false
+		_emit_hover_info("", "", "")
 		if _ghost != null:
 			_ghost.visible = false
 		return
+	if held.is_empty():
+		_indicator.visible = false
+		if _ghost != null:
+			_ghost.visible = false
+		_update_placeable_hover()
+		return
+	world_renderer.clear_structure_hover()
+	_emit_hover_info("", "", "")
 	_update_hover_target()
 	_hover_valid = _validate(_hover_cell, _hover_elevation)
 	var world := core.grid.cell_to_world(_hover_cell, _hover_elevation)
@@ -152,25 +302,109 @@ func _process(delta: float) -> void:
 			0
 		)
 		if held["kind"] == "structure":
-			var socket := _target_socket(_hover_cell, _hover_elevation)
-			if socket >= 0:
-				target_position += core.grid.socket_offset(socket)
+			if _hover_support_instance_id > 0:
+				if _hover_support_slot != "":
+					var support_transform := world_renderer.support_slot_world_transform(
+						_hover_support_instance_id,
+						_hover_support_slot
+					)
+					target_position = support_transform.origin + Vector3(
+						0,
+						0.1 + sin(Time.get_ticks_msec() * 0.006) * 0.025,
+						0
+					)
+				else:
+					target_position = world_renderer.structure_preview_position(
+						_hover_support_instance_id
+					) + Vector3(0, 0.1, 0)
+			else:
+				var socket := _target_socket(_hover_cell, _hover_elevation)
+				if socket >= 0:
+					target_position += core.grid.socket_offset(socket)
 		if was_visible:
 			_ghost.position = _ghost.position.lerp(target_position, 1.0 - exp(-delta * 20.0))
 		else:
 			_ghost.position = target_position
+		var target_yaw := int(held["rotation"]) * PI * 0.5
+		if _hover_support_instance_id > 0 and _hover_support_slot != "":
+			target_yaw += world_renderer.support_slot_world_transform(
+				_hover_support_instance_id,
+				_hover_support_slot
+			).basis.get_euler().y
 		_ghost.rotation.y = lerp_angle(
 			_ghost.rotation.y,
-			int(held["rotation"]) * PI * 0.5,
+			target_yaw,
 			1.0 - exp(-delta * 22.0)
 		)
 		_set_ghost_material(_ghost_ok_material if _hover_valid else _ghost_bad_material)
 	# Color-independent validity: solid square for valid, rotated (diamond) for
 	# invalid — readable without red/green vision.
-	_indicator.visible = true
+	_indicator.visible = _hover_support_instance_id == 0
 	_indicator.position = world + Vector3(0, 0.03, 0)
 	_indicator.rotation.y = 0.0 if _hover_valid else PI * 0.25
 	_indicator.material_override = _ghost_ok_material if _hover_valid else _ghost_bad_material
+
+
+func _update_placeable_hover() -> void:
+	var hit := world_renderer.pick_placeable_at_screen(
+		camera_rig.camera,
+		get_viewport().get_mouse_position()
+	)
+	if hit.is_empty():
+		world_renderer.clear_structure_hover()
+		_emit_hover_info("", "", "")
+		return
+	if hit.get("kind", "") == "structure":
+		var instance_id := int(hit["instance_id"])
+		var found := core.grid.find_structure(instance_id)
+		if found.is_empty():
+			world_renderer.clear_structure_hover()
+			_emit_hover_info("", "", "")
+			return
+		var structure: WorldGrid.StructureState = found["structure"]
+		var definition := core.registries.structure(structure.structure_id)
+		world_renderer.set_hovered_structure(instance_id, true)
+		_emit_hover_info(
+			"structure:%d" % instance_id,
+			definition.display_name if definition != null else structure.structure_id,
+			_structure_collection_name(definition)
+		)
+		return
+	var coord: Vector2i = hit["coord"]
+	var elevation := int(hit["elevation"])
+	var state := core.grid.cell_at(coord, elevation)
+	var tile_definition := core.grid.tile_def_at(coord, elevation)
+	world_renderer.set_hovered_tile(coord, elevation, true)
+	_emit_hover_info(
+		"tile:%d:%d:%d" % [coord.x, coord.y, elevation],
+		tile_definition.display_name if tile_definition != null else state.tile_id,
+		_tile_collection_name(tile_definition)
+	)
+
+
+func _tile_collection_name(definition: Defs.TileDefinition) -> String:
+	if definition == null:
+		return "Tile Collection"
+	return "%s Tiles" % definition.family.replace("_", " ").capitalize()
+
+
+func _structure_collection_name(definition: Defs.StructureDefinition) -> String:
+	if definition == null:
+		return "Object Collection"
+	match definition.kind:
+		"building":
+			return "Structures"
+		"utility":
+			return "Utilities"
+		_:
+			return "Decorations"
+
+
+func _emit_hover_info(signature: String, display_name: String, collection_name: String) -> void:
+	if signature == _hover_info_signature:
+		return
+	_hover_info_signature = signature
+	hover_changed.emit(display_name, collection_name)
 
 
 func _slot_under_mouse() -> Dictionary:
@@ -200,6 +434,22 @@ func _cell_under_mouse() -> Vector2i:
 
 
 func _update_hover_target() -> void:
+	_hover_support_instance_id = 0
+	_hover_support_slot = ""
+	if held.get("kind", "") == "structure":
+		var structure_hit := world_renderer.pick_structure_at_screen(
+			camera_rig.camera,
+			get_viewport().get_mouse_position()
+		)
+		if not structure_hit.is_empty():
+			_hover_support_instance_id = int(structure_hit["instance_id"])
+			_hover_cell = structure_hit["coord"]
+			_hover_elevation = int(structure_hit["elevation"])
+			_hover_support_slot = core.grid.free_support_slot(
+				_hover_support_instance_id,
+				String(held["id"])
+			)
+			return
 	var hit := _slot_under_mouse()
 	_hover_cell = hit["coord"]
 	var support_elevation := int(hit["elevation"])
@@ -215,6 +465,14 @@ func _update_hover_target() -> void:
 func _validate(cell: Vector2i, elevation: int = 0) -> bool:
 	match held.get("kind", ""):
 		"tile":
+			if held["moving"] != null and held["moving"].has("stack"):
+				if player.current_cell() == cell and elevation > 0:
+					return false
+				return core.grid.can_restore_tile_stack(
+					cell,
+					elevation,
+					held["moving"]["stack"]
+				)
 			if elevation > 0:
 				if player.current_cell() == cell:
 					return false
@@ -224,6 +482,27 @@ func _validate(cell: Vector2i, elevation: int = 0) -> bool:
 				return not core.grid.has_cell(cell) and _adjacent_excluding(cell, from)
 			return core.grid.can_place_tile_at(cell, 0, held["id"])
 		"structure":
+			if _hover_support_instance_id > 0:
+				if held.get("moving") != null:
+					var moving_stack: Array[WorldGrid.StructureState] = held["moving"]["stack"]
+					if (
+						core.grid.structure_depth(_hover_support_instance_id)
+						+ 1
+						+ core.grid.structure_stack_height(moving_stack)
+						>= core.grid.max_object_stack_depth
+					):
+						return false
+				return core.grid.can_place_structure_on(
+					_hover_support_instance_id,
+					String(held["id"]),
+					_hover_support_slot
+				)
+			if (
+				held.get("moving") != null
+				and core.grid.structure_stack_height(held["moving"]["stack"])
+					>= core.grid.max_object_stack_depth
+			):
+				return false
 			return _target_socket(cell, elevation) >= 0
 		"deed":
 			if elevation != 0:
@@ -262,6 +541,8 @@ func _target_socket(cell: Vector2i, elevation: int = 0) -> int:
 ## Programmatic placement at an explicit cell — used by acceptance tests and
 ## available for future gamepad cursor support. Same path as a mouse click.
 func try_place_at(cell: Vector2i) -> bool:
+	_hover_support_instance_id = 0
+	_hover_support_slot = ""
 	_hover_cell = cell
 	match held.get("kind", ""):
 		"tile":
@@ -278,9 +559,34 @@ func try_place_at(cell: Vector2i) -> bool:
 
 
 func try_place_at_layer(cell: Vector2i, elevation: int) -> bool:
+	_hover_support_instance_id = 0
+	_hover_support_slot = ""
 	_hover_cell = cell
 	_hover_elevation = elevation
 	_hover_valid = _validate(cell, elevation)
+	if not _hover_valid:
+		return false
+	click()
+	return true
+
+
+## Programmatic equivalent of hovering a specific object. Tests and future
+## controller navigation use the same typed-slot validation as the mouse path.
+func try_place_on_structure(parent_instance_id: int, slot_id: String = "") -> bool:
+	if held.get("kind", "") != "structure":
+		return false
+	var found := core.grid.find_structure(parent_instance_id)
+	if found.is_empty():
+		return false
+	_hover_support_instance_id = parent_instance_id
+	_hover_support_slot = core.grid.free_support_slot(
+		parent_instance_id,
+		String(held["id"]),
+		slot_id
+	)
+	_hover_cell = found["coord"]
+	_hover_elevation = int(found["elevation"])
+	_hover_valid = _validate(_hover_cell, _hover_elevation)
 	if not _hover_valid:
 		return false
 	click()
@@ -346,6 +652,16 @@ func _invalid_message() -> String:
 	if held.get("kind", "") == "tile" and _hover_elevation > 0:
 		return "That surface can't support another land tile — use a flat, clear block."
 	if held.get("kind", "") == "structure":
+		if _hover_support_instance_id > 0:
+			var parent_found := core.grid.find_structure(_hover_support_instance_id)
+			var parent_def := (
+				core.registries.structure(parent_found["structure"].structure_id)
+				if not parent_found.is_empty()
+				else null
+			)
+			if parent_def != null and parent_def.support_slots.is_empty():
+				return "That object cannot hold another item."
+			return "That support is full or does not fit this item."
 		return "That object needs a clear supported spot."
 	return "It can't go there — land must touch the world edge-to-edge."
 
@@ -356,18 +672,23 @@ func _place_tile() -> void:
 	if held["moving"] != null:
 		var from: Vector2i = held["moving"]["coord"]
 		var from_elevation := int(held["moving"].get("elevation", 0))
-		var original: WorldGrid.CellState = held["moving"]["state"]
-		var from_rotation := original.rotation
-		original.rotation = rotation_q
-		core.grid.restore_cell_at(_hover_cell, _hover_elevation, original)
+		var stack: Array = held["moving"]["stack"]
+		var from_rotation := int(held["moving"].get("base_rotation", rotation_q))
+		_rotate_tile_stack(stack, rotation_q - from_rotation)
+		if not core.grid.restore_tile_stack(_hover_cell, _hover_elevation, stack):
+			_rotate_tile_stack(stack, from_rotation - rotation_q)
+			action_result.emit(false, "That land stack changed before it could settle.", "invalid")
+			return
 		_push_undo({
-			"type": "move_tile",
+			"type": "move_tile_stack",
 			"from": from,
 			"from_elevation": from_elevation,
 			"to": _hover_cell,
 			"to_elevation": _hover_elevation,
 			"from_rotation": from_rotation,
 			"to_rotation": rotation_q,
+			"home_before": held["moving"].get("home_before", core.grid.home_cell),
+			"home_after": held["moving"].get("home_after", core.grid.home_cell),
 		})
 		held = {}
 		held_changed.emit(held)
@@ -403,28 +724,56 @@ func _place_tile() -> void:
 	)
 
 
+func _rotate_tile_stack(stack: Array, quarter_turn_delta: int) -> void:
+	if posmod(quarter_turn_delta, 4) == 0:
+		return
+	for entry: Dictionary in stack:
+		var state: WorldGrid.CellState = entry["state"]
+		state.rotation = posmod(state.rotation + quarter_turn_delta, 4)
+		for structure: WorldGrid.StructureState in state.structures:
+			if structure.parent_instance_id == 0:
+				structure.rotation = posmod(
+					structure.rotation + quarter_turn_delta,
+					4
+				)
+
+
 func _place_structure() -> void:
 	var structure_id: String = held["id"]
-	var socket := _target_socket(_hover_cell, _hover_elevation)
+	var socket := (
+		-1
+		if _hover_support_instance_id > 0
+		else _target_socket(_hover_cell, _hover_elevation)
+	)
+	var placed: WorldGrid.StructureState = null
 	if held["moving"] != null:
-		var s := core.grid.add_structure(
+		var moving: Dictionary = held["moving"]
+		var stack: Array[WorldGrid.StructureState] = moving["stack"]
+		if not core.grid.restore_structure_stack(
 			_hover_cell,
-			structure_id,
+			_hover_elevation,
+			stack,
+			_hover_support_instance_id,
+			_hover_support_slot,
 			socket,
-			held["rotation"],
-			_hover_elevation
-		)
-		s.instance_id = int(held["moving"]["iid"])
+			int(held["rotation"])
+		):
+			action_result.emit(false, "That support changed before the item could settle.", "invalid")
+			return
+		placed = stack[0]
 		_push_undo({
 			"type": "move_structure",
-			"iid": s.instance_id,
+			"iid": placed.instance_id,
 			"structure_id": structure_id,
-			"from": held["moving"],
+			"stack": stack,
+			"from": moving["origin"],
 			"to": {
 				"coord": _hover_cell,
 				"elevation": _hover_elevation,
 				"socket": socket,
 				"rot": held["rotation"],
+				"parent": _hover_support_instance_id,
+				"support": _hover_support_slot,
 			},
 		})
 		held = {}
@@ -433,31 +782,56 @@ func _place_structure() -> void:
 		if not core.stock.take_structure(structure_id):
 			action_result.emit(false, "That piece isn't in storage anymore.", "invalid")
 			return
-		var s := core.grid.add_structure(
-			_hover_cell,
-			structure_id,
-			socket,
-			held["rotation"],
-			_hover_elevation
-		)
+		if _hover_support_instance_id > 0:
+			placed = core.grid.add_structure_on(
+				_hover_support_instance_id,
+				structure_id,
+				_hover_support_slot,
+				held["rotation"]
+			)
+		else:
+			placed = core.grid.add_structure(
+				_hover_cell,
+				structure_id,
+				socket,
+				held["rotation"],
+				_hover_elevation
+			)
+		if placed == null:
+			core.stock.add_structure(structure_id)
+			action_result.emit(false, "That support changed before the item could settle.", "invalid")
+			return
 		core.collection.record_placed("structures", structure_id)
 		_push_undo({
 			"type": "place_structure",
 			"coord": _hover_cell,
 			"elevation": _hover_elevation,
-			"iid": s.instance_id,
+			"iid": placed.instance_id,
 			"structure_id": structure_id,
+			"socket": socket,
+			"rot": held["rotation"],
+			"parent": _hover_support_instance_id,
+			"support": _hover_support_slot,
 		})
 		if core.stock.structure_count(structure_id) <= 0:
 			held = {}
 	held_changed.emit(held)
 	_build_ghost()
 	var def := core.registries.structure(structure_id)
+	var effect_position := (
+		world_renderer.support_slot_world_transform(
+			_hover_support_instance_id,
+			_hover_support_slot
+		).origin
+		if _hover_support_instance_id > 0
+		else core.grid.cell_to_world(_hover_cell, _hover_elevation)
+			+ core.grid.socket_offset(socket)
+	)
 	effects.placement_poof(
-		core.grid.cell_to_world(_hover_cell, _hover_elevation) + core.grid.socket_offset(socket),
+		effect_position,
 		"grass" if def.placement_sound == "grass" else "stone"
 	)
-	_settle_animation(_hover_cell, _hover_elevation)
+	world_renderer.animate_structure_settle(placed.instance_id)
 	core.autosave_soon()
 	action_result.emit(true, "", "place_" + def.placement_sound)
 
@@ -475,30 +849,64 @@ func _place_deed() -> void:
 
 ## Pick up an existing structure (preferred) or a movable tile under the cursor.
 func _try_pick_up() -> void:
-	var hit := _slot_under_mouse()
-	var elevation := int(hit["elevation"])
+	var hit := world_renderer.pick_placeable_at_screen(
+		camera_rig.camera,
+		get_viewport().get_mouse_position()
+	)
+	if not hit.is_empty() and hit.get("kind", "") == "structure":
+		_pick_up_from(
+			hit["coord"],
+			int(hit["elevation"]),
+			int(hit["instance_id"])
+		)
+		return
+	if not hit.is_empty() and hit.get("kind", "") == "tile":
+		var tile_state := core.grid.cell_at(hit["coord"], int(hit["elevation"]))
+		if tile_state != null:
+			_try_pick_up_tile(hit["coord"], int(hit["elevation"]), tile_state)
+		return
+	var slot_hit := _slot_under_mouse()
+	var elevation := int(slot_hit["elevation"])
 	if elevation >= 0:
-		_pick_up_from(hit["coord"], elevation)
+		_pick_up_from(slot_hit["coord"], elevation)
 
 
-func _pick_up_from(cell: Vector2i, elevation: int) -> void:
+func _pick_up_from(cell: Vector2i, elevation: int, preferred_instance_id := -1) -> void:
 	var state := core.grid.cell_at(cell, elevation)
 	if state == null:
 		return
 	if not state.structures.is_empty():
-		var s: WorldGrid.StructureState = state.structures.back()
-		core.grid.remove_structure(cell, s.instance_id, elevation)
+		var s: WorldGrid.StructureState = null
+		if preferred_instance_id >= 0:
+			for candidate: WorldGrid.StructureState in state.structures:
+				if candidate.instance_id == preferred_instance_id:
+					s = candidate
+					break
+		else:
+			s = state.structures.back()
+		if s == null:
+			return
+		var origin := {
+			"coord": cell,
+			"elevation": elevation,
+			"socket": s.socket_index,
+			"rot": s.rotation,
+			"iid": s.instance_id,
+			"parent": s.parent_instance_id,
+			"support": s.support_slot_id,
+		}
+		world_renderer.clear_structure_hover()
+		var stack := core.grid.detach_structure_stack(s.instance_id)
+		if stack.is_empty():
+			return
 		core.autosave_paused = true
 		held = {
 			"kind": "structure",
 			"id": s.structure_id,
 			"rotation": s.rotation,
 			"moving": {
-				"coord": cell,
-				"elevation": elevation,
-				"socket": s.socket_index,
-				"rot": s.rotation,
-				"iid": s.instance_id,
+				"stack": stack,
+				"origin": origin,
 			},
 		}
 		_build_ghost()
@@ -509,16 +917,20 @@ func _pick_up_from(cell: Vector2i, elevation: int) -> void:
 
 
 func _try_pick_up_tile(cell: Vector2i, elevation: int, state: WorldGrid.CellState) -> void:
-	if elevation == 0 and state.starter:
-		action_result.emit(false, "The first nine tiles are the heart of your world — they stay (and can be upgraded later).", "invalid")
+	if state.movement_locked:
+		action_result.emit(false, "This first water tile anchors the opening zone for now.", "invalid")
 		return
 	if elevation == 0 and state.landmark_id != "":
 		action_result.emit(false, "Reclaimed landmarks move by packing them from their pedestal.", "invalid")
 		return
-	if core.grid.top_elevation(cell) > elevation:
-		action_result.emit(false, "Move the upper blocks first.", "invalid")
-		return
-	if elevation == 0 and not core.grid.connected_without(cell, core.grid.home_cell):
+	var home_before := core.grid.home_cell
+	var home_after := home_before
+	if elevation == 0 and home_before == cell:
+		home_after = core.grid.nearest_walkable(cell, cell)
+		if home_after == cell:
+			action_result.emit(false, "Place another safe land tile before moving this one.", "invalid")
+			return
+	if elevation == 0 and not core.grid.connected_without(cell, home_after):
 		action_result.emit(false, "Removing that tile would split your world in two.", "invalid")
 		return
 	if elevation == 0 and player.current_cell() == cell:
@@ -527,9 +939,13 @@ func _try_pick_up_tile(cell: Vector2i, elevation: int, state: WorldGrid.CellStat
 			action_result.emit(false, "There's nowhere safe to stand — place more land first.", "invalid")
 			return
 		player.position = core.grid.cell_to_world(refuge)
-	var removed := core.grid.remove_tile_at(cell, elevation)
-	if removed == null:
+	if elevation == 0:
+		core.grid.home_cell = home_after
+	var stack := core.grid.detach_tile_stack(cell, elevation)
+	if stack.is_empty():
+		core.grid.home_cell = home_before
 		return
+	var removed: WorldGrid.CellState = stack[0]["state"]
 	core.autosave_paused = true
 	held = {
 		"kind": "tile",
@@ -538,7 +954,10 @@ func _try_pick_up_tile(cell: Vector2i, elevation: int, state: WorldGrid.CellStat
 		"moving": {
 			"coord": cell,
 			"elevation": elevation,
-			"state": removed,
+			"stack": stack,
+			"base_rotation": removed.rotation,
+			"home_before": home_before,
+			"home_after": home_after,
 		},
 	}
 	_build_ghost()
@@ -556,20 +975,23 @@ func store_held() -> void:
 		return
 	match held["kind"]:
 		"structure":
-			core.stock.add_structure(held["id"])
+			var moved_stack: Array[WorldGrid.StructureState] = held["moving"]["stack"]
+			for structure: WorldGrid.StructureState in moved_stack:
+				core.stock.add_structure(structure.structure_id)
 			_push_undo({
 				"type": "store_structure",
 				"structure_id": held["id"],
-				"from": held["moving"],
+				"stack": moved_stack,
+				"from": held["moving"]["origin"],
 			})
 		"tile":
-			var original: WorldGrid.CellState = held["moving"]["state"]
-			core.stock.add_tile(held["id"])
+			var tile_stack: Array = held["moving"]["stack"]
+			_return_tile_stack_to_stock(tile_stack)
 			_push_undo({
-				"type": "store_tile",
+				"type": "store_tile_stack",
 				"tile_id": held["id"],
-				"from": held["moving"],
-				"rotation": original.rotation,
+				"stack": tile_stack,
+				"from": held["moving"].duplicate(),
 			})
 		_:
 			return
@@ -607,20 +1029,27 @@ func _cancel_held(restore: bool) -> void:
 	if restore and held["moving"] != null:
 		match held["kind"]:
 			"tile":
-				var original: WorldGrid.CellState = held["moving"]["state"]
 				var coord: Vector2i = held["moving"]["coord"]
 				var elevation := int(held["moving"].get("elevation", 0))
-				core.grid.restore_cell_at(coord, elevation, original)
-			"structure":
-				var m: Dictionary = held["moving"]
-				var s := core.grid.add_structure(
-					m["coord"],
-					held["id"],
-					m["socket"],
-					m["rot"],
-					int(m.get("elevation", 0))
+				core.grid.restore_tile_stack(
+					coord,
+					elevation,
+					held["moving"]["stack"],
+					false
 				)
-				s.instance_id = m["iid"]
+				core.grid.home_cell = held["moving"].get("home_before", core.grid.home_cell)
+			"structure":
+				var moving: Dictionary = held["moving"]
+				var origin: Dictionary = moving["origin"]
+				core.grid.restore_structure_stack(
+					origin["coord"],
+					int(origin.get("elevation", 0)),
+					moving["stack"],
+					int(origin.get("parent", 0)),
+					String(origin.get("support", "")),
+					int(origin.get("socket", 0)),
+					int(origin.get("rot", 0))
+				)
 	elif restore and held["moving"] == null and held["kind"] == "tile":
 		pass  # piece stays in stock — nothing was consumed until placement
 	held = {}
@@ -684,37 +1113,35 @@ func _apply(entry: Dictionary, reverse: bool) -> bool:
 		"place_structure":
 			var structure_elevation := int(entry.get("elevation", 0))
 			if reverse:
-				var removed_s := core.grid.remove_structure(
-					entry["coord"],
-					entry["iid"],
-					structure_elevation
-				)
-				if removed_s != null:
-					core.stock.add_structure(removed_s.structure_id)
-				return removed_s != null
-			if core.stock.take_structure(entry["structure_id"]):
-				var structure_def := core.registries.structure(entry["structure_id"])
-				if structure_def == null:
-					core.stock.add_structure(entry["structure_id"])
+				var removed_stack := core.grid.detach_structure_stack(entry["iid"])
+				if removed_stack.is_empty():
 					return false
-				var socket := core.grid.free_socket(
-					entry["coord"],
-					structure_def.socket_type,
-					structure_elevation
-				)
-				if socket >= 0:
-					var s := core.grid.add_structure(
+				for removed_s: WorldGrid.StructureState in removed_stack:
+					core.stock.add_structure(removed_s.structure_id)
+				return true
+			if core.stock.take_structure(entry["structure_id"]):
+				var s: WorldGrid.StructureState = null
+				if int(entry.get("parent", 0)) > 0:
+					s = core.grid.add_structure_on(
+						int(entry["parent"]),
+						entry["structure_id"],
+						String(entry.get("support", "")),
+						int(entry.get("rot", 0))
+					)
+				else:
+					s = core.grid.add_structure(
 						entry["coord"],
 						entry["structure_id"],
-						socket,
-						0,
+						int(entry.get("socket", -1)),
+						int(entry.get("rot", 0)),
 						structure_elevation
 					)
+				if s != null:
 					entry["iid"] = s.instance_id
 					return true
 				core.stock.add_structure(entry["structure_id"])
 			return false
-		"move_tile":
+		"move_tile_stack":
 			var from: Vector2i = entry["to"] if reverse else entry["from"]
 			var to: Vector2i = entry["from"] if reverse else entry["to"]
 			var from_elevation := (
@@ -727,84 +1154,162 @@ func _apply(entry: Dictionary, reverse: bool) -> bool:
 				if reverse
 				else int(entry.get("to_elevation", 0))
 			)
-			if not core.grid.move_tile_at(from, from_elevation, to, to_elevation):
+			var moving_stack := core.grid.detach_tile_stack(from, from_elevation)
+			if moving_stack.is_empty():
 				return false
-			var moved_state := core.grid.cell_at(to, to_elevation)
-			moved_state.rotation = int(
-				entry.get("from_rotation", moved_state.rotation)
+			var source_rotation := int(
+				entry.get("to_rotation", 0)
 				if reverse
-				else entry.get("to_rotation", moved_state.rotation)
+				else entry.get("from_rotation", 0)
 			)
-			core.grid.slot_changed.emit(to, to_elevation)
+			var destination_rotation := int(
+				entry.get("from_rotation", 0)
+				if reverse
+				else entry.get("to_rotation", 0)
+			)
+			_rotate_tile_stack(moving_stack, destination_rotation - source_rotation)
+			if not core.grid.restore_tile_stack(to, to_elevation, moving_stack):
+				_rotate_tile_stack(moving_stack, source_rotation - destination_rotation)
+				core.grid.restore_tile_stack(from, from_elevation, moving_stack, false)
+				return false
+			core.grid.home_cell = (
+				entry.get("home_before", core.grid.home_cell)
+				if reverse
+				else entry.get("home_after", core.grid.home_cell)
+			)
 			return true
 		"move_structure":
-			var src: Dictionary = entry["to"] if reverse else entry["from"]
 			var dst: Dictionary = entry["from"] if reverse else entry["to"]
 			var found := core.grid.find_structure(entry["iid"])
 			if found.is_empty():
 				return false
-			core.grid.remove_structure(
-				found["coord"],
-				entry["iid"],
-				int(found.get("elevation", 0))
-			)
-			var s := core.grid.add_structure(
+			var moved_stack := core.grid.detach_structure_stack(entry["iid"])
+			if moved_stack.is_empty():
+				return false
+			if not core.grid.restore_structure_stack(
 				dst["coord"],
-				_structure_id_of(entry),
-				dst.get("socket", 0),
-				dst.get("rot", 0),
-				int(dst.get("elevation", 0))
-			)
-			s.instance_id = entry["iid"]
+				int(dst.get("elevation", 0)),
+				moved_stack,
+				int(dst.get("parent", 0)),
+				String(dst.get("support", "")),
+				int(dst.get("socket", 0)),
+				int(dst.get("rot", 0))
+			):
+				var src: Dictionary = entry["to"] if reverse else entry["from"]
+				core.grid.restore_structure_stack(
+					src["coord"],
+					int(src.get("elevation", 0)),
+					moved_stack,
+					int(src.get("parent", 0)),
+					String(src.get("support", "")),
+					int(src.get("socket", 0)),
+					int(src.get("rot", 0))
+				)
+				return false
+			entry["stack"] = moved_stack
 			return true
 		"store_structure":
 			var m: Dictionary = entry["from"]
+			var stored_stack: Array[WorldGrid.StructureState] = entry["stack"]
 			if reverse:
-				if core.stock.take_structure(entry["structure_id"]):
-					var restored := core.grid.add_structure(
-						m["coord"],
-						entry["structure_id"],
-						m["socket"],
-						m["rot"],
-						int(m.get("elevation", 0))
-					)
-					entry["from"]["iid"] = restored.instance_id
+				if not _take_structure_stack_from_stock(stored_stack):
+					return false
+				if core.grid.restore_structure_stack(
+					m["coord"],
+					int(m.get("elevation", 0)),
+					stored_stack,
+					int(m.get("parent", 0)),
+					String(m.get("support", "")),
+					int(m.get("socket", 0)),
+					int(m.get("rot", 0))
+				):
 					return true
+				_return_structure_stack_to_stock(stored_stack)
 				return false
-			var removed_again := core.grid.remove_structure(
-				m["coord"],
-				int(m.get("iid", -1)),
-				int(m.get("elevation", 0))
+			var removed_again := core.grid.detach_structure_stack(
+				int(m.get("iid", -1))
 			)
-			if removed_again != null:
-				core.stock.add_structure(entry["structure_id"])
+			if not removed_again.is_empty():
+				entry["stack"] = removed_again
+				_return_structure_stack_to_stock(removed_again)
 				return true
 			return false
-		"store_tile":
+		"store_tile_stack":
 			var tile_from: Dictionary = entry["from"]
 			var tile_coord: Vector2i = tile_from["coord"]
 			var tile_elevation := int(tile_from.get("elevation", 0))
+			var stored_tiles: Array = entry["stack"]
 			if reverse:
-				if not core.stock.take_tile(entry["tile_id"]):
+				if not _take_tile_stack_from_stock(stored_tiles):
 					return false
-				var original: WorldGrid.CellState = tile_from["state"]
-				original.rotation = int(entry.get("rotation", original.rotation))
-				if core.grid.has_cell_at(tile_coord, tile_elevation):
-					core.stock.add_tile(entry["tile_id"])
+				if not core.grid.restore_tile_stack(
+					tile_coord,
+					tile_elevation,
+					stored_tiles
+				):
+					_return_tile_stack_to_stock(stored_tiles)
 					return false
-				core.grid.restore_cell_at(tile_coord, tile_elevation, original)
+				core.grid.home_cell = tile_from.get("home_before", core.grid.home_cell)
 				return true
-			var removed_tile := core.grid.remove_tile_at(tile_coord, tile_elevation)
-			if removed_tile == null:
+			var removed_tiles := core.grid.detach_tile_stack(tile_coord, tile_elevation)
+			if removed_tiles.is_empty():
 				return false
-			entry["from"]["state"] = removed_tile
-			core.stock.add_tile(entry["tile_id"])
+			entry["stack"] = removed_tiles
+			core.grid.home_cell = tile_from.get("home_after", core.grid.home_cell)
+			_return_tile_stack_to_stock(removed_tiles)
 			return true
 	return false
 
 
 func _structure_id_of(entry: Dictionary) -> String:
 	return entry.get("structure_id", held.get("id", ""))
+
+
+func _take_structure_stack_from_stock(stack: Array[WorldGrid.StructureState]) -> bool:
+	var taken: Array[String] = []
+	for structure: WorldGrid.StructureState in stack:
+		if not core.stock.take_structure(structure.structure_id):
+			for structure_id: String in taken:
+				core.stock.add_structure(structure_id)
+			return false
+		taken.append(structure.structure_id)
+	return true
+
+
+func _return_structure_stack_to_stock(stack: Array[WorldGrid.StructureState]) -> void:
+	for structure: WorldGrid.StructureState in stack:
+		core.stock.add_structure(structure.structure_id)
+
+
+func _take_tile_stack_from_stock(stack: Array) -> bool:
+	var taken_tiles: Array[String] = []
+	var taken_structures: Array[String] = []
+	for entry: Dictionary in stack:
+		var state: WorldGrid.CellState = entry["state"]
+		if not core.stock.take_tile(state.tile_id):
+			for tile_id: String in taken_tiles:
+				core.stock.add_tile(tile_id)
+			for structure_id: String in taken_structures:
+				core.stock.add_structure(structure_id)
+			return false
+		taken_tiles.append(state.tile_id)
+		for structure: WorldGrid.StructureState in state.structures:
+			if not core.stock.take_structure(structure.structure_id):
+				for tile_id: String in taken_tiles:
+					core.stock.add_tile(tile_id)
+				for structure_id: String in taken_structures:
+					core.stock.add_structure(structure_id)
+				return false
+			taken_structures.append(structure.structure_id)
+	return true
+
+
+func _return_tile_stack_to_stock(stack: Array) -> void:
+	for entry: Dictionary in stack:
+		var state: WorldGrid.CellState = entry["state"]
+		core.stock.add_tile(state.tile_id)
+		for structure: WorldGrid.StructureState in state.structures:
+			core.stock.add_structure(structure.structure_id)
 
 
 func _settle_animation(coord: Vector2i, elevation: int = 0) -> void:

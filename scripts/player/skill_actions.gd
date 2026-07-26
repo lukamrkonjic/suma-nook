@@ -43,14 +43,22 @@ func interact_with(focus: Dictionary) -> void:
 	match focus.get("kind", ""):
 		"anchor":
 			var coord: Vector2i = focus.get("coord", Vector2i(9999, 9999))
-			var state := core.grid.cell(coord)
-			if state == null or state.anchor_resting:
-				return
 			var anchor: Defs.AnchorDefinition = focus["anchor"]
-			if anchor.skill_id == "fishing":
+			var instance_id := int(focus.get("instance_id", 0))
+			if instance_id > 0:
+				var found := core.grid.find_structure(instance_id)
+				if found.is_empty():
+					return
+				var structure: WorldGrid.StructureState = found["structure"]
+				if structure.anchor_resting:
+					return
+				if anchor.skill_id == "woodcutting":
+					_start_chopping(instance_id)
+			elif anchor.skill_id == "fishing":
+				var state := core.grid.cell(coord)
+				if state == null or state.anchor_resting:
+					return
 				_start_fishing(coord)
-			elif anchor.skill_id == "woodcutting":
-				_start_chopping(coord)
 		"storage":
 			storage_requested.emit()
 		"delivery_package":
@@ -128,20 +136,28 @@ func _pond_point(coord: Vector2i) -> Vector3:
 
 # ------------------------------------------------------------------ woodcutting
 
-func _start_chopping(coord: Vector2i) -> void:
-	var my_loop := _prepare_action(coord, "axe")
-	_chop_cycle(my_loop, coord)
+func _start_chopping(instance_id: int) -> void:
+	var point := _structure_world_position(instance_id)
+	var my_loop := _prepare_action_at(point, "axe")
+	_chop_cycle(my_loop, instance_id)
 
 
-func _chop_cycle(my_loop: int, coord: Vector2i) -> void:
+func _chop_cycle(my_loop: int, instance_id: int) -> void:
 	if my_loop != _loop_id:
 		return
-	var state := core.grid.cell(coord)
-	var def := core.grid.tile_def(coord)
-	if state == null or def == null or state.anchor_resting:
+	var found := core.grid.find_structure(instance_id)
+	if found.is_empty():
 		player.set_state(PlayerController.State.FREE)
 		return
-	var anchor := core.registries.anchor(def.anchor_id)
+	var structure: WorldGrid.StructureState = found["structure"]
+	var definition := core.registries.structure(structure.structure_id)
+	if definition == null or definition.anchor_id == "" or structure.anchor_resting:
+		player.set_state(PlayerController.State.FREE)
+		return
+	var anchor := core.registries.anchor(definition.anchor_id)
+	if anchor == null:
+		player.set_state(PlayerController.State.FREE)
+		return
 	player.set_state(PlayerController.State.WOODCUTTING)
 	visual.play("chop")
 	action_feedback.emit("chop_windup", {})
@@ -149,18 +165,25 @@ func _chop_cycle(my_loop: int, coord: Vector2i) -> void:
 	await _wait(0.28 / speed)   # the swing reaches the trunk exactly here
 	if my_loop != _loop_id:
 		return
-	var impact_point := core.grid.cell_to_world(coord) + Vector3(0.45, 0.7, 0.45)
+	found = core.grid.find_structure(instance_id)
+	if found.is_empty():
+		player.set_state(PlayerController.State.FREE)
+		return
+	structure = found["structure"]
+	var impact_point := _structure_world_position(instance_id) + Vector3(0, 0.7, 0)
 	effects.burst("fx_wood_chip", impact_point, 6)
-	effects.shake_vegetation(coord)
+	effects.shake_structure(instance_id)
 	var result := core.rewards.resolve_hobby_action(core.registries.skill("woodcutting"))
 	core.skills.record_action("woodcutting")
 	core.skills.add_xp("woodcutting", result.xp_awarded)
 	action_feedback.emit("chop_impact", {"result": result.to_dict(), "point": impact_point})
-	state.anchor_actions_done += 1
-	if state.anchor_actions_done >= anchor.cycle_actions + state.anchor_upgrade:
-		state.anchor_resting = true
-		state.anchor_regen_left = anchor.regen_seconds * (1.0 - 0.1 * state.anchor_upgrade)
-		action_feedback.emit("grove_rest", {"coord": coord})
+	structure.anchor_actions_done += 1
+	if structure.anchor_actions_done >= anchor.cycle_actions + structure.anchor_upgrade:
+		structure.anchor_resting = true
+		structure.anchor_regen_left = anchor.regen_seconds * (
+			1.0 - 0.1 * structure.anchor_upgrade
+		)
+		action_feedback.emit("grove_rest", {"instance_id": instance_id})
 		core.autosave_soon()
 		await _wait(0.4)
 		player.set_state(PlayerController.State.FREE)
@@ -168,7 +191,7 @@ func _chop_cycle(my_loop: int, coord: Vector2i) -> void:
 	await _wait(maxf(0.4, core.registries.skill("woodcutting").action_seconds / speed - 0.28))
 	if my_loop != _loop_id:
 		return
-	_chop_cycle(my_loop, coord)
+	_chop_cycle(my_loop, instance_id)
 
 
 # ------------------------------------------------------------------ combat
@@ -196,11 +219,25 @@ func attack(enemy_node: Node3D) -> void:
 # ------------------------------------------------------------------ helpers
 
 func _prepare_action(coord: Vector2i, tool_type: String) -> int:
+	return _prepare_action_at(core.grid.cell_to_world(coord), tool_type)
+
+
+func _prepare_action_at(point: Vector3, tool_type: String) -> int:
 	_loop_id += 1
-	player.face_toward(core.grid.cell_to_world(coord))
+	player.face_toward(point)
 	visual.apply_equipment(core.equipment, tool_type)
 	action_feedback.emit("tool_equip", {})
 	return _loop_id
+
+
+func _structure_world_position(instance_id: int) -> Vector3:
+	var found := core.grid.find_structure(instance_id)
+	if found.is_empty():
+		return player.global_position
+	return (
+		core.grid.cell_to_world(found["coord"], int(found["elevation"]))
+		+ core.grid.structure_local_transform(instance_id).origin
+	)
 
 
 func _wait(seconds: float) -> void:

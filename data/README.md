@@ -12,10 +12,11 @@ fails loudly, never silently).
 - `items.json` — materials, parcels, tools, equipment, relics. Equipment
   carries `slot`, `asset_id` (visual attachment), and `stats`.
 - `tiles.json` — TileDefinitions per terrain family (home_meadow,
-  living_grove, stonebound): asset, rarity/weight, unlock levels, anchor,
-  sockets, landmark tags.
+  living_grove, stonebound): asset, rarity/weight, unlock levels, terrain
+  anchors such as water/minerals, sockets, landmark tags.
 - `anchors.json` — Resource Anchors (skill, cycle length, regen).
-- `structures.json` — placeable pieces incl. future-visitor metadata tags.
+- `structures.json` — placeable objects, object support policy, optional
+  resource anchors (trees), and future-visitor metadata tags.
 - `recipes.json` — crafting (inputs → structure/item/parcel output, skill
   unlock levels; unlocks are always deterministic).
 - `loot_tables.json` — weighted tables incl. rare layers.

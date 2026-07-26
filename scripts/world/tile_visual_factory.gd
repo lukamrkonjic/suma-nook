@@ -34,23 +34,24 @@ func add_collision(
 			if def.walkable:
 				_add_box(
 					holder,
-					Vector3(grid.tile_size, 0.9, grid.tile_size),
-					Vector3(0.0, -0.45, 0.0),
+					Vector3(grid.tile_size, grid.block_depth, grid.tile_size),
+					Vector3(0.0, -grid.block_depth * 0.5, 0.0),
 					GROUND_LAYER
 				)
 		"pond_basin":
 			if def.walkable:
 				_add_box(
 					holder,
-					Vector3(grid.tile_size, 0.9, grid.tile_size),
-					Vector3(0.0, -0.45, 0.0),
+					Vector3(grid.tile_size, grid.block_depth, grid.tile_size),
+					Vector3(0.0, -grid.block_depth * 0.5, 0.0),
 					GROUND_LAYER
 				)
 			var offset := Vector3(0.14, 0.4, 0.14).rotated(
 				Vector3.UP,
 				rotation_quarters * PI * 0.5
 			)
-			_add_box(holder, Vector3(1.35, 0.8, 1.35), offset, BLOCKER_LAYER)
+			var basin_width := grid.tile_size * 0.68
+			_add_box(holder, Vector3(basin_width, 0.8, basin_width), offset, BLOCKER_LAYER)
 		"none":
 			pass
 

@@ -147,6 +147,9 @@ func _handle_dev_shot(user_args: PackedStringArray) -> bool:
 		camera_rig.global_position = Vector3(shot_focus.x, 0.0, shot_focus.y)
 	if user_args.has("--admin"):
 		panels.toggle("debug")
+	for arg in user_args:
+		if arg.begins_with("--hover-iid="):
+			renderer.set_hovered_structure(int(arg.trim_prefix("--hover-iid=")))
 	if shot_pause_page != "":
 		open_pause_menu(shot_pause_page)
 		# Visual audits must stay deterministic even if the capture window
@@ -181,7 +184,13 @@ func _build_world_scene() -> void:
 
 	delivery_point = DeliveryPoint.new()
 	world_root.add_child(delivery_point)
-	delivery_point.setup(materials, core.grid.tile_size, Vector3(0, 0, -1), assets)
+	delivery_point.setup(
+		materials,
+		core.grid.tile_size,
+		Vector3(0, 0, -1),
+		assets,
+		core.grid
+	)
 
 	ferry_presentation = FerryArrivalPresentation.new()
 	ferry_presentation.name = "FerryArrivalPresentation"
@@ -217,7 +226,7 @@ func _build_world_scene() -> void:
 	placement = PlacementController.new()
 	placement.name = "Placement"
 	world_root.add_child(placement)
-	placement.setup(core, assets, camera_rig, player, effects)
+	placement.setup(core, assets, camera_rig, player, effects, renderer)
 
 	skill_actions = SkillActions.new()
 	skill_actions.name = "SkillActions"
@@ -384,7 +393,8 @@ func _tick_footsteps(delta: float) -> void:
 
 var _anchor_watch: Dictionary = {}
 
-## Grove regrow pop: when a resting anchor finishes, bounce its vegetation back.
+## Resource regrow pop: terrain anchors and object-owned anchors are watched
+## independently so a tree keeps its cycle when moved between ordinary tiles.
 func _tick_anchor_visuals() -> void:
 	for coord: Vector2i in core.grid.cells:
 		var state := core.grid.cell(coord)
@@ -393,6 +403,18 @@ func _tick_anchor_visuals() -> void:
 			renderer.refresh_anchor(coord)
 			audio.play_event("leaf_rustle")
 		_anchor_watch[coord] = state.anchor_resting
+	for slot: Dictionary in core.grid.all_cell_slots():
+		var state: WorldGrid.CellState = slot["state"]
+		for structure: WorldGrid.StructureState in state.structures:
+			var structure_def := core.registries.structure(structure.structure_id)
+			if structure_def == null or structure_def.anchor_id == "":
+				continue
+			var watch_key := "structure:%d" % structure.instance_id
+			var was_resting: bool = _anchor_watch.get(watch_key, false)
+			if was_resting and not structure.anchor_resting:
+				renderer.refresh_structure_anchor(structure.instance_id)
+				audio.play_event("leaf_rustle")
+			_anchor_watch[watch_key] = structure.anchor_resting
 
 
 # ------------------------------------------------------------------ input routing
@@ -614,20 +636,59 @@ func _interaction_at_screen(screen_position: Vector2) -> Dictionary:
 				if not candidate.is_empty() and candidate["_distance"] < best_distance:
 					best = candidate
 					best_distance = candidate["_distance"]
-		for structure in state.structures:
+	for slot: Dictionary in core.grid.all_cell_slots():
+		var coord: Vector2i = slot["coord"]
+		var elevation := int(slot["elevation"])
+		var state: WorldGrid.CellState = slot["state"]
+		var center := core.grid.cell_to_world(coord, elevation)
+		for structure: WorldGrid.StructureState in state.structures:
 			var structure_def := core.registries.structure(structure.structure_id)
-			if structure_def == null or not structure_def.provides.has("storage_access"):
+			if structure_def == null:
 				continue
-			var point := center + core.grid.socket_offset(structure.socket_index)
-			var candidate := _screen_candidate(
-				screen_position,
-				point + Vector3(0, 0.45, 0),
-				base_radius,
-				{"kind": "storage", "coord": coord, "point": point}
-			)
-			if not candidate.is_empty() and candidate["_distance"] < best_distance:
-				best = candidate
-				best_distance = candidate["_distance"]
+			var point := center + core.grid.structure_local_transform(
+				structure.instance_id
+			).origin
+			if structure_def.anchor_id != "" and not structure.anchor_resting:
+				var anchor := core.registries.anchor(structure_def.anchor_id)
+				if anchor != null and core.skills.is_playable(anchor.skill_id):
+					var anchor_candidate := _screen_candidate(
+						screen_position,
+						point + Vector3(0, 0.8, 0),
+						base_radius * 1.35,
+						{
+							"kind": "anchor",
+							"coord": coord,
+							"elevation": elevation,
+							"instance_id": structure.instance_id,
+							"anchor": anchor,
+							"point": point,
+						}
+					)
+					if (
+						not anchor_candidate.is_empty()
+						and anchor_candidate["_distance"] < best_distance
+					):
+						best = anchor_candidate
+						best_distance = anchor_candidate["_distance"]
+			if structure_def.provides.has("storage_access"):
+				var storage_candidate := _screen_candidate(
+					screen_position,
+					point + Vector3(0, 0.45, 0),
+					base_radius,
+					{
+						"kind": "storage",
+						"coord": coord,
+						"elevation": elevation,
+						"instance_id": structure.instance_id,
+						"point": point,
+					}
+				)
+				if (
+					not storage_candidate.is_empty()
+					and storage_candidate["_distance"] < best_distance
+				):
+					best = storage_candidate
+					best_distance = storage_candidate["_distance"]
 
 	best.erase("_distance")
 	return best
@@ -667,7 +728,10 @@ func _on_action_feedback(kind: String, data: Dictionary) -> void:
 			hud.update_tutorial()
 		"grove_rest":
 			audio.play_event("grove_rest")
-			renderer.refresh_anchor(data["coord"])
+			if int(data.get("instance_id", 0)) > 0:
+				renderer.refresh_structure_anchor(int(data["instance_id"]))
+			elif data.has("coord"):
+				renderer.refresh_anchor(data["coord"])
 		"tool_equip":
 			audio.play_event("tool_equip")
 
@@ -717,7 +781,7 @@ func _on_focus_changed(focus: Dictionary) -> void:
 		"delivery_package":
 			hud.set_prompt("E — open the ferry's Land Parcel")
 		"enemy":
-			hud.set_prompt("E — attack   ·   Space — dodge")
+			hud.set_prompt("E — attack   ·   Space — jump   ·   Shift — dodge")
 		"landmark_prompt":
 			hud.set_prompt("E — claim the watchpost")
 		_:
@@ -847,6 +911,7 @@ func _spawn_saved_encounters() -> void:
 
 func _return_home() -> void:
 	player.teleport_home()
+	camera_rig.reset_pan()
 	hud.toast("Home again.", "good")
 
 

@@ -23,6 +23,9 @@ var _build_strip: HBoxContainer
 var _parcel_button: Button
 var _bottom_buttons: HBoxContainer
 var _admin_card: PanelContainer
+var _hover_tooltip: PanelContainer
+var _hover_name_label: Label
+var _hover_collection_label: Label
 
 
 func setup(game_core: GameCore, ui_kit: UiKit, placement_controller: PlacementController) -> void:
@@ -40,6 +43,7 @@ func setup(game_core: GameCore, ui_kit: UiKit, placement_controller: PlacementCo
 	core.notified.connect(func(message, tone): toast(message, tone))
 	placement.mode_changed.connect(_on_build_mode)
 	placement.action_result.connect(_on_action_result)
+	placement.hover_changed.connect(set_hover_tooltip)
 	_refresh_all()
 
 
@@ -82,6 +86,30 @@ func _build_layout() -> void:
 	_health_box.add_theme_constant_override("separation", 4)
 	_health_box.visible = false
 	root.add_child(_health_box)
+
+	# Build hover identity — compact and centered, so the world remains the
+	# dominant surface while every tile/object still has a clear name.
+	_hover_tooltip = kit.card(Vector2(260, 0))
+	_hover_tooltip.name = "PlaceableHoverTooltip"
+	_hover_tooltip.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_hover_tooltip.position.y = 14
+	_hover_tooltip.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_hover_tooltip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hover_tooltip.visible = false
+	root.add_child(_hover_tooltip)
+	var hover_col := VBoxContainer.new()
+	hover_col.add_theme_constant_override("separation", 0)
+	_hover_tooltip.add_child(hover_col)
+	_hover_name_label = kit.label("", 18, false, true)
+	_hover_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hover_col.add_child(_hover_name_label)
+	_hover_collection_label = kit.label("", 13)
+	_hover_collection_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_hover_collection_label.add_theme_color_override(
+		"font_color",
+		Color(0.42, 0.4, 0.34)
+	)
+	hover_col.add_child(_hover_collection_label)
 
 	# Toasts — top right.
 	_toast_box = VBoxContainer.new()
@@ -298,6 +326,14 @@ func set_tutorial_enabled(enabled: bool) -> void:
 	_hint_label.visible = enabled
 
 
+func set_hover_tooltip(display_name: String, collection_name: String) -> void:
+	if _hover_tooltip == null:
+		return
+	_hover_name_label.text = display_name
+	_hover_collection_label.text = collection_name
+	_hover_tooltip.visible = display_name != ""
+
+
 ## Keeps unboxed world-space guidance legible across the pale day and dark
 ## rain backdrops without adding a large UI panel over the diorama.
 func apply_weather_contrast(rain_enabled: bool) -> void:
@@ -344,6 +380,30 @@ func update_tutorial() -> void:
 	elif core.grid.placed_tile_count() == 0 and core.stock.total_tiles() > 0:
 		set_hint("Place your new land beside the world you have. (B for build mode)")
 	elif core.grid.placed_tile_count() > 0 and core.skills.lifetime_actions.get("woodcutting", 0) == 0:
-		set_hint("Tend your new grove — it will rest, then regrow.")
+		if _has_placed_tree():
+			set_hint("Tend your placed tree — it will rest, then regrow.")
+		elif _stored_tree_count() > 0:
+			set_hint("Place your tree from the Build Library, then tend it.")
+		else:
+			set_hint("")
 	else:
 		set_hint("")
+
+
+func _has_placed_tree() -> bool:
+	for slot: Dictionary in core.grid.all_cell_slots():
+		var state: WorldGrid.CellState = slot["state"]
+		for structure: WorldGrid.StructureState in state.structures:
+			var definition := core.registries.structure(structure.structure_id)
+			if definition != null and definition.anchor_id == "grove_anchor":
+				return true
+	return false
+
+
+func _stored_tree_count() -> int:
+	var count := 0
+	for structure_id: String in core.stock.structures:
+		var definition := core.registries.structure(structure_id)
+		if definition != null and definition.anchor_id == "grove_anchor":
+			count += core.stock.structure_count(structure_id)
+	return count

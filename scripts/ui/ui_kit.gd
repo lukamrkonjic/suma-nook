@@ -88,6 +88,22 @@ func button(text: String, accent := false) -> Button:
 	return b
 
 
+func choice_button(text: String, selected := false) -> Button:
+	var b := button(text, false)
+	b.toggle_mode = true
+	b.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
+	var selected_style := StyleBoxFlat.new()
+	selected_style.bg_color = palette.color("ui_accent").lightened(0.06)
+	selected_style.set_corner_radius_all(12)
+	selected_style.set_content_margin_all(11)
+	selected_style.content_margin_left = 18
+	selected_style.content_margin_right = 18
+	b.add_theme_stylebox_override("pressed", selected_style)
+	b.add_theme_color_override("font_pressed_color", Color.WHITE)
+	b.set_pressed_no_signal(selected)
+	return b
+
+
 func menu_button(text: String, accent := false) -> Button:
 	var b := Button.new()
 	b.text = text

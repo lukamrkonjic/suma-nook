@@ -8,6 +8,8 @@ extends RefCounted
 
 var registries: Registries
 
+const FIRST_WATER_COORD := Vector2i(-1, -1)
+
 
 func _init(definition_registries: Registries) -> void:
 	registries = definition_registries
@@ -16,10 +18,26 @@ func _init(definition_registries: Registries) -> void:
 func reconcile(grid: WorldGrid, stock: StockManager) -> Dictionary:
 	var warnings := PackedStringArray()
 	var changed := false
+	changed = _repair_opening_movement_lock(grid) or changed
 	changed = _repair_elevation_columns(grid, stock, warnings) or changed
 	changed = _repair_structures(grid, stock, warnings) or changed
 	changed = _repair_home_cell(grid, warnings) or changed
 	return {"changed": changed, "warnings": warnings}
+
+
+## Saves created before explicit movement locks treated every opening tile as
+## immovable. Preserve only the authored first-water exception on hydration.
+func _repair_opening_movement_lock(grid: WorldGrid) -> bool:
+	var state := grid.cell(FIRST_WATER_COORD)
+	if (
+		state == null
+		or not state.starter
+		or state.tile_id != "tile_open_water"
+		or state.movement_locked
+	):
+		return false
+	state.movement_locked = true
+	return true
 
 
 func _repair_elevation_columns(
@@ -78,12 +96,13 @@ func _repair_structures(
 		if normalized_tile_rotation != state.rotation:
 			state.rotation = normalized_tile_rotation
 			changed = true
-		var accepted: Array[WorldGrid.StructureState] = []
-		var occupied := {}
+		# Normalize stable ids before following support edges. Duplicate ids are
+		# assigned fresh values; ambiguous legacy child links keep pointing at
+		# the first occurrence and are never silently guessed.
 		for structure: WorldGrid.StructureState in state.structures:
 			var def := registries.structure(structure.structure_id)
 			if def == null:
-				def = registries.ensure_compatibility_definition(
+				registries.ensure_compatibility_definition(
 					"structures",
 					structure.structure_id
 				)
@@ -92,25 +111,6 @@ func _repair_structures(
 			if normalized_structure_rotation != structure.rotation:
 				structure.rotation = normalized_structure_rotation
 				changed = true
-			var socket := _compatible_socket(
-				tile_def,
-				def,
-				structure.socket_index,
-				elevation,
-				occupied
-			)
-			if socket < 0:
-				stock.add_structure(structure.structure_id)
-				warnings.append(
-					"returned '%s' from (%d,%d), elevation %d to storage because its socket is no longer valid"
-					% [structure.structure_id, coord.x, coord.y, elevation]
-				)
-				changed = true
-				continue
-			if socket != structure.socket_index:
-				structure.socket_index = socket
-				changed = true
-			occupied[socket] = true
 			if structure.instance_id <= 0 or used_instance_ids.has(structure.instance_id):
 				while used_instance_ids.has(next_id):
 					next_id += 1
@@ -119,13 +119,122 @@ func _repair_structures(
 				changed = true
 			used_instance_ids[structure.instance_id] = true
 			next_id = maxi(next_id, structure.instance_id + 1)
+
+		var accepted: Array[WorldGrid.StructureState] = []
+		var accepted_by_id := {}
+		var occupied_roots := {}
+		var occupied_supports := {}
+		var pending: Array[WorldGrid.StructureState] = []
+
+		# Tile-root objects remain subject to the one-direct-decoration rule.
+		for structure: WorldGrid.StructureState in state.structures:
+			if structure.parent_instance_id != 0:
+				pending.append(structure)
+				continue
+			var def := registries.structure(structure.structure_id)
+			var socket := _compatible_socket(
+				tile_def,
+				def,
+				structure.socket_index,
+				elevation,
+				occupied_roots
+			)
+			if socket < 0:
+				pending.append(structure)
+				continue
+			if socket != structure.socket_index:
+				structure.socket_index = socket
+				changed = true
+			structure.support_slot_id = ""
+			occupied_roots[socket] = true
+			occupied_roots["_root_count"] = (
+				int(occupied_roots.get("_root_count", 0)) + 1
+			)
+			if def.socket_type == "decor":
+				occupied_roots["_decor_count"] = (
+					int(occupied_roots.get("_decor_count", 0)) + 1
+				)
 			accepted.append(structure)
+			accepted_by_id[structure.instance_id] = structure
+
+		# Resolve children in topological passes. This naturally rejects cycles,
+		# missing parents, invalid slot tags, occupied slots, and over-deep chains.
+		var progressed := true
+		while progressed and not pending.is_empty():
+			progressed = false
+			for index in range(pending.size() - 1, -1, -1):
+				var structure: WorldGrid.StructureState = pending[index]
+				if structure.parent_instance_id == 0:
+					continue
+				if not accepted_by_id.has(structure.parent_instance_id):
+					continue
+				var parent: WorldGrid.StructureState = accepted_by_id[
+					structure.parent_instance_id
+				]
+				var parent_def := registries.structure(parent.structure_id)
+				var child_def := registries.structure(structure.structure_id)
+				var support_key := "%d:%s" % [
+					structure.parent_instance_id,
+					structure.support_slot_id,
+				]
+				if (
+					_support_depth(parent, accepted_by_id) + 1
+						>= grid.max_object_stack_depth
+					or occupied_supports.has(support_key)
+					or not _compatible_support(
+						parent_def,
+						child_def,
+						structure.support_slot_id
+					)
+				):
+					continue
+				structure.socket_index = 0
+				occupied_supports[support_key] = true
+				accepted.append(structure)
+				accepted_by_id[structure.instance_id] = structure
+				pending.remove_at(index)
+				progressed = true
+
+		for invalid: WorldGrid.StructureState in pending:
+			stock.add_structure(invalid.structure_id)
+			warnings.append(
+				"returned '%s' from (%d,%d), elevation %d to storage because its support relationship is invalid"
+				% [invalid.structure_id, coord.x, coord.y, elevation]
+			)
+			changed = true
 		if accepted.size() != state.structures.size():
 			state.structures.assign(accepted)
 	if grid.next_instance_id != next_id:
 		grid.next_instance_id = next_id
 		changed = true
 	return changed
+
+
+func _compatible_support(
+	parent_def: Defs.StructureDefinition,
+	child_def: Defs.StructureDefinition,
+	slot_id: String
+) -> bool:
+	if parent_def == null or child_def == null or slot_id == "":
+		return false
+	var support := parent_def.support_slot(slot_id)
+	return support != null and support.accepts_definition(child_def)
+
+
+func _support_depth(
+	structure: WorldGrid.StructureState,
+	accepted_by_id: Dictionary
+) -> int:
+	var depth := 0
+	var current := structure
+	var seen := {}
+	while current.parent_instance_id != 0:
+		if seen.has(current.instance_id) or not accepted_by_id.has(current.parent_instance_id):
+			return 9999
+		seen[current.instance_id] = true
+		depth += 1
+		current = accepted_by_id[current.parent_instance_id]
+	return depth
 
 
 func _compatible_socket(
@@ -139,11 +248,15 @@ func _compatible_socket(
 		tile_def == null
 		or structure_def == null
 		or not tile_def.supports_decor
+		or not structure_def.supports_surface(tile_def.surface_kind)
 		or (elevation > 0 and not structure_def.allow_elevated)
+		or int(occupied.get("_root_count", 0)) >= 1
 	):
 		return -1
 	if structure_def.socket_type == "structure":
 		return 0 if tile_def.structure_sockets > 0 and not occupied.has(0) else -1
+	if int(occupied.get("_decor_count", 0)) >= registries.tunei("max_decals_per_tile", 1):
+		return -1
 	if requested >= 1 and requested <= tile_def.decor_sockets and not occupied.has(requested):
 		return requested
 	for socket in range(1, tile_def.decor_sockets + 1):
