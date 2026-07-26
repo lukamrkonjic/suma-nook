@@ -34,8 +34,10 @@ func setup(game_core: GameCore, follow_target: Node3D) -> void:
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
 	camera.size = _size_target
 	camera.position = Vector3(0, 0, 42.0)
-	camera.near = 0.1
-	camera.far = 140.0
+	# Tight near/far keeps the orthogonal directional-shadow fit dense enough
+	# to actually resolve shadows (0.1..140 dilutes the map into invisibility).
+	camera.near = 10.0
+	camera.far = 95.0
 	_pitch_node.add_child(camera)
 	camera.current = true
 

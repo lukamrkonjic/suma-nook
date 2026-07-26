@@ -132,7 +132,7 @@ func apply_profile(profile: PlayerProfile) -> void:
 				eye.scale = Vector3.ONE
 
 
-func _tint_parts(part_names: Array, mat: StandardMaterial3D) -> void:
+func _tint_parts(part_names: Array, mat: Material) -> void:
 	for part_name in part_names:
 		var part := _find(part_name) as MeshInstance3D
 		if part == null:

@@ -3,7 +3,6 @@
   "save_path": "user://suma_nook_world.json",
   "tile_size": 2.0,
   "block_depth": 0.9,
-
   "walk_speed": 4.0,
   "walk_accel": 26.0,
   "walk_decel": 32.0,
@@ -11,14 +10,12 @@
   "dodge_speed": 8.5,
   "dodge_seconds": 0.32,
   "interact_range": 1.6,
-
   "player_max_health": 5,
   "player_hit_invuln_seconds": 0.8,
   "health_regen_seconds_per_point": 6.0,
-
-  "camera_min_size": 6.0,
+  "camera_min_size": 5.0,
   "camera_max_size": 28.0,
-  "camera_default_size": 8.8,
+  "camera_default_size": 7.0,
   "camera_pitch_deg": -34.0,
   "camera_default_yaw_deg": 45.0,
   "camera_follow_speed": 4.5,
@@ -30,7 +27,6 @@
   "click_target_screen_radius": 54.0,
   "click_ground_stop_radius": 0.12,
   "click_interaction_stop_radius": 1.2,
-
   "fishing_wait_min": 1.2,
   "fishing_wait_max": 3.2,
   "fishing_repeat_pause": 0.7,
@@ -38,18 +34,22 @@
   "rare_pity_max_dry": 9,
   "new_tile_pity_max_duplicates": 4,
   "tutorial_fragment_by_catch": 3,
-
   "grove_rest_visual_scale": 0.82,
-
   "default_direct_tile_reward_chance": 0.025,
   "fishing_collection_chance": 0.45,
-
-  "horizon_check_tiles": [4, 7, 11, 16],
+  "horizon_check_tiles": [
+    4,
+    7,
+    11,
+    16
+  ],
   "landmark_connect_adjacent": true,
-
   "autosave_interval": 40.0,
   "pattern_dust_per_duplicate": 1,
   "reroll_dust_cost": 3,
-
-  "guaranteed_first_parcel_options": ["tile_grove_mature", "tile_grove_birch", "tile_grove_mossy"]
+  "guaranteed_first_parcel_options": [
+    "tile_grove_mature",
+    "tile_grove_birch",
+    "tile_grove_mossy"
+  ]
 }

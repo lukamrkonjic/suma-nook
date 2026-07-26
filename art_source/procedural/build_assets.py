@@ -25,9 +25,13 @@ OUT_FINAL.mkdir(parents=True, exist_ok=True)
 OUT_PROXY.mkdir(parents=True, exist_ok=True)
 
 TILE = 2.0
-BLOCK_DEPTH = 0.9
+# Visible terrain side depth ~0.31 of one tile width (Garden Galaxy proportion —
+# top surfaces dominate, side walls stay a warm supporting band).
+BLOCK_DEPTH = 0.62
 
 # Palette mirrors assets/palettes/cozy_diorama_palette.tres — keep in sync.
+# Raw albedos are deliberately a touch darker than the screen-space targets in
+# docs/visual_match/: warm sun + ACES lift them into the sampled reference range.
 def srgb(hexcode: str) -> tuple:
     h = hexcode.lstrip("#")
     lin = []
@@ -38,33 +42,52 @@ def srgb(hexcode: str) -> tuple:
 
 
 PALETTE = {
-    "grass": srgb("BFC72A"),
-    "grass_lush": srgb("A8BC2F"),
-    "dark_foliage": srgb("46532D"),
-    "bright_foliage": srgb("8FA733"),
-    "moss": srgb("6E7C31"),
-    "soil": srgb("8A4A28"),
-    "dark_soil": srgb("64351D"),
-    "wood": srgb("765026"),
-    "dark_wood": srgb("4C3318"),
-    "pale_stone": srgb("D8C8B0"),
-    "dark_stone": srgb("9C8F79"),
-    "terracotta": srgb("B76E35"),
-    "water": srgb("8FAEAA"),
-    "gold": srgb("E1B640"),
+    "grass": srgb("B8B226"),
+    "grass_lush": srgb("C9C43A"),
+    "moss": srgb("8D961F"),
+    "dark_foliage": srgb("465313"),
+    "bright_foliage": srgb("8FA329"),
+    "foliage_medium": srgb("64731D"),
+    "pine_medium": srgb("55621A"),
+    "pine_dark": srgb("303A14"),
+    "soil": srgb("985319"),
+    "soil_side": srgb("824313"),
+    "dark_soil": srgb("65320E"),
+    "wood": srgb("C98A36"),
+    "wood_light": srgb("DDAE51"),
+    "wood_mid": srgb("9D6024"),
+    "dark_wood": srgb("59402E"),
+    "pale_stone": srgb("CFC3B1"),
+    "stone_mid": srgb("BBAA94"),
+    "dark_stone": srgb("918477"),
+    "stone_highlight": srgb("E4DCCF"),
+    "terracotta": srgb("B96329"),
+    "terracotta_light": srgb("CF7734"),
+    "terracotta_dark": srgb("81401D"),
+    "water": srgb("79938B"),
+    "water_light": srgb("91AAA1"),
+    "water_deep": srgb("617970"),
+    "water_foam": srgb("C5DBCD"),
+    "cardboard": srgb("D5A84D"),
+    "gold": srgb("D7A915"),
     "fabric": srgb("B5563B"),
     "fabric_accent": srgb("E0C173"),
-    "metal": srgb("8B8578"),
+    "metal": srgb("827565"),
+    "warm_charcoal": srgb("352D29"),
+    "warm_gray": srgb("81776C"),
+    "warm_white": srgb("EEE9DE"),
+    "calib_gray": srgb("9E9E9E"),
     "skin": srgb("E8B88A"),
     "hair": srgb("5A3A22"),
-    "eyes": srgb("2F2A26"),
-    "petal_pink": srgb("D97FA6"),
-    "petal_white": srgb("EDE7D5"),
-    "petal_red": srgb("C7513D"),
-    "mushroom_red": srgb("C7513D"),
+    "eyes": srgb("2A1F1A"),
+    "petal_pink": srgb("DE8199"),
+    "petal_white": srgb("F2EFE4"),
+    "petal_red": srgb("CE5B37"),
+    "flower_yellow": srgb("E0B62A"),
+    "mushroom_red": srgb("CE5B37"),
     "crystal": srgb("8FD0C7"),
-    "fire_core": srgb("F7DA5A"),
-    "fire_outer": srgb("E8842C"),
+    "fire_core": srgb("FFD12A"),
+    "fire_outer": srgb("E96F10"),
     "smoke": srgb("D9D4C4"),
     "magic": srgb("E8A33C"),
 }
@@ -105,6 +128,12 @@ def _finish(obj, material, bevel=0.0, smooth_angle=35.0, flat=False):
         mod.width = bevel
         mod.segments = 2
         mod.angle_limit = math.radians(40)
+        if not flat:
+            # Weighted normals keep the big faces optically flat while the bevel
+            # ring carries one broad soft highlight — the toy-like edge glint.
+            wn = obj.modifiers.new("wnormal", "WEIGHTED_NORMAL")
+            wn.keep_sharp = True
+            wn.weight = 50
     if flat:
         bpy.ops.object.shade_flat()
     else:
@@ -201,33 +230,37 @@ def export(asset_id, objs, proxy=False):
 
 # ---------------------------------------------------------------- vegetation
 
-def make_pine(prefix, rng, height=1.7, tiers=3, foliage="dark_foliage", tilt=0.05):
-    objs = [cyl(f"{prefix}_trunk", 0.11, 0.5, (0, 0, 0.25), "wood", verts=9)]
+def make_pine(prefix, rng, height=1.7, tiers=3, foliage=None, tilt=0.04):
+    """Stacked soft-shaded tiers; upper tiers a step lighter so the darkest
+    visible foliage stays clearly green, never black."""
+    objs = [cyl(f"{prefix}_trunk", 0.11, 0.5, (0, 0, 0.25), "wood_mid", verts=10, bevel=0.02)]
     base = 0.42
     step = (height - base) / tiers
-    radius = 0.55
+    radius = 0.58
     for i in range(tiers):
+        tier_mat = foliage if foliage else ("pine_dark" if i == 0 else "pine_medium")
         c = cone(
             f"{prefix}_tier{i}",
             radius * (1.0 - i * 0.26),
             step * 1.55,
-            (rng.uniform(-0.04, 0.04), rng.uniform(-0.04, 0.04), base + step * i + step * 0.55),
-            foliage,
-            verts=9,
+            (rng.uniform(-0.03, 0.03), rng.uniform(-0.03, 0.03), base + step * i + step * 0.55),
+            tier_mat,
+            verts=10,
+            bevel=0.03,
         )
         c.rotation_euler = Euler((rng.uniform(-tilt, tilt), rng.uniform(-tilt, tilt), rng.uniform(0, 6.28)))
         objs.append(c)
     return objs
 
 
-def make_bush(prefix, rng, r=0.42, material="dark_foliage", lobes=3):
+def make_bush(prefix, rng, r=0.42, material="foliage_medium", lobes=3):
     objs = []
     for i in range(lobes):
         a = rng.uniform(0, 6.28)
         d = rng.uniform(0.0, r * 0.5)
-        rr = r * rng.uniform(0.62, 0.95)
+        rr = r * rng.uniform(0.66, 0.95)
         objs.append(
-            blob(f"{prefix}_lobe{i}", rr, (math.cos(a) * d, math.sin(a) * d, rr * 0.72), material, squash=0.8, jitter=rr * 0.06, rng=rng)
+            blob(f"{prefix}_lobe{i}", rr, (math.cos(a) * d, math.sin(a) * d, rr * 0.72), material, squash=0.84, jitter=rr * 0.04, rng=rng)
         )
     return objs
 
@@ -238,7 +271,8 @@ def make_flower(prefix, rng, petal="petal_pink", stems=3):
         x, y = rng.uniform(-0.16, 0.16), rng.uniform(-0.16, 0.16)
         h = rng.uniform(0.22, 0.34)
         objs.append(cyl(f"{prefix}_stem{i}", 0.022, h, (x, y, h / 2), "bright_foliage", verts=6, bevel=0.0))
-        objs.append(blob(f"{prefix}_head{i}", 0.075, (x, y, h + 0.05), petal, squash=0.75, subdiv=1, flat=True))
+        objs.append(blob(f"{prefix}_head{i}", 0.085, (x, y, h + 0.05), petal, squash=0.66, subdiv=1, flat=True))
+        objs.append(blob(f"{prefix}_eye{i}", 0.032, (x, y, h + 0.095), "flower_yellow", squash=0.7, subdiv=1, flat=True))
     objs.append(blob(f"{prefix}_leafmound", 0.16, (0, 0, 0.07), "bright_foliage", squash=0.5, subdiv=1, jitter=0.02, rng=rng, flat=True))
     return objs
 
@@ -275,10 +309,48 @@ def make_reeds(prefix, rng, count=5):
 
 # ---------------------------------------------------------------- tiles
 
-def tile_block(prefix, top_mat, side_mat, top_z=0.0):
-    """Land block: side/soil body + thin beveled top cap slightly overhanging."""
-    body = box(f"{prefix}_body", (TILE, TILE, BLOCK_DEPTH - 0.1), (0, 0, top_z - (BLOCK_DEPTH + 0.1) / 2), side_mat, bevel=0.02, flat=True)
-    cap = box(f"{prefix}_cap", (TILE + 0.02, TILE + 0.02, 0.12), (0, 0, top_z - 0.05), top_mat, bevel=0.045)
+def join_into(target, others):
+    """Join `others` into `target`, producing one draw-call-friendly object."""
+    bpy.ops.object.select_all(action="DESELECT")
+    target.select_set(True)
+    for o in others:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = target
+    bpy.ops.object.join()
+    return target
+
+
+def turf_bumps(prefix, rng, top_z, area=0.92, grid=7, lush_share=0.16):
+    """Chunky pyramid turf across a grass cap: reads as dense clipped grass tufts
+    under the ortho camera instead of a flat lime plane."""
+    bumps = []
+    step = (area * 2.0) / grid
+    for i in range(grid):
+        for j in range(grid):
+            if rng.random() < 0.18:
+                continue
+            x = -area + step * (i + 0.5) + rng.uniform(-0.035, 0.035)
+            y = -area + step * (j + 0.5) + rng.uniform(-0.035, 0.035)
+            h = rng.uniform(0.045, 0.085)
+            material = "grass_lush" if rng.random() < lush_share else "grass"
+            b = cone(f"{prefix}_turf{i}_{j}", step * 0.62, h, (x, y, top_z + h / 2 - 0.008), material, verts=4, bevel=0.0, flat=True)
+            b.rotation_euler = Euler((0, 0, rng.uniform(0, 6.28)))
+            bumps.append(b)
+    return bumps
+
+
+def tile_block(prefix, top_mat, side_mat, top_z=0.0, turf_rng=None):
+    """Land block: warm shallow side body + chunky beveled top cap ("brownie
+    edge"). Optional turf pass sprinkles joined pyramid tufts over grass tops."""
+    body = box(f"{prefix}_body", (TILE, TILE, BLOCK_DEPTH - 0.1), (0, 0, top_z - (BLOCK_DEPTH + 0.1) / 2), side_mat, bevel=0.025, flat=True)
+    cap = box(f"{prefix}_cap", (TILE + 0.02, TILE + 0.02, 0.14), (0, 0, top_z - 0.06), top_mat, bevel=0.06)
+    if turf_rng is not None:
+        # Bake the cap's bevel first so the join doesn't re-bevel every tuft.
+        bpy.ops.object.select_all(action="DESELECT")
+        cap.select_set(True)
+        bpy.context.view_layer.objects.active = cap
+        bpy.ops.object.convert(target="MESH")
+        cap = join_into(cap, turf_bumps(prefix, turf_rng, top_z + 0.008))
     return [body, cap]
 
 
@@ -309,34 +381,33 @@ def build_tiles():
     rng = random.Random(11)
 
     # -------- Home Meadow family
-    t = tile_block("grass", "grass", "soil")
-    t += scatter_clods("g0", rng, "grass_lush", 5)
+    t = tile_block("grass", "grass", "soil_side", turf_rng=rng)
     for i in range(3):
         t += move(make_tuft(f"g0t{i}", rng), (rng.uniform(-0.8, 0.8), rng.uniform(-0.8, 0.8), 0))
     export("tile_grass", t)
 
-    t = tile_block("gf", "grass", "soil")
+    t = tile_block("gf", "grass", "soil_side", turf_rng=rng)
     for i in range(3):
-        t += move(make_flower(f"gf{i}", rng, petal=("petal_pink", "petal_white", "gold")[i]), (rng.uniform(-0.66, 0.66), rng.uniform(-0.66, 0.66), 0))
+        t += move(make_flower(f"gf{i}", rng, petal=("petal_pink", "petal_white", "flower_yellow")[i]), (rng.uniform(-0.66, 0.66), rng.uniform(-0.66, 0.66), 0))
     t += move(make_tuft("gft", rng), (0.7, -0.6, 0))
     export("tile_grass_flower", t)
 
     # Pond edge: an OPEN basin carved into the block — grass rim, visible inner
-    # walls, dark floor, water surface sitting well below the land top.
+    # walls, dark floor, water surface sitting below the land top.
     t = []
-    t.append(box("gp_body", (TILE, TILE, 0.32), (0, 0, -0.9 + 0.16), "soil", bevel=0.02, flat=True))
+    t.append(box("gp_body", (TILE, TILE, 0.22), (0, 0, -BLOCK_DEPTH + 0.11), "soil_side", bevel=0.02, flat=True))
     bw, off = 0.36, 0.14  # rim width; basin center offset
-    t.append(box("gp_rim_n", (TILE + 0.02, bw + 0.14 - off, 0.6), (0, -TILE / 2 + (bw + 0.14 - off) / 2, -0.3), "soil", bevel=0.02, flat=True))
-    t.append(box("gp_rim_s", (TILE + 0.02, bw - 0.14 + off, 0.6), (0, TILE / 2 - (bw - 0.14 + off) / 2, -0.3), "soil", bevel=0.02, flat=True))
-    t.append(box("gp_rim_w", (bw + 0.14 - off, TILE + 0.02, 0.6), (-TILE / 2 + (bw + 0.14 - off) / 2, 0, -0.3), "soil", bevel=0.02, flat=True))
-    t.append(box("gp_rim_e", (bw - 0.14 + off, TILE + 0.02, 0.6), (TILE / 2 - (bw - 0.14 + off) / 2, 0, -0.3), "soil", bevel=0.02, flat=True))
+    t.append(box("gp_rim_n", (TILE + 0.02, bw + 0.14 - off, BLOCK_DEPTH), (0, -TILE / 2 + (bw + 0.14 - off) / 2, -BLOCK_DEPTH / 2), "soil_side", bevel=0.02, flat=True))
+    t.append(box("gp_rim_s", (TILE + 0.02, bw - 0.14 + off, BLOCK_DEPTH), (0, TILE / 2 - (bw - 0.14 + off) / 2, -BLOCK_DEPTH / 2), "soil_side", bevel=0.02, flat=True))
+    t.append(box("gp_rim_w", (bw + 0.14 - off, TILE + 0.02, BLOCK_DEPTH), (-TILE / 2 + (bw + 0.14 - off) / 2, 0, -BLOCK_DEPTH / 2), "soil_side", bevel=0.02, flat=True))
+    t.append(box("gp_rim_e", (bw - 0.14 + off, TILE + 0.02, BLOCK_DEPTH), (TILE / 2 - (bw - 0.14 + off) / 2, 0, -BLOCK_DEPTH / 2), "soil_side", bevel=0.02, flat=True))
     # grass caps over the rims
-    t.append(box("gp_cap_n", (TILE + 0.02, bw + 0.14 - off, 0.12), (0, -TILE / 2 + (bw + 0.14 - off) / 2, -0.05), "grass", bevel=0.045))
-    t.append(box("gp_cap_s", (TILE + 0.02, bw - 0.14 + off, 0.12), (0, TILE / 2 - (bw - 0.14 + off) / 2, -0.05), "grass", bevel=0.045))
-    t.append(box("gp_cap_w", (bw + 0.14 - off, TILE + 0.02, 0.12), (-TILE / 2 + (bw + 0.14 - off) / 2, 0, -0.05), "grass", bevel=0.045))
-    t.append(box("gp_cap_e", (bw - 0.14 + off, TILE + 0.02, 0.12), (TILE / 2 - (bw - 0.14 + off) / 2, 0, -0.05), "grass", bevel=0.045))
-    t.append(box("gp_floor", (TILE - 0.3, TILE - 0.3, 0.08), (off * 0.5, off * 0.5, -0.56), "dark_soil", flat=True))
-    water = box("gp_water", (TILE - 0.42, TILE - 0.42, 0.045), (off * 0.5, off * 0.5, -0.3), "water", bevel=0.0)
+    t.append(box("gp_cap_n", (TILE + 0.02, bw + 0.14 - off, 0.14), (0, -TILE / 2 + (bw + 0.14 - off) / 2, -0.06), "grass", bevel=0.055))
+    t.append(box("gp_cap_s", (TILE + 0.02, bw - 0.14 + off, 0.14), (0, TILE / 2 - (bw - 0.14 + off) / 2, -0.06), "grass", bevel=0.055))
+    t.append(box("gp_cap_w", (bw + 0.14 - off, TILE + 0.02, 0.14), (-TILE / 2 + (bw + 0.14 - off) / 2, 0, -0.06), "grass", bevel=0.055))
+    t.append(box("gp_cap_e", (bw - 0.14 + off, TILE + 0.02, 0.14), (TILE / 2 - (bw - 0.14 + off) / 2, 0, -0.06), "grass", bevel=0.055))
+    t.append(box("gp_floor", (TILE - 0.3, TILE - 0.3, 0.07), (off * 0.5, off * 0.5, -0.37), "water_deep", flat=True))
+    water = box("gp_water", (TILE - 0.42, TILE - 0.42, 0.045), (off * 0.5, off * 0.5, -0.21), "water", bevel=0.0)
     water.name = "WaterSurface"
     t.append(water)
     t += move(make_reeds("gpr", rng, 3), (-0.72, -0.72, 0))
@@ -344,23 +415,23 @@ def build_tiles():
         t.append(rock(f"gp_rock{i}", rng.uniform(0.09, 0.13), (-0.78 + i * 0.26, 0.8, 0.04), "pale_stone", rng))
     export("tile_grass_pond_edge", t)
 
-    t = tile_block("pa", "pale_stone", "dark_stone")
-    for i in range(4):
-        for j in range(4):
-            if rng.random() < 0.72:
-                t.append(
-                    box(
-                        f"pa_slab{i}{j}",
-                        (0.4, 0.4, 0.045),
-                        (-0.68 + i * 0.45 + rng.uniform(-0.02, 0.02), -0.68 + j * 0.45 + rng.uniform(-0.02, 0.02), 0.021),
-                        "dark_stone" if rng.random() < 0.2 else "pale_stone",
-                        bevel=0.018,
-                    )
+    # Paving: full 2×2 slab grid with narrow darker grooves — reads like the
+    # reference courtyard stone, not scattered stepping stones.
+    t = tile_block("pa", "stone_mid", "stone_mid")
+    for i in range(2):
+        for j in range(2):
+            t.append(
+                box(
+                    f"pa_slab{i}{j}",
+                    (0.94, 0.94, 0.07),
+                    (-0.49 + i * 0.98, -0.49 + j * 0.98, 0.028 + rng.uniform(-0.004, 0.004)),
+                    "stone_mid" if (i + j) == 1 and rng.random() < 0.35 else "pale_stone",
+                    bevel=0.032,
                 )
-    t += scatter_pebbles("pap", rng, 3)
+            )
     export("tile_path", t)
 
-    t = tile_block("gar", "grass_lush", "soil")
+    t = tile_block("gar", "grass_lush", "soil_side", turf_rng=rng)
     bed = box("gar_bed", (1.1, 1.1, 0.16), (0.2, 0.2, 0.08), "wood", bevel=0.03)
     fill = box("gar_fill", (0.92, 0.92, 0.1), (0.2, 0.2, 0.14), "soil", bevel=0.02, flat=True)
     t += [bed, fill]
@@ -368,18 +439,18 @@ def build_tiles():
         t += move(make_flower(f"garf{i}", rng, petal=("petal_red", "petal_white", "petal_pink")[i], stems=2), (0.0 + i * 0.24 - 0.1, 0.1 + (i % 2) * 0.24, 0.18))
     export("tile_garden", t)
 
-    t = tile_block("co", "pale_stone", "dark_stone")
-    t.append(box("co_center", (0.9, 0.9, 0.05), (0, 0, 0.025), "terracotta", bevel=0.02))
-    t.append(box("co_ring", (1.7, 0.28, 0.04), (0, 0.72, 0.02), "terracotta", bevel=0.015))
-    t.append(box("co_ring2", (1.7, 0.28, 0.04), (0, -0.72, 0.02), "terracotta", bevel=0.015))
-    t.append(box("co_ring3", (0.28, 1.14, 0.04), (0.72, 0, 0.02), "terracotta", bevel=0.015))
-    t.append(box("co_ring4", (0.28, 1.14, 0.04), (-0.72, 0, 0.02), "terracotta", bevel=0.015))
+    t = tile_block("co", "pale_stone", "stone_mid")
+    t.append(box("co_center", (0.9, 0.9, 0.05), (0, 0, 0.025), "terracotta", bevel=0.022))
+    t.append(box("co_ring", (1.7, 0.28, 0.04), (0, 0.72, 0.02), "terracotta", bevel=0.016))
+    t.append(box("co_ring2", (1.7, 0.28, 0.04), (0, -0.72, 0.02), "terracotta", bevel=0.016))
+    t.append(box("co_ring3", (0.28, 1.14, 0.04), (0.72, 0, 0.02), "terracotta", bevel=0.016))
+    t.append(box("co_ring4", (0.28, 1.14, 0.04), (-0.72, 0, 0.02), "terracotta", bevel=0.016))
     export("tile_courtyard", t)
 
     # -------- Living Grove family (each carries a grove anchor visual spot)
     def grove(asset_id, seed, tree_fn):
         r = random.Random(seed)
-        g = tile_block(asset_id, "grass_lush", "soil")
+        g = tile_block(asset_id, "grass_lush", "soil_side", turf_rng=r)
         g += move(tree_fn(r), (0.45, 0.45, 0))
         g += move(make_bush(f"{asset_id}_b", r, 0.3), (-0.6, 0.5, 0))
         g += move(make_tuft(f"{asset_id}_t", r), (-0.5, -0.65, 0))
@@ -402,26 +473,26 @@ def build_tiles():
     ))
 
     # -------- Stonebound family
-    t = tile_block("sc", "dark_stone", "dark_stone")
+    t = tile_block("sc", "stone_mid", "stone_mid")
     for i in range(3):
         t.append(rock(f"sc_r{i}", rng.uniform(0.14, 0.26), (rng.uniform(-0.6, 0.6), rng.uniform(-0.6, 0.6), 0.08), "pale_stone", rng))
     t += scatter_pebbles("scp", rng, 4, "pale_stone")
     export("tile_stone_clearing", t)
 
-    t = tile_block("sm", "moss", "dark_stone")
+    t = tile_block("sm", "moss", "stone_mid")
     for i in range(3):
         t.append(rock(f"sm_r{i}", rng.uniform(0.16, 0.3), (rng.uniform(-0.55, 0.55), rng.uniform(-0.55, 0.55), 0.1), "dark_stone", rng))
     t += move(make_mushroom("smm", rng), (0.6, -0.55, 0))
     export("tile_stone_mossy", t)
 
-    t = tile_block("sr", "dark_stone", "dark_stone")
+    t = tile_block("sr", "stone_mid", "stone_mid")
     t.append(box("sr_found1", (1.1, 0.24, 0.34), (0, 0.5, 0.17), "pale_stone", bevel=0.03, flat=True))
     t.append(box("sr_found2", (0.24, 0.9, 0.26), (0.55, -0.2, 0.13), "pale_stone", bevel=0.03, flat=True))
     t.append(rock("sr_r0", 0.2, (-0.5, -0.45, 0.07), "pale_stone", rng))
     t += move(make_tuft("srt", rng, material="moss"), (-0.2, -0.1, 0))
     export("tile_stone_ruin", t)
 
-    t = tile_block("scr", "dark_stone", "dark_stone")
+    t = tile_block("scr", "stone_mid", "stone_mid")
     for i in range(4):
         h = rng.uniform(0.3, 0.75)
         c = cyl(f"scr_c{i}", rng.uniform(0.08, 0.16), h, (rng.uniform(-0.5, 0.5), rng.uniform(-0.5, 0.5), h / 2), "crystal", verts=6, bevel=0.0, flat=True)
@@ -430,11 +501,11 @@ def build_tiles():
     t += scatter_pebbles("scrp", rng, 3, "pale_stone")
     export("tile_stone_crystal", t)
 
-    t = tile_block("ro", "dark_stone", "dark_stone")
+    t = tile_block("ro", "stone_mid", "stone_mid")
     for i in range(3):
         for j in range(2):
             if rng.random() < 0.8:
-                t.append(box(f"ro_s{i}{j}", (0.5, 0.5, 0.05), (-0.55 + i * 0.55, -0.3 + j * 0.6, 0.025), "pale_stone", bevel=0.02))
+                t.append(box(f"ro_s{i}{j}", (0.5, 0.5, 0.05), (-0.55 + i * 0.55, -0.3 + j * 0.6, 0.025), "pale_stone", bevel=0.022))
     t += move(make_tuft("rot", rng, material="moss"), (0.6, -0.7, 0))
     export("tile_stone_road", t)
 
@@ -446,7 +517,7 @@ def build_props():
 
     export("prop_pine_a", make_pine("pna", random.Random(41), 1.8, 3))
     export("prop_pine_b", make_pine("pnb", random.Random(42), 2.3, 4))
-    export("prop_bush_a", make_bush("bsa", random.Random(43), 0.45, "dark_foliage", 3))
+    export("prop_bush_a", make_bush("bsa", random.Random(43), 0.45, "foliage_medium", 3))
     export("prop_bush_b", make_bush("bsb", random.Random(44), 0.36, "bright_foliage", 2))
     export("prop_flowers_pink", make_flower("fpk", random.Random(45), "petal_pink"))
     export("prop_flowers_white", make_flower("fwh", random.Random(46), "petal_white"))
@@ -503,14 +574,36 @@ def build_props():
     ]
     export("prop_gate", gate)
 
+    # Black metal street lantern — warm charcoal, never pure black, glass core.
     lantern = [
-        cyl("lant_pole", 0.045, 0.9, (0, 0, 0.45), "dark_wood", verts=7),
-        box("lant_cage", (0.2, 0.2, 0.24), (0, 0, 0.98), "metal", bevel=0.02),
-        box("lant_glow", (0.13, 0.13, 0.16), (0, 0, 0.98), "fire_core", bevel=0.01),
-        cone("lant_cap", 0.17, 0.12, (0, 0, 1.16), "dark_wood", verts=6),
+        cyl("lant_base", 0.13, 0.07, (0, 0, 0.035), "warm_charcoal", verts=10, bevel=0.02),
+        cyl("lant_pole", 0.042, 1.0, (0, 0, 0.55), "warm_charcoal", verts=9, bevel=0.012),
+        cyl("lant_collar", 0.065, 0.05, (0, 0, 1.02), "warm_charcoal", verts=9, bevel=0.012),
+        box("lant_cage", (0.21, 0.21, 0.24), (0, 0, 1.18), "warm_charcoal", bevel=0.02),
+        box("lant_glow", (0.15, 0.15, 0.18), (0, 0, 1.18), "fire_core", bevel=0.012),
+        cone("lant_cap", 0.19, 0.13, (0, 0, 1.37), "warm_charcoal", verts=8, bevel=0.02),
+        blob("lant_finial", 0.028, (0, 0, 1.45), "warm_charcoal", subdiv=1),
     ]
-    lantern[2].name = "GlowCore"
+    lantern[4].name = "GlowCore"
     export("prop_lantern", lantern)
+
+    # Cardboard box with open flaps — the reference's warm paper-toned crate.
+    card = [
+        box("card_body", (0.56, 0.44, 0.4), (0, 0, 0.2), "cardboard", bevel=0.016),
+        box("card_inner", (0.48, 0.36, 0.03), (0, 0, 0.3), "wood_mid", bevel=0.0, flat=True),
+    ]
+    flap_l = box("card_flap_l", (0.26, 0.42, 0.025), (-0.25, 0, 0.44), "cardboard", bevel=0.01)
+    flap_l.rotation_euler = Euler((0, -0.5, 0))
+    flap_r = box("card_flap_r", (0.26, 0.42, 0.025), (0.25, 0, 0.44), "cardboard", bevel=0.01)
+    flap_r.rotation_euler = Euler((0, 0.5, 0))
+    flap_f = box("card_flap_f", (0.5, 0.2, 0.025), (0, -0.22, 0.43), "cardboard", bevel=0.01)
+    flap_f.rotation_euler = Euler((0.65, 0, 0))
+    card += [flap_l, flap_r, flap_f]
+    export("prop_cardboard_box", card)
+
+    # Neutral calibration solids for the Match Lab — never shipped in gameplay.
+    export("calib_sphere", [blob("calib_sphere", 0.42, (0, 0, 0.42), "calib_gray", squash=1.0, subdiv=3)])
+    export("calib_cube", [box("calib_cube", (0.7, 0.7, 0.7), (0, 0, 0.35), "calib_gray", bevel=0.024)])
 
     camp = []
     r2 = random.Random(53)
@@ -552,9 +645,9 @@ def build_props():
     export("prop_planter", planter)
 
     pot = [
-        cyl("pot_body", 0.2, 0.3, (0, 0, 0.15), "terracotta", verts=12, r2=0.16),
-        cyl("pot_lip", 0.23, 0.07, (0, 0, 0.32), "terracotta", verts=12, bevel=0.025),
-        cyl("pot_soil", 0.17, 0.03, (0, 0, 0.335), "soil", verts=12, bevel=0.0, flat=True),
+        cyl("pot_body", 0.2, 0.3, (0, 0, 0.15), "terracotta", verts=14, r2=0.16, bevel=0.022),
+        cyl("pot_lip", 0.235, 0.08, (0, 0, 0.325), "terracotta_light", verts=14, bevel=0.028),
+        cyl("pot_soil", 0.17, 0.03, (0, 0, 0.345), "soil", verts=14, bevel=0.0, flat=True),
     ]
     pot += [blob("pot_plant", 0.14, (0, 0, 0.47), "bright_foliage", squash=0.9, subdiv=1, flat=True)]
     export("prop_pot", pot)

@@ -1,11 +1,13 @@
 class_name LightingRig
 extends Node3D
 ## The one shared lighting/atmosphere setup (scenes/visual/GardenStyleLightingRig.tscn).
-## Gameplay and the Style Lab both instance this scene; apply_profile() drives every
+## Gameplay and the Match Lab both instance this scene; apply_profile() drives every
 ## environment knob from a VisualStyleProfile resource. No other scene may add its
 ## own DirectionalLight3D or WorldEnvironment.
 
 signal profile_applied(profile: VisualStyleProfile)
+
+const MIST_BG_SHADER: Shader = preload("res://assets/materials/mist_background.gdshader")
 
 @export var day_profile: VisualStyleProfile
 @export var rain_profile: VisualStyleProfile
@@ -14,6 +16,9 @@ var current_profile: VisualStyleProfile
 var _sun: DirectionalLight3D
 var _environment: WorldEnvironment
 var _rain: GPUParticles3D
+var _bg_layer: CanvasLayer
+var _bg_rect: ColorRect
+var _bg_material: ShaderMaterial
 
 
 func _ready() -> void:
@@ -29,11 +34,25 @@ func _ready() -> void:
 	_environment.environment = Environment.new()
 	add_child(_environment)
 
+	# Screen-space gradient backdrop (mist preset). Sits behind the 3D scene
+	# via BG_CANVAS; hidden entirely for flat-color presets.
+	_bg_layer = CanvasLayer.new()
+	_bg_layer.name = "Backdrop"
+	_bg_layer.layer = -10
+	add_child(_bg_layer)
+	_bg_rect = ColorRect.new()
+	_bg_rect.name = "GradientRect"
+	_bg_material = ShaderMaterial.new()
+	_bg_material.shader = MIST_BG_SHADER
+	_bg_rect.material = _bg_material
+	_bg_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_bg_layer.add_child(_bg_rect)
+
 	_rain = _build_rain()
 	add_child(_rain)
 
 	if day_profile == null:
-		day_profile = load("res://assets/visual_profiles/garden_day.tres")
+		day_profile = load("res://assets/visual_profiles/garden_galaxy_day.tres")
 	if rain_profile == null:
 		rain_profile = load("res://assets/visual_profiles/garden_rain.tres")
 	apply_profile(day_profile)
@@ -42,13 +61,17 @@ func _ready() -> void:
 func apply_profile(profile: VisualStyleProfile) -> void:
 	current_profile = profile
 	var env := _environment.environment
-	env.background_mode = Environment.BG_COLOR
+	env.background_mode = Environment.BG_CANVAS if profile.background_gradient else Environment.BG_COLOR
 	env.background_color = profile.background_color
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = profile.ambient_color
 	env.ambient_light_energy = profile.ambient_energy
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
 	env.tonemap_exposure = profile.exposure
+	env.adjustment_enabled = true
+	env.adjustment_brightness = 1.0
+	env.adjustment_contrast = profile.contrast
+	env.adjustment_saturation = profile.saturation
 	env.ssao_enabled = profile.ssao_enabled
 	env.ssao_intensity = profile.ssao_intensity
 	env.ssao_radius = profile.ssao_radius
@@ -65,12 +88,22 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	env.fog_density = profile.fog_density
 	env.fog_sky_affect = 0.0
 
+	_bg_layer.visible = profile.background_gradient
+	if profile.background_gradient:
+		_bg_material.set_shader_parameter("top_color", profile.gradient_top)
+		_bg_material.set_shader_parameter("mid_color", profile.gradient_mid)
+		_bg_material.set_shader_parameter("bottom_color", profile.gradient_bottom)
+		_bg_material.set_shader_parameter("stars_amount", 1.0 if profile.stars_enabled else 0.0)
+
 	_sun.light_color = profile.sun_color
 	_sun.light_energy = profile.sun_energy
+	_sun.light_specular = profile.sun_specular
 	_sun.rotation_degrees = Vector3(profile.sun_pitch_deg, profile.sun_yaw_deg, 0.0)
 	_sun.shadow_opacity = profile.shadow_opacity
 	_sun.shadow_blur = profile.shadow_blur
-	_sun.light_angular_distance = 1.8
+	_sun.light_angular_distance = profile.sun_angular_distance
+	_sun.shadow_bias = profile.shadow_bias
+	_sun.shadow_normal_bias = profile.shadow_normal_bias
 
 	_rain.emitting = profile.rain_enabled
 	profile_applied.emit(profile)

@@ -105,21 +105,23 @@ func _build_cell(coord: Vector2i) -> void:
 
 
 func _make_open_water_tile() -> Node3D:
+	# Proportions match the Blender land blocks: bottom at -0.62, water surface
+	# a readable step below the land tops so shorelines stay visible.
 	var root := Node3D.new()
 	root.name = "tile_open_water"
 	var bed := MeshInstance3D.new()
 	var bed_mesh := BoxMesh.new()
-	bed_mesh.size = Vector3(core.grid.tile_size, 0.82, core.grid.tile_size)
+	bed_mesh.size = Vector3(core.grid.tile_size, 0.54, core.grid.tile_size)
 	bed.mesh = bed_mesh
-	bed.position.y = -0.49
-	bed.material_override = materials.material("dark_soil")
+	bed.position.y = -0.35
+	bed.material_override = materials.material("water_deep")
 	root.add_child(bed)
 	var surface := MeshInstance3D.new()
 	surface.name = "ContinuousWater"
 	var water_mesh := BoxMesh.new()
-	water_mesh.size = Vector3(core.grid.tile_size + 0.012, 0.14, core.grid.tile_size + 0.012)
+	water_mesh.size = Vector3(core.grid.tile_size + 0.012, 0.12, core.grid.tile_size + 0.012)
 	surface.mesh = water_mesh
-	surface.position.y = -0.08
+	surface.position.y = -0.14
 	surface.material_override = materials.material("water")
 	root.add_child(surface)
 	return root
