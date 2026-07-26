@@ -446,12 +446,24 @@ func _step_pause_menu() -> void:
 		is_equal_approx(main.core.play_seconds, play_time_before),
 		"world simulation stops while the Escape menu is open"
 	)
-	main.pause_menu.open("settings")
+	var settings_button := main.pause_menu.find_child("PauseSettingsButton", true, false) as Button
+	check(settings_button != null, "settings button exists in the Escape menu")
+	settings_button.pressed.emit()
 	await wait(0.1)
-	check(main.pause_menu.current_page() == "settings", "settings page is reachable from the pause flow")
-	main.pause_menu.open("controls")
+	check(main.pause_menu.current_page() == "settings", "clicking Settings replaces the menu with the settings page")
+	check(
+		main.pause_menu.find_child("PauseSettingsButton", true, false) == null,
+		"old menu controls are fully removed after page navigation"
+	)
+	var back_button := main.pause_menu.find_child("PauseBackButton", true, false) as Button
+	check(back_button != null, "settings page exposes a working back control")
+	back_button.pressed.emit()
 	await wait(0.1)
-	check(main.pause_menu.current_page() == "controls", "controls reference is reachable from the pause flow")
+	var controls_button := main.pause_menu.find_child("PauseControlsButton", true, false) as Button
+	check(controls_button != null, "back returns to the complete Escape menu")
+	controls_button.pressed.emit()
+	await wait(0.1)
+	check(main.pause_menu.current_page() == "controls", "clicking Controls replaces the menu with the controls reference")
 	main.pause_menu.close()
 	await wait(0.2)
 	check(not get_tree().paused and not main.pause_menu.is_open(), "resume closes the menu and unpauses gameplay")

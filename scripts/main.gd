@@ -133,6 +133,9 @@ func _handle_dev_shot(user_args: PackedStringArray) -> bool:
 		panels.toggle("debug")
 	if shot_pause_page != "":
 		open_pause_menu(shot_pause_page)
+		# Visual audits must stay deterministic even if the capture window
+		# briefly receives stray mouse or keyboard input from the desktop.
+		get_viewport().gui_disable_input = true
 	get_tree().create_timer(2.2).timeout.connect(func():
 		var image := get_viewport().get_texture().get_image()
 		image.save_png(shot_path)

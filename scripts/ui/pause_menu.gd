@@ -67,7 +67,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _page == "menu":
 		close()
 	else:
-		_show_page("menu")
+		_request_page("menu")
 	get_viewport().set_input_as_handled()
 
 
@@ -90,13 +90,13 @@ func _build_shell() -> void:
 	center.mouse_filter = Control.MOUSE_FILTER_STOP
 	_root.add_child(center)
 
-	_card = kit.card(Vector2(470, 510))
+	_card = kit.card(Vector2(500, 550))
 	_card.name = "PauseCard"
-	_card.add_theme_stylebox_override("panel", kit.panel_style(false, 24))
+	_card.add_theme_stylebox_override("panel", kit.cloud_panel_style())
 	center.add_child(_card)
 
 	_content = VBoxContainer.new()
-	_content.add_theme_constant_override("separation", 12)
+	_content.add_theme_constant_override("separation", 16)
 	_card.add_child(_content)
 
 	var footer := kit.label("SUMA NOOK  |  grow gently, save often", 14, false, true)
@@ -111,8 +111,7 @@ func _build_shell() -> void:
 
 func _show_page(page: String) -> void:
 	_page = page if page in ["menu", "settings", "controls", "exit"] else "menu"
-	for child in _content.get_children():
-		child.free()
+	_clear_page()
 	_status_label = null
 	match _page:
 		"settings":
@@ -126,31 +125,46 @@ func _show_page(page: String) -> void:
 	_card.scale = Vector2(0.96, 0.96)
 	var tween := _card.create_tween()
 	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	tween.tween_property(_card, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(_card, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+
+func _request_page(page: String) -> void:
+	## Never destroy the button that is currently emitting `pressed`. Waiting
+	## until the input callback completes keeps page replacement atomic.
+	call_deferred("_show_page", page)
+
+
+func _clear_page() -> void:
+	## Detach the entire old page immediately, then release it safely after the
+	## current input dispatch. This prevents partially-cleared menus.
+	for child in _content.get_children():
+		_content.remove_child(child)
+		child.queue_free()
 
 
 func _build_menu_page() -> void:
-	_card.custom_minimum_size = Vector2(470, 510)
+	_card.custom_minimum_size = Vector2(500, 550)
 	_add_brand_header("PAUSED", "Your nook will wait for you.")
-	var divider := ColorRect.new()
-	divider.color = kit.palette.color("ui_good")
-	divider.custom_minimum_size.y = 4
-	_content.add_child(divider)
 
 	var resume := kit.menu_button("Resume Garden", true)
+	resume.name = "PauseResumeButton"
 	resume.pressed.connect(close)
 	_content.add_child(resume)
 	var settings := kit.menu_button("Settings")
-	settings.pressed.connect(func(): _show_page("settings"))
+	settings.name = "PauseSettingsButton"
+	settings.pressed.connect(_request_page.bind("settings"))
 	_content.add_child(settings)
 	var controls := kit.menu_button("Controls")
-	controls.pressed.connect(func(): _show_page("controls"))
+	controls.name = "PauseControlsButton"
+	controls.pressed.connect(_request_page.bind("controls"))
 	_content.add_child(controls)
 	var save := kit.menu_button("Save Game")
+	save.name = "PauseSaveButton"
 	save.pressed.connect(_save_game)
 	_content.add_child(save)
 	var exit := kit.menu_button("Save & Exit")
-	exit.pressed.connect(func(): _show_page("exit"))
+	exit.name = "PauseExitButton"
+	exit.pressed.connect(_request_page.bind("exit"))
 	_content.add_child(exit)
 
 	_status_label = kit.label("", 15)
@@ -165,12 +179,12 @@ func _build_settings_page() -> void:
 	_card.custom_minimum_size = Vector2(700, 760)
 	_add_page_header("SETTINGS", "Keep only what helps the garden feel good.")
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(0, 590)
+	scroll.custom_minimum_size = Vector2(0, 555)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_content.add_child(scroll)
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list.add_theme_constant_override("separation", 10)
+	list.add_theme_constant_override("separation", 8)
 	scroll.add_child(list)
 
 	list.add_child(kit.section_label("Display"))
@@ -210,11 +224,8 @@ func _build_settings_page() -> void:
 
 	var actions := HBoxContainer.new()
 	actions.alignment = BoxContainer.ALIGNMENT_END
-	actions.add_theme_constant_override("separation", 10)
+	actions.add_theme_constant_override("separation", 12)
 	_content.add_child(actions)
-	var back := kit.button("Back")
-	back.pressed.connect(func(): _show_page("menu"))
-	actions.add_child(back)
 	var apply := kit.button("Apply Changes", true)
 	apply.pressed.connect(func():
 		preferences.fullscreen = fullscreen_check.button_pressed
@@ -237,7 +248,7 @@ func _build_settings_page() -> void:
 	_status_label = kit.label("", 15)
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_content.add_child(_status_label)
-	back.call_deferred("grab_focus")
+	apply.call_deferred("grab_focus")
 
 
 func _build_controls_page() -> void:
@@ -249,7 +260,7 @@ func _build_controls_page() -> void:
 	_content.add_child(scroll)
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list.add_theme_constant_override("separation", 8)
+	list.add_theme_constant_override("separation", 6)
 	scroll.add_child(list)
 
 	list.add_child(kit.section_label("Keeper"))
@@ -282,12 +293,6 @@ func _build_controls_page() -> void:
 	]:
 		list.add_child(_control_row(entry[0], entry[1], entry[2]))
 
-	var back := kit.button("Back")
-	back.pressed.connect(func(): _show_page("menu"))
-	_content.add_child(back)
-	back.call_deferred("grab_focus")
-
-
 func _build_exit_page() -> void:
 	_card.custom_minimum_size = Vector2(500, 370)
 	_add_page_header("LEAVE THE NOOK?", "Your garden will be saved before the game closes.")
@@ -300,10 +305,10 @@ func _build_exit_page() -> void:
 	_content.add_child(spacer)
 	var actions := HBoxContainer.new()
 	actions.alignment = BoxContainer.ALIGNMENT_END
-	actions.add_theme_constant_override("separation", 10)
+	actions.add_theme_constant_override("separation", 12)
 	_content.add_child(actions)
 	var back := kit.button("Stay")
-	back.pressed.connect(func(): _show_page("menu"))
+	back.pressed.connect(_request_page.bind("menu"))
 	actions.add_child(back)
 	var exit := kit.button("Save & Exit", true)
 	exit.pressed.connect(_save_and_exit)
@@ -313,25 +318,16 @@ func _build_exit_page() -> void:
 
 func _add_brand_header(kicker: String, subtitle: String) -> void:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
+	row.add_theme_constant_override("separation", 20)
 	_content.add_child(row)
-	var badge := PanelContainer.new()
-	var badge_style := StyleBoxFlat.new()
-	badge_style.bg_color = kit.palette.color("ui_good")
-	badge_style.set_corner_radius_all(12)
-	badge_style.set_content_margin_all(10)
-	badge.add_theme_stylebox_override("panel", badge_style)
-	row.add_child(badge)
-	var badge_label := kit.label("SN", 18, true, true)
-	badge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	badge.add_child(badge_label)
 	var text := VBoxContainer.new()
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.add_theme_constant_override("separation", 3)
 	row.add_child(text)
-	var brand := kit.label("SUMA NOOK", 28, false, true)
+	var brand := kit.label("Suma Nook", 32, false, true)
 	text.add_child(brand)
 	var sub := kit.label(subtitle, 16)
-	sub.add_theme_color_override("font_color", Color(0.48, 0.43, 0.34))
+	sub.add_theme_color_override("font_color", Color(0.46, 0.45, 0.4))
 	text.add_child(sub)
 	var state := kit.section_label(kicker)
 	state.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -340,39 +336,43 @@ func _add_brand_header(kicker: String, subtitle: String) -> void:
 
 func _add_page_header(title: String, subtitle: String) -> void:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
+	row.add_theme_constant_override("separation", 16)
 	_content.add_child(row)
-	var back := kit.button("<")
-	back.custom_minimum_size = Vector2(46, 42)
-	back.pressed.connect(func(): _show_page("menu"))
+	var back := kit.button("Back")
+	back.name = "PauseBackButton"
+	back.custom_minimum_size = Vector2(80, 46)
+	back.pressed.connect(_request_page.bind("menu"))
 	row.add_child(back)
+	back.call_deferred("grab_focus")
 	var text := VBoxContainer.new()
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(text)
 	text.add_child(kit.label(title, 30, false, true))
 	var sub := kit.label(subtitle, 15)
-	sub.add_theme_color_override("font_color", Color(0.5, 0.45, 0.37))
+	sub.add_theme_color_override("font_color", Color(0.48, 0.47, 0.42))
 	text.add_child(sub)
-	var line := ColorRect.new()
-	line.color = kit.palette.color("ui_good")
-	line.custom_minimum_size.y = 3
-	_content.add_child(line)
 
 
-func _setting_row(title: String, description: String, control: Control) -> PanelContainer:
-	var card := kit.card(Vector2(0, 66))
+func _setting_row(title: String, description: String, control: Control) -> MarginContainer:
+	var holder := MarginContainer.new()
+	holder.custom_minimum_size.y = 74
+	for side in ["left", "right"]:
+		holder.add_theme_constant_override("margin_%s" % side, 14)
+	for side in ["top", "bottom"]:
+		holder.add_theme_constant_override("margin_%s" % side, 9)
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 14)
-	card.add_child(row)
+	row.add_theme_constant_override("separation", 20)
+	holder.add_child(row)
 	var text := VBoxContainer.new()
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.add_theme_constant_override("separation", 3)
 	row.add_child(text)
 	text.add_child(kit.label(title, 19, false, true))
 	var note := kit.label(description, 14)
-	note.add_theme_color_override("font_color", Color(0.5, 0.46, 0.39))
+	note.add_theme_color_override("font_color", Color(0.49, 0.48, 0.43))
 	text.add_child(note)
 	row.add_child(control)
-	return card
+	return holder
 
 
 func _check_button(text: String, pressed: bool) -> CheckButton:
@@ -406,17 +406,23 @@ func _volume_control(value: float) -> Dictionary:
 	return {"root": row, "slider": slider, "label": amount}
 
 
-func _control_row(action: String, keys: Array, description: String) -> PanelContainer:
-	var card := kit.card(Vector2(0, 62))
+func _control_row(action: String, keys: Array, description: String) -> MarginContainer:
+	var holder := MarginContainer.new()
+	holder.custom_minimum_size.y = 72
+	for side in ["left", "right"]:
+		holder.add_theme_constant_override("margin_%s" % side, 14)
+	for side in ["top", "bottom"]:
+		holder.add_theme_constant_override("margin_%s" % side, 8)
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	card.add_child(row)
+	row.add_theme_constant_override("separation", 16)
+	holder.add_child(row)
 	var text := VBoxContainer.new()
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.add_theme_constant_override("separation", 3)
 	row.add_child(text)
 	text.add_child(kit.label(action, 18, false, true))
 	var note := kit.label(description, 14)
-	note.add_theme_color_override("font_color", Color(0.5, 0.46, 0.39))
+	note.add_theme_color_override("font_color", Color(0.49, 0.48, 0.43))
 	text.add_child(note)
 	var caps := HBoxContainer.new()
 	caps.alignment = BoxContainer.ALIGNMENT_END
@@ -424,7 +430,7 @@ func _control_row(action: String, keys: Array, description: String) -> PanelCont
 	row.add_child(caps)
 	for key_text in keys:
 		caps.add_child(kit.keycap(String(key_text), 42.0))
-	return card
+	return holder
 
 
 func _apply_preferences() -> void:
@@ -443,8 +449,7 @@ func _save_game() -> void:
 func _save_and_exit() -> void:
 	core.visual_state["preferences"] = preferences.to_dict()
 	if not core.save():
-		_show_page("menu")
-		_status_label.text = "Save failed. The game is still open."
+		_request_page("menu")
 		_play("ui_cancel")
 		return
 	get_tree().paused = false

@@ -24,23 +24,27 @@ func _init(pal: CozyPalette) -> void:
 
 func panel_style(dark := false, radius := 12) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = palette.color("ui_panel_dark") if dark else palette.color("ui_panel")
+	style.bg_color = palette.color("ui_panel_dark") if dark else Color(0.95, 0.94, 0.89, 0.96)
 	style.set_corner_radius_all(radius)
-	style.set_content_margin_all(14)
-	style.border_width_left = 1
-	style.border_width_top = 1
-	style.border_width_right = 1
-	style.border_width_bottom = 3
-	style.border_color = Color(0.25, 0.19, 0.13, 0.16)
-	style.shadow_color = Color(0.13, 0.1, 0.07, 0.18)
-	style.shadow_size = 8
-	style.shadow_offset = Vector2(0, 4)
+	style.set_content_margin_all(16)
+	style.anti_aliasing = true
+	return style
+
+
+func cloud_panel_style(radius := 30) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.965, 0.96, 0.925, 0.98)
+	style.set_corner_radius_all(radius)
+	style.set_content_margin_all(32)
+	style.shadow_color = Color(0.12, 0.12, 0.1, 0.18)
+	style.shadow_size = 18
+	style.shadow_offset = Vector2(0, 7)
 	style.anti_aliasing = true
 	return style
 
 
 func text_color(dark_background := false) -> Color:
-	return Color(0.95, 0.93, 0.88) if dark_background else Color(0.24, 0.2, 0.15)
+	return Color(0.95, 0.94, 0.9) if dark_background else Color(0.23, 0.22, 0.19)
 
 
 func label(text: String, size := 18, dark_background := false, strong := false) -> Label:
@@ -58,29 +62,24 @@ func button(text: String, accent := false) -> Button:
 	b.add_theme_font_override("font", font_bold)
 	b.add_theme_font_size_override("font_size", 18)
 	var normal := StyleBoxFlat.new()
-	normal.bg_color = palette.color("ui_accent") if accent else Color(0.91, 0.88, 0.8)
-	normal.set_corner_radius_all(9)
-	normal.set_content_margin_all(8)
-	normal.content_margin_left = 14
-	normal.content_margin_right = 14
-	normal.border_width_left = 1
-	normal.border_width_top = 1
-	normal.border_width_right = 1
-	normal.border_width_bottom = 3
-	normal.border_color = Color(0.25, 0.18, 0.12, 0.2)
+	normal.bg_color = palette.color("ui_accent").lightened(0.06) if accent else Color(0.88, 0.87, 0.82, 0.82)
+	normal.set_corner_radius_all(12)
+	normal.set_content_margin_all(11)
+	normal.content_margin_left = 18
+	normal.content_margin_right = 18
 	var hover := normal.duplicate()
-	hover.bg_color = normal.bg_color.lightened(0.1)
-	hover.border_color = palette.color("ui_good").darkened(0.12)
+	hover.bg_color = normal.bg_color.lightened(0.08)
 	var pressed := normal.duplicate()
 	pressed.bg_color = normal.bg_color.darkened(0.08)
-	pressed.border_width_bottom = 1
 	var disabled := normal.duplicate()
 	disabled.bg_color = Color(0.8, 0.78, 0.73, 0.6)
+	var focus := normal.duplicate()
+	focus.bg_color = normal.bg_color.lightened(0.04)
 	b.add_theme_stylebox_override("normal", normal)
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("disabled", disabled)
-	b.add_theme_stylebox_override("focus", hover)
+	b.add_theme_stylebox_override("focus", focus)
 	b.add_theme_color_override("font_color", Color.WHITE if accent else text_color())
 	b.add_theme_color_override("font_hover_color", Color.WHITE if accent else text_color())
 	b.add_theme_color_override("font_focus_color", Color.WHITE if accent else text_color())
@@ -90,10 +89,40 @@ func button(text: String, accent := false) -> Button:
 
 
 func menu_button(text: String, accent := false) -> Button:
-	var b := button(text, accent)
-	b.custom_minimum_size = Vector2(350, 58)
+	var b := Button.new()
+	b.text = text
+	b.custom_minimum_size = Vector2(370, 62)
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.add_theme_font_override("font", font_bold)
 	b.add_theme_font_size_override("font_size", 26)
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color(1, 1, 1, 0)
+	normal.set_corner_radius_all(14)
+	normal.content_margin_left = 18
+	normal.content_margin_right = 18
+	normal.content_margin_top = 13
+	normal.content_margin_bottom = 13
+	var hover := normal.duplicate()
+	hover.bg_color = Color(1, 1, 1, 0.46)
+	var pressed := normal.duplicate()
+	pressed.bg_color = Color(0.78, 0.8, 0.73, 0.46)
+	var focus := normal.duplicate()
+	focus.bg_color = Color(1, 1, 1, 0.3)
+	b.add_theme_stylebox_override("normal", normal)
+	b.add_theme_stylebox_override("hover", hover)
+	b.add_theme_stylebox_override("pressed", pressed)
+	b.add_theme_stylebox_override("focus", focus)
+	var color := Color(0.93, 0.94, 0.89) if accent else text_color()
+	b.add_theme_color_override("font_color", color)
+	b.add_theme_color_override("font_hover_color", color)
+	b.add_theme_color_override("font_pressed_color", color)
+	b.add_theme_color_override("font_focus_color", color)
+	if accent:
+		normal.bg_color = palette.color("ui_good").darkened(0.02)
+		hover.bg_color = normal.bg_color.lightened(0.06)
+		pressed.bg_color = normal.bg_color.darkened(0.06)
+		focus.bg_color = normal.bg_color.lightened(0.03)
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	return b
 
 
@@ -142,10 +171,10 @@ func window(title: String, size: Vector2) -> Dictionary:
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.add_child(center)
 	var c := card(size)
-	c.add_theme_stylebox_override("panel", panel_style(false, 18))
+	c.add_theme_stylebox_override("panel", cloud_panel_style())
 	center.add_child(c)
 	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", 10)
+	content.add_theme_constant_override("separation", 14)
 	c.add_child(content)
 	var header := HBoxContainer.new()
 	content.add_child(header)
@@ -154,11 +183,6 @@ func window(title: String, size: Vector2) -> Dictionary:
 	header.add_child(title_label)
 	var close := button("✕")
 	header.add_child(close)
-	var accent_line := ColorRect.new()
-	accent_line.color = palette.color("ui_good")
-	accent_line.custom_minimum_size.y = 3
-	accent_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(accent_line)
 	return {"root": root, "card": c, "content": content, "close": close}
 
 
