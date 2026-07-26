@@ -25,8 +25,13 @@ func _ready() -> void:
 	_sun = DirectionalLight3D.new()
 	_sun.name = "Sun"
 	_sun.shadow_enabled = true
-	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
-	_sun.directional_shadow_max_distance = 60.0
+	# Four blended cascades fitted tightly around the compact world: a large
+	# shadow distance wastes cascade resolution and is what makes stylized
+	# shadows stair-step. See docs/visual_rework/SMOOTHNESS_AUDIT.md.
+	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+	_sun.directional_shadow_max_distance = 28.0
+	_sun.directional_shadow_blend_splits = true
+	_sun.directional_shadow_fade_start = 0.9
 	add_child(_sun)
 
 	_environment = WorldEnvironment.new()

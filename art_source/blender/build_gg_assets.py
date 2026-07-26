@@ -50,84 +50,122 @@ def srgb(hexcode):
 
 
 PALETTE = {
-    "warm_white": "F6EED6",
-    "ivory_highlight": "E2D7BF",
-    "stone_light": "CFC6B8",
-    "stone_mid_light": "BDB5A8",
-    "stone_mid": "AAA497",
-    "stone_warm_shadow": "948C80",
-    "stone_shadow": "7F7C72",
-    "stone_deep_shadow": "5C5B55",
-    "soft_sage_gray": "7E8F84",
+    "background_cream_01": "E4E0D0",
+    "background_cream_02": "DFDACA",
+    "background_cream_03": "D9D4C4",
+    "brown_fabric": "845739",
+    "burnt_red": "A94A35",
+    "coral": "C96558",
+    "cream_fabric": "DDD0B6",
+    "crystal": "9ED7D8",
+    "dark_fabric": "5B3E2E",
+    "deep_grass": "3F5A28",
+    "earth_deep": "65412D",
+    "earth_light": "BA7B4A",
+    "earth_mid": "955F3B",
+    "earth_primary": "A86D42",
+    "earth_shadow": "7D5236",
+    "earthy_olive": "6B6F2F",
+    "fire_core": "FFF4CC",
+    "fire_orange": "D98B22",
+    "fire_red": "B84A2A",
+    "fire_yellow": "F2D84A",
+    "gold_deep": "BF8E18",
+    "gold_highlight": "EAD24A",
+    "gold_primary": "DDB626",
     "grass_highlight": "B8CC46",
-    "grass_sunlit": "AFC53D",
     "grass_primary": "98B53A",
     "grass_secondary": "7FA134",
-    "moss_bright": "89B03E",
-    "moss_primary": "6D9536",
     "grass_shade": "567A2C",
-    "olive_shadow": "4D6732",
-    "deep_grass": "3F5A28",
+    "grass_sunlit": "AFC53D",
+    "grass_vivid_accent": "74A82A",
+    "hair_deep": "382419",
+    "hair_light": "76533B",
+    "hair_primary": "543826",
+    "ivory_highlight": "E2D7BF",
     "leaf_bright": "8FB058",
-    "leaf_soft_sage": "98AE82",
     "leaf_medium": "708A4E",
     "leaf_olive": "5B7343",
+    "leaf_soft_sage": "98AE82",
+    "magic": "A77A2C",
+    "moss_bright": "89B03E",
+    "moss_primary": "6D9536",
+    "mustard_fabric": "B88F41",
+    "olive_shadow": "4D6732",
+    "pine_deep": "2D4122",
     "pine_light": "6E9440",
     "pine_medium": "50722F",
     "pine_shadow": "3E582A",
-    "pine_deep": "2D4122",
-    "earth_light": "BA7B4A",
-    "earth_primary": "A86D42",
-    "earth_mid": "955F3B",
-    "earth_shadow": "7D5236",
-    "earth_deep": "65412D",
-    "soil_orange": "965722",
-    "soil_deep": "5E2E17",
-    "wood_highlight": "DAB55F",
-    "wood_light": "C99849",
-    "wood_gold": "B98237",
-    "wood_primary": "A76D2D",
-    "wood_warm_shadow": "875324",
-    "wood_brown": "6C4A35",
-    "wood_deep": "52382A",
-    "wood_dark": "3D2A20",
-    "warm_near_black": "2C1E17",
-    "terracotta_light": "C9875B",
-    "terracotta_primary": "B86E40",
-    "terracotta_orange": "C76D1C",
-    "terracotta_shadow": "954B1B",
-    "burnt_red": "A94A35",
-    "coral": "C96558",
+    "skin_light": "E0B06C",
+    "skin_mid": "C58757",
+    "skin_shadow": "967363",
+    "smoke": "C4BAA7",
     "soft_coral": "D98A82",
-    "gold_highlight": "EAD24A",
-    "gold_primary": "DDB626",
-    "gold_deep": "BF8E18",
-    "warm_yellow": "E6B34C",
-    "fire_core": "FFF4CC",
-    "fire_yellow": "F2D84A",
-    "fire_orange": "D98B22",
-    "fire_red": "B84A2A",
-    "water": "59AEB8",
-    "water_foam": "E3F1EE",
-    "uw_sand_light": "DDD9CD",
-    "uw_sand_shadow": "C5C7BE",
+    "soft_sage_gray": "7E8F84",
+    "soil_deep": "5E2E17",
+    "soil_deepest": "472114",
+    "soil_orange": "965722",
+    "soil_red_shadow": "7A3D19",
+    "stone_deep_shadow": "5C5B55",
+    "stone_light": "CFC6B8",
+    "stone_mid": "AAA497",
+    "stone_mid_light": "BDB5A8",
+    "stone_shadow": "7F7C72",
+    "stone_warm_shadow": "948C80",
+    "terracotta_light": "C9875B",
+    "terracotta_orange": "C76D1C",
+    "terracotta_primary": "B86E40",
+    "terracotta_shadow": "954B1B",
+    "uw_flora_dark": "2F6A4D",
+    "uw_flora_deep": "1F4C3D",
+    "uw_flora_light": "74B27A",
+    "uw_flora_mid": "4E8D60",
     "uw_rock_light": "8F9E9D",
     "uw_rock_mid": "738789",
     "uw_rock_shadow": "586A6D",
-    "uw_flora_light": "74B27A",
-    "uw_flora_mid": "4E8D60",
-    "uw_flora_dark": "2F6A4D",
-    "uw_flora_deep": "1F4C3D",
-    "petal_white": "F6EED6",
-    "petal_pink": "D98A82",
-    "petal_red": "C96558",
-    "flower_yellow": "DDB626",
-    "mushroom_red": "C96558",
-    "smoke": "C4BAA7",
-    "magic": "A77A2C",
-    "skin": "E0B06C",
+    "uw_sand_light": "DDD9CD",
+    "uw_sand_shadow": "C5C7BE",
+    "warm_near_black": "2C1E17",
+    "warm_white": "F6EED6",
+    "warm_yellow": "E6B34C",
+    "water_abyss": "173C50",
+    "water_caustic": "A7D7D2",
+    "water_deep": "245369",
+    "water_deep_mid": "366E81",
+    "water_foam": "E3F1EE",
+    "water_mid": "478F9E",
+    "water_shallow": "73BFC3",
+    "water_shallow_highlight": "8FCFD0",
+    "water_turquoise": "59AEB8",
+    "wood_brown": "6C4A35",
+    "wood_dark": "3D2A20",
+    "wood_deep": "52382A",
+    "wood_gold": "B98237",
+    "wood_highlight": "DAB55F",
+    "wood_light": "C99849",
+    "wood_primary": "A76D2D",
+    "wood_warm_shadow": "875324",
+    "dark_stone": "7F7C72",  # legacy semantic name
+    "eyes": "382419",  # legacy semantic name
+    "fabric": "A94A35",  # legacy semantic name
+    "fabric_accent": "B88F41",  # legacy semantic name
+    "flower_yellow": "DDB626",  # legacy semantic name
+    "gold": "DDB626",  # legacy semantic name
+    "grass": "98B53A",  # legacy semantic name
+    "hair": "543826",  # legacy semantic name
+    "metal": "5C5B55",  # legacy semantic name
+    "moss": "6D9536",  # legacy semantic name
+    "mushroom_red": "C96558",  # legacy semantic name
+    "pale_stone": "CFC6B8",  # legacy semantic name
+    "petal_pink": "D98A82",  # legacy semantic name
+    "petal_red": "C96558",  # legacy semantic name
+    "petal_white": "F6EED6",  # legacy semantic name
+    "skin": "E0B06C",  # legacy semantic name
+    "soil": "965722",  # legacy semantic name
+    "terracotta": "C9875B",  # legacy semantic name
+    "water": "59AEB8",  # legacy semantic name
+    "wood": "A76D2D",  # legacy semantic name
     "calib_gray": "9E9E9E",
-    "crystal": "9ED7D8",
 }
 
 EMISSIVE = {"fire_core": 6.0, "fire_yellow": 3.0, "fire_orange": 2.2, "magic": 2.5, "crystal": 1.2}
@@ -183,7 +221,7 @@ def rbox(name, size, loc, material, bevel_frac=0.045, segments=2, flat=False, be
     return _finish(obj, material, width, segments, flat=flat)
 
 
-def rcyl(name, r, depth, loc, material, verts=14, bevel_frac=0.06, r2=None, segments=2, flat=False, bevel=None):
+def rcyl(name, r, depth, loc, material, verts=18, bevel_frac=0.06, r2=None, segments=3, flat=False, bevel=None):
     if r2 is None:
         bpy.ops.mesh.primitive_cylinder_add(vertices=verts, radius=r, depth=depth, location=loc)
     else:
@@ -194,39 +232,64 @@ def rcyl(name, r, depth, loc, material, verts=14, bevel_frac=0.06, r2=None, segm
     return _finish(obj, material, width, segments, flat=flat)
 
 
-def lobe(name, r, loc, material, squash=0.86, subdiv=2, stretch=(1.0, 1.0)):
-    """Rounded foliage mass — smooth, soft, no visible faceting at distance."""
-    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=subdiv, radius=r, location=loc)
+def uv_sphere(name, r, loc, material, segments=28, rings=16, squash=1.0,
+              stretch=(1.0, 1.0), smooth_angle=180.0):
+    """High-resolution rounded volume. UV spheres give a far cleaner silhouette
+    than low-subdivision icospheres at the same triangle budget, which is what
+    kills the faceted look on heads, bushes and foliage."""
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=segments, ring_count=rings,
+                                         radius=r, location=loc)
     obj = bpy.context.active_object
     obj.name = name
     obj.scale = Vector((stretch[0], stretch[1], squash))
     bpy.ops.object.transform_apply(scale=True)
-    return _finish(obj, material, 0.0)
+    bpy.ops.object.shade_smooth()
+    obj.data.materials.append(mat(material))
+    return obj
+
+
+def lobe(name, r, loc, material, squash=0.86, subdiv=2, stretch=(1.0, 1.0)):
+    """Rounded foliage/organic mass. `subdiv` is kept for call compatibility and
+    mapped onto UV-sphere resolution; every lobe is fully smooth-shaded."""
+    seg = {1: 20, 2: 28, 3: 36}.get(subdiv, 28)
+    return uv_sphere(name, r, loc, material, segments=seg, rings=max(10, seg // 2),
+                     squash=squash, stretch=stretch)
 
 
 def pine_tier(name, r, height, loc, material, rng, lobes=7):
-    """Lobed conical tier: squashed icosphere tapered upward with a scalloped
-    lower rim — soft designed silhouette, not a straight cone."""
-    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=1.0, location=loc)
+    """One broad foliage mass of a pine: a high-resolution rounded dome with a
+    gently scalloped, drooping lower rim and a softened tip. No cone, no
+    horizontal tier break, no octagonal cross-section."""
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=32, ring_count=18, radius=1.0,
+                                         location=loc)
     obj = bpy.context.active_object
     obj.name = name
     phase = rng.uniform(0, 6.28)
+    phase2 = rng.uniform(0, 6.28)
     for v in obj.data.vertices:
-        z01 = (v.co.z + 1.0) * 0.5          # 0 bottom .. 1 top
-        taper = 1.0 - 0.62 * z01            # cone-ish profile
+        z01 = (v.co.z + 1.0) * 0.5                     # 0 bottom .. 1 top
+        # Smooth ogive taper: full width low down, easing to a soft point.
+        taper = math.sin((1.0 - z01) * math.pi * 0.5) ** 0.7
         ang = math.atan2(v.co.y, v.co.x)
-        scallop = 1.0 + 0.09 * math.sin(ang * lobes + phase) * (1.0 - z01)
+        # Two scallop harmonics so the outline never repeats mechanically.
+        scallop = (1.0
+                   + 0.085 * math.sin(ang * lobes + phase) * (1.0 - z01)
+                   + 0.045 * math.sin(ang * (lobes * 2 + 1) + phase2) * (1.0 - z01))
         v.co.x *= r * taper * scallop
         v.co.y *= r * taper * scallop
-        if v.co.z < -0.55:                  # flatten the underside
-            v.co.z = -0.55
-        v.co.z *= height * 0.5
-    return _finish(obj, material, 0.0, smooth_angle=70.0)
+        # Skirt droops outward and down at the rim instead of cutting flat.
+        droop = max(0.0, 0.32 - z01) * 1.4
+        v.co.z = (v.co.z * 0.5 + 0.5) * height - droop * height * 0.28
+    bpy.ops.object.shade_smooth()
+    obj.data.materials.append(mat(material))
+    return obj
 
 
 def rock(name, r, loc, material, rng, squash=0.78):
-    """Designed rock: controlled asymmetry, readable top plane, soft facets."""
-    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=r, location=loc)
+    """Designed rock: controlled asymmetry, readable top plane, soft facets.
+    Subdivision 2 keeps a rounded outer silhouette while the bevel + moderate
+    smoothing angle preserve deliberate planes (no tetrahedron look)."""
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=r, location=loc)
     obj = bpy.context.active_object
     obj.name = name
     sx, sy = rng.uniform(0.8, 1.25), rng.uniform(0.8, 1.2)
@@ -237,16 +300,19 @@ def rock(name, r, loc, material, rng, squash=0.78):
         if v.co.z > r * squash * 0.55:      # flattened top plane
             v.co.z = r * squash * 0.55 + (v.co.z - r * squash * 0.55) * 0.35
     obj.rotation_euler = Euler((0, 0, rng.uniform(0, 6.28)))
-    _finish(obj, material, r * 0.09, segments=1, smooth_angle=32.0)
+    _finish(obj, material, r * 0.1, segments=2, smooth_angle=46.0)
     return obj
 
 
 def blade(name, w, h, loc, material, rng, lean=0.35):
-    """Broad tapered grass blade with a curved tip — never a paper triangle."""
-    bpy.ops.mesh.primitive_cone_add(vertices=6, radius1=w, radius2=w * 0.12, depth=h, location=(loc[0], loc[1], loc[2] + h / 2))
+    """Broad tapered grass blade with a rounded tip. Deliberately chunky: thin
+    spikes alias badly at the isometric gameplay distance, so every blade stays
+    several screen pixels wide and keeps volume all the way up."""
+    bpy.ops.mesh.primitive_cone_add(vertices=12, radius1=w, radius2=w * 0.42,
+                                    depth=h, location=(loc[0], loc[1], loc[2] + h / 2))
     obj = bpy.context.active_object
     obj.name = name
-    obj.scale = Vector((1.0, 0.34, 1.0))
+    obj.scale = Vector((1.0, 0.62, 1.0))
     bpy.ops.object.transform_apply(scale=True)
     ang = rng.uniform(0, 6.28)
     dx, dy = math.cos(ang) * lean * h, math.sin(ang) * lean * h
@@ -255,14 +321,16 @@ def blade(name, w, h, loc, material, rng, lean=0.35):
         v.co.x += dx * z01 * z01
         v.co.y += dy * z01 * z01
     obj.rotation_euler = Euler((0, 0, rng.uniform(0, 6.28)))
-    return _finish(obj, material, 0.0, smooth_angle=60.0)
+    # Bevel rounds the tip and the base rim so the blade never ends in a
+    # one-pixel point.
+    return _finish(obj, material, w * 0.34, segments=2, smooth_angle=70.0)
 
 
 def petal_flower(prefix, rng, petal_mat="petal_pink", petals=5, stem_h=None):
     """Thick stem, broad leaves, shaped petals around a visible center."""
     objs = []
     h = stem_h if stem_h else rng.uniform(0.26, 0.34)
-    stem = rcyl(f"{prefix}_stem", 0.028, h, (0, 0, h / 2), "leaf_bright", verts=8, bevel=0.0)
+    stem = rcyl(f"{prefix}_stem", 0.038, h, (0, 0, h / 2), "leaf_bright", verts=14, bevel=0.008)
     tip = rng.uniform(0.03, 0.05)
     for v in stem.data.vertices:
         z01 = max(0.0, v.co.z / max(h, 1e-5) + 0.5)
@@ -282,7 +350,7 @@ def petal_flower(prefix, rng, petal_mat="petal_pink", petals=5, stem_h=None):
     return objs
 
 
-def tuft(prefix, rng, blades=5, material="moss_bright", w=0.05, h_range=(0.16, 0.3)):
+def tuft(prefix, rng, blades=5, material="moss_bright", w=0.072, h_range=(0.16, 0.3)):
     objs = []
     for i in range(blades):
         a = rng.uniform(0, 6.28)
@@ -327,10 +395,13 @@ def export(asset_id, objs):
 # ---------------------------------------------------------------- terrain
 def tile_block(prefix, top_mat, side_mat):
     """Rounded-edge land block: shallow warm side, chunky soft top cap."""
-    body = rbox(f"{prefix}_body", (TILE, TILE, BLOCK_DEPTH - 0.1),
-                (0, 0, -(BLOCK_DEPTH + 0.1) / 2), side_mat, bevel=0.02, flat=True)
-    cap = rbox(f"{prefix}_cap", (TILE + 0.02, TILE + 0.02, 0.16), (0, 0, -0.07),
-               top_mat, bevel=0.065, segments=3)
+    # Cap is exactly one tile wide: an oversized cap overlaps its neighbour and
+    # z-fights. Rounded vertical corners + a 3-segment bevel turn the join into
+    # a soft shoulder instead of a razor edge or a dark crack.
+    body = rbox(f"{prefix}_body", (TILE - 0.004, TILE - 0.004, BLOCK_DEPTH - 0.1),
+                (0, 0, -(BLOCK_DEPTH + 0.1) / 2), side_mat, bevel=0.045, segments=3)
+    cap = rbox(f"{prefix}_cap", (TILE, TILE, 0.16), (0, 0, -0.07),
+               top_mat, bevel=0.05, segments=3)
     return [body, cap]
 
 
@@ -497,7 +568,7 @@ def _mushrooms(prefix, rng):
 # ---------------------------------------------------------------- vegetation
 def _pine(prefix, rng, height=1.7, tiers=4, light="pine_light", mid="pine_medium", deep="pine_shadow"):
     trunk_h = height * 0.24
-    objs = [rcyl(f"{prefix}_trunk", 0.1, trunk_h, (0, 0, trunk_h / 2), "wood_brown", verts=10, r2=0.075, bevel=0.012)]
+    objs = [rcyl(f"{prefix}_trunk", 0.105, trunk_h, (0, 0, trunk_h / 2), "wood_brown", verts=18, r2=0.08, bevel=0.014)]
     base = trunk_h * 0.75
     span = height - base
     radius = 0.32 + height * 0.14
@@ -526,7 +597,7 @@ def _bush(prefix, rng, r=0.42, material="leaf_medium", lobes=5, accent="leaf_bri
 
 
 def _leafy_tree(prefix, rng, trunk_mat="wood_brown", leaf_mat="leaf_bright"):
-    trunk = rcyl(f"{prefix}_trunk", 0.1, 0.9, (0, 0, 0.45), trunk_mat, verts=10, r2=0.07, bevel=0.012)
+    trunk = rcyl(f"{prefix}_trunk", 0.105, 0.9, (0, 0, 0.45), trunk_mat, verts=18, r2=0.075, bevel=0.014)
     tip = rng.uniform(-0.06, 0.06)
     for v in trunk.data.vertices:
         z01 = max(0.0, v.co.z / 0.9 + 0.5)
@@ -560,8 +631,8 @@ def build_vegetation():
     for i in range(5):
         x, y = rr.uniform(-0.16, 0.16), rr.uniform(-0.16, 0.16)
         h = rr.uniform(0.42, 0.64)
-        reeds.append(rcyl(f"rds_s{i}", 0.018, h, (x, y, h / 2), "leaf_bright", verts=7, bevel=0.0))
-        reeds.append(rcyl(f"rds_h{i}", 0.034, 0.14, (x, y, h + 0.06), "wood_brown", verts=8, bevel=0.008))
+        reeds.append(rcyl(f"rds_s{i}", 0.03, h, (x, y, h / 2), "leaf_bright", verts=14, bevel=0.006))
+        reeds.append(rcyl(f"rds_h{i}", 0.046, 0.14, (x, y, h + 0.06), "wood_brown", verts=16, bevel=0.01))
     export("prop_reeds", reeds)
     stump = [rcyl("stump", 0.24, 0.3, (0, 0, 0.15), "wood_brown", verts=14, bevel=0.03, segments=3)]
     stump.append(rcyl("stump_top", 0.2, 0.035, (0, 0, 0.315), "wood_light", verts=14, bevel=0.008))
@@ -602,7 +673,7 @@ def build_props():
                          (rng.uniform(-0.015, 0.015), -0.72 + i * 0.37, 0.1 + rng.uniform(-0.006, 0.006)),
                          "wood_light" if i % 2 else "wood_gold", bevel=0.024, segments=3))
     for i, (x, y) in enumerate([(-0.4, -0.8), (0.4, -0.8), (-0.4, 0.8), (0.4, 0.8)]):
-        dock.append(rcyl(f"dock_pile{i}", 0.07, 0.62, (x, y, -0.14), "wood_brown", verts=12, bevel=0.014))
+        dock.append(rcyl(f"dock_pile{i}", 0.085, 0.62, (x, y, -0.14), "wood_brown", verts=18, bevel=0.016))
     export("prop_dock", dock)
 
     # Ferry delivery dock (matches DeliveryPoint marker layout).
@@ -612,7 +683,7 @@ def build_props():
                           (rng.uniform(-0.012, 0.012), 0.72 + i * 0.38, 0.085 + rng.uniform(-0.005, 0.005)),
                           "wood_light" if i % 2 else "wood_gold", bevel=0.026, segments=3))
     for side in (-1.0, 1.0):
-        fdock.append(rcyl(f"fdock_post{side > 0}", 0.075, 0.74, (side * 0.45, 1.52, 0.3), "wood_brown", verts=12, bevel=0.014))
+        fdock.append(rcyl(f"fdock_post{side > 0}", 0.09, 0.74, (side * 0.45, 1.52, 0.3), "wood_brown", verts=18, bevel=0.016))
     export("prop_dock_ferry", fdock)
 
     # Present: rounded parcel, ribbon, soft bow.
@@ -639,13 +710,13 @@ def build_props():
     export("prop_chest", chest)
 
     lantern = [
-        rcyl("lant_base", 0.14, 0.08, (0, 0, 0.04), "warm_near_black", verts=14, bevel=0.016),
-        rcyl("lant_pole", 0.042, 1.02, (0, 0, 0.56), "warm_near_black", verts=12, r2=0.034, bevel=0.008),
-        rcyl("lant_collar", 0.07, 0.05, (0, 0, 1.04), "warm_near_black", verts=12, bevel=0.01),
+        rcyl("lant_base", 0.15, 0.08, (0, 0, 0.04), "warm_near_black", verts=22, bevel=0.018, segments=3),
+        rcyl("lant_pole", 0.055, 1.02, (0, 0, 0.56), "warm_near_black", verts=18, r2=0.046, bevel=0.012),
+        rcyl("lant_collar", 0.078, 0.05, (0, 0, 1.04), "warm_near_black", verts=18, bevel=0.012),
         rbox("lant_cage", (0.22, 0.22, 0.26), (0, 0, 1.2), "warm_near_black", bevel=0.022, segments=3),
         rbox("lant_glow", (0.155, 0.155, 0.19), (0, 0, 1.2), "fire_core", bevel=0.012),
-        rcyl("lant_cap", 0.2, 0.14, (0, 0, 1.4), "warm_near_black", verts=12, r2=0.02, bevel=0.014),
-        lobe("lant_finial", 0.03, (0, 0, 1.49), "warm_near_black", squash=1.0),
+        rcyl("lant_cap", 0.19, 0.1, (0, 0, 1.37), "warm_near_black", verts=20, r2=0.075, bevel=0.02, segments=3),
+        lobe("lant_finial", 0.036, (0, 0, 1.44), "warm_near_black", squash=1.0),
     ]
     lantern[4].name = "GlowCore"
     export("prop_lantern", lantern)
@@ -665,9 +736,9 @@ def build_props():
     export("prop_cardboard_box", card)
 
     pot = [
-        rcyl("pot_body", 0.2, 0.3, (0, 0, 0.15), "terracotta_light", verts=16, r2=0.155, bevel=0.02, segments=3),
-        rcyl("pot_lip", 0.24, 0.085, (0, 0, 0.33), "terracotta_primary", verts=16, bevel=0.026, segments=3),
-        rcyl("pot_soil", 0.175, 0.03, (0, 0, 0.35), "soil_orange", verts=16, bevel=0.006, flat=True),
+        rcyl("pot_body", 0.2, 0.3, (0, 0, 0.15), "terracotta_light", verts=24, r2=0.155, bevel=0.022, segments=3),
+        rcyl("pot_lip", 0.24, 0.085, (0, 0, 0.33), "terracotta_primary", verts=24, bevel=0.028, segments=3),
+        rcyl("pot_soil", 0.175, 0.03, (0, 0, 0.35), "soil_orange", verts=24, bevel=0.006, flat=True),
         lobe("pot_plant", 0.15, (0, 0, 0.48), "leaf_bright", squash=0.88),
     ]
     export("prop_pot", pot)
@@ -681,8 +752,8 @@ def build_props():
     export("prop_planter", planter)
 
     fence = [
-        rcyl("fence_post1", 0.07, 0.54, (-0.8, 0, 0.27), "wood_brown", verts=12, bevel=0.014),
-        rcyl("fence_post2", 0.07, 0.54, (0.8, 0, 0.27), "wood_brown", verts=12, bevel=0.014),
+        rcyl("fence_post1", 0.085, 0.54, (-0.8, 0, 0.27), "wood_brown", verts=18, bevel=0.016),
+        rcyl("fence_post2", 0.085, 0.54, (0.8, 0, 0.27), "wood_brown", verts=18, bevel=0.016),
         rbox("fence_rail1", (1.72, 0.065, 0.1), (0, 0, 0.4), "wood_light", bevel=0.018, segments=3),
         rbox("fence_rail2", (1.72, 0.065, 0.1), (0, 0, 0.19), "wood_light", bevel=0.018, segments=3),
     ]
@@ -697,7 +768,7 @@ def build_props():
     export("prop_gate", gate)
 
     sign = [
-        rcyl("sign_pole", 0.05, 0.82, (0, 0, 0.41), "wood_brown", verts=12, bevel=0.01),
+        rcyl("sign_pole", 0.062, 0.82, (0, 0, 0.41), "wood_brown", verts=18, bevel=0.012),
         rbox("sign_board", (0.62, 0.07, 0.32), (0, 0, 0.74), "wood_light", bevel=0.02, segments=3),
     ]
     export("prop_sign", sign)
@@ -733,7 +804,7 @@ def build_props():
     shelter.append(rbox("sh_ridge", (0.17, 1.78, 0.13), (0, 0.03, ridge_z + 0.02), "wood_deep", bevel=0.026, segments=3))
     export("prop_shelter", shelter)
 
-    marker = [rcyl("fmk_pole", 0.04, 0.62, (0, 0, 0.31), "wood_light", verts=10, bevel=0.008),
+    marker = [rcyl("fmk_pole", 0.055, 0.62, (0, 0, 0.31), "wood_light", verts=18, bevel=0.01),
               lobe("fmk_buoy", 0.1, (0, 0, 0.68), "coral", squash=0.92)]
     export("prop_fishing_marker", marker)
 
@@ -755,6 +826,76 @@ def build_props():
     export("calib_cube", [rbox("calib_cube", (0.7, 0.7, 0.7), (0, 0, 0.35), "calib_gray", bevel=0.026, segments=3)])
 
 
+# ---------------------------------------------------------------- character
+def ellipsoid(name, radii, loc, material, segments=32, rings=18):
+    """Smooth non-spherical volume with explicit width, depth and height."""
+    return uv_sphere(name, 1.0, loc, material, segments=segments, rings=rings,
+                     squash=radii[2], stretch=(radii[0], radii[1]))
+
+
+def rod_between(name, start, end, radius, material, verts=14):
+    """Capsule-ish rod between two points; used for the smiling mouth."""
+    a = Vector(start)
+    b = Vector(end)
+    direction = b - a
+    obj = rcyl(name, radius, direction.length, (a + b) * 0.5, material,
+               verts=verts, bevel=radius * 0.45, segments=2)
+    obj.rotation_mode = "QUATERNION"
+    obj.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(direction.normalized())
+    return obj
+
+
+def build_character():
+    """Keeper proxy rebuilt for smoothness. Geometry, proportions and pivots
+    match the previous proxy exactly so player_visual.gd keeps working — every
+    part name, mount offset and gameplay scale is preserved. What changed is
+    resolution: UV spheres at 32x18 instead of low-subdivision icospheres, so
+    the head, hands and hair read as rounded rather than faceted."""
+    objs = []
+    # Legs and shoes
+    objs.append(rcyl("LegL", 0.055, 0.28, (-0.082, 0.012, 0.18), "wood_deep", verts=18, bevel=0.014))
+    objs.append(rcyl("LegR", 0.055, 0.28, (0.082, 0.012, 0.18), "wood_deep", verts=18, bevel=0.014))
+    objs.append(ellipsoid("ShoeL", (0.078, 0.105, 0.052), (-0.082, 0.04, 0.055), "wood_deep"))
+    objs.append(ellipsoid("ShoeR", (0.078, 0.105, 0.052), (0.082, 0.04, 0.055), "wood_deep"))
+    # Torso, belt, collar
+    objs.append(rcyl("Torso", 0.19, 0.4, (0, 0, 0.49), "burnt_red", verts=28, r2=0.17, bevel=0.05, segments=3))
+    objs.append(rcyl("Belt", 0.177, 0.035, (0, 0, 0.32), "mustard_fabric", verts=28, bevel=0.012))
+    objs.append(rcyl("Collar", 0.125, 0.035, (0, -0.01, 0.7), "mustard_fabric", verts=24, bevel=0.012))
+    # Arms and hands
+    arm_l = rcyl("ArmL", 0.047, 0.35, (-0.22, 0, 0.49), "burnt_red", verts=18, r2=0.04, bevel=0.014)
+    arm_l.rotation_euler = Euler((0, 0.16, 0))
+    arm_r = rcyl("ArmR", 0.047, 0.35, (0.22, 0, 0.49), "burnt_red", verts=18, r2=0.04, bevel=0.014)
+    arm_r.rotation_euler = Euler((0, -0.16, 0))
+    objs += [arm_l, arm_r]
+    objs.append(uv_sphere("HandL", 0.064, (-0.25, -0.008, 0.32), "skin_light"))
+    objs.append(uv_sphere("HandR", 0.064, (0.25, -0.008, 0.32), "skin_light"))
+    # Head and face
+    objs.append(ellipsoid("Head", (0.31, 0.275, 0.29), (0, 0, 1.03), "skin_light", segments=40, rings=24))
+    objs.append(ellipsoid("EarL", (0.055, 0.04, 0.07), (-0.295, 0.0, 1.03), "skin_light"))
+    objs.append(ellipsoid("EarR", (0.055, 0.04, 0.07), (0.295, 0.0, 1.03), "skin_light"))
+    objs.append(ellipsoid("EyeL", (0.04, 0.022, 0.054), (-0.105, 0.265, 1.08), "hair_deep"))
+    objs.append(ellipsoid("EyeR", (0.04, 0.022, 0.054), (0.105, 0.265, 1.08), "hair_deep"))
+    objs.append(ellipsoid("EyeHighlightL", (0.011, 0.006, 0.014), (-0.116, 0.287, 1.1), "warm_white", segments=16, rings=10))
+    objs.append(ellipsoid("EyeHighlightR", (0.011, 0.006, 0.014), (0.094, 0.287, 1.1), "warm_white", segments=16, rings=10))
+    objs.append(ellipsoid("Nose", (0.018, 0.018, 0.022), (0, 0.279, 1.025), "skin_light", segments=20, rings=12))
+    objs.append(ellipsoid("CheekL", (0.03, 0.012, 0.015), (-0.18, 0.263, 1.015), "soft_coral", segments=20, rings=12))
+    objs.append(ellipsoid("CheekR", (0.03, 0.012, 0.015), (0.18, 0.263, 1.015), "soft_coral", segments=20, rings=12))
+    objs.append(rod_between("MouthL", (-0.043, 0.274, 0.98), (0, 0.282, 0.965), 0.011, "hair_deep"))
+    objs.append(rod_between("MouthR", (0, 0.282, 0.965), (0.043, 0.274, 0.98), 0.011, "hair_deep"))
+    # Hair: rounded overlapping masses, no angular helmet dome.
+    h0 = ellipsoid("Hair00", (0.32, 0.285, 0.205), (0, -0.02, 1.17), "hair_primary", segments=40, rings=24)
+    h0_l = ellipsoid("Hair00_bangL", (0.075, 0.05, 0.055), (-0.085, 0.263, 1.205), "hair_primary", segments=24, rings=14)
+    h0_r = ellipsoid("Hair00_bangR", (0.07, 0.05, 0.052), (0.075, 0.266, 1.21), "hair_primary", segments=24, rings=14)
+    h1 = ellipsoid("Hair01", (0.315, 0.28, 0.175), (0, -0.02, 1.19), "hair_primary", segments=40, rings=24)
+    h1_tuft = ellipsoid("Hair01_tuft", (0.072, 0.05, 0.05), (-0.055, 0.255, 1.235), "hair_primary", segments=24, rings=14)
+    h2 = ellipsoid("Hair02", (0.32, 0.285, 0.19), (0, -0.02, 1.18), "hair_primary", segments=40, rings=24)
+    bun = ellipsoid("Hair02_bun", (0.09, 0.085, 0.105), (0, -0.17, 1.385), "hair_primary", segments=28, rings=16)
+    h3 = ellipsoid("Hair03", (0.325, 0.29, 0.25), (0, -0.035, 1.14), "hair_primary", segments=40, rings=24)
+    h3b = ellipsoid("Hair03_fall", (0.245, 0.19, 0.29), (0, -0.13, 0.95), "hair_primary", segments=32, rings=20)
+    objs += [h0, h0_l, h0_r, h1, h1_tuft, h2, bun, h3, h3b]
+    export("character_proxy", objs)
+
+
 # ---------------------------------------------------------------- underwater
 def build_underwater():
     # Eelgrass — tall thin curved blades, three variants.
@@ -765,7 +906,7 @@ def build_underwater():
             a = rng.uniform(0, 6.28)
             d = rng.uniform(0.02, 0.12)
             m = ["uw_flora_light", "uw_flora_mid", "uw_flora_mid"][i % 3]
-            objs.append(blade(f"eel{variant}_{i}", 0.028, rng.uniform(*h),
+            objs.append(blade(f"eel{variant}_{i}", 0.042, rng.uniform(*h),
                               (math.cos(a) * d, math.sin(a) * d, 0), m, rng, lean=0.5))
         export(f"prop_uw_eelgrass_{variant}", objs)
 
@@ -789,8 +930,8 @@ def build_underwater():
         for i in range(count):
             x, y = rng.uniform(-0.14, 0.14), rng.uniform(-0.14, 0.14)
             h = rng.uniform(0.5, 0.75)
-            objs.append(rcyl(f"uwr{variant}_s{i}", 0.02, h, (x, y, h / 2), "uw_flora_mid", verts=8, bevel=0.0))
-            objs.append(rcyl(f"uwr{variant}_h{i}", 0.036, 0.13, (x, y, h + 0.055), "wood_brown", verts=8, bevel=0.008))
+            objs.append(rcyl(f"uwr{variant}_s{i}", 0.032, h, (x, y, h / 2), "uw_flora_mid", verts=14, bevel=0.006))
+            objs.append(rcyl(f"uwr{variant}_h{i}", 0.048, 0.13, (x, y, h + 0.055), "wood_brown", verts=16, bevel=0.01))
         export(f"prop_uw_reeds_{variant}", objs)
 
     # Lily pads with one bloom.
@@ -834,6 +975,7 @@ def main():
     build_terrain()
     build_vegetation()
     build_props()
+    build_character()
     build_underwater()
     print("GG ASSET BUILD COMPLETE")
 

@@ -28,10 +28,14 @@ extends Resource
 @export var sun_pitch_deg := -58.0
 @export var sun_yaw_deg := -65.0
 @export var shadow_opacity := 0.34
-@export var shadow_blur := 0.6
-@export var sun_angular_distance := 4.0
+@export var shadow_blur := 1.2
+## Keep at or below ~1.0. Godot's PCSS blocker search (driven by this value)
+## dithers into a visible cross-hatch on smooth curved surfaces such as
+## foliage — measured in docs/visual_rework/SMOOTHNESS_AUDIT.md. Softness
+## comes from shadow_blur instead.
+@export var sun_angular_distance := 1.0
 @export var shadow_bias := 0.015
-@export var shadow_normal_bias := 0.6
+@export var shadow_normal_bias := 1.2
 
 @export_group("Post")
 @export var ssao_enabled := true
