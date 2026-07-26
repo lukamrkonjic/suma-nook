@@ -89,6 +89,7 @@ func new_game(new_profile: PlayerProfile) -> void:
 ## The composed 3×3: six land tiles and one continuous northern water edge.
 func _compose_starting_world() -> void:
 	grid.cells.clear()
+	grid.stacked_cells.clear()
 	var layout := {
 		Vector2i(-1, -1): ["tile_open_water", 0],
 		Vector2i(0, -1): ["tile_open_water", 0],
@@ -126,12 +127,17 @@ func _on_level_up(skill_id: String, new_level: int, unlocks: Array) -> void:
 	autosave_soon()
 
 
-func place_tile_from_stock(coord: Vector2i, tile_id: String, rotation: int) -> bool:
-	if not grid.can_place_tile(coord) or not stock.take_tile(tile_id):
+func place_tile_from_stock(
+	coord: Vector2i,
+	tile_id: String,
+	rotation: int,
+	elevation: int = 0
+) -> bool:
+	if not grid.can_place_tile_at(coord, elevation, tile_id) or not stock.take_tile(tile_id):
 		return false
-	grid.place_tile(coord, tile_id, rotation)
+	grid.place_tile_at(coord, elevation, tile_id, rotation)
 	collection.record_placed("tiles", tile_id)
-	if registries.feature("hostile_landmarks_enabled", false):
+	if elevation == 0 and registries.feature("hostile_landmarks_enabled", false):
 		landmarks.on_world_grown()
 	world_grown.emit(coord)
 	autosave_soon()
@@ -170,6 +176,7 @@ func _tick_anchors(delta: float) -> void:
 		if state.anchor_regen_left <= 0.0:
 			state.anchor_resting = false
 			state.anchor_actions_done = 0
+			grid.slot_changed.emit(coord, 0)
 			grid.cell_changed.emit(coord)
 
 
@@ -212,7 +219,7 @@ func load_game() -> bool:
 	if int(data.get("save_version", 1)) < 2:
 		_migrate_northern_ferry_edge()
 	var save_version := int(data.get("save_version", 1))
-	var migrated := save_version < 2
+	var migrated := save_version < 3
 	if save_version < 2:
 		legacy_inventory = data.get("inventory", {}).duplicate(true)
 		inventory.from_save_dict({})

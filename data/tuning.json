@@ -1,8 +1,9 @@
 {
-  "save_version": 2,
+  "save_version": 3,
   "save_path": "user://suma_nook_world.json",
   "tile_size": 2.0,
   "block_depth": 0.9,
+  "max_stack_elevation": 6,
   "walk_speed": 4.0,
   "walk_accel": 26.0,
   "walk_decel": 32.0,

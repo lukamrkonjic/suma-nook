@@ -6,6 +6,7 @@ extends Node
 ## Prints "FULL LOOP PASSED" or FAIL lines, then quits.
 
 const SAVE_PATH := "user://loop_test_save.json"
+const STACK_COORD := Vector2i(0, 1)
 
 var main: Main
 var failures: PackedStringArray = []
@@ -58,6 +59,7 @@ func _run() -> void:
 	await _step_parcel()
 	await _step_place_tile()
 	await _step_woodcutting()
+	await _step_elevation_stacking()
 	await _step_save_reload()
 	await _step_pause_menu()
 	await _step_admin_controls()
@@ -299,6 +301,74 @@ func _step_woodcutting() -> void:
 	check(not main.core.grid.cell(grove).anchor_resting, "grove regenerates after resting")
 
 
+func _step_elevation_stacking() -> void:
+	print("STEP block stacking / elevation")
+	main.player.position = main.core.grid.cell_to_world(Vector2i(-1, 1))
+	main.player.velocity = Vector3.ZERO
+	main.core.stock.add_tile("tile_grass")
+	main.placement.hold_new("tile", "tile_grass")
+	check(
+		not main.placement.try_place_at(Vector2i(1, 0)),
+		"tile stacking rejects an occupied decorative/uneven surface"
+	)
+	main.placement.cancel_click()
+
+	main.placement.hold_new("tile", "tile_grass")
+	check(main.placement.try_place_at(STACK_COORD), "tile places on a clear flat supporting block")
+	check(
+		main.core.grid.top_elevation(STACK_COORD) == 1,
+		"placement controller commits the tile to elevation one"
+	)
+	var target_position := main.core.grid.cell_to_world(STACK_COORD, 1)
+	var raised_node := main.renderer.tile_node(STACK_COORD, 1)
+	check(raised_node != null, "renderer creates an independent elevated tile node")
+	var covered_details_hidden := true
+	var support_node := main.renderer.tile_node(STACK_COORD, 0)
+	for child in support_node.find_children("*", "MeshInstance3D", true, false):
+		var mesh := child as MeshInstance3D
+		var lower := mesh.name.to_lower()
+		if not lower.ends_with("_body") and not lower.ends_with("_cap") and mesh.visible:
+			covered_details_hidden = false
+	check(
+		covered_details_hidden,
+		"covered support hides its surface dressing so stacked blocks do not intersect"
+	)
+	check(
+		raised_node != null and raised_node.position.y > target_position.y + 0.1,
+		"raised tile begins with the placement drop-and-pop animation"
+	)
+	await wait(0.5)
+	check(
+		raised_node != null and raised_node.position.is_equal_approx(target_position),
+		"raised tile settles exactly onto its supporting block"
+	)
+
+	main.core.stock.add_structure("struct_pot")
+	main.placement.hold_new("structure", "struct_pot")
+	check(
+		main.placement.try_place_at(STACK_COORD),
+		"compatible decoration places on the elevated top surface"
+	)
+	check(
+		main.core.grid.cell_at(STACK_COORD, 1).structures.size() == 1,
+		"elevated decoration belongs to the upper tile rather than the ground tile"
+	)
+	main.placement.undo()
+	check(
+		main.core.grid.cell_at(STACK_COORD, 1).structures.is_empty(),
+		"undo removes only the elevated decoration"
+	)
+	main.placement.redo()
+	check(
+		main.core.grid.cell_at(STACK_COORD, 1).structures.size() == 1,
+		"redo restores the decoration to the same elevation"
+	)
+	main.placement.set_active(false)
+	main.camera_rig.set_zoom_immediate(18.0)
+	await wait(0.6)
+	await shot("screenshot_elevation_stacking")
+
+
 func _step_craft_and_build() -> void:
 	print("STEP craft & build")
 	main.core.skills.add_xp("fishing", 200)
@@ -422,12 +492,18 @@ func _step_save_reload() -> void:
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	var expect_cells := main.core.grid.cells.size()
+	var expect_stacked := main.core.grid.stacked_cells.size()
 	var expect_xp: int = main.core.skills.xp["fishing"]
 	var expect_pos := main.player.position
 	check(main.core.save(), "save succeeds")
 	main.reload_from_save()
 	await wait(0.8)
 	check(main.core.grid.cells.size() == expect_cells, "world shape survives reload")
+	check(
+		main.core.grid.stacked_cells.size() == expect_stacked
+		and main.core.grid.cell_at(STACK_COORD, 1).structures.size() == 1,
+		"elevated blocks and their decoration survive reload"
+	)
 	check(main.core.skills.xp["fishing"] == expect_xp, "skills survive reload")
 	check(main.player.position.distance_to(expect_pos) < 0.05, "exact continuous player position survives reload (%.3f drift)" % main.player.position.distance_to(expect_pos))
 	check(main.core.arrivals.has_waiting_package(), "unopened delivery survives reload")

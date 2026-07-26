@@ -159,7 +159,10 @@ func _build_layout() -> void:
 	_build_strip = HBoxContainer.new()
 	_build_strip.add_theme_constant_override("separation", 6)
 	bar_col.add_child(_build_strip)
-	var build_hint := kit.label("click place · R rotate · click a placed piece to move it · X store · Ctrl/Cmd+Z undo · Esc done", 13)
+	var build_hint := kit.label(
+		"drag or click place · flat blocks stack · R rotate · X store · Ctrl/Cmd+Z undo · Esc done",
+		13
+	)
 	build_hint.add_theme_color_override("font_color", Color(0.45, 0.4, 0.33))
 	bar_col.add_child(build_hint)
 

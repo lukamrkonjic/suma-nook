@@ -14,7 +14,7 @@ var materials: MaterialLibrary
 
 const WATER_LEVEL := -0.14
 
-var _tile_nodes: Dictionary = {}        # Vector2i -> Node3D
+var _tile_nodes: Dictionary = {}        # Vector3i(x, elevation, grid_y) -> Node3D
 var _landmark_nodes: Dictionary = {}    # landmark_id -> Node3D
 var _edge_root: Node3D
 var _silhouette_material: StandardMaterial3D
@@ -37,7 +37,7 @@ func setup(game_core: GameCore, asset_library: AssetLibrary) -> void:
 	_water_surface.name = "ContinuousWaterSurface"
 	add_child(_water_surface)
 
-	core.grid.cell_changed.connect(_on_cell_changed)
+	core.grid.slot_changed.connect(_on_slot_changed)
 	core.grid.grid_changed.connect(_rebuild_edges)
 	core.grid.grid_changed.connect(_rebuild_water_surface)
 	core.landmarks.opportunity_appeared.connect(func(_s): _sync_landmarks())
@@ -48,40 +48,47 @@ func setup(game_core: GameCore, asset_library: AssetLibrary) -> void:
 
 
 func rebuild_all() -> void:
-	for coord: Vector2i in _tile_nodes.keys():
-		_tile_nodes[coord].queue_free()
+	for key in _tile_nodes.keys():
+		_tile_nodes[key].queue_free()
 	_tile_nodes.clear()
-	for coord: Vector2i in core.grid.cells:
-		_build_cell(coord, false)
+	for slot: Dictionary in core.grid.all_cell_slots():
+		_build_cell(slot["coord"], int(slot["elevation"]), false)
 	_rebuild_edges()
 	_rebuild_water_surface()
 	_sync_landmarks()
 
 
-func _on_cell_changed(coord: Vector2i) -> void:
-	if _tile_nodes.has(coord):
-		_tile_nodes[coord].queue_free()
-		_tile_nodes.erase(coord)
-	if core.grid.has_cell(coord):
-		_build_cell(coord, true)
-	_rebuild_water_surface()
+func _on_slot_changed(coord: Vector2i, elevation: int) -> void:
+	var key := core.grid.slot_key(coord, elevation)
+	if _tile_nodes.has(key):
+		_tile_nodes[key].queue_free()
+		_tile_nodes.erase(key)
+	if core.grid.has_cell_at(coord, elevation):
+		_build_cell(coord, elevation, true)
+	if elevation > 0:
+		_refresh_covered_surface(coord, elevation - 1)
+	if elevation == 0:
+		_rebuild_water_surface()
 
 
-func _build_cell(coord: Vector2i, animate := false) -> void:
-	var state := core.grid.cell(coord)
-	var def := core.grid.tile_def(coord)
+func _build_cell(coord: Vector2i, elevation: int, animate := false) -> void:
+	var state := core.grid.cell_at(coord, elevation)
+	var def := core.grid.tile_def_at(coord, elevation)
 	if def == null:
 		return
 	var holder := Node3D.new()
-	holder.name = "cell_%d_%d" % [coord.x, coord.y]
-	holder.position = core.grid.cell_to_world(coord)
+	holder.name = "cell_%d_%d_e%d" % [coord.x, coord.y, elevation]
+	holder.position = core.grid.cell_to_world(coord, elevation)
+	holder.set_meta("grid_coord", coord)
+	holder.set_meta("elevation", elevation)
 	add_child(holder)
-	_tile_nodes[coord] = holder
+	_tile_nodes[core.grid.slot_key(coord, elevation)] = holder
 
-	var visual := _make_open_water_tile(coord) if def.id == "tile_open_water" else assets.instantiate(def.asset_id)
+	var visual := _make_open_water_tile(coord) if elevation == 0 and def.id == "tile_open_water" else assets.instantiate(def.asset_id)
 	visual.rotation.y = state.rotation * PI * 0.5
 	holder.add_child(visual)
-	_attach_ambient_motion(visual, coord)
+	_apply_covered_surface(visual, coord, elevation, def)
+	_attach_ambient_motion(visual, Vector2i(coord.x + elevation * 1009, coord.y))
 
 	# Ground collider: one box whose top is exactly y=0 — identical heights on
 	# every tile means zero collision seams between connected tiles.
@@ -115,6 +122,33 @@ func _build_cell(coord: Vector2i, animate := false) -> void:
 	_apply_anchor_visual(holder, state, def, false)
 	if animate:
 		_animate_placement_settle(holder)
+
+
+func _apply_covered_surface(
+	visual: Node3D,
+	coord: Vector2i,
+	elevation: int,
+	def: Defs.TileDefinition
+) -> void:
+	if not def.supports_tiles:
+		return
+	var covered := core.grid.has_cell_at(coord, elevation + 1)
+	for child in visual.find_children("*", "MeshInstance3D", true, false):
+		var mesh := child as MeshInstance3D
+		var lower := mesh.name.to_lower()
+		var is_block_shell := lower.ends_with("_body") or lower.ends_with("_cap")
+		if not is_block_shell:
+			mesh.visible = not covered
+
+
+func _refresh_covered_surface(coord: Vector2i, elevation: int) -> void:
+	var holder := tile_node(coord, elevation)
+	var def := core.grid.tile_def_at(coord, elevation)
+	if holder == null or def == null or holder.get_child_count() == 0:
+		return
+	var visual := holder.get_child(0) as Node3D
+	if visual != null:
+		_apply_covered_surface(visual, coord, elevation, def)
 
 
 ## Open water: modeled sand floor GLB + authored underwater dressing. The
@@ -352,16 +386,20 @@ func _apply_anchor_visual(holder: Node3D, state: WorldGrid.CellState, def: Defs.
 
 
 func refresh_anchor(coord: Vector2i) -> void:
-	if not _tile_nodes.has(coord):
+	var key := core.grid.slot_key(coord, 0)
+	if not _tile_nodes.has(key):
 		return
 	var state := core.grid.cell(coord)
 	var def := core.grid.tile_def(coord)
 	if state != null and def != null:
-		_apply_anchor_visual(_tile_nodes[coord], state, def, true)
+		_apply_anchor_visual(_tile_nodes[key], state, def, true)
 
 
-func tile_node(coord: Vector2i) -> Node3D:
-	return _tile_nodes.get(coord)
+func tile_node(coord: Vector2i, elevation: int = -1) -> Node3D:
+	var target_elevation := core.grid.top_elevation(coord) if elevation < 0 else elevation
+	if target_elevation < 0:
+		return null
+	return _tile_nodes.get(core.grid.slot_key(coord, target_elevation))
 
 
 # ------------------------------------------------------------------ edges

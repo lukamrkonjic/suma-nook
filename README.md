@@ -78,14 +78,19 @@ actions intentionally have no common material drop table.
 GLB with semantic material names into `assets/3d/final/`), run
 `tools/build_assets.sh`, then add an entry to `data/tiles.json` (family,
 asset_id, weight, optional anchor/unlock levels). It joins the parcel pools
-automatically.
+automatically. Elevation is data-driven: `stackable` allows the tile to be an
+upper block, `supports_tiles` allows another block above it, and
+`supports_decor` allows objects on its surface. Stairs should use
+`surface_kind: "stairs"`, `supports_tiles: false`, and
+`supports_decor: true`.
 
 **A Land Parcel type** — add an item (`category: "parcel"`) in `items.json`
 plus an entry in `parcels.json` with family weights; optionally a recipe.
 
 **A structure** — GLB + entry in `structures.json` (socket_type decor |
 structure, blocks_movement, provides, visitor tags) + a recipe in
-`recipes.json`.
+`recipes.json`. Decorations allow elevated placement by default; set
+`allow_elevated: false` for objects that must remain at ground level.
 
 **A landmark** — landmark scene GLB (+ optional reclaimed dressing GLB),
 entry in `landmarks.json` (footprint, distance band, enemy roster, guardian,

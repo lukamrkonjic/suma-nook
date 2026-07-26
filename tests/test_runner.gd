@@ -48,6 +48,7 @@ func _run() -> void:
 	_test_arrival_and_parcel_loop()
 	_test_arrival_queue_and_presentation_swap()
 	_test_tile_adjacency_overlap_rotation()
+	_test_elevation_stacking()
 	_test_connectivity_and_relocation()
 	_test_sockets_and_overlap_prevention()
 	_test_anchor_cycle_and_regen()
@@ -381,6 +382,101 @@ func _test_tile_adjacency_overlap_rotation() -> void:
 	check(core.grid.cell(Vector2i(2, 0)).rotation == 3, "rotation persists on the placed cell")
 	check(not core.place_tile_from_stock(Vector2i(2, 0), "tile_grass", 0), "double placement rejected")
 	check(core.stock.tile_count("tile_grass") == 0, "stock consumed exactly once")
+
+
+func _test_elevation_stacking() -> void:
+	var core := fresh_core()
+	var coord := Vector2i.ZERO
+	var initial_count := core.grid.total_tile_count()
+	core.stock.add_tile("tile_grass", 2)
+	check(
+		core.grid.can_place_tile_at(coord, 1, "tile_grass"),
+		"a clear flat tile supports an upper land block"
+	)
+	check(
+		core.place_tile_from_stock(coord, "tile_grass", 1, 1),
+		"tile stock can be placed into elevation one"
+	)
+	check(
+		core.grid.top_elevation(coord) == 1
+		and core.grid.cell_at(coord, 1).rotation == 1,
+		"elevated tile owns an independent layer and rotation"
+	)
+	check(
+		is_equal_approx(core.grid.cell_to_world(coord, 1).y, core.grid.block_depth),
+		"elevated holder aligns exactly one authored block depth above its support"
+	)
+	check(
+		core.grid.total_tile_count() == initial_count + 1,
+		"placed tile totals include upper layers"
+	)
+	check(not core.grid.is_walkable(coord), "an unconnected raised column is not used as a ground route")
+	check(
+		core.grid.remove_tile_at(coord, 0) == null,
+		"a supporting block cannot be removed from beneath an upper block"
+	)
+
+	check(
+		core.place_tile_from_stock(coord, "tile_grass", 0, 2),
+		"flat upper blocks can form a taller contiguous column"
+	)
+	check(core.grid.top_elevation(coord) == 2, "column reports its highest occupied level")
+	check(
+		core.grid.can_place_structure_at(coord, 2, "struct_pot"),
+		"small decorations can sit on an elevated block"
+	)
+	var pot_socket := core.grid.free_socket(coord, "decor", 2)
+	var elevated_pot := core.grid.add_structure(coord, "struct_pot", pot_socket, 0, 2)
+	check(elevated_pot != null, "elevated decoration receives independent saved state")
+	check(
+		not core.grid.can_place_tile_at(coord, 3, "tile_grass"),
+		"a decorated support rejects a land block that would overlap it"
+	)
+
+	var stairs := Defs.TileDefinition.from_dict({
+		"id": "tile_test_stairs",
+		"name": "Test Stairs",
+		"asset_id": "tile_path",
+		"stackable": true,
+		"supports_tiles": false,
+		"supports_decor": true,
+		"surface_kind": "stairs",
+		"decor_sockets": 2,
+	})
+	var penny_pig := Defs.StructureDefinition.from_dict({
+		"id": "struct_test_penny_pig",
+		"name": "Penny Pig",
+		"asset_id": "prop_pot",
+		"socket_type": "decor",
+		"allow_elevated": true,
+	})
+	core.registries.tiles[stairs.id] = stairs
+	core.registries.structures[penny_pig.id] = penny_pig
+	var stair_coord := Vector2i(2, 0)
+	core.grid.place_tile(stair_coord, stairs.id)
+	check(
+		not core.grid.can_place_tile_at(stair_coord, 1, "tile_grass"),
+		"stairs explicitly reject a tile stacked on their uneven top"
+	)
+	check(
+		core.grid.can_place_structure_at(stair_coord, 0, penny_pig.id),
+		"stairs still accept compatible decor such as the penny pig"
+	)
+
+	core.registries.tiles.erase(stairs.id)
+	core.registries.structures.erase(penny_pig.id)
+	core.grid.remove_tile(stair_coord)
+	check(core.save(), "elevated world state saves")
+	var restored := GameCore.new()
+	restored.setup("res://data", 1)
+	restored.save_manager.save_path = core.save_manager.save_path
+	restored.save_manager.backup_path = core.save_manager.backup_path
+	check(restored.load_game(), "elevated world state loads")
+	check(
+		restored.grid.top_elevation(coord) == 2
+		and restored.grid.cell_at(coord, 2).structures.size() == 1,
+		"upper blocks and their decorations round-trip together"
+	)
 
 
 func _test_connectivity_and_relocation() -> void:

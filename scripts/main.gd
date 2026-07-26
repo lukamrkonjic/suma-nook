@@ -63,7 +63,7 @@ func _ready() -> void:
 ## Dev harness:
 ## `godot -- --shot=docs/foo.png [--weather=snow] [--time=night]
 ##     [--background=dusk] [--particles=high] [--admin] [--zoom=50]
-##     [--focus=x,z]`
+##     [--focus=x,z] [--stack-demo]`
 ## boots a fresh throwaway world, waits for frames to settle, captures, quits.
 func _handle_dev_shot(user_args: PackedStringArray) -> bool:
 	var shot_path := ""
@@ -123,6 +123,18 @@ func _handle_dev_shot(user_args: PackedStringArray) -> bool:
 	debug_set_time_of_day(shot_time)
 	debug_set_background(shot_background)
 	debug_set_particle_quality(shot_particles)
+	if user_args.has("--stack-demo"):
+		var tall_column := Vector2i.ZERO
+		var low_column := Vector2i(0, 1)
+		core.grid.place_tile_at(tall_column, 1, "tile_stone_clearing")
+		core.grid.place_tile_at(tall_column, 2, "tile_grass")
+		core.grid.add_structure(tall_column, "struct_pot", 1, 0, 2)
+		core.grid.place_tile_at(low_column, 1, "tile_grass")
+		core.grid.add_structure(low_column, "struct_bench", 2, 1, 1)
+		renderer.rebuild_all()
+		player.position = core.grid.cell_to_world(Vector2i(1, 1))
+		shot_focus = Vector2(0.0, 0.45)
+		has_shot_focus = true
 	for arg in user_args:
 		if arg.begins_with("--zoom="):
 			camera_rig.set_zoom_immediate(float(arg.trim_prefix("--zoom=")))
@@ -454,16 +466,21 @@ func _unhandled_input(event: InputEvent) -> void:
 			player.cancel_click_command()
 			player.set_state(PlayerController.State.FREE)
 			open_pause_menu()
-	elif event is InputEventMouseButton and event.pressed:
+	elif event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton
 		if mouse.button_index == MOUSE_BUTTON_LEFT:
 			if placement.active:
-				placement.click()
-			else:
+				if mouse.pressed:
+					placement.pointer_press(mouse.position)
+				else:
+					placement.pointer_release(mouse.position)
+			elif mouse.pressed:
 				_handle_world_click(mouse.position)
-		elif mouse.button_index == MOUSE_BUTTON_RIGHT:
+		elif mouse.button_index == MOUSE_BUTTON_RIGHT and mouse.pressed:
 			if placement.active:
 				placement.cancel_click()
+	elif event is InputEventMouseMotion and placement.active:
+		placement.pointer_motion((event as InputEventMouseMotion).position)
 	elif event is InputEventKey and event.pressed and not event.echo:
 		var key := event as InputEventKey
 		if key.physical_keycode == KEY_X and placement.active:

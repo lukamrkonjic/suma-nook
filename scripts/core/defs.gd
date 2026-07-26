@@ -142,6 +142,12 @@ class TileDefinition:
 	var placement_sound: String = "grass"
 	var special_trait: String = ""
 	var collection_hint: String = ""
+	# Elevation contract. A tile may be a valid upper block without being a
+	# valid support for another tile (stairs are the canonical example).
+	var stackable := false
+	var supports_tiles := false
+	var supports_decor := true
+	var surface_kind: String = "flat"  # flat|stairs|uneven|water
 
 	static func from_dict(d: Dictionary) -> TileDefinition:
 		var t := TileDefinition.new()
@@ -166,6 +172,13 @@ class TileDefinition:
 		t.placement_sound = d.get("placement_sound", "grass")
 		t.special_trait = d.get("special_trait", "")
 		t.collection_hint = d.get("collection_hint", "")
+		t.stackable = bool(d.get("stackable", false))
+		t.supports_tiles = bool(d.get("supports_tiles", false))
+		t.supports_decor = bool(d.get("supports_decor", t.walkable))
+		t.surface_kind = d.get(
+			"surface_kind",
+			"water" if not t.water_cells.is_empty() else ("flat" if t.supports_tiles else "uneven")
+		)
 		return t
 
 
@@ -180,6 +193,7 @@ class StructureDefinition:
 	var placement_sound: String = "wood"
 	var visitor_tags: Array[String] = []  # future-visitor metadata (seating, viewing...)
 	var provides: Array[String] = []   # capability tags: storage_access, light, rest
+	var allow_elevated := true
 
 	static func from_dict(d: Dictionary) -> StructureDefinition:
 		var s := StructureDefinition.new()
@@ -190,6 +204,7 @@ class StructureDefinition:
 		s.socket_type = d.get("socket_type", "decor")
 		s.blocks_movement = bool(d.get("blocks_movement", false))
 		s.placement_sound = d.get("placement_sound", "wood")
+		s.allow_elevated = bool(d.get("allow_elevated", s.socket_type == "decor"))
 		for tag in d.get("visitor_tags", []):
 			s.visitor_tags.append(String(tag))
 		for cap in d.get("provides", []):

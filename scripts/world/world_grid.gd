@@ -6,6 +6,7 @@ extends RefCounted
 ## is continuous and never quantized here.
 
 signal cell_changed(coord: Vector2i)
+signal slot_changed(coord: Vector2i, elevation: int)
 signal grid_changed
 
 const NEIGHBORS := [Vector2i.RIGHT, Vector2i.LEFT, Vector2i(0, 1), Vector2i(0, -1)]
@@ -70,11 +71,18 @@ class CellState:
 
 var registries: Registries
 var cells: Dictionary = {}          # Vector2i -> CellState
+var stacked_cells: Dictionary = {}  # Vector3i(x, elevation, grid_y) -> CellState
 var next_instance_id: int = 1
 var home_cell := Vector2i.ZERO
 
 var tile_size: float:
 	get: return registries.tunef("tile_size", 2.0)
+
+var block_depth: float:
+	get: return registries.tunef("block_depth", 0.9)
+
+var max_stack_elevation: int:
+	get: return registries.tunei("max_stack_elevation", 6)
 
 
 func _init(regs: Registries) -> void:
@@ -91,9 +99,70 @@ func cell(coord: Vector2i) -> CellState:
 	return cells.get(coord)
 
 
+func slot_key(coord: Vector2i, elevation: int) -> Vector3i:
+	return Vector3i(coord.x, elevation, coord.y)
+
+
+func has_cell_at(coord: Vector2i, elevation: int) -> bool:
+	return cells.has(coord) if elevation == 0 else stacked_cells.has(slot_key(coord, elevation))
+
+
+func cell_at(coord: Vector2i, elevation: int) -> CellState:
+	return cells.get(coord) if elevation == 0 else stacked_cells.get(slot_key(coord, elevation))
+
+
 func tile_def(coord: Vector2i) -> Defs.TileDefinition:
 	var state := cell(coord)
 	return registries.tile(state.tile_id) if state else null
+
+
+func tile_def_at(coord: Vector2i, elevation: int) -> Defs.TileDefinition:
+	var state := cell_at(coord, elevation)
+	return registries.tile(state.tile_id) if state else null
+
+
+func top_elevation(coord: Vector2i) -> int:
+	for elevation in range(max_stack_elevation, 0, -1):
+		if has_cell_at(coord, elevation):
+			return elevation
+	return 0 if has_cell(coord) else -1
+
+
+func top_cell(coord: Vector2i) -> CellState:
+	var elevation := top_elevation(coord)
+	return cell_at(coord, elevation) if elevation >= 0 else null
+
+
+func top_tile_def(coord: Vector2i) -> Defs.TileDefinition:
+	var elevation := top_elevation(coord)
+	return tile_def_at(coord, elevation) if elevation >= 0 else null
+
+
+func all_cell_slots() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for coord: Vector2i in cells:
+		result.append({"coord": coord, "elevation": 0, "state": cells[coord]})
+	for key: Vector3i in stacked_cells:
+		result.append({
+			"coord": Vector2i(key.x, key.z),
+			"elevation": key.y,
+			"state": stacked_cells[key],
+		})
+	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if int(a["elevation"]) != int(b["elevation"]):
+			return int(a["elevation"]) < int(b["elevation"])
+		var coord_a: Vector2i = a["coord"]
+		var coord_b: Vector2i = b["coord"]
+		return coord_a.y < coord_b.y if coord_a.x == coord_b.x else coord_a.x < coord_b.x
+	)
+	return result
+
+
+func highest_elevation() -> int:
+	var highest := 0
+	for key: Vector3i in stacked_cells:
+		highest = maxi(highest, key.y)
+	return highest
 
 
 func placed_tile_count() -> int:
@@ -104,12 +173,26 @@ func placed_tile_count() -> int:
 	return count
 
 
+func stacked_tile_count() -> int:
+	var count := 0
+	for state: CellState in stacked_cells.values():
+		if state.landmark_id == "":
+			count += 1
+	return count
+
+
+func total_tile_count() -> int:
+	return cells.size() + stacked_cells.size()
+
+
 func is_walkable(coord: Vector2i) -> bool:
 	var state := cell(coord)
 	if state == null:
 		return false
 	var def := registries.tile(state.tile_id)
-	return def != null and def.walkable
+	# A raised column is a deliberate piece of elevation. Until a stair/ramp
+	# surface connects to it, pathfinding must not route through its solid side.
+	return def != null and def.walkable and top_elevation(coord) == 0
 
 
 func is_adjacent_to_world(coord: Vector2i) -> bool:
@@ -123,12 +206,40 @@ func can_place_tile(coord: Vector2i) -> bool:
 	return not cells.has(coord) and is_adjacent_to_world(coord)
 
 
+func can_place_tile_at(coord: Vector2i, elevation: int, tile_id: String) -> bool:
+	if elevation == 0:
+		return can_place_tile(coord)
+	var placed_def := registries.tile(tile_id)
+	if (
+		placed_def == null
+		or not placed_def.stackable
+		or elevation > max_stack_elevation
+		or has_cell_at(coord, elevation)
+		or top_elevation(coord) != elevation - 1
+	):
+		return false
+	var support := cell_at(coord, elevation - 1)
+	var support_def := tile_def_at(coord, elevation - 1)
+	return (
+		support != null
+		and support_def != null
+		and support.landmark_id == ""
+		and support.structures.is_empty()
+		and support_def.supports_tiles
+	)
+
+
+func stack_target_elevation(coord: Vector2i, tile_id: String) -> int:
+	var elevation := top_elevation(coord) + 1
+	return elevation if elevation > 0 and can_place_tile_at(coord, elevation, tile_id) else -1
+
+
 func world_to_cell(world_pos: Vector3) -> Vector2i:
 	return Vector2i(roundi(world_pos.x / tile_size), roundi(world_pos.z / tile_size))
 
 
-func cell_to_world(coord: Vector2i) -> Vector3:
-	return Vector3(coord.x * tile_size, 0.0, coord.y * tile_size)
+func cell_to_world(coord: Vector2i, elevation: int = 0) -> Vector3:
+	return Vector3(coord.x * tile_size, elevation * block_depth, coord.y * tile_size)
 
 
 ## Deterministic local socket offsets inside a cell (socket 0 = major center).
@@ -141,9 +252,9 @@ func socket_offset(socket_index: int) -> Vector3:
 		_: return Vector3(0.55, 0.0, 0.55)
 
 
-func free_socket(coord: Vector2i, socket_type: String) -> int:
-	var state := cell(coord)
-	var def := tile_def(coord)
+func free_socket(coord: Vector2i, socket_type: String, elevation: int = 0) -> int:
+	var state := cell_at(coord, elevation)
+	var def := tile_def_at(coord, elevation)
 	if state == null or def == null or state.landmark_id != "":
 		return -1
 	var taken := {}
@@ -157,43 +268,98 @@ func free_socket(coord: Vector2i, socket_type: String) -> int:
 	return -1
 
 
+func can_place_structure_at(coord: Vector2i, elevation: int, structure_id: String) -> bool:
+	var tile := tile_def_at(coord, elevation)
+	var structure := registries.structure(structure_id)
+	if tile == null or structure == null or not tile.supports_decor:
+		return false
+	if elevation > 0 and not structure.allow_elevated:
+		return false
+	return free_socket(coord, structure.socket_type, elevation) >= 0
+
+
 # ------------------------------------------------------------------ mutation
 
 func place_tile(coord: Vector2i, tile_id: String, rotation: int = 0, starter := false) -> CellState:
+	return place_tile_at(coord, 0, tile_id, rotation, starter)
+
+
+func place_tile_at(
+	coord: Vector2i,
+	elevation: int,
+	tile_id: String,
+	rotation: int = 0,
+	starter := false
+) -> CellState:
 	var state := CellState.new()
 	state.tile_id = tile_id
 	state.rotation = posmod(rotation, 4)
 	state.starter = starter
-	cells[coord] = state
-	cell_changed.emit(coord)
-	grid_changed.emit()
+	restore_cell_at(coord, elevation, state)
 	return state
 
 
 func remove_tile(coord: Vector2i) -> CellState:
-	var state := cell(coord)
-	if state == null:
+	return remove_tile_at(coord, 0)
+
+
+func remove_tile_at(coord: Vector2i, elevation: int) -> CellState:
+	var state := cell_at(coord, elevation)
+	if state == null or top_elevation(coord) > elevation:
 		return null
-	cells.erase(coord)
-	cell_changed.emit(coord)
+	if elevation == 0:
+		cells.erase(coord)
+	else:
+		stacked_cells.erase(slot_key(coord, elevation))
+	_emit_slot_changed(coord, elevation)
 	grid_changed.emit()
 	return state
 
 
 func move_tile(from: Vector2i, to: Vector2i) -> bool:
-	var state := cell(from)
-	if state == null or cells.has(to):
+	return move_tile_at(from, 0, to, 0)
+
+
+func move_tile_at(from: Vector2i, from_elevation: int, to: Vector2i, to_elevation: int) -> bool:
+	var state := cell_at(from, from_elevation)
+	if state == null or has_cell_at(to, to_elevation) or top_elevation(from) > from_elevation:
 		return false
-	cells.erase(from)
-	cells[to] = state
-	cell_changed.emit(from)
-	cell_changed.emit(to)
+	if to_elevation == 0:
+		if not can_place_tile(to):
+			return false
+	elif not can_place_tile_at(to, to_elevation, state.tile_id):
+		return false
+	if from_elevation == 0:
+		cells.erase(from)
+	else:
+		stacked_cells.erase(slot_key(from, from_elevation))
+	if to_elevation == 0:
+		cells[to] = state
+	else:
+		stacked_cells[slot_key(to, to_elevation)] = state
+	_emit_slot_changed(from, from_elevation)
+	_emit_slot_changed(to, to_elevation)
 	grid_changed.emit()
 	return true
 
 
-func add_structure(coord: Vector2i, structure_id: String, socket_index: int, rotation: int = 0) -> StructureState:
-	var state := cell(coord)
+func restore_cell_at(coord: Vector2i, elevation: int, state: CellState) -> void:
+	if elevation == 0:
+		cells[coord] = state
+	else:
+		stacked_cells[slot_key(coord, elevation)] = state
+	_emit_slot_changed(coord, elevation)
+	grid_changed.emit()
+
+
+func add_structure(
+	coord: Vector2i,
+	structure_id: String,
+	socket_index: int,
+	rotation: int = 0,
+	elevation: int = 0
+) -> StructureState:
+	var state := cell_at(coord, elevation)
 	if state == null:
 		return null
 	var s := StructureState.new()
@@ -203,29 +369,44 @@ func add_structure(coord: Vector2i, structure_id: String, socket_index: int, rot
 	s.socket_index = socket_index
 	s.rotation = posmod(rotation, 4)
 	state.structures.append(s)
-	cell_changed.emit(coord)
+	_emit_slot_changed(coord, elevation)
 	return s
 
 
-func remove_structure(coord: Vector2i, instance_id: int) -> StructureState:
-	var state := cell(coord)
+func remove_structure(coord: Vector2i, instance_id: int, elevation: int = -1) -> StructureState:
+	if elevation < 0:
+		var found := find_structure(instance_id)
+		if found.is_empty():
+			return null
+		elevation = int(found["elevation"])
+	var state := cell_at(coord, elevation)
 	if state == null:
 		return null
 	for i in state.structures.size():
 		if state.structures[i].instance_id == instance_id:
 			var s := state.structures[i]
 			state.structures.remove_at(i)
-			cell_changed.emit(coord)
+			_emit_slot_changed(coord, elevation)
 			return s
 	return null
 
 
 func find_structure(instance_id: int) -> Dictionary:
-	for coord: Vector2i in cells:
-		for s in cells[coord].structures:
+	for slot: Dictionary in all_cell_slots():
+		var state: CellState = slot["state"]
+		for s in state.structures:
 			if s.instance_id == instance_id:
-				return {"coord": coord, "structure": s}
+				return {
+					"coord": slot["coord"],
+					"elevation": slot["elevation"],
+					"structure": s,
+				}
 	return {}
+
+
+func _emit_slot_changed(coord: Vector2i, elevation: int) -> void:
+	slot_changed.emit(coord, elevation)
+	cell_changed.emit(coord)
 
 
 # ------------------------------------------------------------------ connectivity & safety
@@ -285,23 +466,30 @@ func bounds() -> Rect2i:
 
 func to_save_dict() -> Dictionary:
 	var cell_list: Array = []
-	for coord: Vector2i in cells:
-		var entry: Dictionary = cells[coord].to_dict()
+	for slot: Dictionary in all_cell_slots():
+		var coord: Vector2i = slot["coord"]
+		var entry: Dictionary = (slot["state"] as CellState).to_dict()
 		entry["x"] = coord.x
 		entry["y"] = coord.y
+		entry["e"] = int(slot["elevation"])
 		cell_list.append(entry)
 	return {"cells": cell_list, "next_iid": next_instance_id, "home": [home_cell.x, home_cell.y]}
 
 
 func from_save_dict(data: Dictionary) -> void:
 	cells.clear()
+	stacked_cells.clear()
 	for entry in data.get("cells", []):
 		var coord := Vector2i(int(entry.get("x", 0)), int(entry.get("y", 0)))
+		var elevation := int(entry.get("e", 0))
 		var state := CellState.from_dict(entry)
 		if registries.tile(state.tile_id) == null and state.landmark_id == "":
 			push_warning("WorldGrid: dropping cell with unknown tile '%s'" % state.tile_id)
 			continue
-		cells[coord] = state
+		if elevation == 0:
+			cells[coord] = state
+		else:
+			stacked_cells[slot_key(coord, elevation)] = state
 	next_instance_id = int(data.get("next_iid", 1))
 	var home: Array = data.get("home", [0, 0])
 	home_cell = Vector2i(int(home[0]), int(home[1]))

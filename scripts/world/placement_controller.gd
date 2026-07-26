@@ -20,9 +20,14 @@ var held: Dictionary = {}      # {kind: tile|structure|deed, id, rotation, movin
 var _ghost: Node3D
 var _indicator: MeshInstance3D
 var _hover_cell := Vector2i(9999, 9999)
+var _hover_elevation := 0
 var _hover_valid := false
 var _undo_stack: Array[Dictionary] = []
 var _redo_stack: Array[Dictionary] = []
+var _pointer_down := false
+var _pointer_dragging := false
+var _pointer_press_position := Vector2.ZERO
+var _picked_on_pointer_press := false
 
 var _ghost_ok_material: StandardMaterial3D
 var _ghost_bad_material: StandardMaterial3D
@@ -116,24 +121,36 @@ func _set_ghost_material(mat: StandardMaterial3D) -> void:
 
 # ------------------------------------------------------------------ per-frame preview
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if not active or held.is_empty():
 		_indicator.visible = false
 		if _ghost != null:
 			_ghost.visible = false
 		return
-	var cell := _cell_under_mouse()
-	_hover_cell = cell
-	_hover_valid = _validate(cell)
-	var world := core.grid.cell_to_world(cell)
+	_update_hover_target()
+	_hover_valid = _validate(_hover_cell, _hover_elevation)
+	var world := core.grid.cell_to_world(_hover_cell, _hover_elevation)
 	if _ghost != null:
+		var was_visible := _ghost.visible
 		_ghost.visible = true
-		_ghost.position = world + Vector3(0, 0.06, 0)
-		_ghost.rotation.y = int(held["rotation"]) * PI * 0.5
+		var target_position := world + Vector3(
+			0,
+			0.1 + sin(Time.get_ticks_msec() * 0.006) * 0.025,
+			0
+		)
 		if held["kind"] == "structure":
-			var socket := _target_socket(cell)
+			var socket := _target_socket(_hover_cell, _hover_elevation)
 			if socket >= 0:
-				_ghost.position = world + core.grid.socket_offset(socket) + Vector3(0, 0.06, 0)
+				target_position += core.grid.socket_offset(socket)
+		if was_visible:
+			_ghost.position = _ghost.position.lerp(target_position, 1.0 - exp(-delta * 20.0))
+		else:
+			_ghost.position = target_position
+		_ghost.rotation.y = lerp_angle(
+			_ghost.rotation.y,
+			int(held["rotation"]) * PI * 0.5,
+			1.0 - exp(-delta * 22.0)
+		)
 		_set_ghost_material(_ghost_ok_material if _hover_valid else _ghost_bad_material)
 	# Color-independent validity: solid square for valid, rotated (diamond) for
 	# invalid — readable without red/green vision.
@@ -143,29 +160,61 @@ func _process(_delta: float) -> void:
 	_indicator.material_override = _ghost_ok_material if _hover_valid else _ghost_bad_material
 
 
-func _cell_under_mouse() -> Vector2i:
+func _slot_under_mouse() -> Dictionary:
 	var viewport := get_viewport()
 	var mouse := viewport.get_mouse_position()
 	var camera := camera_rig.camera
 	var origin := camera.project_ray_origin(mouse)
 	var direction := camera.project_ray_normal(mouse)
 	if absf(direction.y) < 0.0001:
-		return _hover_cell
-	var t := -origin.y / direction.y
-	var point := origin + direction * t
-	return core.grid.world_to_cell(point)
+		return {"coord": _hover_cell, "elevation": -1}
+	for elevation in range(core.grid.highest_elevation(), -1, -1):
+		var plane_y := core.grid.cell_to_world(Vector2i.ZERO, elevation).y
+		var distance := (plane_y - origin.y) / direction.y
+		if distance < 0.0:
+			continue
+		var point := origin + direction * distance
+		var coord := core.grid.world_to_cell(point)
+		if core.grid.has_cell_at(coord, elevation):
+			return {"coord": coord, "elevation": elevation}
+	var ground_distance := -origin.y / direction.y
+	var ground_point := origin + direction * ground_distance
+	return {"coord": core.grid.world_to_cell(ground_point), "elevation": -1}
 
 
-func _validate(cell: Vector2i) -> bool:
+func _cell_under_mouse() -> Vector2i:
+	return _slot_under_mouse()["coord"]
+
+
+func _update_hover_target() -> void:
+	var hit := _slot_under_mouse()
+	_hover_cell = hit["coord"]
+	var support_elevation := int(hit["elevation"])
 	match held.get("kind", ""):
 		"tile":
-			if held["moving"] != null:
+			_hover_elevation = support_elevation + 1 if support_elevation >= 0 else 0
+		"structure":
+			_hover_elevation = maxi(0, support_elevation)
+		_:
+			_hover_elevation = 0
+
+
+func _validate(cell: Vector2i, elevation: int = 0) -> bool:
+	match held.get("kind", ""):
+		"tile":
+			if elevation > 0:
+				if player.current_cell() == cell:
+					return false
+				return core.grid.can_place_tile_at(cell, elevation, held["id"])
+			if held["moving"] != null and int(held["moving"].get("elevation", 0)) == 0:
 				var from: Vector2i = held["moving"]["coord"]
 				return not core.grid.has_cell(cell) and _adjacent_excluding(cell, from)
-			return core.grid.can_place_tile(cell)
+			return core.grid.can_place_tile_at(cell, 0, held["id"])
 		"structure":
-			return _target_socket(cell) >= 0
+			return _target_socket(cell, elevation) >= 0
 		"deed":
+			if elevation != 0:
+				return false
 			var def := core.registries.landmark(held["id"])
 			var adjacent := false
 			for offset in def.footprint:
@@ -186,11 +235,13 @@ func _adjacent_excluding(cell: Vector2i, excluded: Vector2i) -> bool:
 	return false
 
 
-func _target_socket(cell: Vector2i) -> int:
-	if not core.grid.has_cell(cell):
+func _target_socket(cell: Vector2i, elevation: int = 0) -> int:
+	if not core.grid.has_cell_at(cell, elevation):
 		return -1
 	var def := core.registries.structure(held["id"])
-	return core.grid.free_socket(cell, def.socket_type)
+	if not core.grid.can_place_structure_at(cell, elevation, def.id):
+		return -1
+	return core.grid.free_socket(cell, def.socket_type, elevation)
 
 
 # ------------------------------------------------------------------ clicks
@@ -199,15 +250,65 @@ func _target_socket(cell: Vector2i) -> int:
 ## available for future gamepad cursor support. Same path as a mouse click.
 func try_place_at(cell: Vector2i) -> bool:
 	_hover_cell = cell
-	_hover_valid = _validate(cell)
+	match held.get("kind", ""):
+		"tile":
+			_hover_elevation = core.grid.top_elevation(cell) + 1 if core.grid.has_cell(cell) else 0
+		"structure":
+			_hover_elevation = maxi(0, core.grid.top_elevation(cell))
+		_:
+			_hover_elevation = 0
+	_hover_valid = _validate(cell, _hover_elevation)
 	if not _hover_valid:
 		return false
 	click()
 	return true
 
 
-func pick_up_at(cell: Vector2i) -> void:
-	_pick_up_from(cell)
+func try_place_at_layer(cell: Vector2i, elevation: int) -> bool:
+	_hover_cell = cell
+	_hover_elevation = elevation
+	_hover_valid = _validate(cell, elevation)
+	if not _hover_valid:
+		return false
+	click()
+	return true
+
+
+func pick_up_at(cell: Vector2i, elevation: int = -1) -> void:
+	var target_elevation := core.grid.top_elevation(cell) if elevation < 0 else elevation
+	_pick_up_from(cell, target_elevation)
+
+
+func pointer_press(screen_position: Vector2) -> void:
+	_pointer_down = true
+	_pointer_dragging = false
+	_pointer_press_position = screen_position
+	_picked_on_pointer_press = false
+	if held.is_empty():
+		_try_pick_up()
+		_picked_on_pointer_press = not held.is_empty()
+	else:
+		click()
+
+
+func pointer_motion(screen_position: Vector2) -> void:
+	if (
+		_pointer_down
+		and _picked_on_pointer_press
+		and screen_position.distance_to(_pointer_press_position) >= 8.0
+	):
+		_pointer_dragging = true
+
+
+func pointer_release(_screen_position: Vector2) -> void:
+	if _pointer_down and _pointer_dragging and _picked_on_pointer_press and not held.is_empty():
+		if _hover_valid:
+			click()
+		else:
+			action_result.emit(false, _invalid_message(), "invalid")
+	_pointer_down = false
+	_pointer_dragging = false
+	_picked_on_pointer_press = false
 
 
 func click() -> void:
@@ -217,7 +318,7 @@ func click() -> void:
 		_try_pick_up()
 		return
 	if not _hover_valid:
-		action_result.emit(false, "It can't go there — land must touch the world edge-to-edge.", "invalid")
+		action_result.emit(false, _invalid_message(), "invalid")
 		return
 	match held["kind"]:
 		"tile":
@@ -228,62 +329,117 @@ func click() -> void:
 			_place_deed()
 
 
+func _invalid_message() -> String:
+	if held.get("kind", "") == "tile" and _hover_elevation > 0:
+		return "That surface can't support another land tile — use a flat, clear block."
+	if held.get("kind", "") == "structure":
+		return "That object needs a clear supported spot."
+	return "It can't go there — land must touch the world edge-to-edge."
+
+
 func _place_tile() -> void:
 	var tile_id: String = held["id"]
 	var rotation_q: int = held["rotation"]
 	if held["moving"] != null:
 		var from: Vector2i = held["moving"]["coord"]
-		core.grid.place_tile(_hover_cell, tile_id, rotation_q)
-		var moved := core.grid.cell(_hover_cell)
+		var from_elevation := int(held["moving"].get("elevation", 0))
 		var original: WorldGrid.CellState = held["moving"]["state"]
-		moved.structures = original.structures
-		moved.anchor_actions_done = original.anchor_actions_done
-		moved.anchor_resting = original.anchor_resting
-		moved.anchor_regen_left = original.anchor_regen_left
-		moved.anchor_upgrade = original.anchor_upgrade
-		core.grid.cell_changed.emit(_hover_cell)
-		_push_undo({"type": "move_tile", "from": from, "to": _hover_cell})
+		original.rotation = rotation_q
+		core.grid.restore_cell_at(_hover_cell, _hover_elevation, original)
+		_push_undo({
+			"type": "move_tile",
+			"from": from,
+			"from_elevation": from_elevation,
+			"to": _hover_cell,
+			"to_elevation": _hover_elevation,
+		})
 		held = {}
 		held_changed.emit(held)
 		_build_ghost()
 		core.autosave_soon()
 	else:
-		if not core.place_tile_from_stock(_hover_cell, tile_id, rotation_q):
+		if not core.place_tile_from_stock(_hover_cell, tile_id, rotation_q, _hover_elevation):
 			action_result.emit(false, "That piece isn't in storage anymore.", "invalid")
 			return
-		_push_undo({"type": "place_tile", "coord": _hover_cell, "tile_id": tile_id})
+		_push_undo({
+			"type": "place_tile",
+			"coord": _hover_cell,
+			"elevation": _hover_elevation,
+			"tile_id": tile_id,
+			"rotation": rotation_q,
+		})
 		var remaining := core.stock.tile_count(tile_id)
 		if remaining <= 0:
 			held = {}
 			held_changed.emit(held)
 			_build_ghost()
 	var def := core.registries.tile(tile_id)
-	effects.placement_poof(core.grid.cell_to_world(_hover_cell), def.placement_sound)
-	_settle_animation(_hover_cell)
-	action_result.emit(true, "", "place_" + def.placement_sound)
+	effects.placement_poof(
+		core.grid.cell_to_world(_hover_cell, _hover_elevation),
+		def.placement_sound
+	)
+	_settle_animation(_hover_cell, _hover_elevation)
+	action_result.emit(
+		true,
+		"Stacked at level %d." % _hover_elevation if _hover_elevation > 0 else "",
+		"place_" + def.placement_sound
+	)
 
 
 func _place_structure() -> void:
 	var structure_id: String = held["id"]
-	var socket := _target_socket(_hover_cell)
+	var socket := _target_socket(_hover_cell, _hover_elevation)
 	if held["moving"] != null:
-		var s := core.grid.add_structure(_hover_cell, structure_id, socket, held["rotation"])
-		_push_undo({"type": "move_structure", "iid": s.instance_id, "from": held["moving"], "to": {"coord": _hover_cell, "socket": socket, "rot": held["rotation"]}})
+		var s := core.grid.add_structure(
+			_hover_cell,
+			structure_id,
+			socket,
+			held["rotation"],
+			_hover_elevation
+		)
+		s.instance_id = int(held["moving"]["iid"])
+		_push_undo({
+			"type": "move_structure",
+			"iid": s.instance_id,
+			"structure_id": structure_id,
+			"from": held["moving"],
+			"to": {
+				"coord": _hover_cell,
+				"elevation": _hover_elevation,
+				"socket": socket,
+				"rot": held["rotation"],
+			},
+		})
 		held = {}
 	else:
 		if not core.stock.take_structure(structure_id):
 			action_result.emit(false, "That piece isn't in storage anymore.", "invalid")
 			return
-		var s := core.grid.add_structure(_hover_cell, structure_id, socket, held["rotation"])
+		var s := core.grid.add_structure(
+			_hover_cell,
+			structure_id,
+			socket,
+			held["rotation"],
+			_hover_elevation
+		)
 		core.collection.record_placed("structures", structure_id)
-		_push_undo({"type": "place_structure", "coord": _hover_cell, "iid": s.instance_id, "structure_id": structure_id})
+		_push_undo({
+			"type": "place_structure",
+			"coord": _hover_cell,
+			"elevation": _hover_elevation,
+			"iid": s.instance_id,
+			"structure_id": structure_id,
+		})
 		if core.stock.structure_count(structure_id) <= 0:
 			held = {}
 	held_changed.emit(held)
 	_build_ghost()
 	var def := core.registries.structure(structure_id)
-	effects.placement_poof(core.grid.cell_to_world(_hover_cell) + core.grid.socket_offset(socket), "grass" if def.placement_sound == "grass" else "stone")
-	_settle_animation(_hover_cell)
+	effects.placement_poof(
+		core.grid.cell_to_world(_hover_cell, _hover_elevation) + core.grid.socket_offset(socket),
+		"grass" if def.placement_sound == "grass" else "stone"
+	)
+	_settle_animation(_hover_cell, _hover_elevation)
 	core.autosave_soon()
 	action_result.emit(true, "", "place_" + def.placement_sound)
 
@@ -301,45 +457,75 @@ func _place_deed() -> void:
 
 ## Pick up an existing structure (preferred) or a movable tile under the cursor.
 func _try_pick_up() -> void:
-	_pick_up_from(_cell_under_mouse())
+	var hit := _slot_under_mouse()
+	var elevation := int(hit["elevation"])
+	if elevation >= 0:
+		_pick_up_from(hit["coord"], elevation)
 
 
-func _pick_up_from(cell: Vector2i) -> void:
-	var state := core.grid.cell(cell)
+func _pick_up_from(cell: Vector2i, elevation: int) -> void:
+	var state := core.grid.cell_at(cell, elevation)
 	if state == null:
 		return
 	if not state.structures.is_empty():
 		var s: WorldGrid.StructureState = state.structures.back()
-		core.grid.remove_structure(cell, s.instance_id)
-		held = {"kind": "structure", "id": s.structure_id, "rotation": s.rotation, "moving": {"coord": cell, "socket": s.socket_index, "rot": s.rotation, "iid": s.instance_id}}
+		core.grid.remove_structure(cell, s.instance_id, elevation)
+		held = {
+			"kind": "structure",
+			"id": s.structure_id,
+			"rotation": s.rotation,
+			"moving": {
+				"coord": cell,
+				"elevation": elevation,
+				"socket": s.socket_index,
+				"rot": s.rotation,
+				"iid": s.instance_id,
+			},
+		}
 		_build_ghost()
 		held_changed.emit(held)
 		action_result.emit(true, "Click to move it, Esc to put it back, X to store it.", "pickup")
 		return
-	_try_pick_up_tile(cell, state)
+	_try_pick_up_tile(cell, elevation, state)
 
 
-func _try_pick_up_tile(cell: Vector2i, state: WorldGrid.CellState) -> void:
-	if state.starter:
+func _try_pick_up_tile(cell: Vector2i, elevation: int, state: WorldGrid.CellState) -> void:
+	if elevation == 0 and state.starter:
 		action_result.emit(false, "The first nine tiles are the heart of your world — they stay (and can be upgraded later).", "invalid")
 		return
-	if state.landmark_id != "":
+	if elevation == 0 and state.landmark_id != "":
 		action_result.emit(false, "Reclaimed landmarks move by packing them from their pedestal.", "invalid")
 		return
-	if not core.grid.connected_without(cell, core.grid.home_cell):
+	if core.grid.top_elevation(cell) > elevation:
+		action_result.emit(false, "Move the upper blocks first.", "invalid")
+		return
+	if elevation == 0 and not core.grid.connected_without(cell, core.grid.home_cell):
 		action_result.emit(false, "Removing that tile would split your world in two.", "invalid")
 		return
-	if player.current_cell() == cell:
+	if elevation == 0 and player.current_cell() == cell:
 		var refuge := core.grid.nearest_walkable(cell, cell)
 		if refuge == cell:
 			action_result.emit(false, "There's nowhere safe to stand — place more land first.", "invalid")
 			return
 		player.position = core.grid.cell_to_world(refuge)
-	var removed := core.grid.remove_tile(cell)
-	held = {"kind": "tile", "id": removed.tile_id, "rotation": removed.rotation, "moving": {"coord": cell, "state": removed}}
+	var removed := core.grid.remove_tile_at(cell, elevation)
+	held = {
+		"kind": "tile",
+		"id": removed.tile_id,
+		"rotation": removed.rotation,
+		"moving": {
+			"coord": cell,
+			"elevation": elevation,
+			"state": removed,
+		},
+	}
 	_build_ghost()
 	held_changed.emit(held)
-	action_result.emit(true, "Click a new edge to move the whole tile, Esc to put it back.", "pickup")
+	action_result.emit(
+		true,
+		"Drag or click it onto a clear edge or flat supporting block. Esc restores it.",
+		"pickup"
+	)
 
 
 ## X while holding a moved structure stores it instead of replacing it.
@@ -375,16 +561,24 @@ func _cancel_held(restore: bool) -> void:
 			"tile":
 				var original: WorldGrid.CellState = held["moving"]["state"]
 				var coord: Vector2i = held["moving"]["coord"]
-				core.grid.cells[coord] = original
-				core.grid.cell_changed.emit(coord)
-				core.grid.grid_changed.emit()
+				var elevation := int(held["moving"].get("elevation", 0))
+				core.grid.restore_cell_at(coord, elevation, original)
 			"structure":
 				var m: Dictionary = held["moving"]
-				var s := core.grid.add_structure(m["coord"], held["id"], m["socket"], m["rot"])
+				var s := core.grid.add_structure(
+					m["coord"],
+					held["id"],
+					m["socket"],
+					m["rot"],
+					int(m.get("elevation", 0))
+				)
 				s.instance_id = m["iid"]
 	elif restore and held["moving"] == null and held["kind"] == "tile":
 		pass  # piece stays in stock — nothing was consumed until placement
 	held = {}
+	_pointer_down = false
+	_pointer_dragging = false
+	_picked_on_pointer_press = false
 	held_changed.emit(held)
 	if _ghost != null:
 		_ghost.queue_free()
@@ -421,27 +615,48 @@ func redo() -> void:
 func _apply(entry: Dictionary, reverse: bool) -> bool:
 	match entry["type"]:
 		"place_tile":
+			var elevation := int(entry.get("elevation", 0))
 			if reverse:
 				var coord: Vector2i = entry["coord"]
-				if player.current_cell() == coord:
+				if elevation == 0 and player.current_cell() == coord:
 					player.position = core.grid.cell_to_world(core.grid.nearest_walkable(coord, coord))
-				if not core.grid.connected_without(coord, core.grid.home_cell):
+				if elevation == 0 and not core.grid.connected_without(coord, core.grid.home_cell):
 					return false
-				var removed := core.grid.remove_tile(coord)
+				var removed := core.grid.remove_tile_at(coord, elevation)
 				if removed != null:
 					core.stock.add_tile(removed.tile_id)
 				return removed != null
-			return core.place_tile_from_stock(entry["coord"], entry["tile_id"], 0)
+			return core.place_tile_from_stock(
+				entry["coord"],
+				entry["tile_id"],
+				int(entry.get("rotation", 0)),
+				elevation
+			)
 		"place_structure":
+			var structure_elevation := int(entry.get("elevation", 0))
 			if reverse:
-				var removed_s := core.grid.remove_structure(entry["coord"], entry["iid"])
+				var removed_s := core.grid.remove_structure(
+					entry["coord"],
+					entry["iid"],
+					structure_elevation
+				)
 				if removed_s != null:
 					core.stock.add_structure(removed_s.structure_id)
 				return removed_s != null
 			if core.stock.take_structure(entry["structure_id"]):
-				var socket := core.grid.free_socket(entry["coord"], core.registries.structure(entry["structure_id"]).socket_type)
+				var socket := core.grid.free_socket(
+					entry["coord"],
+					core.registries.structure(entry["structure_id"]).socket_type,
+					structure_elevation
+				)
 				if socket >= 0:
-					var s := core.grid.add_structure(entry["coord"], entry["structure_id"], socket)
+					var s := core.grid.add_structure(
+						entry["coord"],
+						entry["structure_id"],
+						socket,
+						0,
+						structure_elevation
+					)
 					entry["iid"] = s.instance_id
 					return true
 				core.stock.add_structure(entry["structure_id"])
@@ -449,26 +664,56 @@ func _apply(entry: Dictionary, reverse: bool) -> bool:
 		"move_tile":
 			var from: Vector2i = entry["to"] if reverse else entry["from"]
 			var to: Vector2i = entry["from"] if reverse else entry["to"]
-			return core.grid.move_tile(from, to)
+			var from_elevation := (
+				int(entry.get("to_elevation", 0))
+				if reverse
+				else int(entry.get("from_elevation", 0))
+			)
+			var to_elevation := (
+				int(entry.get("from_elevation", 0))
+				if reverse
+				else int(entry.get("to_elevation", 0))
+			)
+			return core.grid.move_tile_at(from, from_elevation, to, to_elevation)
 		"move_structure":
 			var src: Dictionary = entry["to"] if reverse else entry["from"]
 			var dst: Dictionary = entry["from"] if reverse else entry["to"]
 			var found := core.grid.find_structure(entry["iid"])
 			if found.is_empty():
 				return false
-			core.grid.remove_structure(found["coord"], entry["iid"])
-			var s := core.grid.add_structure(dst["coord"], _structure_id_of(entry), dst.get("socket", 0), dst.get("rot", 0))
+			core.grid.remove_structure(
+				found["coord"],
+				entry["iid"],
+				int(found.get("elevation", 0))
+			)
+			var s := core.grid.add_structure(
+				dst["coord"],
+				_structure_id_of(entry),
+				dst.get("socket", 0),
+				dst.get("rot", 0),
+				int(dst.get("elevation", 0))
+			)
 			s.instance_id = entry["iid"]
 			return true
 		"store_structure":
 			var m: Dictionary = entry["from"]
 			if reverse:
 				if core.stock.take_structure(entry["structure_id"]):
-					var restored := core.grid.add_structure(m["coord"], entry["structure_id"], m["socket"], m["rot"])
+					var restored := core.grid.add_structure(
+						m["coord"],
+						entry["structure_id"],
+						m["socket"],
+						m["rot"],
+						int(m.get("elevation", 0))
+					)
 					entry["from"]["iid"] = restored.instance_id
 					return true
 				return false
-			var removed_again := core.grid.remove_structure(m["coord"], int(m.get("iid", -1)))
+			var removed_again := core.grid.remove_structure(
+				m["coord"],
+				int(m.get("iid", -1)),
+				int(m.get("elevation", 0))
+			)
 			if removed_again != null:
 				core.stock.add_structure(entry["structure_id"])
 				return true
@@ -480,16 +725,17 @@ func _structure_id_of(entry: Dictionary) -> String:
 	return entry.get("structure_id", held.get("id", ""))
 
 
-func _settle_animation(coord: Vector2i) -> void:
+func _settle_animation(coord: Vector2i, elevation: int = 0) -> void:
 	var renderer := get_parent().find_child("WorldRenderer", false, false) as WorldRenderer
 	if renderer == null:
 		return
-	var node := renderer.tile_node(coord)
+	var node := renderer.tile_node(coord, elevation)
 	if node == null:
 		return
-	node.position.y = 0.5
+	var target_position := core.grid.cell_to_world(coord, elevation)
+	node.position = target_position + Vector3(0, 0.5, 0)
 	node.scale = Vector3(0.94, 0.94, 0.94)
 	var tween := node.create_tween()
 	tween.set_parallel()
-	tween.tween_property(node, "position:y", 0.0, 0.3).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+	tween.tween_property(node, "position", target_position, 0.3).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
 	tween.tween_property(node, "scale", Vector3.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
