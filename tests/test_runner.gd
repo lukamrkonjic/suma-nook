@@ -39,6 +39,7 @@ func fresh_core(seed_value := 12345) -> GameCore:
 func _run() -> void:
 	_test_input_bindings()
 	_test_registries()
+	_test_gg_render_contract()
 	_test_starting_world()
 	_test_xp_only_hobbies()
 	_test_hobby_journal_and_direct_rewards()
@@ -83,6 +84,38 @@ func _test_registries() -> void:
 	check(regs.feature("ferry_arrivals_enabled"), "periodic arrivals are enabled")
 	var fishing := regs.skill("fishing")
 	check(fishing.xp_to_next(1) > 0 and fishing.xp_to_next(2) > fishing.xp_to_next(1), "xp curve increases")
+
+
+func _test_gg_render_contract() -> void:
+	var profile := load("res://assets/visual_profiles/gg_day_profile.tres") as VisualStyleProfile
+	check(profile != null, "GG day visual profile loads")
+	var regs := Registries.new()
+	check(regs.load_all(), "render-contract tuning registry loads")
+	check(
+		regs.tunef("camera_min_size", 40.0) <= 14.0
+		and regs.tunef("camera_default_size", 40.0) == 40.0,
+		"camera supports a deep close-up without changing the default composition"
+	)
+	check(
+		profile.shadow_max_distance >= 75.0,
+		"GG shadow range covers the complete 40-70 unit gameplay camera envelope"
+	)
+	check(profile.shadow_opacity >= 0.8, "GG day keeps a clearly bounded directional shadow")
+	check(
+		profile.ssao_enabled and profile.ssao_intensity >= 0.9 and profile.ssao_radius >= 0.3,
+		"GG day preserves measured contact-darkening strength and radius"
+	)
+	check(
+		profile.contrast > 1.0 and profile.saturation > 1.0 and profile.glow_enabled,
+		"GG day retains restrained color grading and emitter bloom"
+	)
+	check(
+		ProjectSettings.get_setting("rendering/anti_aliasing/quality/msaa_3d") == 3
+		and ProjectSettings.get_setting("rendering/anti_aliasing/quality/screen_space_aa") == 0
+		and ProjectSettings.get_setting("rendering/anti_aliasing/quality/use_taa")
+		and ProjectSettings.get_setting("rendering/lights_and_shadows/directional_shadow/size") >= 16384,
+		"GG comparison renderer uses 8x MSAA, temporal AA, and a high-resolution shadow map"
+	)
 
 
 func _test_starting_world() -> void:

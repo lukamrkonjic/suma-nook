@@ -473,20 +473,28 @@ func _step_admin_controls() -> void:
 		"Realtime reflection probe uses the measured envelope"
 	)
 	check(
-		not live_visuals["post_processing"]["anti_aliasing"]["taa"]
+		live_visuals["post_processing"]["anti_aliasing"]["taa"]
 		and live_visuals["post_processing"]["anti_aliasing"]["msaa_3d"] == 3
-		and live_visuals["post_processing"]["anti_aliasing"]["screen_space_aa"] == 1
+		and live_visuals["post_processing"]["anti_aliasing"]["screen_space_aa"] == 0
 		and live_visuals["post_processing"]["ssao_enabled"],
-		"Crisp 8x MSAA plus FXAA and profile-driven SSAO are active"
+		"GG-style temporal AA, 8x MSAA, and profile-driven SSAO are active"
 	)
 	var camera_values := main.camera_rig.runtime_manifest()
 	check(
 		camera_values["fov_degrees"] == 15.0
 		and camera_values["near_clip"] == 5.0
 		and camera_values["far_clip"] == 100.0
-		and camera_values["zoom_limits"]["minimum"] == 40.0
+		and camera_values["zoom_limits"]["minimum"] == 14.0
 		and camera_values["zoom_limits"]["maximum"] == 70.0,
-		"Camera manifest exposes measured lens, clipping, and zoom limits"
+		"Camera manifest exposes measured lens, clipping, and extended close-up zoom limits"
+	)
+	check(
+		live_visuals["directional_light"]["shadow_enabled"]
+		and live_visuals["directional_light"]["shadow_max_distance"]
+			>= camera_values["distance"] + 15.0
+		and live_visuals["directional_light"]["shadow_max_distance"]
+			<= camera_values["distance"] + 25.0,
+		"Directional shadow map adapts tightly to the active gameplay zoom"
 	)
 	var material_manifest := main.materials.material_parameter_manifest()
 	check(

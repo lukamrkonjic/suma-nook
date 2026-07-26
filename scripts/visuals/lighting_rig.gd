@@ -35,19 +35,20 @@ var time_of_day_id := "noon"
 var background_preset_id := "profile"
 var particle_quality_id := "high"
 var _theme_tween: Tween
+var _camera_shadow_distance := 40.0
 
 
 func _ready() -> void:
 	_sun = DirectionalLight3D.new()
 	_sun.name = "Sun"
 	_sun.shadow_enabled = true
-	# Four blended cascades fitted tightly around the compact world: a large
-	# shadow distance wastes cascade resolution and is what makes stylized
-	# shadows stair-step. See docs/visual_rework/SMOOTHNESS_AUDIT.md.
-	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
-	_sun.directional_shadow_max_distance = 28.0
-	_sun.directional_shadow_blend_splits = true
-	_sun.directional_shadow_fade_start = 0.9
+	# Garden Galaxy's high profile uses one cascade. The map is fitted again
+	# whenever gameplay zoom changes: close-ups should not spread a shadow map
+	# across the full 100-unit maximum, or each texel becomes visible on screen.
+	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+	_sun.directional_shadow_max_distance = 100.0
+	_sun.directional_shadow_blend_splits = false
+	_sun.directional_shadow_fade_start = 0.96
 	add_child(_sun)
 
 	_environment = WorldEnvironment.new()
@@ -148,6 +149,13 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	env.ssao_detail = profile.ssao_detail
 	env.ssao_horizon = profile.ssao_horizon
 	env.ssao_sharpness = profile.ssao_sharpness
+	env.ssao_light_affect = 0.0
+	env.ssao_ao_channel_affect = 0.0
+	env.ssil_enabled = profile.ssil_enabled
+	env.ssil_intensity = profile.ssil_intensity
+	env.ssil_radius = profile.ssil_radius
+	env.ssil_sharpness = profile.ssil_sharpness
+	env.ssil_normal_rejection = 1.0
 	env.ssr_enabled = true
 	env.ssr_max_steps = 64
 	env.ssr_fade_in = 0.15
@@ -157,6 +165,7 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	env.glow_intensity = profile.glow_intensity
 	env.glow_hdr_threshold = profile.glow_hdr_threshold
 	env.glow_bloom = profile.glow_bloom
+	env.glow_normalized = true
 	env.fog_enabled = profile.fog_enabled
 	env.fog_light_color = profile.fog_color
 	env.fog_density = profile.fog_density
@@ -173,6 +182,7 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	_sun.light_energy = profile.sun_energy
 	_sun.light_specular = profile.sun_specular
 	_sun.rotation_degrees = Vector3(profile.sun_pitch_deg, profile.sun_yaw_deg, 0.0)
+	_refresh_camera_shadow_fit()
 	_sun.shadow_opacity = profile.shadow_opacity
 	_sun.shadow_blur = profile.shadow_blur
 	_sun.light_angular_distance = profile.sun_angular_distance
@@ -189,6 +199,24 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	_apply_time_of_day()
 	_apply_background_preset()
 	profile_applied.emit(profile)
+
+
+## Keep every visible caster inside the shadow frustum while spending the
+## available texels on the currently visible camera envelope. The 20-unit
+## padding covers the complete starter island around the camera focus.
+func set_camera_shadow_distance(camera_distance: float) -> void:
+	_camera_shadow_distance = camera_distance
+	_refresh_camera_shadow_fit()
+
+
+func _refresh_camera_shadow_fit() -> void:
+	if _sun == null or current_profile == null:
+		return
+	_sun.directional_shadow_max_distance = clampf(
+		_camera_shadow_distance + 20.0,
+		30.0,
+		current_profile.shadow_max_distance
+	)
 
 
 func toggle_profile() -> void:
@@ -384,6 +412,10 @@ func runtime_manifest() -> Dictionary:
 			"ssao_detail": env.ssao_detail,
 			"ssao_horizon": env.ssao_horizon,
 			"ssao_sharpness": env.ssao_sharpness,
+			"ssil_enabled": env.ssil_enabled,
+			"ssil_intensity": env.ssil_intensity,
+			"ssil_radius": env.ssil_radius,
+			"ssil_sharpness": env.ssil_sharpness,
 			"ssr_enabled": env.ssr_enabled,
 			"ssr_max_steps": env.ssr_max_steps,
 			"ssr_fade_in": env.ssr_fade_in,
@@ -393,6 +425,7 @@ func runtime_manifest() -> Dictionary:
 			"bloom_intensity": env.glow_intensity,
 			"bloom_hdr_threshold": env.glow_hdr_threshold,
 			"bloom_mix": env.glow_bloom,
+			"bloom_normalized": env.glow_normalized,
 			"anti_aliasing": {
 				"msaa_3d": ProjectSettings.get_setting("rendering/anti_aliasing/quality/msaa_3d"),
 				"screen_space_aa": ProjectSettings.get_setting("rendering/anti_aliasing/quality/screen_space_aa"),

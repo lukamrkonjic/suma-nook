@@ -126,15 +126,22 @@ func horizontal_basis() -> Basis:
 func set_build_mode(enabled: bool) -> void:
 	var base := core.registries.tunef("camera_default_size", 40.0)
 	_size_target = base + (core.registries.tunef("build_mode_size_bonus", 5.0) if enabled else 0.0)
+	zoom_changed.emit(_size_target)
 
 
 func zoom_for_creator() -> void:
 	# Creator framing intentionally sits inside the gameplay distance bounds.
 	_size_target = 24.0
+	zoom_changed.emit(_size_target)
 
 
 func restore_gameplay_zoom() -> void:
 	_size_target = core.registries.tunef("camera_default_size", 40.0)
+	zoom_changed.emit(_size_target)
+
+
+func zoom_distance() -> float:
+	return _size_target
 
 
 func save_state() -> Dictionary:

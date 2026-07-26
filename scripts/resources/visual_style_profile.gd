@@ -36,6 +36,7 @@ extends Resource
 ## when the camera sits at its default 45° yaw.
 @export var sun_pitch_deg := -58.0
 @export var sun_yaw_deg := -65.0
+@export var shadow_max_distance := 100.0
 @export var shadow_opacity := 0.34
 @export var shadow_blur := 1.2
 ## Keep at or below ~1.0. Godot's PCSS blocker search (driven by this value)
@@ -54,6 +55,10 @@ extends Resource
 @export var ssao_detail := 0.5
 @export var ssao_horizon := 0.06
 @export var ssao_sharpness := 0.9
+@export var ssil_enabled := false
+@export var ssil_intensity := 0.25
+@export var ssil_radius := 0.4
+@export var ssil_sharpness := 0.85
 @export var glow_enabled := false
 @export var glow_intensity := 0.35
 @export var glow_hdr_threshold := 1.6

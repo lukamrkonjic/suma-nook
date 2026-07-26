@@ -61,7 +61,8 @@ func _ready() -> void:
 
 ## Dev harness:
 ## `godot -- --shot=docs/foo.png [--weather=snow] [--time=night]
-##     [--background=dusk] [--particles=high] [--admin] [--zoom=50]`
+##     [--background=dusk] [--particles=high] [--admin] [--zoom=50]
+##     [--focus=x,z]`
 ## boots a fresh throwaway world, waits for frames to settle, captures, quits.
 func _handle_dev_shot(user_args: PackedStringArray) -> bool:
 	var shot_path := ""
@@ -69,6 +70,8 @@ func _handle_dev_shot(user_args: PackedStringArray) -> bool:
 	var shot_time := "noon"
 	var shot_background := "profile"
 	var shot_particles := "high"
+	var shot_focus := Vector2.ZERO
+	var has_shot_focus := false
 	for arg in user_args:
 		if arg.begins_with("--shot="):
 			shot_path = arg.trim_prefix("--shot=")
@@ -80,6 +83,11 @@ func _handle_dev_shot(user_args: PackedStringArray) -> bool:
 			shot_background = arg.trim_prefix("--background=")
 		elif arg.begins_with("--particles="):
 			shot_particles = arg.trim_prefix("--particles=")
+		elif arg.begins_with("--focus="):
+			var components := arg.trim_prefix("--focus=").split(",", false)
+			if components.size() == 2 and components[0].is_valid_float() and components[1].is_valid_float():
+				shot_focus = Vector2(float(components[0]), float(components[1]))
+				has_shot_focus = true
 	# Backward-compatible aliases used by the existing visual audit docs.
 	if user_args.has("--rain"):
 		shot_weather = "rain"
@@ -114,6 +122,9 @@ func _handle_dev_shot(user_args: PackedStringArray) -> bool:
 	for arg in user_args:
 		if arg.begins_with("--zoom="):
 			camera_rig.set_zoom_immediate(float(arg.trim_prefix("--zoom=")))
+	if has_shot_focus:
+		camera_rig.target = null
+		camera_rig.global_position = Vector3(shot_focus.x, 0.0, shot_focus.y)
 	if user_args.has("--admin"):
 		panels.toggle("debug")
 	get_tree().create_timer(2.2).timeout.connect(func():
@@ -175,6 +186,8 @@ func _build_world_scene() -> void:
 	camera_rig.name = "CameraRig"
 	world_root.add_child(camera_rig)
 	camera_rig.setup(core, player)
+	camera_rig.zoom_changed.connect(lighting.set_camera_shadow_distance)
+	lighting.set_camera_shadow_distance(camera_rig.zoom_distance())
 
 	placement = PlacementController.new()
 	placement.name = "Placement"
