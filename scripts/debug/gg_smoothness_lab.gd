@@ -6,6 +6,7 @@ extends Node3D
 ##
 ## Options:
 ##   --aa=a|b        A: 8x MSAA, no TAA (default).  B: 4x MSAA + TAA.
+##   --aa=c          8x MSAA + FXAA: validates post-composited water edges.
 ##   --wireframe     draw wireframe overlay
 ##   --normals       visualise shading normals as color
 ##   --flat          force flat shading (shows what the meshes would look like
@@ -61,6 +62,7 @@ var _viewport: SubViewport
 var _camera: Camera3D
 var _fit_camera: Camera3D
 var _post: MeshInstance3D
+var _water_surface: WaterSurface
 var _motion := false
 
 
@@ -86,9 +88,9 @@ func _ready() -> void:
 		var node := _assets.instantiate(entry[0])
 		node.position = entry[1]
 		add_child(node)
-	var surface := WaterSurface.new()
-	add_child(surface)
-	surface.rebuild(WATER_CELLS, func(c: Vector2i) -> Vector3: return Vector3(c.x, 0, c.y),
+	_water_surface = WaterSurface.new()
+	add_child(_water_surface)
+	_water_surface.rebuild(WATER_CELLS, func(c: Vector2i) -> Vector3: return Vector3(c.x, 0, c.y),
 			2.0, -0.14, _materials.material("water"))
 
 	# One-tile-tall shadow test post.
@@ -123,10 +125,15 @@ func _ready() -> void:
 	if aa == "b":
 		_viewport.msaa_3d = Viewport.MSAA_4X
 		_viewport.use_taa = true
+		_viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
+	elif aa == "c":
+		_viewport.msaa_3d = Viewport.MSAA_8X
+		_viewport.use_taa = false
+		_viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 	else:
 		_viewport.msaa_3d = Viewport.MSAA_8X
 		_viewport.use_taa = false
-	_viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
+		_viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 	_viewport.mesh_lod_threshold = 0.0
 	add_child(_viewport)
 
@@ -139,6 +146,8 @@ func _ready() -> void:
 	_frame(PIVOT, ORTHO)
 
 	_apply_debug_toggles(args)
+	if args.has("--no-water"):
+		_water_surface.visible = false
 	if shot_base != "":
 		if _motion:
 			_capture_motion(shot_base)

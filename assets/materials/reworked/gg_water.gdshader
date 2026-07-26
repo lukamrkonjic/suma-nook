@@ -1,10 +1,17 @@
 shader_type spatial;
-render_mode cull_disabled, depth_draw_always, specular_schlick_ggx;
+render_mode blend_mix, cull_disabled, depth_draw_always, specular_schlick_ggx;
 // GG rework water: depth-aware turquoise body derived from the tropical-water
 // reference. Two low-amplitude Gerstner-style waves + scrolling ripple normals,
 // exponential depth absorption (shallow reveals the seabed, deep goes nearly
-// opaque), restrained screen-space refraction, sparse animated shoreline foam,
-// gentle fresnel. World-space everything — no per-tile seams, ever.
+// opaque), true alpha compositing, sparse animated shoreline foam, gentle
+// fresnel. World-space everything — no per-tile seams, ever.
+//
+// IMPORTANT: this must remain genuinely transparent. The previous version
+// sampled screen_tex, manually mixed the opaque scene into EMISSION, then drew
+// that result on an opaque water mesh. Underwater silhouettes therefore became
+// shader-internal color discontinuities that MSAA could not see or smooth.
+// Alpha blending leaves those silhouettes in the original antialiased opaque
+// pass and composites the water over them without rebuilding their edges.
 
 uniform vec4 shallow_color : source_color = vec4(0.388, 0.757, 0.776, 1.0);   // #63C1C6
 uniform vec4 mid_color : source_color = vec4(0.235, 0.671, 0.761, 1.0);       // #3CABC2
@@ -15,7 +22,6 @@ uniform float wave_height = 0.032;
 uniform float depth_falloff = 0.5;      // meters of water for ~63% absorption
 uniform float shallow_alpha = 0.8;
 uniform float deep_alpha = 0.97;
-uniform float refraction_strength = 0.012;
 uniform float foam_width = 0.13;
 uniform float water_roughness = 0.24;
 uniform float water_specular = 0.32;
@@ -26,7 +32,6 @@ uniform vec4 side_top_color : source_color = vec4(0.51, 0.8, 0.81, 1.0);
 uniform vec4 side_bottom_color : source_color = vec4(0.275, 0.737, 0.8, 1.0);
 uniform float side_opacity = 0.88;
 
-uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
 uniform sampler2D depth_tex : hint_depth_texture;
 
 varying vec3 world_pos;
@@ -59,12 +64,11 @@ void fragment() {
 	if (abs(mesh_normal.y) < 0.5) {
 		float down01 = clamp((water_level - world_pos.y) / 0.45, 0.0, 1.0);
 		vec3 jello = mix(side_top_color.rgb, side_bottom_color.rgb, down01);
-		vec3 wall_bg = texture(screen_tex, SCREEN_UV).rgb;
-		vec3 side_col = mix(wall_bg, jello, side_opacity);
 		float lip = smoothstep(0.05, 0.0, water_level - world_pos.y);
-		side_col = mix(side_col, foam_color.rgb, lip * 0.35);
+		vec3 side_col = mix(jello, foam_color.rgb, lip * 0.35);
 		ALBEDO = vec3(0.02);
 		EMISSION = side_col;
+		ALPHA = side_opacity;
 		ROUGHNESS = 0.34;
 		SPECULAR = 0.25;
 		METALLIC = 0.0;
@@ -96,15 +100,7 @@ void fragment() {
 	body = mix(body, deep_color.rgb, smoothstep(0.42, 1.0, dfac));
 	float opacity = mix(shallow_alpha, deep_alpha, smoothstep(0.0, 0.85, dfac));
 
-	// Restrained refraction of the scene beneath.
-	vec2 refr_uv = SCREEN_UV + n_world.xz * refraction_strength;
-	float refr_raw = texture(depth_tex, refr_uv).r;
-	vec4 rvp = INV_PROJECTION_MATRIX * vec4(refr_uv * 2.0 - 1.0, refr_raw, 1.0);
-	if (-(rvp.z / rvp.w) < surf_dist) {
-		refr_uv = SCREEN_UV;  // don't pull foreground objects underwater
-	}
-	vec3 under = texture(screen_tex, refr_uv).rgb;
-	vec3 col = mix(under, body, opacity);
+	vec3 col = body;
 
 	// Sparse broken shoreline foam, driven by the BAKED geometric distance to
 	// the water region's edge (UV2.x). Deliberately not depth-based: a
@@ -126,6 +122,7 @@ void fragment() {
 	// sun's specular glint riding on the waves.
 	ALBEDO = vec3(0.02);
 	EMISSION = col;
+	ALPHA = opacity;
 	ROUGHNESS = water_roughness;
 	SPECULAR = water_specular;
 	METALLIC = 0.0;

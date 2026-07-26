@@ -20,7 +20,7 @@ state rather than what `project.godot` claims. Re-run any time:
 | scaling_3d_mode / scale | bilinear / 1.0 | ok |
 | msaa_3d | 2 (4×) | below Candidate A |
 | msaa_2d | 0 | ok |
-| screen_space_aa (FXAA) | 0 (off) | ok |
+| screen_space_aa (FXAA) | 0 (off) | insufficient for final water composition; see follow-up below |
 | use_taa | false | Candidate B will test |
 | use_debanding | true | ok |
 | anisotropic filtering | 2 (4×) | **below spec (want 16×)** |
@@ -55,7 +55,7 @@ grass blades, fishing rod) shimmered and broke up.
 | `window/size/viewport_width/height` | 1600 × 900 | **1920 × 1080** | higher base resolution |
 | `window/stretch/scale_mode` | absent | `fractional` | no integer/pixel snapping on scale |
 | `anti_aliasing/quality/msaa_3d` | 2 (4×) | **3 (8×)** | Candidate A (selected) |
-| `anti_aliasing/quality/screen_space_aa` | absent | 0 (off) | no FXAA blur crutch |
+| `anti_aliasing/quality/screen_space_aa` | absent | **1 (FXAA)** | smooth final water-composited edges that geometry MSAA cannot see |
 | `anti_aliasing/quality/use_taa` | absent | false | Candidate A (no ghosting) |
 | `textures/default_filters/anisotropic_filtering_level` | 2 (4×) | **4 (16×)** | spec |
 | `mesh_lod/lod_change/threshold_pixels` | 1.0 | **0.0** | disable automatic mesh LOD |
@@ -116,17 +116,43 @@ Measured on the fixed build (lower is smoother):
 | A — 8× MSAA, no TAA | 0.134 | 0.7629 |
 | B — 4× MSAA + TAA | 0.103 | 0.6890 |
 
-**Selected: Candidate A**, despite B scoring slightly better on still frames.
-Reasoning: at native Retina resolution A is already clean, and A cannot produce
-temporal artifacts by construction, whereas B risks smearing on the
-vertex-displaced water and the moving player — a *new* artifact class in a pass
-whose whole purpose is removing artifacts.
+**Selected: Candidate A + FXAA**, despite B scoring slightly better on still
+frames. Reasoning: at native Retina resolution 8× MSAA is already clean for
+ordinary geometry, and non-temporal FXAA handles the final water composition
+without creating ghost trails. TAA still risks smearing on the vertex-displaced
+water and moving player.
 
 **Honest limitation:** the motion-burst test in this lab (`--motion`) settles
 frames between captures, so TAA converges and the measured ghost-tail ratio
 came out effectively identical (A 0.208 vs B 0.202). That test did **not**
 prove B is ghost-free; it simply could not resolve the question. B stays
 available via `--aa=b` if someone builds a real-time ghosting test later.
+
+## Follow-up: jagged silhouettes seen through water
+
+The water originally sampled `screen_tex`, manually mixed the opaque scene into
+its emission, and drew the result on an opaque water surface. Underwater fish,
+reeds, rocks, and dock posts therefore stopped being geometry edges in the
+final image: they became color discontinuities generated inside the water
+shader. Geometry MSAA cannot smooth such edges, regardless of sample count.
+
+The fix has two parts:
+
+1. `gg_water.gdshader` now uses real alpha blending. Underwater objects remain
+   in their original 8×-MSAA opaque pass and the water is composited over them.
+   The tiny screen-space refraction was removed because rebuilding the scene
+   from `screen_tex` was the source of the artifact.
+2. FXAA runs after the 3D composition to catch remaining water/blend edge
+   discontinuities. It is non-temporal, so animated waves cannot leave trails.
+
+Regression capture:
+
+```bash
+/Applications/Godot.app/Contents/MacOS/Godot --path . scenes/debug/GGSmoothnessLab.tscn -- \
+  --shot=/tmp/suma-water-aa --zooms --aa=c
+```
+
+Use `--no-water` to compare the same underwater props in the opaque pass.
 
 ## Mesh LOD
 

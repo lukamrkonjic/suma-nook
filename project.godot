@@ -146,11 +146,11 @@ common/physics_ticks_per_second=60
 [rendering]
 
 renderer/rendering_method="forward_plus"
-; Smoothness pass: native-resolution rendering, 8x MSAA, no FXAA/TAA blur
-; crutch, 16x anisotropic, automatic mesh LOD disabled. See
+; Smoothness pass: native-resolution rendering, 8x MSAA for geometry plus FXAA
+; for post-composited water edges, 16x anisotropic, automatic mesh LOD disabled. See
 ; docs/visual_rework/SMOOTHNESS_AUDIT.md.
 anti_aliasing/quality/msaa_3d=3
-anti_aliasing/quality/screen_space_aa=0
+anti_aliasing/quality/screen_space_aa=1
 anti_aliasing/quality/use_taa=false
 anti_aliasing/quality/use_debanding=true
 textures/default_filters/anisotropic_filtering_level=4
