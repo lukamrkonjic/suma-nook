@@ -24,8 +24,15 @@ func panel_style(dark := false, radius := 12) -> StyleBoxFlat:
 	style.bg_color = palette.color("ui_panel_dark") if dark else palette.color("ui_panel")
 	style.set_corner_radius_all(radius)
 	style.set_content_margin_all(14)
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
 	style.border_width_bottom = 3
-	style.border_color = Color(0, 0, 0, 0.12)
+	style.border_color = Color(0.25, 0.19, 0.13, 0.16)
+	style.shadow_color = Color(0.13, 0.1, 0.07, 0.18)
+	style.shadow_size = 8
+	style.shadow_offset = Vector2(0, 4)
+	style.anti_aliasing = true
 	return style
 
 
@@ -48,15 +55,19 @@ func button(text: String, accent := false) -> Button:
 	b.add_theme_font_override("font", font)
 	b.add_theme_font_size_override("font_size", 17)
 	var normal := StyleBoxFlat.new()
-	normal.bg_color = palette.color("ui_accent") if accent else Color(0.88, 0.85, 0.78)
+	normal.bg_color = palette.color("ui_accent") if accent else Color(0.91, 0.88, 0.8)
 	normal.set_corner_radius_all(9)
 	normal.set_content_margin_all(8)
 	normal.content_margin_left = 14
 	normal.content_margin_right = 14
+	normal.border_width_left = 1
+	normal.border_width_top = 1
+	normal.border_width_right = 1
 	normal.border_width_bottom = 3
-	normal.border_color = Color(0, 0, 0, 0.18)
+	normal.border_color = Color(0.25, 0.18, 0.12, 0.2)
 	var hover := normal.duplicate()
-	hover.bg_color = normal.bg_color.lightened(0.08)
+	hover.bg_color = normal.bg_color.lightened(0.1)
+	hover.border_color = palette.color("ui_good").darkened(0.12)
 	var pressed := normal.duplicate()
 	pressed.bg_color = normal.bg_color.darkened(0.08)
 	pressed.border_width_bottom = 1
@@ -66,11 +77,45 @@ func button(text: String, accent := false) -> Button:
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("disabled", disabled)
+	b.add_theme_stylebox_override("focus", hover)
 	b.add_theme_color_override("font_color", Color.WHITE if accent else text_color())
 	b.add_theme_color_override("font_hover_color", Color.WHITE if accent else text_color())
+	b.add_theme_color_override("font_focus_color", Color.WHITE if accent else text_color())
 	b.add_theme_color_override("font_disabled_color", Color(0.5, 0.47, 0.42))
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	return b
+
+
+func menu_button(text: String, accent := false) -> Button:
+	var b := button(text, accent)
+	b.custom_minimum_size = Vector2(330, 54)
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.add_theme_font_size_override("font_size", 22)
+	return b
+
+
+func section_label(text: String) -> Label:
+	var l := label(text.to_upper(), 14)
+	l.add_theme_color_override("font_color", palette.color("ui_good").darkened(0.08))
+	return l
+
+
+func keycap(text: String, minimum_width := 42.0) -> PanelContainer:
+	var cap := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.31, 0.24, 0.2)
+	style.set_corner_radius_all(7)
+	style.set_content_margin_all(5)
+	style.content_margin_left = 9
+	style.content_margin_right = 9
+	style.border_width_bottom = 3
+	style.border_color = Color(0.13, 0.09, 0.07, 0.7)
+	cap.add_theme_stylebox_override("panel", style)
+	cap.custom_minimum_size.x = minimum_width
+	var l := label(text, 15, true)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cap.add_child(l)
+	return cap
 
 
 func card(minimum := Vector2(0, 0), dark := false) -> PanelContainer:
@@ -82,11 +127,20 @@ func card(minimum := Vector2(0, 0), dark := false) -> PanelContainer:
 
 func window(title: String, size: Vector2) -> Dictionary:
 	## Returns {root (centered overlay), card, content (VBox), close (Button)}.
-	var root := CenterContainer.new()
+	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_STOP  # swallow clicks behind the panel
+	var scrim := ColorRect.new()
+	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scrim.color = Color(0.18, 0.17, 0.14, 0.22)
+	scrim.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.add_child(scrim)
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.add_child(center)
 	var c := card(size)
-	root.add_child(c)
+	c.add_theme_stylebox_override("panel", panel_style(false, 18))
+	center.add_child(c)
 	var content := VBoxContainer.new()
 	content.add_theme_constant_override("separation", 10)
 	c.add_child(content)
@@ -97,6 +151,11 @@ func window(title: String, size: Vector2) -> Dictionary:
 	header.add_child(title_label)
 	var close := button("✕")
 	header.add_child(close)
+	var accent_line := ColorRect.new()
+	accent_line.color = palette.color("ui_good")
+	accent_line.custom_minimum_size.y = 3
+	accent_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(accent_line)
 	return {"root": root, "card": c, "content": content, "close": close}
 
 

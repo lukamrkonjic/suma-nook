@@ -40,6 +40,7 @@ func _run() -> void:
 	_test_input_bindings()
 	_test_registries()
 	_test_gg_render_contract()
+	_test_game_preferences()
 	_test_starting_world()
 	_test_xp_only_hobbies()
 	_test_hobby_journal_and_direct_rewards()
@@ -63,6 +64,7 @@ func _test_input_bindings() -> void:
 	check(_action_has_key("camera_rotate_left", KEY_RIGHT), "right arrow uses the reversed camera spin")
 	check(_action_has_key("camera_zoom_in", KEY_UP), "up arrow zooms the camera in")
 	check(_action_has_key("camera_zoom_out", KEY_DOWN), "down arrow zooms the camera out")
+	check(_action_has_key("cancel", KEY_ESCAPE), "Escape opens and closes the pause flow")
 
 
 func _action_has_key(action: StringName, physical_keycode: Key) -> bool:
@@ -115,6 +117,39 @@ func _test_gg_render_contract() -> void:
 		and ProjectSettings.get_setting("rendering/anti_aliasing/quality/use_taa")
 		and ProjectSettings.get_setting("rendering/lights_and_shadows/directional_shadow/size") >= 16384,
 		"GG comparison renderer uses 8x MSAA, temporal AA, and a high-resolution shadow map"
+	)
+
+
+func _test_game_preferences() -> void:
+	var preferences := GamePreferences.new()
+	preferences.from_dict({
+		"fullscreen": true,
+		"vsync": false,
+		"anti_aliasing": GamePreferences.AA_BALANCED,
+		"ssao": false,
+		"bloom": false,
+		"master_volume": 0.35,
+		"music_volume": 0.2,
+		"tutorial_hints": false,
+	})
+	var saved := preferences.to_dict()
+	check(
+		saved["fullscreen"] and not saved["vsync"]
+		and saved["anti_aliasing"] == GamePreferences.AA_BALANCED,
+		"display and anti-aliasing preferences round-trip"
+	)
+	check(
+		not saved["ssao"] and not saved["bloom"]
+		and is_equal_approx(saved["master_volume"], 0.35)
+		and is_equal_approx(saved["music_volume"], 0.2),
+		"post-processing and audio preferences round-trip"
+	)
+	check(not saved["tutorial_hints"], "tutorial visibility preference round-trips")
+	preferences.from_dict({"anti_aliasing": "not-a-quality", "master_volume": 4.0})
+	check(
+		preferences.anti_aliasing == GamePreferences.AA_HIGH
+		and preferences.master_volume == 1.0,
+		"invalid preference values fall back safely"
 	)
 
 

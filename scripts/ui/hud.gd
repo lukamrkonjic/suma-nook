@@ -7,6 +7,7 @@ extends CanvasLayer
 signal open_parcel_requested
 signal build_piece_selected(kind: String, id: String)
 signal admin_requested
+signal pause_requested
 
 var core: GameCore
 var kit: UiKit
@@ -114,7 +115,10 @@ func _build_layout() -> void:
 	_bottom_buttons.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_bottom_buttons.add_theme_constant_override("separation", 8)
 	root.add_child(_bottom_buttons)
-	var build_button := kit.button("Build (B)", true)
+	var menu_button := kit.button("Menu  [Esc]")
+	menu_button.pressed.connect(func(): pause_requested.emit())
+	_bottom_buttons.add_child(menu_button)
+	var build_button := kit.button("Shape Land  [B]", true)
 	build_button.pressed.connect(func(): placement.toggle())
 	_bottom_buttons.add_child(build_button)
 	_parcel_button = kit.button("Open Land Parcel ✨", true)
@@ -278,6 +282,10 @@ func set_prompt(text: String) -> void:
 
 func set_hint(text: String) -> void:
 	_hint_label.text = text
+
+
+func set_tutorial_enabled(enabled: bool) -> void:
+	_hint_label.visible = enabled
 
 
 ## Keeps unboxed world-space guidance legible across the pale day and dark

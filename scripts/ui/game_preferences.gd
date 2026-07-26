@@ -1,0 +1,78 @@
+class_name GamePreferences
+extends RefCounted
+## Small, save-backed set of player-facing options. The values live inside the
+## normal game save so Save & Exit is sufficient to preserve them.
+
+const AA_OFF := "off"
+const AA_BALANCED := "balanced"
+const AA_HIGH := "high"
+
+var fullscreen := false
+var vsync := true
+var anti_aliasing := AA_HIGH
+var ssao := true
+var bloom := true
+var master_volume := 0.63
+var music_volume := 0.4
+var tutorial_hints := true
+
+
+func from_dict(data: Dictionary) -> void:
+	fullscreen = bool(data.get("fullscreen", fullscreen))
+	vsync = bool(data.get("vsync", vsync))
+	var requested_aa := String(data.get("anti_aliasing", anti_aliasing))
+	anti_aliasing = requested_aa if requested_aa in [AA_OFF, AA_BALANCED, AA_HIGH] else AA_HIGH
+	ssao = bool(data.get("ssao", ssao))
+	bloom = bool(data.get("bloom", bloom))
+	master_volume = clampf(float(data.get("master_volume", master_volume)), 0.0, 1.0)
+	music_volume = clampf(float(data.get("music_volume", music_volume)), 0.0, 1.0)
+	tutorial_hints = bool(data.get("tutorial_hints", tutorial_hints))
+
+
+func to_dict() -> Dictionary:
+	return {
+		"fullscreen": fullscreen,
+		"vsync": vsync,
+		"anti_aliasing": anti_aliasing,
+		"ssao": ssao,
+		"bloom": bloom,
+		"master_volume": master_volume,
+		"music_volume": music_volume,
+		"tutorial_hints": tutorial_hints,
+	}
+
+
+func apply(viewport: Viewport, lighting: LightingRig, hud: Hud) -> void:
+	if DisplayServer.get_name() != "headless":
+		DisplayServer.window_set_mode(
+			DisplayServer.WINDOW_MODE_FULLSCREEN if fullscreen
+			else DisplayServer.WINDOW_MODE_WINDOWED
+		)
+		DisplayServer.window_set_vsync_mode(
+			DisplayServer.VSYNC_ENABLED if vsync else DisplayServer.VSYNC_DISABLED
+		)
+	match anti_aliasing:
+		AA_OFF:
+			viewport.msaa_3d = Viewport.MSAA_DISABLED
+			viewport.use_taa = false
+			viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
+		AA_BALANCED:
+			viewport.msaa_3d = Viewport.MSAA_4X
+			viewport.use_taa = false
+			viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
+		_:
+			viewport.msaa_3d = Viewport.MSAA_8X
+			viewport.use_taa = true
+			viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
+	_set_bus_volume("Master", master_volume)
+	_set_bus_volume("Music", music_volume)
+	if lighting != null:
+		lighting.set_user_post_effects(ssao, bloom)
+	if hud != null:
+		hud.set_tutorial_enabled(tutorial_hints)
+
+
+func _set_bus_volume(bus_name: String, value: float) -> void:
+	var bus_index := AudioServer.get_bus_index(bus_name)
+	if bus_index >= 0:
+		AudioServer.set_bus_volume_db(bus_index, linear_to_db(maxf(value, 0.001)))

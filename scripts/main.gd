@@ -25,6 +25,7 @@ var placement: PlacementController
 var skill_actions: SkillActions
 var hud: Hud
 var panels: GamePanels
+var pause_menu: PauseMenu
 var parcel_reveal: ParcelReveal
 var audio: GameAudio
 
@@ -72,6 +73,7 @@ func _handle_dev_shot(user_args: PackedStringArray) -> bool:
 	var shot_particles := "high"
 	var shot_focus := Vector2.ZERO
 	var has_shot_focus := false
+	var shot_pause_page := ""
 	for arg in user_args:
 		if arg.begins_with("--shot="):
 			shot_path = arg.trim_prefix("--shot=")
@@ -88,6 +90,8 @@ func _handle_dev_shot(user_args: PackedStringArray) -> bool:
 			if components.size() == 2 and components[0].is_valid_float() and components[1].is_valid_float():
 				shot_focus = Vector2(float(components[0]), float(components[1]))
 				has_shot_focus = true
+		elif arg.begins_with("--pause-page="):
+			shot_pause_page = arg.trim_prefix("--pause-page=")
 	# Backward-compatible aliases used by the existing visual audit docs.
 	if user_args.has("--rain"):
 		shot_weather = "rain"
@@ -127,6 +131,8 @@ func _handle_dev_shot(user_args: PackedStringArray) -> bool:
 		camera_rig.global_position = Vector3(shot_focus.x, 0.0, shot_focus.y)
 	if user_args.has("--admin"):
 		panels.toggle("debug")
+	if shot_pause_page != "":
+		open_pause_menu(shot_pause_page)
 	get_tree().create_timer(2.2).timeout.connect(func():
 		var image := get_viewport().get_texture().get_image()
 		image.save_png(shot_path)
@@ -225,12 +231,18 @@ func _build_ui() -> void:
 	add_child(parcel_reveal)
 	parcel_reveal.setup(core, kit)
 
+	pause_menu = PauseMenu.new()
+	pause_menu.name = "PauseMenu"
+	add_child(pause_menu)
+	pause_menu.setup(core, kit, self)
+
 
 func _connect_flows() -> void:
 	hud.open_parcel_requested.connect(func():
 		audio.play_event("parcel_open")
 		parcel_reveal.open_best_available())
 	hud.admin_requested.connect(func(): panels.toggle("debug"))
+	hud.pause_requested.connect(func(): open_pause_menu())
 	hud.build_piece_selected.connect(func(kind, id):
 		audio.play_event("build_preview")
 		placement.hold_new(kind, id))
@@ -310,6 +322,7 @@ func _start_gameplay(fresh: bool) -> void:
 	player_visual.apply_equipment(core.equipment)
 	camera_rig.restore_state(core.view_state)
 	_apply_saved_visual_state()
+	pause_menu.load_preferences_from_core()
 	if not fresh:
 		renderer.rebuild_all()
 		player.position = core.profile.position
@@ -429,12 +442,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("cancel"):
 		if panels.is_open():
 			panels.close()
+		elif parcel_reveal.is_open():
+			return
 		elif placement.active:
 			placement.cancel_click()
 		else:
 			skill_actions.cancel_all()
 			player.cancel_click_command()
 			player.set_state(PlayerController.State.FREE)
+			open_pause_menu()
 	elif event is InputEventMouseButton and event.pressed:
 		var mouse := event as InputEventMouseButton
 		if mouse.button_index == MOUSE_BUTTON_LEFT:
@@ -450,6 +466,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		if key.physical_keycode == KEY_X and placement.active:
 			placement.store_held()
 			audio.play_event("store")
+
+
+func open_pause_menu(page := "menu") -> void:
+	if not _gameplay_started or parcel_reveal.is_open():
+		return
+	if panels.is_open():
+		panels.close()
+	pause_menu.open(page)
 
 
 # ------------------------------------------------------------------ click commands

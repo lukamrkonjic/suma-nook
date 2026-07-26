@@ -36,6 +36,8 @@ var background_preset_id := "profile"
 var particle_quality_id := "high"
 var _theme_tween: Tween
 var _camera_shadow_distance := 40.0
+var _user_ssao_enabled := true
+var _user_bloom_enabled := true
 
 
 func _ready() -> void:
@@ -142,7 +144,7 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	env.adjustment_brightness = profile.brightness
 	env.adjustment_contrast = profile.contrast
 	env.adjustment_saturation = profile.saturation
-	env.ssao_enabled = profile.ssao_enabled
+	env.ssao_enabled = profile.ssao_enabled and _user_ssao_enabled
 	env.ssao_intensity = profile.ssao_intensity
 	env.ssao_radius = profile.ssao_radius
 	env.ssao_power = profile.ssao_power
@@ -161,7 +163,7 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	env.ssr_fade_in = 0.15
 	env.ssr_fade_out = 2.0
 	env.ssr_depth_tolerance = 0.2
-	env.glow_enabled = profile.glow_enabled
+	env.glow_enabled = profile.glow_enabled and _user_bloom_enabled
 	env.glow_intensity = profile.glow_intensity
 	env.glow_hdr_threshold = profile.glow_hdr_threshold
 	env.glow_bloom = profile.glow_bloom
@@ -275,6 +277,19 @@ func set_particle_quality(quality_id: String) -> void:
 		return
 	particle_quality_id = quality_id
 	_apply_particle_quality()
+
+
+func set_user_post_effects(ssao_enabled: bool, bloom_enabled: bool) -> void:
+	_user_ssao_enabled = ssao_enabled
+	_user_bloom_enabled = bloom_enabled
+	if _environment == null or current_profile == null:
+		return
+	var env := _environment.environment
+	env.ssao_enabled = current_profile.ssao_enabled and _user_ssao_enabled
+	env.glow_enabled = (
+		(current_profile.glow_enabled or time_of_day_id in ["sunset", "night"])
+		and _user_bloom_enabled
+	)
 
 
 func reset_admin_overrides() -> void:
@@ -601,7 +616,7 @@ func _apply_time_of_day() -> void:
 	_sun.light_energy = current_profile.sun_energy
 	_sun.rotation_degrees = Vector3(current_profile.sun_pitch_deg, current_profile.sun_yaw_deg, 0.0)
 	env.ambient_light_energy = current_profile.ambient_energy
-	env.glow_enabled = current_profile.glow_enabled
+	env.glow_enabled = current_profile.glow_enabled and _user_bloom_enabled
 	env.glow_intensity = current_profile.glow_intensity
 	match time_of_day_id:
 		"morning":
@@ -614,14 +629,14 @@ func _apply_time_of_day() -> void:
 			_sun.light_energy = current_profile.sun_energy * 0.62
 			_sun.rotation_degrees.x = -15.0
 			env.ambient_light_energy = current_profile.ambient_energy * 0.55
-			env.glow_enabled = true
+			env.glow_enabled = _user_bloom_enabled
 			env.glow_intensity = maxf(current_profile.glow_intensity, 0.28)
 		"night":
 			_sun.light_color = Color(0.42, 0.56, 0.9)
 			_sun.light_energy = current_profile.sun_energy * 0.2
 			_sun.rotation_degrees.x = -38.0
 			env.ambient_light_energy = maxf(0.12, current_profile.ambient_energy * 0.28)
-			env.glow_enabled = true
+			env.glow_enabled = _user_bloom_enabled
 			env.glow_intensity = maxf(current_profile.glow_intensity, 0.42)
 
 

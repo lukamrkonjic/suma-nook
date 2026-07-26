@@ -59,6 +59,7 @@ func _run() -> void:
 	await _step_place_tile()
 	await _step_woodcutting()
 	await _step_save_reload()
+	await _step_pause_menu()
 	await _step_admin_controls()
 	if failures.is_empty():
 		print("FULL LOOP PASSED — %d checks" % checks)
@@ -432,6 +433,29 @@ func _step_save_reload() -> void:
 	check(main.core.arrivals.has_waiting_package(), "unopened delivery survives reload")
 	check(main.delivery_point.package_is_visible(), "restored delivery is interactable at the dock")
 	check(get_tree().get_nodes_in_group("enemies").is_empty(), "no monsters or combat encounters appear")
+
+
+func _step_pause_menu() -> void:
+	print("STEP pause menu")
+	var play_time_before := main.core.play_seconds
+	main.open_pause_menu()
+	await wait(0.2)
+	check(main.pause_menu.is_open(), "Escape menu opens over live gameplay")
+	check(get_tree().paused, "Escape menu pauses the scene tree")
+	check(
+		is_equal_approx(main.core.play_seconds, play_time_before),
+		"world simulation stops while the Escape menu is open"
+	)
+	main.pause_menu.open("settings")
+	await wait(0.1)
+	check(main.pause_menu.current_page() == "settings", "settings page is reachable from the pause flow")
+	main.pause_menu.open("controls")
+	await wait(0.1)
+	check(main.pause_menu.current_page() == "controls", "controls reference is reachable from the pause flow")
+	main.pause_menu.close()
+	await wait(0.2)
+	check(not get_tree().paused and not main.pause_menu.is_open(), "resume closes the menu and unpauses gameplay")
+	check(main.core.play_seconds > play_time_before, "world simulation resumes after closing the menu")
 
 
 func _step_admin_controls() -> void:
