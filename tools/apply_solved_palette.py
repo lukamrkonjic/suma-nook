@@ -6,7 +6,9 @@ curve using the light factor of its dominant face orientation (sunlit top,
 ambient side, or curved mix). Render targets stay untouched — this only tunes
 SOURCE albedos, per the palette-enforcement rule.
 
-Usage: python3 tools/apply_solved_palette.py docs/visual_rework/comparisons/ggday
+Usage: python3 tools/apply_solved_palette.py [probe_base] [palette.json]
+       defaults: docs/visual_rework/comparisons/ggday
+                 assets/palettes/gg_pnw_mossy_v1.json
 """
 
 import json
@@ -22,63 +24,41 @@ AMB_COLOR = (0.8471, 0.7725, 0.6941)
 AMB_ENERGY = 0.72
 PITCH, YAW = -60.0, -65.0
 
-# name -> (target hex, orientation)
-TARGETS = {
-    "warm_white": ("FCF4C7", "top"), "ivory_highlight": ("E6D3AF", "top"),
-    "stone_light": ("D8C5B1", "top"), "stone_mid_light": ("CDB797", "top"),
-    "stone_mid": ("B9A390", "side"), "stone_warm_shadow": ("B69879", "side"),
-    "stone_shadow": ("9C9074", "side"), "stone_deep_shadow": ("68614F", "side"),
-    "soft_sage_gray": ("879783", "mix"),
-    "grass_highlight": ("D0D341", "top"), "grass_sunlit": ("D0C72B", "top"),
-    "grass_primary": ("C7BF29", "top"), "grass_secondary": ("BAB321", "top"),
-    "grass_vivid_accent": ("C5C703", "top"),
-    "moss_bright": ("A3B928", "top"), "moss_primary": ("97A31D", "top"),
-    "grass_shade": ("838F15", "top"), "olive_shadow": ("6E6B33", "mix"),
-    "deep_grass": ("656F0C", "top"), "earthy_olive": ("8F6C08", "mix"),
-    "leaf_bright": ("A3AC43", "mix"), "leaf_soft_sage": ("A7AF7F", "mix"),
-    "leaf_medium": ("82833F", "mix"), "leaf_olive": ("6E6B33", "mix"),
-    "pine_light": ("838F15", "mix"), "pine_medium": ("656F0C", "mix"),
-    "pine_shadow": ("5E5624", "mix"), "pine_deep": ("52460F", "mix"),
-    "earth_light": ("BB763C", "side"), "earth_primary": ("AF6F3D", "side"),
-    "earth_mid": ("A86635", "side"), "earth_shadow": ("925F3D", "side"),
-    "earth_deep": ("854927", "side"),
-    "soil_orange": ("985119", "top"), "soil_red_shadow": ("89410A", "side"),
-    "soil_deep": ("703116", "side"), "soil_deepest": ("602308", "side"),
-    "wood_highlight": ("E3B74F", "top"), "wood_light": ("D8A242", "top"),
-    "wood_gold": ("C78831", "top"), "wood_primary": ("B87222", "top"),
-    "wood_warm_shadow": ("985119", "side"), "wood_brown": ("7E533A", "side"),
-    "wood_deep": ("643E2B", "side"), "wood_dark": ("503017", "side"),
-    "warm_near_black": ("3C2413", "side"),
-    "terracotta_light": ("CB814C", "mix"), "terracotta_primary": ("C78831", "mix"),
-    "terracotta_orange": ("D88204", "mix"), "terracotta_shadow": ("B55106", "side"),
-    "burnt_red": ("BE4328", "mix"), "coral": ("DA6144", "mix"), "soft_coral": ("E67B73", "mix"),
-    "gold_highlight": ("F9DC2D", "top"), "gold_primary": ("F5C603", "top"),
-    "gold_deep": ("E9A707", "mix"), "warm_yellow": ("F4B248", "mix"),
-    "skin_light": ("E6B350", "mix"), "skin_mid": ("CB814C", "mix"), "skin_shadow": ("9A725E", "side"),
-    "hair_light": ("7E533A", "mix"), "hair_primary": ("503017", "mix"), "hair_deep": ("3C2413", "mix"),
-    "cream_fabric": ("E6D3AF", "mix"), "mustard_fabric": ("D8A242", "mix"),
-    "brown_fabric": ("925F3D", "mix"), "dark_fabric": ("643E2B", "mix"),
-    "uw_sand_light": ("EAE5DC", "top"), "uw_sand_shadow": ("D3D3C8", "side"),
-    "uw_rock_light": ("9DA3A4", "top"), "uw_rock_mid": ("798793", "mix"), "uw_rock_shadow": ("5D6B78", "side"),
-    "uw_flora_light": ("93C676", "mix"), "uw_flora_mid": ("5F9452", "mix"),
-    "uw_flora_dark": ("176346", "side"), "uw_flora_deep": ("114831", "side"),
+# Dominant face orientation per named surface — decides which light
+# factor the solver divides out. Target hexes come from the palette JSON.
+FACE = {
+    "warm_white": "top", "ivory_highlight": "top", "stone_light": "top", "stone_mid_light": "top",
+    "stone_mid": "side", "stone_warm_shadow": "side", "stone_shadow": "side", "stone_deep_shadow": "side",
+    "soft_sage_gray": "mix", "grass_highlight": "top", "grass_sunlit": "top", "grass_primary": "top",
+    "grass_secondary": "top", "grass_vivid_accent": "top", "moss_bright": "top", "moss_primary": "top",
+    "grass_shade": "top", "olive_shadow": "mix", "deep_grass": "top", "earthy_olive": "mix",
+    "leaf_bright": "mix", "leaf_soft_sage": "mix", "leaf_medium": "mix", "leaf_olive": "mix",
+    "pine_light": "mix", "pine_medium": "mix", "pine_shadow": "mix", "pine_deep": "mix",
+    "earth_light": "side", "earth_primary": "side", "earth_mid": "side", "earth_shadow": "side",
+    "earth_deep": "side", "soil_orange": "top", "soil_red_shadow": "side", "soil_deep": "side",
+    "soil_deepest": "side", "wood_highlight": "top", "wood_light": "top", "wood_gold": "top",
+    "wood_primary": "top", "wood_warm_shadow": "side", "wood_brown": "side", "wood_deep": "side",
+    "wood_dark": "side", "warm_near_black": "side", "terracotta_light": "mix", "terracotta_primary": "mix",
+    "terracotta_orange": "mix", "terracotta_shadow": "side", "burnt_red": "mix", "coral": "mix",
+    "soft_coral": "mix", "gold_highlight": "top", "gold_primary": "top", "gold_deep": "mix",
+    "warm_yellow": "mix", "skin_light": "mix", "skin_mid": "mix", "skin_shadow": "side",
+    "hair_light": "mix", "hair_primary": "mix", "hair_deep": "mix", "cream_fabric": "mix",
+    "mustard_fabric": "mix", "brown_fabric": "mix", "dark_fabric": "mix", "uw_sand_light": "top",
+    "uw_sand_shadow": "side", "uw_rock_light": "top", "uw_rock_mid": "mix", "uw_rock_shadow": "side",
+    "uw_flora_light": "mix", "uw_flora_mid": "mix", "uw_flora_dark": "side", "uw_flora_deep": "side",
 }
 
-# Colors composed inside the water shader as EMISSION (no lighting applied):
-# invert only the tonemap transfer, no light-factor division.
-UNSHADED = {
-    "background_cream_01": "E7E0CA", "background_cream_02": "E6E1CC", "background_cream_03": "E7E2CF",
-    "water_foam": "EAF5F1", "water_shallow_highlight": "82CDCF",
-    "water_shallow": "63C1C6", "water_turquoise": "46BCCC", "water_mid": "3CABC2",
-    "water_deep_mid": "3699B3", "water_deep": "056A94", "water_abyss": "064B73",
-}
-# Keys kept at their raw authored values (emissive accents, misc).
-RAW = {
-    "fire_core": "FCF4C7", "fire_yellow": "F9DC2D", "fire_orange": "D88204", "fire_red": "BE4328",
-    "water_caustic": "ACCECD",
-    "background_rain": "323B2E", "calib_gray": "9E9E9E", "crystal": "82CDCF", "smoke": "C9BDA0",
-    "magic": "B7853B",
-}
+# Composed inside shaders as EMISSION (no lighting applied): invert only the
+# tonemap transfer, no light-factor division.
+UNSHADED = [
+    "background_cream_01", "background_cream_02", "background_cream_03",
+    "water_foam", "water_shallow_highlight", "water_shallow", "water_turquoise",
+    "water_mid", "water_deep_mid", "water_deep", "water_abyss",
+]
+# Authored as-is (emissive accents drive their own energy; misc helpers).
+RAW = ["fire_core", "fire_yellow", "fire_orange", "fire_red", "water_caustic",
+       "crystal", "smoke", "magic"]
+EXTRA = {"background_rain": "323B2E", "calib_gray": "9E9E9E"}
 LEGACY = {
     "background_day": "background_cream_01",
     "grass": "grass_primary", "grass_lush": "grass_sunlit", "grass_tuft": "moss_bright",
@@ -119,6 +99,9 @@ def hexstr(rgb01):
 
 def main():
     base = Path(sys.argv[1] if len(sys.argv) > 1 else "docs/visual_rework/comparisons/ggday")
+    pal_path = Path(sys.argv[2] if len(sys.argv) > 2 else "assets/palettes/gg_pnw_mossy_v1.json")
+    pal = json.loads(pal_path.read_text())
+    targets = {k: v.lstrip("#").upper() for k, v in pal["colors"].items()}
     img = np.asarray(Image.open(str(base) + "_probe.png").convert("RGB"), float)
     man = json.loads(Path(str(base) + "_probe.json").read_text())
     lin_in, out = [], []
@@ -147,13 +130,17 @@ def main():
     lf_mix = (lf_top + lf_side) / 2.0
 
     solved = {}
-    for key, (hx, face) in TARGETS.items():
+    for key, face in FACE.items():
+        if key not in targets:
+            continue
         lf = {"top": lf_top, "side": lf_side, "mix": lf_mix}[face]
-        req = F_inv(hex01(hx))
+        req = F_inv(hex01(targets[key]))
         solved[key] = hexstr(lin_to_srgb(np.clip(req / lf, 0, 1)))
-    solved.update(RAW)
-    for key, hx in UNSHADED.items():
-        solved[key] = hexstr(lin_to_srgb(np.clip(F_inv(hex01(hx)), 0, 1)))
+    for key in RAW:
+        solved[key] = targets[key]
+    for key in UNSHADED:
+        solved[key] = hexstr(lin_to_srgb(np.clip(F_inv(hex01(targets[key])), 0, 1)))
+    solved.update(EXTRA)
     for key, ref in LEGACY.items():
         solved[key] = solved[ref]
 
@@ -164,9 +151,7 @@ def main():
     col_lines = [f'"{k}": {color(v)}' for k, v in solved.items()]
     col_lines.append('"ui_panel": Color(0.949, 0.929, 0.871, 0.96)')
     col_lines.append('"ui_panel_dark": Color(0.271, 0.247, 0.196, 1)')
-    tgt_lines = [f'"{k}": {color(hx)}' for k, (hx, _f) in TARGETS.items()]
-    tgt_lines += [f'"{k}": {color(v)}' for k, v in RAW.items() if not k.startswith(("background_rain", "calib"))]
-    tgt_lines += [f'"{k}": {color(v)}' for k, v in UNSHADED.items()]
+    tgt_lines = [f'"{k}": {color(hx)}' for k, hx in targets.items()]
 
     tres = """[gd_resource type="Resource" script_class="PaletteDefinition" load_steps=2 format=3]
 
@@ -185,9 +170,12 @@ hair_colors = PackedColorArray(0.314, 0.188, 0.09, 1, 0.176, 0.145, 0.11, 1, 0.7
 outfit_colors = PackedColorArray(0.745, 0.263, 0.157, 1, 0.302, 0.42, 0.365, 1, 0.42, 0.365, 0.541, 1, 0.847, 0.635, 0.259, 1, 0.361, 0.42, 0.549, 1)
 """ % (",\n".join(col_lines), ",\n".join(tgt_lines))
     Path("assets/palettes/gg_material_palette.tres").write_text(tres)
-    for k in ("grass_primary", "stone_light", "wood_light", "earth_mid", "warm_near_black", "skin_light"):
-        print("%-18s -> %s" % (k, solved[k]))
-    print("palette regenerated with %d solved + %d raw keys" % (len(TARGETS), len(RAW)))
+    print("palette: %s" % pal["palette_name"])
+    for k in ("grass_primary", "pine_medium", "stone_light", "wood_light",
+              "earth_mid", "water_turquoise", "background_cream_01"):
+        print("  %-20s target #%s  ->  source #%s" % (k, targets[k], solved[k]))
+    print("%d targets solved; wrote assets/palettes/gg_material_palette.tres" % len(targets))
+    print("PROFILE BACKGROUND -> #%s" % solved["background_cream_01"])
 
 
 if __name__ == "__main__":
