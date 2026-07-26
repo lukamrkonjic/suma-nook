@@ -361,6 +361,19 @@ func _debug_panel() -> Dictionary:
 	var parts := _scroll_list(590.0)
 	win["content"].add_child(parts["scroll"])
 	var list: VBoxContainer = parts["list"]
+	var asset_world := kit.button("Open Asset World", true)
+	asset_world.name = "OpenAssetWorldButton"
+	asset_world.tooltip_text = "Browse every production model in a labeled, pan-and-zoom gallery."
+	asset_world.pressed.connect(func():
+		settings_bridge.call_deferred("debug_open_asset_world")
+	)
+	list.add_child(asset_world)
+	var asset_world_hint := kit.label(
+		"Every model gets one slot. Tile and water decals stay on separate presentation tiles.",
+		14
+	)
+	asset_world_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	list.add_child(asset_world_hint)
 	list.add_child(kit.label("Content library", 20))
 	for action in [
 		["Get every item ×99", func(): settings_bridge.call("debug_grant_all_items")],

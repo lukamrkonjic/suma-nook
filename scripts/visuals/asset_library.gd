@@ -30,6 +30,26 @@ func instantiate(asset_id: String) -> Node3D:
 	return node
 
 
+func catalog_ids() -> Array[String]:
+	## Returns every unique production GLB id visible to the resolver. The
+	## admin asset world uses this instead of a hand-maintained roster, so new
+	## models appear there as soon as they are added to an asset tier.
+	var unique := {}
+	for pattern: String in SEARCH_PATHS:
+		var directory_path: String = pattern.get_base_dir()
+		var directory := DirAccess.open(directory_path)
+		if directory == null:
+			continue
+		for filename in directory.get_files():
+			if filename.get_extension().to_lower() == "glb":
+				unique[filename.get_basename()] = true
+	var result: Array[String] = []
+	for asset_id: String in unique:
+		result.append(asset_id)
+	result.sort()
+	return result
+
+
 func _packed(asset_id: String) -> PackedScene:
 	if _cache.has(asset_id):
 		return _cache[asset_id]

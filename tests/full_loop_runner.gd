@@ -473,6 +473,14 @@ func _step_pause_menu() -> void:
 func _step_admin_controls() -> void:
 	print("STEP admin controls")
 	check(main.hud.find_child("AdminCard", true, false) != null, "Admin card is visible in debug builds")
+	main.panels.toggle("debug")
+	await wait(0.1)
+	check(
+		main.panels.find_child("OpenAssetWorldButton", true, false) != null,
+		"Admin controls expose the exhaustive Asset World"
+	)
+	main.panels.close()
+	await wait(0.1)
 	main.debug_set_weather("mist")
 	check(main.lighting.weather_id() == "mist", "Admin selects an explicit weather profile")
 	main.debug_set_weather("leaves")

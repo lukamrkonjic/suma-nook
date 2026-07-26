@@ -874,6 +874,13 @@ func debug_reset_visuals() -> void:
 	hud.toast("Visual overrides reset.", "good")
 
 
+func debug_open_asset_world() -> void:
+	if not OS.is_debug_build():
+		return
+	core.save()
+	get_tree().change_scene_to_file("res://scenes/debug/AdminAssetWorld.tscn")
+
+
 func debug_grant_all_items(amount := 99) -> void:
 	for item_id: String in core.registries.items:
 		var def := core.registries.item(item_id)
