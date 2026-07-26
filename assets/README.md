@@ -8,7 +8,7 @@
 - `palettes/cozy_diorama_palette.tres` — the one shared color vocabulary.
 - `visual_profiles/` — day/rain lighting presets for the LightingRig.
 - `inbox/luka/` — drop zone for Modly/Blender deliveries before integration.
-- `fonts/` — Knightwood (licensed, from the original project).
+- `fonts/` — Fredoka Medium and SemiBold ([Google Fonts](https://fonts.google.com/specimen/Fredoka), SIL Open Font License).
 
 Provenance for everything: `docs/ASSET_PROVENANCE.md`. Pipeline contract:
 `docs/ASSET_PIPELINE.md`.

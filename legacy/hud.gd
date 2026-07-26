@@ -690,7 +690,7 @@ func _pulse_control(control: Control) -> void:
 
 func _make_theme() -> Theme:
 	var theme := Theme.new()
-	theme.default_font = load("res://assets/fonts/Knightwood.ttf")
+	theme.default_font = load("res://assets/fonts/Fredoka-Medium.ttf")
 	theme.default_font_size = 17
 	theme.set_color("font_color", "Label", UI_CREAM)
 	theme.set_color("font_color", "Button", UI_CREAM)

@@ -4,19 +4,22 @@ extends RefCounted
 ## text. Every panel and button in the game is built through these helpers so
 ## the interface reads as one hand.
 
-const FONT_PATH := "res://assets/fonts/Knightwood.ttf"
+const FONT_MEDIUM_PATH := "res://assets/fonts/Fredoka-Medium.ttf"
+const FONT_SEMIBOLD_PATH := "res://assets/fonts/Fredoka-SemiBold.ttf"
 
 var palette: CozyPalette
 var font: FontFile
+var font_bold: FontFile
 var theme: Theme
 
 
 func _init(pal: CozyPalette) -> void:
 	palette = pal
-	font = load(FONT_PATH)
+	font = load(FONT_MEDIUM_PATH)
+	font_bold = load(FONT_SEMIBOLD_PATH)
 	theme = Theme.new()
 	theme.default_font = font
-	theme.default_font_size = 17
+	theme.default_font_size = 18
 
 
 func panel_style(dark := false, radius := 12) -> StyleBoxFlat:
@@ -40,10 +43,10 @@ func text_color(dark_background := false) -> Color:
 	return Color(0.95, 0.93, 0.88) if dark_background else Color(0.24, 0.2, 0.15)
 
 
-func label(text: String, size := 17, dark_background := false) -> Label:
+func label(text: String, size := 18, dark_background := false, strong := false) -> Label:
 	var l := Label.new()
 	l.text = text
-	l.add_theme_font_override("font", font)
+	l.add_theme_font_override("font", font_bold if strong else font)
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", text_color(dark_background))
 	return l
@@ -52,8 +55,8 @@ func label(text: String, size := 17, dark_background := false) -> Label:
 func button(text: String, accent := false) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.add_theme_font_override("font", font)
-	b.add_theme_font_size_override("font_size", 17)
+	b.add_theme_font_override("font", font_bold)
+	b.add_theme_font_size_override("font_size", 18)
 	var normal := StyleBoxFlat.new()
 	normal.bg_color = palette.color("ui_accent") if accent else Color(0.91, 0.88, 0.8)
 	normal.set_corner_radius_all(9)
@@ -88,14 +91,14 @@ func button(text: String, accent := false) -> Button:
 
 func menu_button(text: String, accent := false) -> Button:
 	var b := button(text, accent)
-	b.custom_minimum_size = Vector2(330, 54)
+	b.custom_minimum_size = Vector2(350, 58)
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	b.add_theme_font_size_override("font_size", 22)
+	b.add_theme_font_size_override("font_size", 26)
 	return b
 
 
 func section_label(text: String) -> Label:
-	var l := label(text.to_upper(), 14)
+	var l := label(text.to_upper(), 16, false, true)
 	l.add_theme_color_override("font_color", palette.color("ui_good").darkened(0.08))
 	return l
 
@@ -112,7 +115,7 @@ func keycap(text: String, minimum_width := 42.0) -> PanelContainer:
 	style.border_color = Color(0.13, 0.09, 0.07, 0.7)
 	cap.add_theme_stylebox_override("panel", style)
 	cap.custom_minimum_size.x = minimum_width
-	var l := label(text, 15, true)
+	var l := label(text, 16, true, true)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cap.add_child(l)
 	return cap
@@ -146,7 +149,7 @@ func window(title: String, size: Vector2) -> Dictionary:
 	c.add_child(content)
 	var header := HBoxContainer.new()
 	content.add_child(header)
-	var title_label := label(title, 24)
+	var title_label := label(title, 28, false, true)
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title_label)
 	var close := button("✕")

@@ -90,7 +90,7 @@ func _build_shell() -> void:
 	center.mouse_filter = Control.MOUSE_FILTER_STOP
 	_root.add_child(center)
 
-	_card = kit.card(Vector2(430, 470))
+	_card = kit.card(Vector2(470, 510))
 	_card.name = "PauseCard"
 	_card.add_theme_stylebox_override("panel", kit.panel_style(false, 24))
 	center.add_child(_card)
@@ -99,7 +99,7 @@ func _build_shell() -> void:
 	_content.add_theme_constant_override("separation", 12)
 	_card.add_child(_content)
 
-	var footer := kit.label("SUMA NOOK  |  grow gently, save often", 13)
+	var footer := kit.label("SUMA NOOK  |  grow gently, save often", 14, false, true)
 	footer.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	footer.position.y = -24
 	footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -130,7 +130,7 @@ func _show_page(page: String) -> void:
 
 
 func _build_menu_page() -> void:
-	_card.custom_minimum_size = Vector2(430, 470)
+	_card.custom_minimum_size = Vector2(470, 510)
 	_add_brand_header("PAUSED", "Your nook will wait for you.")
 	var divider := ColorRect.new()
 	divider.color = kit.palette.color("ui_good")
@@ -153,7 +153,7 @@ func _build_menu_page() -> void:
 	exit.pressed.connect(func(): _show_page("exit"))
 	_content.add_child(exit)
 
-	_status_label = kit.label("", 14)
+	_status_label = kit.label("", 15)
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status_label.custom_minimum_size.y = 24
 	_status_label.add_theme_color_override("font_color", kit.palette.color("ui_good").darkened(0.12))
@@ -188,8 +188,8 @@ func _build_settings_page() -> void:
 		GamePreferences.AA_HIGH: 2,
 	}.get(preferences.anti_aliasing, 2)
 	aa_option.custom_minimum_size = Vector2(180, 42)
-	aa_option.add_theme_font_override("font", kit.font)
-	aa_option.add_theme_font_size_override("font_size", 17)
+	aa_option.add_theme_font_override("font", kit.font_bold)
+	aa_option.add_theme_font_size_override("font_size", 18)
 	list.add_child(_setting_row("Anti-aliasing", "High uses the full smooth-shadow render path.", aa_option))
 
 	list.add_child(kit.section_label("Lighting"))
@@ -234,7 +234,7 @@ func _build_settings_page() -> void:
 		_play("ui_confirm")
 	)
 	actions.add_child(apply)
-	_status_label = kit.label("", 14)
+	_status_label = kit.label("", 15)
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_content.add_child(_status_label)
 	back.call_deferred("grab_focus")
@@ -322,15 +322,15 @@ func _add_brand_header(kicker: String, subtitle: String) -> void:
 	badge_style.set_content_margin_all(10)
 	badge.add_theme_stylebox_override("panel", badge_style)
 	row.add_child(badge)
-	var badge_label := kit.label("SN", 18, true)
+	var badge_label := kit.label("SN", 18, true, true)
 	badge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	badge.add_child(badge_label)
 	var text := VBoxContainer.new()
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(text)
-	var brand := kit.label("SUMA NOOK", 30)
+	var brand := kit.label("SUMA NOOK", 28, false, true)
 	text.add_child(brand)
-	var sub := kit.label(subtitle, 15)
+	var sub := kit.label(subtitle, 16)
 	sub.add_theme_color_override("font_color", Color(0.48, 0.43, 0.34))
 	text.add_child(sub)
 	var state := kit.section_label(kicker)
@@ -349,8 +349,8 @@ func _add_page_header(title: String, subtitle: String) -> void:
 	var text := VBoxContainer.new()
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(text)
-	text.add_child(kit.label(title, 27))
-	var sub := kit.label(subtitle, 14)
+	text.add_child(kit.label(title, 30, false, true))
+	var sub := kit.label(subtitle, 15)
 	sub.add_theme_color_override("font_color", Color(0.5, 0.45, 0.37))
 	text.add_child(sub)
 	var line := ColorRect.new()
@@ -367,8 +367,8 @@ func _setting_row(title: String, description: String, control: Control) -> Panel
 	var text := VBoxContainer.new()
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(text)
-	text.add_child(kit.label(title, 18))
-	var note := kit.label(description, 13)
+	text.add_child(kit.label(title, 19, false, true))
+	var note := kit.label(description, 14)
 	note.add_theme_color_override("font_color", Color(0.5, 0.46, 0.39))
 	text.add_child(note)
 	row.add_child(control)
@@ -380,8 +380,8 @@ func _check_button(text: String, pressed: bool) -> CheckButton:
 	check.text = text
 	check.button_pressed = pressed
 	check.custom_minimum_size = Vector2(150, 40)
-	check.add_theme_font_override("font", kit.font)
-	check.add_theme_font_size_override("font_size", 16)
+	check.add_theme_font_override("font", kit.font_bold)
+	check.add_theme_font_size_override("font_size", 17)
 	for color_name in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
 		check.add_theme_color_override(color_name, kit.text_color())
 	return check
@@ -398,7 +398,7 @@ func _volume_control(value: float) -> Dictionary:
 	slider.value = value
 	slider.custom_minimum_size.x = 190
 	row.add_child(slider)
-	var amount := kit.label("%d%%" % roundi(value * 100.0), 15)
+	var amount := kit.label("%d%%" % roundi(value * 100.0), 16, false, true)
 	amount.custom_minimum_size.x = 52
 	amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(amount)
@@ -414,8 +414,8 @@ func _control_row(action: String, keys: Array, description: String) -> PanelCont
 	var text := VBoxContainer.new()
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(text)
-	text.add_child(kit.label(action, 17))
-	var note := kit.label(description, 13)
+	text.add_child(kit.label(action, 18, false, true))
+	var note := kit.label(description, 14)
 	note.add_theme_color_override("font_color", Color(0.5, 0.46, 0.39))
 	text.add_child(note)
 	var caps := HBoxContainer.new()
