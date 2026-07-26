@@ -6,9 +6,14 @@ extends RefCounted
 
 signal stock_changed
 
+var registries: Registries
 var tiles: Dictionary = {}        # tile_id -> count
 var structures: Dictionary = {}   # structure_id -> count
 var landmark_deeds: Array[String] = []
+
+
+func _init(definition_registries: Registries = null) -> void:
+	registries = definition_registries
 
 
 func tile_count(tile_id: String) -> int:
@@ -75,9 +80,26 @@ func to_save_dict() -> Dictionary:
 
 
 func from_save_dict(data: Dictionary) -> void:
-	tiles = data.get("tiles", {}).duplicate()
-	structures = data.get("structures", {}).duplicate()
+	tiles.clear()
+	for raw_id: String in data.get("tiles", {}):
+		var amount := int(data["tiles"][raw_id])
+		if amount <= 0:
+			continue
+		if registries != null and registries.tile(raw_id) == null:
+			registries.ensure_compatibility_definition("tiles", raw_id)
+		tiles[raw_id] = amount
+	structures.clear()
+	for raw_id: String in data.get("structures", {}):
+		var amount := int(data["structures"][raw_id])
+		if amount <= 0:
+			continue
+		if registries != null and registries.structure(raw_id) == null:
+			registries.ensure_compatibility_definition("structures", raw_id)
+		structures[raw_id] = amount
 	landmark_deeds.clear()
 	for deed in data.get("deeds", []):
-		landmark_deeds.append(String(deed))
+		var landmark_id := String(deed)
+		if registries != null and registries.landmark(landmark_id) == null:
+			registries.ensure_compatibility_definition("landmarks", landmark_id)
+		landmark_deeds.append(landmark_id)
 	stock_changed.emit()

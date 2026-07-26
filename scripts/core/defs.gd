@@ -142,12 +142,15 @@ class TileDefinition:
 	var placement_sound: String = "grass"
 	var special_trait: String = ""
 	var collection_hint: String = ""
+	var obtainable := true
 	# Elevation contract. A tile may be a valid upper block without being a
 	# valid support for another tile (stairs are the canonical example).
 	var stackable := false
 	var supports_tiles := false
 	var supports_decor := true
 	var surface_kind: String = "flat"  # flat|stairs|uneven|water
+	var render_profile: String = "standard"       # standard|continuous_water
+	var collision_profile: String = "flat"        # flat|pond_basin|none
 
 	static func from_dict(d: Dictionary) -> TileDefinition:
 		var t := TileDefinition.new()
@@ -172,12 +175,21 @@ class TileDefinition:
 		t.placement_sound = d.get("placement_sound", "grass")
 		t.special_trait = d.get("special_trait", "")
 		t.collection_hint = d.get("collection_hint", "")
+		t.obtainable = bool(d.get("obtainable", true))
 		t.stackable = bool(d.get("stackable", false))
 		t.supports_tiles = bool(d.get("supports_tiles", false))
 		t.supports_decor = bool(d.get("supports_decor", t.walkable))
 		t.surface_kind = d.get(
 			"surface_kind",
 			"water" if not t.water_cells.is_empty() else ("flat" if t.supports_tiles else "uneven")
+		)
+		t.render_profile = d.get(
+			"render_profile",
+			"continuous_water" if t.water_cells.has("open_water") else "standard"
+		)
+		t.collision_profile = d.get(
+			"collision_profile",
+			"pond_basin" if t.water_cells.has("pond") else ("flat" if t.walkable else "none")
 		)
 		return t
 

@@ -28,6 +28,7 @@ var panels: GamePanels
 var pause_menu: PauseMenu
 var parcel_reveal: ParcelReveal
 var audio: GameAudio
+var save_path_override := ""  # injected before _ready by isolated scene tests
 
 var _encounters: Dictionary = {}   # landmark_id -> LandmarkEncounter
 var _footstep_accum := 0.0
@@ -42,6 +43,9 @@ func _ready() -> void:
 
 	core = GameCore.new()
 	core.setup()
+	if save_path_override != "":
+		core.save_manager.save_path = save_path_override
+		core.save_manager.backup_path = save_path_override + ".backup"
 
 	_build_world_scene()
 	_build_ui()
@@ -491,6 +495,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func open_pause_menu(page := "menu") -> void:
 	if not _gameplay_started or parcel_reveal.is_open():
 		return
+	placement.prepare_for_save()
 	if panels.is_open():
 		panels.close()
 	pause_menu.open(page)

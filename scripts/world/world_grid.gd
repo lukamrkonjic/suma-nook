@@ -226,6 +226,7 @@ func can_place_tile_at(coord: Vector2i, elevation: int, tile_id: String) -> bool
 		and support.landmark_id == ""
 		and support.structures.is_empty()
 		and support_def.supports_tiles
+		and support_def.surface_kind == "flat"
 	)
 
 
@@ -261,7 +262,7 @@ func free_socket(coord: Vector2i, socket_type: String, elevation: int = 0) -> in
 	for s in state.structures:
 		taken[s.socket_index] = true
 	if socket_type == "structure":
-		return -1 if taken.has(0) else 0
+		return -1 if def.structure_sockets <= 0 or taken.has(0) else 0
 	for index in range(1, def.decor_sockets + 1):
 		if not taken.has(index):
 			return index
@@ -484,8 +485,11 @@ func from_save_dict(data: Dictionary) -> void:
 		var elevation := int(entry.get("e", 0))
 		var state := CellState.from_dict(entry)
 		if registries.tile(state.tile_id) == null and state.landmark_id == "":
-			push_warning("WorldGrid: dropping cell with unknown tile '%s'" % state.tile_id)
-			continue
+			registries.ensure_compatibility_definition("tiles", state.tile_id)
+			push_warning("WorldGrid: preserving unknown tile '%s' with a compatibility visual" % state.tile_id)
+		for structure: StructureState in state.structures:
+			if registries.structure(structure.structure_id) == null:
+				registries.ensure_compatibility_definition("structures", structure.structure_id)
 		if elevation == 0:
 			cells[coord] = state
 		else:

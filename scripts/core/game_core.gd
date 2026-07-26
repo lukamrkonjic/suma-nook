@@ -7,6 +7,7 @@ extends RefCounted
 
 signal world_grown(coord: Vector2i)
 signal notified(message: String, tone: String)   # lightweight toast channel
+signal before_save
 
 var registries: Registries
 var rng: RngService
@@ -24,6 +25,9 @@ var equipment: EquipmentManager
 var landmarks: LandmarkManager
 var combat: CombatManager
 var save_manager: SaveManager
+var content_compatibility: ContentCompatibility
+var save_migrator: SaveMigrator
+var world_reconciler: WorldStateReconciler
 
 var autosave_timer := 0.0
 var autosave_paused := false
@@ -42,11 +46,30 @@ var legacy_inventory: Dictionary = {}
 func setup(data_path := "res://data", seed_value := 0) -> bool:
 	registries = Registries.new()
 	var ok := registries.load_all(data_path)
+	for error: String in ContentValidator.validate(registries):
+		push_error("ContentValidator: " + error)
+		ok = false
+	content_compatibility = ContentCompatibility.new()
+	if not content_compatibility.load_from(data_path + "/content_compat.json"):
+		for error in content_compatibility.load_errors:
+			push_error("ContentCompatibility: " + error)
+		ok = false
+	if content_compatibility.revision != registries.tunei("content_revision", 0):
+		push_error(
+			"ContentCompatibility: catalog revision %d does not match tuning revision %d"
+			% [
+				content_compatibility.revision,
+				registries.tunei("content_revision", 0),
+			]
+		)
+		ok = false
+	save_migrator = SaveMigrator.new(registries, content_compatibility)
+	world_reconciler = WorldStateReconciler.new(registries)
 	rng = RngService.new(seed_value)
 	grid = WorldGrid.new(registries)
 	profile = PlayerProfile.new()
 	inventory = InventoryManager.new(registries)
-	stock = StockManager.new()
+	stock = StockManager.new(registries)
 	collection = CollectionManager.new(registries)
 	skills = SkillManager.new(registries)
 	rewards = RewardManager.new(registries, rng, inventory, stock, collection)
@@ -62,6 +85,7 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 	if registries.feature("legacy_material_loot_enabled", false):
 		inventory.item_gained.connect(func(item_id, count, _rare): _record_material(item_id, count))
 	grid.grid_changed.connect(func(): _dirty = true)
+	grid.slot_changed.connect(func(_coord, _elevation): _dirty = true)
 	inventory.items_changed.connect(func(): _dirty = true)
 	stock.stock_changed.connect(func(): _dirty = true)
 	equipment.equipment_changed.connect(func(): _dirty = true)
@@ -186,9 +210,9 @@ func autosave_soon() -> void:
 
 
 func save() -> bool:
+	before_save.emit()
 	autosave_timer = 0.0
-	_dirty = false
-	return save_manager.write({
+	var saved := save_manager.write({
 		"rng": rng.to_save_dict(),
 		"profile": profile.to_save_dict(),
 		"grid": grid.to_save_dict(),
@@ -207,25 +231,23 @@ func save() -> bool:
 		"visual": visual_state.duplicate(true),
 		"play_seconds": play_seconds,
 	})
+	_dirty = not saved
+	return saved
 
 
 func load_game() -> bool:
-	var data := save_manager.read()
-	if data.is_empty():
+	var raw_data := save_manager.read()
+	if raw_data.is_empty():
 		return false
+	var migration := save_migrator.migrate(raw_data)
+	var data: Dictionary = migration["data"]
+	for warning: String in migration["warnings"]:
+		push_warning("SaveMigrator: " + warning)
 	rng.from_save_dict(data.get("rng", {}))
 	profile.from_save_dict(data.get("profile", {}))
 	grid.from_save_dict(data.get("grid", {}))
-	if int(data.get("save_version", 1)) < 2:
-		_migrate_northern_ferry_edge()
-	var save_version := int(data.get("save_version", 1))
-	var migrated := save_version < 3
-	if save_version < 2:
-		legacy_inventory = data.get("inventory", {}).duplicate(true)
-		inventory.from_save_dict({})
-	else:
-		legacy_inventory = data.get("legacy_inventory", {}).duplicate(true)
-		inventory.from_save_dict(data.get("inventory", {}))
+	legacy_inventory = data.get("legacy_inventory", {}).duplicate(true)
+	inventory.from_save_dict(data.get("inventory", {}))
 	stock.from_save_dict(data.get("stock", {}))
 	collection.from_save_dict(data.get("collection", {}))
 	skills.from_save_dict(data.get("skills", {}))
@@ -235,27 +257,13 @@ func load_game() -> bool:
 	equipment.from_save_dict(data.get("equipment", {}))
 	landmarks.from_save_dict(data.get("landmarks", {}))
 	combat.from_save_dict(data.get("combat", {}))
+	var reconciliation := world_reconciler.reconcile(grid, stock)
+	for warning: String in reconciliation["warnings"]:
+		push_warning("WorldStateReconciler: " + warning)
 	view_state = data.get("view", view_state).duplicate(true)
 	visual_state = data.get("visual", visual_state).duplicate(true)
 	play_seconds = float(data.get("play_seconds", 0.0))
 	if not grid.is_walkable(grid.world_to_cell(profile.position)):
 		profile.position = grid.cell_to_world(grid.nearest_walkable(grid.world_to_cell(profile.position)))
-	_dirty = migrated
+	_dirty = bool(migration["changed"]) or bool(reconciliation["changed"])
 	return true
-
-
-func _migrate_northern_ferry_edge() -> void:
-	# Pre-release v1 worlds used all-land starter cells plus a pond. Convert
-	# only the three original northern cells and preserve any player expansion.
-	for coord in [Vector2i(-1, -1), Vector2i(0, -1), Vector2i(1, -1)]:
-		if not grid.has_cell(coord) or not grid.cell(coord).starter:
-			continue
-		grid.place_tile(coord, "tile_open_water", 0, true)
-	# Re-home the signature starter props when the old cells carried them.
-	if grid.has_cell(Vector2i(-1, 0)) and grid.cell(Vector2i(-1, 0)).structures.is_empty():
-		grid.add_structure(Vector2i(-1, 0), "struct_pine", 3, 0)
-		grid.add_structure(Vector2i(-1, 0), "struct_bush", 2, 0)
-	if grid.has_cell(Vector2i(1, 0)) and grid.cell(Vector2i(1, 0)).structures.is_empty():
-		grid.add_structure(Vector2i(1, 0), "struct_chest", 2, 0)
-		grid.add_structure(Vector2i(1, 0), "struct_pot", 1, 0)
-	_dirty = true

@@ -137,6 +137,8 @@ func animation_manifest() -> Dictionary:
 
 func _tile_card(tile_id: String, index: int) -> Control:
 	var def := core.registries.tile(tile_id)
+	if def == null:
+		def = core.registries.ensure_compatibility_definition("tiles", tile_id)
 	var is_new := not core.collection.is_discovered("tiles", tile_id)
 	var card := kit.card(Vector2(210, 270))
 	var col := VBoxContainer.new()
@@ -158,9 +160,11 @@ func _tile_card(tile_id: String, index: int) -> Control:
 	col.add_child(_preview_swatch(def))
 	if def.anchor_id != "":
 		var anchor := core.registries.anchor(def.anchor_id)
-		var anchor_label := kit.label("◈ %s (%s)" % [anchor.display_name, core.registries.skill(anchor.skill_id).display_name], 13)
-		anchor_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		col.add_child(anchor_label)
+		var skill := core.registries.skill(anchor.skill_id) if anchor != null else null
+		if anchor != null and skill != null:
+			var anchor_label := kit.label("◈ %s (%s)" % [anchor.display_name, skill.display_name], 13)
+			anchor_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			col.add_child(anchor_label)
 	if def.special_trait != "":
 		var trait_label := kit.label(def.special_trait, 12)
 		trait_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

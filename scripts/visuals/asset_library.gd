@@ -16,7 +16,15 @@ func _init(material_library: MaterialLibrary) -> void:
 
 
 func exists(asset_id: String) -> bool:
-	return _resolve(asset_id) != ""
+	return resolve_path(asset_id) != ""
+
+
+static func resolve_path(asset_id: String) -> String:
+	for pattern: String in SEARCH_PATHS:
+		var path: String = pattern % asset_id
+		if ResourceLoader.exists(path):
+			return path
+	return ""
 
 
 func instantiate(asset_id: String) -> Node3D:
@@ -53,18 +61,10 @@ func catalog_ids() -> Array[String]:
 func _packed(asset_id: String) -> PackedScene:
 	if _cache.has(asset_id):
 		return _cache[asset_id]
-	var path := _resolve(asset_id)
+	var path := resolve_path(asset_id)
 	var packed: PackedScene = load(path) if path != "" else null
 	_cache[asset_id] = packed
 	return packed
-
-
-func _resolve(asset_id: String) -> String:
-	for pattern in SEARCH_PATHS:
-		var path: String = pattern % asset_id
-		if ResourceLoader.exists(path):
-			return path
-	return ""
 
 
 func _missing_marker(asset_id: String) -> Node3D:

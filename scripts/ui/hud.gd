@@ -202,20 +202,26 @@ func _refresh_build_strip() -> void:
 		child.queue_free()
 	var empty := true
 	for tile_id: String in core.stock.tiles:
-		empty = false
 		var def := core.registries.tile(tile_id)
+		if def == null:
+			continue
+		empty = false
 		var b := kit.button("⬢ %s ×%d" % [def.display_name, core.stock.tiles[tile_id]])
 		b.pressed.connect(func(): build_piece_selected.emit("tile", tile_id))
 		_build_strip.add_child(b)
 	for structure_id: String in core.stock.structures:
-		empty = false
 		var def := core.registries.structure(structure_id)
+		if def == null:
+			continue
+		empty = false
 		var b := kit.button("⌂ %s ×%d" % [def.display_name, core.stock.structures[structure_id]])
 		b.pressed.connect(func(): build_piece_selected.emit("structure", structure_id))
 		_build_strip.add_child(b)
 	for landmark_id: String in core.stock.landmark_deeds:
-		empty = false
 		var def := core.registries.landmark(landmark_id)
+		if def == null:
+			continue
+		empty = false
 		var b := kit.button("🏛 %s (deed)" % def.display_name, true)
 		b.pressed.connect(func(): build_piece_selected.emit("deed", landmark_id))
 		_build_strip.add_child(b)
@@ -238,7 +244,8 @@ func _on_level_up(skill_id: String, new_level: int, _unlocks: Array) -> void:
 	var tween := chip.create_tween()
 	tween.tween_property(chip, "scale", Vector2(1.12, 1.12), 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(chip, "scale", Vector2.ONE, 0.2)
-	toast("✨ %s level %d!" % [core.registries.skill(skill_id).display_name, new_level], "levelup")
+	var def := core.registries.skill(skill_id)
+	toast("✨ %s level %d!" % [def.display_name if def != null else skill_id, new_level], "levelup")
 
 
 func _on_item_gained(item_id: String, count: int, rare: bool) -> void:

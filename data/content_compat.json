@@ -1,0 +1,21 @@
+{
+  "revision": 1,
+  "aliases": {
+    "tiles": {},
+    "structures": {},
+    "items": {},
+    "parcels": {},
+    "landmarks": {},
+    "enemies": {},
+    "skills": {}
+  },
+  "retired": {
+    "tiles": {},
+    "structures": {},
+    "items": {},
+    "parcels": {},
+    "landmarks": {},
+    "enemies": {},
+    "skills": {}
+  }
+}

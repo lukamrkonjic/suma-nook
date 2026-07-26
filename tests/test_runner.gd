@@ -39,6 +39,7 @@ func fresh_core(seed_value := 12345) -> GameCore:
 func _run() -> void:
 	_test_input_bindings()
 	_test_registries()
+	_test_content_assets()
 	_test_gg_render_contract()
 	_test_game_preferences()
 	_test_starting_world()
@@ -47,13 +48,30 @@ func _run() -> void:
 	_test_disabled_legacy_systems()
 	_test_arrival_and_parcel_loop()
 	_test_arrival_queue_and_presentation_swap()
+	_test_xp_and_unlocks()
+	_test_deterministic_rng()
+	_test_fishing_rewards_and_tutorial()
+	_test_rare_pity()
+	_test_parcels_choice_and_duplicates()
+	_test_new_tile_pity()
 	_test_tile_adjacency_overlap_rotation()
 	_test_elevation_stacking()
 	_test_connectivity_and_relocation()
 	_test_sockets_and_overlap_prevention()
 	_test_anchor_cycle_and_regen()
+	_test_crafting_transactions()
+	_test_equipment()
+	_test_landmark_lifecycle()
+	_test_guardian_idempotency()
+	_test_pack_and_salvage()
+	_test_deed_replacement()
 	_test_rework_save_round_trip()
+	_test_v1_save_migration()
 	_test_missing_definition_load()
+	_test_content_alias_migration()
+	_test_world_reconciliation()
+	_test_interrupted_reveal_recovery()
+	_test_player_defeat_safety()
 
 
 func _test_input_bindings() -> void:
@@ -85,8 +103,24 @@ func _test_registries() -> void:
 	check(not regs.feature("legacy_material_loot_enabled"), "ordinary material loot is disabled")
 	check(not regs.feature("combat_enabled"), "combat is disabled")
 	check(regs.feature("ferry_arrivals_enabled"), "periodic arrivals are enabled")
+	check(
+		regs.tile("tile_open_water").render_profile == "continuous_water"
+		and regs.tile("tile_open_water").collision_profile == "none",
+		"open water presentation is selected by behavior profiles"
+	)
+	check(
+		regs.tile("tile_grass_pond_edge").collision_profile == "pond_basin",
+		"pond collision is selected by its definition instead of a renderer id check"
+	)
 	var fishing := regs.skill("fishing")
 	check(fishing.xp_to_next(1) > 0 and fishing.xp_to_next(2) > fishing.xp_to_next(1), "xp curve increases")
+
+
+func _test_content_assets() -> void:
+	var regs := Registries.new()
+	check(regs.load_all(), "content asset validation registry loads")
+	var errors := ContentValidator.validate(regs)
+	check(errors.is_empty(), "every production definition resolves its visual asset: " + ", ".join(errors))
 
 
 func _test_gg_render_contract() -> void:
@@ -282,8 +316,9 @@ func _test_xp_and_unlocks() -> void:
 	core.skills.add_xp("fishing", def.xp_to_next(1))
 	check(core.skills.level("fishing") == 2, "xp reaching threshold levels up")
 	check(levels == [2], "level_up signal fired once")
-	check(core.inventory.count("parcel_wild") == 1, "fishing 2 unlock granted the first Land Parcel deterministically")
-	check(core.skills.unlocked("fishing", "recipe").is_empty() == false or core.skills.level("fishing") < 3, "recipe unlock query consistent")
+	check(core.stock.structure_count("struct_bench") == 0, "journal-only level does not create unrelated inventory")
+	core.skills.add_xp("fishing", def.xp_to_next(2))
+	check(core.stock.structure_count("struct_bench") == 1, "level 3 grants its data-defined bench reward")
 	# leveling far unlocks tile pool entries
 	core.skills.add_xp("fishing", 100000)
 	check(core.skills.level("fishing") == def.max_level, "xp clamps at max level")
@@ -292,17 +327,16 @@ func _test_xp_and_unlocks() -> void:
 func _test_deterministic_rng() -> void:
 	var a := fresh_core(777)
 	var b := fresh_core(777)
-	var skill := a.registries.skill("fishing")
 	var seq_a: Array = []
 	var seq_b: Array = []
 	for i in 12:
-		seq_a.append(a.rewards.roll_action_loot(skill))
-		seq_b.append(b.rewards.roll_action_loot(skill))
+		seq_a.append(a.rng.randi_range("determinism_probe", 0, 1_000_000))
+		seq_b.append(b.rng.randi_range("determinism_probe", 0, 1_000_000))
 	check(str(seq_a) == str(seq_b), "identical seeds produce identical loot sequences")
 	var c := fresh_core(778)
 	var differs := false
 	for i in 12:
-		if str(c.rewards.roll_action_loot(skill)) != str(seq_a[i]):
+		if c.rng.randi_range("determinism_probe", 0, 1_000_000) != seq_a[i]:
 			differs = true
 	check(differs, "different seeds diverge")
 
@@ -310,32 +344,19 @@ func _test_deterministic_rng() -> void:
 func _test_fishing_rewards_and_tutorial() -> void:
 	var core := fresh_core()
 	var skill := core.registries.skill("fishing")
-	var fragment_seen := false
 	var by_catch := core.registries.tunei("tutorial_fragment_by_catch", 3)
 	for i in by_catch:
 		var grants := core.rewards.roll_action_loot(skill)
-		for grant in grants:
-			check(core.registries.item(grant["item_id"]) != null, "loot grants reference real items")
-			if grant["item_id"] == "land_fragment":
-				fragment_seen = true
-	check(fragment_seen, "a Land Fragment is guaranteed within the first %d catches" % by_catch)
+		check(grants.is_empty(), "disabled legacy catch %d creates no material loot" % (i + 1))
+	check(core.rewards.tutorial_catches == 0, "retired material tutorial state no longer advances")
 
 
 func _test_rare_pity() -> void:
 	var core := fresh_core(4242)
 	var skill := core.registries.skill("woodcutting")
-	var pity_max := core.registries.tunei("rare_pity_max_dry", 9)
-	var longest_dry := 0
-	var dry := 0
 	for i in 60:
-		var grants := core.rewards.roll_action_loot(skill)
-		var got_rare_layer := grants.size() > 1
-		if got_rare_layer:
-			dry = 0
-		else:
-			dry += 1
-			longest_dry = maxi(longest_dry, dry)
-	check(longest_dry <= pity_max, "pity caps rare-less streaks at %d (saw %d)" % [pity_max, longest_dry])
+		check(core.rewards.roll_action_loot(skill).is_empty(), "disabled rare material roll stays empty")
+	check(core.rewards.rare_dry_streak.is_empty(), "retired rare pity state remains dormant")
 
 
 func _test_parcels_choice_and_duplicates() -> void:
@@ -524,15 +545,17 @@ func _test_anchor_cycle_and_regen() -> void:
 
 func _test_crafting_transactions() -> void:
 	var core := fresh_core()
+	core.registries.features["material_crafting_enabled"] = true
 	check(not core.crafting.craft("recipe_bench"), "crafting without skill/materials fails")
 	core.skills.add_xp("fishing", 1000)   # reach level for bench
 	check(not core.crafting.craft("recipe_bench"), "crafting without materials fails")
 	var inv_before := core.inventory.count("softwood")
+	var benches_before := core.stock.structure_count("struct_bench")
 	core.inventory.grant("softwood", 2, false, true)
 	core.inventory.grant("reeds", 2, false, true)
 	check(core.crafting.craft("recipe_bench"), "crafting with everything succeeds")
 	check(core.inventory.count("softwood") == inv_before and core.inventory.count("reeds") == 0, "materials consumed atomically")
-	check(core.stock.structure_count("struct_bench") == 1, "crafted structure lands in stock")
+	check(core.stock.structure_count("struct_bench") == benches_before + 1, "crafted structure lands in stock")
 	core.inventory.grant("hardwood", 2, false, true)
 	core.inventory.grant("old_metal", 2, false, true)
 	core.inventory.grant("resin", 1, false, true)
@@ -591,6 +614,7 @@ func _frontier_toward(core: GameCore, target: Vector2i) -> Vector2i:
 
 func _test_landmark_lifecycle() -> void:
 	var core := fresh_core()
+	core.registries.features["hostile_landmarks_enabled"] = true
 	var state := _make_revealed_landmark(core)
 	check(state != null, "a horizon opportunity spawns as the world grows")
 	if state == null:
@@ -605,6 +629,7 @@ func _test_landmark_lifecycle() -> void:
 
 func _test_guardian_idempotency() -> void:
 	var core := fresh_core()
+	core.registries.features["hostile_landmarks_enabled"] = true
 	var state := _make_revealed_landmark(core)
 	if state == null:
 		failures.append("guardian test could not build landmark")
@@ -619,6 +644,7 @@ func _test_guardian_idempotency() -> void:
 
 func _test_pack_and_salvage() -> void:
 	var core := fresh_core()
+	core.registries.features["hostile_landmarks_enabled"] = true
 	var state := _make_revealed_landmark(core)
 	if state == null:
 		failures.append("pack test could not build landmark")
@@ -631,6 +657,7 @@ func _test_pack_and_salvage() -> void:
 	check(not core.grid.has_cell(cells[0]), "packed landmark releases its cells")
 	# salvage path on a fresh core
 	var core2 := fresh_core(999)
+	core2.registries.features["hostile_landmarks_enabled"] = true
 	var state2 := _make_revealed_landmark(core2)
 	if state2 != null:
 		var def2 := core2.registries.landmark(state2.landmark_id)
@@ -642,6 +669,7 @@ func _test_pack_and_salvage() -> void:
 
 func _test_deed_replacement() -> void:
 	var core := fresh_core()
+	core.registries.features["hostile_landmarks_enabled"] = true
 	var state := _make_revealed_landmark(core)
 	if state == null:
 		return
@@ -701,10 +729,46 @@ func _test_rework_save_round_trip() -> void:
 	check(loaded_next == fresh_again.rng.randi_range("probe", 0, 999999), "rng stream state round-trips")
 
 
+func _test_v1_save_migration() -> void:
+	var core := fresh_core()
+	var raw := {
+		"save_version": 1,
+		"grid": core.grid.to_save_dict(),
+		"inventory": {"counts": {"softwood": 3}},
+	}
+	var result := core.save_migrator.migrate(raw)
+	var migrated: Dictionary = result["data"]
+	check(migrated["save_version"] == 4, "v1 saves migrate through every schema version")
+	check(
+		(migrated["inventory"].get("counts", {}) as Dictionary).is_empty(),
+		"v1 material inventory leaves the active gameplay inventory"
+	)
+	check(
+		migrated["legacy_inventory"]["counts"]["softwood"] == 3,
+		"v1 material ownership is retained in the legacy archive"
+	)
+	var northern_water := 0
+	var starter_props := 0
+	for cell: Dictionary in migrated["grid"]["cells"]:
+		if (
+			int(cell.get("e", 0)) == 0
+			and int(cell.get("y", 0)) == -1
+			and String(cell.get("tile", "")) == "tile_open_water"
+		):
+			northern_water += 1
+	check(northern_water == 3, "v1 northern starter edge migrates to continuous water")
+	for cell: Dictionary in migrated["grid"]["cells"]:
+		if int(cell.get("x", 0)) == -1 and int(cell.get("y", 0)) == 0:
+			starter_props = cell.get("structs", []).size()
+	check(starter_props == 2, "v1 starter props are restored without duplication")
+
+
 func _test_missing_definition_load() -> void:
 	var core := fresh_core()
 	core.inventory.counts["item_that_no_longer_exists"] = 3
 	core.equipment.owned["gear_that_no_longer_exists"] = true
+	core.stock.tiles["stored_tile_that_no_longer_exists"] = 2
+	core.stock.structures["stored_decor_that_no_longer_exists"] = 1
 	core.grid.cells[Vector2i(4, 4)] = WorldGrid.CellState.new()
 	core.grid.cells[Vector2i(4, 4)].tile_id = "tile_that_no_longer_exists"
 	check(core.save(), "save with stale ids writes")
@@ -713,9 +777,77 @@ func _test_missing_definition_load() -> void:
 	restored.save_manager.save_path = core.save_manager.save_path
 	restored.save_manager.backup_path = core.save_manager.backup_path
 	check(restored.load_game(), "load survives missing definitions")
-	check(restored.inventory.count("item_that_no_longer_exists") == 0, "unknown items dropped safely")
-	check(not restored.grid.has_cell(Vector2i(4, 4)), "unknown tiles dropped safely")
+	check(restored.inventory.count("item_that_no_longer_exists") == 3, "retired items remain player-owned")
+	check(restored.equipment.owns("gear_that_no_longer_exists"), "retired equipment ownership remains intact")
+	check(restored.grid.has_cell(Vector2i(4, 4)), "retired placed tiles remain in the world")
+	check(
+		not restored.registries.tile("tile_that_no_longer_exists").obtainable,
+		"compatibility tiles cannot enter new parcel rolls"
+	)
+	check(restored.stock.tile_count("stored_tile_that_no_longer_exists") == 2, "retired stored tiles remain available")
+	check(restored.stock.structure_count("stored_decor_that_no_longer_exists") == 1, "retired stored decor remains available")
 	check(restored.grid.cells.size() >= 9, "known world intact after fallback load")
+
+
+func _test_content_alias_migration() -> void:
+	var regs := Registries.new()
+	check(regs.load_all(), "alias migration registry loads")
+	var compatibility := ContentCompatibility.new()
+	compatibility.revision = 7
+	compatibility.aliases = {
+		"tiles": {"tile_old_meadow": "tile_grass"},
+		"structures": {"struct_old_seat": "struct_bench"},
+		"items": {"old_wood": "softwood"},
+		"parcels": {},
+		"landmarks": {},
+		"enemies": {},
+		"skills": {},
+	}
+	compatibility.retired = {}
+	var migrator := SaveMigrator.new(regs, compatibility)
+	var result := migrator.migrate({
+		"save_version": regs.tunei("save_version", 1),
+		"content_revision": 0,
+		"grid": {
+			"cells": [{
+				"x": 0, "y": 0, "e": 0, "tile": "tile_old_meadow",
+				"structs": [{"iid": 1, "id": "struct_old_seat", "socket": 0, "rot": 0}],
+			}],
+		},
+		"stock": {"tiles": {"tile_old_meadow": 2, "tile_grass": 1}},
+		"inventory": {"counts": {"old_wood": 3, "softwood": 2}},
+	})
+	var migrated: Dictionary = result["data"]
+	check(migrated["grid"]["cells"][0]["tile"] == "tile_grass", "tile aliases rewrite placed content")
+	check(migrated["grid"]["cells"][0]["structs"][0]["id"] == "struct_bench", "structure aliases rewrite placed content")
+	check(migrated["stock"]["tiles"]["tile_grass"] == 3, "aliased stock counts merge without duplication")
+	check(migrated["inventory"]["counts"]["softwood"] == 5, "aliased inventory counts merge without loss")
+	check(migrated["content_revision"] == 7, "save records the applied content catalog revision")
+
+
+func _test_world_reconciliation() -> void:
+	var core := fresh_core()
+	var unsupported := WorldGrid.CellState.new()
+	unsupported.tile_id = "tile_grass"
+	core.grid.stacked_cells[core.grid.slot_key(Vector2i(5, 5), 2)] = unsupported
+	var water := core.grid.cell(Vector2i.ZERO + Vector2i(-1, -1))
+	var invalid_decor := WorldGrid.StructureState.new()
+	invalid_decor.instance_id = 1
+	invalid_decor.structure_id = "struct_bench"
+	invalid_decor.socket_index = 99
+	water.structures.append(invalid_decor)
+	var a := core.grid.add_structure(Vector2i(0, 1), "struct_pot", 1)
+	var b := core.grid.add_structure(Vector2i(0, 1), "struct_lantern", 2)
+	b.instance_id = a.instance_id
+	core.grid.home_cell = Vector2i(999, 999)
+	var report := core.world_reconciler.reconcile(core.grid, core.stock)
+	check(report["changed"], "invalid loaded relationships trigger deterministic reconciliation")
+	check(not core.grid.has_cell_at(Vector2i(5, 5), 2), "unsupported elevated tile is removed from the invalid slot")
+	check(core.stock.tile_count("tile_grass") >= 1, "unsupported elevated tile returns to storage")
+	check(core.stock.structure_count("struct_bench") >= 1, "invalid decoration returns to storage")
+	check(water.structures.is_empty(), "tile socket rules are reapplied during load repair")
+	check(a.instance_id != b.instance_id, "duplicate structure instance ids are repaired")
+	check(core.grid.has_cell(core.grid.home_cell), "invalid saved home cell moves onto preserved land")
 
 
 func _test_interrupted_reveal_recovery() -> void:

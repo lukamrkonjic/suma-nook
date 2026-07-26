@@ -38,12 +38,11 @@ func _ready() -> void:
 	for path in [SAVE_PATH, SAVE_PATH + ".backup"]:
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(path)
-	# The main scene reads --save= from user args; when launched via the tscn we
-	# inject the override directly after instantiation instead.
+	# Inject before the node enters the tree so Main cannot inspect or load the
+	# developer's normal save during its _ready callback.
 	main = (load("res://scenes/main.tscn") as PackedScene).instantiate()
+	main.save_path_override = SAVE_PATH
 	add_child(main)
-	main.core.save_manager.save_path = SAVE_PATH
-	main.core.save_manager.backup_path = SAVE_PATH + ".backup"
 	# Keep the acceptance run reproducible. Seed 3 yields fish in the first two
 	# common catches while still exercising the real weighted-loot path.
 	main.core.rng.world_seed = 3
@@ -60,6 +59,7 @@ func _run() -> void:
 	await _step_place_tile()
 	await _step_woodcutting()
 	await _step_elevation_stacking()
+	await _step_save_while_holding()
 	await _step_save_reload()
 	await _step_pause_menu()
 	await _step_admin_controls()
@@ -509,6 +509,41 @@ func _step_save_reload() -> void:
 	check(main.core.arrivals.has_waiting_package(), "unopened delivery survives reload")
 	check(main.delivery_point.package_is_visible(), "restored delivery is interactable at the dock")
 	check(get_tree().get_nodes_in_group("enemies").is_empty(), "no monsters or combat encounters appear")
+
+
+func _step_save_while_holding() -> void:
+	print("STEP save-safe placement transactions")
+	var tile_coord := Vector2i(2, 0)
+	var tile_before := main.core.grid.cell(tile_coord)
+	main.placement.set_active(true)
+	main.placement.pick_up_at(tile_coord)
+	check(not main.core.grid.has_cell(tile_coord), "moving a tile enters a transient held state")
+	check(main.core.autosave_paused, "autosave pauses while a placed tile is held")
+	check(main.core.save(), "manual save succeeds while a tile move is in progress")
+	check(main.core.grid.cell(tile_coord) == tile_before, "save restores the held tile before serialization")
+	check(main.placement.held.is_empty(), "save closes the in-progress tile transaction")
+	check(not main.core.autosave_paused, "autosave resumes after tile restoration")
+	var tile_stock_before := main.core.stock.tile_count(tile_before.tile_id)
+	main.placement.pick_up_at(tile_coord)
+	main.placement.store_held()
+	check(not main.core.grid.has_cell(tile_coord), "a moved tile can be stored deliberately")
+	check(
+		main.core.stock.tile_count(tile_before.tile_id) == tile_stock_before + 1,
+		"storing a moved tile conserves ownership"
+	)
+	main.placement.undo()
+	check(main.core.grid.has_cell(tile_coord), "undo restores a stored tile to its original slot")
+	main.placement.redo()
+	check(not main.core.grid.has_cell(tile_coord), "redo stores the tile again")
+	main.placement.undo()
+
+	var upper := main.core.grid.cell_at(STACK_COORD, 1)
+	var structure_iid: int = upper.structures[0].instance_id
+	main.placement.pick_up_at(STACK_COORD, 1)
+	check(main.core.grid.find_structure(structure_iid).is_empty(), "moving decor enters a transient held state")
+	check(main.core.save(), "manual save succeeds while decor is held")
+	check(not main.core.grid.find_structure(structure_iid).is_empty(), "save restores held decor with its stable instance id")
+	main.placement.set_active(false)
 
 
 func _step_pause_menu() -> void:

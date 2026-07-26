@@ -1,5 +1,6 @@
 {
-  "save_version": 3,
+  "save_version": 4,
+  "content_revision": 1,
   "save_path": "user://suma_nook_world.json",
   "tile_size": 2.0,
   "block_depth": 0.9,

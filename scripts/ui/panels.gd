@@ -81,12 +81,16 @@ func _inventory_panel() -> Dictionary:
 	list.add_child(kit.label("Tile Library", 20))
 	for tile_id: String in core.stock.tiles:
 		var tile := core.registries.tile(tile_id)
+		if tile == null:
+			continue
 		list.add_child(kit.label("⬢ %s ×%d" % [tile.display_name, core.stock.tile_count(tile_id)], 16))
 	if core.stock.tiles.is_empty():
 		list.add_child(kit.label("No unplaced tiles yet. The ferry brings Land Parcels.", 14))
 	list.add_child(kit.label("Build Library", 20))
 	for structure_id: String in core.stock.structures:
 		var structure := core.registries.structure(structure_id)
+		if structure == null:
+			continue
 		list.add_child(kit.label("⌂ %s ×%d" % [structure.display_name, core.stock.structure_count(structure_id)], 16))
 	if core.stock.structures.is_empty():
 		list.add_child(kit.label("No stored decorations yet.", 14))
@@ -479,6 +483,8 @@ func _debug_speed_regen() -> void:
 func show_landmark_choice(landmark_id: String) -> void:
 	close()
 	var def := core.registries.landmark(landmark_id)
+	if def == null:
+		return
 	var win := kit.window(def.display_name + " is yours", Vector2(520, 360))
 	_open_panel = win["root"]
 	_open_name = "landmark"

@@ -25,6 +25,7 @@ func has_save() -> bool:
 
 func write(payload: Dictionary) -> bool:
 	payload["save_version"] = registries.tunei("save_version", 1)
+	payload["content_revision"] = registries.tunei("content_revision", 0)
 	payload["timestamp"] = Time.get_datetime_string_from_system()
 	var text := JSON.stringify(payload, "  ")
 	var temp_path := save_path + ".tmp"

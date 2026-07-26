@@ -39,6 +39,7 @@ func setup(game_core: GameCore, asset_library: AssetLibrary, rig: CameraRig, pla
 	camera_rig = rig
 	player = player_controller
 	effects = effects_manager
+	core.before_save.connect(prepare_for_save)
 	_ghost_ok_material = _ghost_material(Color(0.65, 0.85, 0.55, 0.55))
 	_ghost_bad_material = _ghost_material(Color(0.85, 0.5, 0.42, 0.5))
 	_indicator = MeshInstance3D.new()
@@ -100,11 +101,23 @@ func _build_ghost() -> void:
 	var asset_id := ""
 	match held["kind"]:
 		"tile":
-			asset_id = core.registries.tile(held["id"]).asset_id
+			var tile_def := core.registries.tile(held["id"])
+			if tile_def == null:
+				action_result.emit(false, "That tile is no longer available.", "invalid")
+				return
+			asset_id = tile_def.asset_id
 		"structure":
-			asset_id = core.registries.structure(held["id"]).asset_id
+			var structure_def := core.registries.structure(held["id"])
+			if structure_def == null:
+				action_result.emit(false, "That decoration is no longer available.", "invalid")
+				return
+			asset_id = structure_def.asset_id
 		"deed":
-			asset_id = core.registries.landmark(held["id"]).asset_id
+			var landmark_def := core.registries.landmark(held["id"])
+			if landmark_def == null:
+				action_result.emit(false, "That landmark is no longer available.", "invalid")
+				return
+			asset_id = landmark_def.asset_id
 	_ghost = assets.instantiate(asset_id)
 	add_child(_ghost)
 	_set_ghost_material(_ghost_ok_material)
@@ -344,6 +357,7 @@ func _place_tile() -> void:
 		var from: Vector2i = held["moving"]["coord"]
 		var from_elevation := int(held["moving"].get("elevation", 0))
 		var original: WorldGrid.CellState = held["moving"]["state"]
+		var from_rotation := original.rotation
 		original.rotation = rotation_q
 		core.grid.restore_cell_at(_hover_cell, _hover_elevation, original)
 		_push_undo({
@@ -352,10 +366,13 @@ func _place_tile() -> void:
 			"from_elevation": from_elevation,
 			"to": _hover_cell,
 			"to_elevation": _hover_elevation,
+			"from_rotation": from_rotation,
+			"to_rotation": rotation_q,
 		})
 		held = {}
 		held_changed.emit(held)
 		_build_ghost()
+		core.autosave_paused = false
 		core.autosave_soon()
 	else:
 		if not core.place_tile_from_stock(_hover_cell, tile_id, rotation_q, _hover_elevation):
@@ -411,6 +428,7 @@ func _place_structure() -> void:
 			},
 		})
 		held = {}
+		core.autosave_paused = false
 	else:
 		if not core.stock.take_structure(structure_id):
 			action_result.emit(false, "That piece isn't in storage anymore.", "invalid")
@@ -470,6 +488,7 @@ func _pick_up_from(cell: Vector2i, elevation: int) -> void:
 	if not state.structures.is_empty():
 		var s: WorldGrid.StructureState = state.structures.back()
 		core.grid.remove_structure(cell, s.instance_id, elevation)
+		core.autosave_paused = true
 		held = {
 			"kind": "structure",
 			"id": s.structure_id,
@@ -509,6 +528,9 @@ func _try_pick_up_tile(cell: Vector2i, elevation: int, state: WorldGrid.CellStat
 			return
 		player.position = core.grid.cell_to_world(refuge)
 	var removed := core.grid.remove_tile_at(cell, elevation)
+	if removed == null:
+		return
+	core.autosave_paused = true
 	held = {
 		"kind": "tile",
 		"id": removed.tile_id,
@@ -528,17 +550,35 @@ func _try_pick_up_tile(cell: Vector2i, elevation: int, state: WorldGrid.CellStat
 	)
 
 
-## X while holding a moved structure stores it instead of replacing it.
+## X while holding a moved piece stores it instead of replacing it.
 func store_held() -> void:
 	if held.is_empty() or held["moving"] == null:
 		return
-	if held["kind"] == "structure":
-		core.stock.add_structure(held["id"])
-		_push_undo({"type": "store_structure", "structure_id": held["id"], "from": held["moving"]})
-		held = {}
-		held_changed.emit(held)
-		_build_ghost()
-		action_result.emit(true, "Stored.", "store")
+	match held["kind"]:
+		"structure":
+			core.stock.add_structure(held["id"])
+			_push_undo({
+				"type": "store_structure",
+				"structure_id": held["id"],
+				"from": held["moving"],
+			})
+		"tile":
+			var original: WorldGrid.CellState = held["moving"]["state"]
+			core.stock.add_tile(held["id"])
+			_push_undo({
+				"type": "store_tile",
+				"tile_id": held["id"],
+				"from": held["moving"],
+				"rotation": original.rotation,
+			})
+		_:
+			return
+	held = {}
+	core.autosave_paused = false
+	held_changed.emit(held)
+	_build_ghost()
+	core.autosave_soon()
+	action_result.emit(true, "Stored.", "store")
 
 
 func cancel_click() -> void:
@@ -548,10 +588,18 @@ func cancel_click() -> void:
 		set_active(false)
 
 
+## A save is an explicit transaction boundary. A piece being moved is restored
+## before serialization so no save can capture it in the transient held state.
+func prepare_for_save() -> void:
+	if not held.is_empty() and held.get("moving") != null:
+		_cancel_held(true)
+
+
 ## Cancelling a move restores the piece to its original position — nothing is
 ## ever lost to experimentation.
 func _cancel_held(restore: bool) -> void:
 	if held.is_empty():
+		core.autosave_paused = false
 		if _ghost != null:
 			_ghost.queue_free()
 			_ghost = null
@@ -576,6 +624,7 @@ func _cancel_held(restore: bool) -> void:
 	elif restore and held["moving"] == null and held["kind"] == "tile":
 		pass  # piece stays in stock — nothing was consumed until placement
 	held = {}
+	core.autosave_paused = false
 	_pointer_down = false
 	_pointer_dragging = false
 	_picked_on_pointer_press = false
@@ -644,9 +693,13 @@ func _apply(entry: Dictionary, reverse: bool) -> bool:
 					core.stock.add_structure(removed_s.structure_id)
 				return removed_s != null
 			if core.stock.take_structure(entry["structure_id"]):
+				var structure_def := core.registries.structure(entry["structure_id"])
+				if structure_def == null:
+					core.stock.add_structure(entry["structure_id"])
+					return false
 				var socket := core.grid.free_socket(
 					entry["coord"],
-					core.registries.structure(entry["structure_id"]).socket_type,
+					structure_def.socket_type,
 					structure_elevation
 				)
 				if socket >= 0:
@@ -674,7 +727,16 @@ func _apply(entry: Dictionary, reverse: bool) -> bool:
 				if reverse
 				else int(entry.get("to_elevation", 0))
 			)
-			return core.grid.move_tile_at(from, from_elevation, to, to_elevation)
+			if not core.grid.move_tile_at(from, from_elevation, to, to_elevation):
+				return false
+			var moved_state := core.grid.cell_at(to, to_elevation)
+			moved_state.rotation = int(
+				entry.get("from_rotation", moved_state.rotation)
+				if reverse
+				else entry.get("to_rotation", moved_state.rotation)
+			)
+			core.grid.slot_changed.emit(to, to_elevation)
+			return true
 		"move_structure":
 			var src: Dictionary = entry["to"] if reverse else entry["from"]
 			var dst: Dictionary = entry["from"] if reverse else entry["to"]
@@ -718,6 +780,26 @@ func _apply(entry: Dictionary, reverse: bool) -> bool:
 				core.stock.add_structure(entry["structure_id"])
 				return true
 			return false
+		"store_tile":
+			var tile_from: Dictionary = entry["from"]
+			var tile_coord: Vector2i = tile_from["coord"]
+			var tile_elevation := int(tile_from.get("elevation", 0))
+			if reverse:
+				if not core.stock.take_tile(entry["tile_id"]):
+					return false
+				var original: WorldGrid.CellState = tile_from["state"]
+				original.rotation = int(entry.get("rotation", original.rotation))
+				if core.grid.has_cell_at(tile_coord, tile_elevation):
+					core.stock.add_tile(entry["tile_id"])
+					return false
+				core.grid.restore_cell_at(tile_coord, tile_elevation, original)
+				return true
+			var removed_tile := core.grid.remove_tile_at(tile_coord, tile_elevation)
+			if removed_tile == null:
+				return false
+			entry["from"]["state"] = removed_tile
+			core.stock.add_tile(entry["tile_id"])
+			return true
 	return false
 
 

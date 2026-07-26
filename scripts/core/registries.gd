@@ -69,10 +69,113 @@ func enemy(id: String) -> Defs.EnemyDefinition: return enemies.get(id)
 func landmark(id: String) -> Defs.LandmarkDefinition: return landmarks.get(id)
 
 
+func has_definition(kind: String, id: String) -> bool:
+	match kind:
+		"tiles": return tiles.has(id)
+		"structures": return structures.has(id)
+		"items": return items.has(id)
+		"parcels": return parcels.has(id)
+		"landmarks": return landmarks.has(id)
+		"enemies": return enemies.has(id)
+		"skills": return skills.has(id)
+	return false
+
+
+func ensure_compatibility_definition(kind: String, id: String) -> Resource:
+	if id == "":
+		return null
+	match kind:
+		"tiles":
+			if not tiles.has(id):
+				tiles[id] = Defs.TileDefinition.from_dict({
+					"id": id,
+					"name": "Recovered Tile (%s)" % id,
+					"family": "retired",
+					"asset_id": "tile_stone_clearing",
+					"weight": 0.0,
+					"obtainable": false,
+					"stackable": true,
+					"supports_tiles": true,
+					"supports_decor": true,
+					"surface_kind": "flat",
+					"render_profile": "standard",
+					"collision_profile": "flat",
+					"special_trait": "Compatibility placeholder for retired content.",
+				})
+			return tiles[id]
+		"structures":
+			if not structures.has(id):
+				structures[id] = Defs.StructureDefinition.from_dict({
+					"id": id,
+					"name": "Recovered Decoration (%s)" % id,
+					"asset_id": "prop_sign",
+					"kind": "decoration",
+					"socket_type": "decor",
+					"allow_elevated": true,
+				})
+			return structures[id]
+		"items":
+			if not items.has(id):
+				items[id] = Defs.ItemDefinition.from_dict({
+					"id": id,
+					"name": "Recovered Item (%s)" % id,
+					"category": "retired",
+					"stack": true,
+				})
+			return items[id]
+		"parcels":
+			if not parcels.has(id):
+				parcels[id] = Defs.ParcelDefinition.from_dict({
+					"id": id,
+					"name": "Recovered Parcel (%s)" % id,
+					"families": {"home_meadow": 1.0},
+					"option_count": 3,
+				})
+			if not items.has(id):
+				items[id] = Defs.ItemDefinition.from_dict({
+					"id": id,
+					"name": "Recovered Parcel (%s)" % id,
+					"category": "parcel",
+					"stack": true,
+				})
+			return parcels[id]
+		"landmarks":
+			if not landmarks.has(id):
+				landmarks[id] = Defs.LandmarkDefinition.from_dict({
+					"id": id,
+					"name": "Recovered Landmark (%s)" % id,
+					"asset_id": "prop_sign",
+					"footprint": [[0, 0]],
+					"min_progress_tiles": 999999,
+				})
+			return landmarks[id]
+		"enemies":
+			if not enemies.has(id):
+				enemies[id] = Defs.EnemyDefinition.from_dict({
+					"id": id,
+					"name": "Recovered Creature (%s)" % id,
+					"asset_id": "enemy_thornling_stalker",
+					"health": 1,
+					"damage": 0,
+					"speed": 0.0,
+				})
+			return enemies[id]
+		"skills":
+			if not skills.has(id):
+				skills[id] = Defs.SkillDefinition.from_dict({
+					"id": id,
+					"name": "Retired Skill (%s)" % id,
+					"future": true,
+					"max_level": 1,
+				})
+			return skills[id]
+	return null
+
+
 func tiles_in_family(family: String) -> Array:
 	var result: Array = []
 	for def: Defs.TileDefinition in tiles.values():
-		if def.family == family:
+		if def.family == family and def.obtainable:
 			result.append(def)
 	return result
 
@@ -103,9 +206,41 @@ func _load_list(path: String, key: String, target: Dictionary, factory: Callable
 
 
 func _validate() -> void:
+	var known_families := {}
 	for def: Defs.TileDefinition in tiles.values():
+		known_families[def.family] = true
 		if def.anchor_id != "" and not anchors.has(def.anchor_id):
 			load_errors.append("tile %s references missing anchor %s" % [def.id, def.anchor_id])
+		if def.asset_id == "":
+			load_errors.append("tile %s has no asset id" % def.id)
+		if def.weight < 0.0:
+			load_errors.append("tile %s has negative parcel weight" % def.id)
+		if def.decor_sockets < 0 or def.structure_sockets < 0:
+			load_errors.append("tile %s has negative socket counts" % def.id)
+		if def.structure_sockets > 1:
+			load_errors.append("tile %s declares unsupported multiple major sockets" % def.id)
+		if def.surface_kind not in ["flat", "stairs", "uneven", "water"]:
+			load_errors.append("tile %s has invalid surface kind %s" % [def.id, def.surface_kind])
+		if def.render_profile not in ["standard", "continuous_water"]:
+			load_errors.append("tile %s has invalid render profile %s" % [def.id, def.render_profile])
+		if def.collision_profile not in ["flat", "pond_basin", "none"]:
+			load_errors.append("tile %s has invalid collision profile %s" % [def.id, def.collision_profile])
+		if def.supports_tiles and def.surface_kind != "flat":
+			load_errors.append("tile %s supports stacking but does not have a flat surface" % def.id)
+		if def.render_profile == "continuous_water" and not def.water_cells.has("open_water"):
+			load_errors.append("tile %s uses continuous water rendering without the open_water tag" % def.id)
+		if def.collision_profile == "pond_basin" and not def.water_cells.has("pond"):
+			load_errors.append("tile %s uses pond collision without the pond tag" % def.id)
+		if def.structure_sockets > 0 and not def.supports_decor:
+			load_errors.append("tile %s exposes a major socket while decor support is disabled" % def.id)
+		for skill_id: String in def.unlock_level:
+			if not skills.has(skill_id):
+				load_errors.append("tile %s unlock references missing skill %s" % [def.id, skill_id])
+	for def: Defs.StructureDefinition in structures.values():
+		if def.asset_id == "":
+			load_errors.append("structure %s has no asset id" % def.id)
+		if def.socket_type not in ["decor", "structure"]:
+			load_errors.append("structure %s has invalid socket type %s" % [def.id, def.socket_type])
 	for def: Defs.AnchorDefinition in anchors.values():
 		if not skills.has(def.skill_id):
 			load_errors.append("anchor %s references missing skill %s" % [def.id, def.skill_id])
@@ -116,6 +251,20 @@ func _validate() -> void:
 			load_errors.append("skill %s references missing loot table %s" % [def.id, def.loot_table])
 		if def.rare_table != "" and not loot_tables.has(def.rare_table):
 			load_errors.append("skill %s references missing rare table %s" % [def.id, def.rare_table])
+		for tile_id: String in def.direct_tile_reward_pool:
+			if not tiles.has(tile_id):
+				load_errors.append("skill %s reward pool references missing tile %s" % [def.id, tile_id])
+		for unlock: Dictionary in def.unlocks:
+			var kind := String(unlock.get("kind", ""))
+			var unlock_id := String(unlock.get("id", ""))
+			if kind in ["tile", "tile_reward"] and not tiles.has(unlock_id):
+				load_errors.append("skill %s unlock references missing tile %s" % [def.id, unlock_id])
+			elif kind == "structure_reward" and not structures.has(unlock_id):
+				load_errors.append("skill %s unlock references missing structure %s" % [def.id, unlock_id])
+			elif kind == "recipe" and not recipes.has(unlock_id):
+				load_errors.append("skill %s unlock references missing recipe %s" % [def.id, unlock_id])
+			elif kind == "anchor_upgrade" and not anchors.has(unlock_id):
+				load_errors.append("skill %s unlock references missing anchor %s" % [def.id, unlock_id])
 	for def: Defs.LootTableDefinition in loot_tables.values():
 		for entry in def.entries:
 			if not items.has(entry["item"]):
@@ -130,6 +279,9 @@ func _validate() -> void:
 	for def: Defs.ParcelDefinition in parcels.values():
 		if not items.has(def.id):
 			load_errors.append("parcel %s has no matching inventory item" % def.id)
+		for family: String in def.families:
+			if not known_families.has(family):
+				load_errors.append("parcel %s references empty tile family %s" % [def.id, family])
 	for def: Defs.LandmarkDefinition in landmarks.values():
 		for spawn in def.enemies:
 			if not enemies.has(spawn.get("enemy", "")):

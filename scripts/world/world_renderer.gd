@@ -4,7 +4,6 @@ extends Node3D
 ## structures, edge blockers, anchor rest states, and landmark phases.
 ## State-diff driven (cell_changed / grid_changed) — never per-frame scans.
 
-const GROUND_LAYER := 1
 const BLOCKER_LAYER := 1
 const REST_TWEEN_SECONDS := 0.5
 
@@ -19,12 +18,14 @@ var _landmark_nodes: Dictionary = {}    # landmark_id -> Node3D
 var _edge_root: Node3D
 var _silhouette_material: StandardMaterial3D
 var _water_surface: WaterSurface
+var _tile_visual_factory: TileVisualFactory
 
 
 func setup(game_core: GameCore, asset_library: AssetLibrary) -> void:
 	core = game_core
 	assets = asset_library
 	materials = asset_library.materials
+	_tile_visual_factory = TileVisualFactory.new(assets, core.grid)
 	_edge_root = Node3D.new()
 	_edge_root.name = "EdgeBlockers"
 	add_child(_edge_root)
@@ -84,37 +85,13 @@ func _build_cell(coord: Vector2i, elevation: int, animate := false) -> void:
 	add_child(holder)
 	_tile_nodes[core.grid.slot_key(coord, elevation)] = holder
 
-	var visual := _make_open_water_tile(coord) if elevation == 0 and def.id == "tile_open_water" else assets.instantiate(def.asset_id)
+	var visual := _tile_visual_factory.instantiate_visual(def)
 	visual.rotation.y = state.rotation * PI * 0.5
 	holder.add_child(visual)
 	_apply_covered_surface(visual, coord, elevation, def)
 	_attach_ambient_motion(visual, Vector2i(coord.x + elevation * 1009, coord.y))
 
-	# Ground collider: one box whose top is exactly y=0 — identical heights on
-	# every tile means zero collision seams between connected tiles.
-	if def.walkable:
-		var body := StaticBody3D.new()
-		body.collision_layer = GROUND_LAYER
-		var shape := CollisionShape3D.new()
-		var box := BoxShape3D.new()
-		box.size = Vector3(core.grid.tile_size, 0.9, core.grid.tile_size)
-		shape.shape = box
-		shape.position.y = -0.45
-		body.add_child(shape)
-		holder.add_child(body)
-
-	# Pond tiles: low blocker over the water basin so the player wades the
-	# shore but not the deep middle. Matches the basin authored in the GLB.
-	if def.water_cells.has("pond"):
-		var water_block := StaticBody3D.new()
-		water_block.collision_layer = BLOCKER_LAYER
-		var ws := CollisionShape3D.new()
-		var wb := BoxShape3D.new()
-		wb.size = Vector3(1.35, 0.8, 1.35)
-		ws.shape = wb
-		ws.position = Vector3(0.14, 0.4, 0.14).rotated(Vector3.UP, state.rotation * PI * 0.5)
-		water_block.add_child(ws)
-		holder.add_child(water_block)
+	_tile_visual_factory.add_collision(holder, def, state.rotation)
 
 	for s in state.structures:
 		_build_structure(holder, s)
@@ -151,16 +128,6 @@ func _refresh_covered_surface(coord: Vector2i, elevation: int) -> void:
 		_apply_covered_surface(visual, coord, elevation, def)
 
 
-## Open water: modeled sand floor GLB under one contiguous surface. Decorative
-## flora remains out of the composed world until it can be offered as a
-## deliberate large placeable rather than automatic scatter.
-func _make_open_water_tile(coord: Vector2i) -> Node3D:
-	var root := Node3D.new()
-	root.name = "tile_open_water"
-	root.add_child(assets.instantiate("tile_water_floor"))
-	return root
-
-
 ## Deterministic per-cell underwater dressing: 2-4 clusters weighted toward
 ## shorelines (eelgrass, broadleaf, rocks; reeds/lilies only near land).
 func _dress_underwater(root: Node3D, coord: Vector2i) -> void:
@@ -170,7 +137,7 @@ func _dress_underwater(root: Node3D, coord: Vector2i) -> void:
 	for offset: Vector2i in WorldGrid.NEIGHBORS:
 		var neighbor := coord + offset
 		if core.grid.has_cell(neighbor) and core.grid.tile_def(neighbor) != null \
-				and core.grid.tile_def(neighbor).id != "tile_open_water":
+				and core.grid.tile_def(neighbor).render_profile != "continuous_water":
 			shore_dirs.append(offset)
 	var placed := 0
 	var budget := 2 + (rng.randi() % 2) + (1 if shore_dirs.size() > 0 else 0)
@@ -212,7 +179,7 @@ func _rebuild_water_surface() -> void:
 	var cells: Array = []
 	for coord: Vector2i in core.grid.cells:
 		var def := core.grid.tile_def(coord)
-		if def != null and def.id == "tile_open_water":
+		if def != null and def.render_profile == "continuous_water":
 			cells.append(coord)
 	_water_surface.rebuild(cells, func(c: Vector2i) -> Vector3: return core.grid.cell_to_world(c),
 			core.grid.tile_size, WATER_LEVEL, materials.material("water"))
