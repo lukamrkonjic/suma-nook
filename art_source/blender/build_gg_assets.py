@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Garden Galaxy rework asset builder — rounded, beveled, authored geometry.
+"""Suma Nook clean-room asset builder — quiet tiles and authored decorations.
 
 Runs headless under Blender 5.x:
   /Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup \
@@ -9,14 +9,14 @@ Exports GLBs to assets/3d/reworked/ (which AssetLibrary searches FIRST, so
 every rebuilt id overrides the legacy asset with zero code changes).
 
 Modeling standards (docs/visual_rework/ASSET_AUDIT.md):
-  - hard surfaces: bevel 3-6% of smallest visible dimension, 2-3 segments,
-    weighted normals, no razor edges, no default-cube look;
-  - curved objects: 12-16 radial segments on pots/posts, rounded silhouettes;
-  - pines: 3-5 overlapping lobed tiers, no straight cones, no near-black;
-  - bushes: 3-7 overlapping rounded masses;
+  - hard surfaces: restrained one-segment chamfers, deliberate planes,
+    weighted normals, no razor edges or inflated pill-shaped boxes;
+  - curved objects: 10-16 radial segments on pots/posts, faceted silhouettes;
+  - pines: 3-5 overlapping scalloped tiers with sparse drooping leaf plates;
+  - bushes: one coherent low-poly mass with a restrained leaf shell;
   - flowers: thick stems, broad leaves, 5-6 shaped petals, visible center;
   - grass: 3-7 broad tapered curved blades, grouped, never scattered noise;
-  - composition: <= ~3 authored clusters per tile, 65-75% quiet surface.
+  - composition: bare tile by default; at most one functional or hero motif.
 
 Deterministic (fixed seeds). 1 unit = 1 m; tile = 2.0 m; land top z=0.
 """
@@ -73,12 +73,12 @@ PALETTE = {
     "gold_deep": "BF8E18",
     "gold_highlight": "EAD24A",
     "gold_primary": "DDB626",
-    "grass_highlight": "B8CC46",
-    "grass_primary": "98B53A",
-    "grass_secondary": "7FA134",
+    "grass_highlight": "ADC15B",
+    "grass_primary": "8DA84A",
+    "grass_secondary": "769142",
     "grass_shade": "567A2C",
-    "grass_sunlit": "AFC53D",
-    "grass_vivid_accent": "74A82A",
+    "grass_sunlit": "A3B852",
+    "grass_vivid_accent": "6E963A",
     "hair_deep": "382419",
     "hair_light": "76533B",
     "hair_primary": "543826",
@@ -88,8 +88,8 @@ PALETTE = {
     "leaf_olive": "5B7343",
     "leaf_soft_sage": "98AE82",
     "magic": "A77A2C",
-    "moss_bright": "89B03E",
-    "moss_primary": "6D9536",
+    "moss_bright": "80A14F",
+    "moss_primary": "668747",
     "mustard_fabric": "B88F41",
     "olive_shadow": "4D6732",
     "pine_deep": "2D4122",
@@ -151,10 +151,10 @@ PALETTE = {
     "fabric_accent": "B88F41",  # legacy semantic name
     "flower_yellow": "DDB626",  # legacy semantic name
     "gold": "DDB626",  # legacy semantic name
-    "grass": "98B53A",  # legacy semantic name
+    "grass": "8DA84A",  # legacy semantic name
     "hair": "543826",  # legacy semantic name
     "metal": "5C5B55",  # legacy semantic name
-    "moss": "6D9536",  # legacy semantic name
+    "moss": "668747",  # legacy semantic name
     "mushroom_red": "C96558",  # legacy semantic name
     "pale_stone": "CFC6B8",  # legacy semantic name
     "petal_pink": "D98A82",  # legacy semantic name
@@ -179,7 +179,10 @@ def mat(name):
     m.use_nodes = True
     bsdf = m.node_tree.nodes["Principled BSDF"]
     bsdf.inputs["Base Color"].default_value = srgb(PALETTE[name])
-    bsdf.inputs["Roughness"].default_value = 0.88
+    # The reference read is matte but not chalky: broad highlights still carry
+    # the bevels and low-poly planes. Runtime material rebinding mirrors these
+    # values through data/material_styles.json.
+    bsdf.inputs["Roughness"].default_value = 0.78
     bsdf.inputs["Metallic"].default_value = 0.0
     if name in EMISSIVE:
         bsdf.inputs["Emission Color"].default_value = srgb(PALETTE[name])
@@ -210,8 +213,8 @@ def _finish(obj, material, bevel=0.0, segments=2, smooth_angle=40.0, flat=False,
     return obj
 
 
-def rbox(name, size, loc, material, bevel_frac=0.045, segments=2, flat=False, bevel=None):
-    """Rounded box: bevel defaults to a fraction of the smallest dimension."""
+def rbox(name, size, loc, material, bevel_frac=0.028, segments=1, flat=False, bevel=None):
+    """Soft-chamfered box with a restrained, authored hard-surface profile."""
     bpy.ops.mesh.primitive_cube_add(size=1.0, location=loc)
     obj = bpy.context.active_object
     obj.name = name
@@ -249,39 +252,97 @@ def uv_sphere(name, r, loc, material, segments=28, rings=16, squash=1.0,
 
 
 def lobe(name, r, loc, material, squash=0.86, subdiv=2, stretch=(1.0, 1.0)):
-    """Rounded foliage/organic mass. `subdiv` is kept for call compatibility and
-    mapped onto UV-sphere resolution; every lobe is fully smooth-shaded."""
-    seg = {1: 20, 2: 28, 3: 36}.get(subdiv, 28)
-    return uv_sphere(name, r, loc, material, segments=seg, rings=max(10, seg // 2),
-                     squash=squash, stretch=stretch)
+    """Faceted organic mass with a controlled, readable low-poly silhouette."""
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=max(1, min(3, subdiv)), radius=r, location=loc)
+    obj = bpy.context.active_object
+    obj.name = name
+    obj.scale = Vector((stretch[0], stretch[1], squash))
+    bpy.ops.object.transform_apply(scale=True)
+    obj.data.materials.append(mat(material))
+    bpy.ops.object.shade_flat()
+    return obj
+
+
+def leaf_plate(name, width, height, loc, material, bend=0.0, thickness=None):
+    """Low-poly tapered leaf/blade. Local +Z points from the base to the tip."""
+    thick = thickness if thickness is not None else max(0.012, width * 0.18)
+    rings = [
+        (0.00, width * 0.30, 0.0),
+        (0.34, width, bend * 0.12),
+        (0.72, width * 0.72, bend * 0.48),
+        (1.00, width * 0.08, bend),
+    ]
+    verts = []
+    for z01, half_w, shift in rings:
+        for y in (-thick, thick):
+            verts.append((-half_w, y, z01 * height + shift))
+            verts.append((half_w, y, z01 * height + shift))
+    faces = []
+    for ring in range(len(rings) - 1):
+        a = ring * 4
+        b = (ring + 1) * 4
+        faces += [
+            (a, a + 1, b + 1, b),
+            (a + 2, b + 2, b + 3, a + 3),
+            (a, b, b + 2, a + 2),
+            (a + 1, a + 3, b + 3, b + 1),
+        ]
+    faces += [(0, 2, 3, 1), (len(verts) - 4, len(verts) - 3, len(verts) - 1, len(verts) - 2)]
+    mesh = bpy.data.meshes.new(name + "_mesh")
+    mesh.from_pydata(verts, [], faces)
+    mesh.update()
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    obj.location = Vector(loc)
+    return _finish(obj, material, min(width * 0.08, 0.008), segments=1, flat=True, weighted=False)
+
+
+def orient_local_z(obj, direction):
+    obj.rotation_mode = "QUATERNION"
+    obj.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(Vector(direction).normalized())
+    return obj
 
 
 def pine_tier(name, r, height, loc, material, rng, lobes=7):
-    """One broad foliage mass of a pine: a high-resolution rounded dome with a
-    gently scalloped, drooping lower rim and a softened tip. No cone, no
-    horizontal tier break, no octagonal cross-section."""
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=32, ring_count=18, radius=1.0,
-                                         location=loc)
-    obj = bpy.context.active_object
-    obj.name = name
-    phase = rng.uniform(0, 6.28)
-    phase2 = rng.uniform(0, 6.28)
-    for v in obj.data.vertices:
-        z01 = (v.co.z + 1.0) * 0.5                     # 0 bottom .. 1 top
-        # Smooth ogive taper: full width low down, easing to a soft point.
-        taper = math.sin((1.0 - z01) * math.pi * 0.5) ** 0.7
-        ang = math.atan2(v.co.y, v.co.x)
-        # Two scallop harmonics so the outline never repeats mechanically.
-        scallop = (1.0
-                   + 0.085 * math.sin(ang * lobes + phase) * (1.0 - z01)
-                   + 0.045 * math.sin(ang * (lobes * 2 + 1) + phase2) * (1.0 - z01))
-        v.co.x *= r * taper * scallop
-        v.co.y *= r * taper * scallop
-        # Skirt droops outward and down at the rim instead of cutting flat.
-        droop = max(0.0, 0.32 - z01) * 1.4
-        v.co.z = (v.co.z * 0.5 + 0.5) * height - droop * height * 0.28
-    bpy.ops.object.shade_smooth()
+    """Scalloped, faceted conifer tier with a pointed teardrop profile."""
+    sides = 12
+    phase = rng.uniform(0, math.tau)
+    ring_spec = [
+        (-0.10, 0.52),
+        (0.10, 1.00),
+        (0.48, 0.70),
+        (0.78, 0.35),
+        (1.00, 0.035),
+    ]
+    verts = []
+    for ring_index, (z01, radius_scale) in enumerate(ring_spec):
+        for i in range(sides):
+            ang = math.tau * i / sides
+            scallop = 1.0 + 0.09 * math.sin(ang * lobes + phase)
+            droop = -0.09 * height if ring_index == 0 and i % 2 == 0 else 0.0
+            verts.append((
+                math.cos(ang) * r * radius_scale * scallop,
+                math.sin(ang) * r * radius_scale * scallop,
+                z01 * height + droop,
+            ))
+    faces = []
+    for ring in range(len(ring_spec) - 1):
+        for i in range(sides):
+            n = (i + 1) % sides
+            faces.append((ring * sides + i, ring * sides + n,
+                          (ring + 1) * sides + n, (ring + 1) * sides + i))
+    faces.append(tuple(reversed(tuple(range(sides)))))
+    mesh = bpy.data.meshes.new(name + "_mesh")
+    mesh.from_pydata(verts, [], faces)
+    mesh.update()
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    obj.location = Vector(loc)
     obj.data.materials.append(mat(material))
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.shade_flat()
     return obj
 
 
@@ -300,30 +361,20 @@ def rock(name, r, loc, material, rng, squash=0.78):
         if v.co.z > r * squash * 0.55:      # flattened top plane
             v.co.z = r * squash * 0.55 + (v.co.z - r * squash * 0.55) * 0.35
     obj.rotation_euler = Euler((0, 0, rng.uniform(0, 6.28)))
-    _finish(obj, material, r * 0.1, segments=2, smooth_angle=46.0)
+    # Deliberate planes are more important than inflated bevels on natural
+    # stone. Keep enough topology for the silhouette, then leave it faceted.
+    obj.data.materials.append(mat(material))
+    bpy.ops.object.shade_flat()
     return obj
 
 
 def blade(name, w, h, loc, material, rng, lean=0.35):
-    """Broad tapered grass blade with a rounded tip. Deliberately chunky: thin
-    spikes alias badly at the isometric gameplay distance, so every blade stays
-    several screen pixels wide and keeps volume all the way up."""
-    bpy.ops.mesh.primitive_cone_add(vertices=12, radius1=w, radius2=w * 0.42,
-                                    depth=h, location=(loc[0], loc[1], loc[2] + h / 2))
-    obj = bpy.context.active_object
-    obj.name = name
-    obj.scale = Vector((1.0, 0.62, 1.0))
-    bpy.ops.object.transform_apply(scale=True)
+    """Broad, bent, low-poly grass blade that reads as a leaf, not a spike."""
     ang = rng.uniform(0, 6.28)
     dx, dy = math.cos(ang) * lean * h, math.sin(ang) * lean * h
-    for v in obj.data.vertices:
-        z01 = max(0.0, min(1.0, v.co.z / max(h, 1e-5) + 0.5))
-        v.co.x += dx * z01 * z01
-        v.co.y += dy * z01 * z01
-    obj.rotation_euler = Euler((0, 0, rng.uniform(0, 6.28)))
-    # Bevel rounds the tip and the base rim so the blade never ends in a
-    # one-pixel point.
-    return _finish(obj, material, w * 0.34, segments=2, smooth_angle=70.0)
+    obj = leaf_plate(name, w, h, loc, material, bend=math.hypot(dx, dy), thickness=w * 0.13)
+    obj.rotation_euler = Euler((0, 0, ang))
+    return obj
 
 
 def petal_flower(prefix, rng, petal_mat="petal_pink", petals=5, stem_h=None):
@@ -394,14 +445,11 @@ def export(asset_id, objs):
 
 # ---------------------------------------------------------------- terrain
 def tile_block(prefix, top_mat, side_mat):
-    """Rounded-edge land block: shallow warm side, chunky soft top cap."""
-    # Cap is exactly one tile wide: an oversized cap overlaps its neighbour and
-    # z-fights. Rounded vertical corners + a 3-segment bevel turn the join into
-    # a soft shoulder instead of a razor edge or a dark crack.
+    """Quiet land block: crisp vertical mass and one restrained top chamfer."""
     body = rbox(f"{prefix}_body", (TILE - 0.004, TILE - 0.004, BLOCK_DEPTH - 0.1),
-                (0, 0, -(BLOCK_DEPTH + 0.1) / 2), side_mat, bevel=0.045, segments=3)
-    cap = rbox(f"{prefix}_cap", (TILE, TILE, 0.16), (0, 0, -0.07),
-               top_mat, bevel=0.05, segments=3)
+                (0, 0, -(BLOCK_DEPTH + 0.1) / 2), side_mat, bevel=0.018, segments=1)
+    cap = rbox(f"{prefix}_cap", (TILE, TILE, 0.13), (0, 0, -0.055),
+               top_mat, bevel=0.024, segments=1)
     return [body, cap]
 
 
@@ -426,23 +474,20 @@ def grass_cluster(prefix, rng, kind="tuft"):
 def build_terrain():
     rng = random.Random(101)
 
-    # Meadow: one tuft cluster near a corner + one rock pair near the opposite
-    # edge; ~70% of the top stays quiet.
+    # Ordinary tiles stay quiet. Readable objects belong in the placeable
+    # decoration layer; even palette variants contain no baked scatter.
     t = tile_block("grass", "grass_primary", "earth_mid")
-    t += move(grass_cluster("g_tc", rng, "tuft"), (-0.58, -0.5, 0.01))
-    t += move(grass_cluster("g_rk", rng, "rocks"), (0.62, 0.55, 0.01))
     export("tile_grass", t)
 
-    t = tile_block("gf", "grass_primary", "earth_mid")
-    t += move(grass_cluster("gf_fl", rng, "flowers"), (-0.35, 0.3, 0.01))
-    t += move(grass_cluster("gf_tf", rng, "tuft"), (0.6, -0.55, 0.01))
+    t = tile_block("gf", "grass_sunlit", "earth_mid")
     export("tile_grass_flower", t)
 
     # Garden bed
     t = tile_block("gar", "grass_sunlit", "earth_mid")
-    t.append(rbox("gar_bed", (1.15, 1.15, 0.18), (0.15, 0.15, 0.09), "wood_gold", bevel=0.03, segments=3))
+    t.append(rbox("gar_bed", (1.15, 1.15, 0.18), (0.15, 0.15, 0.09), "wood_gold", bevel=0.022, segments=1))
     t.append(rbox("gar_fill", (0.95, 0.95, 0.1), (0.15, 0.15, 0.15), "soil_orange", bevel=0.018, flat=True))
-    t += move(grass_cluster("gar_fl", rng, "flowers"), (0.15, 0.15, 0.2))
+    t += move(petal_flower("gar_fl", rng, "petal_pink", petals=5, stem_h=0.24),
+              (0.15, 0.15, 0.2))
     export("tile_garden", t)
 
     # Paving: varied warm-ivory slabs, narrow warm seams, soft height steps.
@@ -454,13 +499,13 @@ def build_terrain():
     for i, ((sx, sy), (w, d)) in enumerate(slabs):
         t.append(rbox(f"pa_slab{i}", (w, d, 0.08),
                       (sx, sy, 0.03 + rng.uniform(-0.005, 0.005)),
-                      "stone_light" if i != 2 else "stone_mid_light", bevel=0.035, segments=3))
+                      "stone_light" if i != 2 else "stone_mid_light", bevel=0.022, segments=1))
     export("tile_path", t)
 
     t = tile_block("co", "stone_light", "stone_mid")
-    t.append(rbox("co_center", (0.92, 0.92, 0.055), (0, 0, 0.026), "terracotta_light", bevel=0.024, segments=3))
+    t.append(rbox("co_center", (0.92, 0.92, 0.055), (0, 0, 0.026), "terracotta_light", bevel=0.018, segments=1))
     for i, (x, y, w, d) in enumerate([(0, 0.73, 1.72, 0.3), (0, -0.73, 1.72, 0.3), (0.73, 0, 0.3, 1.16), (-0.73, 0, 0.3, 1.16)]):
-        t.append(rbox(f"co_ring{i}", (w, d, 0.045), (x, y, 0.02), "terracotta_primary", bevel=0.018, segments=2))
+        t.append(rbox(f"co_ring{i}", (w, d, 0.045), (x, y, 0.02), "terracotta_primary", bevel=0.012, segments=1))
     export("tile_courtyard", t)
 
     # Pond edge: sloped sandy shore into readable shallow water.
@@ -470,7 +515,7 @@ def build_terrain():
     for i, (x, y, w, d) in enumerate([(0, -TILE / 2 + rim / 2, TILE + 0.02, rim), (0, TILE / 2 - rim / 2, TILE + 0.02, rim),
                                       (-TILE / 2 + rim / 2, 0, rim, TILE + 0.02), (TILE / 2 - rim / 2, 0, rim, TILE + 0.02)]):
         t.append(rbox(f"gp_rim{i}", (w, d, BLOCK_DEPTH), (x, y, -BLOCK_DEPTH / 2), "earth_mid", bevel=0.02, flat=True))
-        t.append(rbox(f"gp_cap{i}", (w, d, 0.16), (x, y, -0.07), "grass_primary", bevel=0.06, segments=3))
+        t.append(rbox(f"gp_cap{i}", (w, d, 0.13), (x, y, -0.055), "grass_primary", bevel=0.024, segments=1))
     # sloped sand shore ring — tucked inside the basin, meeting the floor
     for i, (x, y, yaw) in enumerate([(0, -0.47, 0), (0, 0.47, math.pi), (-0.47, 0, -math.pi / 2), (0.47, 0, math.pi / 2)]):
         panel = rbox(f"gp_slope{i}", (1.02, 0.3, 0.05), (x, y, -0.36), "uw_sand_light", bevel=0.01, flat=True)
@@ -481,27 +526,18 @@ def build_terrain():
     t.append(rbox("gp_floor", (1.15, 1.15, 0.07), (0, 0, -0.46), "uw_sand_light", bevel=0.012, flat=True))
     water = rbox("WaterSurface", (TILE - 0.5, TILE - 0.5, 0.03), (0, 0, -0.2), "water", bevel=0.0)
     t.append(water)
-    t += move(tuft("gp_reed", rng, 4, "leaf_bright", w=0.03, h_range=(0.3, 0.5)), (-0.68, -0.68, 0))
-    t.append(rock("gp_rock", 0.12, (0.66, 0.72, 0.05), "stone_light", rng))
     export("tile_grass_pond_edge", t)
 
     # Stone family
     t = tile_block("sc", "stone_mid_light", "stone_mid")
-    t.append(rock("sc_r0", 0.24, (-0.35, -0.3, 0.09), "stone_light", rng))
-    t.append(rock("sc_r1", 0.15, (0.05, -0.05, 0.06), "stone_mid_light", rng))
-    t.append(rock("sc_r2", 0.09, (0.42, 0.5, 0.04), "stone_mid", rng))
     export("tile_stone_clearing", t)
 
     t = tile_block("sm", "moss_primary", "stone_mid")
-    t.append(rock("sm_r0", 0.26, (-0.4, 0.35, 0.1), "stone_shadow", rng))
-    t.append(rock("sm_r1", 0.16, (-0.05, 0.55, 0.06), "stone_mid_light", rng))
-    t += move(_mushrooms("smm", rng), (0.55, -0.5, 0))
     export("tile_stone_mossy", t)
 
     t = tile_block("sr", "stone_mid_light", "stone_mid")
-    t.append(rbox("sr_found1", (1.1, 0.26, 0.36), (0, 0.5, 0.18), "stone_light", bevel=0.035, segments=3))
-    t.append(rbox("sr_found2", (0.26, 0.9, 0.28), (0.55, -0.2, 0.14), "stone_light", bevel=0.035, segments=3))
-    t.append(rock("sr_r0", 0.18, (-0.5, -0.45, 0.07), "stone_light", rng))
+    t.append(rbox("sr_found1", (1.1, 0.26, 0.36), (0, 0.5, 0.18), "stone_light", bevel=0.02, segments=1))
+    t.append(rbox("sr_found2", (0.26, 0.9, 0.28), (0.55, -0.2, 0.14), "stone_light", bevel=0.02, segments=1))
     export("tile_stone_ruin", t)
 
     t = tile_block("scr", "stone_mid_light", "stone_mid")
@@ -514,17 +550,15 @@ def build_terrain():
 
     t = tile_block("ro", "stone_mid_light", "stone_mid")
     for i, (x, y) in enumerate([(-0.55, -0.3), (0.0, -0.28), (0.55, -0.32), (-0.28, 0.32), (0.28, 0.3)]):
-        t.append(rbox(f"ro_s{i}", (0.5, 0.52, 0.055), (x + rng.uniform(-0.02, 0.02), y, 0.026), "stone_light", bevel=0.024, segments=3))
-    t += move(tuft("rot", rng, 3, "moss_primary"), (0.6, -0.7, 0.01))
+        t.append(rbox(f"ro_s{i}", (0.5, 0.52, 0.055), (x + rng.uniform(-0.02, 0.02), y, 0.026), "stone_light", bevel=0.016, segments=1))
     export("tile_stone_road", t)
 
-    # Groves — one tree + one bush + one tuft, asymmetric triangle composition.
+    # Groves carry exactly one hero tree. Bushes and ground cover are separate
+    # decals so the player, rather than the tile mesh, composes the scene.
     def grove(asset_id, seed, tree_fn):
         r = random.Random(seed)
         g = tile_block(asset_id, "grass_sunlit", "earth_mid")
-        g += move(tree_fn(r), (0.45, 0.42, 0))
-        g += move(_bush(f"{asset_id}_b", r, 0.3, lobes=4), (-0.55, 0.42, 0))
-        g += move(tuft(f"{asset_id}_t", r, 4), (-0.4, -0.62, 0.01))
+        g += move(tree_fn(r), (0.18, 0.16, 0))
         export(asset_id, g)
 
     grove("tile_grove_mature", 121, lambda r: _pine("gm", r, 1.95, 4))
@@ -568,44 +602,78 @@ def _mushrooms(prefix, rng):
 # ---------------------------------------------------------------- vegetation
 def _pine(prefix, rng, height=1.7, tiers=4, light="pine_light", mid="pine_medium", deep="pine_shadow"):
     trunk_h = height * 0.24
-    objs = [rcyl(f"{prefix}_trunk", 0.105, trunk_h, (0, 0, trunk_h / 2), "wood_brown", verts=18, r2=0.08, bevel=0.014)]
+    objs = [rcyl(f"{prefix}_trunk", 0.105, trunk_h, (0, 0, trunk_h / 2),
+                 "wood_brown", verts=10, r2=0.075, bevel=0.008, segments=1, flat=True)]
     base = trunk_h * 0.75
     span = height - base
     radius = 0.32 + height * 0.14
     for i in range(tiers):
         z01 = i / max(tiers - 1, 1)
-        tier_mat = light if i == tiers - 1 else mid
+        tier_mat = light if i == tiers - 1 else mid if i > 0 else deep
         r = radius * (1.0 - 0.58 * z01) * rng.uniform(0.94, 1.06)
         th = span / tiers * 1.75
         tier = pine_tier(f"{prefix}_tier{i}", r, th,
                          (rng.uniform(-0.04, 0.04), rng.uniform(-0.04, 0.04), base + span * z01 * 0.82 + th * 0.28),
                          tier_mat, rng)
         objs.append(tier)
+        # Overlapping drooping leaf plates soften the tier into a leafy,
+        # scalloped silhouette. They are part of the hero tree, not tile noise.
+        leaf_z = base + span * z01 * 0.82 + th * 0.22
+        for j in range(7):
+            a = math.tau * j / 7 + rng.uniform(-0.12, 0.12)
+            start = Vector((math.cos(a) * r * 0.5, math.sin(a) * r * 0.5, leaf_z))
+            leaf = leaf_plate(f"{prefix}_tier{i}_leaf{j}", r * 0.22, r * 0.5,
+                              start, tier_mat, bend=r * 0.08, thickness=r * 0.022)
+            orient_local_z(leaf, (math.cos(a) * 0.85, math.sin(a) * 0.85, -0.5))
+            objs.append(leaf)
     return objs
 
 
 def _bush(prefix, rng, r=0.42, material="leaf_medium", lobes=5, accent="leaf_bright"):
-    objs = []
-    for i in range(lobes):
-        a = rng.uniform(0, 6.28)
-        d = rng.uniform(0.0, r * 0.55)
-        rr = r * rng.uniform(0.55, 0.95)
-        m = accent if i == lobes - 1 else material
-        objs.append(lobe(f"{prefix}_l{i}", rr, (math.cos(a) * d, math.sin(a) * d, rr * 0.7), m,
-                         squash=rng.uniform(0.78, 0.9)))
+    # One coherent crown plus a sparse authored leaf shell. This keeps the
+    # object readable as a single large decal instead of a pile of balls.
+    objs = [lobe(f"{prefix}_mass", r, (0, 0, r * 0.68), material,
+                 squash=0.78, subdiv=2, stretch=(1.05, 0.92))]
+    leaf_count = max(14, lobes * 3)
+    for i in range(leaf_count):
+        a = math.tau * i / leaf_count + rng.uniform(-0.22, 0.22)
+        z = r * rng.uniform(0.24, 1.02)
+        radial = r * rng.uniform(0.56, 0.82)
+        start = Vector((math.cos(a) * radial, math.sin(a) * radial, z))
+        # Leaves climb along the crown instead of pointing out like spikes.
+        direction = Vector((math.cos(a) * 0.24, math.sin(a) * 0.24, 0.9))
+        leaf = leaf_plate(f"{prefix}_leaf{i}", r * 0.24, r * rng.uniform(0.38, 0.48),
+                          start, accent if i % 4 == 0 else material,
+                          bend=r * 0.08, thickness=r * 0.022)
+        orient_local_z(leaf, direction)
+        leaf.rotation_quaternion = (
+            leaf.rotation_quaternion
+            @ Euler((0, 0, rng.uniform(-0.45, 0.45))).to_quaternion()
+        )
+        objs.append(leaf)
     return objs
 
 
 def _leafy_tree(prefix, rng, trunk_mat="wood_brown", leaf_mat="leaf_bright"):
-    trunk = rcyl(f"{prefix}_trunk", 0.105, 0.9, (0, 0, 0.45), trunk_mat, verts=18, r2=0.075, bevel=0.014)
+    trunk = rcyl(f"{prefix}_trunk", 0.105, 0.9, (0, 0, 0.45), trunk_mat,
+                  verts=10, r2=0.07, bevel=0.008, segments=1, flat=True)
     tip = rng.uniform(-0.06, 0.06)
     for v in trunk.data.vertices:
         z01 = max(0.0, v.co.z / 0.9 + 0.5)
         v.co.x += tip * z01
     objs = [trunk]
-    objs.append(lobe(f"{prefix}_crown", 0.5, (tip, 0, 1.16), leaf_mat, squash=0.82))
-    objs.append(lobe(f"{prefix}_crown2", 0.34, (tip + rng.uniform(0.15, 0.3), rng.uniform(-0.2, 0.2), 1.0), leaf_mat, squash=0.8))
-    objs.append(lobe(f"{prefix}_crown3", 0.28, (tip - rng.uniform(0.15, 0.28), rng.uniform(-0.2, 0.2), 0.95), leaf_mat, squash=0.8))
+    branch_l = rod_between(f"{prefix}_branch_l", (tip, 0, 0.58), (-0.28, 0.02, 0.94), 0.045, trunk_mat, verts=8)
+    branch_r = rod_between(f"{prefix}_branch_r", (tip, 0, 0.67), (0.29, -0.02, 1.02), 0.04, trunk_mat, verts=8)
+    objs += [branch_l, branch_r]
+    crown_specs = [
+        (Vector((tip, 0, 1.18)), 0.46),
+        (Vector((tip + 0.28, -0.02, 1.03)), 0.30),
+        (Vector((tip - 0.26, 0.03, 0.98)), 0.28),
+    ]
+    for i, (center, radius) in enumerate(crown_specs):
+        crown = _bush(f"{prefix}_c{i}", rng, radius, leaf_mat, lobes=4,
+                      accent="leaf_soft_sage" if leaf_mat == "leaf_bright" else leaf_mat)
+        objs += move(crown, center)
     return objs
 
 
@@ -646,24 +714,52 @@ def build_vegetation():
 def build_props():
     rng = random.Random(161)
 
-    # Bench: chunky rounded seat, soft legs, gently angled back.
-    bench = [
-        rbox("bench_leg1", (0.14, 0.36, 0.26), (-0.42, 0, 0.13), "wood_deep", bevel=0.02, segments=3),
-        rbox("bench_leg2", (0.14, 0.36, 0.26), (0.42, 0, 0.13), "wood_deep", bevel=0.02, segments=3),
-        rbox("bench_seat", (1.1, 0.44, 0.1), (0, 0, 0.31), "wood_light", bevel=0.028, segments=3),
-    ]
-    back = rbox("bench_back", (1.1, 0.09, 0.34), (0, -0.19, 0.55), "wood_light", bevel=0.026, segments=3)
-    back.rotation_euler = Euler((0.12, 0, 0))
-    bench.append(back)
+    # Bench: separate planks, splayed supports and an open silhouette.
+    bench = []
+    for side in (-1, 1):
+        for front in (-1, 1):
+            leg = rbox(f"bench_leg_{side}_{front}", (0.12, 0.12, 0.34),
+                       (side * 0.43, front * 0.14, 0.17), "wood_deep",
+                       bevel=0.009, segments=1)
+            leg.rotation_euler = Euler((front * 0.09, side * -0.08, 0))
+            bench.append(leg)
+    for i, y in enumerate((-0.15, 0.0, 0.15)):
+        bench.append(rbox(f"bench_seat_{i}", (1.12, 0.125, 0.085),
+                          (0, y, 0.34), "wood_light" if i != 1 else "wood_gold",
+                          bevel=0.012, segments=1))
+    for side in (-1, 1):
+        support = rbox(f"bench_back_support_{side}", (0.09, 0.08, 0.53),
+                       (side * 0.43, 0.18, 0.55), "wood_deep",
+                       bevel=0.008, segments=1)
+        support.rotation_euler = Euler((-0.14, 0, 0))
+        bench.append(support)
+    for i, z in enumerate((0.58, 0.74)):
+        back = rbox(f"bench_back_{i}", (1.1, 0.08, 0.13),
+                    (0, 0.215, z), "wood_light" if i else "wood_gold",
+                    bevel=0.012, segments=1)
+        back.rotation_euler = Euler((-0.14, 0, 0))
+        bench.append(back)
     export("prop_bench", bench)
 
-    stool = [rcyl("stool_top", 0.2, 0.09, (0, 0, 0.3), "wood_light", verts=14, bevel=0.028, segments=3),
-             rcyl("stool_leg", 0.13, 0.26, (0, 0, 0.13), "wood_deep", verts=12, bevel=0.015)]
+    stool = [rbox("stool_top", (0.48, 0.42, 0.09), (0, 0, 0.39),
+                  "wood_light", bevel=0.014, segments=1)]
+    for x in (-0.17, 0.17):
+        for y in (-0.14, 0.14):
+            leg = rbox(f"stool_leg_{x}_{y}", (0.085, 0.085, 0.36),
+                       (x, y, 0.18), "wood_deep", bevel=0.007, segments=1)
+            leg.rotation_euler = Euler((y * 0.35, -x * 0.3, 0))
+            stool.append(leg)
     export("prop_stool", stool)
 
-    table = [rcyl("table_top", 0.42, 0.08, (0, 0, 0.5), "wood_light", verts=16, bevel=0.03, segments=3),
-             rcyl("table_leg", 0.09, 0.47, (0, 0, 0.24), "wood_deep", verts=12, bevel=0.012),
-             rcyl("table_base", 0.2, 0.07, (0, 0, 0.035), "wood_deep", verts=14, bevel=0.015)]
+    table = [rcyl("table_top", 0.46, 0.085, (0, 0, 0.54), "wood_light",
+                  verts=12, bevel=0.012, segments=1, flat=True)]
+    for i in range(3):
+        a = math.tau * i / 3 + 0.35
+        start = Vector((math.cos(a) * 0.12, math.sin(a) * 0.12, 0.49))
+        end = Vector((math.cos(a) * 0.27, math.sin(a) * 0.27, 0.04))
+        table.append(rod_between(f"table_leg_{i}", start, end, 0.055, "wood_deep", verts=8))
+    table.append(rcyl("table_brace", 0.15, 0.07, (0, 0, 0.22),
+                       "wood_gold", verts=10, bevel=0.007, segments=1, flat=True))
     export("prop_table", table)
 
     # Dock: individual rounded planks, soft posts, board variation.
@@ -671,9 +767,10 @@ def build_props():
     for i in range(5):
         dock.append(rbox(f"dock_plank{i}", (0.88, 0.34, 0.09),
                          (rng.uniform(-0.015, 0.015), -0.72 + i * 0.37, 0.1 + rng.uniform(-0.006, 0.006)),
-                         "wood_light" if i % 2 else "wood_gold", bevel=0.024, segments=3))
+                         "wood_light" if i % 2 else "wood_gold", bevel=0.012, segments=1))
     for i, (x, y) in enumerate([(-0.4, -0.8), (0.4, -0.8), (-0.4, 0.8), (0.4, 0.8)]):
-        dock.append(rcyl(f"dock_pile{i}", 0.085, 0.62, (x, y, -0.14), "wood_brown", verts=18, bevel=0.016))
+        dock.append(rcyl(f"dock_pile{i}", 0.085, 0.62, (x, y, -0.14),
+                          "wood_brown", verts=10, bevel=0.007, segments=1, flat=True))
     export("prop_dock", dock)
 
     # Ferry delivery dock (matches DeliveryPoint marker layout).
@@ -681,9 +778,11 @@ def build_props():
     for i in range(4):
         fdock.append(rbox(f"fdock_plank{i}", (1.05, 0.36, 0.11),
                           (rng.uniform(-0.012, 0.012), 0.72 + i * 0.38, 0.085 + rng.uniform(-0.005, 0.005)),
-                          "wood_light" if i % 2 else "wood_gold", bevel=0.026, segments=3))
+                          "wood_light" if i % 2 else "wood_gold", bevel=0.012, segments=1))
     for side in (-1.0, 1.0):
-        fdock.append(rcyl(f"fdock_post{side > 0}", 0.09, 0.74, (side * 0.45, 1.52, 0.3), "wood_brown", verts=18, bevel=0.016))
+        fdock.append(rcyl(f"fdock_post{side > 0}", 0.09, 0.74,
+                           (side * 0.45, 1.52, 0.3), "wood_brown",
+                           verts=10, bevel=0.007, segments=1, flat=True))
     export("prop_dock_ferry", fdock)
 
     # Present: rounded parcel, ribbon, soft bow.
@@ -698,27 +797,49 @@ def build_props():
     export("prop_present", present)
 
     chest = [
-        rbox("chest_base", (0.62, 0.42, 0.3), (0, 0, 0.15), "wood_gold", bevel=0.03, segments=3),
+        rbox("chest_base", (0.66, 0.44, 0.3), (0, 0, 0.15),
+             "wood_gold", bevel=0.014, segments=1),
+        rbox("chest_foot_l", (0.12, 0.4, 0.08), (-0.25, 0, 0.04),
+             "wood_deep", bevel=0.007, segments=1),
+        rbox("chest_foot_r", (0.12, 0.4, 0.08), (0.25, 0, 0.04),
+             "wood_deep", bevel=0.007, segments=1),
     ]
-    lid = rcyl("chest_lid", 0.21, 0.64, (0, 0, 0.31), "wood_brown", verts=14, bevel=0.02, segments=2)
+    lid = rcyl("chest_lid", 0.22, 0.67, (0, 0, 0.32), "wood_brown",
+                verts=10, bevel=0.008, segments=1, flat=True)
     lid.rotation_euler = Euler((0, 1.5708, 0))
     lid.scale = Vector((1.0, 1.0, 0.62))
     bpy.ops.object.transform_apply(scale=True)
     chest.append(lid)
-    chest.append(rbox("chest_band", (0.65, 0.1, 0.3), (0, 0, 0.17), "stone_deep_shadow", bevel=0.014))
-    chest.append(rbox("chest_clasp", (0.1, 0.06, 0.12), (0, -0.22, 0.28), "gold_primary", bevel=0.012))
+    for x in (-0.22, 0.22):
+        chest.append(rbox(f"chest_band_{x}", (0.075, 0.46, 0.41),
+                          (x, 0, 0.23), "stone_deep_shadow",
+                          bevel=0.006, segments=1))
+    chest.append(rbox("chest_clasp", (0.12, 0.06, 0.14), (0, -0.23, 0.27),
+                      "gold_primary", bevel=0.006, segments=1))
     export("prop_chest", chest)
 
     lantern = [
-        rcyl("lant_base", 0.15, 0.08, (0, 0, 0.04), "warm_near_black", verts=22, bevel=0.018, segments=3),
-        rcyl("lant_pole", 0.055, 1.02, (0, 0, 0.56), "warm_near_black", verts=18, r2=0.046, bevel=0.012),
-        rcyl("lant_collar", 0.078, 0.05, (0, 0, 1.04), "warm_near_black", verts=18, bevel=0.012),
-        rbox("lant_cage", (0.22, 0.22, 0.26), (0, 0, 1.2), "warm_near_black", bevel=0.022, segments=3),
-        rbox("lant_glow", (0.155, 0.155, 0.19), (0, 0, 1.2), "fire_core", bevel=0.012),
-        rcyl("lant_cap", 0.19, 0.1, (0, 0, 1.37), "warm_near_black", verts=20, r2=0.075, bevel=0.02, segments=3),
-        lobe("lant_finial", 0.036, (0, 0, 1.44), "warm_near_black", squash=1.0),
+        rcyl("lant_base", 0.16, 0.07, (0, 0, 0.035), "warm_near_black",
+             verts=10, bevel=0.008, segments=1, flat=True),
+        rcyl("lant_pole", 0.052, 0.92, (0, 0, 0.5), "warm_near_black",
+             verts=10, r2=0.043, bevel=0.006, segments=1, flat=True),
+        rbox("lant_floor", (0.26, 0.26, 0.055), (0, 0, 1.0),
+             "warm_near_black", bevel=0.008, segments=1),
     ]
-    lantern[4].name = "GlowCore"
+    for x in (-0.105, 0.105):
+        for y in (-0.105, 0.105):
+            lantern.append(rbox(f"lant_frame_{x}_{y}", (0.025, 0.025, 0.29),
+                                (x, y, 1.17), "warm_near_black",
+                                bevel=0.004, segments=1))
+    glow = rcyl("GlowCore", 0.085, 0.22, (0, 0, 1.15), "fire_core",
+                 verts=8, r2=0.045, bevel=0.006, segments=1, flat=True)
+    lantern.append(glow)
+    lantern += [
+        rcyl("lant_roof", 0.21, 0.11, (0, 0, 1.37), "warm_near_black",
+             verts=4, r2=0.09, bevel=0.007, segments=1, flat=True),
+        rcyl("lant_finial", 0.04, 0.09, (0, 0, 1.47), "warm_near_black",
+             verts=8, r2=0.01, bevel=0.004, segments=1, flat=True),
+    ]
     export("prop_lantern", lantern)
 
     card = [
@@ -736,40 +857,67 @@ def build_props():
     export("prop_cardboard_box", card)
 
     pot = [
-        rcyl("pot_body", 0.2, 0.3, (0, 0, 0.15), "terracotta_light", verts=24, r2=0.155, bevel=0.022, segments=3),
-        rcyl("pot_lip", 0.24, 0.085, (0, 0, 0.33), "terracotta_primary", verts=24, bevel=0.028, segments=3),
-        rcyl("pot_soil", 0.175, 0.03, (0, 0, 0.35), "soil_orange", verts=24, bevel=0.006, flat=True),
-        lobe("pot_plant", 0.15, (0, 0, 0.48), "leaf_bright", squash=0.88),
+        rcyl("pot_body", 0.21, 0.3, (0, 0, 0.15), "terracotta_light",
+             verts=12, r2=0.145, bevel=0.009, segments=1, flat=True),
+        rcyl("pot_lip", 0.245, 0.075, (0, 0, 0.32), "terracotta_primary",
+             verts=12, bevel=0.009, segments=1, flat=True),
+        rcyl("pot_soil", 0.185, 0.025, (0, 0, 0.348), "soil_orange",
+             verts=12, bevel=0.003, segments=1, flat=True),
     ]
+    for i in range(7):
+        a = math.tau * i / 7
+        leaf = leaf_plate(f"pot_leaf_{i}", 0.055, 0.2, (0, 0, 0.35),
+                          "leaf_bright" if i % 3 else "leaf_soft_sage",
+                          bend=0.035, thickness=0.012)
+        orient_local_z(leaf, (math.cos(a) * 0.82, math.sin(a) * 0.82, 0.56))
+        pot.append(leaf)
     export("prop_pot", pot)
 
     planter = [
-        rbox("pl_box", (0.72, 0.36, 0.28), (0, 0, 0.14), "wood_gold", bevel=0.026, segments=3),
+        rbox("pl_box", (0.72, 0.36, 0.28), (0, 0, 0.14), "wood_gold", bevel=0.012, segments=1),
         rbox("pl_soil", (0.62, 0.27, 0.05), (0, 0, 0.26), "soil_orange", bevel=0.008, flat=True),
+        rbox("pl_foot_l", (0.12, 0.3, 0.1), (-0.24, 0, 0.05), "wood_deep", bevel=0.006, segments=1),
+        rbox("pl_foot_r", (0.12, 0.3, 0.1), (0.24, 0, 0.05), "wood_deep", bevel=0.006, segments=1),
     ]
     planter += move(petal_flower("plf", rng, "petal_white", stem_h=0.2), (-0.12, 0, 0.27))
     planter += move(petal_flower("plf2", rng, "petal_pink", stem_h=0.24), (0.14, 0.02, 0.27))
     export("prop_planter", planter)
 
-    fence = [
-        rcyl("fence_post1", 0.085, 0.54, (-0.8, 0, 0.27), "wood_brown", verts=18, bevel=0.016),
-        rcyl("fence_post2", 0.085, 0.54, (0.8, 0, 0.27), "wood_brown", verts=18, bevel=0.016),
-        rbox("fence_rail1", (1.72, 0.065, 0.1), (0, 0, 0.4), "wood_light", bevel=0.018, segments=3),
-        rbox("fence_rail2", (1.72, 0.065, 0.1), (0, 0, 0.19), "wood_light", bevel=0.018, segments=3),
-    ]
+    fence = []
+    for side in (-1, 1):
+        fence.append(rbox(f"fence_post_{side}", (0.13, 0.13, 0.62),
+                          (side * 0.78, 0, 0.31), "wood_brown",
+                          bevel=0.008, segments=1))
+        fence.append(rcyl(f"fence_cap_{side}", 0.105, 0.16,
+                          (side * 0.78, 0, 0.7), "wood_gold",
+                          verts=4, r2=0.0, bevel=0.004, segments=1, flat=True))
+    for i, z in enumerate((0.22, 0.46)):
+        rail = rbox(f"fence_rail_{i}", (1.62, 0.07, 0.105), (0, 0, z),
+                    "wood_light" if i else "wood_gold",
+                    bevel=0.008, segments=1)
+        rail.rotation_euler = Euler((0, 0, -0.035 if i else 0.028))
+        fence.append(rail)
     export("prop_fence", fence)
 
     gate = [
-        rcyl("gate_post1", 0.09, 0.74, (-0.55, 0, 0.37), "wood_brown", verts=12, bevel=0.016),
-        rcyl("gate_post2", 0.09, 0.74, (0.55, 0, 0.37), "wood_brown", verts=12, bevel=0.016),
-        rbox("gate_top", (1.32, 0.09, 0.11), (0, 0, 0.74), "wood_light", bevel=0.02, segments=3),
-        rbox("gate_door", (0.92, 0.06, 0.44), (0, 0, 0.31), "wood_gold", bevel=0.016, segments=3),
+        rbox("gate_post1", (0.14, 0.14, 0.82), (-0.58, 0, 0.41), "wood_brown", bevel=0.008, segments=1),
+        rbox("gate_post2", (0.14, 0.14, 0.82), (0.58, 0, 0.41), "wood_brown", bevel=0.008, segments=1),
+        rbox("gate_top", (1.32, 0.09, 0.11), (0, 0, 0.78), "wood_light", bevel=0.009, segments=1),
     ]
+    for i, x in enumerate((-0.36, -0.12, 0.12, 0.36)):
+        gate.append(rbox(f"gate_picket_{i}", (0.09, 0.065, 0.52),
+                         (x, 0, 0.32), "wood_gold" if i % 2 else "wood_light",
+                         bevel=0.006, segments=1))
+    brace = rbox("gate_brace", (0.92, 0.07, 0.09), (0, -0.01, 0.34),
+                 "wood_deep", bevel=0.006, segments=1)
+    brace.rotation_euler = Euler((0, -0.45, 0))
+    gate.append(brace)
     export("prop_gate", gate)
 
     sign = [
-        rcyl("sign_pole", 0.062, 0.82, (0, 0, 0.41), "wood_brown", verts=18, bevel=0.012),
-        rbox("sign_board", (0.62, 0.07, 0.32), (0, 0, 0.74), "wood_light", bevel=0.02, segments=3),
+        rbox("sign_pole", (0.1, 0.1, 0.86), (0, 0, 0.43), "wood_brown", bevel=0.007, segments=1),
+        rbox("sign_board", (0.68, 0.075, 0.3), (0.1, 0, 0.73), "wood_light", bevel=0.012, segments=1),
+        rbox("sign_trim", (0.74, 0.025, 0.055), (0.1, -0.05, 0.83), "wood_gold", bevel=0.005, segments=1),
     ]
     export("prop_sign", sign)
 
@@ -808,18 +956,34 @@ def build_props():
               lobe("fmk_buoy", 0.1, (0, 0, 0.68), "coral", squash=0.92)]
     export("prop_fishing_marker", marker)
 
-    arch = [
-        rcyl("arch_col1", 0.13, 1.3, (-0.62, 0, 0.65), "stone_light", verts=14, bevel=0.02, segments=3),
-        rcyl("arch_col2", 0.13, 1.3, (0.62, 0, 0.65), "stone_light", verts=14, bevel=0.02, segments=3),
-        rbox("arch_top", (1.62, 0.24, 0.24), (0, 0, 1.43), "stone_light", bevel=0.03, segments=3),
-        rbox("arch_key", (0.26, 0.26, 0.32), (0, 0, 1.49), "stone_mid_light", bevel=0.024, segments=3),
-    ]
+    arch = []
+    for side in (-1, 1):
+        for level in range(4):
+            z = 0.16 + level * 0.31
+            arch.append(rbox(f"arch_{side}_{level}", (0.31, 0.32, 0.29),
+                             (side * (0.58 + (0.02 if level % 2 else -0.01)), 0, z),
+                             "stone_light" if level % 2 else "stone_mid_light",
+                             bevel=0.014, segments=1))
+    for i, x in enumerate((-0.48, -0.16, 0.16, 0.48)):
+        arch.append(rbox(f"arch_top_{i}", (0.38, 0.34, 0.3),
+                         (x, 0, 1.37 + (0.06 if abs(x) < 0.2 else 0.0)),
+                         "stone_light" if i % 2 else "stone_mid_light",
+                         bevel=0.014, segments=1))
     export("prop_ruin_arch", arch)
 
     r3 = random.Random(163)
-    wall = [rbox("wall_body", (1.7, 0.32, 0.55), (0, 0, 0.275), "stone_light", bevel=0.035, segments=3),
-            rock("wall_r0", 0.13, (-0.5, 0.0, 0.6), "stone_mid_light", r3),
-            rock("wall_r1", 0.1, (0.4, 0.05, 0.58), "stone_light", r3)]
+    wall = []
+    block_specs = [
+        (-0.56, 0.0, 0.17, 0.56, 0.31),
+        (0.0, 0.01, 0.16, 0.52, 0.29),
+        (0.54, -0.01, 0.18, 0.54, 0.33),
+        (-0.34, 0.0, 0.47, 0.63, 0.27),
+        (0.34, 0.01, 0.46, 0.61, 0.29),
+    ]
+    for i, (x, y, z, width, height) in enumerate(block_specs):
+        wall.append(rbox(f"wall_block_{i}", (width, 0.32, height),
+                         (x, y, z), "stone_light" if i % 2 else "stone_mid_light",
+                         bevel=0.014, segments=1))
     export("prop_stone_wall", wall)
 
     export("calib_sphere", [lobe("calib_sphere", 0.42, (0, 0, 0.42), "calib_gray", squash=1.0, subdiv=3)])

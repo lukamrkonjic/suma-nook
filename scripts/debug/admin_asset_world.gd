@@ -1,11 +1,10 @@
 class_name AdminAssetWorld
 extends Node3D
-## Debug-only, exhaustive production asset gallery.
+## Debug-only curated tile and large-placeable gallery.
 ##
-## The roster is discovered from AssetLibrary at runtime and enriched with
-## registry metadata. Every asset gets exactly one labeled slot. Anything that
-## dresses a tile is mounted on its own neutral tile so silhouettes, scale, and
-## overlap are easy to compare.
+## The roster comes from the tile and structure registries. Small scatter
+## meshes remain out of the gallery until they are promoted to intentional,
+## player-placeable content.
 
 const MAIN_SCENE := "res://scenes/main.tscn"
 const SLOT_SPACING := 4.6
@@ -15,20 +14,9 @@ const CAMERA_MIN_DISTANCE := 12.0
 const CAMERA_MAX_DISTANCE := 260.0
 const CATEGORY_ORDER := [
 	"Tiles",
-	"Tile Decals",
-	"Water Decals",
+	"Large Decor",
 	"Structures",
-	"Landmarks",
-	"Creatures",
-	"Equipment",
-	"Effects",
-	"Characters",
-	"Calibration",
-	"Unsorted",
 ]
-const LARGE_UNREGISTERED_PROPS := {
-	"prop_dock_ferry": true,
-}
 
 var registries: Registries
 var palette: CozyPalette
@@ -93,36 +81,8 @@ func _build_manifest() -> Array[Dictionary]:
 		_register_entry(by_asset, tile.asset_id, tile.display_name, "Tiles", tile.id)
 
 	for structure: Defs.StructureDefinition in registries.structures.values():
-		var category := "Tile Decals" if structure.socket_type == "decor" else "Structures"
+		var category := "Large Decor" if structure.socket_type == "decor" else "Structures"
 		_register_entry(by_asset, structure.asset_id, structure.display_name, category, structure.id)
-
-	for landmark: Defs.LandmarkDefinition in registries.landmarks.values():
-		_register_entry(by_asset, landmark.asset_id, landmark.display_name, "Landmarks", landmark.id)
-		if landmark.reclaimed_dressing_asset != "":
-			_register_entry(
-				by_asset,
-				landmark.reclaimed_dressing_asset,
-				"%s — Reclaimed Dressing" % landmark.display_name,
-				"Landmarks",
-				landmark.id + ":reclaimed"
-			)
-
-	for enemy: Defs.EnemyDefinition in registries.enemies.values():
-		_register_entry(by_asset, enemy.asset_id, enemy.display_name, "Creatures", enemy.id)
-
-	for item: Defs.ItemDefinition in registries.items.values():
-		if item.asset_id != "":
-			_register_entry(by_asset, item.asset_id, item.display_name, "Equipment", item.id)
-
-	for asset_id: String in assets.catalog_ids():
-		if not by_asset.has(asset_id):
-			_register_entry(
-				by_asset,
-				asset_id,
-				_humanize_asset_id(asset_id),
-				_infer_category(asset_id),
-				""
-			)
 
 	var result: Array[Dictionary] = []
 	for entry: Dictionary in by_asset.values():
@@ -161,35 +121,11 @@ func _register_entry(
 	}
 
 
-func _infer_category(asset_id: String) -> String:
-	if asset_id.begins_with("tile_"):
-		return "Tiles"
-	if asset_id.begins_with("prop_uw_") or asset_id.begins_with("prop_lily_"):
-		return "Water Decals"
-	if asset_id.begins_with("prop_"):
-		return "Structures" if LARGE_UNREGISTERED_PROPS.has(asset_id) else "Tile Decals"
-	if asset_id.begins_with("landmark_"):
-		return "Landmarks"
-	if asset_id.begins_with("enemy_"):
-		return "Creatures"
-	if asset_id.begins_with("equip_"):
-		return "Equipment"
-	if asset_id.begins_with("fx_"):
-		return "Effects"
-	if asset_id.begins_with("character_"):
-		return "Characters"
-	if asset_id.begins_with("calib_"):
-		return "Calibration"
-	return "Unsorted"
-
-
 func _presentation_tile_for(category: String) -> String:
 	match category:
-		"Tile Decals":
+		"Large Decor":
 			return "tile_grass"
-		"Water Decals":
-			return "tile_water_floor"
-		"Structures", "Landmarks", "Creatures", "Equipment", "Effects", "Characters", "Calibration", "Unsorted":
+		"Structures":
 			return "tile_stone_clearing"
 		_:
 			return ""
@@ -373,7 +309,7 @@ func _asset_label(display_name: String, asset_id: String, category: String) -> L
 func _add_section_label(category: String, count: int, position: Vector3) -> void:
 	var label := Label3D.new()
 	label.name = "Section_%s" % category.replace(" ", "_")
-	var qualifier := " · ONE ASSET PER TILE" if "Decals" in category else ""
+	var qualifier := " · ONE PLACEABLE PER TILE" if category == "Large Decor" else ""
 	label.text = "%s · %d%s" % [category.to_upper(), count, qualifier]
 	label.font = _font
 	label.font_size = 64
@@ -431,7 +367,7 @@ func _build_ui() -> void:
 	info.add_child(info_column)
 	info_column.add_child(kit.label("Admin Asset World", 28, false, true))
 	info_column.add_child(kit.label(
-		"%d gallery slots · %d production GLBs" % [_manifest.size(), assets.catalog_ids().size()],
+		"%d curated tiles + large placeables · small scatter hidden" % _manifest.size(),
 		16
 	))
 	var controls := kit.label(

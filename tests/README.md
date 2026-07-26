@@ -4,7 +4,7 @@
 # Core logic (headless, ~5 s) — must print ALL TESTS PASSED
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/test_runner.gd
 
-# Exhaustive Asset World contract — must print ADMIN ASSET WORLD PASSED
+# Curated tile + large-placeable Asset World contract — must print ADMIN ASSET WORLD PASSED
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . \
   tests/admin_asset_world_runner.tscn
 

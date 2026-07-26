@@ -1,5 +1,5 @@
 extends Node
-## Structural acceptance test for the exhaustive debug asset gallery.
+## Structural acceptance test for the curated tile + large-placeable gallery.
 ## Run:
 ##   godot --headless --path . tests/admin_asset_world_runner.tscn
 
@@ -14,7 +14,7 @@ func _ready() -> void:
 	await get_tree().process_frame
 	_validate_catalog()
 	_validate_sections()
-	_validate_decal_isolation()
+	_validate_placeable_isolation()
 	_validate_navigation()
 	if failures.is_empty():
 		print("ADMIN ASSET WORLD PASSED — %d checks" % checks)
@@ -32,11 +32,16 @@ func check(condition: bool, message: String) -> void:
 
 
 func _validate_catalog() -> void:
-	var production_ids := gallery.assets.catalog_ids()
 	var gallery_ids := gallery.catalog_asset_ids()
 	var records := gallery.slot_records()
-	check(production_ids.size() >= 85, "production resolver discovers the complete current GLB library")
 	check(gallery_ids.has("tile_open_water"), "generated open-water block has a gallery slot")
+	check(gallery_ids.has("prop_bench"), "large placeables include the bench")
+	check(gallery_ids.has("prop_pine_a"), "large placeables include a tree")
+	check(gallery_ids.has("prop_pot"), "large placeables include the pot")
+	check(not gallery_ids.has("prop_grass_tuft"), "small grass scatter is hidden")
+	check(not gallery_ids.has("prop_rock_cluster"), "small rock scatter is hidden")
+	check(not gallery_ids.has("prop_flowers_pink"), "small flower scatter is hidden")
+	check(not gallery_ids.has("prop_uw_rocks_a"), "small underwater scatter is hidden")
 	check(records.size() == gallery_ids.size(), "every manifest entry builds exactly one gallery slot")
 
 	var unique_ids := {}
@@ -45,51 +50,37 @@ func _validate_catalog() -> void:
 		check(not unique_ids.has(asset_id), "asset has only one gallery slot: " + asset_id)
 		unique_ids[asset_id] = true
 		check(is_instance_valid(record["node"]), "slot node exists for " + asset_id)
-	for asset_id: String in production_ids:
-		check(gallery_ids.has(asset_id), "gallery includes discovered production asset " + asset_id)
-
-
 func _validate_sections() -> void:
 	var names := gallery.section_names()
 	for expected in [
 		"Overview",
 		"Tiles",
-		"Tile Decals",
-		"Water Decals",
+		"Large Decor",
 		"Structures",
-		"Landmarks",
-		"Creatures",
-		"Equipment",
-		"Effects",
 	]:
 		check(names.has(expected), "gallery exposes the %s section" % expected)
+	check(names.size() == 4, "gallery is limited to tiles and substantial placeables")
 
 
-func _validate_decal_isolation() -> void:
-	var tile_decals := 0
-	var water_decals := 0
+func _validate_placeable_isolation() -> void:
+	var large_decor := 0
 	var occupied_positions := {}
 	for record: Dictionary in gallery.slot_records():
 		var category := String(record["category"])
-		if category not in ["Tile Decals", "Water Decals"]:
+		if category != "Large Decor":
 			continue
 		var asset_id := String(record["asset_id"])
 		var position: Vector3 = record["world_position"]
-		check(not occupied_positions.has(position), "decal owns a separate tile: " + asset_id)
+		check(not occupied_positions.has(position), "placeable owns a separate tile: " + asset_id)
 		occupied_positions[position] = true
-		if category == "Tile Decals":
-			tile_decals += 1
-			check(record["base_tile"] == "tile_grass", "land decal uses a neutral grass tile: " + asset_id)
-		else:
-			water_decals += 1
-			check(record["base_tile"] == "tile_water_floor", "water decal uses a water-floor tile: " + asset_id)
-	check(tile_decals > 0, "land decal section contains assets")
-	check(water_decals > 0, "water decal section contains assets")
+		large_decor += 1
+		check(record["base_tile"] == "tile_grass", "large decor uses a neutral grass tile: " + asset_id)
+	check(large_decor >= 10, "large decor section contains the substantial placeables")
 
 
 func _validate_navigation() -> void:
 	var before := gallery.camera_target()
-	gallery.focus_section("Water Decals", true)
+	gallery.focus_section("Large Decor", true)
 	check(not gallery.camera_target().is_equal_approx(before), "section jump moves the gallery camera")
 	check(gallery.find_child("GalleryCamera", true, false) != null, "pan-and-zoom camera exists")
 	check(gallery.find_child("GallerySectionPicker", true, false) != null, "section navigator exists")

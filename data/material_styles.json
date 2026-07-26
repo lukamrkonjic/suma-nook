@@ -2,9 +2,9 @@
   "source": "Original Suma Nook semantic material translation; GG live property blocks were not observed",
   "defaults": {
     "family": "painted_matte",
-    "roughness": 0.88,
+    "roughness": 0.82,
     "metallic": 0.0,
-    "specular": 0.18,
+    "specular": 0.22,
     "calm_cream_mix": 0.0,
     "calm_value_lift": 0.0
   },
@@ -12,16 +12,16 @@
     {
       "id": "foliage",
       "contains": ["grass", "moss", "leaf", "foliage", "pine", "olive", "flora", "reed"],
-      "roughness": 0.92,
+      "roughness": 0.8,
       "metallic": 0.0,
-      "specular": 0.12,
-      "calm_cream_mix": 0.0,
+      "specular": 0.2,
+      "calm_cream_mix": 0.035,
       "calm_value_lift": 0.0
     },
     {
       "id": "earth",
       "contains": ["earth", "soil", "sand"],
-      "roughness": 0.96,
+      "roughness": 0.9,
       "metallic": 0.0,
       "specular": 0.08,
       "calm_cream_mix": 0.0,
@@ -30,27 +30,27 @@
     {
       "id": "stone",
       "contains": ["stone", "rock", "sage_gray"],
-      "roughness": 0.84,
+      "roughness": 0.74,
       "metallic": 0.0,
-      "specular": 0.2,
+      "specular": 0.28,
       "calm_cream_mix": 0.0,
       "calm_value_lift": 0.0
     },
     {
       "id": "wood",
       "contains": ["wood", "cardboard"],
-      "roughness": 0.86,
+      "roughness": 0.76,
       "metallic": 0.0,
-      "specular": 0.14,
+      "specular": 0.24,
       "calm_cream_mix": 0.0,
       "calm_value_lift": 0.0
     },
     {
       "id": "ceramic",
       "contains": ["terracotta", "coral", "burnt_red"],
-      "roughness": 0.8,
+      "roughness": 0.7,
       "metallic": 0.0,
-      "specular": 0.22,
+      "specular": 0.3,
       "calm_cream_mix": 0.0,
       "calm_value_lift": 0.0
     },

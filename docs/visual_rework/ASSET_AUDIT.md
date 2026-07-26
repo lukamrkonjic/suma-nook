@@ -8,21 +8,21 @@ first, so same-id GLBs override `final/` with zero code changes).
 
 | Asset id | Old quality | Problems (old) | Action | Replacement |
 |---|---|---|---|---|
-| tile_grass | 2 | flat cap, razor bevel, noisy scatter | rebuilt | reworked/tile_grass.glb — 3-seg rounded cap, 2 authored clusters |
-| tile_grass_flower | 2 | stick flowers, scatter | rebuilt | reworked/tile_grass_flower.glb |
+| tile_grass | 2 | flat cap, razor bevel, noisy scatter | rebuilt | reworked/tile_grass.glb — clean cap with restrained one-segment chamfer; no baked clutter |
+| tile_grass_flower | 2 | stick flowers, scatter | rebuilt | reworked/tile_grass_flower.glb — clean sunlit palette variant, no baked decoration |
 | tile_grass_pond_edge | 2 | vertical red basin, glass water | rebuilt | reworked/…glb — sloped sandy shore, sand floor, water-shader surface |
-| tile_path | 2 | flat gray slabs, hard edges | rebuilt | reworked/tile_path.glb — varied warm-ivory slabs, 3-seg bevels |
+| tile_path | 2 | flat gray slabs, hard edges | rebuilt | reworked/tile_path.glb — varied warm-ivory slabs, restrained one-segment chamfers |
 | tile_garden | 2 | boxy bed | rebuilt | reworked/tile_garden.glb |
 | tile_courtyard | 2 | flat rings | rebuilt | reworked/tile_courtyard.glb |
-| tile_grove_* (5) | 2 | cone trees, ball bushes | rebuilt | reworked/tile_grove_*.glb — lobed pines/crown trees, soft bushes |
-| tile_stone_* (5) | 2 | tetra rocks, gray palette | rebuilt | reworked/tile_stone_*.glb — designed rocks, warm ivory |
+| tile_grove_* (5) | 2 | cone trees, ball bushes | rebuilt | reworked/tile_grove_*.glb — one hero tree per tile, no ground-cover scatter |
+| tile_stone_* (5) | 2 | tetra rocks, gray palette | rebuilt | reworked/tile_stone_*.glb — plain warm-ivory/moss bases; only named road, ruin and crystal variants carry structural features |
 | tile_open_water | 1 | flat translucent plane per tile, bands, seams | rebuilt (system) | tile_water_floor.glb + WaterSurface + gg_water.gdshader |
 | prop_pine_a/b | 1 | stacked sharp cones, near-black base | rebuilt | reworked/prop_pine_a/b.glb + prop_pine_young — 3 real variants, lobed tiers |
-| prop_bush_a/b | 1 | single faceted icosphere | rebuilt | reworked/prop_bush_a/b/c.glb — 4-6 overlapping smooth lobes |
+| prop_bush_a/b | 1 | single faceted icosphere | rebuilt | reworked/prop_bush_a/b/c.glb — coherent faceted masses with sparse leaf shells |
 | prop_flowers_* | 1 | stick + blob | rebuilt | reworked — thick bent stems, leaves, 5 shaped petals, center |
 | prop_grass_tuft | 1 | paper triangles | rebuilt | reworked — 6 broad curved tapered blades |
 | prop_rock_cluster | 2 | jittered tetrahedra | rebuilt | reworked — 3 coordinated designed rocks, flattened tops |
-| prop_bench | 2 | razor boxes | rebuilt | reworked — chunky rounded seat, angled back, 3-seg bevels |
+| prop_bench | 2 | razor boxes | rebuilt | reworked — separate planks, open silhouette, splayed supports and restrained chamfers |
 | prop_dock | 2 | flat orange rectangle | rebuilt | reworked — individual rounded planks, height variation, soft piles |
 | (ferry dock) | 1 | runtime BoxMesh primitives | rebuilt | reworked/prop_dock_ferry.glb via DeliveryPoint |
 | (present) | 1 | runtime BoxMesh + ribbons | rebuilt | reworked/prop_present.glb — rounded parcel + bow |
@@ -38,14 +38,20 @@ first, so same-id GLBs override `final/` with zero code changes).
 | equip_* / enemy_* / landmark_watchpost | 3 | off-screen in start world | kept | reserved for Luka (complex hero assets) |
 
 ## Modeling standards enforced (all reworked assets)
-- Hard surfaces: bevel 3-6% of smallest visible dimension, 2-3 segments,
-  weighted normals, applied transforms, bottom-center pivots.
-- Curved: pots/posts 12-16 radial segments; rocks ico-based with controlled
-  asymmetry + flattened top planes; foliage lobes smooth icospheres.
-- Pines: 3-5 overlapping scalloped tiers (`pine_tier()` — tapered, lobed rim,
-  flattened underside), tier colors stay green (pine_light/medium); shading
-  comes from the sun, never near-black albedo.
-- Composition: ≤3 authored clusters per ordinary tile; ≥65-75% quiet surface.
+- Hard surfaces: restrained one-segment chamfers, deliberate planes, weighted
+  normals, applied transforms and bottom-center pivots.
+- Curved: pots/posts use 10-16 radial segments; rocks are faceted and
+  asymmetrical; foliage is built from coherent low-poly masses and leaf plates.
+- Pines: 3-5 overlapping scalloped tiers (`pine_tier()`) with sparse drooping
+  leaf plates. Tier colors stay green; lighting creates the deepest values.
+- Composition: a bare tile is the default. Ordinary meadow, stone and moss
+  variants contain no scatter; grove tiles carry one hero tree. Small tufts,
+  pebbles, flowers and underwater flora are withheld from the composed world
+  and curated gallery. Only substantial placeables carry decoration for now.
+
+The optional `render_reference_boards.py` utility reads a user-supplied external
+reference folder for visual comparison. It does not copy reference geometry or
+textures into this repository; every shipped mesh is generated by this project.
 
 ## Reserved for Luka's Modly/Blender route
 - Hero player character (current proxy is compatible but replaceable)

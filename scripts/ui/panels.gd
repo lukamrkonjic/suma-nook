@@ -363,13 +363,13 @@ func _debug_panel() -> Dictionary:
 	var list: VBoxContainer = parts["list"]
 	var asset_world := kit.button("Open Asset World", true)
 	asset_world.name = "OpenAssetWorldButton"
-	asset_world.tooltip_text = "Browse every production model in a labeled, pan-and-zoom gallery."
+	asset_world.tooltip_text = "Browse the curated tile and large-placeable library."
 	asset_world.pressed.connect(func():
 		settings_bridge.call_deferred("debug_open_asset_world")
 	)
 	list.add_child(asset_world)
 	var asset_world_hint := kit.label(
-		"Every model gets one slot. Tile and water decals stay on separate presentation tiles.",
+		"Tiles and substantial placeables get one clear slot each. Small scatter stays hidden.",
 		14
 	)
 	asset_world_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

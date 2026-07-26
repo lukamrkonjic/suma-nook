@@ -35,13 +35,10 @@ const ROSTER := [
 	["prop_bench", Vector3(4, 0, 4.15), 25.0],
 	["prop_chest", Vector3(2.5, 0, 4.4), -15.0],
 	["prop_lantern", Vector3(4.6, 0, 0.55), 0.0],
-	["prop_present", Vector3(5.4, 0, 2.6), 12.0],
 	["prop_dock", Vector3(0.4, 0, 4.6), 0.0],
 	["prop_pot", Vector3(6.5, 0, 0.4), 0.0],
-	["prop_cardboard_box", Vector3(3.4, 0, 0.4), 30.0],
-	["character_proxy", Vector3(1.2, 0.02, 3.2), -135.0],
-	["calib_sphere", Vector3(-0.6, 0, 0.2), 0.0],
-	["calib_cube", Vector3(-0.55, 0, 1.2), 0.0],
+	["prop_table", Vector3(3.4, 0, 0.4), 30.0],
+	["prop_planter", Vector3(5.4, 0, 2.6), 12.0],
 ]
 
 ## Assets that get dedicated close-up captures with --closeups.
@@ -53,7 +50,6 @@ const FEATURED := {
 	"prop_chest": Vector3(2.5, 0.25, 4.4),
 	"prop_lantern": Vector3(4.6, 0.7, 0.55),
 	"prop_dock": Vector3(0.4, 0.1, 4.6),
-	"prop_present": Vector3(5.4, 0.2, 2.6),
 	"water": Vector3(8.4, -0.14, 2.4),
 }
 
@@ -112,31 +108,16 @@ func _ready() -> void:
 		_capture_all(shot_base, closeups, silhouette)
 
 
-## Demo water region east of the land: modeled sand floor, contiguous wavy
-## surface, shoreline-weighted flora, dock reaching over the shallows.
+## Demo water region east of the land: modeled sand floor and a contiguous
+## wavy surface, deliberately free of automatic flora/pebble scatter.
 const WATER_CELLS := [Vector2i(8, 0), Vector2i(8, 2), Vector2i(8, 4), Vector2i(10, 2)]
 
 
 func _build_water_region() -> void:
-	var flora := [
-		["prop_uw_eelgrass_a", Vector3(7.4, -0.4, 0.4), 0.4],
-		["prop_uw_eelgrass_c", Vector3(7.5, -0.4, 4.3), 2.1],
-		["prop_uw_broadleaf_a", Vector3(7.6, -0.41, 2.6), 1.0],
-		["prop_uw_rocks_b", Vector3(8.4, -0.42, 0.9), 0.0],
-		["prop_uw_rocks_a", Vector3(8.6, -0.42, 3.6), 2.4],
-		["prop_uw_reeds_a", Vector3(7.25, -0.38, 1.4), 0.9],
-		["prop_lily_a", Vector3(7.75, -0.135, 3.4), 0.0],
-		["prop_uw_eelgrass_b", Vector3(9.6, -0.4, 2.2), 3.4],
-	]
 	for cell in WATER_CELLS:
 		var floor_node := _assets.instantiate("tile_water_floor")
 		floor_node.position = Vector3(cell.x, 0, cell.y)
 		add_child(floor_node)
-	for entry in flora:
-		var node := _assets.instantiate(entry[0])
-		node.position = entry[1]
-		node.rotation.y = entry[2]
-		add_child(node)
 	var dock := _assets.instantiate("prop_dock")
 	dock.position = Vector3(6.7, 0, 2.0)
 	dock.rotation_degrees.y = 90.0

@@ -45,11 +45,11 @@ material-loot grind, combat loop, survival pressure, or delivery FOMO.
 | Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z | undo / redo placement |
 | F1 | debug panel (dev builds only) |
 
-The debug panel includes **Open Asset World**, an automatically populated
-gallery of every production GLB plus generated world blocks. Use WASD or drag
-to pan, the wheel/trackpad to zoom, Q/X to rotate, the section picker to jump,
-and H for the complete overview. Land and water decals are each displayed on
-their own presentation tile.
+The debug panel includes **Open Asset World**, a curated gallery of terrain
+tiles and substantial player-placeable decorations. Use WASD or drag to pan,
+the wheel/trackpad to zoom, Q/X to rotate, the section picker to jump, and H
+for the complete overview. Small scatter meshes stay hidden until they are
+promoted to intentional placeable content.
 
 ## Tests
 

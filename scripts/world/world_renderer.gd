@@ -151,14 +151,13 @@ func _refresh_covered_surface(coord: Vector2i, elevation: int) -> void:
 		_apply_covered_surface(visual, coord, elevation, def)
 
 
-## Open water: modeled sand floor GLB + authored underwater dressing. The
-## visible surface is ONE contiguous mesh over all water cells (see
-## _rebuild_water_surface), so waves and color are seamless across tiles.
+## Open water: modeled sand floor GLB under one contiguous surface. Decorative
+## flora remains out of the composed world until it can be offered as a
+## deliberate large placeable rather than automatic scatter.
 func _make_open_water_tile(coord: Vector2i) -> Node3D:
 	var root := Node3D.new()
 	root.name = "tile_open_water"
 	root.add_child(assets.instantiate("tile_water_floor"))
-	_dress_underwater(root, coord)
 	return root
 
 

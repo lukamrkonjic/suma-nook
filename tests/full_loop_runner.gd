@@ -553,7 +553,7 @@ func _step_admin_controls() -> void:
 	await wait(0.1)
 	check(
 		main.panels.find_child("OpenAssetWorldButton", true, false) != null,
-		"Admin controls expose the exhaustive Asset World"
+		"Admin controls expose the curated Asset World"
 	)
 	main.panels.close()
 	await wait(0.1)
