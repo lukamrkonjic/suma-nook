@@ -25,13 +25,13 @@ OUT_FINAL.mkdir(parents=True, exist_ok=True)
 OUT_PROXY.mkdir(parents=True, exist_ok=True)
 
 TILE = 2.0
-# Visible terrain side depth ~0.31 of one tile width (Garden Galaxy proportion —
-# top surfaces dominate, side walls stay a warm supporting band).
-BLOCK_DEPTH = 0.62
+# Visible terrain side depth ~0.30 of one tile width — top surfaces dominate,
+# side walls stay a warm supporting band.
+BLOCK_DEPTH = 0.60
 
 # Palette mirrors assets/palettes/cozy_diorama_palette.tres — keep in sync.
-# Raw albedos are deliberately a touch darker than the screen-space targets in
-# docs/visual_match/: warm sun + ACES lift them into the sampled reference range.
+# Raw unlit albedos; the DirectionalLight3D creates light and shade — no baked
+# sunlight, no orientation tint, no screen-space color grading.
 def srgb(hexcode: str) -> tuple:
     h = hexcode.lstrip("#")
     lin = []
@@ -42,49 +42,52 @@ def srgb(hexcode: str) -> tuple:
 
 
 PALETTE = {
-    "grass": srgb("B8B226"),
-    "grass_lush": srgb("C9C43A"),
-    "moss": srgb("8D961F"),
-    "dark_foliage": srgb("465313"),
-    "bright_foliage": srgb("8FA329"),
-    "foliage_medium": srgb("64731D"),
-    "pine_medium": srgb("55621A"),
-    "pine_dark": srgb("303A14"),
-    "soil": srgb("985319"),
-    "soil_side": srgb("824313"),
-    "dark_soil": srgb("65320E"),
-    "wood": srgb("C98A36"),
-    "wood_light": srgb("DDAE51"),
-    "wood_mid": srgb("9D6024"),
-    "dark_wood": srgb("59402E"),
-    "pale_stone": srgb("CFC3B1"),
-    "stone_mid": srgb("BBAA94"),
-    "dark_stone": srgb("918477"),
-    "stone_highlight": srgb("E4DCCF"),
-    "terracotta": srgb("B96329"),
-    "terracotta_light": srgb("CF7734"),
-    "terracotta_dark": srgb("81401D"),
-    "water": srgb("79938B"),
-    "water_light": srgb("91AAA1"),
-    "water_deep": srgb("617970"),
-    "water_foam": srgb("C5DBCD"),
-    "cardboard": srgb("D5A84D"),
-    "gold": srgb("D7A915"),
+    "grass": srgb("AEBB32"),
+    "grass_lush": srgb("C0C83D"),
+    "grass_tuft": srgb("9EAC2D"),
+    "moss": srgb("879528"),
+    "dark_foliage": srgb("4B5B23"),
+    "bright_foliage": srgb("8FA33A"),
+    "foliage_medium": srgb("687A2B"),
+    "foliage_deep": srgb("39451F"),
+    "pine_light": srgb("73842E"),
+    "pine_medium": srgb("586923"),
+    "pine_dark": srgb("3F4D20"),
+    "soil": srgb("A65C22"),
+    "soil_side": srgb("98501E"),
+    "dark_soil": srgb("763B18"),
+    "wood": srgb("B87532"),
+    "wood_light": srgb("D09A48"),
+    "wood_mid": srgb("8F5B28"),
+    "dark_wood": srgb("654127"),
+    "pale_stone": srgb("D4CBBD"),
+    "stone_mid": srgb("BEB3A4"),
+    "dark_stone": srgb("9A9186"),
+    "stone_highlight": srgb("E8E1D6"),
+    "terracotta": srgb("D27C3A"),
+    "terracotta_light": srgb("DE8B49"),
+    "terracotta_dark": srgb("87451F"),
+    "water": srgb("89A59D"),
+    "water_light": srgb("A2B9B1"),
+    "water_deep": srgb("718D86"),
+    "water_foam": srgb("D0DED7"),
+    "cardboard": srgb("D09A48"),
+    "gold": srgb("DEB42D"),
     "fabric": srgb("B5563B"),
     "fabric_accent": srgb("E0C173"),
-    "metal": srgb("827565"),
-    "warm_charcoal": srgb("352D29"),
-    "warm_gray": srgb("81776C"),
-    "warm_white": srgb("EEE9DE"),
+    "metal": srgb("756E65"),
+    "warm_charcoal": srgb("3C3631"),
+    "warm_gray": srgb("AAA197"),
+    "warm_white": srgb("F1ECE2"),
     "calib_gray": srgb("9E9E9E"),
     "skin": srgb("E8B88A"),
     "hair": srgb("5A3A22"),
-    "eyes": srgb("2A1F1A"),
-    "petal_pink": srgb("DE8199"),
-    "petal_white": srgb("F2EFE4"),
-    "petal_red": srgb("CE5B37"),
-    "flower_yellow": srgb("E0B62A"),
-    "mushroom_red": srgb("CE5B37"),
+    "eyes": srgb("2A2521"),
+    "petal_pink": srgb("DC829B"),
+    "petal_white": srgb("F1ECE2"),
+    "petal_red": srgb("C95C3E"),
+    "flower_yellow": srgb("DEB42D"),
+    "mushroom_red": srgb("C95C3E"),
     "crystal": srgb("8FD0C7"),
     "fire_core": srgb("FFD12A"),
     "fire_outer": srgb("E96F10"),
@@ -231,14 +234,21 @@ def export(asset_id, objs, proxy=False):
 # ---------------------------------------------------------------- vegetation
 
 def make_pine(prefix, rng, height=1.7, tiers=3, foliage=None, tilt=0.04):
-    """Stacked soft-shaded tiers; upper tiers a step lighter so the darkest
-    visible foliage stays clearly green, never black."""
+    """Stacked soft-shaded tiers, light at the crown to readable dark-green at
+    the base — never near-black; the sun does the shading."""
     objs = [cyl(f"{prefix}_trunk", 0.11, 0.5, (0, 0, 0.25), "wood_mid", verts=10, bevel=0.02)]
     base = 0.42
     step = (height - base) / tiers
     radius = 0.58
     for i in range(tiers):
-        tier_mat = foliage if foliage else ("pine_dark" if i == 0 else "pine_medium")
+        if foliage:
+            tier_mat = foliage
+        elif i == 0:
+            tier_mat = "pine_dark"
+        elif i == tiers - 1:
+            tier_mat = "pine_light"
+        else:
+            tier_mat = "pine_medium"
         c = cone(
             f"{prefix}_tier{i}",
             radius * (1.0 - i * 0.26),
@@ -277,7 +287,7 @@ def make_flower(prefix, rng, petal="petal_pink", stems=3):
     return objs
 
 
-def make_tuft(prefix, rng, blades=4, material="grass_lush"):
+def make_tuft(prefix, rng, blades=4, material="grass_tuft"):
     objs = []
     for i in range(blades):
         a = rng.uniform(0, 6.28)
@@ -309,48 +319,12 @@ def make_reeds(prefix, rng, count=5):
 
 # ---------------------------------------------------------------- tiles
 
-def join_into(target, others):
-    """Join `others` into `target`, producing one draw-call-friendly object."""
-    bpy.ops.object.select_all(action="DESELECT")
-    target.select_set(True)
-    for o in others:
-        o.select_set(True)
-    bpy.context.view_layer.objects.active = target
-    bpy.ops.object.join()
-    return target
-
-
-def turf_bumps(prefix, rng, top_z, area=0.92, grid=7, lush_share=0.16):
-    """Chunky pyramid turf across a grass cap: reads as dense clipped grass tufts
-    under the ortho camera instead of a flat lime plane."""
-    bumps = []
-    step = (area * 2.0) / grid
-    for i in range(grid):
-        for j in range(grid):
-            if rng.random() < 0.18:
-                continue
-            x = -area + step * (i + 0.5) + rng.uniform(-0.035, 0.035)
-            y = -area + step * (j + 0.5) + rng.uniform(-0.035, 0.035)
-            h = rng.uniform(0.045, 0.085)
-            material = "grass_lush" if rng.random() < lush_share else "grass"
-            b = cone(f"{prefix}_turf{i}_{j}", step * 0.62, h, (x, y, top_z + h / 2 - 0.008), material, verts=4, bevel=0.0, flat=True)
-            b.rotation_euler = Euler((0, 0, rng.uniform(0, 6.28)))
-            bumps.append(b)
-    return bumps
-
-
-def tile_block(prefix, top_mat, side_mat, top_z=0.0, turf_rng=None):
+def tile_block(prefix, top_mat, side_mat, top_z=0.0):
     """Land block: warm shallow side body + chunky beveled top cap ("brownie
-    edge"). Optional turf pass sprinkles joined pyramid tufts over grass tops."""
+    edge"). Tops stay clean — detail comes from a few authored clusters, never
+    procedural noise across the whole surface."""
     body = box(f"{prefix}_body", (TILE, TILE, BLOCK_DEPTH - 0.1), (0, 0, top_z - (BLOCK_DEPTH + 0.1) / 2), side_mat, bevel=0.025, flat=True)
     cap = box(f"{prefix}_cap", (TILE + 0.02, TILE + 0.02, 0.14), (0, 0, top_z - 0.06), top_mat, bevel=0.06)
-    if turf_rng is not None:
-        # Bake the cap's bevel first so the join doesn't re-bevel every tuft.
-        bpy.ops.object.select_all(action="DESELECT")
-        cap.select_set(True)
-        bpy.context.view_layer.objects.active = cap
-        bpy.ops.object.convert(target="MESH")
-        cap = join_into(cap, turf_bumps(prefix, turf_rng, top_z + 0.008))
     return [body, cap]
 
 
@@ -380,13 +354,14 @@ def move(objs, offset):
 def build_tiles():
     rng = random.Random(11)
 
-    # -------- Home Meadow family
-    t = tile_block("grass", "grass", "soil_side", turf_rng=rng)
+    # -------- Home Meadow family: clean tops, 2-6 authored detail clusters.
+    t = tile_block("grass", "grass", "soil_side")
+    t += scatter_clods("g0", rng, "grass_lush", 3)
     for i in range(3):
         t += move(make_tuft(f"g0t{i}", rng), (rng.uniform(-0.8, 0.8), rng.uniform(-0.8, 0.8), 0))
     export("tile_grass", t)
 
-    t = tile_block("gf", "grass", "soil_side", turf_rng=rng)
+    t = tile_block("gf", "grass", "soil_side")
     for i in range(3):
         t += move(make_flower(f"gf{i}", rng, petal=("petal_pink", "petal_white", "flower_yellow")[i]), (rng.uniform(-0.66, 0.66), rng.uniform(-0.66, 0.66), 0))
     t += move(make_tuft("gft", rng), (0.7, -0.6, 0))
@@ -431,7 +406,7 @@ def build_tiles():
             )
     export("tile_path", t)
 
-    t = tile_block("gar", "grass_lush", "soil_side", turf_rng=rng)
+    t = tile_block("gar", "grass_lush", "soil_side")
     bed = box("gar_bed", (1.1, 1.1, 0.16), (0.2, 0.2, 0.08), "wood", bevel=0.03)
     fill = box("gar_fill", (0.92, 0.92, 0.1), (0.2, 0.2, 0.14), "soil", bevel=0.02, flat=True)
     t += [bed, fill]
@@ -450,7 +425,7 @@ def build_tiles():
     # -------- Living Grove family (each carries a grove anchor visual spot)
     def grove(asset_id, seed, tree_fn):
         r = random.Random(seed)
-        g = tile_block(asset_id, "grass_lush", "soil_side", turf_rng=r)
+        g = tile_block(asset_id, "grass_lush", "soil_side")
         g += move(tree_fn(r), (0.45, 0.45, 0))
         g += move(make_bush(f"{asset_id}_b", r, 0.3), (-0.6, 0.5, 0))
         g += move(make_tuft(f"{asset_id}_t", r), (-0.5, -0.65, 0))

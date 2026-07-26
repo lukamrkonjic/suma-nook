@@ -1,0 +1,181 @@
+{
+  "label": "candidate_c",
+  "profile": "c",
+  "regions": [
+    {
+      "region": "background",
+      "measured": "#EAE4D0",
+      "target": "#E9E2CF",
+      "delta_e": 0.8,
+      "tolerance": 2.5,
+      "pass": true,
+      "informational": false
+    },
+    {
+      "region": "bush",
+      "measured": "#6D7C29",
+      "target": "#777D13",
+      "delta_e": 4.36,
+      "tolerance": 7.0,
+      "pass": true,
+      "informational": false
+    },
+    {
+      "region": "cardboard",
+      "measured": "#D29742",
+      "target": "#D5A84D",
+      "delta_e": 6.08,
+      "tolerance": 8.0,
+      "pass": true,
+      "informational": true
+    },
+    {
+      "region": "charcoal",
+      "measured": "#2E2821",
+      "target": "#3B312A",
+      "delta_e": 3.99,
+      "tolerance": 5.0,
+      "pass": true,
+      "informational": false
+    },
+    {
+      "region": "grass_lit",
+      "measured": "#C4CB34",
+      "target": "#D4D041",
+      "delta_e": 3.07,
+      "tolerance": 5.0,
+      "pass": true,
+      "informational": false
+    },
+    {
+      "region": "grass_lit_b",
+      "measured": "#C4CC34",
+      "target": "#D4D041",
+      "delta_e": 3.15,
+      "tolerance": 5.0,
+      "pass": true,
+      "informational": true
+    },
+    {
+      "region": "pine",
+      "measured": "#596720",
+      "target": "#4F5B0C",
+      "delta_e": 4.37,
+      "tolerance": 7.0,
+      "pass": true,
+      "informational": false
+    },
+    {
+      "region": "soil_side",
+      "measured": "#864416",
+      "target": "#965B16",
+      "delta_e": 9.37,
+      "tolerance": 7.0,
+      "pass": false,
+      "informational": false
+    },
+    {
+      "region": "stone_clearing",
+      "measured": "#D7C4A8",
+      "target": "#CBB899",
+      "delta_e": 3.32,
+      "tolerance": 6.0,
+      "pass": true,
+      "informational": true
+    },
+    {
+      "region": "stone_lit",
+      "measured": "#EEDCC1",
+      "target": "#D7CCBB",
+      "delta_e": 5.43,
+      "tolerance": 5.0,
+      "pass": false,
+      "informational": false
+    },
+    {
+      "region": "terracotta",
+      "measured": "#6A4326",
+      "target": "#CA702D",
+      "delta_e": 24.99,
+      "tolerance": 6.0,
+      "pass": false,
+      "informational": false
+    },
+    {
+      "region": "water",
+      "measured": "#9AB4A1",
+      "target": "#8AA393",
+      "delta_e": 5.03,
+      "tolerance": 6.0,
+      "pass": true,
+      "informational": false
+    },
+    {
+      "region": "water_open",
+      "measured": "#96AF9C",
+      "target": "#8AA393",
+      "delta_e": 3.7,
+      "tolerance": 6.0,
+      "pass": true,
+      "informational": true
+    },
+    {
+      "region": "wood",
+      "measured": "#D68436",
+      "target": "#C18134",
+      "delta_e": 5.0,
+      "tolerance": 6.0,
+      "pass": true,
+      "informational": false
+    },
+    {
+      "region": "grass_shadow",
+      "measured": "#B3BA2F",
+      "target": "#90871A",
+      "delta_e": 15.53,
+      "tolerance": 7.0,
+      "pass": false,
+      "informational": false
+    }
+  ],
+  "shadow": {
+    "ok": true,
+    "angle_deg": 10.8,
+    "angle_target": 14.0,
+    "angle_pass": true,
+    "length_tiles": 0.608,
+    "length_pass": false,
+    "darken_ratio": 0.08,
+    "darken_pass": false,
+    "penumbra_px": 59.0,
+    "shadow_color": {
+      "region": "grass_shadow",
+      "measured": "#B3BA2F",
+      "target": "#90871A",
+      "delta_e": 15.53,
+      "tolerance": 7.0,
+      "pass": false,
+      "informational": false
+    },
+    "mask_px": 1852
+  },
+  "contact_shadow": {
+    "darken_ratio": 0.639,
+    "pass": false
+  },
+  "framing": {
+    "width_frac": 0.606,
+    "width_pass": true,
+    "height_frac": 0.651,
+    "height_pass": false
+  },
+  "black_floor_luma": 59.5,
+  "white_clip_frac": 1.9290123456790124e-06,
+  "neutral_lab": [
+    72.5,
+    0.5,
+    6.5
+  ],
+  "reference_mean_delta_e": null,
+  "all_pass": false
+}

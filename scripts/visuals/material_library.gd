@@ -1,20 +1,18 @@
 class_name MaterialLibrary
 extends RefCounted
-## One shared material per palette key, all built on the garden master shader
-## (matte, low specular, mild orientation tint). GLB assets ship with semantic
+## One shared StandardMaterial3D per palette key. GLB assets ship with semantic
 ## material names ("grass", "wood", ...); rebind_materials() swaps every surface
 ## to the shared library instance, so a palette edit re-skins the whole game
 ## without touching a single GLB.
+##
+## Calibration baseline: ordinary matte materials, no custom shaders, no
+## orientation tint, no baked sunlight. The DirectionalLight3D does the shading.
 
-const MASTER_SHADER: Shader = preload("res://assets/materials/garden_master.gdshader")
-const WATER_SHADER: Shader = preload("res://assets/materials/garden_water.gdshader")
-
-const EMISSIVE := {"fire_core": 5.0, "fire_outer": 2.5, "magic": 2.0}
-## Restrained metals: warm, mostly matte — no glossy plastic, no mirror black.
+const EMISSIVE := {"fire_core": 5.0, "fire_outer": 2.5, "magic": 2.0, "crystal": 1.0}
+## Restrained warm metals — never glossy plastic, never mirror black.
 const METALS := {
-	"gold": {"metallic": 0.30, "roughness": 0.65},
+	"gold": {"metallic": 0.3, "roughness": 0.65},
 	"metal": {"metallic": 0.25, "roughness": 0.72},
-	"warm_charcoal": {"metallic": 0.05, "roughness": 0.78},
 }
 
 var palette: CozyPalette
@@ -30,51 +28,26 @@ func material(key: String) -> Material:
 		return _materials[key]
 	if not palette.colors.has(key):
 		return _fallback()
-	var m: Material
-	match key:
-		"water":
-			m = _water_material()
-		"crystal":
-			m = _crystal_material()
-		_:
-			m = _master_material(key)
-	m.resource_name = key
-	_materials[key] = m
-	return m
-
-
-func _master_material(key: String) -> ShaderMaterial:
-	var m := ShaderMaterial.new()
-	m.shader = MASTER_SHADER
-	m.set_shader_parameter("albedo", palette.color(key))
-	m.set_shader_parameter("roughness", METALS[key]["roughness"] if METALS.has(key) else 0.9)
-	m.set_shader_parameter("metallic", METALS[key]["metallic"] if METALS.has(key) else 0.0)
-	m.set_shader_parameter("specular", 0.3 if METALS.has(key) else 0.18)
-	if EMISSIVE.has(key):
-		m.set_shader_parameter("emission_color", palette.color(key))
-		m.set_shader_parameter("emission_energy", EMISSIVE[key])
-	return m
-
-
-func _water_material() -> ShaderMaterial:
-	var m := ShaderMaterial.new()
-	m.shader = WATER_SHADER
-	m.set_shader_parameter("base_color", palette.color("water"))
-	m.set_shader_parameter("deep_color", palette.color("water_deep"))
-	m.set_shader_parameter("lit_color", palette.color("water_light"))
-	return m
-
-
-func _crystal_material() -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
-	m.albedo_color = palette.color("crystal")
-	m.albedo_color.a = 0.9
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.roughness = 0.35
-	m.metallic_specular = 0.3
-	m.emission_enabled = true
-	m.emission = palette.color("crystal")
-	m.emission_energy_multiplier = 1.0
+	m.resource_name = key
+	m.albedo_color = palette.color(key)
+	m.roughness = METALS[key]["roughness"] if METALS.has(key) else 0.88
+	m.metallic = METALS[key]["metallic"] if METALS.has(key) else 0.0
+	m.metallic_specular = 0.3 if METALS.has(key) else 0.18
+	if EMISSIVE.has(key):
+		m.emission_enabled = true
+		m.emission = palette.color(key)
+		m.emission_energy_multiplier = EMISSIVE[key]
+	if key == "water":
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.albedo_color.a = 0.82
+		m.roughness = 0.65
+		m.metallic_specular = 0.2
+	if key == "crystal":
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.albedo_color.a = 0.9
+		m.roughness = 0.35
+	_materials[key] = m
 	return m
 
 
@@ -84,21 +57,11 @@ func tinted(base_key: String, tint: Color) -> Material:
 	var cache_key := "%s|%s" % [base_key, tint.to_html()]
 	if _materials.has(cache_key):
 		return _materials[cache_key]
-	var m := material(base_key).duplicate() as Material
+	var m := material(base_key).duplicate() as StandardMaterial3D
 	m.resource_name = cache_key
-	if m is ShaderMaterial:
-		var sm := m as ShaderMaterial
-		if sm.shader == MASTER_SHADER:
-			sm.set_shader_parameter("albedo", tint)
-			if EMISSIVE.has(base_key):
-				sm.set_shader_parameter("emission_color", tint)
-		else:
-			sm.set_shader_parameter("base_color", tint)
-	elif m is StandardMaterial3D:
-		var std := m as StandardMaterial3D
-		std.albedo_color = Color(tint, std.albedo_color.a)
-		if std.emission_enabled:
-			std.emission = tint
+	m.albedo_color = Color(tint, m.albedo_color.a)
+	if m.emission_enabled:
+		m.emission = tint
 	_materials[cache_key] = m
 	return m
 

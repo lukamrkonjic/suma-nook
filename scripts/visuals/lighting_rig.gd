@@ -66,12 +66,12 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = profile.ambient_color
 	env.ambient_light_energy = profile.ambient_energy
-	env.tonemap_mode = Environment.TONE_MAPPER_ACES
+	# Calibration baseline: neutral tone mapping so raw albedos stay
+	# predictable. Filmic/ACES may be trialed later only if the reference
+	# comparison visibly improves.
+	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	env.tonemap_exposure = profile.exposure
-	env.adjustment_enabled = true
-	env.adjustment_brightness = 1.0
-	env.adjustment_contrast = profile.contrast
-	env.adjustment_saturation = profile.saturation
+	env.adjustment_enabled = false
 	env.ssao_enabled = profile.ssao_enabled
 	env.ssao_intensity = profile.ssao_intensity
 	env.ssao_radius = profile.ssao_radius

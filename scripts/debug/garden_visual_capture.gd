@@ -13,7 +13,7 @@ extends Node3D
 
 const TILE := 2.0
 const CAPTURE_SIZE := Vector2i(1920, 1080)
-const CAMERA_ORTHO_SIZE := 9.2
+const CAMERA_ORTHO_SIZE := 10.55
 const CAMERA_YAW := 45.0
 const CAMERA_PITCH := -34.0
 const PIVOT := Vector3(4.0, 0.0, 2.0)
@@ -38,7 +38,7 @@ const PROPS := [
 	["prop_pine_a", Vector3(-0.45, 0, -0.45), 0.0],
 	["prop_campfire", Vector3(6, 0, 0), 0.0],
 	["prop_bush_a", Vector3(0, 0, 2), 0.0],
-	["prop_pot", Vector3(1.25, 0, 1.5), 0.0],
+	["prop_pot", Vector3(5.55, 0, 3.5), 0.0],
 	["prop_bench", Vector3(4, 0, 2.25), 180.0],
 	["prop_lantern", Vector3(4.75, 0, 0.7), 0.0],
 	["prop_cardboard_box", Vector3(3.55, 0, 0.3), 0.6],
@@ -60,12 +60,13 @@ const MARKERS := {
 	"water_open": Vector3(8.2, -0.075, 2.2),
 	"pine": Vector3(-0.2, 1.05, -0.2),
 	"bush": Vector3(0.28, 0.42, 2.28),
-	"terracotta": Vector3(1.44, 0.17, 1.69),
+	"terracotta": Vector3(5.68, 0.17, 3.66),
 	"charcoal": Vector3(4.86, 1.18, 0.81),
 	"cardboard": Vector3(3.84, 0.22, 0.32),
 	"calib_sphere_top": Vector3(-0.35, 0.83, 4.36),
 	"calib_cube_top": Vector3(0.55, 0.705, 4.55),
-	"contact_shadow": Vector3(1.35, 0.035, 1.8),
+	"contact_shadow": Vector3(5.58, 0.035, 3.74),
+	"contact_center": Vector3(5.55, 0.02, 3.5),
 }
 
 var _materials: MaterialLibrary
@@ -231,6 +232,10 @@ func _profile_for(name: String) -> VisualStyleProfile:
 			return load("res://assets/visual_profiles/garden_galaxy_mist.tres")
 		"rain":
 			return load("res://assets/visual_profiles/garden_rain.tres")
+		"a":
+			return load("res://assets/visual_profiles/garden_galaxy_candidate_a.tres")
+		"c":
+			return load("res://assets/visual_profiles/garden_galaxy_candidate_c.tres")
 		_:
 			return load("res://assets/visual_profiles/garden_galaxy_day.tres")
 

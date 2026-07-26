@@ -6,9 +6,9 @@ extends Resource
 ## garden_galaxy_mist (blue-gray gradient), garden_rain.
 
 @export var profile_id := "garden_galaxy_day"
-@export var background_color := Color(0.9137, 0.8863, 0.8118)
-@export var ambient_color := Color(0.8471, 0.8157, 0.749)
-@export var ambient_energy := 0.64
+@export var background_color := Color(0.9176, 0.8941, 0.8157)
+@export var ambient_color := Color(0.8667, 0.8471, 0.7961)
+@export var ambient_energy := 0.78
 
 @export_group("Background gradient")
 ## When enabled the rig shows a screen-space vertical gradient (mist preset)
@@ -20,25 +20,25 @@ extends Resource
 @export var stars_enabled := false
 
 @export_group("Key light")
-@export var sun_color := Color(1.0, 0.9451, 0.8235)
-@export var sun_energy := 1.25
-@export var sun_specular := 0.75
+@export var sun_color := Color(1.0, 0.9608, 0.902)
+@export var sun_energy := 0.95
+@export var sun_specular := 0.55
 ## Degrees. Pitch below horizon; yaw chosen so shadows fall to screen lower-right
 ## when the camera sits at its default 45° yaw.
 @export var sun_pitch_deg := -58.0
-@export var sun_yaw_deg := -85.0
-@export var shadow_opacity := 0.58
-@export var shadow_blur := 1.0
-@export var sun_angular_distance := 2.5
-@export var shadow_bias := 0.03
-@export var shadow_normal_bias := 1.1
+@export var sun_yaw_deg := -65.0
+@export var shadow_opacity := 0.34
+@export var shadow_blur := 0.6
+@export var sun_angular_distance := 4.0
+@export var shadow_bias := 0.015
+@export var shadow_normal_bias := 0.6
 
 @export_group("Post")
 @export var ssao_enabled := true
-@export var ssao_intensity := 1.35
-@export var ssao_radius := 0.5
-@export var ssao_power := 1.25
-@export var ssao_detail := 0.6
+@export var ssao_intensity := 0.55
+@export var ssao_radius := 0.3
+@export var ssao_power := 1.0
+@export var ssao_detail := 0.5
 @export var ssao_horizon := 0.06
 @export var ssao_sharpness := 0.9
 @export var glow_enabled := false
@@ -46,8 +46,8 @@ extends Resource
 @export var glow_hdr_threshold := 1.6
 @export var glow_bloom := 0.04
 @export var exposure := 1.0
-@export var contrast := 1.04
-@export var saturation := 0.93
+@export var contrast := 1.0
+@export var saturation := 1.0
 @export var fog_enabled := false
 @export var fog_color := Color(0.9137, 0.8863, 0.8118)
 @export var fog_density := 0.01

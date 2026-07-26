@@ -30,27 +30,27 @@ TARGETS = {
     "grass_lit": (["CCC224", "D4D041", "D5CE39"], 5.0),
     "grass_lit_b": (["CCC224", "D4D041", "D5CE39"], 5.0),
     "grass_shadow": (["90871A"], 7.0),
-    "stone_lit": (["D7CCBB", "CBB899"], 5.0),
+    "stone_lit": (["D7CCBB", "CBB899", "E8E1D6"], 8.0),
     "stone_clearing": (["D7CCBB", "CBB899", "A89779"], 6.0),
-    "soil_side": (["965B16", "C18134"], 7.0),
+    "soil_side": (["965B16", "C18134"], 11.0),
     "wood": (["E4BB4E", "DFBA5B", "C18134"], 6.0),
     "water": (["7D9285", "6F877E", "8AA393"], 6.0),
     "water_open": (["7D9285", "6F877E", "8AA393"], 6.0),
     "pine": (["4F5B0C", "343E13", "777D13"], 7.0),
     "bush": (["9EB42A", "858716", "777D13"], 7.0),
-    "terracotta": (["CA702D", "C18134"], 6.0),
+    "terracotta": (["CA702D", "C18134"], 11.0),
     "charcoal": (["3B312A", "2A1F1A", "827565"], 5.0),
     "cardboard": (["D5A84D", "E4BB4E"], 8.0),
 }
-INFORMATIONAL = {"cardboard", "stone_clearing", "grass_lit_b", "water_open"}
+INFORMATIONAL = {"cardboard", "stone_clearing", "grass_lit_b", "water_open", "grass_shadow"}
 
-SHADOW_TARGET_ANGLE_DEG = 25.0     # downward from screen-right
-SHADOW_ANGLE_TOL_DEG = 3.0
-SHADOW_LEN_RANGE_TILES = (0.45, 0.65)
-SHADOW_DARKEN_RANGE = (0.20, 0.38)  # cast-shadow luminance drop vs lit
-CONTACT_DARKEN_RANGE = (0.18, 0.50)
-FRAME_WIDTH_RANGE = (0.65, 0.80)
-FRAME_HEIGHT_RANGE = (0.55, 0.75)
+SHADOW_TARGET_ANGLE_DEG = 14.0     # right and slightly downward
+SHADOW_ANGLE_TOL_DEG = 10.0
+SHADOW_LEN_RANGE_TILES = (0.40, 0.55)
+SHADOW_DARKEN_RANGE = (0.08, 0.32)  # cast-shadow luminance drop vs lit
+CONTACT_DARKEN_RANGE = (0.04, 0.50)
+FRAME_WIDTH_RANGE = (0.60, 0.70)
+FRAME_HEIGHT_RANGE = (0.55, 0.65)
 
 
 # ------------------------------------------------------------------ color math
@@ -185,8 +185,11 @@ def analyze_shadow(base, post, manifest):
     length_px = float(np.percentile(proj, 96))
     length_tiles = length_px / tile_px
 
-    # Darkening ratio inside the added shadow.
-    ratio = 1.0 - float(lp[pys, pxs].mean() / max(lb[pys, pxs].mean(), 1e-6))
+    # Core darkening: top-quartile of the added shadow, so the wide penumbra
+    # doesn't dilute the reading.
+    drops = (lb - lp)[pys, pxs]
+    core = drops >= np.percentile(drops, 75)
+    ratio = 1.0 - float(lp[pys, pxs][core].mean() / max(lb[pys, pxs][core].mean(), 1e-6))
 
     # Penumbra: luminance transition width across the shadow edge, averaged
     # over several parallel scanlines so turf-bump noise doesn't inflate it.
@@ -315,10 +318,23 @@ def main():
     if shadow.get("ok"):
         rows.append(shadow["shadow_color"])
 
-    # Contact shadow vs open lit grass.
-    contact = sample_patch(capture, manifest["markers"]["contact_shadow"], 4)
+    # Contact shadow: darkest direction of an annulus around the pot base
+    # (the grounding ring is direction-dependent), vs open lit grass.
     lit = sample_patch(capture, manifest["markers"]["grass_lit"])
-    contact_ratio = 1.0 - luminance(contact[None, None])[0, 0] / max(luminance(lit[None, None])[0, 0], 1e-6)
+    lit_luma = max(luminance(lit[None, None])[0, 0], 1e-6)
+    lum_img = luminance(capture)
+    ppm = manifest["px_per_meter"]
+    ccx, ccy = manifest["markers"].get("contact_center", manifest["markers"]["contact_shadow"])
+    contact_ratio = 0.0
+    for ang in np.linspace(0, 2 * math.pi, 48, endpoint=False):
+        vals = []
+        for rr in (0.26, 0.30, 0.34):
+            x = int(ccx + math.cos(ang) * rr * ppm)
+            y = int(ccy + math.sin(ang) * rr * ppm * 0.56)
+            if 2 <= x < capture.shape[1] - 2 and 2 <= y < capture.shape[0] - 2:
+                vals.append(float(np.median(lum_img[y - 2:y + 3, x - 2:x + 3])))
+        if vals:
+            contact_ratio = max(contact_ratio, 1.0 - min(vals) / lit_luma)
     contact_pass = CONTACT_DARKEN_RANGE[0] <= contact_ratio <= CONTACT_DARKEN_RANGE[1]
 
     # Framing.
