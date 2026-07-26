@@ -378,6 +378,9 @@ func _debug_panel() -> Dictionary:
 			["Day", "day"],
 			["Mist", "mist"],
 			["Rain", "rain"],
+			["Leaves", "leaves"],
+			["Snow", "snow"],
+			["Blossom", "blossom"],
 		], "debug_set_weather", lighting.weather_id())
 		_debug_choice_row(list, "Time of day", [
 			["Morning", "morning"],
@@ -392,6 +395,11 @@ func _debug_panel() -> Dictionary:
 			["Dusk", "dusk"],
 			["Night", "night"],
 		], "debug_set_background", lighting.background_preset_id)
+		_debug_choice_row(list, "Particle quality", [
+			["Low", "low"],
+			["Medium", "medium"],
+			["High", "high"],
+		], "debug_set_particle_quality", lighting.particle_quality_id)
 		var reset_visuals := kit.button("Reset visual overrides")
 		reset_visuals.pressed.connect(func(): settings_bridge.call("debug_reset_visuals"))
 		list.add_child(reset_visuals)
@@ -434,7 +442,7 @@ func _debug_choice_row(
 	active_id: String
 ) -> void:
 	list.add_child(kit.label(title, 20))
-	var row := HBoxContainer.new()
+	var row := HFlowContainer.new()
 	row.add_theme_constant_override("separation", 6)
 	list.add_child(row)
 	for choice in choices:

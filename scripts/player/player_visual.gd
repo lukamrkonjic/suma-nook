@@ -8,6 +8,159 @@ extends Node3D
 
 const WALK_BOB_HZ := 7.5
 
+signal animation_started(animation_name: String)
+signal animation_event(animation_name: String, event_name: String)
+signal animation_finished(animation_name: String)
+
+const ANIMATION_MANIFEST := {
+	"idle": {
+		"looping": true,
+		"duration": 2.4,
+		"events": [],
+		"procedural_tracks": {
+			"body.position.y": "sin(time * TAU / 2.4) * 0.006",
+			"head.rotation.z": "sin(time * TAU / 4.8) * 0.008",
+		},
+	},
+	"walk": {
+		"looping": true,
+		"duration": 0.84,
+		"events": [{"name": "left_step", "time": 0.0}, {"name": "right_step", "time": 0.42}],
+		"procedural_tracks": {
+			"body.position.y": "abs(sin(phase)) * 0.05",
+			"body.rotation.x": 0.06,
+			"arms.rotation.x": "opposed sin(phase) * 0.55",
+		},
+	},
+	"fish_cast": {
+		"looping": false,
+		"duration": 0.38,
+		"events": [{"name": "release", "time": 0.22}],
+		"tracks": {
+			"right_arm.rotation.x": [
+				{"time": 0.0, "value": 0.0},
+				{"time": 0.22, "value": -2.2, "curve": "back_out"},
+				{"time": 0.38, "value": -0.9, "curve": "cubic_in"},
+			],
+		},
+	},
+	"fish_wait": {
+		"looping": true,
+		"duration": 1.3,
+		"events": [],
+		"tracks": {
+			"right_arm.rotation.x": [
+				{"time": 0.0, "value": -0.9},
+				{"time": 0.4, "value": -0.95, "curve": "linear"},
+				{"time": 1.3, "value": -0.85, "curve": "sine_in_out"},
+			],
+		},
+	},
+	"fish_catch": {
+		"looping": false,
+		"duration": 0.69,
+		"events": [{"name": "impact", "time": 0.14}],
+		"tracks": {
+			"right_arm.rotation.x": [
+				{"time": 0.0, "value": -0.9},
+				{"time": 0.14, "value": -2.5, "curve": "back_out"},
+			],
+			"body.rotation.x": [
+				{"time": 0.0, "value": 0.0},
+				{"time": 0.14, "value": -0.12, "curve": "linear"},
+				{"time": 0.49, "value": -0.12},
+				{"time": 0.69, "value": 0.0, "curve": "linear"},
+			],
+		},
+	},
+	"chop": {
+		"looping": false,
+		"duration": 0.52,
+		"events": [{"name": "impact", "time": 0.38}],
+		"tracks": {
+			"right_arm.rotation.x": [
+				{"time": 0.0, "value": 0.0},
+				{"time": 0.28, "value": -2.4, "curve": "quad_out"},
+				{"time": 0.38, "value": -0.3, "curve": "quart_in"},
+			],
+			"body.rotation.y": [
+				{"time": 0.0, "value": 0.0},
+				{"time": 0.28, "value": 0.16, "curve": "linear"},
+				{"time": 0.38, "value": -0.08, "curve": "linear"},
+				{"time": 0.52, "value": 0.0, "curve": "linear"},
+			],
+		},
+	},
+	"attack": {
+		"looping": false,
+		"duration": 0.38,
+		"events": [{"name": "impact", "time": 0.22}],
+		"tracks": {
+			"right_arm.rotation.x": [
+				{"time": 0.0, "value": 0.0},
+				{"time": 0.12, "value": -2.1, "curve": "quad_out"},
+				{"time": 0.22, "value": 0.5, "curve": "quart_in"},
+				{"time": 0.38, "value": 0.0, "curve": "linear"},
+			],
+		},
+	},
+	"dodge": {
+		"looping": false,
+		"duration": 0.3,
+		"events": [],
+		"tracks": {
+			"body.rotation.x": [
+				{"time": 0.0, "value": 0.0},
+				{"time": 0.1, "value": 0.5, "curve": "linear"},
+				{"time": 0.3, "value": 0.0, "curve": "linear"},
+			],
+		},
+	},
+	"hit": {
+		"looping": false,
+		"duration": 0.18,
+		"events": [{"name": "flash", "time": 0.0}],
+		"tracks": {
+			"body.position.x": [
+				{"time": 0.0, "value": 0.0},
+				{"time": 0.05, "value": 0.07, "curve": "linear"},
+				{"time": 0.1, "value": -0.05, "curve": "linear"},
+				{"time": 0.18, "value": 0.0, "curve": "linear"},
+			],
+		},
+	},
+	"celebrate": {
+		"looping": false,
+		"duration": 0.7,
+		"events": [{"name": "apex", "time": 0.2}],
+		"tracks": {
+			"arms.rotation.x": [
+				{"time": 0.0, "value": 0.0},
+				{"time": 0.2, "value": -2.9, "curve": "back_out"},
+				{"time": 0.4, "value": -2.9},
+				{"time": 0.7, "value": 0.0, "curve": "linear"},
+			],
+			"body.position.y": [
+				{"time": 0.0, "value": 0.0},
+				{"time": 0.18, "value": 0.16, "curve": "quad_out"},
+				{"time": 0.4, "value": 0.0, "curve": "bounce_out"},
+			],
+		},
+	},
+}
+const ANIMATION_TRANSITIONS := {
+	"idle": ["walk", "fish_cast", "fish_wait", "fish_catch", "chop", "attack", "dodge", "hit", "celebrate"],
+	"walk": ["idle", "fish_cast", "chop", "attack", "dodge", "hit", "celebrate"],
+	"fish_cast": ["fish_wait", "fish_catch", "idle", "walk"],
+	"fish_wait": ["fish_catch", "idle", "walk"],
+	"fish_catch": ["fish_cast", "fish_wait", "idle", "walk"],
+	"chop": ["chop", "idle", "walk"],
+	"attack": ["attack", "dodge", "hit", "idle", "walk"],
+	"dodge": ["attack", "hit", "idle", "walk"],
+	"hit": ["attack", "dodge", "idle", "walk"],
+	"celebrate": ["idle", "walk"],
+}
+
 var materials: MaterialLibrary
 var assets: AssetLibrary
 var palette: CozyPalette
@@ -24,6 +177,7 @@ var _eye_nodes: Array[MeshInstance3D] = []
 
 var _walk_amount := 0.0
 var _walk_phase := 0.0
+var _idle_phase := 0.0
 var _action_tween: Tween
 var _current_anim := "idle"
 
@@ -173,9 +327,15 @@ func apply_equipment(equipment: EquipmentManager, held_tool_type := "") -> void:
 func set_walk(amount: float, delta: float) -> void:
 	_walk_amount = lerpf(_walk_amount, clampf(amount, 0.0, 1.0), 12.0 * delta)
 	_walk_phase += delta * WALK_BOB_HZ * (0.4 + 0.6 * _walk_amount)
+	_idle_phase += delta * TAU / 2.4
 	if _current_anim != "idle":
 		return
 	var bob := absf(sin(_walk_phase)) * 0.05 * _walk_amount
+	if _walk_amount < 0.05:
+		bob += sin(_idle_phase) * 0.006
+		_head_group.rotation.z = sin(_idle_phase * 0.5) * 0.008
+	else:
+		_head_group.rotation.z = lerpf(_head_group.rotation.z, 0.0, minf(1.0, delta * 8.0))
 	_body.position.y = bob
 	_body.rotation.x = _walk_amount * 0.06
 	var swing := sin(_walk_phase) * 0.55 * _walk_amount
@@ -184,19 +344,28 @@ func set_walk(amount: float, delta: float) -> void:
 
 
 func play(anim: String) -> void:
+	if not ANIMATION_MANIFEST.has(anim):
+		return
 	if _action_tween != null and _action_tween.is_valid():
 		_action_tween.kill()
+		if _current_anim != "idle":
+			animation_finished.emit(_current_anim)
 	_current_anim = anim
+	animation_started.emit(anim)
 	_action_tween = create_tween()
 	match anim:
 		"idle":
 			_action_tween.tween_property(_arm_r, "rotation", Vector3.ZERO, 0.18)
 			_action_tween.parallel().tween_property(_arm_l, "rotation", Vector3.ZERO, 0.18)
 			_action_tween.parallel().tween_property(_body, "rotation", Vector3.ZERO, 0.18)
-			_action_tween.tween_callback(func(): _current_anim = "idle")
+			_action_tween.tween_callback(func():
+				_current_anim = "idle"
+				animation_finished.emit("idle")
+			)
 			_current_anim = "idle"
 		"fish_cast":
 			_action_tween.tween_property(_arm_r, "rotation:x", -2.2, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			_action_tween.tween_callback(func(): animation_event.emit(anim, "release"))
 			_action_tween.tween_property(_arm_r, "rotation:x", -0.9, 0.16).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 		"fish_wait":
 			_action_tween.tween_property(_arm_r, "rotation:x", -0.95, 0.4)
@@ -205,6 +374,7 @@ func play(anim: String) -> void:
 		"fish_catch":
 			_action_tween.tween_property(_arm_r, "rotation:x", -2.5, 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 			_action_tween.parallel().tween_property(_body, "rotation:x", -0.12, 0.14)
+			_action_tween.tween_callback(func(): animation_event.emit(anim, "impact"))
 			_action_tween.tween_interval(0.35)
 			_action_tween.tween_property(_body, "rotation:x", 0.0, 0.2)
 		"chop":
@@ -212,15 +382,18 @@ func play(anim: String) -> void:
 			_action_tween.parallel().tween_property(_body, "rotation:y", 0.16, 0.28)
 			_action_tween.tween_property(_arm_r, "rotation:x", -0.3, 0.1).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_IN)
 			_action_tween.parallel().tween_property(_body, "rotation:y", -0.08, 0.1)
+			_action_tween.tween_callback(func(): animation_event.emit(anim, "impact"))
 			_action_tween.tween_property(_body, "rotation:y", 0.0, 0.14)
 		"attack":
 			_action_tween.tween_property(_arm_r, "rotation:x", -2.1, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 			_action_tween.tween_property(_arm_r, "rotation:x", 0.5, 0.1).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_IN)
+			_action_tween.tween_callback(func(): animation_event.emit(anim, "impact"))
 			_action_tween.tween_property(_arm_r, "rotation:x", 0.0, 0.16)
 		"dodge":
 			_action_tween.tween_property(_body, "rotation:x", 0.5, 0.1)
 			_action_tween.tween_property(_body, "rotation:x", 0.0, 0.2)
 		"hit":
+			animation_event.emit(anim, "flash")
 			_flash(Color(1.0, 0.5, 0.45))
 			_action_tween.tween_property(_body, "position:x", 0.07, 0.05)
 			_action_tween.tween_property(_body, "position:x", -0.05, 0.05)
@@ -229,11 +402,28 @@ func play(anim: String) -> void:
 			_action_tween.tween_property(_arm_r, "rotation:x", -2.9, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 			_action_tween.parallel().tween_property(_arm_l, "rotation:x", -2.9, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 			_action_tween.parallel().tween_property(_body, "position:y", 0.16, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+			_action_tween.tween_callback(func(): animation_event.emit(anim, "apex"))
 			_action_tween.tween_property(_body, "position:y", 0.0, 0.2).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
 			_action_tween.parallel().tween_property(_arm_r, "rotation:x", 0.0, 0.3)
 			_action_tween.parallel().tween_property(_arm_l, "rotation:x", 0.0, 0.3)
 	if anim != "idle" and anim != "fish_wait":
-		_action_tween.tween_callback(func(): _current_anim = "idle")
+		_action_tween.tween_callback(func():
+			_current_anim = "idle"
+			animation_finished.emit(anim)
+		)
+
+
+func animation_manifest() -> Dictionary:
+	return {
+		"states": ANIMATION_MANIFEST.duplicate(true),
+		"transitions": ANIMATION_TRANSITIONS.duplicate(true),
+		"default_state": "idle",
+		"transition_policy": {
+			"interruptible": true,
+			"interruption_reset": "previous tween is killed before the next state",
+			"action_to_idle": "automatic on non-looping completion",
+		},
+	}
 
 
 func _flash(color: Color) -> void:

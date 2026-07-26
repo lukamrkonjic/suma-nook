@@ -1,0 +1,105 @@
+{
+  "source": "Original Suma Nook semantic material translation; GG live property blocks were not observed",
+  "defaults": {
+    "family": "painted_matte",
+    "roughness": 0.88,
+    "metallic": 0.0,
+    "specular": 0.18,
+    "calm_cream_mix": 0.0,
+    "calm_value_lift": 0.0
+  },
+  "families": [
+    {
+      "id": "foliage",
+      "contains": ["grass", "moss", "leaf", "foliage", "pine", "olive", "flora", "reed"],
+      "roughness": 0.92,
+      "metallic": 0.0,
+      "specular": 0.12,
+      "calm_cream_mix": 0.0,
+      "calm_value_lift": 0.0
+    },
+    {
+      "id": "earth",
+      "contains": ["earth", "soil", "sand"],
+      "roughness": 0.96,
+      "metallic": 0.0,
+      "specular": 0.08,
+      "calm_cream_mix": 0.0,
+      "calm_value_lift": 0.0
+    },
+    {
+      "id": "stone",
+      "contains": ["stone", "rock", "sage_gray"],
+      "roughness": 0.84,
+      "metallic": 0.0,
+      "specular": 0.2,
+      "calm_cream_mix": 0.0,
+      "calm_value_lift": 0.0
+    },
+    {
+      "id": "wood",
+      "contains": ["wood", "cardboard"],
+      "roughness": 0.86,
+      "metallic": 0.0,
+      "specular": 0.14,
+      "calm_cream_mix": 0.0,
+      "calm_value_lift": 0.0
+    },
+    {
+      "id": "ceramic",
+      "contains": ["terracotta", "coral", "burnt_red"],
+      "roughness": 0.8,
+      "metallic": 0.0,
+      "specular": 0.22,
+      "calm_cream_mix": 0.0,
+      "calm_value_lift": 0.0
+    },
+    {
+      "id": "cloth_and_skin",
+      "contains": ["fabric", "skin", "hair", "petal", "flower", "mushroom", "cream_fabric"],
+      "roughness": 0.9,
+      "metallic": 0.0,
+      "specular": 0.14,
+      "calm_cream_mix": 0.0,
+      "calm_value_lift": 0.0
+    },
+    {
+      "id": "warm_metal",
+      "contains": ["gold", "metal"],
+      "roughness": 0.66,
+      "metallic": 0.28,
+      "specular": 0.3,
+      "calm_cream_mix": 0.0,
+      "calm_value_lift": 0.0
+    },
+    {
+      "id": "emissive",
+      "contains": ["fire", "magic", "crystal"],
+      "roughness": 0.42,
+      "metallic": 0.0,
+      "specular": 0.28,
+      "calm_cream_mix": 0.0,
+      "calm_value_lift": 0.0
+    }
+  ],
+  "overrides": {
+    "warm_white": {"family": "painted_matte", "roughness": 0.82, "specular": 0.2, "calm_cream_mix": 0.0},
+    "ivory_highlight": {"family": "painted_matte", "roughness": 0.82, "specular": 0.2, "calm_cream_mix": 0.0},
+    "water_shallow_highlight": {"calm_cream_mix": 0.0},
+    "water_shallow": {"calm_cream_mix": 0.0},
+    "water_turquoise": {"calm_cream_mix": 0.0},
+    "water_mid": {"calm_cream_mix": 0.0},
+    "water_deep_mid": {"calm_cream_mix": 0.0},
+    "water_deep": {"calm_cream_mix": 0.0},
+    "crystal": {"family": "translucent_emissive", "roughness": 0.35, "specular": 0.35, "alpha": 0.9, "emission_energy": 1.0},
+    "fire_core": {"family": "emissive", "emission_energy": 5.0},
+    "fire_yellow": {"family": "emissive", "emission_energy": 3.0},
+    "fire_orange": {"family": "emissive", "emission_energy": 2.2},
+    "fire_red": {"family": "emissive", "emission_energy": 1.4},
+    "magic": {"family": "emissive", "emission_energy": 2.0},
+    "gold": {"family": "warm_metal", "roughness": 0.65, "metallic": 0.3, "specular": 0.3},
+    "gold_primary": {"family": "warm_metal", "roughness": 0.65, "metallic": 0.3, "specular": 0.3},
+    "gold_deep": {"family": "warm_metal", "roughness": 0.68, "metallic": 0.25, "specular": 0.3},
+    "metal": {"family": "warm_metal", "roughness": 0.72, "metallic": 0.25, "specular": 0.3}
+  }
+}

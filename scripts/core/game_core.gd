@@ -28,6 +28,13 @@ var save_manager: SaveManager
 var autosave_timer := 0.0
 var autosave_paused := false
 var play_seconds := 0.0
+var view_state: Dictionary = {"yaw": 45.0, "distance": 40.0}
+var visual_state: Dictionary = {
+	"weather": "day",
+	"time_of_day": "noon",
+	"background": "profile",
+	"particle_quality": "high",
+}
 var _dirty := false
 var legacy_inventory: Dictionary = {}
 
@@ -189,6 +196,8 @@ func save() -> bool:
 		"equipment": equipment.to_save_dict(),
 		"landmarks": landmarks.to_save_dict(),
 		"combat": combat.to_save_dict(),
+		"view": view_state.duplicate(true),
+		"visual": visual_state.duplicate(true),
 		"play_seconds": play_seconds,
 	})
 
@@ -219,6 +228,8 @@ func load_game() -> bool:
 	equipment.from_save_dict(data.get("equipment", {}))
 	landmarks.from_save_dict(data.get("landmarks", {}))
 	combat.from_save_dict(data.get("combat", {}))
+	view_state = data.get("view", view_state).duplicate(true)
+	visual_state = data.get("visual", visual_state).duplicate(true)
 	play_seconds = float(data.get("play_seconds", 0.0))
 	if not grid.is_walkable(grid.world_to_cell(profile.position)):
 		profile.position = grid.cell_to_world(grid.nearest_walkable(grid.world_to_cell(profile.position)))

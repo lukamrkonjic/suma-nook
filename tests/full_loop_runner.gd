@@ -137,6 +137,7 @@ func _step_movement() -> void:
 	main.camera_rig._yaw_target -= 90.0
 	await wait(0.5)
 	# All desktop zoom inputs converge on the same smooth bounded target.
+	main.camera_rig.set_zoom_immediate(50.0)
 	var default_zoom := main.camera_rig._size_target
 	var wheel := InputEventMouseButton.new()
 	wheel.button_index = MOUSE_BUTTON_WHEEL_UP
@@ -438,16 +439,84 @@ func _step_admin_controls() -> void:
 	check(main.hud.find_child("AdminCard", true, false) != null, "Admin card is visible in debug builds")
 	main.debug_set_weather("mist")
 	check(main.lighting.weather_id() == "mist", "Admin selects an explicit weather profile")
+	main.debug_set_weather("leaves")
+	check(main.lighting.weather_id() == "leaves", "Admin selects falling leaves")
+	var leaves := main.lighting.find_child("FallingLeaves", true, false) as GPUParticles3D
+	check(leaves != null and leaves.emitting, "Leaves profile activates its particle family")
+	main.debug_set_weather("snow")
+	check(main.lighting.weather_id() == "snow", "Admin selects snow")
+	var snow := main.lighting.find_child("SoftSnow", true, false) as GPUParticles3D
+	check(snow != null and snow.emitting, "Snow profile activates its particle family")
+	main.debug_set_weather("blossom")
+	check(main.lighting.weather_id() == "blossom", "Admin selects blossom weather")
+	var blossoms := main.lighting.find_child("BlossomPetals", true, false) as GPUParticles3D
+	var spores := main.lighting.find_child("WarmSpores", true, false) as GPUParticles3D
+	check(
+		blossoms != null and blossoms.emitting and spores != null and spores.emitting,
+		"Blossom profile activates petals and warm spores"
+	)
+	main.debug_set_particle_quality("low")
+	check(
+		main.lighting.particle_quality_id == "low"
+		and is_equal_approx(blossoms.amount_ratio, 0.15),
+		"Admin particle quality scales the configured emission ratio"
+	)
 	main.debug_set_time_of_day("sunset")
 	check(main.lighting.time_of_day_id == "sunset", "Admin selects sunset lighting")
 	main.debug_set_background("night")
 	check(main.lighting.background_preset_id == "night", "Admin selects a night background")
 	check(main.lighting.is_dark_background(), "dark background enables high-contrast HUD text")
+	var live_visuals := main.lighting.runtime_manifest()
+	check(
+		live_visuals["reflection_probe"]["size"] == Vector3(50.0, 15.0, 50.0)
+		and live_visuals["reflection_probe"]["update_mode"] == ReflectionProbe.UPDATE_ALWAYS,
+		"Realtime reflection probe uses the measured envelope"
+	)
+	check(
+		not live_visuals["post_processing"]["anti_aliasing"]["taa"]
+		and live_visuals["post_processing"]["anti_aliasing"]["msaa_3d"] == 3
+		and live_visuals["post_processing"]["anti_aliasing"]["screen_space_aa"] == 1
+		and live_visuals["post_processing"]["ssao_enabled"],
+		"Crisp 8x MSAA plus FXAA and profile-driven SSAO are active"
+	)
+	var camera_values := main.camera_rig.runtime_manifest()
+	check(
+		camera_values["fov_degrees"] == 15.0
+		and camera_values["near_clip"] == 5.0
+		and camera_values["far_clip"] == 100.0
+		and camera_values["zoom_limits"]["minimum"] == 40.0
+		and camera_values["zoom_limits"]["maximum"] == 70.0,
+		"Camera manifest exposes measured lens, clipping, and zoom limits"
+	)
+	var material_manifest := main.materials.material_parameter_manifest()
+	check(
+		material_manifest.size() >= main.palette.colors.size()
+		and material_manifest.has("water"),
+		"Every semantic palette material and the water shader have parameter records"
+	)
+	var animation_manifest := main.player_visual.animation_manifest()
+	check(
+		animation_manifest["states"].size() == 10
+		and animation_manifest["states"]["chop"]["events"][0]["time"] == 0.38
+		and animation_manifest["transitions"]["fish_cast"].has("fish_wait"),
+		"Animation manifest includes states, keyframes, events, curves, and transitions"
+	)
+	check(main.core.save(), "Admin runtime visual state saves")
+	main.reload_from_save()
+	await wait(0.8)
+	check(
+		main.lighting.weather_id() == "blossom"
+		and main.lighting.time_of_day_id == "sunset"
+		and main.lighting.background_preset_id == "night"
+		and main.lighting.particle_quality_id == "low",
+		"Weather, time, background, and particle state restore from save"
+	)
 	main.debug_reset_visuals()
 	check(
 		main.lighting.weather_id() == "day"
 		and main.lighting.time_of_day_id == "noon"
-		and main.lighting.background_preset_id == "profile",
+		and main.lighting.background_preset_id == "profile"
+		and main.lighting.particle_quality_id == "high",
 		"Admin visual reset restores day defaults"
 	)
 	var item_id := String(main.core.registries.items.keys()[0])

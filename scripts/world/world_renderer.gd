@@ -52,7 +52,7 @@ func rebuild_all() -> void:
 		_tile_nodes[coord].queue_free()
 	_tile_nodes.clear()
 	for coord: Vector2i in core.grid.cells:
-		_build_cell(coord)
+		_build_cell(coord, false)
 	_rebuild_edges()
 	_rebuild_water_surface()
 	_sync_landmarks()
@@ -63,11 +63,11 @@ func _on_cell_changed(coord: Vector2i) -> void:
 		_tile_nodes[coord].queue_free()
 		_tile_nodes.erase(coord)
 	if core.grid.has_cell(coord):
-		_build_cell(coord)
+		_build_cell(coord, true)
 	_rebuild_water_surface()
 
 
-func _build_cell(coord: Vector2i) -> void:
+func _build_cell(coord: Vector2i, animate := false) -> void:
 	var state := core.grid.cell(coord)
 	var def := core.grid.tile_def(coord)
 	if def == null:
@@ -81,6 +81,7 @@ func _build_cell(coord: Vector2i) -> void:
 	var visual := _make_open_water_tile(coord) if def.id == "tile_open_water" else assets.instantiate(def.asset_id)
 	visual.rotation.y = state.rotation * PI * 0.5
 	holder.add_child(visual)
+	_attach_ambient_motion(visual, coord)
 
 	# Ground collider: one box whose top is exactly y=0 — identical heights on
 	# every tile means zero collision seams between connected tiles.
@@ -112,6 +113,8 @@ func _build_cell(coord: Vector2i) -> void:
 		_build_structure(holder, s)
 
 	_apply_anchor_visual(holder, state, def, false)
+	if animate:
+		_animate_placement_settle(holder)
 
 
 ## Open water: modeled sand floor GLB + authored underwater dressing. The
@@ -165,6 +168,11 @@ func _place_uw(root: Node3D, asset_id: String, pos: Vector3, rng: RandomNumberGe
 	node.position = pos
 	node.rotation.y = rng.randf_range(0.0, TAU)
 	root.add_child(node)
+	var base_y := node.position.y
+	var tween := node.create_tween().set_loops()
+	var duration := rng.randf_range(1.6, 2.5)
+	tween.tween_property(node, "position:y", base_y + rng.randf_range(0.018, 0.04), duration).set_trans(Tween.TRANS_SINE)
+	tween.tween_property(node, "position:y", base_y, duration).set_trans(Tween.TRANS_SINE)
 
 
 func _rebuild_water_surface() -> void:
@@ -201,6 +209,7 @@ func _build_structure(holder: Node3D, s: WorldGrid.StructureState) -> void:
 		_add_warm_light(visual, 1.1 if def.id == "struct_campfire" else 0.6)
 	if def.id == "struct_campfire":
 		_animate_flame(visual)
+	_attach_ambient_motion(visual, Vector2i(s.instance_id, s.rotation))
 
 
 func _add_warm_light(parent: Node3D, energy: float) -> void:
@@ -212,6 +221,7 @@ func _add_warm_light(parent: Node3D, energy: float) -> void:
 	light.set_meta("base_energy", energy)
 	light.add_to_group("warm_lights")
 	parent.add_child(light)
+	_animate_local_light(light)
 
 
 func _animate_flame(campfire: Node3D) -> void:
@@ -223,6 +233,103 @@ func _animate_flame(campfire: Node3D) -> void:
 		var base := flame.scale
 		tween.tween_property(flame, "scale", base * Vector3(0.88, 1.14, 0.88), 0.24).set_trans(Tween.TRANS_SINE)
 		tween.tween_property(flame, "scale", base, 0.31).set_trans(Tween.TRANS_SINE)
+
+
+## State has already committed before this presentation starts. The measured
+## placement language is a 2.5° two-beat wobble with 0.02 s beats; a short
+## 0.12 s settle keeps that readable at ordinary frame rates.
+func _animate_placement_settle(holder: Node3D) -> void:
+	var target_position := holder.position
+	holder.position.y += 0.1
+	holder.scale = Vector3.ONE * 0.96
+	holder.rotation_degrees.z = 2.5
+	var tween := holder.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(holder, "position", target_position, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(holder, "scale", Vector3.ONE, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.set_parallel(false)
+	tween.tween_property(holder, "rotation_degrees:z", -2.5, 0.02)
+	tween.tween_property(holder, "rotation_degrees:z", 1.25, 0.02)
+	tween.tween_property(holder, "rotation_degrees:z", 0.0, 0.08).set_trans(Tween.TRANS_SINE)
+
+
+func animation_manifest() -> Dictionary:
+	return {
+		"tile_placement": {
+			"duration": 0.24,
+			"events": [{"name": "settled", "time": 0.24}],
+			"tracks": {
+				"position.y": [
+					{"time": 0.0, "offset": 0.1},
+					{"time": 0.12, "offset": 0.0, "curve": "quad_out"},
+				],
+				"scale": [
+					{"time": 0.0, "value": 0.96},
+					{"time": 0.12, "value": 1.0, "curve": "back_out"},
+				],
+				"rotation.z_degrees": [
+					{"time": 0.0, "value": 2.5},
+					{"time": 0.14, "value": -2.5, "curve": "linear"},
+					{"time": 0.16, "value": 1.25, "curve": "linear"},
+					{"time": 0.24, "value": 0.0, "curve": "sine_in_out"},
+				],
+			},
+		},
+		"foliage_ambient": {
+			"looping": true,
+			"duration_range_per_half_cycle": [1.35, 2.4],
+			"rotation_amplitude_degrees": [0.8, 2.2],
+			"curve": "sine_in_out",
+			"deterministic_per_instance": true,
+		},
+		"underwater_bob": {
+			"looping": true,
+			"duration_range_per_half_cycle": [1.6, 2.5],
+			"height_range": [0.018, 0.04],
+			"curve": "sine_in_out",
+			"deterministic_per_cell": true,
+		},
+		"warm_light_flicker": {
+			"looping": true,
+			"half_cycle": 0.33,
+			"position_offsets": [Vector3(0.05, 0.02, -0.03), Vector3(-0.04, -0.01, 0.04)],
+			"curve": "sine_in_out",
+		},
+	}
+
+
+func _attach_ambient_motion(root: Node3D, seed_key: Vector2i) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(seed_key) + 1919
+	for child in root.find_children("*", "Node3D", true, false):
+		var node := child as Node3D
+		if node == null or node.has_meta("ambient_motion"):
+			continue
+		var lower := node.name.to_lower()
+		if not (
+			lower.contains("leaf")
+			or lower.contains("tier")
+			or lower.contains("grass")
+			or lower.contains("flower")
+			or lower.contains("reed")
+			or lower.contains("tuft")
+		):
+			continue
+		node.set_meta("ambient_motion", true)
+		var base_z := node.rotation.z
+		var amplitude := deg_to_rad(rng.randf_range(0.6, 1.8))
+		var duration := rng.randf_range(1.5, 2.8)
+		var tween := node.create_tween().set_loops()
+		tween.tween_interval(rng.randf_range(0.0, 0.8))
+		tween.tween_property(node, "rotation:z", base_z + amplitude, duration).set_trans(Tween.TRANS_SINE)
+		tween.tween_property(node, "rotation:z", base_z - amplitude, duration * 1.07).set_trans(Tween.TRANS_SINE)
+
+
+func _animate_local_light(light: OmniLight3D) -> void:
+	var base_position := light.position
+	var tween := light.create_tween().set_loops()
+	tween.tween_property(light, "position", base_position + Vector3(0.05, 0.02, -0.03), 0.33).set_trans(Tween.TRANS_SINE)
+	tween.tween_property(light, "position", base_position + Vector3(-0.04, -0.01, 0.04), 0.33).set_trans(Tween.TRANS_SINE)
 
 
 ## Grove rest: vegetation gently shrinks and desaturates while regrowing —

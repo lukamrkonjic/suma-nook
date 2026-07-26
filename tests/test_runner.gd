@@ -503,6 +503,13 @@ func _test_rework_save_round_trip() -> void:
 	core.stock.add_tile("tile_grove_birch")
 	core.profile.position = Vector3(0.234, 0.0, 0.345)   # continuous, between tile centers
 	core.profile.facing = 1.11
+	core.view_state = {"yaw": 135.0, "distance": 55.0}
+	core.visual_state = {
+		"weather": "snow",
+		"time_of_day": "night",
+		"background": "dusk",
+		"particle_quality": "medium",
+	}
 	core.arrivals.trigger_arrival()
 	core.arrivals.mark_delivery_ready(core.arrivals.current_payload)
 	var rng_next := core.rng.randi_range("probe", 0, 999999)
@@ -518,6 +525,8 @@ func _test_rework_save_round_trip() -> void:
 	check(restored.grid.cells.size() == core.grid.cells.size(), "grid round-trips")
 	check(restored.profile.position.is_equal_approx(Vector3(0.234, 0.0, 0.345)), "exact float player position round-trips")
 	check(absf(restored.profile.facing - 1.11) < 0.0001, "facing round-trips")
+	check(restored.view_state == core.view_state, "camera orbit and distance round-trip")
+	check(restored.visual_state == core.visual_state, "weather, time, background, and particle quality round-trip")
 	check(restored.arrivals.has_waiting_package(), "unopened ferry parcel survives restart")
 	check(restored.arrivals.current_payload.parcel_id == "parcel_wild", "delivery payload survives restart")
 	# RNG stream continues identically after reload (probe stream was consumed once pre-save)

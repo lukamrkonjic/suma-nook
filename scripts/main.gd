@@ -59,13 +59,32 @@ func _ready() -> void:
 		_start_character_creation()
 
 
-## Dev harness: `godot -- --shot=docs/foo.png [--mist|--rain] [--admin] [--zoom=10.5]`
+## Dev harness:
+## `godot -- --shot=docs/foo.png [--weather=snow] [--time=night]
+##     [--background=dusk] [--particles=high] [--admin] [--zoom=50]`
 ## boots a fresh throwaway world, waits for frames to settle, captures, quits.
 func _handle_dev_shot(user_args: PackedStringArray) -> bool:
 	var shot_path := ""
+	var shot_weather := "day"
+	var shot_time := "noon"
+	var shot_background := "profile"
+	var shot_particles := "high"
 	for arg in user_args:
 		if arg.begins_with("--shot="):
 			shot_path = arg.trim_prefix("--shot=")
+		elif arg.begins_with("--weather="):
+			shot_weather = arg.trim_prefix("--weather=")
+		elif arg.begins_with("--time="):
+			shot_time = arg.trim_prefix("--time=")
+		elif arg.begins_with("--background="):
+			shot_background = arg.trim_prefix("--background=")
+		elif arg.begins_with("--particles="):
+			shot_particles = arg.trim_prefix("--particles=")
+	# Backward-compatible aliases used by the existing visual audit docs.
+	if user_args.has("--rain"):
+		shot_weather = "rain"
+	elif user_args.has("--mist"):
+		shot_weather = "mist"
 	if shot_path == "":
 		return false
 	core.save_manager.save_path = "user://shot_throwaway.json"
@@ -84,13 +103,14 @@ func _handle_dev_shot(user_args: PackedStringArray) -> bool:
 	elif user_args.has("--package"):
 		core.arrivals.trigger_arrival()
 		debug_force_ferry_departure()
-	if user_args.has("--rain"):
+	if shot_weather == "rain":
 		core.grid.add_structure(Vector2i(-1, 0), "struct_campfire", 0, 0)
 		core.grid.add_structure(Vector2i(0, 1), "struct_lantern", 2, 0)
 		renderer.rebuild_all()
-		lighting.apply_profile(lighting.rain_profile)
-	elif user_args.has("--mist"):
-		lighting.apply_profile(lighting.mist_profile)
+	debug_set_weather(shot_weather)
+	debug_set_time_of_day(shot_time)
+	debug_set_background(shot_background)
+	debug_set_particle_quality(shot_particles)
 	for arg in user_args:
 		if arg.begins_with("--zoom="):
 			camera_rig.set_zoom_immediate(float(arg.trim_prefix("--zoom=")))
@@ -275,6 +295,8 @@ func _start_gameplay(fresh: bool) -> void:
 	_gameplay_started = true
 	player.set_state(PlayerController.State.FREE)
 	player_visual.apply_equipment(core.equipment)
+	camera_rig.restore_state(core.view_state)
+	_apply_saved_visual_state()
 	if not fresh:
 		renderer.rebuild_all()
 		player.position = core.profile.position
@@ -284,9 +306,15 @@ func _start_gameplay(fresh: bool) -> void:
 		if core.registries.feature("hostile_landmarks_enabled", false):
 			_spawn_saved_encounters()
 		hud._refresh_all()
+	if lighting.current_profile != null:
+		_on_profile_applied(lighting.current_profile)
 	hud.update_tutorial()
 	hud.toast("Welcome%s, %s." % ["" if fresh else " back", core.profile.display_name], "good")
 	core.arrivals.announce_restored_delivery()
+
+
+func _apply_saved_visual_state() -> void:
+	lighting.apply_runtime_state(core.visual_state)
 
 
 func _process(delta: float) -> void:
@@ -768,21 +796,41 @@ func toggle_weather() -> void:
 
 func debug_set_weather(weather_id: String) -> void:
 	lighting.set_weather(weather_id)
+	core.visual_state["weather"] = weather_id
+	core.autosave_soon()
 	hud.toast("Weather: %s" % weather_id.capitalize(), "good")
 
 
 func debug_set_time_of_day(preset_id: String) -> void:
 	lighting.set_time_of_day(preset_id)
+	core.visual_state["time_of_day"] = preset_id
+	core.autosave_soon()
 	hud.toast("Time of day: %s" % preset_id.capitalize(), "good")
 
 
 func debug_set_background(preset_id: String) -> void:
 	lighting.set_background_preset(preset_id)
+	core.visual_state["background"] = preset_id
+	core.autosave_soon()
 	hud.toast("Background: %s" % preset_id.capitalize(), "good")
+
+
+func debug_set_particle_quality(quality_id: String) -> void:
+	lighting.set_particle_quality(quality_id)
+	core.visual_state["particle_quality"] = quality_id
+	core.autosave_soon()
+	hud.toast("Particles: %s" % quality_id.capitalize(), "good")
 
 
 func debug_reset_visuals() -> void:
 	lighting.reset_admin_overrides()
+	core.visual_state = {
+		"weather": "day",
+		"time_of_day": "noon",
+		"background": "profile",
+		"particle_quality": "high",
+	}
+	core.autosave_soon()
 	hud.toast("Visual overrides reset.", "good")
 
 

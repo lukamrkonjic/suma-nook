@@ -5,6 +5,8 @@ extends CanvasLayer
 ## If a reveal was pending in the save, reopening resumes it — no loss.
 
 signal reveal_finished(tile_id: String)
+signal reveal_started(tile_ids: Array[String])
+signal card_revealed(tile_id: String, index: int)
 
 var core: GameCore
 var kit: UiKit
@@ -40,6 +42,7 @@ func open_best_available() -> void:
 
 
 func _show(options: Array[String]) -> void:
+	reveal_started.emit(options)
 	_root = Control.new()
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(_root)
@@ -90,9 +93,46 @@ func _show(options: Array[String]) -> void:
 		card.modulate.a = 0.0
 		card.position.y += 30
 		var tween := card.create_tween()
-		tween.tween_interval(0.12 * index + 0.15)
+		# Safe reference timing: 0.15 s gift pause, 0.50 s first reveal,
+		# then 0.10 s spacing between successive cards.
+		tween.tween_interval(0.1 * index + 0.15)
 		tween.tween_property(card, "modulate:a", 1.0, 0.22)
-		tween.parallel().tween_property(card, "position:y", card.position.y - 30, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tween.parallel().tween_property(card, "position:y", card.position.y - 30, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tween.tween_callback(func(): card_revealed.emit(options[index], index))
+
+
+func animation_manifest() -> Dictionary:
+	return {
+		"card_reveal": {
+			"duration_first_card": 0.5,
+			"queue_spacing": 0.1,
+			"gift_pause": 0.15,
+			"events": [
+				{"name": "reveal_started", "time": 0.0},
+				{"name": "card_revealed", "time": 0.5, "repeats_every": 0.1},
+			],
+			"tracks": {
+				"position.y": [
+					{"time": 0.15, "offset": 30.0},
+					{"time": 0.5, "offset": 0.0, "curve": "back_out"},
+				],
+				"modulate.a": [
+					{"time": 0.15, "value": 0.0},
+					{"time": 0.37, "value": 1.0, "curve": "linear"},
+				],
+			},
+		},
+		"selection": {
+			"duration": 0.42,
+			"events": [{"name": "reveal_finished", "time": 0.42}],
+			"chosen_scale_curve": [
+				{"time": 0.0, "value": 1.0},
+				{"time": 0.14, "value": 1.1, "curve": "back_out"},
+			],
+			"chosen_fade_seconds": 0.24,
+			"unchosen_fade_seconds": 0.3,
+		},
+	}
 
 
 func _tile_card(tile_id: String, index: int) -> Control:

@@ -1,12 +1,18 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/visuals/lighting_rig.gd" id="1"]
 [ext_resource type="Resource" path="res://assets/visual_profiles/gg_day_profile.tres" id="2"]
 [ext_resource type="Resource" path="res://assets/visual_profiles/garden_rain.tres" id="3"]
 [ext_resource type="Resource" path="res://assets/visual_profiles/garden_galaxy_mist.tres" id="4"]
+[ext_resource type="Resource" path="res://assets/visual_profiles/windy_leaves.tres" id="5"]
+[ext_resource type="Resource" path="res://assets/visual_profiles/soft_snow.tres" id="6"]
+[ext_resource type="Resource" path="res://assets/visual_profiles/petal_breeze.tres" id="7"]
 
 [node name="GGDayLightingRig" type="Node3D"]
 script = ExtResource("1")
 day_profile = ExtResource("2")
 mist_profile = ExtResource("4")
 rain_profile = ExtResource("3")
+leaves_profile = ExtResource("5")
+snow_profile = ExtResource("6")
+blossom_profile = ExtResource("7")

@@ -61,6 +61,7 @@ extends Resource
 @export var exposure := 1.0
 ## "linear" during raw calibration, "filmic" for the GG day rig, "aces" optional.
 @export var tonemap := "filmic"
+@export var brightness := 1.0
 @export var contrast := 1.0
 @export var saturation := 1.0
 @export var fog_enabled := false
@@ -70,4 +71,8 @@ extends Resource
 @export_group("Weather")
 @export var rain_enabled := false
 @export var motes_enabled := false
+@export var leaves_enabled := false
+@export var snow_enabled := false
+@export var blossoms_enabled := false
+@export var spores_enabled := false
 @export var local_light_multiplier := 1.0
