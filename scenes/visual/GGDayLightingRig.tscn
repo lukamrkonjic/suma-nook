@@ -1,10 +1,12 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/visuals/lighting_rig.gd" id="1"]
 [ext_resource type="Resource" path="res://assets/visual_profiles/gg_day_profile.tres" id="2"]
 [ext_resource type="Resource" path="res://assets/visual_profiles/garden_rain.tres" id="3"]
+[ext_resource type="Resource" path="res://assets/visual_profiles/garden_galaxy_mist.tres" id="4"]
 
 [node name="GGDayLightingRig" type="Node3D"]
 script = ExtResource("1")
 day_profile = ExtResource("2")
+mist_profile = ExtResource("4")
 rain_profile = ExtResource("3")

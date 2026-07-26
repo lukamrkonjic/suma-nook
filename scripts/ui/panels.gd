@@ -342,7 +342,7 @@ func _settings_panel() -> Dictionary:
 				AudioServer.set_bus_volume_db(bus_index, linear_to_db(maxf(v, 0.001))))
 		row.add_child(slider)
 		list.add_child(row)
-	var weather_button := kit.button("Toggle weather (day / rain)")
+	var weather_button := kit.button("Toggle weather (day / mist / rain)")
 	weather_button.pressed.connect(func(): settings_bridge.call("toggle_weather"))
 	list.add_child(weather_button)
 	var hold_check := CheckButton.new()

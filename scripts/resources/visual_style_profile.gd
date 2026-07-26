@@ -10,6 +10,15 @@ extends Resource
 @export var ambient_color := Color(0.8667, 0.8471, 0.7961)
 @export var ambient_energy := 0.78
 
+@export_group("Ambient hemisphere")
+## Uses a procedural sky as the diffuse/reflection source while keeping the
+## camera backdrop independent. Upward faces receive a soft sky tint while
+## downward faces receive warm ground bounce, like a miniature studio diorama.
+@export var ambient_gradient_enabled := false
+@export var ambient_sky_color := Color(0.8, 0.741, 0.769)
+@export var ambient_equator_color := Color(0.651, 0.42, 0.373)
+@export var ambient_ground_color := Color(0.859, 0.8, 0.722)
+
 @export_group("Background gradient")
 ## When enabled the rig shows a screen-space vertical gradient (mist preset)
 ## behind the diorama instead of the flat background color.
@@ -60,4 +69,5 @@ extends Resource
 
 @export_group("Weather")
 @export var rain_enabled := false
+@export var motes_enabled := false
 @export var local_light_multiplier := 1.0

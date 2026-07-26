@@ -59,7 +59,7 @@ func _ready() -> void:
 		_start_character_creation()
 
 
-## Dev harness: `godot -- --shot=docs/foo.png [--rain] [--zoom=9] [--creator]`
+## Dev harness: `godot -- --shot=docs/foo.png [--mist|--rain] [--zoom=10.5] [--creator]`
 ## boots a fresh throwaway world, waits for frames to settle, captures, quits.
 func _handle_dev_shot(user_args: PackedStringArray) -> bool:
 	var shot_path := ""
@@ -89,10 +89,11 @@ func _handle_dev_shot(user_args: PackedStringArray) -> bool:
 		core.grid.add_structure(Vector2i(0, 1), "struct_lantern", 2, 0)
 		renderer.rebuild_all()
 		lighting.apply_profile(lighting.rain_profile)
+	elif user_args.has("--mist"):
+		lighting.apply_profile(lighting.mist_profile)
 	for arg in user_args:
 		if arg.begins_with("--zoom="):
-			camera_rig._size_target = float(arg.trim_prefix("--zoom="))
-			camera_rig.camera.size = camera_rig._size_target
+			camera_rig.set_zoom_immediate(float(arg.trim_prefix("--zoom=")))
 	get_tree().create_timer(2.2).timeout.connect(func():
 		var image := get_viewport().get_texture().get_image()
 		image.save_png(shot_path)

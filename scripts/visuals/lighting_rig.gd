@@ -10,12 +10,16 @@ signal profile_applied(profile: VisualStyleProfile)
 const MIST_BG_SHADER: Shader = preload("res://assets/materials/mist_background.gdshader")
 
 @export var day_profile: VisualStyleProfile
+@export var mist_profile: VisualStyleProfile
 @export var rain_profile: VisualStyleProfile
 
 var current_profile: VisualStyleProfile
 var _sun: DirectionalLight3D
 var _environment: WorldEnvironment
+var _ambient_sky: Sky
+var _ambient_material: ProceduralSkyMaterial
 var _rain: GPUParticles3D
+var _motes: GPUParticles3D
 var _bg_layer: CanvasLayer
 var _bg_rect: ColorRect
 var _bg_material: ShaderMaterial
@@ -37,6 +41,11 @@ func _ready() -> void:
 	_environment = WorldEnvironment.new()
 	_environment.name = "Atmosphere"
 	_environment.environment = Environment.new()
+	_ambient_sky = Sky.new()
+	_ambient_material = ProceduralSkyMaterial.new()
+	_ambient_material.sun_angle_max = 0.0
+	_ambient_sky.sky_material = _ambient_material
+	_environment.environment.sky = _ambient_sky
 	add_child(_environment)
 
 	# Screen-space gradient backdrop (mist preset). Sits behind the 3D scene
@@ -55,9 +64,13 @@ func _ready() -> void:
 
 	_rain = _build_rain()
 	add_child(_rain)
+	_motes = _build_motes()
+	add_child(_motes)
 
 	if day_profile == null:
 		day_profile = load("res://assets/visual_profiles/gg_day_profile.tres")
+	if mist_profile == null:
+		mist_profile = load("res://assets/visual_profiles/garden_galaxy_mist.tres")
 	if rain_profile == null:
 		rain_profile = load("res://assets/visual_profiles/garden_rain.tres")
 	apply_profile(day_profile)
@@ -68,9 +81,15 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	var env := _environment.environment
 	env.background_mode = Environment.BG_CANVAS if profile.background_gradient else Environment.BG_COLOR
 	env.background_color = profile.background_color
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY if profile.ambient_gradient_enabled else Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = profile.ambient_color
 	env.ambient_light_energy = profile.ambient_energy
+	env.ambient_light_sky_contribution = 1.0 if profile.ambient_gradient_enabled else 0.0
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+	_ambient_material.sky_top_color = profile.ambient_sky_color
+	_ambient_material.sky_horizon_color = profile.ambient_equator_color
+	_ambient_material.ground_horizon_color = profile.ambient_equator_color
+	_ambient_material.ground_bottom_color = profile.ambient_ground_color
 	match profile.tonemap:
 		"aces":
 			env.tonemap_mode = Environment.TONE_MAPPER_ACES
@@ -114,11 +133,17 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	_sun.shadow_normal_bias = profile.shadow_normal_bias
 
 	_rain.emitting = profile.rain_enabled
+	_motes.emitting = profile.motes_enabled
 	profile_applied.emit(profile)
 
 
 func toggle_profile() -> void:
-	apply_profile(rain_profile if current_profile == day_profile else day_profile)
+	if current_profile == day_profile:
+		apply_profile(mist_profile)
+	elif current_profile == mist_profile:
+		apply_profile(rain_profile)
+	else:
+		apply_profile(day_profile)
 
 
 ## Scales warm local lights (campfires, lanterns) so they whisper by day and
@@ -152,4 +177,36 @@ func _build_rain() -> GPUParticles3D:
 	streak_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	streak.material = streak_mat
 	particles.draw_pass_1 = streak
+	return particles
+
+
+func _build_motes() -> GPUParticles3D:
+	var particles := GPUParticles3D.new()
+	particles.name = "DriftingMotes"
+	particles.amount = 180
+	particles.lifetime = 6.0
+	particles.randomness = 0.9
+	particles.emitting = false
+	particles.visibility_aabb = AABB(Vector3(-30, -6, -30), Vector3(60, 22, 60))
+	var process := ParticleProcessMaterial.new()
+	process.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	process.emission_box_extents = Vector3(24, 6, 24)
+	process.direction = Vector3(0.18, 0.35, 0.08)
+	process.spread = 110.0
+	process.initial_velocity_min = 0.04
+	process.initial_velocity_max = 0.18
+	process.gravity = Vector3.ZERO
+	process.scale_min = 0.55
+	process.scale_max = 1.35
+	particles.process_material = process
+	particles.position.y = 3.0
+	var mote := SphereMesh.new()
+	mote.radius = 0.018
+	mote.height = 0.036
+	var mote_material := StandardMaterial3D.new()
+	mote_material.albedo_color = Color(1.0, 0.93, 0.72, 0.48)
+	mote_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mote_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mote.material = mote_material
+	particles.draw_pass_1 = mote
 	return particles
