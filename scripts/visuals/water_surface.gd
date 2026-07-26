@@ -17,9 +17,26 @@ func rebuild(cells: Array, cell_to_world: Callable, tile_size: float, level: flo
 	var cell_set := {}
 	for cell in cells:
 		cell_set[cell] = true
+	# Shoreline segments: every cell edge whose neighbour is not water. Foam is
+	# driven by the distance to these — a GEOMETRIC shoreline — never by a
+	# screen-space depth difference, which would paint a white halo around any
+	# object standing in front of or just under the surface.
+	var shore: Array[PackedVector3Array] = []
+	for cell in cells:
+		var origin: Vector3 = cell_to_world.call(cell)
+		for dir: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			if cell_set.has(cell + dir):
+				continue
+			var out := Vector3(dir.x, 0, dir.y)
+			var tangent := Vector3(-dir.y, 0, dir.x)
+			var mid: Vector3 = origin + out * tile_size / 2.0
+			shore.append(PackedVector3Array([
+				mid - tangent * tile_size / 2.0, mid + tangent * tile_size / 2.0]))
+
 	var verts := PackedVector3Array()
 	var normals := PackedVector3Array()
 	var uvs := PackedVector2Array()
+	var uv2s := PackedVector2Array()
 	var indices := PackedInt32Array()
 	var step := tile_size / float(SUBDIV)
 	for cell in cells:
@@ -31,6 +48,9 @@ func rebuild(cells: Array, cell_to_world: Callable, tile_size: float, level: flo
 				verts.append(p)
 				normals.append(Vector3.UP)
 				uvs.append(Vector2(p.x, p.z))
+				# +1 sentinel: meshes without UV2 (GLB pond quads) read 0 and are
+				# treated as "no shoreline data" rather than "at the shore".
+				uv2s.append(Vector2(_shore_distance(p, shore) + 1.0, 0.0))
 		for iy in SUBDIV:
 			for ix in SUBDIV:
 				var a := base + iy * (SUBDIV + 1) + ix
@@ -57,6 +77,7 @@ func rebuild(cells: Array, cell_to_world: Callable, tile_size: float, level: flo
 					verts.append(p)
 					normals.append(out)
 					uvs.append(Vector2(p.x + p.z, p.y))
+					uv2s.append(Vector2(999.0, 0.0))
 			for ix in SUBDIV:
 				var a := sbase + ix * 2
 				var b := a + 1
@@ -68,9 +89,23 @@ func rebuild(cells: Array, cell_to_world: Callable, tile_size: float, level: flo
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	arrays[Mesh.ARRAY_NORMAL] = normals
 	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_TEX_UV2] = uv2s
 	arrays[Mesh.ARRAY_INDEX] = indices
 	var array_mesh := ArrayMesh.new()
 	array_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	mesh = array_mesh
 	material_override = water_material
 	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+## Shortest distance from a surface point to the shoreline (region boundary).
+func _shore_distance(p: Vector3, shore: Array[PackedVector3Array]) -> float:
+	var best := 999.0
+	for seg in shore:
+		var a: Vector3 = seg[0]
+		var b: Vector3 = seg[1]
+		var ab := b - a
+		var len_sq := ab.length_squared()
+		var t := 0.0 if len_sq < 1e-6 else clampf((p - a).dot(ab) / len_sq, 0.0, 1.0)
+		best = minf(best, p.distance_to(a + ab * t))
+	return best

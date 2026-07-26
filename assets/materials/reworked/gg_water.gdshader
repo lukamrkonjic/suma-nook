@@ -16,7 +16,7 @@ uniform float depth_falloff = 0.5;      // meters of water for ~63% absorption
 uniform float shallow_alpha = 0.8;
 uniform float deep_alpha = 0.97;
 uniform float refraction_strength = 0.012;
-uniform float foam_width = 0.1;
+uniform float foam_width = 0.13;
 uniform float water_roughness = 0.24;
 uniform float water_specular = 0.32;
 uniform float fresnel_strength = 0.22;
@@ -31,6 +31,7 @@ uniform sampler2D depth_tex : hint_depth_texture;
 
 varying vec3 world_pos;
 varying vec3 mesh_normal;
+varying float shore_dist;
 
 float wave_h(vec2 p, float t) {
 	float h = sin(dot(normalize(vec2(0.8, 0.6)), p) * 2.244 + t * 0.9) * wave_height;
@@ -41,6 +42,8 @@ float wave_h(vec2 p, float t) {
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	mesh_normal = normalize((MODEL_NORMAL_MATRIX * NORMAL));
+	// <0.5 means the mesh carries no baked shoreline data -> never foam.
+	shore_dist = UV2.x < 0.5 ? 999.0 : UV2.x - 1.0;
 	// Waves fade out down the skirt so the block bottom stays planted.
 	float anchor = clamp(1.0 - (water_level - world_pos.y) * 3.0, 0.0, 1.0);
 	float h = wave_h(world_pos.xz, TIME) * anchor;
@@ -81,7 +84,11 @@ void fragment() {
 	vec4 vp = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, raw, 1.0);
 	float floor_dist = -(vp.z / vp.w);
 	float surf_dist = -VERTEX.z;
-	float depth_w = max(floor_dist - surf_dist, 0.0);
+	// Geometry in front of the surface (a character on the shore) yields a
+	// negative difference; treat it as deep so the silhouette cannot flash the
+	// bright shallow colour.
+	float raw_diff = floor_dist - surf_dist;
+	float depth_w = raw_diff <= 0.0 ? depth_falloff * 3.0 : raw_diff;
 
 	// Depth-eased body color (no bands: smooth exponential).
 	float dfac = clamp(1.0 - exp(-depth_w / depth_falloff), 0.0, 1.0);
@@ -99,12 +106,16 @@ void fragment() {
 	vec3 under = texture(screen_tex, refr_uv).rgb;
 	vec3 col = mix(under, body, opacity);
 
-	// Sparse broken shoreline foam.
+	// Sparse broken shoreline foam, driven by the BAKED geometric distance to
+	// the water region's edge (UV2.x). Deliberately not depth-based: a
+	// screen-space depth difference paints a white halo around anything
+	// standing in front of, or just under, the surface.
 	float foam_noise = sin(world_pos.x * 9.1 + t * 0.9) * sin(world_pos.z * 8.3 - t * 0.7)
 		+ sin((world_pos.x + world_pos.z) * 5.7 + t * 0.5);
-	float foam_band = smoothstep(foam_width * (1.25 + 0.5 * foam_noise), 0.015, depth_w);
-	float foam = foam_band * clamp(0.55 + 0.45 * foam_noise, 0.0, 1.0);
-	col = mix(col, foam_color.rgb, clamp(foam, 0.0, 0.6));
+	float band = foam_width * (0.85 + 0.35 * foam_noise);
+	float foam_band = smoothstep(band, band * 0.2, shore_dist);
+	float foam = foam_band * clamp(0.35 + 0.4 * foam_noise, 0.0, 1.0);
+	col = mix(col, foam_color.rgb, clamp(foam, 0.0, 0.4));
 
 	// Gentle grazing reflection toward the environment tone. Never a mirror.
 	float fres = pow(1.0 - clamp(dot(n_world, normalize(-(INV_VIEW_MATRIX * vec4(0.0, 0.0, -1.0, 0.0)).xyz)), 0.0, 1.0), 5.0);
