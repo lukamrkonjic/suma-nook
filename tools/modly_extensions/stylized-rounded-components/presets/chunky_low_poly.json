@@ -1,0 +1,16 @@
+{
+  "mode": "rounded_box_reconstruction",
+  "minimum_component_volume": 0.008,
+  "remove_small_fragments": true,
+  "dimension_percentile": 97.0,
+  "bevel_ratio": 0.08,
+  "bevel_segments": 2,
+  "asymmetry_amount": 0.02,
+  "smoothing_iterations": 4,
+  "smoothing_strength": 0.2,
+  "target_face_count": 12000,
+  "preserve_material_slots": false,
+  "merge_output": true,
+  "recalculate_normals": true,
+  "hard_edge_angle": 65.0
+}
