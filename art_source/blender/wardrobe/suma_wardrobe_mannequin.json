@@ -1,0 +1,29 @@
+{
+  "source": "assets\\3d\\reworked\\suma_player.glb",
+  "source_sha256": "602c51fdde92933860568fcf467847ecbebf84a356c206ef1d5a0ee5c9efbc0a",
+  "output": "art_source\\blender\\wardrobe\\suma_wardrobe_mannequin.blend",
+  "units": "meters",
+  "up_axis_in_blender": "Z",
+  "armature": "WardrobeArmature",
+  "bones": 34,
+  "body": "WardrobeBodyReference",
+  "vertices": 3000,
+  "polygons": 1000,
+  "uv_layers": [
+    "UVMap",
+    "UVMap.001"
+  ],
+  "vertex_groups": 34,
+  "bounds": {
+    "minimum": [
+      -0.49999505281448364,
+      -0.19355705380439758,
+      -0.4343165457248688
+    ],
+    "maximum": [
+      0.49999502301216125,
+      0.19355705380439758,
+      0.4343165457248688
+    ]
+  }
+}

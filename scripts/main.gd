@@ -37,6 +37,7 @@ var save_path_override := ""  # injected before _ready by isolated scene tests
 var _encounters: Dictionary = {}   # landmark_id -> LandmarkEncounter
 var _footstep_accum := 0.0
 var _gameplay_started := false
+var _celebration_pending := false
 
 
 func _ready() -> void:
@@ -185,10 +186,11 @@ func _connect_flows() -> void:
 	player.interaction_focus_changed.connect(_on_focus_changed)
 	player.click_interaction_reached.connect(_on_click_interaction_reached)
 
-	core.skills.level_up.connect(func(_s, _l, _u):
-		audio.play_event("levelup")
-		player_visual.play("celebrate")
-		hud.update_tutorial())
+	core.skills.level_up.connect(_on_skill_level_up)
+	core.equipment.equipment_changed.connect(func():
+		player_visual.apply_equipment(core.equipment)
+	)
+	player.state_changed.connect(_on_player_state_changed)
 	core.collection.discovered.connect(func(_c, _i): audio.play_event("discovery"))
 	if core.registries.feature("combat_enabled", false):
 		core.combat.health_changed.connect(_on_health_changed)
@@ -470,6 +472,24 @@ func _on_action_feedback(kind: String, data: Dictionary) -> void:
 				renderer.refresh_anchor(data["coord"])
 		"tool_equip":
 			audio.play_event("tool_equip")
+
+
+func _on_skill_level_up(_skill_id: String, _level: int, _unlock: Variant) -> void:
+	audio.play_event("levelup")
+	hud.update_tutorial()
+	if player.state == PlayerController.State.FREE:
+		player_visual.play("celebrate")
+	else:
+		# Fishing and woodcutting own their full action clips. Queue the flourish
+		# rather than cutting a cast, hold, or chop loop in half.
+		_celebration_pending = true
+
+
+func _on_player_state_changed(new_state: PlayerController.State) -> void:
+	if new_state != PlayerController.State.FREE or not _celebration_pending:
+		return
+	_celebration_pending = false
+	player_visual.play("celebrate")
 
 
 func _reward_sound(grants: Array) -> void:

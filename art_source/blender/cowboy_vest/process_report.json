@@ -1,0 +1,86 @@
+{
+  "source": "art_source\\imported\\cowboy_vest\\cowboy_vest_source.glb",
+  "source_sha256": "145180369651319798d510b38a01a8127a9f97aecb4abd12ac38f3041cdac024",
+  "player_reference": "assets\\3d\\reworked\\suma_player.glb",
+  "output": "assets\\3d\\reworked\\cowboy_vest.glb",
+  "output_sha256": "802f7fc02afa7ec6c14a5dbd5b4f58f098a9c8a5be9e731beeaa60772383f25c",
+  "blend": "art_source\\blender\\cowboy_vest\\cowboy_vest.blend",
+  "fit": {
+    "scale": [
+      0.5600000023841858,
+      0.5,
+      0.4000000059604645
+    ],
+    "location_blender": [
+      0.0,
+      -0.014999999664723873,
+      0.0
+    ],
+    "shoulder_clearance": {
+      "adjusted_vertices": 627,
+      "minimum_height": 0.06,
+      "minimum_half_width": 0.105,
+      "normal_offset": 0.01,
+      "lateral_overlap": 0.008
+    }
+  },
+  "weight_transfer": {
+    "mapping": "POLYINTERP_NEAREST",
+    "unweighted_vertices": 0,
+    "minimum_weight_total": 0.9999998472630978,
+    "maximum_weight_total": 1.0000001564621925,
+    "maximum_influences": 4
+  },
+  "body_coverage": {
+    "hidden_face_count": 79,
+    "height": [
+      -0.16,
+      0.115
+    ],
+    "half_width": 0.23,
+    "back_y": 0.02,
+    "selection": "polygon centers inside back-torso bounds"
+  },
+  "before": {
+    "vertices": 960,
+    "polygons": 1000,
+    "triangles": 1000,
+    "materials": [
+      "Material_0.001"
+    ],
+    "uv_layers": [
+      "UVMap"
+    ],
+    "vertex_groups": 0
+  },
+  "after": {
+    "vertices": 2998,
+    "polygons": 3000,
+    "triangles": 6000,
+    "materials": [
+      "Material_0.001"
+    ],
+    "uv_layers": [
+      "UVMap"
+    ],
+    "vertex_groups": 34
+  },
+  "exposed_body": {
+    "vertices": 2763,
+    "polygons": 921,
+    "triangles": 921,
+    "materials": [
+      "Material_0"
+    ],
+    "uv_layers": [
+      "UVMap",
+      "UVMap.001"
+    ],
+    "vertex_groups": 34
+  },
+  "previews": [
+    "art_source\\blender\\cowboy_vest\\cowboy_vest_rest_front.png",
+    "art_source\\blender\\cowboy_vest\\cowboy_vest_rest_back.png",
+    "art_source\\blender\\cowboy_vest\\cowboy_vest_idle_deform.png"
+  ]
+}

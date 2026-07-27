@@ -1,0 +1,345 @@
+{
+  "standard": "art_source\\blender\\wardrobe\\wardrobe_standard.json",
+  "standard_version": 1,
+  "mannequin": "art_source\\blender\\wardrobe\\suma_wardrobe_mannequin.blend",
+  "mannequin_sha256": "bf5383fbda636a2584058ddce6255b9a367277fbd8eaf1c8bc57985c2dcc9dcf",
+  "candidate_glb": "art_source\\blender\\wardrobe\\candidates\\cowboy_vest_template_candidate.glb",
+  "candidate_glb_sha256": "c0cf3ff60dcf73ba51cfb33cf057accb38231f768c4aca206b7bcd6544d3abfa",
+  "candidate_blend": "art_source\\blender\\wardrobe\\candidates\\sleeveless_vest_template_candidate.blend",
+  "calibration": {
+    "body_minimum": [
+      -0.49999505281448364,
+      -0.19355705380439758,
+      -0.4343165457248688
+    ],
+    "body_maximum": [
+      0.49999502301216125,
+      0.19355705380439758,
+      0.4343165457248688
+    ],
+    "body_center": [
+      -1.4901161193847656e-08,
+      0.0,
+      0.0
+    ],
+    "character_height": 0.8686330914497375,
+    "torso_minimum": [
+      -0.2577359676361084,
+      -0.19355705380439758,
+      -0.3073822259902954
+    ],
+    "torso_maximum": [
+      0.25356775522232056,
+      0.19355705380439758,
+      0.17108874022960663
+    ],
+    "torso_center": [
+      -0.002084106206893921,
+      0.0,
+      -0.06814674288034439
+    ]
+  },
+  "fit": {
+    "center": [
+      -0.002084106206893921,
+      0.0,
+      -0.06814674288034439
+    ],
+    "half_width": 0.2361671069264412,
+    "half_depth": 0.21092971563339233,
+    "bottom": -0.17819506511092184,
+    "top": 0.1519788122177124,
+    "underarm": 0.03311621637940407,
+    "opening_half_width": 0.0590417767316103
+  },
+  "coverage": {
+    "hidden_faces": 170,
+    "template": "sleeveless_vest_v1"
+  },
+  "manual_weight_corrections": {
+    "VestShoulderL": "chest/left shoulder/left arm",
+    "VestShoulderR": "chest/right shoulder/right arm",
+    "VestLapelL": "stable chest lapel",
+    "VestLapelR": "stable chest lapel",
+    "VestPocketR": "stable abdomen/hips pocket",
+    "VestPocketFlapR": "stable abdomen/hips pocket",
+    "VestPocketL": "stable abdomen/hips pocket",
+    "VestPocketFlapL": "stable abdomen/hips pocket"
+  },
+  "weights": {
+    "VestShell": {
+      "unweighted": 0,
+      "minimum_total": 0.9999998640269041,
+      "maximum_total": 1.000000144005753,
+      "maximum_influences": 4
+    },
+    "VestShoulderL": {
+      "unweighted": 0,
+      "minimum_total": 0.9999998509883881,
+      "maximum_total": 1.0000001266598701,
+      "maximum_influences": 4
+    },
+    "VestShoulderR": {
+      "unweighted": 0,
+      "minimum_total": 0.999999888241291,
+      "maximum_total": 1.0000001192092896,
+      "maximum_influences": 4
+    },
+    "VestLapelL": {
+      "unweighted": 0,
+      "minimum_total": 0.999999925494194,
+      "maximum_total": 1.000000116197043,
+      "maximum_influences": 4
+    },
+    "VestLapelR": {
+      "unweighted": 0,
+      "minimum_total": 0.9999999110586941,
+      "maximum_total": 1.0000001401640475,
+      "maximum_influences": 4
+    },
+    "VestHemTrim": {
+      "unweighted": 0,
+      "minimum_total": 0.9999999329447746,
+      "maximum_total": 1.0000001266598701,
+      "maximum_influences": 4
+    },
+    "VestFrontTrimR": {
+      "unweighted": 0,
+      "minimum_total": 0.9999999031424522,
+      "maximum_total": 1.0000001405132934,
+      "maximum_influences": 4
+    },
+    "VestArmholeTrimR": {
+      "unweighted": 0,
+      "minimum_total": 0.9999999201390892,
+      "maximum_total": 1.0000001303851604,
+      "maximum_influences": 4
+    },
+    "VestPocketR": {
+      "unweighted": 0,
+      "minimum_total": 0.999999888241291,
+      "maximum_total": 1.000000111758709,
+      "maximum_influences": 4
+    },
+    "VestPocketFlapR": {
+      "unweighted": 0,
+      "minimum_total": 0.9999998770654202,
+      "maximum_total": 1.0000001192092896,
+      "maximum_influences": 4
+    },
+    "VestFrontTrimL": {
+      "unweighted": 0,
+      "minimum_total": 0.9999999590218067,
+      "maximum_total": 1.0000001185107976,
+      "maximum_influences": 4
+    },
+    "VestArmholeTrimL": {
+      "unweighted": 0,
+      "minimum_total": 0.9999999015126377,
+      "maximum_total": 1.0000001295702532,
+      "maximum_influences": 4
+    },
+    "VestPocketL": {
+      "unweighted": 0,
+      "minimum_total": 0.9999999050050974,
+      "maximum_total": 1.0000001080334187,
+      "maximum_influences": 4
+    },
+    "VestPocketFlapL": {
+      "unweighted": 0,
+      "minimum_total": 0.9999998910352588,
+      "maximum_total": 1.0000001331791282,
+      "maximum_influences": 4
+    }
+  },
+  "components": {
+    "VestShell": {
+      "vertices": 512,
+      "polygons": 510,
+      "triangles": 1020,
+      "uv_layers": [
+        "UVMap"
+      ],
+      "materials": [
+        "VestLeather",
+        "VestInnerLining"
+      ],
+      "vertex_groups": 34
+    },
+    "VestShoulderL": {
+      "vertices": 182,
+      "polygons": 180,
+      "triangles": 360,
+      "uv_layers": [
+        "UVMap"
+      ],
+      "materials": [
+        "VestDarkLeather"
+      ],
+      "vertex_groups": 34
+    },
+    "VestShoulderR": {
+      "vertices": 182,
+      "polygons": 180,
+      "triangles": 360,
+      "uv_layers": [
+        "UVMap"
+      ],
+      "materials": [
+        "VestDarkLeather"
+      ],
+      "vertex_groups": 34
+    },
+    "VestLapelL": {
+      "vertices": 48,
+      "polygons": 46,
+      "triangles": 92,
+      "uv_layers": [
+        "UVMap"
+      ],
+      "materials": [
+        "VestDarkLeather"
+      ],
+      "vertex_groups": 34
+    },
+    "VestLapelR": {
+      "vertices": 48,
+      "polygons": 46,
+      "triangles": 92,
+      "uv_layers": [
+        "UVMap"
+      ],
+      "materials": [
+        "VestDarkLeather"
+      ],
+      "vertex_groups": 34
+    },
+    "VestHemTrim": {
+      "vertices": 312,
+      "polygons": 304,
+      "triangles": 608,
+      "uv_layers": [
+        "UVMap"
+      ],
+      "materials": [
+        "VestDarkLeather"
+      ],
+      "vertex_groups": 34
+    },
+    "VestFrontTrimR": {
+      "vertices": 40,
+      "polygons": 32,
+      "triangles": 64,
+      "uv_layers": [
+        "UVMap"
+      ],
+      "materials": [
+        "VestDarkLeather"
+      ],
+      "vertex_groups": 34
+    },
+    "VestArmholeTrimR": {
+      "vertices": 136,
+      "polygons": 128,
+      "triangles": 256,
+      "uv_layers": [
+        "UVMap"
+      ],
+      "materials": [
+        "VestDarkLeather"
+      ],
+      "vertex_groups": 34
+    },
+    "VestPocketR": {
+      "vertices": 96,
+      "polygons": 98,
+      "triangles": 188,
+      "uv_layers": [
+        "UVMap"
+      ],
+      "materials": [
+        "VestLeather"
+      ],
+      "vertex_groups": 34
+    },
+    "VestPocketFlapR": {
+      "vertices": 96,
+      "polygons": 98,
+      "triangles": 188,
+      "uv_layers": [
+        "UVMap"
+      ],
+      "materials": [
+        "VestDarkLeather"
+      ],
+      "vertex_groups": 34
+    },
+    "VestFrontTrimL": {
+      "vertices": 40,
+      "polygons": 32,
+      "triangles": 64,
+      "uv_layers": [
+        "UVMap"
+      ],
+      "materials": [
+        "VestDarkLeather"
+      ],
+      "vertex_groups": 34
+    },
+    "VestArmholeTrimL": {
+      "vertices": 136,
+      "polygons": 128,
+      "triangles": 256,
+      "uv_layers": [
+        "UVMap"
+      ],
+      "materials": [
+        "VestDarkLeather"
+      ],
+      "vertex_groups": 34
+    },
+    "VestPocketL": {
+      "vertices": 96,
+      "polygons": 98,
+      "triangles": 188,
+      "uv_layers": [
+        "UVMap"
+      ],
+      "materials": [
+        "VestLeather"
+      ],
+      "vertex_groups": 34
+    },
+    "VestPocketFlapL": {
+      "vertices": 96,
+      "polygons": 98,
+      "triangles": 188,
+      "uv_layers": [
+        "UVMap"
+      ],
+      "materials": [
+        "VestDarkLeather"
+      ],
+      "vertex_groups": 34
+    }
+  },
+  "exposed_body": {
+    "vertices": 2490,
+    "polygons": 830,
+    "triangles": 830,
+    "uv_layers": [
+      "UVMap",
+      "UVMap.001"
+    ],
+    "materials": [
+      "Material_0"
+    ],
+    "vertex_groups": 34
+  },
+  "previews": [
+    "art_source\\blender\\wardrobe\\candidates\\reviews\\template_rest_front.png",
+    "art_source\\blender\\wardrobe\\candidates\\reviews\\template_rest_orbit.png",
+    "art_source\\blender\\wardrobe\\candidates\\reviews\\template_rest_side.png",
+    "art_source\\blender\\wardrobe\\candidates\\reviews\\template_rest_back.png"
+  ]
+}

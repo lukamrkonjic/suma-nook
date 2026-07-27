@@ -11,6 +11,7 @@ const REST_TWEEN_SECONDS := 0.5
 const StructureVisualFactoryScript := preload(
 	"res://scripts/world/structure_visual_factory.gd"
 )
+const FoliageWindScript := preload("res://scripts/visuals/foliage_wind.gd")
 
 var core: GameCore
 var assets: AssetLibrary
@@ -109,7 +110,7 @@ func _on_slot_changed(coord: Vector2i, elevation: int) -> void:
 	if core.grid.has_cell_at(coord, elevation):
 		_build_cell(coord, elevation, true)
 	if elevation > 0:
-		_refresh_covered_surface(coord, elevation - 1)
+		_refresh_covered_surface(coord, elevation - 1, true)
 	# Any changed elevation can turn a void edge into a jumpable raised
 	# neighbour (or vice versa), so physical perimeter walls follow columns,
 	# not only their elevation-zero roots.
@@ -136,8 +137,8 @@ func _build_cell(coord: Vector2i, elevation: int, animate := false) -> void:
 	var visual := _tile_visual_factory.instantiate_visual(def)
 	visual.rotation.y = state.rotation * PI * 0.5
 	holder.add_child(visual)
+	_tile_visual_factory.set_stack_seam_visible(visual, elevation > 0)
 	_apply_covered_surface(visual, coord, elevation, def)
-	_attach_ambient_motion(visual, Vector2i(coord.x + elevation * 1009, coord.y))
 
 	_tile_visual_factory.add_collision(holder, def, state.rotation)
 	_add_tile_pick_target(holder, visual, coord, elevation)
@@ -154,22 +155,27 @@ func _apply_covered_surface(
 	visual: Node3D,
 	coord: Vector2i,
 	elevation: int,
-	def: Defs.TileDefinition
+	def: Defs.TileDefinition,
+	animate := false
 ) -> void:
 	if not def.supports_tiles:
 		return
 	var covered := core.grid.has_cell_at(coord, elevation + 1)
-	_tile_visual_factory.set_surface_covered(visual, covered)
+	_tile_visual_factory.set_surface_covered(visual, covered, animate)
 
 
-func _refresh_covered_surface(coord: Vector2i, elevation: int) -> void:
+func _refresh_covered_surface(
+	coord: Vector2i,
+	elevation: int,
+	animate := false
+) -> void:
 	var holder := tile_node(coord, elevation)
 	var def := core.grid.tile_def_at(coord, elevation)
 	if holder == null or def == null or holder.get_child_count() == 0:
 		return
 	var visual := holder.get_child(0) as Node3D
 	if visual != null:
-		_apply_covered_surface(visual, coord, elevation, def)
+		_apply_covered_surface(visual, coord, elevation, def, animate)
 
 
 ## Deterministic per-cell underwater dressing: 2-4 clusters weighted toward
@@ -269,7 +275,16 @@ func _build_structure(holder: Node3D, s: WorldGrid.StructureState) -> void:
 		)
 	if def.id == "struct_campfire":
 		_animate_flame(visual)
-	_attach_ambient_motion(visual, Vector2i(s.instance_id, s.rotation))
+	if "tree" in def.placement_tags:
+		_attach_tree_wind(visual, s.instance_id)
+	else:
+		_attach_ambient_motion(visual, Vector2i(s.instance_id, s.rotation))
+
+
+func _attach_tree_wind(root: Node3D, seed_value: int) -> void:
+	var controller := FoliageWindScript.new()
+	root.add_child(controller)
+	controller.setup(root, seed_value)
 
 
 func _add_structure_blocker(visual: Node3D) -> void:

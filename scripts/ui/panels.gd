@@ -190,7 +190,10 @@ func _character_panel() -> Dictionary:
 	var list: VBoxContainer = parts["list"]
 	list.add_child(kit.label("Equipped", 19))
 	for slot in EquipmentManager.SLOTS:
-		if not core.registries.feature("combat_enabled", false) and slot != "tool":
+		if (
+			not core.registries.feature("combat_enabled", false)
+			and slot not in ["tool", "body"]
+		):
 			continue
 		var def := core.equipment.equipped_in(slot)
 		var row := HBoxContainer.new()
@@ -210,7 +213,10 @@ func _character_panel() -> Dictionary:
 		var def := core.registries.item(item_id)
 		if def == null:
 			continue
-		if not core.registries.feature("combat_enabled", false) and def.slot != "tool":
+		if (
+			not core.registries.feature("combat_enabled", false)
+			and def.slot not in ["tool", "body"]
+		):
 			continue
 		var row := HBoxContainer.new()
 		var name_label := kit.label(def.display_name, 16)

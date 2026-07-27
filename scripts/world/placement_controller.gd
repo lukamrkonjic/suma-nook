@@ -52,6 +52,7 @@ var _pointer_dragging := false
 var _pointer_press_position := Vector2.ZERO
 var _picked_on_pointer_press := false
 var _hover_info_signature := ""
+var _animate_ghost_rotation := false
 
 func setup(
 	game_core: GameCore,
@@ -109,10 +110,12 @@ func rotate_held() -> void:
 	if held.is_empty():
 		return
 	held["rotation"] = (int(held["rotation"]) + 1) % 4
+	_animate_ghost_rotation = true
 	action_result.emit(true, "", "rotate")
 
 
 func _build_ghost() -> void:
+	_animate_ghost_rotation = false
 	if _ghost != null:
 		_ghost.queue_free()
 		_ghost = null
@@ -125,7 +128,8 @@ func _build_ghost() -> void:
 	):
 		_build_tile_stack_ghost(held["moving"]["stack"])
 		add_child(_ghost)
-		_preview.apply_ghost_material(_ghost, true)
+		_preview.prepare_held_visual(_ghost)
+		_ghost.visible = false
 		return
 	var asset_id := ""
 	match held["kind"]:
@@ -134,7 +138,7 @@ func _build_ghost() -> void:
 			if tile_def == null:
 				action_result.emit(false, "That tile is no longer available.", "invalid")
 				return
-			_ghost = _tile_visual_factory.instantiate_visual(tile_def)
+			_ghost = _tile_visual_factory.instantiate_visual(tile_def, true)
 		"structure":
 			var structure_def := core.registries.structure(held["id"])
 			if structure_def == null:
@@ -156,7 +160,10 @@ func _build_ghost() -> void:
 	):
 		_add_stack_descendants_to_ghost(held["moving"]["stack"])
 	add_child(_ghost)
-	_preview.apply_ghost_material(_ghost, true)
+	_preview.prepare_held_visual(_ghost)
+	# The first preview frame resolves the real cursor target before revealing
+	# the model, preventing a newly held piece from flying in from world origin.
+	_ghost.visible = false
 
 
 func _build_tile_stack_ghost(stack: Array) -> void:
@@ -173,14 +180,16 @@ func _build_tile_stack_ghost(stack: Array) -> void:
 		var definition := core.registries.tile(state.tile_id)
 		if definition == null:
 			continue
-		var tile_visual := _tile_visual_factory.instantiate_visual(definition)
+		var tile_visual := _tile_visual_factory.instantiate_visual(definition, true)
 		tile_visual.name = "ghost_tile_e%d" % relative
+		tile_visual.set_meta("ghost_relative_elevation", relative)
 		tile_visual.position.y = relative * core.grid.block_depth
 		tile_visual.rotation.y = (state.rotation - base_state.rotation) * PI * 0.5
 		_tile_visual_factory.set_surface_covered(
 			tile_visual,
 			relative < int(stack.back()["relative_elevation"])
 		)
+		_tile_visual_factory.set_stack_seam_visible(tile_visual, relative > 0)
 		_ghost.add_child(tile_visual)
 		for structure: WorldGrid.StructureState in state.structures:
 			var structure_def := core.registries.structure(structure.structure_id)
@@ -289,34 +298,13 @@ func _process(delta: float) -> void:
 	_update_hover_target()
 	_hover_valid = _validate(_hover_cell, _hover_elevation)
 	var world := core.grid.cell_to_world(_hover_cell, _hover_elevation)
+	var landing_position := _resolved_landing_position(world)
 	if _ghost != null:
 		var was_visible := _ghost.visible
 		_ghost.visible = true
-		var target_position := world + Vector3(
-			0,
-			0.1 + sin(Time.get_ticks_msec() * 0.006) * 0.025,
-			0
+		var target_position: Vector3 = _preview.lifted_position(
+			landing_position
 		)
-		if held["kind"] == "structure":
-			if _hover_support_instance_id > 0:
-				if _hover_support_slot != "":
-					var support_transform := world_renderer.support_slot_world_transform(
-						_hover_support_instance_id,
-						_hover_support_slot
-					)
-					target_position = support_transform.origin + Vector3(
-						0,
-						0.1 + sin(Time.get_ticks_msec() * 0.006) * 0.025,
-						0
-					)
-				else:
-					target_position = world_renderer.structure_preview_position(
-						_hover_support_instance_id
-					) + Vector3(0, 0.1, 0)
-			else:
-				var socket := _target_socket(_hover_cell, _hover_elevation)
-				if socket >= 0:
-					target_position += core.grid.socket_offset(socket)
 		if was_visible:
 			_ghost.position = _ghost.position.lerp(target_position, 1.0 - exp(-delta * 20.0))
 		else:
@@ -327,22 +315,138 @@ func _process(delta: float) -> void:
 				_hover_support_instance_id,
 				_hover_support_slot
 			).basis.get_euler().y
-		_ghost.rotation.y = lerp_angle(
-			_ghost.rotation.y,
-			target_yaw,
-			1.0 - exp(-delta * 22.0)
-		)
-		_preview.apply_ghost_material(_ghost, _hover_valid)
-	_sync_indicator_preview(world)
+		_sync_ghost_yaw(target_yaw, delta, was_visible)
+		_sync_ghost_stack_seams()
+		_sync_ghost_water_topology()
+		_preview.set_validity(_ghost, _hover_valid)
+		var glow_position := landing_position
+		glow_position.x = _ghost.position.x
+		glow_position.z = _ghost.position.z
+		_sync_indicator_preview(glow_position)
+	else:
+		_sync_indicator_preview(landing_position)
 
 
-## Valid and invalid previews share the same grid-aligned isometric footprint.
-## Validity is communicated by material only, so a rejected placement never
-## appears to rotate away from the surface it is testing.
-func _sync_indicator_preview(world: Vector3) -> void:
-	_preview.sync_indicator(
-		world, _hover_support_instance_id == 0, _hover_valid
+func _resolved_landing_position(world: Vector3) -> Vector3:
+	var landing_position := world
+	match held.get("kind", ""):
+		"tile":
+			# Tiles may never be supported by objects, but an invalid preview
+			# should still sit visibly above the obstruction instead of slicing
+			# through it and hiding the reason placement failed.
+			var support_elevation := core.grid.top_elevation(_hover_cell)
+			var obstruction_id := _highest_structure_instance_at(
+				_hover_cell,
+				support_elevation
+			)
+			if obstruction_id > 0:
+				landing_position.y = maxf(
+					landing_position.y,
+					world_renderer.structure_preview_position(obstruction_id).y
+				)
+		"structure":
+			if _hover_support_instance_id > 0:
+				if _hover_support_slot != "":
+					landing_position = (
+						world_renderer.support_slot_world_transform(
+							_hover_support_instance_id,
+							_hover_support_slot
+						).origin
+					)
+				else:
+					landing_position = world_renderer.structure_preview_position(
+						_hover_support_instance_id
+					)
+			else:
+				var socket := _target_socket(_hover_cell, _hover_elevation)
+				if socket >= 0:
+					landing_position += core.grid.socket_offset(socket)
+	return landing_position
+
+
+## A newly built pickup ghost has the factory's identity rotation for one frame.
+## Interpolating from that value made rotated objects visibly whip around on
+## selection. The first visible frame must inherit its resolved target rotation
+## exactly. Cursor/support resolution changes also snap because they are not a
+## rotation command. Only an explicit R press gets a short, rate-limited turn.
+func _sync_ghost_yaw(target_yaw: float, delta: float, was_visible: bool) -> void:
+	if _ghost == null:
+		return
+	if not was_visible or not _animate_ghost_rotation:
+		_ghost.rotation.y = target_yaw
+		return
+	_ghost.rotation.y = rotate_toward(
+		_ghost.rotation.y,
+		target_yaw,
+		TAU * 1.6 * delta
 	)
+	if absf(angle_difference(_ghost.rotation.y, target_yaw)) < 0.002:
+		_ghost.rotation.y = target_yaw
+		_animate_ghost_rotation = false
+
+
+func _sync_ghost_stack_seams() -> void:
+	if _ghost == null or held.get("kind", "") != "tile":
+		return
+	var found_stack_children := false
+	for child_variant in _ghost.get_children():
+		var child := child_variant as Node3D
+		if child == null or not child.has_meta("ghost_relative_elevation"):
+			continue
+		found_stack_children = true
+		var relative := int(child.get_meta("ghost_relative_elevation"))
+		_tile_visual_factory.set_stack_seam_visible(
+			child,
+			_hover_elevation + relative > 0
+		)
+	if not found_stack_children:
+		_tile_visual_factory.set_stack_seam_visible(
+			_ghost,
+			_hover_elevation > 0
+		)
+
+
+func _sync_ghost_water_topology() -> void:
+	if (
+		_ghost == null
+		or held.get("kind", "") != "tile"
+		or held.get("id", "") == ""
+	):
+		return
+	var def := core.registries.tile(String(held["id"]))
+	if def == null or def.render_profile != "continuous_water":
+		return
+	var connected: Array[Vector2i] = []
+	var visited := {}
+	var pending: Array[Vector2i] = []
+	for direction: Vector2i in WorldGrid.NEIGHBORS:
+		var neighbor := _hover_cell + direction
+		if _is_water_cell(neighbor):
+			pending.append(neighbor)
+	while not pending.is_empty():
+		var coord: Vector2i = pending.pop_back()
+		if visited.has(coord):
+			continue
+		visited[coord] = true
+		connected.append(coord - _hover_cell)
+		for direction: Vector2i in WorldGrid.NEIGHBORS:
+			var neighbor := coord + direction
+			if not visited.has(neighbor) and _is_water_cell(neighbor):
+				pending.append(neighbor)
+	_tile_visual_factory.sync_preview_water_topology(_ghost, connected)
+
+
+func _is_water_cell(coord: Vector2i) -> bool:
+	if not core.grid.has_cell(coord):
+		return false
+	var def := core.grid.tile_def(coord)
+	return def != null and def.render_profile == "continuous_water"
+
+
+## Validity styling belongs to the model and remains readable throughout tall
+## stacks; the legacy ground-plane compatibility node stays hidden.
+func _sync_indicator_preview(landing_position: Vector3) -> void:
+	_preview.sync_indicator(landing_position, _ghost != null, _hover_valid)
 
 
 func _update_placeable_hover() -> void:
@@ -668,7 +772,6 @@ func _place_tile() -> void:
 		core.grid.cell_to_world(_hover_cell, _hover_elevation),
 		def.placement_sound
 	)
-	_settle_animation(_hover_cell, _hover_elevation)
 	action_result.emit(
 		true,
 		"Stacked at level %d." % _hover_elevation if _hover_elevation > 0 else "",
@@ -1264,19 +1367,3 @@ func _return_tile_stack_to_stock(stack: Array) -> void:
 		core.stock.add_tile(state.tile_id)
 		for structure: WorldGrid.StructureState in state.structures:
 			core.stock.add_structure_instance(structure)
-
-
-func _settle_animation(coord: Vector2i, elevation: int = 0) -> void:
-	var renderer := get_parent().find_child("WorldRenderer", false, false) as WorldRenderer
-	if renderer == null:
-		return
-	var node := renderer.tile_node(coord, elevation)
-	if node == null:
-		return
-	var target_position := core.grid.cell_to_world(coord, elevation)
-	node.position = target_position + Vector3(0, 0.5, 0)
-	node.scale = Vector3(0.94, 0.94, 0.94)
-	var tween := node.create_tween()
-	tween.set_parallel()
-	tween.tween_property(node, "position", target_position, 0.3).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
-	tween.tween_property(node, "scale", Vector3.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)

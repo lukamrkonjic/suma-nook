@@ -51,7 +51,7 @@ func _physics_process(delta: float) -> void:
 		_:
 			_free_move(delta)
 	if not is_on_floor():
-		velocity.y -= core.registries.tunef("jump_gravity", 18.0) * delta
+		velocity.y -= core.registries.tunef("jump_gravity", 25.0) * delta
 	else:
 		velocity.y = maxf(velocity.y, 0.0)
 	move_and_slide()
@@ -81,7 +81,7 @@ func _free_move(delta: float) -> void:
 				wish = wish.normalized()
 		elif state == State.FREE and not _click_path.is_empty():
 			wish = _click_wish()
-	var speed := core.registries.tunef("walk_speed", 4.0)
+	var speed := core.registries.tunef("walk_speed", 2.2)
 	var accel := core.registries.tunef("walk_accel", 26.0) if wish != Vector3.ZERO else core.registries.tunef("walk_decel", 32.0)
 	var horizontal := Vector3(velocity.x, 0, velocity.z)
 	horizontal = horizontal.move_toward(wish * speed, accel * delta)
@@ -102,7 +102,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		and state in [State.FREE, State.BUILDING]
 		and not move_locked
 	):
-		velocity.y = core.registries.tunef("jump_velocity", 5.0)
+		velocity.y = core.registries.tunef("jump_velocity", 5.4)
 		floor_snap_length = 0.0
 		get_tree().create_timer(0.12).timeout.connect(func():
 			floor_snap_length = 0.4

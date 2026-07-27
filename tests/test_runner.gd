@@ -962,6 +962,62 @@ func _test_crafting_transactions() -> void:
 
 func _test_equipment() -> void:
 	var core := fresh_core()
+	check(
+		core.equipment.owns("cosmetic_cowboy_vest"),
+		"starter wardrobe grants the cowboy vest"
+	)
+	check(
+		core.equipment.equipped_in("body").id == "cosmetic_cowboy_vest",
+		"cowboy vest starts equipped in the body slot"
+	)
+	var vest_definition := core.registries.item("cosmetic_cowboy_vest")
+	check(
+		vest_definition != null
+		and vest_definition.asset_id == "cowboy_vest",
+		"cowboy vest item resolves the production GLB asset id"
+	)
+	var vest_scene := load(
+		"res://assets/3d/reworked/cowboy_vest.glb"
+	) as PackedScene
+	check(vest_scene != null, "cowboy vest GLB imports as a PackedScene")
+	if vest_scene != null:
+		var vest_root := vest_scene.instantiate()
+		var vest_mesh := vest_root.find_child(
+			"CowboyVest", true, false
+		) as MeshInstance3D
+		var exposed_body := vest_root.find_child(
+			"BodyExposedForCowboyVest", true, false
+		) as MeshInstance3D
+		check(
+			vest_root.find_children("*", "Skeleton3D", true, false).size() == 1,
+			"cowboy vest bundle exports one helper skeleton"
+		)
+		check(
+			vest_mesh != null and vest_mesh.skin != null,
+			"cowboy vest mesh keeps its skin after GLB import"
+		)
+		check(
+			exposed_body != null and exposed_body.skin != null,
+			"covered-body replacement keeps its skin after GLB import"
+		)
+		vest_root.free()
+	core.equipment.equipped.erase("body")
+	core.equipment.owned.erase("cosmetic_cowboy_vest")
+	core.equipment.appearance_unlocked.erase("cosmetic_cowboy_vest")
+	check(core.save(), "pre-wardrobe development save fixture writes")
+	var migrated_core := GameCore.new()
+	check(migrated_core.setup(), "migration core loads content")
+	migrated_core.save_manager.save_path = "user://test_save.json"
+	migrated_core.save_manager.backup_path = "user://test_save.json.backup"
+	check(migrated_core.load_game(), "pre-wardrobe development save loads")
+	check(
+		migrated_core.equipment.owns("cosmetic_cowboy_vest")
+		and (
+			migrated_core.equipment.equipped_in("body").id
+			== "cosmetic_cowboy_vest"
+		),
+		"existing saves gain and equip the vest when their body slot is empty"
+	)
 	core.equipment.acquire("cape_watchpost")
 	check(core.equipment.equip("cape_watchpost"), "owned equipment can be equipped")
 	check(core.equipment.equipped_in("back").id == "cape_watchpost", "slot query returns equipped item")

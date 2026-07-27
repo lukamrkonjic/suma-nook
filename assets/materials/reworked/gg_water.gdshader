@@ -1,7 +1,7 @@
 shader_type spatial;
 render_mode blend_mix, cull_disabled, depth_draw_always, specular_schlick_ggx;
 // GG rework water: depth-aware turquoise body derived from the tropical-water
-// reference. Two low-amplitude Gerstner-style waves + scrolling ripple normals,
+// reference. Three world-space wave bands + scrolling ripple normals,
 // exponential depth absorption (shallow reveals the seabed, deep goes nearly
 // opaque), true alpha compositing, sparse animated shoreline foam, gentle
 // fresnel. World-space everything — no per-tile seams, ever.
@@ -18,7 +18,10 @@ uniform vec4 mid_color : source_color = vec4(0.235, 0.671, 0.761, 1.0);       //
 uniform vec4 deep_color : source_color = vec4(0.02, 0.416, 0.58, 1.0);        // #056A94
 uniform vec4 foam_color : source_color = vec4(0.918, 0.961, 0.945, 1.0);      // #EAF5F1
 uniform vec4 sky_color : source_color = vec4(0.906, 0.878, 0.792, 1.0);       // cream env
-uniform float wave_height = 0.032;
+uniform vec4 caustic_color : source_color = vec4(0.675, 0.808, 0.804, 1.0);
+uniform float wave_height = 0.048;
+uniform float wave_speed = 1.08;
+uniform float surface_shimmer = 0.16;
 uniform float depth_falloff = 0.5;      // meters of water for ~63% absorption
 uniform float shallow_alpha = 0.8;
 uniform float deep_alpha = 0.97;
@@ -31,6 +34,11 @@ uniform float water_level = -0.14;
 uniform vec4 side_top_color : source_color = vec4(0.51, 0.8, 0.81, 1.0);
 uniform vec4 side_bottom_color : source_color = vec4(0.275, 0.737, 0.8, 1.0);
 uniform float side_opacity = 0.88;
+// Placement previews need to preserve the exact animated water silhouette.
+// A second static red mesh cannot follow this shader's displaced vertices, so
+// held water receives its invalid tint inside the water shader itself.
+uniform vec4 placement_invalid_tint : source_color = vec4(1.0, 0.08, 0.045, 1.0);
+uniform float placement_invalid_strength : hint_range(0.0, 1.0) = 0.0;
 
 uniform sampler2D depth_tex : hint_depth_texture;
 
@@ -39,9 +47,16 @@ varying vec3 mesh_normal;
 varying float shore_dist;
 
 float wave_h(vec2 p, float t) {
-	float h = sin(dot(normalize(vec2(0.8, 0.6)), p) * 2.244 + t * 0.9) * wave_height;
-	h += sin(dot(normalize(vec2(-0.6, 0.8)), p) * 4.833 - t * 1.25) * wave_height * 0.5;
+	float h = sin(dot(normalize(vec2(0.8, 0.6)), p) * 2.244 + t * 0.9 * wave_speed) * wave_height;
+	h += sin(dot(normalize(vec2(-0.6, 0.8)), p) * 4.833 - t * 1.25 * wave_speed) * wave_height * 0.52;
+	h += sin(dot(normalize(vec2(0.26, -0.97)), p) * 7.15 + t * 1.58 * wave_speed) * wave_height * 0.22;
 	return h;
+}
+
+float caustic_layer(vec2 p, float t) {
+	float a = sin(p.x + t) + sin(p.y * 1.13 - t * 0.83);
+	float b = sin((p.x + p.y) * 0.72 - t * 0.61);
+	return pow(clamp(1.0 - abs(a + b * 0.72) * 0.34, 0.0, 1.0), 5.0);
 }
 
 void vertex() {
@@ -66,9 +81,18 @@ void fragment() {
 		vec3 jello = mix(side_top_color.rgb, side_bottom_color.rgb, down01);
 		float lip = smoothstep(0.05, 0.0, water_level - world_pos.y);
 		vec3 side_col = mix(jello, foam_color.rgb, lip * 0.35);
+		side_col = mix(
+			side_col,
+			placement_invalid_tint.rgb,
+			placement_invalid_strength
+		);
 		ALBEDO = vec3(0.02);
 		EMISSION = side_col;
-		ALPHA = side_opacity;
+		ALPHA = mix(
+			side_opacity,
+			max(side_opacity, placement_invalid_tint.a),
+			placement_invalid_strength
+		);
 		ROUGHNESS = 0.34;
 		SPECULAR = 0.25;
 		METALLIC = 0.0;
@@ -121,8 +145,23 @@ void fragment() {
 	// inverted values), so emit it directly; a small dark ALBEDO keeps the
 	// sun's specular glint riding on the waves.
 	ALBEDO = vec3(0.02);
-	EMISSION = col;
-	ALPHA = opacity;
+	float caustic_a = caustic_layer(world_pos.xz * 3.0, t * 0.7);
+	float caustic_b = caustic_layer(
+		world_pos.xz * 4.7 + vec2(1.7, -2.3),
+		-t * 0.46
+	);
+	float shimmer = caustic_a * caustic_b * surface_shimmer;
+	vec3 finished_col = col + caustic_color.rgb * shimmer;
+	EMISSION = mix(
+		finished_col,
+		placement_invalid_tint.rgb,
+		placement_invalid_strength
+	);
+	ALPHA = mix(
+		opacity,
+		max(opacity, placement_invalid_tint.a),
+		placement_invalid_strength
+	);
 	ROUGHNESS = water_roughness;
 	SPECULAR = water_specular;
 	METALLIC = 0.0;

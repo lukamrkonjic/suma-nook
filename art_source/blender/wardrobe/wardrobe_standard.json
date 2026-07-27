@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "description": "Replaceable semantic wardrobe calibration. Bone names belong to the active mannequin, while generator logic stays character-agnostic.",
+  "mannequin": "art_source/blender/wardrobe/suma_wardrobe_mannequin.blend",
+  "body_object": "WardrobeBodyReference",
+  "armature_object": "WardrobeArmature",
+  "semantic_bones": {
+    "hips": "mixamorigHips",
+    "waist": "mixamorigSpine",
+    "abdomen": "mixamorigSpine1",
+    "chest": "mixamorigSpine2",
+    "shoulder_l": "mixamorigLeftShoulder",
+    "upper_arm_l": "mixamorigLeftArm",
+    "shoulder_r": "mixamorigRightShoulder",
+    "upper_arm_r": "mixamorigRightArm"
+  },
+  "sleeveless_vest": {
+    "thickness_height_ratio": 0.0115,
+    "body_clearance_height_ratio": 0.0200,
+    "bevel_height_ratio": 0.0035,
+    "trim_radius_height_ratio": 0.0080,
+    "torso_bottom_ratio": 0.27,
+    "shell_half_width_ratio": 0.90,
+    "underarm_height_ratio": 0.64,
+    "front_opening_width_ratio": 0.25
+  }
+}

@@ -86,11 +86,14 @@ func _fishing_cycle(my_loop: int, coord: Vector2i) -> void:
 	if my_loop != _loop_id or core.grid.cell(coord) == null:
 		return
 	player.set_state(PlayerController.State.FISHING_CAST)
-	visual.play("fish_cast")
 	var cast_point := _pond_point(coord)
 	action_feedback.emit("fish_cast", {"point": cast_point})
 	var speed := core.equipment.tool_stat("rod", "speed", 1.0)
-	await _wait(0.45 / speed)
+	var cast_seconds := (
+		visual.authored_action_duration("fish_cast", 0.45) / speed
+	)
+	visual.play("fish_cast", cast_seconds)
+	await _wait(cast_seconds)
 	if my_loop != _loop_id:
 		return
 	effects.show_bobber(cast_point)
@@ -159,10 +162,16 @@ func _chop_cycle(my_loop: int, instance_id: int) -> void:
 		player.set_state(PlayerController.State.FREE)
 		return
 	player.set_state(PlayerController.State.WOODCUTTING)
-	visual.play("chop")
 	action_feedback.emit("chop_windup", {})
 	var speed := core.equipment.tool_stat("axe", "speed", 1.0)
-	await _wait(0.28 / speed)   # the swing reaches the trunk exactly here
+	var cycle_seconds := (
+		core.registries.skill("woodcutting").action_seconds / speed
+	)
+	var impact_seconds := cycle_seconds * visual.authored_action_impact_ratio(
+		"chop", 0.47
+	)
+	visual.play("chop", cycle_seconds)
+	await _wait(impact_seconds)
 	if my_loop != _loop_id:
 		return
 	found = core.grid.find_structure(instance_id)
@@ -185,10 +194,10 @@ func _chop_cycle(my_loop: int, instance_id: int) -> void:
 		)
 		action_feedback.emit("grove_rest", {"instance_id": instance_id})
 		core.autosave_soon()
-		await _wait(0.4)
+		await _wait(maxf(0.12, cycle_seconds - impact_seconds))
 		player.set_state(PlayerController.State.FREE)
 		return
-	await _wait(maxf(0.4, core.registries.skill("woodcutting").action_seconds / speed - 0.28))
+	await _wait(maxf(0.12, cycle_seconds - impact_seconds))
 	if my_loop != _loop_id:
 		return
 	_chop_cycle(my_loop, instance_id)

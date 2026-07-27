@@ -1,12 +1,13 @@
 class_name PlayerVisual
 extends Node3D
-## Builds the rounded life-sim keeper from character_proxy.glb, applies the
-## profile's customization (skin, hair, eyes, outfit), attaches equipment
-## visuals, and drives all procedural animation (walk bob, chop, cast, dodge,
-## hit flash, celebrate). A future Tier C rigged character replaces this by
-## exposing the same play() state names.
+## Presents whichever authored player profile is current behind one stable
+## animation/equipment API. The current model is explicitly temporary; gameplay
+## never depends on its asset name, clip names, bone names, scale, or materials.
 
 const WALK_BOB_HZ := 7.5
+const CURRENT_PLAYER_PROFILE: PlayerAssetProfile = preload(
+	"res://assets/player/current_player_profile.tres"
+)
 
 signal animation_started(animation_name: String)
 signal animation_event(animation_name: String, event_name: String)
@@ -34,8 +35,8 @@ const ANIMATION_MANIFEST := {
 	},
 	"fish_cast": {
 		"looping": false,
-		"duration": 0.38,
-		"events": [{"name": "release", "time": 0.22}],
+		"duration": 1.15,
+		"events": [{"name": "release", "time": 1.15}],
 		"tracks": {
 			"right_arm.rotation.x": [
 				{"time": 0.0, "value": 0.0},
@@ -46,7 +47,7 @@ const ANIMATION_MANIFEST := {
 	},
 	"fish_wait": {
 		"looping": true,
-		"duration": 1.3,
+		"duration": 3.5333333,
 		"events": [],
 		"tracks": {
 			"right_arm.rotation.x": [
@@ -74,9 +75,9 @@ const ANIMATION_MANIFEST := {
 		},
 	},
 	"chop": {
-		"looping": false,
-		"duration": 0.52,
-		"events": [{"name": "impact", "time": 0.38}],
+		"looping": true,
+		"duration": 1.9,
+		"events": [{"name": "impact", "time": 0.893}],
 		"tracks": {
 			"right_arm.rotation.x": [
 				{"time": 0.0, "value": 0.0},
@@ -174,6 +175,19 @@ var _back_mount: Node3D
 var _head_mount: Node3D
 var _hair_nodes: Array[Node3D] = []
 var _eye_nodes: Array[MeshInstance3D] = []
+var _animation_player: AnimationPlayer
+var _skeleton: Skeleton3D
+var _asset_profile: PlayerAssetProfile
+var _uses_rigged_preview := false
+var _base_body_meshes: Array[MeshInstance3D] = []
+var _body_garment_meshes: Array[MeshInstance3D] = []
+var _armor_anchors: Dictionary = {}
+var _body_region_mask := 0
+var _body_base_position := Vector3.ZERO
+var _body_base_rotation := Vector3.ZERO
+var _locomotion_clip := ""
+var _locomotion_walking := false
+var _locomotion_transition_count := 0
 
 var _walk_amount := 0.0
 var _walk_phase := 0.0
@@ -186,9 +200,435 @@ func build(asset_library: AssetLibrary, pal: CozyPalette) -> void:
 	assets = asset_library
 	materials = asset_library.materials
 	palette = pal
-	_body = assets.instantiate("character_proxy")
+	_asset_profile = CURRENT_PLAYER_PROFILE
+	var profile_errors := _asset_profile.validation_errors()
+	assert(profile_errors.is_empty(), "Invalid current player profile: %s" % profile_errors)
+	assert(
+		assets.exists(_asset_profile.asset_id),
+		"Current player asset '%s' cannot be resolved" % _asset_profile.asset_id
+	)
+	_body = assets.instantiate(_asset_profile.asset_id)
 	add_child(_body)
-	_collect_parts()
+	_uses_rigged_preview = _body.find_child("Skeleton3D", true, false) is Skeleton3D
+	if _uses_rigged_preview:
+		_setup_rigged_preview()
+	else:
+		push_warning(
+			"PlayerVisual: '%s' has no skeleton; using legacy proxy bindings"
+			% _asset_profile.asset_id
+		)
+		_collect_parts()
+
+
+func _setup_rigged_preview() -> void:
+	var bounds := _visual_bounds_in(_body)
+	var authored_height := maxf(bounds.size.y, 0.001)
+	var preview_scale := _asset_profile.target_height / authored_height
+	_skeleton = _body.find_child("Skeleton3D", true, false) as Skeleton3D
+	_animation_player = _body.find_child("AnimationPlayer", true, false) as AnimationPlayer
+	_prepare_embedded_animation_library()
+	var rig_errors := _asset_profile.rig_validation_errors(
+		_skeleton, _animation_player
+	)
+	assert(
+		rig_errors.is_empty(),
+		"Invalid rig for player profile '%s': %s"
+		% [_asset_profile.profile_id, rig_errors]
+	)
+	if (
+		_animation_player != null
+		and _animation_player.has_animation(_asset_profile.idle_clip_name)
+	):
+		if _asset_profile.animation_updates_in_physics:
+			# CharacterBody3D advances in physics. Advancing its skeleton in the
+			# same clock prevents render/physics beat-frequency judder.
+			_animation_player.callback_mode_process = (
+				AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_PHYSICS
+			)
+		var idle := _animation_player.get_animation(_asset_profile.idle_clip_name)
+		idle.loop_mode = Animation.LOOP_LINEAR
+		_animation_player.play(_asset_profile.idle_clip_name)
+		# Apply frame zero immediately. Mixamo's clip translates the hips from
+		# the centered bind pose into a ground-relative animated pose.
+		_animation_player.seek(0.0, true)
+	else:
+		push_warning(
+			"PlayerVisual: '%s' is missing idle clip '%s'"
+			% [_asset_profile.asset_id, _asset_profile.idle_clip_name]
+		)
+	_body.scale = Vector3.ONE * preview_scale
+	_body_base_rotation = Vector3(
+		0.0, deg_to_rad(_asset_profile.model_yaw_degrees), 0.0
+	)
+	_body.rotation = _body_base_rotation
+	_body_base_position = Vector3(
+		0.0, _animated_ground_offset(bounds, preview_scale), 0.0
+	)
+	_body.position = _body_base_position
+	_apply_authored_materials()
+	_capture_base_body_meshes()
+	_tool_mount = _make_bone_mount(
+		"ToolMount", _asset_profile.tool_bone, preview_scale
+	)
+	_head_mount = _make_bone_mount(
+		"HeadMount", _asset_profile.head_bone, preview_scale
+	)
+	_back_mount = _make_bone_mount(
+		"BackMount", _asset_profile.back_bone, preview_scale
+	)
+	_install_armor_anchors(preview_scale)
+	_install_walk_animation()
+	_install_action_animations()
+	_locomotion_clip = _asset_profile.idle_clip_name
+	if _asset_profile.animation_updates_in_physics:
+		physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
+		_body.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
+		reset_physics_interpolation()
+
+
+func _install_walk_animation() -> void:
+	if _asset_profile.walk_animation == null:
+		return
+	install_rig_animation(
+		_asset_profile.walk_clip_name,
+		_asset_profile.walk_animation,
+		Animation.LOOP_LINEAR
+	)
+
+
+func _install_action_animations() -> void:
+	for action_name in _asset_profile.action_animations:
+		var source := (
+			_asset_profile.action_animations[action_name] as Animation
+		)
+		if source == null:
+			continue
+		install_rig_animation(
+			StringName(action_name),
+			source,
+			(
+				Animation.LOOP_LINEAR
+				if _asset_profile.looping_action_clips.has(action_name)
+				else Animation.LOOP_NONE
+			)
+		)
+
+
+func install_rig_animation(
+	clip_name: StringName,
+	source: Animation,
+	loop_mode := Animation.LOOP_NONE
+) -> void:
+	if _animation_player == null or source == null:
+		return
+	var library := _animation_player.get_animation_library("")
+	if library == null:
+		library = AnimationLibrary.new()
+		_animation_player.add_animation_library("", library)
+	if library.has_animation(clip_name):
+		library.remove_animation(clip_name)
+	var clip := source.duplicate(true) as Animation
+	clip.resource_name = str(clip_name)
+	clip.loop_mode = loop_mode
+	_normalize_animation_in_place(clip)
+	library.add_animation(clip_name, clip)
+
+
+func _prepare_embedded_animation_library() -> void:
+	if _animation_player == null:
+		return
+	var source_library := _animation_player.get_animation_library("")
+	if source_library == null:
+		return
+	var runtime_library := AnimationLibrary.new()
+	for clip_name in source_library.get_animation_list():
+		var source := source_library.get_animation(clip_name)
+		var clip := source.duplicate(true) as Animation
+		clip.resource_name = source.resource_name
+		_normalize_animation_in_place(clip)
+		runtime_library.add_animation(clip_name, clip)
+	_animation_player.remove_animation_library("")
+	_animation_player.add_animation_library("", runtime_library)
+
+
+func _normalize_animation_in_place(animation: Animation) -> int:
+	return PlayerAnimationUtils.normalize_in_place(
+		animation,
+		_asset_profile.hips_bone
+	)
+
+
+func _is_root_motion_track(animation: Animation, track_index: int) -> bool:
+	return PlayerAnimationUtils.is_root_motion_track(
+		animation,
+		track_index,
+		_asset_profile.hips_bone
+	)
+
+
+func _set_locomotion(walking: bool, blend_seconds := -1.0) -> void:
+	if _animation_player == null:
+		return
+	var clip := (
+		_asset_profile.walk_clip_name
+		if walking
+		else _asset_profile.idle_clip_name
+	)
+	if (
+		clip == _locomotion_clip
+		and _animation_player.current_animation == clip
+	):
+		return
+	_locomotion_walking = walking
+	_locomotion_clip = clip
+	_locomotion_transition_count += 1
+	_animation_player.speed_scale = 1.0
+	_animation_player.play(
+		clip,
+		(
+			_asset_profile.locomotion_blend_seconds
+			if blend_seconds < 0.0
+			else blend_seconds
+		)
+	)
+
+
+func _animated_ground_offset(bounds: AABB, preview_scale: float) -> float:
+	if _skeleton == null or _animation_player == null:
+		return -bounds.position.y * preview_scale
+	var skeleton_to_body := (
+		_body.global_transform.affine_inverse() * _skeleton.global_transform
+	)
+	var lowest_rest_y := INF
+	var animated_y_for_lowest := 0.0
+	for bone_name in [
+		_asset_profile.left_toe_bone,
+		_asset_profile.right_toe_bone,
+	]:
+		var bone_index := _skeleton.find_bone(bone_name)
+		if bone_index < 0:
+			continue
+		var rest_y := (
+			skeleton_to_body * _skeleton.get_bone_global_rest(bone_index).origin
+		).y
+		if rest_y < lowest_rest_y:
+			lowest_rest_y = rest_y
+			animated_y_for_lowest = (
+				skeleton_to_body * _skeleton.get_bone_global_pose(bone_index).origin
+			).y
+	if is_inf(lowest_rest_y):
+		return -bounds.position.y * preview_scale
+	# Preserve the authored sole thickness below the toe bone while grounding
+	# against the animated pose rather than the centered bind pose.
+	var sole_margin := bounds.position.y - lowest_rest_y
+	var animated_mesh_min_y := animated_y_for_lowest + sole_margin
+	return -animated_mesh_min_y * preview_scale
+
+
+func _apply_authored_materials() -> void:
+	if _asset_profile.material_shader == null:
+		return
+	for child in _body.find_children("*", "MeshInstance3D", true, false):
+		_apply_authored_material_to(child as MeshInstance3D)
+
+
+func _apply_authored_material_to(mesh_instance: MeshInstance3D) -> void:
+	if _asset_profile.material_shader == null or mesh_instance.mesh == null:
+		return
+	for surface_index in mesh_instance.mesh.get_surface_count():
+		var source := mesh_instance.get_active_material(surface_index)
+		if not source is BaseMaterial3D:
+			push_warning(
+				"PlayerVisual: leaving unsupported player material '%s' unchanged"
+				% (source.get_class() if source != null else "null")
+			)
+			continue
+		var base := source as BaseMaterial3D
+		var styled := ShaderMaterial.new()
+		styled.resource_name = "%s_palette_surface_%d" % [
+			_asset_profile.profile_id, surface_index
+		]
+		styled.shader = _asset_profile.material_shader
+		styled.set_shader_parameter("albedo_texture", base.albedo_texture)
+		styled.set_shader_parameter("base_albedo", base.albedo_color)
+		styled.set_shader_parameter("palette_tint", _asset_profile.material_tint)
+		styled.set_shader_parameter(
+			"saturation", _asset_profile.material_saturation
+		)
+		styled.set_shader_parameter(
+			"value_scale", _asset_profile.material_value_scale
+		)
+		styled.set_shader_parameter(
+			"roughness_value", _asset_profile.material_roughness
+		)
+		styled.set_shader_parameter(
+			"specular_value", _asset_profile.material_specular
+		)
+		mesh_instance.set_surface_override_material(surface_index, styled)
+
+
+func _capture_base_body_meshes() -> void:
+	_base_body_meshes.clear()
+	for child in _body.find_children("*", "MeshInstance3D", true, false):
+		_base_body_meshes.append(child as MeshInstance3D)
+
+
+func _install_armor_anchors(preview_scale: float) -> void:
+	_armor_anchors.clear()
+	for region_name in PlayerArmorRegions.names():
+		var attachment := BoneAttachment3D.new()
+		attachment.name = "ArmorAttachment_%s" % region_name
+		attachment.bone_name = String(
+			_asset_profile.armor_region_bones[region_name]
+		)
+		_skeleton.add_child(attachment)
+		var anchor := Node3D.new()
+		anchor.name = "ArmorAnchor_%s" % region_name
+		# Armor assets are authored in world meters, so cancel the preview
+		# model's root scale just like the existing equipment mounts.
+		anchor.scale = Vector3.ONE / preview_scale
+		attachment.add_child(anchor)
+		_armor_anchors[region_name] = anchor
+
+
+func armor_anchor(region_name: String) -> Node3D:
+	return _armor_anchors.get(region_name) as Node3D
+
+
+func _set_body_region_mask(regions: Array[String]) -> void:
+	var unknown := PlayerArmorRegions.unknown_regions(regions)
+	assert(
+		unknown.is_empty(),
+		"Unknown player armor regions: %s" % ", ".join(unknown)
+	)
+	_body_region_mask = PlayerArmorRegions.mask_for(regions)
+	for mesh_instance in _base_body_meshes:
+		if is_instance_valid(mesh_instance):
+			mesh_instance.set_instance_shader_parameter(
+				"hide_mask", _body_region_mask
+			)
+	for mesh_instance in _body_garment_meshes:
+		if (
+			is_instance_valid(mesh_instance)
+			and mesh_instance.name.begins_with("BodyExposedFor")
+		):
+			mesh_instance.set_instance_shader_parameter(
+				"hide_mask", _body_region_mask
+			)
+
+
+func _clear_body_garment() -> void:
+	for mesh_instance in _body_garment_meshes:
+		if is_instance_valid(mesh_instance):
+			if mesh_instance.name.begins_with("BodyExposedFor"):
+				mesh_instance.set_instance_shader_parameter("hide_mask", 0)
+			if mesh_instance.mesh != null:
+				for surface_index in mesh_instance.mesh.get_surface_count():
+					mesh_instance.set_surface_override_material(
+						surface_index, null
+					)
+			if mesh_instance.get_parent() != null:
+				mesh_instance.get_parent().remove_child(mesh_instance)
+			mesh_instance.queue_free()
+	_body_garment_meshes.clear()
+	for mesh_instance in _base_body_meshes:
+		if is_instance_valid(mesh_instance):
+			mesh_instance.visible = true
+	_set_body_region_mask([])
+
+
+func _attach_skinned_body_bundle(asset_id: String) -> bool:
+	if _skeleton == null or asset_id == "" or not assets.exists(asset_id):
+		return false
+	var bundle := assets.instantiate(asset_id)
+	var source_skeleton := (
+		bundle.find_child("Skeleton3D", true, false) as Skeleton3D
+	)
+	if source_skeleton == null:
+		push_warning(
+			"PlayerVisual: body garment '%s' has no Skeleton3D" % asset_id
+		)
+		bundle.free()
+		return false
+
+	var source_meshes: Array[MeshInstance3D] = []
+	for child in source_skeleton.find_children(
+		"*", "MeshInstance3D", true, false
+	):
+		source_meshes.append(child as MeshInstance3D)
+	var has_garment := false
+	var has_exposed_body := false
+	for mesh_instance in source_meshes:
+		var skeleton_space := mesh_instance.transform
+		var ancestor := mesh_instance.get_parent()
+		while ancestor != source_skeleton:
+			if not ancestor is Node3D:
+				push_warning(
+					"PlayerVisual: body garment '%s' has an invalid mesh hierarchy"
+					% asset_id
+				)
+				bundle.free()
+				_clear_body_garment()
+				return false
+			skeleton_space = (ancestor as Node3D).transform * skeleton_space
+			ancestor = ancestor.get_parent()
+		mesh_instance.get_parent().remove_child(mesh_instance)
+		mesh_instance.owner = null
+		_skeleton.add_child(mesh_instance)
+		mesh_instance.transform = skeleton_space
+		mesh_instance.skeleton = NodePath("..")
+		_body_garment_meshes.append(mesh_instance)
+		if mesh_instance.name.begins_with("BodyExposedFor"):
+			has_exposed_body = true
+			_apply_authored_material_to(mesh_instance)
+		else:
+			has_garment = true
+	bundle.free()
+
+	if not has_garment or not has_exposed_body:
+		push_warning(
+			"PlayerVisual: body garment '%s' must include a garment and "
+			+ "BodyExposedFor* mesh" % asset_id
+		)
+		_clear_body_garment()
+		return false
+	for mesh_instance in _base_body_meshes:
+		if is_instance_valid(mesh_instance):
+			mesh_instance.visible = false
+	return true
+
+
+func _visual_bounds_in(root: Node3D) -> AABB:
+	var bounds := AABB()
+	var has_point := false
+	var root_inverse := root.global_transform.affine_inverse()
+	for child in root.find_children("*", "MeshInstance3D", true, false):
+		var mesh_instance := child as MeshInstance3D
+		if mesh_instance.mesh == null:
+			continue
+		var mesh_bounds := mesh_instance.get_aabb()
+		var relative := root_inverse * mesh_instance.global_transform
+		for corner in 8:
+			var point := relative * mesh_bounds.get_endpoint(corner)
+			if not has_point:
+				bounds = AABB(point, Vector3.ZERO)
+				has_point = true
+			else:
+				bounds = bounds.expand(point)
+	return bounds
+
+
+func _make_bone_mount(mount_name: String, bone_name: String, preview_scale: float) -> Node3D:
+	var attachment := BoneAttachment3D.new()
+	attachment.name = "%sAttachment" % mount_name
+	attachment.bone_name = bone_name
+	_skeleton.add_child(attachment)
+	var mount := Node3D.new()
+	mount.name = mount_name
+	# Items are authored at world scale; cancel the preview model's root scale.
+	mount.scale = Vector3.ONE / preview_scale
+	attachment.add_child(mount)
+	return mount
 
 
 func _collect_parts() -> void:
@@ -258,6 +698,11 @@ func _wrap_pivot(pivot_name: String, pivot_pos: Vector3, part_names: Array) -> N
 # ------------------------------------------------------------------ customization
 
 func apply_profile(profile: PlayerProfile) -> void:
+	if _uses_rigged_preview:
+		# This authored preview intentionally ignores the character creator.
+		# Keeping that boundary explicit prevents profile data from damaging the
+		# model's single textured material while the new default is evaluated.
+		return
 	var skin := palette.skin_tones[clampi(profile.skin_index, 0, palette.skin_tones.size() - 1)]
 	var hair := palette.hair_colors[clampi(profile.hair_color_index, 0, palette.hair_colors.size() - 1)]
 	var outfit := palette.outfit_colors[clampi(profile.outfit_index, 0, palette.outfit_colors.size() - 1)]
@@ -295,19 +740,27 @@ func _tint_parts(part_names: Array, mat: Material) -> void:
 			part.set_surface_override_material(surface, mat)
 
 
-## Equipment: tool/weapon in hand, hood on head, cape on back, body recolor.
+## Equipment: rigid items use bone mounts; body garments share the live skeleton.
 func apply_equipment(equipment: EquipmentManager, held_tool_type := "") -> void:
 	for mount in [_tool_mount, _back_mount, _head_mount]:
+		if mount == null:
+			continue
 		for child in mount.get_children():
 			child.queue_free()
 	var held: Defs.ItemDefinition = null
 	if held_tool_type != "":
 		held = equipment.best_tool(held_tool_type)
-	if held == null:
-		held = equipment.equipped_in("weapon") if held_tool_type == "weapon" else equipment.equipped_in("tool")
+		if held == null:
+			held = (
+				equipment.equipped_in("weapon")
+				if held_tool_type == "weapon"
+				else equipment.equipped_in("tool")
+			)
 	if held != null and held.asset_id != "":
 		var tool_visual := assets.instantiate(held.asset_id)
-		tool_visual.rotation_degrees = Vector3(-52, 0, 0)
+		tool_visual.rotation_degrees = (
+			Vector3(0, 0, -70) if _uses_rigged_preview else Vector3(-52, 0, 0)
+		)
 		_tool_mount.add_child(tool_visual)
 	var head_item := equipment.equipped_in("head")
 	if head_item != null and head_item.asset_id != "":
@@ -317,20 +770,49 @@ func apply_equipment(equipment: EquipmentManager, held_tool_type := "") -> void:
 	var back_item := equipment.equipped_in("back")
 	if back_item != null and back_item.asset_id != "":
 		_back_mount.add_child(assets.instantiate(back_item.asset_id))
+	_clear_body_garment()
 	var body_item := equipment.equipped_in("body")
 	if body_item != null:
-		_tint_parts(["Torso", "ArmL", "ArmR"], materials.tinted("fabric", palette.color("moss").lightened(0.1)))
+		if _uses_rigged_preview and body_item.asset_id != "":
+			_attach_skinned_body_bundle(body_item.asset_id)
+		elif not _uses_rigged_preview:
+			_tint_parts(
+				["Torso", "ArmL", "ArmR"],
+				materials.tinted(
+					"fabric", palette.color("moss").lightened(0.1)
+				)
+			)
+		_set_body_region_mask(body_item.hide_regions)
 
 
 # ------------------------------------------------------------------ animation
 
 func set_walk(amount: float, delta: float) -> void:
-	_walk_amount = lerpf(_walk_amount, clampf(amount, 0.0, 1.0), 12.0 * delta)
+	_walk_amount = lerpf(
+		_walk_amount,
+		clampf(amount, 0.0, 1.0),
+		minf(1.0, 12.0 * delta)
+	)
 	_walk_phase += delta * WALK_BOB_HZ * (0.4 + 0.6 * _walk_amount)
 	_idle_phase += delta * TAU / 2.4
 	if _current_anim != "idle":
 		return
 	var bob := absf(sin(_walk_phase)) * 0.05 * _walk_amount
+	if _uses_rigged_preview:
+		var wants_walk := _walk_amount > (0.06 if _locomotion_walking else 0.14)
+		_set_locomotion(wants_walk)
+		_animation_player.speed_scale = (
+			lerpf(
+				_asset_profile.walk_speed_scale_min,
+				_asset_profile.walk_speed_scale_max,
+				_walk_amount
+			)
+			if wants_walk
+			else 1.0
+		)
+		# The authored clips own the gait. Rewriting the root transform here
+		# invalidates physics interpolation and presents as high-frequency jitter.
+		return
 	if _walk_amount < 0.05:
 		bob += sin(_idle_phase) * 0.006
 		_head_group.rotation.z = sin(_idle_phase * 0.5) * 0.008
@@ -343,15 +825,21 @@ func set_walk(amount: float, delta: float) -> void:
 	_arm_l.rotation.x = -swing
 
 
-func play(anim: String) -> void:
+func play(anim: String, cycle_duration := -1.0) -> void:
 	if not ANIMATION_MANIFEST.has(anim):
 		return
+	if _uses_rigged_preview and _continue_authored_loop(anim, cycle_duration):
+		return
+	var previous_anim := _current_anim
 	if _action_tween != null and _action_tween.is_valid():
 		_action_tween.kill()
-		if _current_anim != "idle":
-			animation_finished.emit(_current_anim)
+	if previous_anim != "idle" and previous_anim != anim:
+		animation_finished.emit(previous_anim)
 	_current_anim = anim
 	animation_started.emit(anim)
+	if _uses_rigged_preview:
+		_play_rigged_preview(anim, cycle_duration)
+		return
 	_action_tween = create_tween()
 	match anim:
 		"idle":
@@ -413,6 +901,168 @@ func play(anim: String) -> void:
 		)
 
 
+func _play_rigged_preview(anim: String, cycle_duration: float) -> void:
+	if _asset_profile.action_animations.has(anim):
+		_play_authored_action(anim, cycle_duration)
+		return
+	if anim != "idle":
+		_set_locomotion(false, 0.16)
+	_action_tween = create_tween()
+	match anim:
+		"idle":
+			_set_locomotion(_walk_amount > 0.12)
+			_action_tween.tween_property(_body, "position", _body_base_position, 0.18)
+			_action_tween.parallel().tween_property(
+				_body, "rotation", _body_base_rotation, 0.18
+			)
+			_action_tween.tween_callback(func():
+				_current_anim = "idle"
+				animation_finished.emit("idle")
+			)
+			_current_anim = "idle"
+		"fish_cast":
+			_rigged_timed_action(
+				anim,
+				0.22,
+				0.38,
+				_body_base_rotation + Vector3(-0.10, 0.0, -0.08),
+				"release"
+			)
+		"fish_wait":
+			_action_tween.tween_property(
+				_body, "position", _body_base_position + Vector3.UP * 0.018, 0.65
+			).set_trans(Tween.TRANS_SINE)
+			_action_tween.tween_property(
+				_body, "position", _body_base_position, 0.65
+			).set_trans(Tween.TRANS_SINE)
+			_action_tween.set_loops()
+		"fish_catch":
+			_rigged_timed_action(
+				anim,
+				0.14,
+				0.69,
+				_body_base_rotation + Vector3(-0.14, 0.0, 0.0),
+				"impact"
+			)
+		"chop":
+			_rigged_timed_action(
+				anim,
+				0.38,
+				0.52,
+				_body_base_rotation + Vector3(0.0, 0.16, -0.08),
+				"impact"
+			)
+		"attack":
+			_rigged_timed_action(
+				anim,
+				0.22,
+				0.38,
+				_body_base_rotation + Vector3(-0.08, 0.12, 0.0),
+				"impact"
+			)
+		"dodge":
+			_action_tween.tween_property(
+				_body,
+				"rotation",
+				_body_base_rotation + Vector3(0.32, 0.0, 0.0),
+				0.1
+			)
+			_action_tween.tween_property(
+				_body, "rotation", _body_base_rotation, 0.2
+			)
+			_action_tween.tween_callback(func(): _finish_rigged_action(anim))
+		"hit":
+			animation_event.emit(anim, "flash")
+			_flash(Color(1.0, 0.5, 0.45))
+			_action_tween.tween_property(
+				_body, "position", _body_base_position + Vector3.RIGHT * 0.07, 0.05
+			)
+			_action_tween.tween_property(
+				_body, "position", _body_base_position + Vector3.LEFT * 0.05, 0.05
+			)
+			_action_tween.tween_property(_body, "position", _body_base_position, 0.08)
+			_action_tween.tween_callback(func(): _finish_rigged_action(anim))
+		"celebrate":
+			_action_tween.tween_property(
+				_body, "position", _body_base_position + Vector3.UP * 0.16, 0.2
+			).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			_action_tween.tween_callback(func(): animation_event.emit(anim, "apex"))
+			_action_tween.tween_property(
+				_body, "position", _body_base_position, 0.5
+			).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+			_action_tween.tween_callback(func(): _finish_rigged_action(anim))
+
+
+func _play_authored_action(anim: String, cycle_duration: float) -> void:
+	var clip_name := StringName(anim)
+	if not _animation_player.has_animation(clip_name):
+		return
+	var animation := _animation_player.get_animation(clip_name)
+	_animation_player.speed_scale = (
+		animation.length / cycle_duration
+		if cycle_duration > 0.0
+		else 1.0
+	)
+	_animation_player.play(
+		clip_name,
+		_asset_profile.action_blend_seconds
+	)
+
+
+func _continue_authored_loop(anim: String, cycle_duration: float) -> bool:
+	if (
+		_animation_player == null
+		or _current_anim != anim
+		or not _asset_profile.looping_action_clips.has(anim)
+		or _animation_player.current_animation != anim
+	):
+		return false
+	if cycle_duration > 0.0:
+		var animation := _animation_player.get_animation(anim)
+		_animation_player.speed_scale = animation.length / cycle_duration
+	return true
+
+
+func authored_action_duration(anim: String, fallback: float) -> float:
+	return float(
+		_asset_profile.action_playback_seconds.get(anim, fallback)
+	)
+
+
+func authored_action_impact_ratio(anim: String, fallback: float) -> float:
+	return clampf(
+		float(_asset_profile.action_impact_ratios.get(anim, fallback)),
+		0.01,
+		0.99
+	)
+
+
+func _rigged_timed_action(
+	anim: String,
+	event_time: float,
+	duration: float,
+	target_rotation: Vector3,
+	event_name: String
+) -> void:
+	_action_tween.tween_property(_body, "rotation", target_rotation, event_time)
+	_action_tween.tween_callback(func(): animation_event.emit(anim, event_name))
+	_action_tween.tween_property(
+		_body,
+		"rotation",
+		_body_base_rotation,
+		maxf(0.01, duration - event_time)
+	)
+	_action_tween.tween_callback(func(): _finish_rigged_action(anim))
+
+
+func _finish_rigged_action(anim: String) -> void:
+	_body.position = _body_base_position
+	_body.rotation = _body_base_rotation
+	_current_anim = "idle"
+	_set_locomotion(_walk_amount > 0.12)
+	animation_finished.emit(anim)
+
+
 func animation_manifest() -> Dictionary:
 	return {
 		"states": ANIMATION_MANIFEST.duplicate(true),
@@ -427,6 +1077,24 @@ func animation_manifest() -> Dictionary:
 
 
 func _flash(color: Color) -> void:
+	if _uses_rigged_preview:
+		var flashes: Array[MeshInstance3D] = []
+		var restores: Array[Material] = []
+		var overlay := StandardMaterial3D.new()
+		overlay.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		overlay.albedo_color = Color(color, 0.48)
+		overlay.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		for child in _body.find_children("*", "MeshInstance3D", true, false):
+			var mesh_instance := child as MeshInstance3D
+			flashes.append(mesh_instance)
+			restores.append(mesh_instance.material_overlay)
+			mesh_instance.material_overlay = overlay
+		get_tree().create_timer(0.12).timeout.connect(func():
+			for index in flashes.size():
+				if is_instance_valid(flashes[index]):
+					flashes[index].material_overlay = restores[index]
+		)
+		return
 	var head := _find("Head") as MeshInstance3D
 	if head == null:
 		return

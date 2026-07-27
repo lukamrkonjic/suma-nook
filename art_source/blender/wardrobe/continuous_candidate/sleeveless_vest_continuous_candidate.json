@@ -1,0 +1,127 @@
+{
+  "standard": "art_source\\blender\\wardrobe\\wardrobe_standard.json",
+  "source": "art_source\\imported\\cowboy_vest\\cowboy_vest_source.glb",
+  "source_sha256": "145180369651319798d510b38a01a8127a9f97aecb4abd12ac38f3041cdac024",
+  "mannequin": "art_source\\blender\\wardrobe\\suma_wardrobe_mannequin.blend",
+  "output_glb": "art_source\\blender\\wardrobe\\continuous_candidate\\cowboy_vest_continuous_candidate.glb",
+  "output_glb_sha256": "8b9638c5c16076506ab72920036f3d7f183d21e96a488c83bafb6506dc586831",
+  "output_blend": "art_source\\blender\\wardrobe\\continuous_candidate\\sleeveless_vest_continuous_candidate.blend",
+  "calibration": {
+    "body_min": [
+      -0.49999505281448364,
+      -0.19355705380439758,
+      -0.4343165457248688
+    ],
+    "body_max": [
+      0.49999502301216125,
+      0.19355705380439758,
+      0.4343165457248688
+    ],
+    "body_center": [
+      -1.4901161193847656e-08,
+      0.0,
+      0.0
+    ],
+    "character_height": 0.8686330914497375,
+    "torso_min": [
+      -0.2577359676361084,
+      -0.19355705380439758,
+      -0.3073822259902954
+    ],
+    "torso_max": [
+      0.25356775522232056,
+      0.19355705380439758,
+      0.17108874022960663
+    ],
+    "torso_center": [
+      -0.002084106206893921,
+      0.0,
+      -0.06814674288034439
+    ]
+  },
+  "fit": {
+    "source_size": [
+      0.9999899864196777,
+      0.8447060585021973,
+      0.9171688556671143
+    ],
+    "target_size": [
+      0.5547645688056946,
+      0.4161476790904999,
+      0.3636379539966583
+    ],
+    "scale": [
+      0.5547701120376587,
+      0.49265384674072266,
+      0.3964787423610687
+    ],
+    "target_center": [
+      -0.002084106206893921,
+      -0.014766762964427471,
+      -0.010730236768722534
+    ]
+  },
+  "continuous_shell": {
+    "expanded_vertices": 2998,
+    "base_normal_expansion": 0.005385525166988372,
+    "shoulder_extra_expansion": 0.0034745323657989504,
+    "bevel": 0.0015635395646095276
+  },
+  "weights": {
+    "mapping": "POLYINTERP_NEAREST",
+    "smoothing_factor": 0.28,
+    "smoothing_passes": 2,
+    "semantic_projection": {
+      "profile": "semantic_semi_rigid_sleeveless_torso_v2",
+      "allowed_semantics": [
+        "hips",
+        "waist",
+        "abdomen",
+        "chest",
+        "shoulder_l",
+        "shoulder_r"
+      ],
+      "maximum_shoulder_weight": 0.023810366272777005,
+      "excluded_limb_influences": true
+    },
+    "unweighted": 0,
+    "minimum_total": 1.0,
+    "maximum_total": 1.0,
+    "maximum_influences": 4
+  },
+  "coverage": {
+    "hidden_faces": 191,
+    "template": "continuous_sleeveless_vest_v1"
+  },
+  "garment": {
+    "vertices": 4855,
+    "polygons": 9714,
+    "triangles": 9714,
+    "uv_layers": [
+      "UVMap"
+    ],
+    "vertex_groups": 34,
+    "materials": [
+      "Material_0.001"
+    ]
+  },
+  "exposed_body": {
+    "vertices": 2427,
+    "polygons": 809,
+    "triangles": 809,
+    "uv_layers": [
+      "UVMap",
+      "UVMap.001"
+    ],
+    "vertex_groups": 34,
+    "materials": [
+      "Material_0"
+    ]
+  },
+  "reviews": [
+    "art_source\\blender\\wardrobe\\continuous_candidate\\reviews\\continuous_rest_front.png",
+    "art_source\\blender\\wardrobe\\continuous_candidate\\reviews\\continuous_rest_orbit.png",
+    "art_source\\blender\\wardrobe\\continuous_candidate\\reviews\\continuous_rest_side.png",
+    "art_source\\blender\\wardrobe\\continuous_candidate\\reviews\\continuous_rest_back.png"
+  ]
+}

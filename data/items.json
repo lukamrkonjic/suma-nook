@@ -29,6 +29,7 @@
     { "id": "weapon_thorn_sword", "name": "Thornsplitter", "category": "equipment", "slot": "weapon", "tool_type": "sword", "tier": 1, "asset_id": "equip_sword", "stats": { "damage": 1 }, "rarity": "uncommon", "description": "Short, bright, and enough." },
     { "id": "armor_explorer_hood", "name": "Explorer's Hood", "category": "equipment", "slot": "head", "tier": 1, "asset_id": "equip_hood", "stats": { "defense": 1 }, "rarity": "uncommon", "description": "Smells faintly of pine and far away." },
     { "id": "armor_explorer_tunic", "name": "Explorer's Tunic", "category": "equipment", "slot": "body", "tier": 1, "asset_id": "", "stats": { "defense": 1 }, "rarity": "uncommon", "description": "Reinforced for brambles and weather. (Recolors your tunic.)" },
+    { "id": "cosmetic_cowboy_vest", "name": "Cowboy Vest", "category": "equipment", "slot": "body", "tier": 1, "asset_id": "cowboy_vest", "hide_regions": [], "stats": {}, "rarity": "common", "description": "A fitted frontier vest. Skinned to the keeper's shared wardrobe rig." },
     { "id": "cape_watchpost", "name": "Watchpost Cape", "category": "equipment", "slot": "back", "tier": 2, "asset_id": "equip_cape", "stats": { "defense": 1 }, "rarity": "rare", "description": "Woven from the ivy that held the tower together. The guardian's gift." },
 
     { "id": "relic_watch_emblem", "name": "Watch Emblem", "category": "relic", "rarity": "rare", "stack": false, "description": "The old garrison's sigil, polished new." }

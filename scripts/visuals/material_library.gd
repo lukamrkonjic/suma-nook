@@ -13,7 +13,9 @@ const UNDERWATER_SHADER: Shader = preload("res://assets/materials/reworked/gg_un
 const FLORA_SHADER: Shader = preload("res://assets/materials/reworked/gg_uw_flora.gdshader")
 const STYLE_DATA_PATH := "res://data/material_styles.json"
 const WATER_PARAMETERS := {
-	"wave_height": 0.032,
+	"wave_height": 0.048,
+	"wave_speed": 1.08,
+	"surface_shimmer": 0.16,
 	"depth_falloff": 0.5,
 	"shallow_alpha": 0.8,
 	"deep_alpha": 0.97,
@@ -26,7 +28,7 @@ const WATER_PARAMETERS := {
 }
 const UNDERWATER_PARAMETERS := {
 	"water_level": -0.14,
-	"caustic_strength": 0.4,
+	"caustic_strength": 0.58,
 	"depth_fade": 1.0,
 	"roughness": 0.9,
 	"specular": 0.12,
@@ -144,7 +146,7 @@ func _shader_material_manifest(key: String, shader_material: ShaderMaterial) -> 
 		family = "original_water_shader"
 		names = [
 			"shallow_color", "mid_color", "deep_color", "foam_color", "sky_color",
-			"side_top_color", "side_bottom_color",
+			"side_top_color", "side_bottom_color", "caustic_color",
 		]
 		names.append_array(WATER_PARAMETERS.keys())
 	elif key.begins_with("uw_flora"):
@@ -186,6 +188,7 @@ func _water_material() -> ShaderMaterial:
 	m.set_shader_parameter("sky_color", palette.color("background_day"))
 	m.set_shader_parameter("side_top_color", palette.color("water_shallow_highlight"))
 	m.set_shader_parameter("side_bottom_color", palette.color("water_turquoise"))
+	m.set_shader_parameter("caustic_color", palette.color("water_caustic"))
 	for parameter in WATER_PARAMETERS:
 		m.set_shader_parameter(parameter, WATER_PARAMETERS[parameter])
 	return m

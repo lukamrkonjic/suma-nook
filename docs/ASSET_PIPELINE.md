@@ -22,6 +22,10 @@ One shared technical contract for every 3D asset; three creation tiers.
 - Animation names are semantic: idle, walk, fish_cast, fish_wait, fish_catch, chop,
   attack, dodge, hit, interact. (MVP proxy character is animated procedurally in Godot
   with these state names; a rigged Tier C character must expose the same names.)
+- Authored player rigs are configured through
+  `assets/player/current_player_profile.tres`; see
+  `docs/PLAYER_ASSET_PIPELINE.md`. The current Mixamo model is testing-only and
+  is replaceable without changing controllers, skills, or save data.
 
 ## Tier A — generated headlessly by the coding agent (this repo, now)
 

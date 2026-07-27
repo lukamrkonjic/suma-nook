@@ -13,6 +13,12 @@ uniform float depth_fade = 1.0;
 varying vec3 world_pos;
 varying float base_y;
 
+float caustic_field(vec2 p, float t) {
+	float a = sin(p.x + t) + sin(p.y * 1.17 - t * 0.82);
+	float b = sin((p.x + p.y) * 0.73 - t * 0.57);
+	return pow(clamp(1.0 - abs(a + b * 0.7) * 0.34, 0.0, 1.0), 5.0);
+}
+
 void vertex() {
 	vec3 origin = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	base_y = origin.y;
@@ -31,9 +37,12 @@ void fragment() {
 	float under = water_level - world_pos.y;
 	if (under > 0.01) {
 		float t = TIME;
-		float a = sin(world_pos.x * 3.4 + t * 0.42) * sin(world_pos.z * 3.1 - t * 0.35);
-		float c = pow(clamp(a * 0.5 + 0.5, 0.0, 1.0), 2.0);
-		col += caustic_color.rgb * c * 0.22 * exp(-under / depth_fade);
+		float c = caustic_field(world_pos.xz * 3.2, t * 0.71);
+		float overlap = caustic_field(
+			world_pos.xz * 4.85 + vec2(2.1, -1.4),
+			-t * 0.43
+		);
+		col += caustic_color.rgb * c * overlap * 0.3 * exp(-under / depth_fade);
 		float desat = clamp(under / (depth_fade * 2.5), 0.0, 0.5);
 		col = mix(col, vec3(dot(col, vec3(0.333))) * vec3(0.8, 0.95, 0.97), desat);
 	}

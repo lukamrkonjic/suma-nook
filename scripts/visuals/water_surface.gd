@@ -5,24 +5,53 @@ extends MeshInstance3D
 ## phase, UVs, and normals are continuous across every tile — no seams, no
 ## per-tile banding. Rebuilt only when water topology changes, never per frame.
 
-const SUBDIV := 10     # quads per tile edge — keeps displaced spec seams invisible
+const SUBDIV := 14     # denser surface for the stronger three-frequency waves
 const BLOCK_BOTTOM := -0.56  # matches terrain block depth: water reads as a block
 const SKIRT_INSET := 0.006   # avoids z-fighting where a land block shares the plane
 
 
-func rebuild(cells: Array, cell_to_world: Callable, tile_size: float, level: float, water_material: Material) -> void:
+func rebuild(
+	cells: Array,
+	cell_to_world: Callable,
+	tile_size: float,
+	level: float,
+	water_material: Material
+) -> void:
+	rebuild_with_topology(
+		cells,
+		cells,
+		cell_to_world,
+		tile_size,
+		level,
+		water_material
+	)
+
+
+## Builds only `cells` while treating every entry in `topology_cells` as part
+## of the same water region. A held tile uses this to suppress its shoreline
+## foam and skirt along edges that will join existing water.
+func rebuild_with_topology(
+	cells: Array,
+	topology_cells: Array,
+	cell_to_world: Callable,
+	tile_size: float,
+	level: float,
+	water_material: Material
+) -> void:
 	if cells.is_empty():
 		mesh = null
 		return
+	if topology_cells.is_empty():
+		topology_cells = cells
 	var cell_set := {}
-	for cell in cells:
+	for cell in topology_cells:
 		cell_set[cell] = true
 	# Shoreline segments: every cell edge whose neighbour is not water. Foam is
 	# driven by the distance to these — a GEOMETRIC shoreline — never by a
 	# screen-space depth difference, which would paint a white halo around any
 	# object standing in front of or just under the surface.
 	var shore: Array[PackedVector3Array] = []
-	for cell in cells:
+	for cell in topology_cells:
 		var origin: Vector3 = cell_to_world.call(cell)
 		for dir: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 			if cell_set.has(cell + dir):

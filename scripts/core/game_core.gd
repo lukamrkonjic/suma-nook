@@ -49,6 +49,7 @@ var _dirty := false
 
 const FIRST_WATER_COORD := Vector2i(-1, -1)
 const STARTER_DOCK_COORD := Vector2i(0, -1)
+const DEFAULT_BODY_ITEM_ID := "cosmetic_cowboy_vest"
 
 
 func setup(data_path := "res://data", seed_value := 0) -> bool:
@@ -116,10 +117,11 @@ func new_game(new_profile: PlayerProfile) -> void:
 	_compose_starting_world()
 	grid.home_cell = Vector2i.ZERO
 	profile.position = grid.cell_to_world(Vector2i.ZERO)
-	# Starter kit: rod + axe owned; rod visible; starter outfit is the profile.
+	# Starter kit: rod + axe owned, plus the current body-slot wardrobe sample.
 	equipment.acquire("tool_rod_basic")
 	equipment.acquire("tool_axe_basic")
 	equipment.equip("tool_rod_basic")
+	_ensure_default_body_item()
 	# Trees begin unplaced in the Build Library. The storage chest is the only
 	# progression utility deliberately authored into the opening world.
 	stock.add_structure("struct_pine")
@@ -293,10 +295,22 @@ func load_game() -> bool:
 	equipment.from_save_dict(data.get("equipment", {}))
 	landmarks.from_save_dict(data.get("landmarks", {}))
 	combat.from_save_dict(data.get("combat", {}))
+	var wardrobe_migrated := _ensure_default_body_item()
 	view_state = data.get("view", view_state).duplicate(true)
 	visual_state = data.get("visual", visual_state).duplicate(true)
 	play_seconds = float(data.get("play_seconds", 0.0))
 	if not grid.is_traversable(grid.world_to_cell(profile.position)):
 		profile.position = grid.cell_to_world(grid.nearest_walkable(grid.world_to_cell(profile.position)))
-	_dirty = false
+	_dirty = wardrobe_migrated
 	return true
+
+
+func _ensure_default_body_item() -> bool:
+	var changed := false
+	if not equipment.owns(DEFAULT_BODY_ITEM_ID):
+		equipment.acquire(DEFAULT_BODY_ITEM_ID)
+		collection.record("gear", DEFAULT_BODY_ITEM_ID)
+		changed = true
+	if equipment.equipped_in("body") == null:
+		changed = equipment.equip(DEFAULT_BODY_ITEM_ID) or changed
+	return changed

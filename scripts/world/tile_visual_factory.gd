@@ -7,7 +7,15 @@ const GROUND_LAYER := 1
 const BLOCKER_LAYER := 1
 const AUTHORED_TILE_SIZE := 1.7
 const COVERED_INFILL_NAME := "CoveredSurfaceInfill"
+const STACK_SEAM_NAME := "StackSeamCollar"
+const PREVIEW_WATER_SURFACE_NAME := "PreviewWaterSurface"
 const SURFACE_DETAIL_META := "tile_surface_detail"
+const COVER_FADE_DELAY := 0.075
+const COVER_FADE_SECONDS := 0.105
+const COVER_TWEEN_META := "covered_surface_tween"
+const COVER_STATE_META := "covered_surface_state"
+const STACK_SEAM_HEIGHT := 0.028
+const STACK_SEAM_OVERLAP := 0.003
 
 var assets: AssetLibrary
 var grid: WorldGrid
@@ -18,7 +26,7 @@ func _init(asset_library: AssetLibrary, world_grid: WorldGrid) -> void:
 	grid = world_grid
 
 
-func instantiate_visual(def: Defs.TileDefinition) -> Node3D:
+func instantiate_visual(def: Defs.TileDefinition, preview := false) -> Node3D:
 	# Production GLBs were authored to the former 1.70 m footprint. Keep their
 	# vertical profile intact while normalizing only X/Z to the live grid size.
 	# The wrapper lets generated surface detail remain in live-grid units.
@@ -26,39 +34,207 @@ func instantiate_visual(def: Defs.TileDefinition) -> Node3D:
 	visual.name = def.id
 	var authored_visual: Node3D
 	if def.render_profile == "continuous_water":
-		authored_visual = assets.instantiate("tile_water_floor")
+		authored_visual = _continuous_water_bed()
 	else:
 		authored_visual = assets.instantiate(def.asset_id)
 	var horizontal_scale := grid.tile_size / AUTHORED_TILE_SIZE
 	authored_visual.scale = Vector3(horizontal_scale, 1.0, horizontal_scale)
 	visual.add_child(authored_visual)
 	_add_surface_detail(visual, def.surface_detail_profile)
+	if preview and def.render_profile == "continuous_water":
+		_add_preview_water_surface(visual)
 	return visual
 
 
+## A sculpted bowl repeated once per water cell made a connected region read as
+## separate puddles through the transparent surface. Exact level planes meet
+## without a visible edge; their underwater shader projects one world-space
+## caustic field across the complete region.
+func _continuous_water_bed() -> Node3D:
+	var root := Node3D.new()
+	root.name = "continuous_water_bed"
+	var bed := MeshInstance3D.new()
+	bed.name = "wf_bed"
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(AUTHORED_TILE_SIZE, AUTHORED_TILE_SIZE)
+	bed.mesh = plane
+	bed.position.y = -0.43
+	bed.material_override = assets.materials.material("uw_sand_light")
+	root.add_child(bed)
+	return root
+
+
+## Imported block bodies retain a small bottom bevel. When an upper block uses
+## that bevel directly, a hairline of the supporting tile is visible around the
+## joint even though both transforms are exactly 0.50 m apart. Elevated tiles
+## receive a thin collar in their own body material that bridges the bevel and
+## overlaps the support by 3 mm. This is presentation-only; gameplay elevation
+## and collision remain on the exact block-depth grid.
+func set_stack_seam_visible(visual: Node3D, visible: bool) -> void:
+	var collar := visual.find_child(STACK_SEAM_NAME, true, false) as MeshInstance3D
+	if not visible:
+		if collar != null:
+			collar.visible = false
+		return
+	if collar == null:
+		collar = _stack_seam_collar(visual)
+		if collar == null:
+			return
+		visual.add_child(collar)
+	collar.visible = true
+
+
 ## A covered tile keeps its structural body but loses its authored top cap and
-## any raised surface dressing. A body-coloured infill closes the small bevel
-## gap, so stacked columns read as solid blocks rather than layered sandwiches.
-func set_surface_covered(visual: Node3D, covered: bool) -> void:
+## any raised surface dressing. During live placement the old surface remains
+## until the incoming tile is nearly touching it, then cross-fades into a
+## body-coloured infill. Static rebuilds and held stack ghosts resolve instantly.
+func set_surface_covered(
+	visual: Node3D,
+	covered: bool,
+	animate := false
+) -> void:
+	var had_cover_state := visual.has_meta(COVER_STATE_META)
+	var previous_cover_state := (
+		bool(visual.get_meta(COVER_STATE_META))
+		if had_cover_state
+		else not covered
+	)
+	visual.set_meta(COVER_STATE_META, covered)
+	# Rebuilding or adding an object on the already-covered upper tile emits a
+	# slot refresh too. Do not replay the lower grass fade and flash it through.
+	if animate and had_cover_state and previous_cover_state == covered:
+		return
+
 	var body_mesh: MeshInstance3D
 	var infill := visual.find_child(COVERED_INFILL_NAME, true, false) as MeshInstance3D
+	var surface_meshes: Array[MeshInstance3D] = []
 	for child in visual.find_children("*", "MeshInstance3D", true, false):
 		var mesh := child as MeshInstance3D
-		if mesh == infill:
+		if mesh == infill or mesh.name == STACK_SEAM_NAME:
 			continue
 		var is_body := mesh.name.to_lower().ends_with("_body")
 		if is_body:
 			body_mesh = mesh
 			mesh.visible = true
 		else:
-			# Caps, imported relief, and generated speckles all belong to the
+			# Caps, imported relief, and generated speckles all belong to one
 			# removable top presentation layer.
-			mesh.visible = not covered
+			surface_meshes.append(mesh)
 	if covered and infill == null and body_mesh != null:
 		infill = _covered_surface_infill(body_mesh)
 		visual.add_child(infill)
+
+	var previous_tween: Tween
+	if visual.has_meta(COVER_TWEEN_META):
+		previous_tween = visual.get_meta(COVER_TWEEN_META) as Tween
+	if previous_tween != null and previous_tween.is_valid():
+		previous_tween.kill()
+	if visual.has_meta(COVER_TWEEN_META):
+		visual.remove_meta(COVER_TWEEN_META)
+
+	if not animate:
+		for mesh in surface_meshes:
+			mesh.visible = not covered
+			mesh.transparency = 0.0
+		if infill != null:
+			infill.visible = covered
+			infill.transparency = 0.0
+		return
+
+	for mesh in surface_meshes:
+		mesh.visible = true
 	if infill != null:
-		infill.visible = covered
+		infill.visible = true
+
+	var tween := visual.create_tween()
+	visual.set_meta(COVER_TWEEN_META, tween)
+	if covered:
+		# Let the incoming block visibly descend first. The short cross-fade
+		# overlaps the latter part of the renderer's measured settle.
+		if infill != null and not infill.visible:
+			infill.visible = true
+		if infill != null and is_zero_approx(infill.transparency):
+			infill.transparency = 1.0
+		tween.tween_interval(COVER_FADE_DELAY)
+		tween.set_parallel(true)
+		for mesh in surface_meshes:
+			tween.tween_property(
+				mesh,
+				"transparency",
+				1.0,
+				COVER_FADE_SECONDS
+			).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		if infill != null:
+			tween.tween_property(
+				infill,
+				"transparency",
+				0.0,
+				COVER_FADE_SECONDS
+			).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		tween.set_parallel(false)
+		tween.tween_callback(
+			_finish_cover_transition.bind(visual, surface_meshes, infill)
+		)
+	else:
+		for mesh in surface_meshes:
+			mesh.transparency = 1.0
+		if infill != null:
+			infill.transparency = 0.0
+		tween.set_parallel(true)
+		for mesh in surface_meshes:
+			tween.tween_property(
+				mesh,
+				"transparency",
+				0.0,
+				COVER_FADE_SECONDS
+			).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		if infill != null:
+			tween.tween_property(
+				infill,
+				"transparency",
+				1.0,
+				COVER_FADE_SECONDS
+			).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		tween.set_parallel(false)
+		tween.tween_callback(
+			_finish_reveal_transition.bind(visual, surface_meshes, infill)
+		)
+
+
+func _finish_cover_transition(
+	visual: Node3D,
+	surface_meshes: Array[MeshInstance3D],
+	infill: MeshInstance3D
+) -> void:
+	if not is_instance_valid(visual):
+		return
+	for mesh in surface_meshes:
+		if mesh != null and is_instance_valid(mesh):
+			mesh.visible = false
+			mesh.transparency = 0.0
+	if infill != null and is_instance_valid(infill):
+		infill.visible = true
+		infill.transparency = 0.0
+	if visual.has_meta(COVER_TWEEN_META):
+		visual.remove_meta(COVER_TWEEN_META)
+
+
+func _finish_reveal_transition(
+	visual: Node3D,
+	surface_meshes: Array[MeshInstance3D],
+	infill: MeshInstance3D
+) -> void:
+	if not is_instance_valid(visual):
+		return
+	for mesh in surface_meshes:
+		if mesh != null and is_instance_valid(mesh):
+			mesh.visible = true
+			mesh.transparency = 0.0
+	if infill != null and is_instance_valid(infill):
+		infill.visible = false
+		infill.transparency = 0.0
+	if visual.has_meta(COVER_TWEEN_META):
+		visual.remove_meta(COVER_TWEEN_META)
 
 
 func _add_surface_detail(root: Node3D, profile: String) -> void:
@@ -162,6 +338,99 @@ func _covered_surface_infill(body_mesh: MeshInstance3D) -> MeshInstance3D:
 	if body_mesh.mesh != null and body_mesh.mesh.get_surface_count() > 0:
 		infill.material_override = body_mesh.get_active_material(0)
 	return infill
+
+
+func _stack_seam_collar(visual: Node3D) -> MeshInstance3D:
+	var body_mesh: MeshInstance3D
+	for child in visual.find_children("*", "MeshInstance3D", true, false):
+		var candidate := child as MeshInstance3D
+		if candidate.name.to_lower().ends_with("_body"):
+			body_mesh = candidate
+			break
+	if body_mesh == null:
+		return null
+	var collar := MeshInstance3D.new()
+	collar.name = STACK_SEAM_NAME
+	var box := BoxMesh.new()
+	box.size = Vector3(
+		grid.tile_size - 0.004,
+		STACK_SEAM_HEIGHT,
+		grid.tile_size - 0.004
+	)
+	collar.mesh = box
+	collar.position.y = (
+		-grid.block_depth
+		+ STACK_SEAM_HEIGHT * 0.5
+		- STACK_SEAM_OVERLAP
+	)
+	if body_mesh.mesh != null and body_mesh.mesh.get_surface_count() > 0:
+		collar.material_override = body_mesh.get_active_material(0)
+	return collar
+
+
+## Continuous world water is normally rendered by WorldRenderer as one joined
+## mesh. A detached tile is no longer part of that topology, so its normal
+## visual contains only the underwater bed. Give held water a one-cell local
+## WaterSurface: it keeps the same shader and world-space wave phase while the
+## tile moves, without producing the pale "empty puddle" preview.
+func _add_preview_water_surface(visual: Node3D) -> void:
+	var water_material := assets.materials.material("water")
+	var water_level := -0.14
+	if water_material is ShaderMaterial:
+		var configured_level: Variant = (
+			water_material as ShaderMaterial
+		).get_shader_parameter("water_level")
+		if configured_level is float or configured_level is int:
+			water_level = float(configured_level)
+	var surface := WaterSurface.new()
+	surface.name = PREVIEW_WATER_SURFACE_NAME
+	surface.set_meta("placement_water_surface", true)
+	surface.rebuild(
+		[Vector2i.ZERO],
+		func(_coord: Vector2i) -> Vector3: return Vector3.ZERO,
+		grid.tile_size,
+		water_level,
+		water_material
+	)
+	visual.add_child(surface)
+
+
+## Makes a held water tile render as the missing piece of the region beneath
+## the cursor instead of as an isolated one-cell pond. Offsets are relative to
+## the ghost, so the complete preview can keep moving as one node.
+func sync_preview_water_topology(
+	visual: Node3D,
+	connected_offsets: Array[Vector2i]
+) -> void:
+	if visual == null:
+		return
+	var surface := visual.find_child(
+		PREVIEW_WATER_SURFACE_NAME,
+		true,
+		false
+	) as WaterSurface
+	if surface == null:
+		return
+	var topology: Array = [Vector2i.ZERO]
+	for offset: Vector2i in connected_offsets:
+		if offset != Vector2i.ZERO and not topology.has(offset):
+			topology.append(offset)
+	var active_material := surface.material_override
+	if active_material == null:
+		active_material = assets.materials.material("water")
+	surface.rebuild_with_topology(
+		[Vector2i.ZERO],
+		topology,
+		func(offset: Vector2i) -> Vector3:
+			return Vector3(
+				offset.x * grid.tile_size,
+				0.0,
+				offset.y * grid.tile_size
+			),
+		grid.tile_size,
+		-0.14,
+		active_material
+	)
 
 
 func add_collision(

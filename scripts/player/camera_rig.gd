@@ -24,6 +24,10 @@ var _middle_panning := false
 func setup(game_core: GameCore, follow_target: Node3D) -> void:
 	core = game_core
 	target = follow_target
+	# The camera already owns render-frame damping in _process(). Keep it out of
+	# the physics interpolation system so zoom/orbit writes do not double-filter
+	# or trigger interpolation warnings.
+	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	_yaw = core.registries.tunef("camera_default_yaw_deg", 45.0)
 	_yaw_target = _yaw
 	_size_target = core.registries.tunef("camera_default_size", 32.0)
@@ -31,11 +35,13 @@ func setup(game_core: GameCore, follow_target: Node3D) -> void:
 
 	_pitch_node = Node3D.new()
 	_pitch_node.name = "Pitch"
+	_pitch_node.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	add_child(_pitch_node)
 	_pitch_node.rotation_degrees.x = core.registries.tunef("camera_pitch_deg", -34.0)
 
 	camera = Camera3D.new()
 	camera.name = "ReferencePerspectiveCamera"
+	camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	camera.projection = Camera3D.PROJECTION_PERSPECTIVE
 	camera.fov = core.registries.tunef("camera_fov_deg", 15.0)
 	camera.position = Vector3(0, 0, _size_target)

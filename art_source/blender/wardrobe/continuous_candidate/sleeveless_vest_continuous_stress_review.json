@@ -1,0 +1,118 @@
+{
+  "candidate": "art_source\\blender\\wardrobe\\continuous_candidate\\sleeveless_vest_continuous_candidate.blend",
+  "output": "art_source\\blender\\wardrobe\\continuous_candidate\\sleeveless_vest_continuous_stress.blend",
+  "actions": {
+    "walk": {
+      "source": "art_source\\animation_sources\\player_walk.glb",
+      "frame_range": [
+        0.0,
+        24.799999237060547
+      ],
+      "review_frame": 11.407999649047852
+    },
+    "chop": {
+      "source": "art_source\\animation_sources\\player_chop.glb",
+      "frame_range": [
+        0.0,
+        36.79999923706055
+      ],
+      "review_frame": 19.135999603271486
+    },
+    "fish_cast": {
+      "source": "art_source\\animation_sources\\player_fish_cast.glb",
+      "frame_range": [
+        0.0,
+        210.39999389648438
+      ],
+      "review_frame": 122.03199645996092
+    },
+    "fish_wait": {
+      "source": "art_source\\animation_sources\\player_fish_wait.glb",
+      "frame_range": [
+        0.0,
+        84.80000305175781
+      ],
+      "review_frame": 37.312001342773435
+    }
+  },
+  "pose_signatures": {
+    "walk": {
+      "mixamorigLeftHand": [
+        0.23401212692260742,
+        -0.3262486457824707,
+        0.2424059808254242
+      ],
+      "mixamorigRightHand": [
+        -0.23210053145885468,
+        -0.312655508518219,
+        0.26077383756637573
+      ],
+      "mixamorigHead": [
+        0.01835290715098381,
+        -0.29330259561538696,
+        0.5762174725532532
+      ]
+    },
+    "chop": {
+      "mixamorigLeftHand": [
+        0.17197662591934204,
+        0.0573921836912632,
+        0.17282141745090485
+      ],
+      "mixamorigRightHand": [
+        0.23896199464797974,
+        -0.37191861867904663,
+        0.11797089874744415
+      ],
+      "mixamorigHead": [
+        0.1678759753704071,
+        -0.29043957591056824,
+        0.3688744008541107
+      ]
+    },
+    "fish_cast": {
+      "mixamorigLeftHand": [
+        0.20536668598651886,
+        -0.24548962712287903,
+        0.4380134046077728
+      ],
+      "mixamorigRightHand": [
+        -0.23678450286388397,
+        -0.1909995675086975,
+        0.5410942435264587
+      ],
+      "mixamorigHead": [
+        0.018405798822641373,
+        -0.0724794939160347,
+        0.5677877068519592
+      ]
+    },
+    "fish_wait": {
+      "mixamorigLeftHand": [
+        0.13675181567668915,
+        -0.1611185222864151,
+        0.4165063202381134
+      ],
+      "mixamorigRightHand": [
+        -0.15518194437026978,
+        -0.11571932584047318,
+        0.46269601583480835
+      ],
+      "mixamorigHead": [
+        -0.00609411159530282,
+        0.013369513675570488,
+        0.5740635991096497
+      ]
+    }
+  },
+  "images": [
+    "art_source\\blender\\wardrobe\\continuous_candidate\\stress_reviews\\walk_front.png",
+    "art_source\\blender\\wardrobe\\continuous_candidate\\stress_reviews\\walk_orbit.png",
+    "art_source\\blender\\wardrobe\\continuous_candidate\\stress_reviews\\chop_front.png",
+    "art_source\\blender\\wardrobe\\continuous_candidate\\stress_reviews\\chop_orbit.png",
+    "art_source\\blender\\wardrobe\\continuous_candidate\\stress_reviews\\fish_cast_front.png",
+    "art_source\\blender\\wardrobe\\continuous_candidate\\stress_reviews\\fish_cast_orbit.png",
+    "art_source\\blender\\wardrobe\\continuous_candidate\\stress_reviews\\fish_wait_front.png",
+    "art_source\\blender\\wardrobe\\continuous_candidate\\stress_reviews\\fish_wait_orbit.png"
+  ]
+}

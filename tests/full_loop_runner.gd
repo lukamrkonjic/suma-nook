@@ -127,6 +127,11 @@ func _step_creation() -> void:
 	check(main._gameplay_started, "gameplay starts after creation")
 	check(main.core.profile.display_name == "Loop Keeper", "chosen name applied")
 	check(main.core.grid.cells.size() == 9, "3x3 world present")
+	var tool_mount := main.player_visual.find_child("ToolMount", true, false)
+	check(
+		tool_mount != null and tool_mount.get_child_count() == 0,
+		"the fishing rod stays hidden during ordinary movement"
+	)
 	await shot("screenshot_starting_world")
 
 
@@ -276,6 +281,151 @@ func _step_tile_geometry_contract() -> void:
 	)
 	check(all_are_free_of_baked_decor, "tile GLBs contain no baked trees or raised decor")
 	check(grove_mesh_counts_ok, "former grove tiles are flat body-and-cap variants")
+	var land_tiles_are_rigid := true
+	for holder_variant in main.renderer._tile_nodes.values():
+		var holder := holder_variant as Node3D
+		if holder == null or holder.get_child_count() == 0:
+			continue
+		var coord: Vector2i = holder.get_meta("grid_coord")
+		var elevation := int(holder.get_meta("elevation"))
+		var live_def := main.core.grid.tile_def_at(coord, elevation)
+		if live_def == null or live_def.render_profile == "continuous_water":
+			continue
+		var tile_visual := holder.get_child(0) as Node3D
+		land_tiles_are_rigid = (
+			land_tiles_are_rigid
+			and tile_visual.find_child("FoliageWind", true, false) == null
+		)
+		for node_variant in tile_visual.find_children(
+			"*", "Node3D", true, false
+		):
+			var node := node_variant as Node3D
+			land_tiles_are_rigid = (
+				land_tiles_are_rigid
+				and not node.has_meta("ambient_motion")
+			)
+	check(
+		land_tiles_are_rigid,
+		"every non-water tile stays rigid instead of inheriting foliage waves"
+	)
+	var water_material := main.materials.material("water") as ShaderMaterial
+	check(
+		water_material != null
+		and float(water_material.get_shader_parameter("wave_height")) >= 0.048
+		and float(water_material.get_shader_parameter("wave_speed")) > 1.0
+		and float(water_material.get_shader_parameter("surface_shimmer")) > 0.0
+		and water_material.shader.code.contains("world_pos.xz")
+		and WaterSurface.SUBDIV >= 14,
+		"continuous water owns denser, stronger waves and layered surface shimmer"
+	)
+	var underwater_material := (
+		main.materials.material("uw_sand_light") as ShaderMaterial
+	)
+	check(
+		underwater_material != null
+		and float(underwater_material.get_shader_parameter(
+			"caustic_strength"
+		)) >= 0.58,
+		"submerged surfaces receive the stronger world-space caustic treatment"
+	)
+	var settled_water := main.renderer._water_surface as WaterSurface
+	var expected_starting_water_indices := (
+		3 * WaterSurface.SUBDIV * WaterSurface.SUBDIV * 6
+		+ 8 * WaterSurface.SUBDIV * 6
+	)
+	check(
+		settled_water != null
+		and settled_water.mesh != null
+		and settled_water.mesh.surface_get_array_index_len(0)
+			== expected_starting_water_indices,
+		"edge-connected water is one joined mesh with no internal shoreline walls"
+	)
+	var water_preview := tile_factory.instantiate_visual(
+		main.core.registries.tile("tile_open_water"),
+		true
+	)
+	add_child(water_preview)
+	var preview_surface := water_preview.find_child(
+		TileVisualFactory.PREVIEW_WATER_SURFACE_NAME,
+		true,
+		false
+	) as WaterSurface
+	check(
+		preview_surface != null
+		and preview_surface.mesh != null
+		and preview_surface.material_override == water_material,
+		"held water tiles carry animated water instead of exposing only their pale bed"
+	)
+	var isolated_index_count: int = (
+		preview_surface.mesh.surface_get_array_index_len(0)
+		if preview_surface != null and preview_surface.mesh != null
+		else 0
+	)
+	tile_factory.sync_preview_water_topology(
+		water_preview,
+		[Vector2i.RIGHT]
+	)
+	var joined_index_count: int = (
+		preview_surface.mesh.surface_get_array_index_len(0)
+		if preview_surface != null and preview_surface.mesh != null
+		else 0
+	)
+	check(
+		isolated_index_count - joined_index_count
+			== WaterSurface.SUBDIV * 6,
+		"held water removes its shared shoreline wall before joining a neighbour"
+	)
+	var water_bed := water_preview.find_child(
+		"wf_bed",
+		true,
+		false
+	) as MeshInstance3D
+	var water_bed_parent := (
+		water_bed.get_parent_node_3d()
+		if water_bed != null
+		else null
+	)
+	check(
+		water_bed != null
+		and water_bed_parent != null
+		and water_bed.mesh is PlaneMesh
+		and is_equal_approx(
+			(water_bed.mesh as PlaneMesh).size.x * water_bed_parent.scale.x,
+			main.core.grid.tile_size
+		)
+		and water_bed.material_override == underwater_material,
+		"adjacent water beds meet as level planes under one world-space caustic field"
+	)
+	var water_placement_preview := PlacementPreview.new(
+		water_preview,
+		main.core.grid.tile_size
+	)
+	water_placement_preview.prepare_held_visual(water_preview)
+	water_placement_preview.set_validity(water_preview, false)
+	var held_water_material := (
+		preview_surface.material_override as ShaderMaterial
+	)
+	var water_invalid_follows_waves := (
+		held_water_material != null
+		and held_water_material != water_material
+		and float(held_water_material.get_shader_parameter(
+			"placement_invalid_strength"
+		)) >= PlacementPreview.WATER_INVALID_STRENGTH
+		and preview_surface.find_child(
+			"InvalidPlacementOverlay",
+			false,
+			false
+		) == null
+	)
+	water_placement_preview.set_validity(water_preview, true)
+	check(
+		water_invalid_follows_waves
+		and is_zero_approx(float(held_water_material.get_shader_parameter(
+			"placement_invalid_strength"
+		))),
+		"invalid held water tints its complete animated surface and skirts red"
+	)
+	water_preview.free()
 	var dock_def := main.core.registries.structure("struct_dock")
 	var structure_factory := StructureVisualFactoryScript.new(
 		main.assets,
@@ -369,21 +519,143 @@ func _step_build_mode_selection_rules() -> void:
 			) == chest_iid,
 			"click-targeted pickup moves the selected object instance"
 		)
+		main.placement._ghost.rotation.y = 0.0
+		main.placement._ghost.visible = false
+		main.placement.held["rotation"] = 3
+		var picked_yaw := int(main.placement.held["rotation"]) * PI * 0.5
+		main.placement._sync_ghost_yaw(picked_yaw, 1.0 / 60.0, false)
+		check(
+			absf(
+				angle_difference(
+					main.placement._ghost.rotation.y,
+					picked_yaw
+				)
+			) < 0.0001,
+			"a selected model inherits its held rotation on frame one without spinning"
+		)
+		main.placement._ghost.visible = true
+		main.placement._ghost.rotation.y = 0.0
+		main.placement._animate_ghost_rotation = false
+		main.placement._sync_ghost_yaw(PI, 1.0 / 60.0, true)
+		check(
+			absf(angle_difference(main.placement._ghost.rotation.y, PI))
+				< 0.0001,
+			"cursor support changes snap to their resolved yaw without a transient whirl"
+		)
+		main.placement._ghost.rotation.y = 0.0
+		main.placement._animate_ghost_rotation = true
+		main.placement._sync_ghost_yaw(PI * 0.5, 1.0 / 60.0, true)
+		check(
+			main.placement._ghost.rotation.y > 0.0
+			and main.placement._ghost.rotation.y < 0.2,
+			"an explicit rotation advances by a bounded amount per frame"
+		)
 		main.placement.cancel_click()
 
 	main.placement.hold_new("structure", "struct_bench")
 	main.placement._hover_support_instance_id = 0
+	var all_preview_meshes := main.placement._ghost.find_children(
+		"*", "MeshInstance3D", true, false
+	)
+	var preview_meshes: Array[MeshInstance3D] = []
+	for child in all_preview_meshes:
+		var candidate := child as MeshInstance3D
+		if not candidate.has_meta("placement_invalid_overlay"):
+			preview_meshes.append(candidate)
+	var preview_materials: Array[Material] = []
+	var preview_is_opaque := not preview_meshes.is_empty()
+	for child in preview_meshes:
+		var preview_mesh := child as MeshInstance3D
+		preview_is_opaque = (
+			preview_is_opaque
+			and is_zero_approx(preview_mesh.transparency)
+		)
+		for surface_index in preview_mesh.mesh.get_surface_count():
+			var preview_material := preview_mesh.get_surface_override_material(
+				surface_index
+			)
+			if preview_material == null:
+				preview_material = preview_mesh.mesh.surface_get_material(
+					surface_index
+				)
+			preview_materials.append(preview_material)
 	main.placement._hover_valid = true
+	main.placement._preview.set_validity(main.placement._ghost, true)
 	main.placement._sync_indicator_preview(Vector3.ZERO)
-	var valid_preview_yaw: float = main.placement._preview.indicator.rotation.y
+	var valid_style_neutral := true
+	for child in preview_meshes:
+		var valid_mesh := child as MeshInstance3D
+		valid_style_neutral = valid_style_neutral and is_zero_approx(
+			valid_mesh.transparency
+		)
 	main.placement._hover_valid = false
+	main.placement._preview.set_validity(main.placement._ghost, false)
 	main.placement._sync_indicator_preview(Vector3.ZERO)
+	var invalid_style_subtle := true
+	for child in preview_meshes:
+		var invalid_mesh := child as MeshInstance3D
+		var overlay_mesh := (
+			main.placement._preview._invalid_overlay_meshes.get(
+				invalid_mesh
+			) as MeshInstance3D
+		)
+		invalid_style_subtle = (
+			invalid_style_subtle
+			and invalid_mesh.transparency > 0.0
+			and invalid_mesh.transparency < 0.15
+			and overlay_mesh != null
+			and overlay_mesh.visible
+			and overlay_mesh.mesh == invalid_mesh.mesh
+			and overlay_mesh.material_override
+				== main.placement._preview.invalid_overlay
+		)
+	main.placement._preview.set_validity(main.placement._ghost, true)
+	var materials_restored := true
+	var material_index := 0
+	for child in preview_meshes:
+		var preview_mesh := child as MeshInstance3D
+		for surface_index in preview_mesh.mesh.get_surface_count():
+			var current_material := preview_mesh.get_surface_override_material(
+				surface_index
+			)
+			if current_material == null:
+				current_material = preview_mesh.mesh.surface_get_material(
+					surface_index
+				)
+			materials_restored = (
+				materials_restored
+				and current_material == preview_materials[material_index]
+			)
+			material_index += 1
+	for child in preview_meshes:
+		var restored_mesh := child as MeshInstance3D
+		var restored_overlay := (
+			main.placement._preview._invalid_overlay_meshes.get(
+				restored_mesh
+			) as MeshInstance3D
+		)
+		materials_restored = (
+			materials_restored
+			and restored_overlay != null
+			and not restored_overlay.visible
+		)
 	check(
-		is_equal_approx(valid_preview_yaw, 0.0)
-		and is_equal_approx(
-			main.placement._preview.indicator.rotation.y, valid_preview_yaw
-		),
-		"valid and invalid placement footprints keep the same grid orientation"
+		preview_is_opaque
+		and materials_restored
+		and valid_style_neutral
+		and invalid_style_subtle
+		and not main.placement._preview.indicator.visible,
+		"invalid previews keep real materials under a subtle whole-model red fade"
+	)
+	var landing_position := Vector3(2.0, 0.5, -1.0)
+	var held_position: Vector3 = main.placement._preview.lifted_position(
+		landing_position
+	)
+	check(
+		is_equal_approx(held_position.x, landing_position.x)
+		and is_equal_approx(held_position.z, landing_position.z)
+		and held_position.y > landing_position.y + 0.13,
+		"held previews hover slightly above their exact landing point"
 	)
 	check(
 		not main.placement.try_place_at(chest_cell)
@@ -391,6 +663,39 @@ func _step_build_mode_selection_rules() -> void:
 		"an occupied tile always resolves to its tallest object instead of falling through"
 	)
 	main.placement.cancel_click()
+
+	var tree_preview_coord := Vector2i(-1, 0)
+	var preview_tree := main.core.grid.add_structure(
+		tree_preview_coord,
+		"struct_pine",
+		1
+	)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	main.placement.hold_new("tile", "tile_grass")
+	main.placement._hover_cell = tree_preview_coord
+	main.placement._hover_elevation = 1
+	var blocked_tile_world := main.core.grid.cell_to_world(
+		tree_preview_coord,
+		1
+	)
+	var blocked_landing := main.placement._resolved_landing_position(
+		blocked_tile_world
+	)
+	var tree_visual_top := main.renderer.structure_preview_position(
+		preview_tree.instance_id
+	).y
+	check(
+		not main.placement._validate(tree_preview_coord, 1)
+		and blocked_landing.y >= tree_visual_top - 0.001,
+		"an invalid tile preview sits above an occupying tree instead of clipping through it"
+	)
+	main.placement.cancel_click()
+	main.core.grid.remove_structure(
+		tree_preview_coord,
+		preview_tree.instance_id
+	)
+	await get_tree().physics_frame
 
 	var empty_tile_coord := Vector2i(1, 1)
 	var empty_holder := main.renderer.tile_node(empty_tile_coord, 0)
@@ -657,11 +962,23 @@ func _step_jump_ledge_traversal() -> void:
 	print("STEP real tile-ledge traversal")
 	var original_position := main.player.position
 	var original_jump_velocity := float(main.core.registries.tuning["jump_velocity"])
+	var original_jump_gravity := float(main.core.registries.tuning["jump_gravity"])
 	for argument: String in OS.get_cmdline_user_args():
 		if argument.begins_with("--jump-velocity="):
 			main.core.registries.tuning["jump_velocity"] = float(
 				argument.trim_prefix("--jump-velocity=")
 			)
+	check(
+		float(main.core.registries.tuning["jump_gravity"]) >= 25.0,
+		"production jump uses heavier gravity instead of a floaty descent"
+	)
+	check(
+		float(main.core.registries.tuning["jump_velocity"])
+			/ float(main.core.registries.tuning["jump_gravity"])
+			* 2.0
+			< 0.5,
+		"production jump airtime stays under half a second"
+	)
 	var one_layer_jump := await _exercise_tile_ledge_jump(1, Vector2i(20, 20))
 	check(
 		one_layer_jump["reached"],
@@ -677,6 +994,7 @@ func _step_jump_ledge_traversal() -> void:
 		"the same jump cannot traverse an adjacent two-layer tile"
 	)
 	main.core.registries.tuning["jump_velocity"] = original_jump_velocity
+	main.core.registries.tuning["jump_gravity"] = original_jump_gravity
 	main.player.position = original_position
 	main.player.velocity = Vector3.ZERO
 	await get_tree().physics_frame
@@ -686,6 +1004,10 @@ func _step_jump_ledge_traversal() -> void:
 func _step_movement() -> void:
 	print("STEP continuous movement")
 	var player := main.player
+	check(
+		main.core.registries.tunef("walk_speed", 4.0) <= 2.2,
+		"production walk speed keeps the keeper at a relaxed pace"
+	)
 	var collidable_objects := true
 	for structure_visual: Node3D in main.renderer._structure_nodes.values():
 		var blocker := structure_visual.find_child(
@@ -766,18 +1088,120 @@ func _step_movement() -> void:
 		"raw jump apex sits between one and two elevation layers"
 	)
 	await _step_jump_ledge_traversal()
+	# The traversal helper deliberately returns as soon as its spatial claim is
+	# proven. Let locomotion finish decelerating before measuring a fresh cycle.
+	await wait(0.35)
+
+	var all_runtime_clips_in_place := true
+	for clip_name in main.player_visual._animation_player.get_animation_list():
+		var runtime_clip := (
+			main.player_visual._animation_player.get_animation(clip_name)
+		)
+		for track_index in runtime_clip.get_track_count():
+			if (
+				runtime_clip.track_get_type(track_index)
+				!= Animation.TYPE_POSITION_3D
+				or not main.player_visual._is_root_motion_track(
+					runtime_clip, track_index
+				)
+				or runtime_clip.track_get_key_count(track_index) < 2
+			):
+				continue
+			var first_root := runtime_clip.track_get_key_value(
+				track_index, 0
+			) as Vector3
+			var last_root := runtime_clip.track_get_key_value(
+				track_index,
+				runtime_clip.track_get_key_count(track_index) - 1
+			) as Vector3
+			if (
+				absf(last_root.x - first_root.x) >= 0.0001
+				or absf(last_root.z - first_root.z) >= 0.0001
+			):
+				all_runtime_clips_in_place = false
+	check(
+		all_runtime_clips_in_place,
+		"every authored runtime animation closes horizontal root travel"
+	)
 
 	var start := player.position
 	var samples: Array[Vector3] = []
+	var animation_samples := PackedFloat32Array()
+	var transition_count_before := main.player_visual._locomotion_transition_count
 	Input.action_press("move_up")
 	for i in 40:
 		await get_tree().physics_frame
 		samples.append(player.position)
+		if (
+			main.player_visual._animation_player.current_animation
+			== main.player_visual._asset_profile.walk_clip_name
+		):
+			animation_samples.append(
+				main.player_visual._animation_player.current_animation_position
+			)
 		if i % 15 == 5:   # frame-sequence proof of continuous locomotion
 			await shot("movement_sequence_%d" % (i / 15))
+	check(
+		main.player_visual._locomotion_clip
+		== main.player_visual._asset_profile.walk_clip_name,
+		"continuous movement cross-fades into the authored Mixamo walk clip"
+	)
+	check(
+		main.player_visual._locomotion_transition_count
+		== transition_count_before + 1,
+		"held movement starts locomotion once instead of replaying the clip each tick"
+	)
+	var advancing_animation_frames := 0
+	var animation_time_regressions := 0
+	for i in range(1, animation_samples.size()):
+		var animation_delta := animation_samples[i] - animation_samples[i - 1]
+		if animation_delta > 0.0001:
+			advancing_animation_frames += 1
+		elif animation_delta < -0.0001:
+			animation_time_regressions += 1
+	check(
+		animation_samples.size() >= 20
+		and advancing_animation_frames >= animation_samples.size() - 2,
+		"walk animation advances smoothly on consecutive physics ticks"
+	)
+	check(
+		animation_time_regressions == 0,
+		"walk animation does not stutter through repeated time resets"
+	)
 	Input.action_release("move_up")
 	await shot("screenshot_free_walking")
 	await wait(0.35)
+	check(
+		main.player_visual._locomotion_clip
+		== main.player_visual._asset_profile.idle_clip_name,
+		"releasing movement cross-fades back into the authored idle clip"
+	)
+	check(
+		main.player_visual._locomotion_transition_count
+		== transition_count_before + 2,
+		"stopping locomotion performs exactly one return transition"
+	)
+	var player_mesh := main.player_visual._body.find_child(
+		"*", true, false
+	) as MeshInstance3D
+	for authored_mesh_node in main.player_visual._body.find_children(
+		"*", "MeshInstance3D", true, false
+	):
+		player_mesh = authored_mesh_node as MeshInstance3D
+		break
+	var player_material := (
+		player_mesh.get_active_material(0) if player_mesh != null else null
+	)
+	check(
+		player_material is ShaderMaterial
+		and is_equal_approx(
+			float((player_material as ShaderMaterial).get_shader_parameter(
+				"roughness_value"
+			)),
+			main.player_visual._asset_profile.material_roughness
+		),
+		"authored player uses the profile's matte, sun-safe material treatment"
+	)
 	var stopped := player.position
 	var moved := start.distance_to(stopped)
 	check(
@@ -801,7 +1225,7 @@ func _step_movement() -> void:
 	var diag_speed := t0.distance_to(player.position) / (30.0 / 60.0)
 	Input.action_release("move_down")
 	Input.action_release("move_left")
-	check(diag_speed < main.core.registries.tunef("walk_speed", 4.0) * 1.15, "diagonal not faster (%.2f m/s)" % diag_speed)
+	check(diag_speed < main.core.registries.tunef("walk_speed", 2.2) * 1.15, "diagonal not faster (%.2f m/s)" % diag_speed)
 	# camera-relative after rotation
 	main.camera_rig._yaw_target += 90.0
 	await wait(0.6)
@@ -912,6 +1336,31 @@ func _step_fishing() -> void:
 	check(interaction_marker != null and interaction_marker.position.distance_to(pond_screen) < 0.1, "interaction marker uses the literal click position")
 	await wait(0.8)
 	check(main.player.state in [PlayerController.State.FISHING_CAST, PlayerController.State.FISHING_WAIT], "one click starts the fishing loop")
+	var animation_player := main.player_visual.find_child(
+		"AnimationPlayer", true, false
+	) as AnimationPlayer
+	check(
+		animation_player != null
+		and animation_player.current_animation == "fish_cast",
+		"fishing uses the authored cast animation"
+	)
+	var tool_mount := main.player_visual.find_child("ToolMount", true, false)
+	check(
+		tool_mount != null and tool_mount.get_child_count() == 1,
+		"the fishing rod appears only while fishing"
+	)
+	var wait_deadline := Time.get_ticks_msec() + 2500
+	while (
+		main.player.state != PlayerController.State.FISHING_WAIT
+		and Time.get_ticks_msec() < wait_deadline
+	):
+		await wait(0.05)
+	check(
+		main.player.state == PlayerController.State.FISHING_WAIT
+		and animation_player != null
+		and animation_player.current_animation == "fish_wait",
+		"cast blends into the authored looping fishing hold"
+	)
 	await shot("screenshot_fishing")
 	var xp_before: int = main.core.skills.xp["fishing"]
 	var deadline := Time.get_ticks_msec() + 9000
@@ -932,6 +1381,11 @@ func _step_fishing() -> void:
 		await get_tree().physics_frame
 	Input.action_release("move_left")
 	check(main.player.state == PlayerController.State.FREE, "moving cancels fishing cleanly")
+	await get_tree().process_frame
+	check(
+		tool_mount != null and tool_mount.get_child_count() == 0,
+		"cancelling fishing hides the rod again"
+	)
 
 
 func _step_parcel() -> void:
@@ -1003,6 +1457,47 @@ func _step_woodcutting() -> void:
 			trees.append(structure)
 	check(trees.size() == 1, "the placed tree is the tile's only Woodland Tending object")
 	var tree := trees[0]
+	var tree_visual := main.renderer.structure_node(tree.instance_id)
+	var foliage_wind := tree_visual.find_child(
+		"FoliageWind", true, false
+	)
+	check(
+		foliage_wind != null
+		and (foliage_wind.get("_parts") as Array).size() > 0,
+		"tree objects alone receive the dedicated two-frequency foliage wind"
+	)
+	var wind_parts: Array = (
+		foliage_wind.get("_parts") as Array
+		if foliage_wind != null
+		else []
+	)
+	var first_canopy := (
+		wind_parts[0]["node"] as Node3D
+		if not wind_parts.is_empty()
+		else null
+	)
+	var canopy_rotation_before := (
+		first_canopy.rotation if first_canopy != null else Vector3.ZERO
+	)
+	var trunk: Node3D
+	for node_variant in tree_visual.find_children(
+		"*", "Node3D", true, false
+	):
+		var candidate := node_variant as Node3D
+		if candidate.name.to_lower().contains("trunk"):
+			trunk = candidate
+			break
+	var trunk_rotation_before := trunk.rotation if trunk != null else Vector3.ZERO
+	await wait(0.2)
+	check(
+		first_canopy != null
+		and not first_canopy.rotation.is_equal_approx(canopy_rotation_before),
+		"tree canopy motion visibly evolves over time"
+	)
+	check(
+		trunk == null or trunk.rotation.is_equal_approx(trunk_rotation_before),
+		"tree wind leaves the rigid trunk untouched"
+	)
 	var tree_point := (
 		main.core.grid.cell_to_world(grove)
 		+ main.core.grid.structure_local_transform(tree.instance_id).origin
@@ -1024,13 +1519,34 @@ func _step_woodcutting() -> void:
 		"the exact tree object owns focus and Woodland Tending"
 	)
 	var inventory_before := _inventory_total()
+	var chop_animation_starts := [0]
+	var chop_started := func(animation_name: String) -> void:
+		if animation_name == "chop":
+			chop_animation_starts[0] += 1
+	var action_player := main.player_visual.find_child(
+		"AnimationPlayer", true, false
+	) as AnimationPlayer
+	main.player_visual.animation_started.connect(chop_started)
 	main.skill_actions.try_interact()
 	await wait(0.9)
+	check(
+		action_player != null and action_player.current_animation == "chop",
+		"woodcutting uses the authored chop animation"
+	)
 	await shot("screenshot_woodcutting")
 	var deadline := Time.get_ticks_msec() + 12000
 	while not tree.anchor_resting and Time.get_ticks_msec() < deadline:
 		await wait(0.3)
 	check(tree.anchor_resting, "tree enters its object-owned resting cycle")
+	check(
+		int(chop_animation_starts[0]) == 1,
+		(
+			"repeating chops continue one seamless authored loop instead of restarting"
+			+ " (semantic starts: %d)" % int(chop_animation_starts[0])
+		)
+	)
+	if main.player_visual.animation_started.is_connected(chop_started):
+		main.player_visual.animation_started.disconnect(chop_started)
 	check(_inventory_total() == inventory_before, "Woodland Tending adds no logs or materials")
 	check(main.core.skills.xp["woodcutting"] > 0, "woodcutting xp gained")
 	# The tree regenerates without mutating its supporting terrain.
@@ -1060,7 +1576,7 @@ func _step_elevation_stacking() -> void:
 	var target_position := main.core.grid.cell_to_world(STACK_COORD, 1)
 	var raised_node := main.renderer.tile_node(STACK_COORD, 1)
 	check(raised_node != null, "renderer creates an independent elevated tile node")
-	var covered_surface_hidden := true
+	var cover_surface_visible_during_descent := false
 	var covered_body_visible := false
 	var covered_infill_visible := false
 	var support_node := main.renderer.tile_node(STACK_COORD, 0)
@@ -1070,16 +1586,34 @@ func _step_elevation_stacking() -> void:
 		if lower.ends_with("_body"):
 			covered_body_visible = mesh.visible
 		elif lower == TileVisualFactory.COVERED_INFILL_NAME.to_lower():
-			covered_infill_visible = mesh.visible
+			covered_infill_visible = (
+				mesh.visible and mesh.transparency > 0.9
+			)
 		elif mesh.visible:
-			covered_surface_hidden = false
+			cover_surface_visible_during_descent = true
 	check(
-		covered_surface_hidden and covered_body_visible and covered_infill_visible,
-		"covered support hides its cap and raised dressing while retaining a solid body"
+		cover_surface_visible_during_descent
+		and covered_body_visible
+		and covered_infill_visible,
+		"covered grass remains visible while the incoming tile begins its descent"
 	)
 	check(
-		raised_node != null and raised_node.position.y > target_position.y + 0.1,
+		raised_node != null and raised_node.position.y >= target_position.y + 0.095,
 		"raised tile begins with the placement drop-and-pop animation"
+	)
+	await wait(0.22)
+	var covered_surface_hidden := true
+	covered_infill_visible = false
+	for child in support_node.find_children("*", "MeshInstance3D", true, false):
+		var mesh := child as MeshInstance3D
+		var lower := mesh.name.to_lower()
+		if lower == TileVisualFactory.COVERED_INFILL_NAME.to_lower():
+			covered_infill_visible = mesh.visible and mesh.transparency < 0.01
+		elif not lower.ends_with("_body") and mesh.visible:
+			covered_surface_hidden = false
+	check(
+		covered_surface_hidden and covered_infill_visible,
+		"surface relief cross-fades away only as the upper tile settles onto it"
 	)
 	await wait(0.5)
 	check(
@@ -1093,6 +1627,23 @@ func _step_elevation_stacking() -> void:
 	check(
 		absf(support_top - raised_bottom) <= 0.015,
 		"stacked tile meshes touch exactly without a flying gap"
+	)
+	var raised_seam := raised_node.find_child(
+		TileVisualFactory.STACK_SEAM_NAME,
+		true,
+		false
+	) as MeshInstance3D
+	var seam_bounds := raised_seam.get_aabb() if raised_seam != null else AABB()
+	check(
+		raised_seam != null
+		and raised_seam.visible
+		and seam_bounds.size.x >= main.core.grid.tile_size - 0.01
+		and (
+			raised_node.position.y
+			+ raised_seam.position.y
+			- seam_bounds.size.y * 0.5
+		) < support_top,
+		"upper tile material seals its beveled underside with no supporting-dirt hairline"
 	)
 
 	main.placement.hold_new("structure", "struct_lantern")
@@ -1113,6 +1664,20 @@ func _step_elevation_stacking() -> void:
 		main.core.grid.cell_at(STACK_COORD, 1).structures.size() == 1,
 		"elevated decoration belongs to the upper tile rather than the ground tile"
 	)
+	var lower_surface_stayed_hidden := true
+	for child in support_node.find_children("*", "MeshInstance3D", true, false):
+		var mesh := child as MeshInstance3D
+		var lower := mesh.name.to_lower()
+		if (
+			not lower.ends_with("_body")
+			and lower != TileVisualFactory.COVERED_INFILL_NAME.to_lower()
+			and mesh.visible
+		):
+			lower_surface_stayed_hidden = false
+	check(
+		lower_surface_stayed_hidden,
+		"refreshing an already-covered stack never flashes its grass surface back on"
+	)
 	main.placement.undo()
 	check(
 		main.core.grid.cell_at(STACK_COORD, 1).structures.is_empty(),
@@ -1130,6 +1695,22 @@ func _step_elevation_stacking() -> void:
 		and main.placement.held["moving"]["stack"].size() == 2
 		and not main.core.grid.has_cell(STACK_COORD),
 		"picking the bottom tile detaches the complete tile-and-object hierarchy"
+	)
+	var held_stack_yaw := int(main.placement.held["rotation"]) * PI * 0.5
+	main.placement._ghost.rotation.y = held_stack_yaw + PI
+	main.placement._ghost.visible = false
+	main.placement._sync_ghost_yaw(
+		held_stack_yaw,
+		1.0 / 60.0,
+		false
+	)
+	check(
+		absf(angle_difference(
+			main.placement._ghost.rotation.y,
+			held_stack_yaw
+		)) < 0.0001
+		and not main.placement._animate_ghost_rotation,
+		"a picked-up tile-and-object stack resolves its yaw once without spinning"
 	)
 	var ghost_lower := main.placement._ghost.find_child(
 		"ghost_tile_e0",
@@ -1460,7 +2041,10 @@ func _step_visual_runtime() -> void:
 	var animation_manifest := main.player_visual.animation_manifest()
 	check(
 		animation_manifest["states"].size() == 10
-		and animation_manifest["states"]["chop"]["events"][0]["time"] == 0.38
+		and is_equal_approx(
+			animation_manifest["states"]["chop"]["events"][0]["time"],
+			0.893
+		)
 		and animation_manifest["transitions"]["fish_cast"].has("fish_wait"),
 		"Animation manifest includes states, keyframes, events, curves, and transitions"
 	)

@@ -124,6 +124,7 @@ class ItemDefinition:
 	var tool_type: String = ""         # rod|axe|pick|sword
 	var tier: int = 1
 	var asset_id: String = ""          # visual attachment scene
+	var hide_regions: Array[String] = [] # body regions replaced by worn armor
 	var appearance_unlock: bool = false
 	var stats: Dictionary = {}         # speed, yield_bonus, rare_bonus, damage, defense
 
@@ -141,6 +142,7 @@ class ItemDefinition:
 		it.tool_type = d.get("tool_type", "")
 		it.tier = int(d.get("tier", 1))
 		it.asset_id = d.get("asset_id", "")
+		it.hide_regions.assign(d.get("hide_regions", []))
 		it.appearance_unlock = bool(d.get("appearance_unlock", it.slot != ""))
 		it.stats = d.get("stats", {})
 		return it
