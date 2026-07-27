@@ -8,6 +8,7 @@
     { "id": "shelter", "owner": "camping", "description": "Protects occupants from weather." },
     { "id": "sleep", "owner": "camping", "description": "Allows eligible actors to sleep." },
     { "id": "storage", "owner": "camping", "description": "Provides stateful shelter storage slots." },
-    { "id": "durability", "owner": "camping", "description": "Tracks structural condition." }
+    { "id": "durability", "owner": "camping", "description": "Tracks structural condition." },
+    { "id": "ambient_motion", "owner": "core", "description": "Runs lightweight decorative transform animation on an authored visual node." }
   ]
 }

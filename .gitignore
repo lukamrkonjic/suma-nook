@@ -12,6 +12,8 @@ export.cfg
 # Local save/test artifacts
 *.log
 test_output/
+artifacts/
+__pycache__/
 
 # Disposable source-model reconstruction and direct-preview experiments.
 # Keep the local Blender/GLB evidence without risking it in a production push.

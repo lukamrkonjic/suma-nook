@@ -37,6 +37,7 @@ const BUILD_CATEGORIES := [
 	{"id": "ground", "label": "Ground"},
 	{"id": "woodland", "label": "Woodland"},
 	{"id": "stone", "label": "Stone"},
+	{"id": "winter", "label": "Snow"},
 	{"id": "nature", "label": "Nature"},
 	{"id": "furniture", "label": "Furniture"},
 	{"id": "boundaries", "label": "Borders"},
@@ -412,13 +413,15 @@ static func category_for_tile(definition: Defs.TileDefinition) -> String:
 			return "woodland"
 		"stonebound":
 			return "stone"
+		"winter":
+			return "winter"
 		_:
 			return "ground"
 
 
 static func category_for_structure(definition: Defs.StructureDefinition) -> String:
 	var tags := definition.placement_tags
-	if tags.has("tree") or tags.has("plant"):
+	if tags.has("tree") or tags.has("plant") or tags.has("nature"):
 		return "nature"
 	if tags.has("furniture"):
 		return "furniture"

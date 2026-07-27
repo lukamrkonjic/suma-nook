@@ -46,6 +46,7 @@ func _run() -> void:
 	_test_content_catalog_architecture()
 	_test_build_library_categories()
 	_test_content_assets()
+	_test_catalog_expansion()
 	_test_gg_render_contract()
 	_test_game_preferences()
 	_test_starting_world()
@@ -207,6 +208,12 @@ func _test_build_library_categories() -> void:
 		"tile_path": "ground",
 		"tile_garden": "ground",
 		"tile_courtyard": "ground",
+		"tile_dirt": "ground",
+		"tile_dirt_road": "ground",
+		"tile_dirt_crossroad": "ground",
+		"tile_mud": "ground",
+		"tile_sand": "ground",
+		"tile_clay": "ground",
 		"tile_grove_mature": "woodland",
 		"tile_grove_birch": "woodland",
 		"tile_grove_mossy": "woodland",
@@ -217,6 +224,12 @@ func _test_build_library_categories() -> void:
 		"tile_stone_ruin": "stone",
 		"tile_stone_crystal": "stone",
 		"tile_stone_road": "stone",
+		"tile_cobblestone": "stone",
+		"tile_flagstone": "stone",
+		"tile_snowfield": "winter",
+		"tile_snow_drift": "winter",
+		"tile_snow_path": "winter",
+		"tile_frosted_stone": "winter",
 	}
 	for tile_id: String in expected_tiles:
 		check(
@@ -246,6 +259,22 @@ func _test_build_library_categories() -> void:
 		"struct_pine_tall": "nature",
 		"struct_pine_young": "nature",
 		"struct_bush": "nature",
+		"struct_stone_wall_low": "boundaries",
+		"struct_stone_wall_corner": "boundaries",
+		"struct_stone_pillar": "boundaries",
+		"struct_stone_well": "utilities",
+		"struct_stone_bench": "furniture",
+		"struct_birdbath": "nature",
+		"struct_watering_can": "utilities",
+		"struct_barrel": "storage",
+		"struct_crate": "storage",
+		"struct_wheelbarrow": "utilities",
+		"struct_log_pile": "storage",
+		"struct_wooden_arch": "buildings",
+		"struct_milk_churn": "storage",
+		"struct_garden_trellis": "boundaries",
+		"struct_snowman": "nature",
+		"struct_water_wheel": "buildings",
 	}
 	for structure_id: String in expected_structures:
 		check(
@@ -260,6 +289,96 @@ func _test_content_assets() -> void:
 	check(regs.load_all(), "content asset validation registry loads")
 	var errors := ContentValidator.validate(regs)
 	check(errors.is_empty(), "every production definition resolves its visual asset: " + ", ".join(errors))
+
+
+func _test_catalog_expansion() -> void:
+	var regs := GameContentCatalogScript.create()
+	check(regs.load_all(), "expanded catalog loads before focused contract checks")
+	var winter_tiles := [
+		"tile_snowfield",
+		"tile_snow_drift",
+		"tile_snow_path",
+		"tile_frosted_stone",
+	]
+	for tile_id: String in winter_tiles:
+		var tile := regs.tile(tile_id)
+		check(
+			tile != null and tile.family == "winter"
+			and tile.stackable and tile.supports_tiles and tile.surface_kind == "flat",
+			"%s remains a modular flat winter tile" % tile_id
+		)
+	var earth_and_stone_tiles := [
+		"tile_dirt",
+		"tile_dirt_road",
+		"tile_dirt_crossroad",
+		"tile_mud",
+		"tile_sand",
+		"tile_clay",
+		"tile_cobblestone",
+		"tile_flagstone",
+	]
+	for tile_id: String in earth_and_stone_tiles:
+		var tile := regs.tile(tile_id)
+		check(
+			tile != null and tile.stackable and tile.supports_tiles,
+			"%s participates in the global tile stacking contract" % tile_id
+		)
+	check(
+		regs.item("parcel_winter") != null
+		and regs.parcel("parcel_winter") != null
+		and regs.recipe("recipe_winter_parcel") != null,
+		"winter terrain is obtainable through a registered parcel and recipe"
+	)
+	var watering_can := regs.structure("struct_watering_can")
+	check(
+		watering_can.can_be_stacked
+		and watering_can.placement_tags.has("small_surface_item")
+		and watering_can.placement_tags.has("tabletop_item"),
+		"watering can can sit on compatible stools, benches, tables, and containers"
+	)
+	for structure_id in [
+		"struct_stone_wall_low",
+		"struct_stone_wall_corner",
+		"struct_stone_pillar",
+	]:
+		check(
+			regs.structure(structure_id).blocks_movement,
+			"%s participates in object collision" % structure_id
+		)
+	var wheel := regs.structure("struct_water_wheel")
+	check(
+		wheel.allowed_surface_kinds == ["water"]
+		and wheel.has_capability("ambient_motion")
+		and wheel.grid_fit_profile == "tile_span",
+		"waterside wheel is water-only, grid-fitted, and data-animated"
+	)
+	var palette := load(
+		"res://assets/palettes/gg_material_palette.tres"
+	) as CozyPalette
+	var assets := AssetLibrary.new(MaterialLibrary.new(palette))
+	var wheel_visual := assets.instantiate("prop_water_wheel")
+	check(
+		wheel_visual.find_child("WaterWheelRotor", true, false) is Node3D,
+		"water-wheel GLB preserves the named runtime rotor hierarchy"
+	)
+	var motion_root := Node3D.new()
+	var rotor := Node3D.new()
+	rotor.name = "Rotor"
+	motion_root.add_child(rotor)
+	var motion := AmbientMotion.new()
+	check(
+		motion.configure(motion_root, {"node": "Rotor", "axis": "z", "speed": 1.0}),
+		"generic ambient motion resolves a data-named authored node"
+	)
+	var before := rotor.quaternion
+	motion._process(0.5)
+	check(
+		not rotor.quaternion.is_equal_approx(before),
+		"generic ambient motion advances the target transform"
+	)
+	wheel_visual.free()
+	motion.free()
+	motion_root.free()
 
 
 func _test_gg_render_contract() -> void:
@@ -795,18 +914,42 @@ func _test_object_support_graph() -> void:
 		"struct_chest": true,
 		"struct_planter": true,
 		"struct_pot": true,
+		"struct_watering_can": true,
+		"struct_milk_churn": true,
 	}
 	var expected_supports := {
 		"struct_bench": {
-			"seat_left": ["struct_pot"],
-			"seat_right": ["struct_pot"],
+			"seat_left": ["struct_pot", "struct_watering_can", "struct_milk_churn"],
+			"seat_right": ["struct_pot", "struct_watering_can", "struct_milk_churn"],
 		},
-		"struct_stool": {"top": ["struct_pot"]},
+		"struct_stool": {
+			"top": ["struct_pot", "struct_watering_can", "struct_milk_churn"],
+		},
 		"struct_table": {
-			"top_center": ["struct_chest", "struct_planter", "struct_pot"],
+			"top_center": [
+				"struct_chest",
+				"struct_planter",
+				"struct_pot",
+				"struct_watering_can",
+				"struct_milk_churn",
+			],
 		},
-		"struct_chest": {"lid": ["struct_pot"]},
-		"struct_box": {"top": ["struct_pot"]},
+		"struct_chest": {
+			"lid": ["struct_pot", "struct_watering_can", "struct_milk_churn"],
+		},
+		"struct_box": {
+			"top": ["struct_pot", "struct_watering_can", "struct_milk_churn"],
+		},
+		"struct_stone_bench": {
+			"seat_left": ["struct_pot", "struct_watering_can", "struct_milk_churn"],
+			"seat_right": ["struct_pot", "struct_watering_can", "struct_milk_churn"],
+		},
+		"struct_barrel": {
+			"top": ["struct_pot", "struct_watering_can", "struct_milk_churn"],
+		},
+		"struct_crate": {
+			"top": ["struct_pot", "struct_watering_can", "struct_milk_churn"],
+		},
 	}
 	for definition: Defs.StructureDefinition in core.registries.structures.values():
 		check(

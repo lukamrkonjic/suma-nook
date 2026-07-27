@@ -7,6 +7,7 @@
 | `assets/palettes/cozy_diorama_palette.tres` | original values tuned against read-only references | hand-authored | project-owned |
 | all materials | `MaterialLibrary` built at runtime from palette | Godot | project-owned |
 | `audio/generated/*.wav` | original, synthesized by `tools/generate_audio.py` (numpy synthesis) | Python | project-owned |
+| `assets/3d/reworked/tile_wooden_planks.glb` | Luka's generated model (`art_source/imported/wooden_planks/`, sha256-pinned), cleaned + palette-quantised by `art_source/blender/process_wooden_planks_tile.py` | Modly → Blender 5.2 headless | project-owned |
 | fonts in `assets/fonts` | pre-existing project fonts | — | as recorded in assets/README.md |
 | Garden Galaxy screenshots | READ-ONLY visual references, in `docs/style_reference/` once Luka copies them; no data extracted | — | not shipped |
 

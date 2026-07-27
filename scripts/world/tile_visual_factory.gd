@@ -40,10 +40,33 @@ func instantiate_visual(def: Defs.TileDefinition, preview := false) -> Node3D:
 	var horizontal_scale := grid.tile_size / AUTHORED_TILE_SIZE
 	authored_visual.scale = Vector3(horizontal_scale, 1.0, horizontal_scale)
 	visual.add_child(authored_visual)
+	if def.render_profile != "continuous_water":
+		_mark_authored_surface_details(authored_visual)
 	_add_surface_detail(visual, def.surface_detail_profile)
 	if preview and def.render_profile == "continuous_water":
 		_add_preview_water_surface(visual)
 	return visual
+
+
+func _mark_authored_surface_details(authored_visual: Node3D) -> void:
+	# Classify by the shared geometric contract rather than content-specific
+	# names: coverable relief lives wholly above the structural top plane and
+	# remains within the gameplay-safe relief budget. This applies equally to
+	# future authored tracks, cobbles, snow, puddles, and similar tile detail,
+	# while excluding recessed pond shells and other structural geometry.
+	for child in authored_visual.find_children("*", "MeshInstance3D", true, false):
+		var mesh := child as MeshInstance3D
+		var lower := mesh.name.to_lower()
+		if lower.ends_with("_body") or lower.ends_with("_cap"):
+			continue
+		var relative := Transform3D.IDENTITY
+		var cursor: Node3D = mesh
+		while cursor != null and cursor != authored_visual:
+			relative = cursor.transform * relative
+			cursor = cursor.get_parent() as Node3D
+		var bounds: AABB = relative * mesh.get_aabb()
+		if bounds.position.y >= -0.002 and bounds.end.y <= 0.05:
+			mesh.set_meta(SURFACE_DETAIL_META, true)
 
 
 ## A sculpted bowl repeated once per water cell made a connected region read as

@@ -166,16 +166,16 @@ func _step_build_library_ui() -> void:
 	main.hud._select_build_category("ground")
 	await wait(0.05)
 	check(
-		main.hud._build_strip.get_child_count() == 7,
-		"ground keeps meadow and water tiles separate from woodland and stone"
+		main.hud._build_strip.get_child_count() == 14,
+		"ground keeps meadow, earth, water, and plank tiles separate from other terrain families"
 	)
 
 	await shot("screenshot_build_library")
 	main.hud._select_build_category("furniture")
 	await wait(0.05)
 	check(
-		main.hud._build_strip.get_child_count() == 3,
-		"furniture opens as a focused bench, stool, and table shelf"
+		main.hud._build_strip.get_child_count() == 4,
+		"furniture opens as a focused wood-and-stone seating and table shelf"
 	)
 	main.hud._select_build_category("ground")
 	await wait(0.05)
@@ -197,6 +197,28 @@ func _step_build_library_ui() -> void:
 		main.hud._build_previous_button.visible and main.hud._build_next_button.visible,
 		"overflow also exposes explicit previous and next controls"
 	)
+
+	# Admin controls: reachable from the pause menu in debug builds, and the
+	# grant actions really change stock (restored with the originals below).
+	if OS.is_debug_build():
+		main.pause_menu.open("admin")
+		await wait(0.1)
+		check(
+			main.pause_menu.current_page() == "admin",
+			"the pause menu exposes the admin controls page in debug builds"
+		)
+		var grant_tiles_button := main.pause_menu.find_child("AdminRowEveryTile", true, false) as Button
+		check(grant_tiles_button != null, "the admin page offers the grant-every-tile action")
+		if grant_tiles_button != null:
+			var planks_before := int(main.core.stock.tiles.get("tile_wooden_planks", 0))
+			grant_tiles_button.pressed.emit()
+			await wait(0.05)
+			check(
+				int(main.core.stock.tiles.get("tile_wooden_planks", 0)) == planks_before + 10,
+				"the admin grant action stocks every registered tile"
+			)
+		main.pause_menu.close()
+		await wait(0.05)
 
 	main.core.stock.tiles = original_tiles
 	main.core.stock.structures = original_structures

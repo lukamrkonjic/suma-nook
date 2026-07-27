@@ -110,7 +110,9 @@ func _build_shell() -> void:
 
 
 func _show_page(page: String) -> void:
-	_page = page if page in ["menu", "settings", "controls", "exit"] else "menu"
+	_page = page if page in ["menu", "settings", "controls", "exit", "admin"] else "menu"
+	if _page == "admin" and not OS.is_debug_build():
+		_page = "menu"
 	_clear_page()
 	_status_label = null
 	match _page:
@@ -120,6 +122,8 @@ func _show_page(page: String) -> void:
 			_build_controls_page()
 		"exit":
 			_build_exit_page()
+		"admin":
+			_build_admin_page()
 		_:
 			_build_menu_page()
 	_card.scale = Vector2(0.96, 0.96)
@@ -143,7 +147,7 @@ func _clear_page() -> void:
 
 
 func _build_menu_page() -> void:
-	_card.custom_minimum_size = Vector2(500, 550)
+	_card.custom_minimum_size = Vector2(500, 620 if OS.is_debug_build() else 550)
 	_add_brand_header("PAUSED", "Your nook will wait for you.")
 
 	var resume := kit.menu_button("Resume Garden", true)
@@ -158,6 +162,11 @@ func _build_menu_page() -> void:
 	controls.name = "PauseControlsButton"
 	controls.pressed.connect(_request_page.bind("controls"))
 	_content.add_child(controls)
+	if OS.is_debug_build():
+		var admin := kit.menu_button("Admin Controls")
+		admin.name = "PauseAdminButton"
+		admin.pressed.connect(_request_page.bind("admin"))
+		_content.add_child(admin)
 	var save := kit.menu_button("Save Game")
 	save.name = "PauseSaveButton"
 	save.pressed.connect(_save_game)
@@ -294,6 +303,105 @@ func _build_controls_page() -> void:
 		["Pause / back", ["Esc"], "Open this menu or return one page."],
 	]:
 		list.add_child(_control_row(entry[0], entry[1], entry[2]))
+
+func _build_admin_page() -> void:
+	## Developer shortcuts (debug builds only). Rebuilt from the pre-refactor
+	## admin card on the current managers; lighting transitions tick in
+	## _process, so visual choices finish blending once the game resumes.
+	_card.custom_minimum_size = Vector2(760, 800)
+	_add_page_header("ADMIN", "Developer shortcuts. Visual changes finish once you resume.")
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(0, 600)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_content.add_child(scroll)
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", 8)
+	scroll.add_child(list)
+
+	var grant_items := func() -> void:
+		for item_id in core.registries.items:
+			core.inventory.grant(String(item_id), 99, false, true)
+		_admin_status("Granted 99 of every item (%d kinds)." % core.registries.items.size())
+	var grant_tiles := func() -> void:
+		for tile_id in core.registries.tiles:
+			core.stock.add_tile(String(tile_id), 10)
+		_admin_status("Stocked 10 of every tile (%d kinds)." % core.registries.tiles.size())
+	var grant_structures := func() -> void:
+		for structure_id in core.registries.structures:
+			core.stock.add_structure(String(structure_id), 10)
+		_admin_status("Stocked 10 of every structure (%d kinds)." % core.registries.structures.size())
+	list.add_child(kit.section_label("Content library"))
+	_admin_action_row(list, "Every item", "Grant 99 of each registered item, quietly.", "Grant ×99", grant_items)
+	_admin_action_row(list, "Every tile", "Stock 10 of each tile in the build library.", "Grant ×10", grant_tiles)
+	_admin_action_row(list, "Every structure", "Stock 10 of each structure and decoration.", "Grant ×10", grant_structures)
+
+	var lighting := settings_bridge.lighting
+	if lighting != null:
+		list.add_child(kit.section_label("Visuals"))
+		_admin_choice_row(list, "Weather", [
+			["Day", "day"], ["Mist", "mist"], ["Rain", "rain"],
+			["Leaves", "leaves"], ["Snow", "snow"], ["Bloom", "blossom"],
+		], lighting.weather_id(), func(choice_id): lighting.set_weather(choice_id))
+		_admin_choice_row(list, "Time of day", [
+			["Morning", "morning"], ["Noon", "noon"], ["Sunset", "sunset"], ["Night", "night"],
+		], lighting.time_of_day_id, func(choice_id): lighting.set_time_of_day(choice_id))
+		_admin_choice_row(list, "Background", [
+			["Profile", "profile"], ["Cream", "cream"], ["Mist", "mist"],
+			["Dusk", "dusk"], ["Night", "night"],
+		], lighting.background_preset_id, func(choice_id): lighting.set_background_preset(choice_id))
+
+	var trigger_ferry := func() -> void:
+		var ok := core.arrivals.trigger_arrival()
+		_admin_status("Ferry arrival triggered." if ok else "Ferry could not arrive right now.")
+	var grant_fishing_xp := func() -> void:
+		core.skills.add_xp("fishing", 100)
+		_admin_status("Granted 100 Fishing XP.")
+	var grant_woodland_xp := func() -> void:
+		core.skills.add_xp("woodcutting", 100)
+		_admin_status("Granted 100 Woodland Tending XP.")
+	var save_now := func() -> void:
+		_admin_status("Garden saved." if core.save() else "Could not save the garden.")
+	list.add_child(kit.section_label("World and progression"))
+	_admin_action_row(list, "Ferry", "Bring the delivery ferry in right away.", "Trigger arrival", trigger_ferry)
+	_admin_action_row(list, "Fishing", "Add 100 XP toward the next fishing level.", "+100 XP", grant_fishing_xp)
+	_admin_action_row(list, "Woodland Tending", "Add 100 XP toward the next woodland level.", "+100 XP", grant_woodland_xp)
+	_admin_action_row(list, "Save", "Write the garden to disk immediately.", "Save now", save_now)
+
+	_status_label = kit.label("", 15)
+	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_status_label.custom_minimum_size.y = 24
+	_status_label.add_theme_color_override("font_color", kit.palette.color("ui_good").darkened(0.12))
+	_content.add_child(_status_label)
+
+
+func _admin_action_row(list: VBoxContainer, title: String, description: String, button_text: String, action: Callable) -> void:
+	var button := kit.button(button_text)
+	button.name = "AdminRow" + title.to_pascal_case()
+	button.pressed.connect(action)
+	list.add_child(_setting_row(title, description, button))
+
+
+func _admin_choice_row(list: VBoxContainer, title: String, choices: Array, active_id: String, on_choice: Callable) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	for choice in choices:
+		var button := kit.button(String(choice[0]), String(choice[1]) == active_id)
+		button.custom_minimum_size = Vector2(0, 42)
+		var choice_id := String(choice[1])
+		var pick := func() -> void:
+			on_choice.call(choice_id)
+			_request_page("admin")
+		button.pressed.connect(pick)
+		row.add_child(button)
+	list.add_child(_setting_row(title, "", row))
+
+
+func _admin_status(message: String) -> void:
+	if _status_label != null:
+		_status_label.text = message
+	_play("ui_confirm")
+
 
 func _build_exit_page() -> void:
 	_card.custom_minimum_size = Vector2(500, 370)

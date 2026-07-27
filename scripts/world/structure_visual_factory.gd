@@ -7,6 +7,7 @@ extends RefCounted
 ## leave their geometry overlapping neighbouring tile caps.
 
 const GRID_FIT_MARGIN := 0.02
+const AmbientMotionScript := preload("res://scripts/visuals/ambient_motion.gd")
 
 var assets: AssetLibrary
 var grid: WorldGrid
@@ -29,6 +30,11 @@ func instantiate_visual(definition: Defs.StructureDefinition) -> Node3D:
 	match definition.grid_fit_profile:
 		"tile_span":
 			_fit_authored_xz_to_tile(authored)
+	if definition.has_capability("ambient_motion"):
+		var motion := AmbientMotionScript.new()
+		motion.name = "AmbientMotion"
+		visual.add_child(motion)
+		motion.configure(authored, definition.capability("ambient_motion"))
 	return visual
 
 

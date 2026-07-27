@@ -1,20 +1,31 @@
 # Asset pipeline
 
-One shared technical contract for every 3D asset; three creation tiers.
+One shared technical contract for every 3D asset; three creation tiers; one
+import recipe for external/generated models (see "Importing a generated
+model" below).
 
 ## Technical contract
 
 - 1 Godot unit = 1 m. Tiles use a compact 1.70 m horizontal footprint; the land
   block top sits at y = 0.0 and extends to y = -0.50. Every elevation step is
   exactly 0.50 m so stacked visuals and collision touch without a gap.
-- Tile GLBs may use recessed seams or basins below y = 0, but ordinary tile
-  geometry must never extend above y = 0. Trees, planters, crystals, ruins and
-  other readable silhouettes are independent placeables.
+- Tile GLBs may use recessed seams or basins below y = 0. Ordinary structural
+  tile geometry must never extend above y = 0, with one exception: **coverable
+  surface relief** (cobbles, clods, drifts, lane lenses) may rise into
+  y ∈ [0, 0.05]. `tile_visual_factory.gd` classifies any mesh whose bounds sit
+  wholly inside that band as fade-when-covered detail — meshes named `*_body`
+  or `*_cap` are exempt (structural). So: name the walkable block `<x>_cap` /
+  `<x>_body`, keep every decoration inside the 0–0.05 budget, and never exceed
+  it (taller relief clips through a tile stacked on top). Trees, planters,
+  crystals, ruins and other readable silhouettes are independent placeables.
 - Y-up, forward = -Z, origin at bottom-center (pivot exceptions documented per asset).
 - Rotation/scale applied; clean object and material names; no embedded lights/cameras;
   no hidden high-poly duplicates; simplified collision authored in Godot, not Blender.
-- Source `.blend`/`.py` in `art_source/`; game-ready `.glb` in `assets/3d/final/`
-  (Tier A/B) or `assets/3d/proxies/` (Tier C stand-ins).
+- Source `.blend`/`.py` in `art_source/`; game-ready `.glb` under `assets/3d/`.
+  `AssetLibrary` resolves an `asset_id` by searching **`reworked/` → `final/` →
+  `proxies/`** in that order, so dropping `assets/3d/reworked/<asset_id>.glb`
+  overrides an older asset with zero code changes. New work ships to
+  `reworked/`.
 - Materials: semantic slot names (`grass`, `soil`, `wood`, `pale_stone`, `dark_foliage`,
   `bright_foliage`, `terracotta`, `water`, `metal`, `fabric`, `fire_core`, `fire_outer`,
   `magic`); Godot rebinds every slot to the shared `MaterialLibrary` at import via the
@@ -57,6 +68,79 @@ Cottage, arch, bridge-scale pieces, enemies, tools/weapons — same script famil
 6. Nothing else changes: gameplay references definitions (`data/*.json` →
    `scene_path`), never proxy filenames. Swapping the file at the definition's
    `scene_path` (or editing that one JSON string) completes the replacement.
+
+## Importing a generated model (tiles, props, characters)
+
+The reproducible pattern for turning an external/AI-generated GLB into a Suma
+asset. Precedents: `art_source/blender/process_stylized_pyramid_tent.py`
+(prop) and `art_source/blender/process_wooden_planks_tile.py` (tile, with
+palette quantisation). Copy the nearest one and adjust.
+
+1. **Archive + pin.** Copy the source to
+   `art_source/imported/<asset_id>/<asset_id>_source.glb` (never overwritten,
+   never shipped). The processor script hard-pins its sha256 and refuses to run
+   on a changed source — imports stay reproducible.
+2. **One processor script per asset** in `art_source/blender/process_<asset_id>.py`,
+   run headless:
+   `C:/Software/Blender/blender.exe --background --factory-startup --python art_source/blender/process_<asset_id>.py`
+   It should print a JSON report (bounds, counts, material assignments) so a
+   re-run is verifiable at a glance.
+3. **Clean generated topology** (AI meshes arrive fully triangulated):
+   `remove_doubles` (weld ~0.001 of the source scale) → `tris_convert_to_quads`
+   → `dissolve_limited` (5–8°, delimit MATERIAL) → recalc normals →
+   `shade_auto_smooth` (~35–40°). This removes visible scanline triangles while
+   keeping intentional facets and seams.
+4. **Replace textures with palette materials.** Never ship baked textures.
+   Map each source material to a semantic palette name (flat Principled BSDF,
+   roughness 0.78, metallic 0) — the full palette lives in
+   `art_source/blender/build_gg_assets.py::PALETTE` and mirrors
+   `assets/palettes/gg_material_palette.tres`. `MaterialLibrary.rebind_materials`
+   swaps every surface by material NAME at load, so palette edits re-skin
+   shipped GLBs without re-export. For a textured source, quantise instead of
+   guessing: sample the base-colour texture per face (or per mesh shell — one
+   plank/board/panel per shell) and snap each to the nearest ramp tone, as the
+   planks processor does. Multi-material meshes are fine — rebinding handles
+   every surface.
+5. **Normalise to the contract.**
+   - *Tile*: scale to exactly 1.70 × 1.70 × 0.50 with the walkable top at
+     z = 0 (Blender) / y = 0 (Godot), and rename the mesh `<x>_cap` (plus a
+     `<x>_body` filler block if the model doesn't reach z = -0.50). Baked
+     surface decoration must respect the 0–0.05 relief budget above.
+   - *Prop/structure*: ground at z = 0, footprint inside ~1.5 m (structures
+     with `grid_fit_profile: "tile_span"` are auto-fitted; a 10 cm inset per
+     edge reads best). Name animated subtrees explicitly (e.g. the water
+     wheel's `WaterWheelRotor` targeted by the `ambient_motion` capability).
+   - *Character*: follow `docs/PLAYER_ASSET_PIPELINE.md` (rig via
+     `assets/player/current_player_profile.tres`; semantic animation names) —
+     do not route characters through this tile/prop recipe.
+6. **Export** with the standard flags:
+   `use_selection, export_apply, export_yup, no animations/skins/lights/cameras`
+   to `assets/3d/reworked/<asset_id>.glb`.
+7. **Wire the data.** New tile → one entry in `data/tiles.json` (id, name,
+   family, asset_id, weight/rarity, stackable/supports_tiles,
+   `surface_kind: "flat"`, placement_sound — `"wood"` is a registered sound).
+   New structure → `data/structures.json`. No code changes; definitions load
+   by id.
+8. **Validate.** `godot --headless --path . --import` first — **without a
+   reimport Godot renders the stale cached mesh**, then
+   `godot --headless --path . --script tests/test_runner.gd` (must print ALL
+   TESTS PASSED), then screenshot the gallery:
+   `godot --path . tests/catalog_expansion_review.tscn -- --shot-dir=<dir>`
+   (add the new id to its TILE_IDS/STRUCTURE_IDS).
+9. **Record provenance** in `docs/ASSET_PROVENANCE.md` (source, tool, pin).
+
+### Blender scripting gotchas (cost us real debugging time)
+
+- `bpy.ops.object.transform_apply(scale=True)` also applies **location and
+  rotation** (operator defaults are True). `build_gg_assets.rbox/lobe/uv_sphere`
+  bake world positions into vertices this way — setting `rotation_euler` on
+  those objects afterwards orbits the **scene origin**, not the object. Rotate
+  their vertices instead (`orient()` in `build_catalog_expansion.py`), or use
+  origin-carrying builders (`rcyl`, `rock`, lathe/pydata meshes,
+  `suma_surface_kit` lobes) when you need post-creation transforms.
+- Per-face random material scatter on chunky low-poly facets reads as pinwheel
+  patchwork. Cover deterministically per object/shell
+  (`suma_surface_kit.dust`) — a stone is either moss-capped or bare.
 
 ## Provenance
 
