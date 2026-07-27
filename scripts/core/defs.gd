@@ -206,6 +206,17 @@ class TileDefinition:
 	# It may rise above y=0, but is hidden (along with the authored top cap)
 	# whenever another tile covers this elevation.
 	var surface_detail_profile: String = ""       # ""|grass_speckles
+	# TileGeometryProfile contract (art_source/blender/tile_profiles.py):
+	# which shell silhouette this tile's authored mesh uses and how it meets
+	# its neighbours. Declared explicitly per tile, validated by test_runner.
+	var geometry_profile: String = "micro_bevel_square"
+	var connection_mode: String = "full_flush"
+	# Two-form tiles: the EXPOSED top may sit flush with the walkable plane
+	# ("flush"), dip below it ("recessed" plank beds, carved tops) or rise
+	# above it ("raised" debris piles, mounds). The COVERED form is always the
+	# exact full slot: when a tile is stacked on, the runtime hides the whole
+	# exposed top layer and completes the body with a flush infill lid.
+	var exposed_top: String = "flush"
 
 	static func from_dict(d: Dictionary) -> TileDefinition:
 		var t := TileDefinition.new()
@@ -232,6 +243,9 @@ class TileDefinition:
 		t.special_trait = d.get("special_trait", "")
 		t.collection_hint = d.get("collection_hint", "")
 		t.obtainable = bool(d.get("obtainable", true))
+		t.geometry_profile = d.get("geometry_profile", "micro_bevel_square")
+		t.connection_mode = d.get("connection_mode", "full_flush")
+		t.exposed_top = d.get("exposed_top", "flush")
 		t.surface_kind = d.get(
 			"surface_kind",
 			"water" if not t.water_cells.is_empty() else "flat"

@@ -31,7 +31,7 @@ func setup(game_core: GameCore, ui_kit: UiKit, bridge: Main) -> void:
 
 func load_preferences_from_core() -> void:
 	preferences.from_dict(core.visual_state.get("preferences", {}))
-	preferences.apply(get_viewport(), settings_bridge.lighting, settings_bridge.hud)
+	preferences.apply(get_viewport(), settings_bridge.lighting, settings_bridge.hud, settings_bridge.pixel_look)
 
 
 func is_open() -> bool:
@@ -221,6 +221,18 @@ func _build_settings_page() -> void:
 	var bloom_check := _check_button("Bloom", preferences.bloom)
 	list.add_child(_setting_row("Gentle bloom", "Softens bright fires and magical highlights.", bloom_check))
 
+	list.add_child(kit.section_label("Pixel look"))
+	var pixel_option := OptionButton.new()
+	for option_label in GamePreferences.PIXEL_SIZE_OPTIONS:
+		pixel_option.add_item(String(option_label))
+	pixel_option.selected = preferences.pixel_size
+	pixel_option.custom_minimum_size = Vector2(220, 42)
+	pixel_option.add_theme_font_override("font", kit.font_bold)
+	pixel_option.add_theme_font_size_override("font_size", 18)
+	list.add_child(_setting_row("Pixel size", "Render the world in chunky retro pixels; menus stay crisp.", pixel_option))
+	var cel_check := _check_button("Cel colours", preferences.pixel_cel)
+	list.add_child(_setting_row("Cel colours", "Step shading into flat hand-painted bands.", cel_check))
+
 	list.add_child(kit.section_label("Sound"))
 	var master_control := _volume_control(preferences.master_volume)
 	list.add_child(_setting_row("All sounds", "Overall game volume.", master_control["root"]))
@@ -246,6 +258,8 @@ func _build_settings_page() -> void:
 		][aa_option.selected]
 		preferences.ssao = ssao_check.button_pressed
 		preferences.bloom = bloom_check.button_pressed
+		preferences.pixel_size = pixel_option.selected
+		preferences.pixel_cel = cel_check.button_pressed
 		preferences.master_volume = float(master_control["slider"].value)
 		preferences.music_volume = float(music_control["slider"].value)
 		preferences.tutorial_hints = tutorial_check.button_pressed
@@ -546,7 +560,7 @@ func _control_row(action: String, keys: Array, description: String) -> MarginCon
 func _apply_preferences() -> void:
 	core.visual_state["preferences"] = preferences.to_dict()
 	core.autosave_soon()
-	preferences.apply(get_viewport(), settings_bridge.lighting, settings_bridge.hud)
+	preferences.apply(get_viewport(), settings_bridge.lighting, settings_bridge.hud, settings_bridge.pixel_look)
 
 
 func _save_game() -> void:

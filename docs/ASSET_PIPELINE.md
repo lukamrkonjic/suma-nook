@@ -69,6 +69,27 @@ Cottage, arch, bridge-scale pieces, enemies, tools/weapons — same script famil
    `scene_path`), never proxy filenames. Swapping the file at the definition's
    `scene_path` (or editing that one JSON string) completes the replacement.
 
+## Two-form tiles (exposed top vs covered block)
+
+Every land tile has two visual forms, swapped by the runtime
+(`tile_visual_factory.set_surface_covered`) when a tile is stacked above:
+
+- **Exposed** (nothing above): `<x>_body` + `<x>_cap` + relief. The top may sit
+  flush with the walkable plane, dip below it (recessed plank beds, carved
+  tops) or rise above it (debris piles, mounds). Declare the kind on the tile
+  definition as `exposed_top: "flush" | "recessed" | "raised"` — the slot-fill
+  test grants recessed tops down to -0.12 and raised tops up to +0.35.
+- **Covered** (a tile above): the entire top layer hides and a generated
+  flush infill lid (full `tile_size` footprint, body-top to y=0, body
+  material) completes the block — so a stack always reads as clean, exactly
+  slot-sized bands, with only the topmost tile carrying its detail.
+
+Authoring rule: whatever the exposed top does, the `_body` must still be the
+full-footprint filler to -0.50 (validated), because it plus the lid IS the
+covered block. New "constructed" blocks (recessed planks, paver patterns,
+rubble tops) need nothing beyond correct `_body`/`_cap` naming and the
+`exposed_top` declaration.
+
 ## Importing a generated model (tiles, props, characters)
 
 The reproducible pattern for turning an external/AI-generated GLB into a Suma

@@ -347,15 +347,19 @@ func _speckle_mesh(
 
 
 func _covered_surface_infill(body_mesh: MeshInstance3D) -> MeshInstance3D:
+	## The covered form's lid: while another tile sits above, the exposed top
+	## presentation (cap, planks, debris — recessed or raised, any shape) is
+	## hidden and this plain filler completes the body to EXACTLY one slot —
+	## full tile_size footprint, flush to the walkable plane — so a stack
+	## reads as clean full blocks with only the topmost tile carrying detail.
 	var infill := MeshInstance3D.new()
 	infill.name = COVERED_INFILL_NAME
 	var box := BoxMesh.new()
-	var height := minf(0.13, grid.block_depth * 0.3)
-	box.size = Vector3(
-		grid.tile_size - 0.004,
-		height,
-		grid.tile_size - 0.004
-	)
+	var body_top := -0.12
+	if body_mesh.mesh != null:
+		body_top = clampf(body_mesh.get_aabb().end.y, -0.3, -0.02)
+	var height := -body_top
+	box.size = Vector3(grid.tile_size, height, grid.tile_size)
 	infill.mesh = box
 	infill.position.y = -height * 0.5
 	if body_mesh.mesh != null and body_mesh.mesh.get_surface_count() > 0:

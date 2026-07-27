@@ -1,0 +1,48 @@
+class_name PixelLook
+extends CanvasLayer
+## Optional retro presentation, ported from Imota's pixel pipeline
+## (imota-idle: RenderViewportPresenter + palette_snap.gdshader). Imota
+## renders its world into a low-resolution SubViewport and presents it at an
+## exact integer scale; Suma keeps its scene tree and picking untouched and
+## gets the same read from one full-screen pass that snaps the rendered
+## world to integer pixel blocks and optionally cel-posterizes colour.
+##
+## The layer sits below every UI CanvasLayer, so menus and the HUD stay
+## crisp while only the world pixelates — same split as Imota.
+
+const PIXEL_SHADER := preload("res://assets/materials/reworked/pixel_present.gdshader")
+
+## Imota's presenter levels: display pixels per world pixel at each
+## "Pixel size" dropdown index (index 0 = off / crisp render).
+const PIXEL_LEVELS := [1, 2, 3, 4, 5, 6, 8]
+const CEL_STRENGTH := 0.85
+
+var _rect: ColorRect
+var _material: ShaderMaterial
+
+
+func _init() -> void:
+	layer = -10
+
+
+func _ready() -> void:
+	_material = ShaderMaterial.new()
+	_material.shader = PIXEL_SHADER
+	_rect = ColorRect.new()
+	_rect.name = "PixelPresent"
+	_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_rect.material = _material
+	add_child(_rect)
+	visible = false
+
+
+## `level_index` follows the settings dropdown (0 = off); `cel` toggles the
+## HSV posterize treatment. With both off the pass hides entirely.
+func apply(level_index: int, cel: bool) -> void:
+	if _material == null:
+		return
+	var index := clampi(level_index, 0, PIXEL_LEVELS.size() - 1)
+	_material.set_shader_parameter("pixel_size", float(PIXEL_LEVELS[index]))
+	_material.set_shader_parameter("posterize_strength", CEL_STRENGTH if cel else 0.0)
+	visible = index > 0 or cel

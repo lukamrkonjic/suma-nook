@@ -181,40 +181,15 @@ def lathe(name, profile, loc, material, verts=14, flat=False, rng=None, wobble=0
     return obj
 
 
-def _subdivide(obj, cuts):
-    bpy.ops.object.select_all(action="DESELECT")
-    obj.select_set(True)
-    bpy.context.view_layer.objects.active = obj
-    bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.mesh.subdivide(number_cuts=cuts)
-    bpy.ops.object.mode_set(mode="OBJECT")
-    return obj
-
-
 # ---------------------------------------------------------------- tile shell
-def tile_base(prefix, top_mat, side_mat, rng, cap_bevel=0.06):
-    """Plump diorama chunk: a soft rounded cap whose walkable plane stays at
-    z=0, over a chunky faceted soil body.  Names keep the structural
-    `_body`/`_cap` contract used by the runtime classifier."""
-    body = base.rbox(
-        f"{prefix}_body",
-        (TILE - 0.02, TILE - 0.02, BLOCK_DEPTH - 0.12),
-        (0, 0, -(BLOCK_DEPTH + 0.12) / 2),
-        side_mat,
-        bevel=0.03,
-        segments=2,
-        flat=True,
-    )
-    _subdivide(body, 2)
-    for v in body.data.vertices:
-        v.co.x += rng.uniform(-0.024, 0.014) if v.co.x > 0 else rng.uniform(-0.014, 0.024)
-        v.co.y += rng.uniform(-0.024, 0.014) if v.co.y > 0 else rng.uniform(-0.014, 0.024)
-        v.co.z += rng.uniform(-0.02, 0.02)
-    cap = base.rbox(f"{prefix}_cap", (TILE, TILE, 0.15), (0, 0, -0.075),
-                    top_mat, bevel=cap_bevel, segments=3)
-    wonk(cap, rng, 0.013, lock_top=True)
-    return [body, cap]
+def tile_base(prefix, top_mat, side_mat, _rng=None, profile="micro_bevel_square"):
+    """Tile shell in an explicit geometry profile (tile_profiles.py): exact
+    slot fill, planar flat-shaded top, thin turf skin.  The old universal
+    rounded cap (thick beveled smooth-shaded slab over an inset wonked body)
+    is gone — organic character now comes from the surface-kit overlays, and
+    silhouette character from the chosen profile."""
+    import tile_profiles
+    return tile_profiles.build_shell(prefix, top_mat, side_mat, profile, base.mat)
 
 
 def lane_run(prefix, points, material, rng, r=0.3, height=0.04, stretch=(0.95, 1.22)):
@@ -250,7 +225,7 @@ def build_tiles():
     rng = random.Random(2711)
 
     # Dirt: warm turned soil — grounded clods and a pocket of stones.
-    tiles = tile_base("dirt", "earth_light", "earth_shadow", rng)
+    tiles = tile_base("dirt", "earth_light", "earth_shadow")
     tiles += kit.clod_field("dirt_clod", rng, count=13)
     tiles += kit.scree_patch("dirt_scree", rng, (0.44, -0.4), count=3)
     tiles.append(kit.capped_lobe("dirt_stone", 0.06, (-0.46, 0.38), "stone_mid_light",
@@ -258,7 +233,7 @@ def build_tiles():
     base.export("tile_dirt", tiles)
 
     # Dirt road: a worn wandering lane pressed into grass, gravel at its edges.
-    tiles = tile_base("dirt_road", "grass_primary", "earth_mid", rng)
+    tiles = tile_base("dirt_road", "grass_primary", "earth_mid")
     lane = [(rng.uniform(-0.07, 0.07), -0.72 + i * 0.29) for i in range(6)]
     tiles += lane_run("dirt_road_lane", lane, "earth_light", rng, r=0.31)
     tiles += kit.scree_patch("dirt_road_scree_a", rng, (-0.5, -0.3), count=3,
@@ -267,7 +242,7 @@ def build_tiles():
     base.export("tile_dirt_road", tiles)
 
     # Crossroad: two worn routes meeting in a soft trampled middle.
-    tiles = tile_base("dirt_cross", "grass_primary", "earth_mid", rng)
+    tiles = tile_base("dirt_cross", "grass_primary", "earth_mid")
     lane_a = [(rng.uniform(-0.05, 0.05), -0.72 + i * 0.29) for i in range(6)]
     lane_b = [(-0.72 + i * 0.29, rng.uniform(-0.05, 0.05)) for i in range(6)]
     tiles += lane_run("dirt_cross_a", lane_a, "earth_light", rng, r=0.29)
@@ -279,7 +254,7 @@ def build_tiles():
 
     # Mud: dark and wet — soft sodden patches, clods, one standing puddle and
     # a moss-topped stepping stone.
-    tiles = tile_base("mud", "earth_mid", "earth_deep", rng)
+    tiles = tile_base("mud", "earth_mid", "earth_deep")
     for i, (x, y, r) in enumerate([(-0.36, -0.3, 0.32), (0.3, 0.36, 0.36), (0.42, -0.4, 0.22)]):
         tiles.append(kit.capped_lobe(f"mud_wet_{i}", r, (x, y), "earth_deep", rng=rng,
                                      height=0.028, seg=9, rings=4,
@@ -296,7 +271,7 @@ def build_tiles():
 
     # Snowfield: plump paper-snow chunk, faint billows, one frosted stone
     # breaking the surface.
-    tiles = tile_base("snow", "warm_white", "stone_mid_light", rng, cap_bevel=0.075)
+    tiles = tile_base("snow", "warm_white", "stone_mid_light", profile="soft_recessed_top")
     tiles += kit.snow_billows("snow_billow", rng, [
         (-0.3, 0.22, 0.3, (1.4, 0.9)),
         (0.34, -0.2, 0.27, (1.3, 0.85)),
@@ -306,7 +281,7 @@ def build_tiles():
     base.export("tile_snowfield", tiles)
 
     # Snow drift: banked powder waves with bright crests.
-    tiles = tile_base("snow_drift", "warm_white", "stone_mid_light", rng, cap_bevel=0.075)
+    tiles = tile_base("snow_drift", "warm_white", "stone_mid_light", profile="soft_recessed_top")
     tiles += kit.snow_billows("drift_billow", rng, [
         (-0.36, -0.34, 0.36, (1.4, 0.8)),
         (0.36, 0.36, 0.32, (1.35, 0.75)),
@@ -317,7 +292,7 @@ def build_tiles():
     base.export("tile_snow_drift", tiles)
 
     # Snow path: powder banked to the verges, a trodden lane with bootprints.
-    tiles = tile_base("snow_path", "warm_white", "stone_mid_light", rng, cap_bevel=0.075)
+    tiles = tile_base("snow_path", "warm_white", "stone_mid_light", profile="soft_recessed_top")
     tiles += kit.snow_billows("snow_path_bank", rng, [
         (-0.5, -0.2, 0.24, (0.85, 1.25)),
         (0.5, 0.26, 0.22, (0.82, 1.22)),
@@ -332,7 +307,7 @@ def build_tiles():
     base.export("tile_snow_path", tiles)
 
     # Frosted stone: crag slabs under creeping powder — every lit face frosts.
-    tiles = tile_base("froststone", "stone_mid_light", "stone_shadow", rng)
+    tiles = tile_base("froststone", "stone_mid_light", "stone_shadow")
     slabs = kit.slab_field("froststone_slab", rng, [
         (-0.3, -0.26, 0.36), (0.32, 0.28, 0.32), (0.36, -0.36, 0.22),
     ], mats=["stone_light", "stone_mid_light", "stone_mid"])
@@ -351,13 +326,13 @@ def build_tiles():
     base.export("tile_frosted_stone", tiles)
 
     # Cobblestone: plump grounded setts packed tight, mossy pockets in the gaps.
-    tiles = tile_base("cobble", "stone_warm_shadow", "stone_warm_shadow", rng)
+    tiles = tile_base("cobble", "stone_warm_shadow", "stone_warm_shadow")
     tiles += kit.sett_field("cobble", rng)
     base.export("tile_cobblestone", tiles)
 
     # Flagstone: broad crag flags floating in lush green joints, moss pockets
     # and gravel washed into the seams.
-    tiles = tile_base("flagstone", "grass_secondary", "earth_mid", rng)
+    tiles = tile_base("flagstone", "grass_secondary", "earth_mid")
     tiles += kit.slab_field("flagstone", rng, [
         (-0.38, -0.38, 0.4), (0.4, -0.4, 0.36), (-0.42, 0.4, 0.36),
         (0.36, 0.4, 0.4), (0.0, -0.02, 0.28),
@@ -371,7 +346,7 @@ def build_tiles():
     base.export("tile_flagstone", tiles)
 
     # Sand: wind-combed dune arcs and a pocket of sun-bleached pebbles.
-    tiles = tile_base("sand", "ivory_highlight", "earth_light", rng, cap_bevel=0.07)
+    tiles = tile_base("sand", "ivory_highlight", "earth_light")
     tiles += kit.dune_ridges("sand_ripple", rng)
     tiles += kit.scree_patch("sand_scree", rng, (-0.48, 0.48), count=3,
                              mats=kit.SAND_PEBBLE_RAMP)
@@ -380,7 +355,7 @@ def build_tiles():
     base.export("tile_sand", tiles)
 
     # Clay: sun-baked terracotta plates over deep red earth.
-    tiles = tile_base("clay", "soil_red_shadow", "soil_red_shadow", rng)
+    tiles = tile_base("clay", "soil_red_shadow", "soil_red_shadow", profile="rounded_corner_slab")
     tiles += kit.slab_field("clay_plate", rng, [
         (-0.38, -0.36, 0.36), (0.38, -0.4, 0.34), (-0.4, 0.38, 0.34),
         (0.36, 0.38, 0.36), (0.0, 0.0, 0.28),

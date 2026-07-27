@@ -7,6 +7,18 @@ const AA_OFF := "off"
 const AA_BALANCED := "balanced"
 const AA_HIGH := "high"
 
+## "Pixel size" dropdown labels, mirroring Imota's setting: the index maps
+## onto PixelLook.PIXEL_LEVELS (keep both the same length).
+const PIXEL_SIZE_OPTIONS := [
+	"Off — crisp render",
+	"Fine",
+	"Medium",
+	"Chunky",
+	"Chunkier",
+	"Very chunky",
+	"Chunkiest",
+]
+
 var fullscreen := false
 var vsync := true
 var anti_aliasing := AA_HIGH
@@ -15,6 +27,8 @@ var bloom := true
 var master_volume := 0.63
 var music_volume := 0.4
 var tutorial_hints := true
+var pixel_size := 0
+var pixel_cel := false
 
 
 func from_dict(data: Dictionary) -> void:
@@ -27,6 +41,8 @@ func from_dict(data: Dictionary) -> void:
 	master_volume = clampf(float(data.get("master_volume", master_volume)), 0.0, 1.0)
 	music_volume = clampf(float(data.get("music_volume", music_volume)), 0.0, 1.0)
 	tutorial_hints = bool(data.get("tutorial_hints", tutorial_hints))
+	pixel_size = clampi(int(data.get("pixel_size", pixel_size)), 0, PIXEL_SIZE_OPTIONS.size() - 1)
+	pixel_cel = bool(data.get("pixel_cel", pixel_cel))
 
 
 func to_dict() -> Dictionary:
@@ -39,10 +55,12 @@ func to_dict() -> Dictionary:
 		"master_volume": master_volume,
 		"music_volume": music_volume,
 		"tutorial_hints": tutorial_hints,
+		"pixel_size": pixel_size,
+		"pixel_cel": pixel_cel,
 	}
 
 
-func apply(viewport: Viewport, lighting: LightingRig, hud: Hud) -> void:
+func apply(viewport: Viewport, lighting: LightingRig, hud: Hud, pixel_look: PixelLook = null) -> void:
 	if DisplayServer.get_name() != "headless":
 		DisplayServer.window_set_mode(
 			DisplayServer.WINDOW_MODE_FULLSCREEN if fullscreen
@@ -70,6 +88,8 @@ func apply(viewport: Viewport, lighting: LightingRig, hud: Hud) -> void:
 		lighting.set_user_post_effects(ssao, bloom)
 	if hud != null:
 		hud.set_tutorial_enabled(tutorial_hints)
+	if pixel_look != null:
+		pixel_look.apply(pixel_size, pixel_cel)
 
 
 func _set_bus_volume(bus_name: String, value: float) -> void:

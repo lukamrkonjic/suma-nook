@@ -27,6 +27,7 @@ var camera_rig: CameraRig
 var placement: PlacementController
 var skill_actions: SkillActions
 var hud: Hud
+var pixel_look: PixelLook
 var panels: GamePanels
 var pause_menu: PauseMenu
 var parcel_reveal: ParcelReveal
@@ -142,6 +143,10 @@ func _build_world_scene() -> void:
 
 
 func _build_ui() -> void:
+	pixel_look = PixelLook.new()
+	pixel_look.name = "PixelLook"
+	add_child(pixel_look)
+
 	hud = Hud.new()
 	hud.name = "Hud"
 	add_child(hud)

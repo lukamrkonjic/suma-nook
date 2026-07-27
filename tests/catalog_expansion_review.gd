@@ -46,10 +46,21 @@ var _output_dir := "user://catalog_expansion_review"
 
 
 func _ready() -> void:
+	var pixel_level := 0
+	var pixel_cel := false
 	for argument in OS.get_cmdline_user_args():
 		if argument.begins_with("--shot-dir="):
 			_output_dir = argument.trim_prefix("--shot-dir=")
+		elif argument.begins_with("--pixel="):
+			pixel_level = int(argument.trim_prefix("--pixel="))
+		elif argument == "--cel":
+			pixel_cel = true
 	_build_gallery()
+	if pixel_level > 0 or pixel_cel:
+		var pixel := PixelLook.new()
+		pixel.name = "PixelLook"
+		add_child(pixel)
+		pixel.apply(pixel_level, pixel_cel)
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await _capture_tiles()

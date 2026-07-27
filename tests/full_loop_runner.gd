@@ -93,7 +93,22 @@ func _run() -> void:
 	else:
 		print("FULL LOOP FAILED — %d/%d failed" % [failures.size(), checks])
 	await wait(0.5)
+	await _capture_shot()
 	await _finish()
+
+
+## Optional end-of-run screenshot of the live world for visual QA:
+## godot --path . tests/full_loop_runner.tscn -- --shot-dir=<folder>
+func _capture_shot() -> void:
+	for argument in OS.get_cmdline_user_args():
+		if argument.begins_with("--shot-dir="):
+			var shot_dir := argument.trim_prefix("--shot-dir=")
+			await get_tree().process_frame
+			await get_tree().process_frame
+			DirAccess.make_dir_recursive_absolute(shot_dir)
+			var image := get_viewport().get_texture().get_image()
+			image.save_png(shot_dir.path_join("full_loop_world.png"))
+			print("FULL LOOP SHOT SAVED — %s" % shot_dir)
 
 
 func _finish() -> void:
@@ -219,6 +234,16 @@ func _step_build_library_ui() -> void:
 			)
 		main.pause_menu.close()
 		await wait(0.05)
+
+	# Pixel look: the Imota-ported pixelation applies from preferences and the
+	# presentation layer stays hidden while the setting is off.
+	check(not main.pixel_look.visible, "the pixel look stays off by default")
+	main.pause_menu.preferences.pixel_size = 3
+	main.pause_menu.preferences.apply(main.get_viewport(), main.lighting, main.hud, main.pixel_look)
+	check(main.pixel_look.visible, "choosing a pixel size enables the retro presentation layer")
+	main.pause_menu.preferences.pixel_size = 0
+	main.pause_menu.preferences.apply(main.get_viewport(), main.lighting, main.hud, main.pixel_look)
+	check(not main.pixel_look.visible, "returning pixel size to off hides the layer again")
 
 	main.core.stock.tiles = original_tiles
 	main.core.stock.structures = original_structures
@@ -1649,6 +1674,27 @@ func _step_elevation_stacking() -> void:
 	check(
 		absf(support_top - raised_bottom) <= 0.015,
 		"stacked tile meshes touch exactly without a flying gap"
+	)
+	# Two-form contract: a covered tile swaps its exposed top layer for the
+	# flush infill lid, so stacks read as clean full blocks.
+	var support_infill := support_node.find_child(
+		TileVisualFactory.COVERED_INFILL_NAME,
+		true,
+		false
+	) as MeshInstance3D
+	check(
+		support_infill != null and support_infill.visible,
+		"a covered tile completes its body with the flush infill lid"
+	)
+	var support_cap_hidden := true
+	for child in support_node.find_children("*", "MeshInstance3D", true, false):
+		var mesh := child as MeshInstance3D
+		var lower_name := String(mesh.name).to_lower()
+		if lower_name.ends_with("_cap") and mesh.visible and mesh.transparency < 0.99:
+			support_cap_hidden = false
+	check(
+		support_cap_hidden,
+		"a covered tile hides its exposed top layer while the lid is shown"
 	)
 	var raised_seam := raised_node.find_child(
 		TileVisualFactory.STACK_SEAM_NAME,

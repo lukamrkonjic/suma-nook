@@ -33,6 +33,10 @@ ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "assets" / "3d" / "reworked"
 OUT.mkdir(parents=True, exist_ok=True)
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
 TILE = 1.70
 # Garden Galaxy's audited ordinary ground collider is 1.0 x 0.5 x 1.0,
 # centred at y=-0.25. Keep its confirmed half-metre vertical stacking step
@@ -447,25 +451,15 @@ def export(asset_id, objs):
 
 
 # ---------------------------------------------------------------- terrain
-def tile_block(prefix, top_mat, side_mat):
-    """Quiet land block whose complete visual envelope ends at z=0."""
-    body = rbox(f"{prefix}_body", (TILE - 0.004, TILE - 0.004, BLOCK_DEPTH - 0.1),
-                (0, 0, -(BLOCK_DEPTH + 0.1) / 2), side_mat, bevel=0.018, segments=1)
-    cap = rbox(f"{prefix}_cap", (TILE, TILE, 0.13), (0, 0, -0.065),
-               top_mat, bevel=0.024, segments=1)
-    return [body, cap]
-
-
-def tile_body(prefix, side_mat):
-    """Block body without a full cap, used by flush segmented surfaces."""
-    return [rbox(
-        f"{prefix}_body",
-        (TILE - 0.004, TILE - 0.004, BLOCK_DEPTH - 0.1),
-        (0, 0, -(BLOCK_DEPTH + 0.1) / 2),
-        side_mat,
-        bevel=0.018,
-        segments=1,
-    )]
+# Tile shells come from the TileGeometryProfile system (tile_profiles.py):
+# exact slot fill (footprint exactly TILE, top plane at 0, depth to -0.50),
+# genuinely planar flat-shaded tops, thin turf skins, and per-tile silhouette
+# profiles instead of one universal rounded cap. See the module docstring for
+# the profile catalogue and design rules.
+def tile_block(prefix, top_mat, side_mat, profile="micro_bevel_square"):
+    """Land block shell in the requested geometry profile."""
+    import tile_profiles
+    return tile_profiles.build_shell(prefix, top_mat, side_mat, profile, mat)
 
 
 def grass_cluster(prefix, rng, kind="tuft"):
@@ -507,15 +501,17 @@ def build_terrain():
     export("tile_path", t)
 
     # Courtyard variation is carried by its flat cap colour, not raised trim.
-    t = tile_block("co", "stone_light", "stone_mid")
+    # Courtyard is a crafted patio: an architectural plinth, not soft ground.
+    t = tile_block("co", "stone_light", "stone_mid", profile="stepped_platform")
     export("tile_courtyard", t)
 
     # Pond edge: sloped sandy shore into readable shallow water.
     t = []
     t.append(rbox("gp_body", (TILE, TILE, 0.2), (0, 0, -BLOCK_DEPTH + 0.1), "earth_mid", bevel=0.02, flat=True))
     rim = 0.34
-    for i, (x, y, w, d) in enumerate([(0, -TILE / 2 + rim / 2, TILE + 0.02, rim), (0, TILE / 2 - rim / 2, TILE + 0.02, rim),
-                                      (-TILE / 2 + rim / 2, 0, rim, TILE + 0.02), (TILE / 2 - rim / 2, 0, rim, TILE + 0.02)]):
+    # Rims fill the slot exactly — the old +0.02 overhang poked into neighbours.
+    for i, (x, y, w, d) in enumerate([(0, -TILE / 2 + rim / 2, TILE, rim), (0, TILE / 2 - rim / 2, TILE, rim),
+                                      (-TILE / 2 + rim / 2, 0, rim, TILE), (TILE / 2 - rim / 2, 0, rim, TILE)]):
         t.append(rbox(f"gp_rim{i}", (w, d, BLOCK_DEPTH), (x, y, -BLOCK_DEPTH / 2), "earth_mid", bevel=0.02, flat=True))
         t.append(rbox(f"gp_cap{i}", (w, d, 0.13), (x, y, -0.065), "grass_primary", bevel=0.024, segments=1))
     # sloped sand shore ring — tucked inside the basin, meeting the floor
@@ -541,7 +537,8 @@ def build_terrain():
     export("tile_stone_mossy", t)
 
     # Ruins and crystals are decorations, not raised tile geometry.
-    t = tile_block("sr", "stone_mid_light", "stone_mid")
+    # Foundation stone reads as a true, exact cube.
+    t = tile_block("sr", "stone_mid_light", "stone_mid", profile="hard_square")
     export("tile_stone_ruin", t)
 
     t = tile_block("scr", "stone_mid_light", "stone_mid")
@@ -566,7 +563,9 @@ def build_terrain():
     # Dish-shaped: shallow near tile edges, deep toward the center, so the
     # depth-absorption gradient reads shallow-to-turquoise-to-deep.
     t = []
-    floor = rbox("wf_bed", (TILE - 0.03, TILE - 0.03, 0.14), (0, 0, WATER_FLOOR_Y - 0.07), "uw_sand_light", bevel=0.02)
+    # The bed fills the slot exactly, like every land body: inset beds left
+    # dark grid gaps between water cells, visible through the surface.
+    floor = rbox("wf_bed", (TILE, TILE, 0.14), (0, 0, WATER_FLOOR_Y - 0.07), "uw_sand_light", bevel=0.0, flat=True)
     bpy.ops.object.select_all(action="DESELECT")
     floor.select_set(True)
     bpy.context.view_layer.objects.active = floor
@@ -580,7 +579,7 @@ def build_terrain():
             v.co.z -= 0.25 * max(0.0, 1.0 - dist / (TILE * 0.62)) ** 1.4
             v.co.z += rng.uniform(-0.012, 0.02)
     t.append(floor)
-    t.append(rbox("wf_body", (TILE - 0.03, TILE - 0.03, 0.14),
+    t.append(rbox("wf_body", (TILE, TILE, 0.14),
                   (0, 0, WATER_FLOOR_Y - 0.14), "uw_sand_shadow", bevel=0.015, flat=True))
     export("tile_water_floor", t)
 

@@ -6,7 +6,10 @@ extends MeshInstance3D
 ## per-tile banding. Rebuilt only when water topology changes, never per frame.
 
 const SUBDIV := 14     # denser surface for the stronger three-frequency waves
-const BLOCK_BOTTOM := -0.56  # matches terrain block depth: water reads as a block
+## Water fills its slot exactly like land does: the skirt stops at the same
+## -0.50 block bottom as terrain bodies. The old -0.56 overshoot hung a blue
+## band below neighbouring land blocks, visible under the island edge.
+const BLOCK_BOTTOM := -0.50
 const SKIRT_INSET := 0.006   # avoids z-fighting where a land block shares the plane
 
 

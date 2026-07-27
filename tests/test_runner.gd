@@ -46,6 +46,7 @@ func _run() -> void:
 	_test_content_catalog_architecture()
 	_test_build_library_categories()
 	_test_content_assets()
+	_test_tile_slot_fill()
 	_test_catalog_expansion()
 	_test_gg_render_contract()
 	_test_game_preferences()
@@ -282,6 +283,125 @@ func _test_build_library_categories() -> void:
 			== expected_structures[structure_id],
 			"%s appears in the expected build-library object category" % structure_id
 		)
+
+
+## The slot-fill contract — the root guarantee behind "no seams ever": every
+## land tile's structural shell (its `*_body`/`*_cap` meshes) fills EXACTLY
+## one tile slot — precisely TILE wide on both axes, from the -0.50 block
+## bottom to the y=0 walkable plane, with a full-footprint, full-depth body.
+## Anything narrower opens see-through cracks to water or sky behind;
+## anything wider or deeper bleeds into neighbouring slots. Decorative
+## relief may float inside the slot, but the shell must fill it.
+func _test_tile_slot_fill() -> void:
+	var regs := GameContentCatalogScript.create()
+	check(regs.load_all(), "slot-fill contract registry loads")
+	const HALF := 0.85
+	const EPS := 0.005
+	const GEOMETRY_PROFILES := [
+		"hard_square", "micro_bevel_square", "soft_recessed_top",
+		"rounded_corner_slab", "stepped_platform", "constructed_material",
+		"organic_overlay_square", "connected_water",
+	]
+	const CONNECTION_MODES := [
+		"full_flush", "tiny_individual_seam", "soft_isolated", "merged_surface",
+	]
+	for tile_id in regs.tiles:
+		var def: Defs.TileDefinition = regs.tiles[tile_id]
+		check(
+			def.geometry_profile in GEOMETRY_PROFILES,
+			"tile %s declares a known geometry profile (got '%s')" % [tile_id, def.geometry_profile]
+		)
+		check(
+			def.connection_mode in CONNECTION_MODES,
+			"tile %s declares a known connection mode (got '%s')" % [tile_id, def.connection_mode]
+		)
+		check(
+			def.geometry_profile != "connected_water" or def.surface_kind == "water",
+			"tile %s only uses the connected water profile on a water surface" % tile_id
+		)
+		check(
+			def.exposed_top in ["flush", "recessed", "raised"],
+			"tile %s declares a known exposed-top kind (got '%s')" % [tile_id, def.exposed_top]
+		)
+		if def.surface_kind == "water":
+			continue
+		var scene := _tile_scene(def.asset_id)
+		check(scene != null, "tile %s resolves a GLB for slot validation" % tile_id)
+		if scene == null:
+			continue
+		var root := scene.instantiate()
+		var shell := AABB()
+		var has_shell := false
+		var has_filler := false
+		for found in root.find_children("*", "MeshInstance3D", true, false):
+			var mesh_instance := found as MeshInstance3D
+			var lower := String(mesh_instance.name).to_lower()
+			if not (lower.ends_with("_body") or lower.ends_with("_cap")):
+				continue
+			var relative := Transform3D.IDENTITY
+			var cursor: Node3D = mesh_instance
+			while cursor != null and cursor != root:
+				relative = cursor.transform * relative
+				cursor = cursor.get_parent() as Node3D
+			var bounds: AABB = relative * mesh_instance.get_aabb()
+			shell = bounds if not has_shell else shell.merge(bounds)
+			has_shell = true
+			# A slot filler: one structural mesh whose own footprint is the
+			# full cell AND that reaches the block bottom — a wide cap over a
+			# narrow body would merge to a passing AABB while leaving open
+			# flanks below cap level, so the guarantee must come from a
+			# single mesh.
+			if (
+				bounds.size.x >= TILE_SLOT - EPS and bounds.size.z >= TILE_SLOT - EPS
+				and bounds.position.y <= -0.5 + EPS
+			):
+				has_filler = true
+		root.free()
+		check(has_shell, "tile %s has structural _body/_cap meshes" % tile_id)
+		if not has_shell:
+			continue
+		check(
+			absf(shell.position.x + HALF) <= EPS and absf(shell.end.x - HALF) <= EPS
+			and absf(shell.position.z + HALF) <= EPS and absf(shell.end.z - HALF) <= EPS,
+			"tile %s shell spans exactly one slot footprint (got x %.3f..%.3f, z %.3f..%.3f)"
+			% [tile_id, shell.position.x, shell.end.x, shell.position.z, shell.end.z]
+		)
+		# The exposed top's vertical freedom depends on its declared kind; the
+		# COVERED form is always exact because the runtime swaps the whole top
+		# layer for a flush infill lid over the (validated) full-depth filler.
+		var top_ok := false
+		match def.exposed_top:
+			"recessed":
+				top_ok = shell.end.y >= -0.12 - EPS and shell.end.y <= EPS
+			"raised":
+				top_ok = shell.end.y >= -EPS and shell.end.y <= 0.35 + EPS
+			_:
+				top_ok = absf(shell.end.y) <= EPS
+		check(
+			absf(shell.position.y + 0.5) <= EPS and top_ok,
+			"tile %s shell spans block bottom to its declared %s top (got y %.3f..%.3f)"
+			% [tile_id, def.exposed_top, shell.position.y, shell.end.y]
+		)
+		check(
+			has_filler,
+			"tile %s has a full-footprint structural mesh flush to the block bottom" % tile_id
+		)
+
+
+const TILE_SLOT := 1.70
+const _TILE_GLB_PATHS := [
+	"res://assets/3d/reworked/%s.glb",
+	"res://assets/3d/final/%s.glb",
+	"res://assets/3d/proxies/%s.glb",
+]
+
+
+func _tile_scene(asset_id: String) -> PackedScene:
+	for path_template in _TILE_GLB_PATHS:
+		var path: String = String(path_template) % asset_id
+		if ResourceLoader.exists(path):
+			return load(path) as PackedScene
+	return null
 
 
 func _test_content_assets() -> void:
