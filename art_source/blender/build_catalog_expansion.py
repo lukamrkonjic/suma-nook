@@ -345,13 +345,10 @@ def build_tiles():
                              r_range=(0.03, 0.05))
     base.export("tile_flagstone", tiles)
 
-    # Sand: wind-combed dune arcs and a pocket of sun-bleached pebbles.
-    tiles = tile_base("sand", "ivory_highlight", "earth_light")
-    tiles += kit.dune_ridges("sand_ripple", rng)
-    tiles += kit.scree_patch("sand_scree", rng, (-0.48, 0.48), count=3,
-                             mats=kit.SAND_PEBBLE_RAMP)
-    tiles.append(kit.capped_lobe("sand_stone", 0.07, (0.5, 0.5), "stone_light",
-                                 rng=rng, height=0.04, seg=5, rings=2))
+    # Sand: the reference top is one continuous, soft wind-shaped field.  Keep
+    # Suma's exact edge-flush shell and body; replace only the exposed surface.
+    tiles = tile_base("sand", "sand_top", "sand_top")
+    tiles.append(kit.sand_dune_surface("sand_surface", material="sand_top"))
     base.export("tile_sand", tiles)
 
     # Clay: sun-baked terracotta plates over deep red earth.

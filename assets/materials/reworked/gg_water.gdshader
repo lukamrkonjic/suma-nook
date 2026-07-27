@@ -26,8 +26,11 @@ uniform float depth_falloff = 0.5;      // meters of water for ~63% absorption
 uniform float shallow_alpha = 0.8;
 uniform float deep_alpha = 0.97;
 uniform float foam_width = 0.13;
-uniform float water_roughness = 0.24;
-uniform float water_specular = 0.32;
+uniform float water_roughness = 0.42;
+uniform float water_specular = 0.18;
+// Kept as an art-review control: 1.0 is the shipping, scene-lit response;
+// 0.0 reproduces the former self-lit water for controlled comparisons.
+uniform float scene_lighting_response : hint_range(0.0, 1.0) = 1.0;
 uniform float fresnel_strength = 0.22;
 uniform float water_level = -0.14;
 // Jello block sides (see the GG reference): pale translucent aqua walls.
@@ -141,10 +144,9 @@ void fragment() {
 	float fres = pow(1.0 - clamp(dot(n_world, normalize(-(INV_VIEW_MATRIX * vec4(0.0, 0.0, -1.0, 0.0)).xyz)), 0.0, 1.0), 5.0);
 	col = mix(col, sky_color.rgb, clamp(fres * fresnel_strength, 0.0, 0.3));
 
-	// The composed color is pre-compensated for the tonemap (palette stores
-	// inverted values), so emit it directly; a small dark ALBEDO keeps the
-	// sun's specular glint riding on the waves.
-	ALBEDO = vec3(0.02);
+	// Water participates in the same daylight as every other surface. The old
+	// emission path made it self-lit and disconnected it from ambient/shadow
+	// changes; retain scene-lit diffuse color and restrained sun glints.
 	float caustic_a = caustic_layer(world_pos.xz * 3.0, t * 0.7);
 	float caustic_b = caustic_layer(
 		world_pos.xz * 4.7 + vec2(1.7, -2.3),
@@ -152,11 +154,13 @@ void fragment() {
 	);
 	float shimmer = caustic_a * caustic_b * surface_shimmer;
 	vec3 finished_col = col + caustic_color.rgb * shimmer;
-	EMISSION = mix(
+	vec3 display_col = mix(
 		finished_col,
 		placement_invalid_tint.rgb,
 		placement_invalid_strength
 	);
+	ALBEDO = mix(vec3(0.02), display_col, scene_lighting_response);
+	EMISSION = display_col * (1.0 - scene_lighting_response);
 	ALPHA = mix(
 		opacity,
 		max(opacity, placement_invalid_tint.a),

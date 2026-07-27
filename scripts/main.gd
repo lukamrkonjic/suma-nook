@@ -28,6 +28,8 @@ var placement: PlacementController
 var skill_actions: SkillActions
 var hud: Hud
 var pixel_look: PixelLook
+const LightingTunerScript := preload("res://scripts/ui/lighting_tuner.gd")
+var lighting_tuner: CanvasLayer
 var panels: GamePanels
 var pause_menu: PauseMenu
 var parcel_reveal: ParcelReveal
@@ -70,7 +72,7 @@ func _build_world_scene() -> void:
 	world_root.name = "GameWorld"
 	add_child(world_root)
 
-	lighting = (load("res://scenes/visual/GGDayLightingRig.tscn") as PackedScene).instantiate()
+	lighting = (load("res://scenes/visual/SumaSoftDaylight.tscn") as PackedScene).instantiate()
 	world_root.add_child(lighting)
 
 	renderer = WorldRenderer.new()
@@ -166,6 +168,117 @@ func _build_ui() -> void:
 	pause_menu.name = "PauseMenu"
 	add_child(pause_menu)
 	pause_menu.setup(core, kit, self)
+
+
+## ReShade-style live lighting overlay (debug builds), toggled from the pause
+## menu's Admin page. Built lazily so release sessions never carry it.
+func toggle_lighting_tuner() -> bool:
+	if not OS.is_debug_build():
+		return false
+	if lighting_tuner == null:
+		lighting_tuner = LightingTunerScript.new()
+		lighting_tuner.name = "LightingTuner"
+		add_child(lighting_tuner)
+		lighting_tuner.setup(lighting, kit)
+		return true
+	lighting_tuner.visible = not lighting_tuner.visible
+	if lighting_tuner.visible:
+		lighting_tuner.refresh()
+	return lighting_tuner.visible
+
+
+# A hand-composed showcase island (Admin page): every tile family, stacked
+# elevation, a wrapping water region and a broad spread of structures. Rows
+# run north to south from MOCK_WORLD_ORIGIN; place_tile overwrites whatever
+# stood on each cell, so building it replaces the current island in place.
+const MOCK_WORLD_ORIGIN := Vector2i(-4, -3)
+const MOCK_WORLD_TILES := {
+	"W": "tile_open_water", "G": "tile_grass", "F": "tile_grass_flower",
+	"V": "tile_grove_mature", "C": "tile_cobblestone", "L": "tile_flagstone",
+	"T": "tile_courtyard", "R": "tile_dirt_road", "X": "tile_dirt_crossroad",
+	"D": "tile_dirt", "S": "tile_sand", "N": "tile_snowfield",
+	"M": "tile_mud", "K": "tile_wooden_planks", "Y": "tile_clay",
+	"U": "tile_garden", "P": "tile_path", "B": "tile_plain_ground",
+	"O": "tile_stone_clearing",
+}
+const MOCK_WORLD_ROWS := [
+	"WWWWWWWWWW",
+	"WGGVVGFGGW",
+	"WGRCCCCRGW",
+	"WVRCTTCRUW",
+	"WGRCLLCRUW",
+	"WFXRRRRXDW",
+	"WKKKKNNDMW",
+	"WKSSKNNYBW",
+]
+const MOCK_WORLD_STRUCTURES := [
+	[Vector2i(-1, -2), "struct_pine_tall", 0],
+	[Vector2i(0, -2), "struct_pine", 0],
+	[Vector2i(2, -2), "struct_stone_wall_low", 0],
+	[Vector2i(3, -2), "struct_stone_wall_corner", 0],
+	[Vector2i(-3, -1), "struct_bush", 0],
+	[Vector2i(2, -1), "struct_bench", 2],
+	[Vector2i(0, 0), "struct_stone_well", 0],
+	[Vector2i(4, 0), "struct_garden_trellis", 1],
+	[Vector2i(-1, 1), "struct_lantern", 0],
+	[Vector2i(1, 1), "struct_birdbath", 0],
+	[Vector2i(4, 1), "struct_planter", 0],
+	[Vector2i(-2, 2), "struct_wooden_arch", 1],
+	[Vector2i(3, 2), "struct_wheelbarrow", 3],
+	[Vector2i(4, 2), "struct_pot", 0],
+	[Vector2i(-3, 3), "struct_barrel", 0],
+	[Vector2i(-2, 3), "struct_crate", 0],
+	[Vector2i(2, 3), "struct_log_pile", 1],
+	[Vector2i(3, 3), "struct_snowman", 0],
+	[Vector2i(-1, 4), "struct_campfire", 0],
+	[Vector2i(4, 4), "struct_milk_churn", 0],
+	[Vector2i(-4, 0), "struct_water_wheel", 0],
+	[Vector2i(5, 1), "struct_fishing_marker", 0],
+]
+
+
+func debug_build_mock_world() -> int:
+	if not OS.is_debug_build():
+		return 0
+	for row_index in MOCK_WORLD_ROWS.size():
+		var row: String = MOCK_WORLD_ROWS[row_index]
+		for col in row.length():
+			var tile_id: String = MOCK_WORLD_TILES.get(row[col], "")
+			if not tile_id.is_empty():
+				core.grid.place_tile(MOCK_WORLD_ORIGIN + Vector2i(col, row_index), tile_id)
+	# A stacked grass rise with a young pine crown, showing the covered forms.
+	core.grid.place_tile_at(Vector2i(-3, -2), 1, "tile_grass")
+	core.grid.place_tile_at(Vector2i(-2, -2), 1, "tile_grass")
+	core.grid.place_tile_at(Vector2i(-3, -2), 2, "tile_grass")
+	var placed := 0
+	for spec in MOCK_WORLD_STRUCTURES:
+		if core.grid.add_structure(spec[0], String(spec[1]), _mock_socket(String(spec[1])), int(spec[2])) != null:
+			placed += 1
+	if core.grid.add_structure(
+		Vector2i(-3, -2), "struct_pine_young", _mock_socket("struct_pine_young"), 0, 2
+	) != null:
+		placed += 1
+	player.global_position = core.grid.cell_to_world(Vector2i(-1, -1)) + Vector3(0, 0.05, 0)
+	core.autosave_soon()
+	return placed
+
+
+func _mock_socket(structure_id: String) -> int:
+	## Buildings occupy the tile's single structure socket (index 0); decor
+	## lives in the numbered decor sockets starting at 1.
+	var definition := core.registries.structure(structure_id)
+	return 0 if definition != null and definition.socket_type == "structure" else 1
+
+
+func debug_reset_save() -> void:
+	if not OS.is_debug_build():
+		return
+	core.autosave_paused = true
+	for path in [core.save_manager.save_path, core.save_manager.backup_path]:
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	get_tree().paused = false
+	get_tree().reload_current_scene()
 
 
 func _connect_flows() -> void:

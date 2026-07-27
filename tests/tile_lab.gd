@@ -46,7 +46,7 @@ func _build() -> void:
 	var tile_factory := TileVisualFactory.new(assets, core.grid)
 	_spacing = core.grid.tile_size
 
-	add_child((load("res://scenes/visual/GGDayLightingRig.tscn") as PackedScene).instantiate())
+	add_child((load("res://scenes/visual/SumaSoftDaylight.tscn") as PackedScene).instantiate())
 	_camera = Camera3D.new()
 	_camera.projection = Camera3D.PROJECTION_ORTHOGONAL
 	_camera.current = true

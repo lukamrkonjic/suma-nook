@@ -204,6 +204,7 @@ func _test_build_library_categories() -> void:
 	var expected_tiles := {
 		"tile_open_water": "ground",
 		"tile_grass": "ground",
+		"tile_plain_ground": "ground",
 		"tile_grass_flower": "ground",
 		"tile_grass_pond_edge": "ground",
 		"tile_path": "ground",
@@ -502,8 +503,8 @@ func _test_catalog_expansion() -> void:
 
 
 func _test_gg_render_contract() -> void:
-	var profile := load("res://assets/visual_profiles/gg_day_profile.tres") as VisualStyleProfile
-	check(profile != null, "GG day visual profile loads")
+	var profile := load("res://assets/visual_profiles/suma_soft_daylight_warm.tres") as VisualStyleProfile
+	check(profile != null, "Suma soft-daylight visual profile loads")
 	var regs := GameContentCatalogScript.create()
 	check(regs.load_all(), "render-contract tuning registry loads")
 	check(
@@ -513,23 +514,33 @@ func _test_gg_render_contract() -> void:
 	)
 	check(
 		profile.shadow_max_distance >= 75.0,
-		"GG shadow range covers the complete 40-70 unit gameplay camera envelope"
-	)
-	check(profile.shadow_opacity >= 0.8, "GG day keeps a clearly bounded directional shadow")
-	check(
-		profile.ssao_enabled and profile.ssao_intensity >= 0.9 and profile.ssao_radius >= 0.3,
-		"GG day preserves measured contact-darkening strength and radius"
+		"Soft-daylight shadow range covers the complete gameplay camera envelope"
 	)
 	check(
-		profile.contrast > 1.0 and profile.saturation > 1.0 and profile.glow_enabled,
-		"GG day retains restrained color grading and emitter bloom"
+		profile.shadow_opacity >= 0.65 and profile.shadow_opacity <= 0.75
+		and profile.shadow_normal_bias >= 1.0
+		and profile.shadow_cascade_mode == "pssm_4",
+		"Soft-daylight shadows keep the miniature grounded with GG-like plane separation"
+	)
+	check(
+		profile.ssao_enabled and profile.ssao_intensity >= 0.8 and profile.ssao_radius <= 0.3,
+		"Soft-daylight SSAO is tight and contact-focused"
+	)
+	check(
+		profile.tonemap == "agx"
+		and profile.agx_white >= 12.0
+		and profile.agx_white <= 16.0
+		and profile.contrast <= 1.06
+		and profile.glow_enabled
+		and profile.glow_hdr_threshold >= 1.6,
+		"Soft-daylight uses a restrained pop grade and emissive-only bloom"
 	)
 	check(
 		ProjectSettings.get_setting("rendering/anti_aliasing/quality/msaa_3d") == 3
-		and ProjectSettings.get_setting("rendering/anti_aliasing/quality/screen_space_aa") == 0
-		and ProjectSettings.get_setting("rendering/anti_aliasing/quality/use_taa")
-		and ProjectSettings.get_setting("rendering/lights_and_shadows/directional_shadow/size") >= 16384,
-		"GG comparison renderer uses 8x MSAA, temporal AA, and a high-resolution shadow map"
+		and ProjectSettings.get_setting("rendering/anti_aliasing/quality/screen_space_aa") == 1
+		and not ProjectSettings.get_setting("rendering/anti_aliasing/quality/use_taa")
+		and ProjectSettings.get_setting("rendering/lights_and_shadows/directional_shadow/size") == 8192,
+		"Soft-daylight uses crisp 8x MSAA and a bounded shadow map"
 	)
 
 
@@ -583,7 +594,7 @@ func _test_starting_world() -> void:
 	for y in [0, 1]:
 		check(
 			core.grid.tile_def(Vector2i(-1, y)).id == "tile_grass"
-			and core.grid.tile_def(Vector2i(0, y)).id == "tile_path"
+			and core.grid.tile_def(Vector2i(0, y)).id == "tile_plain_ground"
 			and core.grid.tile_def(Vector2i(1, y)).id == "tile_grass",
 			"opening land row %d is forest / path / forest" % y
 		)

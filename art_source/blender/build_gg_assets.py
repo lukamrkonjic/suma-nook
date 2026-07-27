@@ -90,6 +90,7 @@ PALETTE = {
     "hair_light": "76533B",
     "hair_primary": "543826",
     "ivory_highlight": "E2D7BF",
+    "sand_top": "E6CD88",
     "leaf_bright": "8FB058",
     "leaf_medium": "708A4E",
     "leaf_olive": "5B7343",

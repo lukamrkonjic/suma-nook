@@ -80,8 +80,12 @@ func apply(viewport: Viewport, lighting: LightingRig, hud: Hud, pixel_look: Pixe
 			viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 		_:
 			viewport.msaa_3d = Viewport.MSAA_8X
-			viewport.use_taa = true
-			viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
+			# Preserve the crisp hard-edged miniature silhouette. Temporal AA
+			# softened face boundaries and introduced visible surface banding.
+			viewport.use_taa = false
+			# A single non-temporal FXAA pass cleans up residual shadow-map
+			# stipple without the motion trails or surface wash of TAA.
+			viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 	_set_bus_volume("Master", master_volume)
 	_set_bus_volume("Music", music_volume)
 	if lighting != null:

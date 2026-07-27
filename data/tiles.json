@@ -40,6 +40,20 @@
       "connection_mode": "full_flush"
     },
     {
+      "id": "tile_plain_ground",
+      "name": "Beginner White Block",
+      "family": "home_meadow",
+      "asset_id": "tile_plain_ground",
+      "weight": 2.4,
+      "stackable": true,
+      "supports_tiles": true,
+      "surface_kind": "flat",
+      "placement_sound": "stone",
+      "special_trait": "Garden Galaxy's plain beginner block, preserved as the direct visual-match control.",
+      "geometry_profile": "hard_square",
+      "connection_mode": "full_flush"
+    },
+    {
       "id": "tile_grass_flower",
       "name": "Sunlit Meadow",
       "family": "home_meadow",
@@ -186,7 +200,8 @@
       "placement_sound": "grass",
       "special_trait": "Soft sand shaped by a faint breeze.",
       "geometry_profile": "organic_overlay_square",
-      "connection_mode": "full_flush"
+      "connection_mode": "full_flush",
+      "exposed_top": "raised"
     },
     {
       "id": "tile_clay",

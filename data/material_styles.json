@@ -2,9 +2,9 @@
   "source": "Original Suma Nook semantic material translation; GG live property blocks were not observed",
   "defaults": {
     "family": "painted_matte",
-    "roughness": 0.82,
+    "roughness": 0.88,
     "metallic": 0.0,
-    "specular": 0.22,
+    "specular": 0.14,
     "calm_cream_mix": 0.0,
     "calm_value_lift": 0.0
   },
@@ -12,10 +12,10 @@
     {
       "id": "foliage",
       "contains": ["grass", "moss", "leaf", "foliage", "pine", "olive", "flora", "reed"],
-      "roughness": 0.8,
+      "roughness": 0.88,
       "metallic": 0.0,
-      "specular": 0.2,
-      "calm_cream_mix": 0.035,
+      "specular": 0.12,
+      "calm_cream_mix": 0.0,
       "calm_value_lift": 0.0
     },
     {
@@ -30,45 +30,45 @@
     {
       "id": "stone",
       "contains": ["stone", "rock", "sage_gray"],
-      "roughness": 0.74,
-      "metallic": 0.0,
-      "specular": 0.28,
-      "calm_cream_mix": 0.0,
-      "calm_value_lift": 0.0
-    },
-    {
-      "id": "wood",
-      "contains": ["wood", "cardboard"],
-      "roughness": 0.76,
-      "metallic": 0.0,
-      "specular": 0.24,
-      "calm_cream_mix": 0.0,
-      "calm_value_lift": 0.0
-    },
-    {
-      "id": "ceramic",
-      "contains": ["terracotta", "coral", "burnt_red"],
-      "roughness": 0.7,
-      "metallic": 0.0,
-      "specular": 0.3,
-      "calm_cream_mix": 0.0,
-      "calm_value_lift": 0.0
-    },
-    {
-      "id": "cloth_and_skin",
-      "contains": ["fabric", "skin", "hair", "petal", "flower", "mushroom", "cream_fabric"],
-      "roughness": 0.9,
+      "roughness": 0.86,
       "metallic": 0.0,
       "specular": 0.14,
       "calm_cream_mix": 0.0,
       "calm_value_lift": 0.0
     },
     {
+      "id": "wood",
+      "contains": ["wood", "cardboard"],
+      "roughness": 0.88,
+      "metallic": 0.0,
+      "specular": 0.12,
+      "calm_cream_mix": 0.0,
+      "calm_value_lift": 0.0
+    },
+    {
+      "id": "ceramic",
+      "contains": ["terracotta", "coral", "burnt_red"],
+      "roughness": 0.84,
+      "metallic": 0.0,
+      "specular": 0.14,
+      "calm_cream_mix": 0.0,
+      "calm_value_lift": 0.0
+    },
+    {
+      "id": "cloth_and_skin",
+      "contains": ["fabric", "skin", "hair", "petal", "flower", "mushroom", "cream_fabric"],
+      "roughness": 0.92,
+      "metallic": 0.0,
+      "specular": 0.1,
+      "calm_cream_mix": 0.0,
+      "calm_value_lift": 0.0
+    },
+    {
       "id": "warm_metal",
       "contains": ["gold", "metal"],
-      "roughness": 0.66,
+      "roughness": 0.72,
       "metallic": 0.28,
-      "specular": 0.3,
+      "specular": 0.22,
       "calm_cream_mix": 0.0,
       "calm_value_lift": 0.0
     },
@@ -83,8 +83,10 @@
     }
   ],
   "overrides": {
-    "warm_white": {"family": "painted_matte", "roughness": 0.82, "specular": 0.2, "calm_cream_mix": 0.0},
-    "ivory_highlight": {"family": "painted_matte", "roughness": 0.82, "specular": 0.2, "calm_cream_mix": 0.0},
+    "warm_white": {"family": "painted_matte", "roughness": 0.9, "specular": 0.1, "calm_cream_mix": 0.0},
+    "ivory_highlight": {"family": "painted_matte", "roughness": 0.9, "specular": 0.1, "calm_cream_mix": 0.0},
+    "sand_top": {"family": "earth", "roughness": 0.88, "metallic": 0.0, "specular": 0.25, "calm_cream_mix": 0.0},
+    "plain_ground_gg": {"family": "painted_matte", "roughness": 1.0, "metallic": 0.0, "specular": 0.13, "calm_cream_mix": 0.0},
     "water_shallow_highlight": {"calm_cream_mix": 0.0},
     "water_shallow": {"calm_cream_mix": 0.0},
     "water_turquoise": {"calm_cream_mix": 0.0},
@@ -97,9 +99,9 @@
     "fire_orange": {"family": "emissive", "emission_energy": 2.2},
     "fire_red": {"family": "emissive", "emission_energy": 1.4},
     "magic": {"family": "emissive", "emission_energy": 2.0},
-    "gold": {"family": "warm_metal", "roughness": 0.65, "metallic": 0.3, "specular": 0.3},
-    "gold_primary": {"family": "warm_metal", "roughness": 0.65, "metallic": 0.3, "specular": 0.3},
-    "gold_deep": {"family": "warm_metal", "roughness": 0.68, "metallic": 0.25, "specular": 0.3},
-    "metal": {"family": "warm_metal", "roughness": 0.72, "metallic": 0.25, "specular": 0.3}
+    "gold": {"family": "warm_metal", "roughness": 0.72, "metallic": 0.3, "specular": 0.22},
+    "gold_primary": {"family": "warm_metal", "roughness": 0.72, "metallic": 0.3, "specular": 0.22},
+    "gold_deep": {"family": "warm_metal", "roughness": 0.74, "metallic": 0.25, "specular": 0.2},
+    "metal": {"family": "warm_metal", "roughness": 0.78, "metallic": 0.25, "specular": 0.2}
   }
 }

@@ -1,9 +1,10 @@
 class_name LightingRig
 extends Node3D
-## The one shared lighting/atmosphere setup (scenes/visual/GGDayLightingRig.tscn).
-## Gameplay and the Match Lab both instance this scene; apply_profile() drives every
-## environment knob from a VisualStyleProfile resource. No other scene may add its
-## own DirectionalLight3D or WorldEnvironment.
+## The one shared lighting/atmosphere setup
+## (scenes/visual/SumaSoftDaylight.tscn). Gameplay and the visual labs instance
+## this scene; apply_profile() drives every environment knob from a
+## VisualStyleProfile. No other scene may add its own global directional light
+## or WorldEnvironment.
 
 signal profile_applied(profile: VisualStyleProfile)
 
@@ -15,6 +16,10 @@ const MIST_BG_SHADER: Shader = preload("res://assets/materials/mist_background.g
 @export var leaves_profile: VisualStyleProfile
 @export var snow_profile: VisualStyleProfile
 @export var blossom_profile: VisualStyleProfile
+@export var neutral_profile: VisualStyleProfile
+@export var warm_profile: VisualStyleProfile
+@export var overcast_profile: VisualStyleProfile
+@export var fallback_profile: VisualStyleProfile
 
 var current_profile: VisualStyleProfile
 var _sun: DirectionalLight3D
@@ -44,12 +49,12 @@ func _ready() -> void:
 	_sun = DirectionalLight3D.new()
 	_sun.name = "Sun"
 	_sun.shadow_enabled = true
-	# Garden Galaxy's high profile uses one cascade. The map is fitted again
-	# whenever gameplay zoom changes: close-ups should not spread a shadow map
-	# across the full 100-unit maximum, or each texel becomes visible on screen.
-	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
-	_sun.directional_shadow_max_distance = 100.0
-	_sun.directional_shadow_blend_splits = false
+	# The active profile selects the cascade layout. The map is fitted again
+	# whenever gameplay zoom changes so close-ups do not waste texels on the
+	# complete camera envelope.
+	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	_sun.directional_shadow_max_distance = 80.0
+	_sun.directional_shadow_blend_splits = true
 	_sun.directional_shadow_fade_start = 0.96
 	add_child(_sun)
 
@@ -72,8 +77,8 @@ func _ready() -> void:
 	_reflection_probe.intensity = 1.0
 	_reflection_probe.max_distance = 50.0
 	_reflection_probe.box_projection = false
-	_reflection_probe.enable_shadows = true
-	_reflection_probe.update_mode = ReflectionProbe.UPDATE_ALWAYS
+	_reflection_probe.enable_shadows = false
+	_reflection_probe.update_mode = ReflectionProbe.UPDATE_ONCE
 	add_child(_reflection_probe)
 
 	# Screen-space gradient backdrop (mist preset). Sits behind the 3D scene
@@ -104,7 +109,7 @@ func _ready() -> void:
 	add_child(_spores)
 
 	if day_profile == null:
-		day_profile = load("res://assets/visual_profiles/gg_day_profile.tres")
+		day_profile = load("res://assets/visual_profiles/suma_soft_daylight_warm.tres")
 	if mist_profile == null:
 		mist_profile = load("res://assets/visual_profiles/garden_galaxy_mist.tres")
 	if rain_profile == null:
@@ -115,6 +120,14 @@ func _ready() -> void:
 		snow_profile = load("res://assets/visual_profiles/soft_snow.tres")
 	if blossom_profile == null:
 		blossom_profile = load("res://assets/visual_profiles/petal_breeze.tres")
+	if neutral_profile == null:
+		neutral_profile = load("res://assets/visual_profiles/suma_soft_daylight_neutral.tres")
+	if warm_profile == null:
+		warm_profile = day_profile
+	if overcast_profile == null:
+		overcast_profile = load("res://assets/visual_profiles/suma_soft_overcast.tres")
+	if fallback_profile == null:
+		fallback_profile = load("res://assets/visual_profiles/suma_soft_daylight_fallback.tres")
 	apply_profile(day_profile)
 
 
@@ -133,6 +146,8 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	_ambient_material.ground_horizon_color = profile.ambient_equator_color
 	_ambient_material.ground_bottom_color = profile.ambient_ground_color
 	match profile.tonemap:
+		"agx":
+			env.tonemap_mode = Environment.TONE_MAPPER_AGX
 		"aces":
 			env.tonemap_mode = Environment.TONE_MAPPER_ACES
 		"filmic":
@@ -140,6 +155,8 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 		_:
 			env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	env.tonemap_exposure = profile.exposure
+	env.tonemap_agx_white = profile.agx_white
+	env.tonemap_agx_contrast = profile.agx_contrast
 	env.adjustment_enabled = true
 	env.adjustment_brightness = profile.brightness
 	env.adjustment_contrast = profile.contrast
@@ -158,7 +175,7 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	env.ssil_radius = profile.ssil_radius
 	env.ssil_sharpness = profile.ssil_sharpness
 	env.ssil_normal_rejection = 1.0
-	env.ssr_enabled = true
+	env.ssr_enabled = profile.ssr_enabled
 	env.ssr_max_steps = 64
 	env.ssr_fade_in = 0.15
 	env.ssr_fade_out = 2.0
@@ -184,12 +201,30 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	_sun.light_energy = profile.sun_energy
 	_sun.light_specular = profile.sun_specular
 	_sun.rotation_degrees = Vector3(profile.sun_pitch_deg, profile.sun_yaw_deg, 0.0)
+	match profile.shadow_cascade_mode:
+		"pssm_4":
+			_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+		"pssm_2":
+			_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+		_:
+			_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+	_sun.directional_shadow_split_1 = profile.shadow_split_1
+	_sun.directional_shadow_split_2 = profile.shadow_split_2
+	_sun.directional_shadow_split_3 = profile.shadow_split_3
+	_sun.directional_shadow_blend_splits = profile.shadow_blend_splits
 	_refresh_camera_shadow_fit()
 	_sun.shadow_opacity = profile.shadow_opacity
 	_sun.shadow_blur = profile.shadow_blur
 	_sun.light_angular_distance = profile.sun_angular_distance
 	_sun.shadow_bias = profile.shadow_bias
 	_sun.shadow_normal_bias = profile.shadow_normal_bias
+	_reflection_probe.visible = profile.reflection_probe_enabled
+	_reflection_probe.enable_shadows = profile.reflection_probe_shadows
+	_reflection_probe.update_mode = (
+		ReflectionProbe.UPDATE_ALWAYS
+		if profile.reflection_probe_update_always
+		else ReflectionProbe.UPDATE_ONCE
+	)
 
 	_rain.emitting = profile.rain_enabled
 	_motes.emitting = profile.motes_enabled
@@ -228,6 +263,20 @@ func toggle_profile() -> void:
 		apply_profile(rain_profile)
 	else:
 		apply_profile(day_profile)
+
+
+## Art-review variants use identical geometry, camera, and palette; only the
+## lighting profile changes. "fallback" removes PCSS and realtime reflections.
+func apply_daylight_variant(variant_id: String) -> void:
+	match variant_id:
+		"neutral":
+			apply_profile(neutral_profile)
+		"warm":
+			apply_profile(warm_profile)
+		"overcast":
+			apply_profile(overcast_profile)
+		"fallback":
+			apply_profile(fallback_profile)
 
 
 func set_weather(weather_id: String) -> void:
@@ -370,6 +419,9 @@ func runtime_manifest() -> Dictionary:
 			"shadow_mode": _sun.directional_shadow_mode,
 			"shadow_max_distance": _sun.directional_shadow_max_distance,
 			"shadow_blended_splits": _sun.directional_shadow_blend_splits,
+			"shadow_split_1": _sun.directional_shadow_split_1,
+			"shadow_split_2": _sun.directional_shadow_split_2,
+			"shadow_split_3": _sun.directional_shadow_split_3,
 			"shadow_fade_start": _sun.directional_shadow_fade_start,
 			"shadow_opacity": _sun.shadow_opacity,
 			"shadow_blur": _sun.shadow_blur,
@@ -396,6 +448,7 @@ func runtime_manifest() -> Dictionary:
 			"sky_affect": env.fog_sky_affect,
 		},
 		"reflection_probe": {
+			"enabled": _reflection_probe.visible,
 			"size": _reflection_probe.size,
 			"position": _reflection_probe.position,
 			"intensity": _reflection_probe.intensity,
@@ -409,6 +462,8 @@ func runtime_manifest() -> Dictionary:
 		"post_processing": {
 			"tonemap_mode": env.tonemap_mode,
 			"exposure": env.tonemap_exposure,
+			"agx_white": env.tonemap_agx_white,
+			"agx_contrast": env.tonemap_agx_contrast,
 			"color_adjustment_enabled": env.adjustment_enabled,
 			"brightness": env.adjustment_brightness,
 			"contrast": env.adjustment_contrast,

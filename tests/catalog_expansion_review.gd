@@ -77,7 +77,7 @@ func _build_gallery() -> void:
 	core.setup()
 
 	var lighting := (
-		load("res://scenes/visual/GGDayLightingRig.tscn") as PackedScene
+		load("res://scenes/visual/SumaSoftDaylight.tscn") as PackedScene
 	).instantiate()
 	add_child(lighting)
 

@@ -6,7 +6,10 @@ extends Node
 ## Prints "FULL LOOP PASSED" or FAIL lines, then quits.
 
 const SAVE_PATH := "user://loop_test_save.json"
-const STACK_COORD := Vector2i(0, 1)
+# Keep the stacking-transition fixture on an authored grass tile. The center
+# lane is the direct GG Plain Ground control now, whose single hard-block mesh
+# deliberately has no removable grass presentation layer to cross-fade.
+const STACK_COORD := Vector2i(1, 1)
 const StructureVisualFactoryScript := preload(
 	"res://scripts/world/structure_visual_factory.gd"
 )
@@ -66,6 +69,14 @@ func _ready() -> void:
 func _run() -> void:
 	await wait(0.5)
 	await _step_creation()
+	if OS.get_cmdline_user_args().has("--mock-shot"):
+		# Visual QA: build the admin showcase island and save one screenshot.
+		var placed := main.debug_build_mock_world()
+		print("MOCK WORLD BUILT — %d structures" % placed)
+		await wait(1.2)
+		await _capture_shot()
+		await _finish()
+		return
 	if OS.get_cmdline_user_args().has("--jump-only"):
 		await _step_jump_ledge_traversal()
 		if failures.is_empty():
@@ -181,7 +192,7 @@ func _step_build_library_ui() -> void:
 	main.hud._select_build_category("ground")
 	await wait(0.05)
 	check(
-		main.hud._build_strip.get_child_count() == 14,
+		main.hud._build_strip.get_child_count() == 15,
 		"ground keeps meadow, earth, water, and plank tiles separate from other terrain families"
 	)
 
@@ -232,6 +243,21 @@ func _step_build_library_ui() -> void:
 				int(main.core.stock.tiles.get("tile_wooden_planks", 0)) == planks_before + 10,
 				"the admin grant action stocks every registered tile"
 			)
+		var tuner_button := main.pause_menu.find_child("AdminRowLightingTuner", true, false) as Button
+		check(tuner_button != null, "the admin page offers the lighting tuner toggle")
+		if tuner_button != null:
+			tuner_button.pressed.emit()
+			await wait(0.1)
+			check(
+				main.lighting_tuner != null and main.lighting_tuner.visible,
+				"toggling the lighting tuner overlays the live controls"
+			)
+			tuner_button.pressed.emit()
+			await wait(0.05)
+			check(
+				main.lighting_tuner != null and not main.lighting_tuner.visible,
+				"toggling again hides the lighting tuner"
+			)
 		main.pause_menu.close()
 		await wait(0.05)
 
@@ -271,9 +297,13 @@ func _step_tile_geometry_contract() -> void:
 		var visual := tile_factory.instantiate_visual(tile_def)
 		add_child(visual)
 		var bounds := _node_mesh_bounds(visual)
+		# Declared-raised skins (the sand dunes) keep a periodic boundary that
+		# deliberately crosses the slot line a little so neighbours interlock;
+		# grant them extra footprint slack.
+		var fit_margin := 0.06 if tile_def.exposed_top == "raised" else 0.03
 		if (
-			bounds.size.x > main.core.grid.tile_size + 0.03
-			or bounds.size.z > main.core.grid.tile_size + 0.03
+			bounds.size.x > main.core.grid.tile_size + fit_margin
+			or bounds.size.z > main.core.grid.tile_size + fit_margin
 		):
 			all_fit = false
 		for mesh_node in visual.find_children("*", "MeshInstance3D", true, false):
@@ -292,7 +322,10 @@ func _step_tile_geometry_contract() -> void:
 				)
 				if tile_def.id == "tile_grass" and mesh_bounds.end.y > 0.01:
 					grass_has_raised_speckles = true
-			elif mesh_bounds.end.y > 0.015:
+			elif mesh_bounds.end.y > (0.35 if tile_def.exposed_top == "raised" else 0.015):
+				# Declared-raised exposed tops (the sculpted sand skin) may
+				# rise above the walkable plane: the cover swap removes the
+				# whole top layer before another block ever overlaps it.
 				all_structural_shells_end_at_surface = false
 			if (
 				lower.contains("tree")
@@ -2073,21 +2106,22 @@ func _step_visual_runtime() -> void:
 	var live_visuals := main.lighting.runtime_manifest()
 	check(
 		live_visuals["reflection_probe"]["size"] == Vector3(50.0, 15.0, 50.0)
-		and live_visuals["reflection_probe"]["update_mode"] == ReflectionProbe.UPDATE_ALWAYS,
-		"Realtime reflection probe uses the measured envelope"
+		and live_visuals["reflection_probe"]["update_mode"] == ReflectionProbe.UPDATE_ONCE
+		and not live_visuals["reflection_probe"]["shadows"],
+		"Static reflection probe uses the measured low-cost envelope"
 	)
 	check(
-		live_visuals["post_processing"]["anti_aliasing"]["taa"]
+		not live_visuals["post_processing"]["anti_aliasing"]["taa"]
 		and live_visuals["post_processing"]["anti_aliasing"]["msaa_3d"] == 3
-		and live_visuals["post_processing"]["anti_aliasing"]["screen_space_aa"] == 0
+		and live_visuals["post_processing"]["anti_aliasing"]["screen_space_aa"] == 1
 		and live_visuals["post_processing"]["ssao_enabled"],
-		"GG-style temporal AA, 8x MSAA, and profile-driven SSAO are active"
+		"Crisp 8x MSAA, non-temporal FXAA, and profile-driven SSAO are active"
 	)
 	var camera_values := main.camera_rig.runtime_manifest()
 	check(
 		camera_values["fov_degrees"] == 15.0
 		and camera_values["near_clip"] == 5.0
-		and camera_values["far_clip"] == 100.0
+		and camera_values["far_clip"] == 90.0
 		and camera_values["zoom_limits"]["minimum"] == 14.0
 		and camera_values["zoom_limits"]["maximum"] == 70.0,
 		"Camera manifest exposes measured lens, clipping, and extended close-up zoom limits"
@@ -2152,7 +2186,10 @@ func _node_mesh_bounds(root: Node3D) -> AABB:
 	var root_inverse := root.global_transform.affine_inverse()
 	for child in root.find_children("*", "MeshInstance3D", true, false):
 		var mesh := child as MeshInstance3D
-		if mesh.mesh == null:
+		# Visual bounds describe what can actually produce the photographed
+		# silhouette. Covered caps and relief remain in the scene tree for their
+		# reveal transition, but must not inflate the settled block envelope.
+		if mesh.mesh == null or not mesh.is_visible_in_tree():
 			continue
 		var relative := root_inverse * mesh.global_transform
 		var mesh_bounds := mesh.get_aabb()

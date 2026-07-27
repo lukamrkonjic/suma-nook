@@ -266,6 +266,239 @@ def dune_ridges(prefix, rng, material="warm_white", base_z=0.0):
     return objs
 
 
+def sand_dune_surface(name="sand_surface", material="sand_top",
+                      size=base.TILE, resolution=23):
+    """Reference-matched removable sand cap over Suma's unchanged tile shell.
+
+    A 23x23 rounded-square top grid supplies the broad rear-biased mound and
+    a frozen, still-water-like field of curved sand waves. Three perimeter
+    strips roll the top into a shallow physical lip. The result exports as
+    exactly 1,496 triangles, uses one solid material, and contains no texture
+    or shader noise.
+    """
+    resolution = max(21, min(25, int(resolution)))
+    half = size * 0.5
+    corner_radius = size * 0.07
+    overhang = size * 0.012
+    lip_bottom = -0.055
+    top_max = size * 0.09
+
+    def smoothstep(edge_a, edge_b, value):
+        t = min(1.0, max(0.0, (value - edge_a) / (edge_b - edge_a)))
+        return t * t * (3.0 - 2.0 * t)
+
+    def rotated_gaussian(x, y, cx, cy, sx, sy, angle):
+        cosine = math.cos(angle)
+        sine = math.sin(angle)
+        dx = x - cx
+        dy = y - cy
+        along = dx * cosine + dy * sine
+        across = -dx * sine + dy * cosine
+        return math.exp(-((along / sx) ** 2 + (across / sy) ** 2))
+
+    def rounded_boundary(direction_x, direction_y):
+        """Ray intersection with a 7%-radius rounded square."""
+        inner = half - corner_radius
+        low = 0.0
+        high = half * 1.5
+        for _step in range(32):
+            distance = (low + high) * 0.5
+            px = abs(direction_x * distance)
+            py = abs(direction_y * distance)
+            qx = max(px - inner, 0.0)
+            qy = max(py - inner, 0.0)
+            signed = math.hypot(qx, qy) - corner_radius
+            if signed <= 0.0:
+                low = distance
+            else:
+                high = distance
+        return direction_x * low, direction_y * low
+
+    def rounded_grid_position(nx, ny):
+        radius = max(abs(nx), abs(ny))
+        if radius <= 1e-8:
+            return 0.0, 0.0
+        boundary_x, boundary_y = rounded_boundary(nx / radius, ny / radius)
+        return boundary_x * radius, boundary_y * radius
+
+    # Freeze a few calm-water wave trains into the sand. Each wave uses a
+    # slightly asymmetric profile and a gentle cross-axis bend: crests flow
+    # through one another like a still sea instead of reading as parallel,
+    # stamped grooves. Frequencies stay broad enough for the 23x23 game mesh.
+    water_directions = [
+        # dx, dy, frequency, amplitude, phase, bend, bend frequency
+        (0.84, 0.54, 5.15, 0.034, 0.35, 0.34, 2.05),
+        (-0.48, 0.88, 3.85, 0.022, -1.05, 0.28, 2.55),
+        (0.16, -0.99, 6.75, 0.012, 1.40, 0.18, 3.10),
+    ]
+
+    def frozen_water_waves(x, y):
+        result = 0.0
+        for (
+            dx, dy, frequency, amplitude, phase,
+            bend, bend_frequency,
+        ) in water_directions:
+            direction_length = math.hypot(dx, dy)
+            along = (
+                x * dx / direction_length
+                + y * dy / direction_length
+            )
+            across = (
+                -x * dy / direction_length
+                + y * dx / direction_length
+            )
+            wave_phase = (
+                along * frequency
+                + phase
+                + bend * math.sin(across * bend_frequency + phase * 0.7)
+            )
+            # The harmonic gives each crest a softly rolled windward shoulder
+            # and a clearer lee face, making the waves readable in Suma's
+            # high-angle daylight without adding colour or normal detail.
+            profile = (
+                math.sin(wave_phase)
+                + 0.30 * math.sin(wave_phase * 2.0 - 0.65)
+            ) / 1.30
+            result += profile * amplitude
+        return result
+
+    vertices = []
+    samples = []
+    for row in range(resolution):
+        v = row / float(resolution - 1)
+        ny = v * 2.0 - 1.0
+        for column in range(resolution):
+            u = column / float(resolution - 1)
+            nx = u * 2.0 - 1.0
+            x, y = rounded_grid_position(nx, ny)
+            square_radius = max(abs(nx), abs(ny))
+
+            # One coherent mound, broadest at rear-centre and descending toward
+            # the camera-facing front. The wave field rides across this larger
+            # formation rather than becoming a set of isolated decorations.
+            height = 0.046
+            height += 0.042 * rotated_gaussian(
+                x, y, -0.03, 0.22, 0.72, 0.62, -0.06
+            )
+            height += 0.021 * rotated_gaussian(
+                x, y, 0.04, 0.43, 0.48, 0.35, 0.10
+            )
+            height += 0.008 * (y / half)
+            wave_blend = 1.0 - smoothstep(0.72, 0.94, square_radius)
+            wave_envelope = (
+                0.90
+                + 0.10 * rotated_gaussian(
+                    x, y, -0.18, 0.03, 0.64, 0.56, -0.18
+                )
+            )
+            height += frozen_water_waves(x, y) * wave_blend * wave_envelope
+
+            # Outer 10% rolls downward. Variations are broad: two gentle front
+            # sags, a higher rear centre, and softly drooping corners.
+            edge_weight = smoothstep(0.78, 1.0, square_radius)
+            perimeter_variation = (
+                -0.010 * rotated_gaussian(
+                    x, y, -0.34, -0.73, 0.30, 0.20, 0.0
+                )
+                -0.008 * rotated_gaussian(
+                    x, y, 0.38, -0.72, 0.34, 0.20, 0.0
+                )
+                +0.008 * rotated_gaussian(
+                    x, y, 0.03, 0.74, 0.42, 0.22, 0.0
+                )
+            )
+            corner_weight = (
+                smoothstep(0.76, 1.0, abs(nx))
+                * smoothstep(0.76, 1.0, abs(ny))
+            )
+            height -= edge_weight * 0.031
+            height += edge_weight * perimeter_variation
+            height -= corner_weight * 0.010
+            height = min(top_max, max(0.018, height))
+            vertices.append((x, y, height))
+            samples.append((u, v))
+
+    faces = []
+    for row in range(resolution - 1):
+        for column in range(resolution - 1):
+            a = row * resolution + column
+            b = a + 1
+            d = (row + 1) * resolution + column
+            c = d + 1
+            faces.append((a, b, c, d))
+
+    # Counter-clockwise top boundary. The three strips form a rounded upper
+    # lip, its shallow vertical belly, and a controlled lower attachment seam.
+    perimeter = []
+    perimeter.extend(range(0, resolution))
+    perimeter.extend(
+        row * resolution + resolution - 1
+        for row in range(1, resolution)
+    )
+    perimeter.extend(
+        (resolution - 1) * resolution + column
+        for column in range(resolution - 2, -1, -1)
+    )
+    perimeter.extend(
+        row * resolution
+        for row in range(resolution - 2, 0, -1)
+    )
+
+    ring_starts = []
+    ring_specs = [
+        (overhang * 0.55, 0.018),
+        (overhang, 0.052),
+        (0.0, None),
+    ]
+    for expansion, drop in ring_specs:
+        ring_starts.append(len(vertices))
+        for top_index in perimeter:
+            x, y, top_height = vertices[top_index]
+            planar_length = max(math.hypot(x, y), 1e-6)
+            if drop is None:
+                ring_height = lip_bottom
+            else:
+                ring_height = max(lip_bottom + 0.018, top_height - drop)
+            vertices.append((
+                x + x / planar_length * expansion,
+                y + y / planar_length * expansion,
+                ring_height,
+            ))
+            samples.append((x / size + 0.5, y / size + 0.5))
+
+    previous_ring = perimeter
+    for ring_start in ring_starts:
+        current_ring = [
+            ring_start + index for index in range(len(perimeter))
+        ]
+        for index in range(len(perimeter)):
+            next_index = (index + 1) % len(perimeter)
+            faces.append((
+                previous_ring[index],
+                current_ring[index],
+                current_ring[next_index],
+                previous_ring[next_index],
+            ))
+        previous_ring = current_ring
+
+    mesh = bpy.data.meshes.new(name + "_mesh")
+    mesh.from_pydata(vertices, [], faces)
+    mesh.update()
+    uv_layer = mesh.uv_layers.new(name="UVMap")
+    lower_strip_start = (resolution - 1) ** 2 + len(perimeter) * 2
+    for polygon_index, polygon in enumerate(mesh.polygons):
+        polygon.use_smooth = polygon_index < lower_strip_start
+        for loop_index in polygon.loop_indices:
+            vertex_index = mesh.loops[loop_index].vertex_index
+            if vertex_index < len(samples):
+                uv_layer.data[loop_index].uv = samples[vertex_index]
+
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.scene.collection.objects.link(obj)
+    obj.data.materials.append(base.mat(material))
+    return obj
+
+
 def snow_billows(prefix, rng, spots, height=0.046, material=SNOW_MAT,
                  crest=None, base_z=0.0):
     """Soft banked powder: wide overlapping lobes (higher segment count than

@@ -46,7 +46,7 @@ func setup(game_core: GameCore, follow_target: Node3D) -> void:
 	camera.fov = core.registries.tunef("camera_fov_deg", 15.0)
 	camera.position = Vector3(0, 0, _size_target)
 	camera.near = 5.0
-	camera.far = 100.0
+	camera.far = 90.0
 	_pitch_node.add_child(camera)
 	camera.current = true
 

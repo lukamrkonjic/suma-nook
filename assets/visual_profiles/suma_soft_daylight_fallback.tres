@@ -1,0 +1,56 @@
+[gd_resource type="Resource" script_class="VisualStyleProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/visual_style_profile.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+profile_id = "suma_soft_daylight_fallback"
+background_color = Color(0.7804, 0.851, 0.8392, 1)
+ambient_color = Color(0.7804, 0.8471, 0.8314, 1)
+ambient_energy = 0.48
+ambient_gradient_enabled = false
+ambient_sky_color = Color(0.7725, 0.8471, 0.8431, 1)
+ambient_equator_color = Color(0.8275, 0.8706, 0.8588, 1)
+ambient_ground_color = Color(0.7569, 0.8078, 0.7961, 1)
+background_gradient = false
+stars_enabled = false
+sun_color = Color(1, 0.9765, 0.9451, 1)
+sun_energy = 0.88
+sun_specular = 0.3
+sun_pitch_deg = -62.0
+sun_yaw_deg = -65.0
+shadow_max_distance = 75.0
+shadow_opacity = 0.55
+shadow_blur = 1.0
+sun_angular_distance = 0.0
+shadow_bias = 0.015
+shadow_normal_bias = 0.24
+shadow_cascade_mode = "pssm_2"
+shadow_split_1 = 0.32
+shadow_split_2 = 0.65
+shadow_split_3 = 0.84
+shadow_blend_splits = true
+ssao_enabled = true
+ssao_intensity = 0.85
+ssao_radius = 0.22
+ssao_power = 1.08
+ssao_detail = 0.3
+ssao_horizon = 0.06
+ssao_sharpness = 0.9
+ssil_enabled = false
+ssr_enabled = false
+glow_enabled = false
+exposure = 0.95
+tonemap = "agx"
+agx_white = 14.0
+agx_contrast = 1.08
+brightness = 1.0
+contrast = 1.0
+saturation = 0.98
+fog_enabled = false
+reflection_probe_enabled = false
+reflection_probe_update_always = false
+reflection_probe_shadows = false
+rain_enabled = false
+motes_enabled = false
+local_light_multiplier = 0.45

@@ -8,8 +8,10 @@
 | all materials | `MaterialLibrary` built at runtime from palette | Godot | project-owned |
 | `audio/generated/*.wav` | original, synthesized by `tools/generate_audio.py` (numpy synthesis) | Python | project-owned |
 | `assets/3d/reworked/tile_wooden_planks.glb` | Luka's generated model (`art_source/imported/wooden_planks/`, sha256-pinned), cleaned + palette-quantised by `art_source/blender/process_wooden_planks_tile.py` | Modly → Blender 5.2 headless | project-owned |
+| `assets/3d/reworked/tile_plain_ground.glb` | Garden Galaxy `Plain Ground` prefab / `Ground_base` mesh, extracted from Luka's local game installation; exact source values recorded in `art_source/imported/garden_galaxy/plain_ground/source_manifest.json` | UnityPy → Blender | third-party reference control; distribution rights not established |
 | fonts in `assets/fonts` | pre-existing project fonts | — | as recorded in assets/README.md |
 | Garden Galaxy screenshots | READ-ONLY visual references, in `docs/style_reference/` once Luka copies them; no data extracted | — | not shipped |
 
-No reference-game meshes, textures, materials, shaders, code, UI, audio, names, or
-characters are present anywhere in this repository.
+Except for the explicitly listed `Plain Ground` direct-match control, no
+reference-game meshes, textures, materials, shaders, code, UI, audio, or
+characters are present in this repository.

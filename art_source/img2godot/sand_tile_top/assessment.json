@@ -1,0 +1,96 @@
+{
+  "targetName": "Suma Sand Tile Top",
+  "sourceImage": "C:\\Users\\Luka\\Downloads\\Untitled.jpg",
+  "referenceAdmission": {
+    "technicalSuitability": "pass",
+    "semanticSuitability": "manual-pass-with-limitation",
+    "limitation": "The pale object and pale background defeat automatic silhouette segmentation, but the requested top surface remains visually readable.",
+    "scope": "Copy only the sandy top. Preserve Suma's existing tile body, dimensions, stacking, collision, seam handling, palette rebinding, and covered-surface infill."
+  },
+  "preSpecAssessment": {
+    "objectClass": {
+      "primaryType": "environment-tile-surface",
+      "primaryDomain": "object",
+      "formLanguage": [
+        "soft continuous heightfield",
+        "wind-combed diagonal dune crests",
+        "edge-tapered shallow relief"
+      ],
+      "structureKind": [
+        "single connected coverable surface mesh"
+      ],
+      "motionPotential": [
+        "static",
+        "visibility toggled by Suma's covered-tile state"
+      ],
+      "materialFamilies": [
+        "dry matte pale sand"
+      ]
+    },
+    "complexity": {
+      "tier": "simple",
+      "estimatedCounts": {
+        "macroComponents": 1,
+        "mesoComponents": 0,
+        "microFeatureGroups": 3,
+        "materialLayers": 1,
+        "repetitionSystems": 0
+      },
+      "reasoning": [
+        "One connected surface is enough: a rear-biased primary crest, two lower swells, and diagonal wind-comb relief.",
+        "The existing Suma block shell is outside the reconstruction scope."
+      ]
+    },
+    "unknownsToResolveBeforeImplementation": [],
+    "detailInventory": {
+      "scanMethod": "component-zones",
+      "targetMinDetails": 3,
+      "details": [
+        {
+          "id": "rear-primary-crest",
+          "kind": "ridge",
+          "mapsTo": {
+            "type": "component.localFeatures",
+            "ref": "primary-dune"
+          }
+        },
+        {
+          "id": "diagonal-comb-flow",
+          "kind": "ridge",
+          "mapsTo": {
+            "type": "component.localFeatures",
+            "ref": "wind-comb"
+          }
+        },
+        {
+          "id": "flush-edge-taper",
+          "kind": "contour",
+          "mapsTo": {
+            "type": "component.localFeatures",
+            "ref": "edge-taper"
+          }
+        }
+      ]
+    }
+  },
+  "qualityContract": {
+    "qualityBar": "simple",
+    "definitionOfDone": [
+      "The exposed top matches the reference's broad dune silhouette and pale warm colour.",
+      "The complete 1.70 m footprint remains edge-flush with neighbouring Suma tiles.",
+      "All relief stays within y=0.001..0.048 m and disappears through the existing covered-tile swap.",
+      "No photographed block sides, sparkle, background, pebbles, or separate clutter are copied."
+    ],
+    "referencePbrEvidence": {
+      "confidence": 0.766,
+      "palette": [
+        "#E4D3B1",
+        "#E2C989",
+        "#E7D6B5",
+        "#C2A060",
+        "#DFCAA3"
+      ],
+      "implementation": "Map to Suma's shared ivory_highlight material and geometry normals; extracted maps are evidence and are not shipped."
+    }
+  }
+}

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tests/sand_tile_reference_review.gd" id="1"]
+
+[node name="SandTileReferenceReview" type="Node"]
+script = ExtResource("1")

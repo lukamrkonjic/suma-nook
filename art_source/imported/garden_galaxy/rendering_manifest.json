@@ -1,0 +1,700 @@
+{
+  "source": "C:\\Users\\Luka\\Downloads\\Garden Galaxy\\Garden Galaxy_Data",
+  "scene": "level1",
+  "camera": {
+    "projection": "perspective",
+    "field_of_view_degrees": 15.0,
+    "near_clip": 5.0,
+    "far_clip": 100.0,
+    "hdr": true,
+    "allow_msaa": false,
+    "background_color": [
+      0.9056603908538818,
+      0.871168315410614,
+      0.8159487247467041,
+      1.0
+    ],
+    "local_position": [
+      0.0,
+      0.0,
+      -50.0
+    ],
+    "local_rotation_quaternion": [
+      -0.0,
+      -0.0,
+      -0.0,
+      1.0
+    ]
+  },
+  "main_light": {
+    "type": 1,
+    "color": [
+      1.0,
+      1.0,
+      0.9921569228172302,
+      1.0
+    ],
+    "intensity": 1.0,
+    "bounce_intensity": 1.0,
+    "shadow_type": 2,
+    "shadow_strength": 1.0,
+    "shadow_bias": 0.07999999821186066,
+    "shadow_normal_bias": 0.019999999552965164,
+    "local_rotation_quaternion": [
+      0.13906338810920715,
+      -0.8146536350250244,
+      0.5189915299415588,
+      0.21828581392765045
+    ]
+  },
+  "ambient": {
+    "mode": 1,
+    "intensity": 1.0,
+    "sky": [
+      0.800000011920929,
+      0.7411764860153198,
+      0.7686274647712708,
+      1.0
+    ],
+    "equator": [
+      0.6509804129600525,
+      0.41960784792900085,
+      0.37254902720451355,
+      1.0
+    ],
+    "ground": [
+      0.8588235378265381,
+      0.800000011920929,
+      0.7215686440467834,
+      1.0
+    ],
+    "reflection_intensity": 1.0,
+    "fog": false
+  },
+  "post_processing_components": [
+    {
+      "script": "AmbientOcclusion",
+      "game_object": "",
+      "asset_file": "sharedassets1.assets",
+      "path_id": 188,
+      "serialized_bytes": 160,
+      "decoded": {
+        "enabled": {
+          "override": true,
+          "value": true
+        },
+        "mode": {
+          "override": true,
+          "value": 1
+        },
+        "intensity": {
+          "override": false,
+          "value": 1.401298464324817e-45
+        },
+        "color": {
+          "override": true,
+          "value": [
+            1.401298464324817e-45,
+            0.349056601524353,
+            0.04192226380109787,
+            0.029636889696121216
+          ]
+        },
+        "ambient_only": {
+          "override": true,
+          "value": false
+        },
+        "noise_filter_tolerance": {
+          "override": false,
+          "value": 0.0
+        },
+        "blur_tolerance": {
+          "override": false,
+          "value": 0.0
+        },
+        "upsample_tolerance": {
+          "override": true,
+          "value": 0.0
+        },
+        "thickness_modifier": {
+          "override": true,
+          "value": 0.0
+        },
+        "direct_lighting_strength": {
+          "override": true,
+          "value": 0.0
+        },
+        "radius": {
+          "override": false,
+          "value": 1.401298464324817e-45
+        },
+        "quality": {
+          "override": true,
+          "value": 1
+        }
+      }
+    },
+    {
+      "script": "Bloom",
+      "game_object": "",
+      "asset_file": "sharedassets1.assets",
+      "path_id": 215,
+      "serialized_bytes": 156,
+      "decoded": {
+        "enabled": {
+          "override": true,
+          "value": true
+        },
+        "intensity": {
+          "override": true,
+          "value": 1.401298464324817e-45
+        },
+        "threshold": {
+          "override": true,
+          "value": 1.401298464324817e-45
+        },
+        "soft_knee": {
+          "override": true,
+          "value": 0.0
+        },
+        "clamp": {
+          "override": false,
+          "value": 0.0
+        },
+        "diffusion": {
+          "override": true,
+          "value": 0.0
+        },
+        "anamorphic_ratio": {
+          "override": true,
+          "value": 0.0
+        },
+        "color": {
+          "override": false,
+          "value": [
+            0.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "fast_mode": {
+          "override": true,
+          "value": true
+        },
+        "dirt_texture": {
+          "override": true,
+          "file_id": 0,
+          "path_id": 0
+        },
+        "dirt_intensity": {
+          "override": false,
+          "value": 1.401298464324817e-45
+        }
+      }
+    },
+    {
+      "script": "ColorGrading",
+      "game_object": "",
+      "asset_file": "sharedassets1.assets",
+      "path_id": 189,
+      "serialized_bytes": 5040,
+      "decoded": {
+        "enabled": {
+          "override": true,
+          "value": true
+        },
+        "grading_mode": {
+          "override": true,
+          "value": 0
+        },
+        "external_lut": {
+          "override": true,
+          "file_id": 0,
+          "path_id": 0
+        },
+        "tonemapper": {
+          "override": false,
+          "value": 1
+        },
+        "toe_strength": {
+          "override": false,
+          "value": 1.401298464324817e-45
+        },
+        "toe_length": {
+          "override": false,
+          "value": 0.0
+        },
+        "shoulder_strength": {
+          "override": false,
+          "value": 0.5
+        },
+        "shoulder_length": {
+          "override": false,
+          "value": 0.0
+        },
+        "shoulder_angle": {
+          "override": false,
+          "value": 0.5
+        },
+        "gamma": {
+          "override": false,
+          "value": 0.0
+        },
+        "ldr_lut": {
+          "override": false,
+          "file_id": 1065353216,
+          "path_id": 0
+        },
+        "ldr_lut_contribution": {
+          "override": false,
+          "value": 0.0
+        },
+        "temperature": {
+          "override": true,
+          "value": 0.0
+        },
+        "tint": {
+          "override": false,
+          "value": 1.401298464324817e-45
+        },
+        "color_filter": {
+          "override": true,
+          "value": [
+            0.0,
+            -7.0,
+            0.0,
+            1.0
+          ]
+        },
+        "hue_shift": {
+          "override": true,
+          "value": 1.0
+        },
+        "saturation": {
+          "override": true,
+          "value": 0.0
+        },
+        "brightness": {
+          "override": false,
+          "value": 1.401298464324817e-45
+        },
+        "post_exposure": {
+          "override": true,
+          "value": 0.0
+        },
+        "contrast": {
+          "override": false,
+          "value": 1.401298464324817e-45
+        }
+      }
+    },
+    {
+      "script": "ColorGrading",
+      "game_object": "",
+      "asset_file": "sharedassets1.assets",
+      "path_id": 190,
+      "serialized_bytes": 5040,
+      "decoded": {
+        "enabled": {
+          "override": true,
+          "value": true
+        },
+        "grading_mode": {
+          "override": true,
+          "value": 1
+        },
+        "external_lut": {
+          "override": true,
+          "file_id": 0,
+          "path_id": 0
+        },
+        "tonemapper": {
+          "override": false,
+          "value": 1
+        },
+        "toe_strength": {
+          "override": true,
+          "value": 1.401298464324817e-45
+        },
+        "toe_length": {
+          "override": false,
+          "value": 0.0
+        },
+        "shoulder_strength": {
+          "override": false,
+          "value": 0.5
+        },
+        "shoulder_length": {
+          "override": false,
+          "value": 0.0
+        },
+        "shoulder_angle": {
+          "override": false,
+          "value": 0.5
+        },
+        "gamma": {
+          "override": false,
+          "value": 0.0
+        },
+        "ldr_lut": {
+          "override": false,
+          "file_id": 1065353216,
+          "path_id": 0
+        },
+        "ldr_lut_contribution": {
+          "override": false,
+          "value": 0.0
+        },
+        "temperature": {
+          "override": true,
+          "value": 0.0
+        },
+        "tint": {
+          "override": false,
+          "value": 1.401298464324817e-45
+        },
+        "color_filter": {
+          "override": true,
+          "value": [
+            1.401298464324817e-45,
+            -7.0,
+            0.0,
+            1.0
+          ]
+        },
+        "hue_shift": {
+          "override": true,
+          "value": 1.0
+        },
+        "saturation": {
+          "override": true,
+          "value": 0.0
+        },
+        "brightness": {
+          "override": false,
+          "value": 1.401298464324817e-45
+        },
+        "post_exposure": {
+          "override": true,
+          "value": 0.0
+        },
+        "contrast": {
+          "override": false,
+          "value": 1.401298464324817e-45
+        }
+      }
+    },
+    {
+      "script": "ColorGrading",
+      "game_object": "",
+      "asset_file": "sharedassets1.assets",
+      "path_id": 191,
+      "serialized_bytes": 5040,
+      "decoded": {
+        "enabled": {
+          "override": true,
+          "value": true
+        },
+        "grading_mode": {
+          "override": true,
+          "value": 0
+        },
+        "external_lut": {
+          "override": true,
+          "file_id": 0,
+          "path_id": 0
+        },
+        "tonemapper": {
+          "override": false,
+          "value": 1
+        },
+        "toe_strength": {
+          "override": false,
+          "value": 1.401298464324817e-45
+        },
+        "toe_length": {
+          "override": false,
+          "value": 0.0
+        },
+        "shoulder_strength": {
+          "override": false,
+          "value": 0.5
+        },
+        "shoulder_length": {
+          "override": false,
+          "value": 0.0
+        },
+        "shoulder_angle": {
+          "override": false,
+          "value": 0.5
+        },
+        "gamma": {
+          "override": false,
+          "value": 0.0
+        },
+        "ldr_lut": {
+          "override": false,
+          "file_id": 1065353216,
+          "path_id": 0
+        },
+        "ldr_lut_contribution": {
+          "override": false,
+          "value": 0.0
+        },
+        "temperature": {
+          "override": true,
+          "value": 0.0
+        },
+        "tint": {
+          "override": false,
+          "value": 0.0
+        },
+        "color_filter": {
+          "override": true,
+          "value": [
+            0.0,
+            -7.0,
+            1.401298464324817e-45,
+            0.8798020482063293
+          ]
+        },
+        "hue_shift": {
+          "override": true,
+          "value": 0.9339622855186462
+        },
+        "saturation": {
+          "override": true,
+          "value": 0.0
+        },
+        "brightness": {
+          "override": false,
+          "value": 1.401298464324817e-45
+        },
+        "post_exposure": {
+          "override": true,
+          "value": 0.0
+        },
+        "contrast": {
+          "override": false,
+          "value": 0.0
+        }
+      }
+    },
+    {
+      "script": "ColorGrading",
+      "game_object": "",
+      "asset_file": "sharedassets1.assets",
+      "path_id": 192,
+      "serialized_bytes": 5040,
+      "decoded": {
+        "enabled": {
+          "override": true,
+          "value": true
+        },
+        "grading_mode": {
+          "override": true,
+          "value": 0
+        },
+        "external_lut": {
+          "override": true,
+          "file_id": 0,
+          "path_id": 0
+        },
+        "tonemapper": {
+          "override": false,
+          "value": 1
+        },
+        "toe_strength": {
+          "override": false,
+          "value": 1.401298464324817e-45
+        },
+        "toe_length": {
+          "override": false,
+          "value": 0.0
+        },
+        "shoulder_strength": {
+          "override": false,
+          "value": 0.5
+        },
+        "shoulder_length": {
+          "override": false,
+          "value": 0.0
+        },
+        "shoulder_angle": {
+          "override": false,
+          "value": 0.5
+        },
+        "gamma": {
+          "override": false,
+          "value": 0.0
+        },
+        "ldr_lut": {
+          "override": false,
+          "file_id": 1065353216,
+          "path_id": 0
+        },
+        "ldr_lut_contribution": {
+          "override": false,
+          "value": 0.0
+        },
+        "temperature": {
+          "override": true,
+          "value": 0.0
+        },
+        "tint": {
+          "override": false,
+          "value": 0.0
+        },
+        "color_filter": {
+          "override": true,
+          "value": [
+            0.0,
+            -7.0,
+            0.0,
+            1.0
+          ]
+        },
+        "hue_shift": {
+          "override": true,
+          "value": 1.0
+        },
+        "saturation": {
+          "override": true,
+          "value": 0.0
+        },
+        "brightness": {
+          "override": false,
+          "value": 1.401298464324817e-45
+        },
+        "post_exposure": {
+          "override": true,
+          "value": 0.0
+        },
+        "contrast": {
+          "override": false,
+          "value": 1.401298464324817e-45
+        }
+      }
+    },
+    {
+      "script": "DepthOfField",
+      "game_object": "",
+      "asset_file": "sharedassets1.assets",
+      "path_id": 193,
+      "serialized_bytes": 88,
+      "custom_payload_hex": "44657074684f664669656c640100000001000000010000000100000000004842010000000000003f0100000000007a430000000001000000"
+    },
+    {
+      "script": "PostProcessController",
+      "game_object": "CAMERA ROOT",
+      "asset_file": "level1",
+      "path_id": 101,
+      "serialized_bytes": 56,
+      "custom_payload_hex": "000000005600000000000000000000005f00000000000000"
+    },
+    {
+      "script": "PostProcessLayer",
+      "game_object": "Main Camera",
+      "asset_file": "level1",
+      "path_id": 86,
+      "serialized_bytes": 192,
+      "custom_payload_hex": "000000002100000000000000000100000000000000000000030000000000403f8fc2f53d3333733f9a99593f02000000010000000100000000000000010000000002000000010000010000000002000000010000030000008fc2f53d00010000000100008fc2f53d000000000000804040000000000000000000803f02000000d500000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "script": "PostProcessProfile",
+      "game_object": "",
+      "asset_file": "sharedassets1.assets",
+      "path_id": 208,
+      "serialized_bytes": 56,
+      "custom_payload_hex": "50505f46696c6d000100000000000000bd00000000000000"
+    },
+    {
+      "script": "PostProcessProfile",
+      "game_object": "",
+      "asset_file": "sharedassets1.assets",
+      "path_id": 209,
+      "serialized_bytes": 88,
+      "custom_payload_hex": "50505f4d61696e43616d6572610000000300000000000000bc0000000000000000000000d70000000000000000000000be00000000000000"
+    },
+    {
+      "script": "PostProcessProfile",
+      "game_object": "",
+      "asset_file": "sharedassets1.assets",
+      "path_id": 210,
+      "serialized_bytes": 56,
+      "custom_payload_hex": "50505f506f7000000100000000000000bf00000000000000"
+    },
+    {
+      "script": "PostProcessProfile",
+      "game_object": "",
+      "asset_file": "sharedassets1.assets",
+      "path_id": 211,
+      "serialized_bytes": 56,
+      "custom_payload_hex": "50505f536f6674000100000000000000c000000000000000"
+    },
+    {
+      "script": "PostProcessProfile",
+      "game_object": "",
+      "asset_file": "sharedassets1.assets",
+      "path_id": 212,
+      "serialized_bytes": 84,
+      "custom_payload_hex": "50505f54696c7453686966740300000000000000c10000000000000000000000dc0000000000000000000000dd00000000000000"
+    },
+    {
+      "script": "PostProcessResources",
+      "game_object": "",
+      "asset_file": "sharedassets1.assets",
+      "path_id": 213,
+      "serialized_bytes": 1380
+    },
+    {
+      "script": "PostProcessVolume",
+      "game_object": "PP_TiltShift",
+      "asset_file": "level1",
+      "path_id": 87,
+      "serialized_bytes": 60,
+      "custom_payload_hex": "02000000d40000000000000001000000000000000000803f00000040"
+    },
+    {
+      "script": "PostProcessVolume",
+      "game_object": "PP_soft",
+      "asset_file": "level1",
+      "path_id": 94,
+      "serialized_bytes": 60,
+      "custom_payload_hex": "02000000d30000000000000001000000000000000000803f0000803f"
+    },
+    {
+      "script": "PostProcessVolume",
+      "game_object": "PP MainCamera",
+      "asset_file": "level1",
+      "path_id": 95,
+      "serialized_bytes": 60,
+      "custom_payload_hex": "02000000d10000000000000001000000000000000000803f00000000"
+    },
+    {
+      "script": "PostProcessVolume",
+      "game_object": "PP_film",
+      "asset_file": "level1",
+      "path_id": 98,
+      "serialized_bytes": 60,
+      "custom_payload_hex": "02000000d00000000000000001000000000000000000803f0000803f"
+    },
+    {
+      "script": "PostProcessVolume",
+      "game_object": "PP_pop",
+      "asset_file": "level1",
+      "path_id": 99,
+      "serialized_bytes": 60,
+      "custom_payload_hex": "02000000d20000000000000001000000000000000000803f0000803f"
+    },
+    {
+      "script": "Vignette",
+      "game_object": "",
+      "asset_file": "sharedassets1.assets",
+      "path_id": 221,
+      "serialized_bytes": 152,
+      "custom_payload_hex": "5669676e65747465010000000100000001000000000000000000000001000000e8901a3f6fdf0f3f6fdf0f3f0000803f000000000000003f0000003f010000000e2d123f010000000000803f010000000000000000000000000000000000000000000000000000000000000001000000000000000000803f"
+    }
+  ]
+}

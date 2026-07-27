@@ -1,9 +1,8 @@
 class_name VisualStyleProfile
 extends Resource
-## Data-driven lighting/atmosphere preset. The LightingRig applies one of these;
-## gameplay scenes and the Match Lab share the same rig so every capture is
-## calibrated identically. Shipped profiles: garden_galaxy_day (cream),
-## garden_galaxy_mist (blue-gray gradient), garden_rain.
+## Data-driven lighting/atmosphere preset. SumaSoftDaylight applies one of
+## these; gameplay scenes and visual labs share the same rig so every capture
+## is calibrated identically.
 
 @export var profile_id := "garden_galaxy_day"
 @export var background_color := Color(0.9176, 0.8941, 0.8157)
@@ -46,6 +45,14 @@ extends Resource
 @export var sun_angular_distance := 1.0
 @export var shadow_bias := 0.015
 @export var shadow_normal_bias := 1.2
+## "orthogonal", "pssm_2", or "pssm_4". Two blended splits are the default
+## miniature-quality balance; the close split keeps character contact shadows
+## crisp without spending the entire map on the far camera envelope.
+@export var shadow_cascade_mode := "pssm_2"
+@export var shadow_split_1 := 0.35
+@export var shadow_split_2 := 0.65
+@export var shadow_split_3 := 0.85
+@export var shadow_blend_splits := true
 
 @export_group("Post")
 @export var ssao_enabled := true
@@ -59,19 +66,27 @@ extends Resource
 @export var ssil_intensity := 0.25
 @export var ssil_radius := 0.4
 @export var ssil_sharpness := 0.85
+@export var ssr_enabled := false
 @export var glow_enabled := false
 @export var glow_intensity := 0.35
 @export var glow_hdr_threshold := 1.6
 @export var glow_bloom := 0.04
 @export var exposure := 1.0
-## "linear" during raw calibration, "filmic" for the GG day rig, "aces" optional.
-@export var tonemap := "filmic"
+## "linear" during raw calibration; "agx" is the soft-daylight shipping path.
+@export var tonemap := "agx"
+@export var agx_white := 14.0
+@export var agx_contrast := 1.08
 @export var brightness := 1.0
 @export var contrast := 1.0
 @export var saturation := 1.0
 @export var fog_enabled := false
 @export var fog_color := Color(0.9137, 0.8863, 0.8118)
 @export var fog_density := 0.01
+
+@export_group("Reflection quality")
+@export var reflection_probe_enabled := true
+@export var reflection_probe_update_always := false
+@export var reflection_probe_shadows := false
 
 @export_group("Weather")
 @export var rain_enabled := false

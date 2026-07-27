@@ -33,7 +33,7 @@ func _ready() -> void:
 	var materials := MaterialLibrary.new(palette)
 	_assets = AssetLibrary.new(materials)
 
-	_lighting = (load("res://scenes/visual/GGDayLightingRig.tscn") as PackedScene).instantiate()
+	_lighting = (load("res://scenes/visual/SumaSoftDaylight.tscn") as PackedScene).instantiate()
 	_lighting.name = "PreviewLighting"
 	add_child(_lighting)
 

@@ -350,9 +350,18 @@ func _build_admin_page() -> void:
 	_admin_action_row(list, "Every tile", "Stock 10 of each tile in the build library.", "Grant ×10", grant_tiles)
 	_admin_action_row(list, "Every structure", "Stock 10 of each structure and decoration.", "Grant ×10", grant_structures)
 
+	var toggle_tuner := func() -> void:
+		var now_visible: bool = settings_bridge.toggle_lighting_tuner()
+		_admin_status(
+			"Lighting tuner overlaid bottom-left — tune live, then Copy or Save."
+			if now_visible else "Lighting tuner hidden."
+		)
 	var lighting := settings_bridge.lighting
 	if lighting != null:
 		list.add_child(kit.section_label("Visuals"))
+		_admin_action_row(list, "Lighting tuner",
+			"ReShade-style overlay with every lighting slider, bottom-left over the game.",
+			"Toggle overlay", toggle_tuner)
 		_admin_choice_row(list, "Weather", [
 			["Day", "day"], ["Mist", "mist"], ["Rain", "rain"],
 			["Leaves", "leaves"], ["Snow", "snow"], ["Bloom", "blossom"],
@@ -376,7 +385,14 @@ func _build_admin_page() -> void:
 		_admin_status("Granted 100 Woodland Tending XP.")
 	var save_now := func() -> void:
 		_admin_status("Garden saved." if core.save() else "Could not save the garden.")
+	var build_mock := func() -> void:
+		var placed: int = settings_bridge.debug_build_mock_world()
+		_admin_status("Mock world built — %d structures placed. Resume to explore." % placed)
+	var reset_save := func() -> void:
+		settings_bridge.debug_reset_save()
 	list.add_child(kit.section_label("World and progression"))
+	_admin_action_row(list, "Mock world", "Rebuild the island as a showcase of every tile family and structure.", "Build", build_mock)
+	_admin_action_row(list, "Reset save", "Deletes the save and its backup, then restarts the game fresh.", "Reset", reset_save)
 	_admin_action_row(list, "Ferry", "Bring the delivery ferry in right away.", "Trigger arrival", trigger_ferry)
 	_admin_action_row(list, "Fishing", "Add 100 XP toward the next fishing level.", "+100 XP", grant_fishing_xp)
 	_admin_action_row(list, "Woodland Tending", "Add 100 XP toward the next woodland level.", "+100 XP", grant_woodland_xp)

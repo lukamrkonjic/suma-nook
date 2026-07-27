@@ -143,10 +143,10 @@ func _compose_starting_world() -> void:
 		Vector2i(0, -1): ["tile_open_water", 0],
 		Vector2i(1, -1): ["tile_open_water", 0],
 		Vector2i(-1, 0): ["tile_grass", 0],
-		Vector2i(0, 0): ["tile_path", 0],
+		Vector2i(0, 0): ["tile_plain_ground", 0],
 		Vector2i(1, 0): ["tile_grass", 0],
 		Vector2i(-1, 1): ["tile_grass", 0],
-		Vector2i(0, 1): ["tile_path", 0],
+		Vector2i(0, 1): ["tile_plain_ground", 0],
 		Vector2i(1, 1): ["tile_grass", 0],
 	}
 	for coord: Vector2i in layout:
