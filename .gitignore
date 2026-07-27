@@ -12,3 +12,8 @@ export.cfg
 # Local save/test artifacts
 *.log
 test_output/
+
+# Disposable source-model reconstruction and direct-preview experiments.
+# Keep the local Blender/GLB evidence without risking it in a production push.
+/tests/blender_reference_rebuild/
+/tests/high_tent_direct_preview/

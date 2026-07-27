@@ -151,6 +151,10 @@ class TileDefinition:
 	var surface_kind: String = "flat"  # flat|stairs|uneven|water
 	var render_profile: String = "standard"       # standard|continuous_water
 	var collision_profile: String = "flat"        # flat|pond_basin|none
+	# Optional low-relief geometry authored by the tile presentation layer.
+	# It may rise above y=0, but is hidden (along with the authored top cap)
+	# whenever another tile covers this elevation.
+	var surface_detail_profile: String = ""       # ""|grass_speckles
 
 	static func from_dict(d: Dictionary) -> TileDefinition:
 		var t := TileDefinition.new()
@@ -195,6 +199,7 @@ class TileDefinition:
 			"collision_profile",
 			"pond_basin" if t.water_cells.has("pond") else ("flat" if t.walkable else "none")
 		)
+		t.surface_detail_profile = d.get("surface_detail_profile", "")
 		return t
 
 
@@ -241,6 +246,9 @@ class StructureDefinition:
 	# Physical interaction profile. Ordinary placeables are solid obstacles;
 	# deck-like structures expose a tile-height walking surface instead.
 	var collision_profile: String = "blocker"  # blocker|walkable_surface|none
+	# Optional presentation fit for structures whose footprint is defined by
+	# the live grid rather than by an absolute authored size.
+	var grid_fit_profile: String = ""  # ""|tile_span
 	var light_height := 0.7
 	var light_flicker := false
 	var placement_sound: String = "wood"
@@ -270,6 +278,7 @@ class StructureDefinition:
 		s.socket_type = d.get("socket_type", "decor")
 		s.blocks_movement = bool(d.get("blocks_movement", false))
 		s.collision_profile = String(d.get("collision_profile", "blocker"))
+		s.grid_fit_profile = String(d.get("grid_fit_profile", ""))
 		s.light_height = float(d.get("light_height", 0.7))
 		s.light_flicker = bool(d.get("light_flicker", false))
 		s.placement_sound = d.get("placement_sound", "wood")

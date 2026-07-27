@@ -7,14 +7,17 @@ extends Node
 
 const SAVE_PATH := "user://loop_test_save.json"
 const STACK_COORD := Vector2i(0, 1)
+const StructureVisualFactoryScript := preload(
+	"res://scripts/world/structure_visual_factory.gd"
+)
 
 var main: Main
 var failures: PackedStringArray = []
 var checks := 0
 var support_demo_coord := Vector2i(3, 1)
-var support_demo_stool_iid := -1
-var support_demo_box_iid := -1
-var support_demo_lantern_iid := -1
+var support_demo_root_iid := -1
+var support_demo_middle_iid := -1
+var support_demo_top_iid := -1
 
 
 func check(condition: bool, message: String) -> void:
@@ -29,6 +32,12 @@ func check(condition: bool, message: String) -> void:
 func shot(name: String) -> void:
 	if not OS.get_cmdline_user_args().has("--shots"):
 		return
+	for argument: String in OS.get_cmdline_user_args():
+		if (
+			argument.begins_with("--shot-filter=")
+			and argument.trim_prefix("--shot-filter=") != name
+		):
+			return
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png("docs/" + name + ".png")
 	print("  [shot] docs/%s.png" % name)
@@ -57,6 +66,15 @@ func _ready() -> void:
 func _run() -> void:
 	await wait(0.5)
 	await _step_creation()
+	if OS.get_cmdline_user_args().has("--jump-only"):
+		await _step_jump_ledge_traversal()
+		if failures.is_empty():
+			print("JUMP LEDGE PASSED — %d checks" % checks)
+		else:
+			print("JUMP LEDGE FAILED — %d/%d failed" % [failures.size(), checks])
+		get_tree().quit(0 if failures.is_empty() else 1)
+		return
+	await _step_build_library_ui()
 	await _step_tile_geometry_contract()
 	await _step_build_mode_selection_rules()
 	await _step_object_support_graph()
@@ -100,24 +118,93 @@ func _step_creation() -> void:
 	await shot("screenshot_starting_world")
 
 
-func _step_tile_geometry_contract() -> void:
-	print("STEP compact flat tile geometry")
+func _step_build_library_ui() -> void:
+	print("STEP categorized build library")
+	var original_tiles := main.core.stock.tiles.duplicate(true)
+	var original_structures := main.core.stock.structures.duplicate(true)
+	var original_deeds := main.core.stock.landmark_deeds.duplicate()
+
+	main.core.stock.tiles.clear()
+	for tile_id: String in main.core.registries.tiles:
+		main.core.stock.tiles[tile_id] = 10
+	main.core.stock.structures.clear()
+	for structure_id: String in main.core.registries.structures:
+		main.core.stock.structures[structure_id] = 10
+	main.core.stock.landmark_deeds.clear()
+	for landmark_id: String in main.core.registries.landmarks:
+		main.core.stock.landmark_deeds.append(landmark_id)
+	main.core.stock.stock_changed.emit()
+	main.placement.set_active(true)
+	await wait(0.15)
+
+	check(main.hud._build_bar.visible, "build mode opens the categorized library shelf")
 	check(
-		is_equal_approx(main.core.grid.tile_size, 1.7)
+		main.hud._build_category_strip.get_child_count() == Hud.BUILD_CATEGORIES.size(),
+		"every populated content family receives one category button"
+	)
+	check(
+		main.hud._selected_build_category == "nature",
+		"the library remembers the last still-available category as stock changes"
+	)
+	main.hud._select_build_category("ground")
+	await wait(0.05)
+	check(
+		main.hud._build_strip.get_child_count() == 7,
+		"ground keeps meadow and water tiles separate from woodland and stone"
+	)
+
+	await shot("screenshot_build_library")
+	main.hud._select_build_category("furniture")
+	await wait(0.05)
+	check(
+		main.hud._build_strip.get_child_count() == 3,
+		"furniture opens as a focused bench, stool, and table shelf"
+	)
+	main.hud._select_build_category("ground")
+	await wait(0.05)
+	var horizontal_bar := main.hud._build_item_scroll.get_h_scroll_bar()
+	check(
+		horizontal_bar.max_value > horizontal_bar.page,
+		"overflowing item categories expose a real horizontal scroll range"
+	)
+	var wheel := InputEventMouseButton.new()
+	wheel.button_index = MOUSE_BUTTON_WHEEL_DOWN
+	wheel.pressed = true
+	wheel.factor = 1.0
+	main.hud._on_library_scroll_input(wheel, main.hud._build_item_scroll)
+	check(
+		main.hud._build_item_scroll.scroll_horizontal > 0,
+		"vertical mouse wheel input browses the horizontal item shelf"
+	)
+	check(
+		main.hud._build_previous_button.visible and main.hud._build_next_button.visible,
+		"overflow also exposes explicit previous and next controls"
+	)
+
+	main.core.stock.tiles = original_tiles
+	main.core.stock.structures = original_structures
+	main.core.stock.landmark_deeds = original_deeds
+	main.core.stock.stock_changed.emit()
+	main.placement.set_active(false)
+	await wait(0.05)
+
+
+func _step_tile_geometry_contract() -> void:
+	print("STEP compact tile geometry and coverable surface relief")
+	check(
+		is_equal_approx(main.core.grid.tile_size, 1.35)
 		and is_equal_approx(main.core.grid.block_depth, 0.5),
-		"runtime grid uses compact 1.70 x 0.50 x 1.70 m blocks"
+		"runtime grid uses GG-like 1.35 x 0.50 x 1.35 m blocks"
 	)
 	var all_fit := true
-	var all_end_at_surface := true
+	var all_structural_shells_end_at_surface := true
+	var all_surface_detail_is_low_relief := true
+	var grass_has_raised_speckles := false
 	var all_are_free_of_baked_decor := true
 	var grove_mesh_counts_ok := true
+	var tile_factory := TileVisualFactory.new(main.assets, main.core.grid)
 	for tile_def: Defs.TileDefinition in main.core.registries.tiles.values():
-		var asset_id := (
-			"tile_water_floor"
-			if tile_def.render_profile == "continuous_water"
-			else tile_def.asset_id
-		)
-		var visual := main.assets.instantiate(asset_id)
+		var visual := tile_factory.instantiate_visual(tile_def)
 		add_child(visual)
 		var bounds := _node_mesh_bounds(visual)
 		if (
@@ -125,10 +212,24 @@ func _step_tile_geometry_contract() -> void:
 			or bounds.size.z > main.core.grid.tile_size + 0.03
 		):
 			all_fit = false
-		if bounds.end.y > 0.015:
-			all_end_at_surface = false
 		for mesh_node in visual.find_children("*", "MeshInstance3D", true, false):
-			var lower := String(mesh_node.name).to_lower()
+			var mesh := mesh_node as MeshInstance3D
+			var lower := String(mesh.name).to_lower()
+			var relative := visual.global_transform.affine_inverse() * mesh.global_transform
+			var mesh_bounds: AABB = relative * mesh.get_aabb()
+			var is_surface_detail := bool(
+				mesh.get_meta(TileVisualFactory.SURFACE_DETAIL_META, false)
+			)
+			if is_surface_detail:
+				all_surface_detail_is_low_relief = (
+					all_surface_detail_is_low_relief
+					and mesh_bounds.position.y >= -0.002
+					and mesh_bounds.end.y <= 0.05
+				)
+				if tile_def.id == "tile_grass" and mesh_bounds.end.y > 0.01:
+					grass_has_raised_speckles = true
+			elif mesh_bounds.end.y > 0.015:
+				all_structural_shells_end_at_surface = false
 			if (
 				lower.contains("tree")
 				or lower.contains("trunk")
@@ -140,14 +241,35 @@ func _step_tile_geometry_contract() -> void:
 			):
 				all_are_free_of_baked_decor = false
 		if tile_def.id.begins_with("tile_grove_"):
-			var grove_mesh_count := visual.find_children("*", "MeshInstance3D", true, false).size()
+			var grove_mesh_count := visual.find_children(
+				"*",
+				"MeshInstance3D",
+				true,
+				false
+			).size()
 			grove_mesh_counts_ok = grove_mesh_counts_ok and grove_mesh_count == 2
 		visual.free()
 	check(all_fit, "every tile visual fits the smaller horizontal footprint")
-	check(all_end_at_surface, "every tile visual stays at or below its y=0 surface")
+	check(
+		all_structural_shells_end_at_surface,
+		"tile block shells still end at y=0 while optional relief may rise above them"
+	)
+	check(
+		all_surface_detail_is_low_relief,
+		"raised surface profiles stay subtle and below the gameplay collision budget"
+	)
+	check(
+		grass_has_raised_speckles,
+		"Open Meadow restores visible low-relief grass speckles above its top plane"
+	)
 	check(all_are_free_of_baked_decor, "tile GLBs contain no baked trees or raised decor")
 	check(grove_mesh_counts_ok, "former grove tiles are flat body-and-cap variants")
-	var dock := main.assets.instantiate("prop_dock")
+	var dock_def := main.core.registries.structure("struct_dock")
+	var structure_factory := StructureVisualFactoryScript.new(
+		main.assets,
+		main.core.grid
+	)
+	var dock: Node3D = structure_factory.instantiate_visual(dock_def)
 	add_child(dock)
 	var dock_bounds := _node_mesh_bounds(dock)
 	check(
@@ -155,6 +277,11 @@ func _step_tile_geometry_contract() -> void:
 		and dock_bounds.end.y < 0.2
 		and absf(dock_bounds.position.y) > dock_bounds.end.y * 2.0,
 		"dock piles extend below the deck/waterline rather than rendering upside down"
+	)
+	check(
+		maxf(dock_bounds.size.x, dock_bounds.size.z)
+		<= main.core.grid.tile_size - StructureVisualFactoryScript.GRID_FIT_MARGIN + 0.005,
+		"the dock is fitted inside the resized water tile and cannot overlap a land cap"
 	)
 	dock.free()
 
@@ -232,6 +359,25 @@ func _step_build_mode_selection_rules() -> void:
 		)
 		main.placement.cancel_click()
 
+	main.placement.hold_new("structure", "struct_bench")
+	main.placement._hover_support_instance_id = 0
+	main.placement._hover_valid = true
+	main.placement._sync_indicator_preview(Vector3.ZERO)
+	var valid_preview_yaw := main.placement._indicator.rotation.y
+	main.placement._hover_valid = false
+	main.placement._sync_indicator_preview(Vector3.ZERO)
+	check(
+		is_equal_approx(valid_preview_yaw, 0.0)
+		and is_equal_approx(main.placement._indicator.rotation.y, valid_preview_yaw),
+		"valid and invalid placement footprints keep the same grid orientation"
+	)
+	check(
+		not main.placement.try_place_at(chest_cell)
+		and main.placement._hover_support_instance_id == chest_iid,
+		"an occupied tile always resolves to its tallest object instead of falling through"
+	)
+	main.placement.cancel_click()
+
 	var empty_tile_coord := Vector2i(1, 1)
 	var empty_holder := main.renderer.tile_node(empty_tile_coord, 0)
 	var empty_tile_meshes := empty_holder.find_children("*", "MeshInstance3D", true, false)
@@ -299,38 +445,38 @@ func _step_object_support_graph() -> void:
 	var destination := Vector2i(3, 1)
 	main.core.grid.place_tile(origin, "tile_grass")
 	main.core.grid.place_tile(destination, "tile_grass")
-	main.core.stock.add_structure("struct_stool")
-	main.core.stock.add_structure("struct_box")
-	main.core.stock.add_structure("struct_lantern")
+	main.core.stock.add_structure("struct_table")
+	main.core.stock.add_structure("struct_chest")
 	main.core.stock.add_structure("struct_pot")
 	main.placement.set_active(true)
 
-	main.placement.hold_new("structure", "struct_stool")
+	main.placement.hold_new("structure", "struct_table")
 	check(
 		main.placement.try_place_at_layer(origin, 0),
-		"a stool places as the tile's one direct decoration"
+		"a round table places as the tile's one direct decoration"
 	)
-	var stool: WorldGrid.StructureState = main.core.grid.cell(origin).structures[0]
-	main.placement.hold_new("structure", "struct_box")
+	var table: WorldGrid.StructureState = main.core.grid.cell(origin).structures[0]
+	main.placement.hold_new("structure", "struct_chest")
 	check(
-		main.placement.try_place_on_structure(stool.instance_id, "top"),
-		"a small box targets the stool's named top support"
+		main.placement.try_place_at(origin),
+		"a storage chest automatically resolves onto the round tabletop"
 	)
-	var box: WorldGrid.StructureState = main.core.grid.structure_children(
-		stool.instance_id
-	)[0]
-	main.placement.hold_new("structure", "struct_lantern")
-	check(
-		main.placement.try_place_on_structure(box.instance_id, "top"),
-		"a tiny lantern composes a third object level"
-	)
-	var lantern: WorldGrid.StructureState = main.core.grid.structure_children(
-		box.instance_id
+	var chest: WorldGrid.StructureState = main.core.grid.structure_children(
+		table.instance_id
 	)[0]
 	main.placement.hold_new("structure", "struct_pot")
 	check(
-		not main.placement.try_place_on_structure(lantern.instance_id),
-		"a terminal lantern rejects an additional object"
+		main.placement.try_place_at(origin),
+		"a small pot automatically composes a sensible third level on the chest"
+	)
+	var pot: WorldGrid.StructureState = main.core.grid.structure_children(
+		chest.instance_id
+	)[0]
+	main.placement.hold_new("structure", "struct_planter")
+	check(
+		not main.placement.try_place_at(origin)
+		and main.placement._hover_support_instance_id == pot.instance_id,
+		"the terminal top object wins column priority and rejects another object"
 	)
 	main.placement.cancel_click()
 	main.placement.hold_new("tile", "tile_grass")
@@ -340,29 +486,29 @@ func _step_object_support_graph() -> void:
 	)
 	main.placement.cancel_click()
 
-	main.renderer.set_hovered_structure(lantern.instance_id)
-	var stool_visual := main.renderer.structure_node(stool.instance_id)
-	var box_visual := main.renderer.structure_node(box.instance_id)
-	var lantern_visual := main.renderer.structure_node(lantern.instance_id)
-	var stool_mesh := stool_visual.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
-	var box_mesh := box_visual.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
-	var lantern_mesh := lantern_visual.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
+	main.renderer.set_hovered_structure(pot.instance_id)
+	var table_visual := main.renderer.structure_node(table.instance_id)
+	var chest_visual := main.renderer.structure_node(chest.instance_id)
+	var pot_visual := main.renderer.structure_node(pot.instance_id)
+	var table_mesh := table_visual.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
+	var chest_mesh := chest_visual.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
+	var pot_mesh := pot_visual.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
 	check(
-		(lantern_mesh.layers & WorldRenderer.OUTLINE_VISIBILITY_LAYER) != 0
-		and (stool_mesh.layers & WorldRenderer.OUTLINE_VISIBILITY_LAYER) == 0,
+		(pot_mesh.layers & WorldRenderer.OUTLINE_VISIBILITY_LAYER) != 0
+		and (table_mesh.layers & WorldRenderer.OUTLINE_VISIBILITY_LAYER) == 0,
 		"hovering the top item outlines only that movable subtree"
 	)
 	main.renderer.clear_structure_hover()
-	main.renderer.set_hovered_structure(box.instance_id)
+	main.renderer.set_hovered_structure(chest.instance_id)
 	check(
-		(box_mesh.layers & WorldRenderer.OUTLINE_VISIBILITY_LAYER) != 0
-		and (lantern_mesh.layers & WorldRenderer.OUTLINE_VISIBILITY_LAYER) != 0
-		and (stool_mesh.layers & WorldRenderer.OUTLINE_VISIBILITY_LAYER) == 0,
+		(chest_mesh.layers & WorldRenderer.OUTLINE_VISIBILITY_LAYER) != 0
+		and (pot_mesh.layers & WorldRenderer.OUTLINE_VISIBILITY_LAYER) != 0
+		and (table_mesh.layers & WorldRenderer.OUTLINE_VISIBILITY_LAYER) == 0,
 		"hovering a middle object outlines it and every supported object above it"
 	)
 	main.renderer.clear_structure_hover()
 
-	main.placement._pick_up_from(origin, 0, stool.instance_id)
+	main.placement._pick_up_from(origin, 0, table.instance_id)
 	check(
 		main.placement.held["moving"]["stack"].size() == 3,
 		"picking up a supporter carries its complete object subtree"
@@ -372,22 +518,30 @@ func _step_object_support_graph() -> void:
 		"the full stack can move to a new tile atomically"
 	)
 	check(
-		main.core.grid.find_structure(lantern.instance_id)["coord"] == destination
-		and main.core.grid.find_structure(box.instance_id)["structure"].parent_instance_id
-			== stool.instance_id,
+		main.core.grid.find_structure(pot.instance_id)["coord"] == destination
+		and main.core.grid.find_structure(chest.instance_id)["structure"].parent_instance_id
+			== table.instance_id,
 		"moving the base preserves descendant ids and support edges"
 	)
 	main.placement.undo()
 	check(
-		main.core.grid.find_structure(lantern.instance_id)["coord"] == origin,
+		main.core.grid.find_structure(pot.instance_id)["coord"] == origin,
 		"undo moves the complete support graph back together"
 	)
 	main.placement.redo()
 	check(
-		main.core.grid.find_structure(lantern.instance_id)["coord"] == destination,
+		main.core.grid.find_structure(pot.instance_id)["coord"] == destination,
 		"redo reapplies the complete support-graph move"
 	)
-	var lantern_visual_after := main.renderer.structure_node(lantern.instance_id)
+	var lamp_coord := Vector2i(4, 1)
+	main.core.grid.place_tile(lamp_coord, "tile_grass")
+	var ground_lantern := main.core.grid.add_structure(
+		lamp_coord,
+		"struct_lantern",
+		1
+	)
+	await get_tree().process_frame
+	var lantern_visual_after := main.renderer.structure_node(ground_lantern.instance_id)
 	var lantern_lights := lantern_visual_after.find_children(
 		"*",
 		"OmniLight3D",
@@ -412,12 +566,107 @@ func _step_object_support_graph() -> void:
 		"the lamp light stays fixed at its bulb instead of pulsing along the post"
 	)
 	support_demo_coord = destination
-	support_demo_stool_iid = stool.instance_id
-	support_demo_box_iid = box.instance_id
-	support_demo_lantern_iid = lantern.instance_id
+	support_demo_root_iid = table.instance_id
+	support_demo_middle_iid = chest.instance_id
+	support_demo_top_iid = pot.instance_id
 	await wait(0.25)
 	await shot("screenshot_object_support_graph")
 	main.placement.set_active(false)
+
+
+func _exercise_tile_ledge_jump(
+	rise_layers: int,
+	start_coord: Vector2i
+) -> Dictionary:
+	var player := main.player
+	var target_coord := start_coord + Vector2i.RIGHT
+	main.core.grid.place_tile(start_coord, "tile_grass")
+	main.core.grid.place_tile(target_coord, "tile_grass")
+	for elevation in range(1, rise_layers + 1):
+		main.core.grid.place_tile_at(target_coord, elevation, "tile_grass")
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+
+	player.position = main.core.grid.cell_to_world(start_coord)
+	player.velocity = Vector3.ZERO
+	player.floor_snap_length = 0.4
+	player.set_state(PlayerController.State.FREE)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var direction := (
+		main.core.grid.cell_to_world(target_coord)
+		- main.core.grid.cell_to_world(start_coord)
+	).normalized()
+	var camera_basis := main.camera_rig.horizontal_basis()
+	var input_x := direction.dot(camera_basis.x)
+	var input_y := direction.dot(camera_basis.z)
+	var actions: Array[StringName] = []
+	if absf(input_x) > 0.1:
+		actions.append(&"move_right" if input_x > 0.0 else &"move_left")
+	if absf(input_y) > 0.1:
+		actions.append(&"move_down" if input_y > 0.0 else &"move_up")
+	for action in actions:
+		Input.action_press(action)
+	var jump_event := InputEventAction.new()
+	jump_event.action = "jump"
+	jump_event.pressed = true
+	player._unhandled_input(jump_event)
+
+	var peak := player.position.y
+	var target_height := rise_layers * main.core.grid.block_depth
+	var reached := false
+	for _frame in 120:
+		await get_tree().physics_frame
+		peak = maxf(peak, player.position.y)
+		if (
+			player.current_cell() == target_coord
+			and player.position.y >= target_height - 0.08
+		):
+			reached = true
+			break
+	for action in actions:
+		Input.action_release(action)
+	player.velocity = Vector3.ZERO
+	var final_position := player.position
+
+	for elevation in range(rise_layers, -1, -1):
+		main.core.grid.remove_tile_at(target_coord, elevation)
+	main.core.grid.remove_tile(start_coord)
+	return {
+		"reached": reached,
+		"peak": peak,
+		"final_position": final_position,
+	}
+
+
+func _step_jump_ledge_traversal() -> void:
+	print("STEP real tile-ledge traversal")
+	var original_position := main.player.position
+	var original_jump_velocity := float(main.core.registries.tuning["jump_velocity"])
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--jump-velocity="):
+			main.core.registries.tuning["jump_velocity"] = float(
+				argument.trim_prefix("--jump-velocity=")
+			)
+	var one_layer_jump := await _exercise_tile_ledge_jump(1, Vector2i(20, 20))
+	check(
+		one_layer_jump["reached"],
+		"jumping forward traverses onto an adjacent one-layer tile "
+		+ "(peak %.3f, final %s)" % [
+			one_layer_jump["peak"],
+			one_layer_jump["final_position"],
+		]
+	)
+	var two_layer_jump := await _exercise_tile_ledge_jump(2, Vector2i(20, 23))
+	check(
+		not two_layer_jump["reached"],
+		"the same jump cannot traverse an adjacent two-layer tile"
+	)
+	main.core.registries.tuning["jump_velocity"] = original_jump_velocity
+	main.player.position = original_position
+	main.player.velocity = Vector3.ZERO
+	await get_tree().physics_frame
+	await get_tree().physics_frame
 
 
 func _step_movement() -> void:
@@ -500,8 +749,9 @@ func _step_movement() -> void:
 	check(
 		jump_peak_y - jump_start_y > main.core.grid.block_depth
 		and jump_peak_y - jump_start_y < main.core.grid.block_depth * 2.0,
-		"jump clears one elevation layer but cannot clear two"
+		"raw jump apex sits between one and two elevation layers"
 	)
+	await _step_jump_ledge_traversal()
 
 	var start := player.position
 	var samples: Array[Vector3] = []
@@ -516,7 +766,10 @@ func _step_movement() -> void:
 	await wait(0.35)
 	var stopped := player.position
 	var moved := start.distance_to(stopped)
-	check(moved > 1.0, "holding W crosses ground continuously (moved %.2f m)" % moved)
+	check(
+		moved > main.core.grid.tile_size * 0.5,
+		"holding W crosses ground continuously (moved %.2f m)" % moved
+	)
 	var max_step := 0.0
 	for i in range(1, samples.size()):
 		max_step = maxf(max_step, samples[i].distance_to(samples[i - 1]))
@@ -565,23 +818,44 @@ func _step_movement() -> void:
 	pan.delta = Vector2(0, 2)
 	main.camera_rig._unhandled_input(pan)
 	check(main.camera_rig._size_target > before_pan, "trackpad two-finger scroll zooms out")
-	var framing_pan_before: Array = main.camera_rig.save_state()["pan"]
-	main.camera_rig._pan_by_pixels(Vector2(90.0, -45.0))
-	await wait(0.2)
-	var framing_pan_after: Array = main.camera_rig.save_state()["pan"]
-	check(
-		not Vector2(
-			float(framing_pan_after[0]),
-			float(framing_pan_after[1])
-		).is_equal_approx(
-			Vector2(
-				float(framing_pan_before[0]),
-				float(framing_pan_before[1])
-			)
-		),
-		"middle-mouse drag panning moves and persists the world framing"
-	)
 	main.camera_rig.reset_pan()
+	var drag := Vector2(90.0, -45.0)
+	var pan_basis := main.camera_rig.horizontal_basis()
+	var world_per_pixel := main.camera_rig._size_target * 0.0008
+	var expected_pan := (
+		pan_basis.x * drag.x * world_per_pixel
+		- pan_basis.z * drag.y * world_per_pixel
+	)
+	var middle_press := InputEventMouseButton.new()
+	middle_press.button_index = MOUSE_BUTTON_MIDDLE
+	middle_press.pressed = true
+	main.camera_rig._unhandled_input(middle_press)
+	var drag_motion := InputEventMouseMotion.new()
+	drag_motion.relative = drag
+	main.camera_rig._unhandled_input(drag_motion)
+	await wait(0.2)
+	check(
+		main.camera_rig._pan_offset.is_equal_approx(expected_pan),
+		"middle-mouse drag follows the reversed horizontal and vertical directions"
+	)
+	var distance_before_return := main.camera_rig.global_position.distance_to(
+		main.player.global_position
+	)
+	var middle_release := InputEventMouseButton.new()
+	middle_release.button_index = MOUSE_BUTTON_MIDDLE
+	middle_release.pressed = false
+	main.camera_rig._input(middle_release)
+	check(
+		main.camera_rig._pan_offset.is_zero_approx()
+		and not main.camera_rig._middle_panning,
+		"releasing middle mouse clears the temporary framing offset"
+	)
+	await wait(0.35)
+	check(
+		main.camera_rig.global_position.distance_to(main.player.global_position)
+			< distance_before_return,
+		"camera smoothly returns to player follow after middle-mouse release"
+	)
 	main.camera_rig._size_target = default_zoom
 	await wait(0.2)
 	# Ground clicks create a dot and continuously walk to the selected point.
@@ -719,7 +993,14 @@ func _step_woodcutting() -> void:
 		main.core.grid.cell_to_world(grove)
 		+ main.core.grid.structure_local_transform(tree.instance_id).origin
 	)
-	main.player.position = tree_point + Vector3(0.8, 0, 0.3)
+	# Keep the scripted interaction close to the exact tree. With the compact
+	# 1.35 m grid, the former offset could enter a neighboring cell's focus
+	# neighborhood even though the tree itself remained in range.
+	main.player.position = tree_point + Vector3(
+		main.core.grid.tile_size * 0.2,
+		0,
+		main.core.grid.tile_size * 0.08
+	)
 	main.player.set_state(PlayerController.State.FREE)
 	main.player._update_focus()
 	await wait(0.2)
@@ -765,16 +1046,22 @@ func _step_elevation_stacking() -> void:
 	var target_position := main.core.grid.cell_to_world(STACK_COORD, 1)
 	var raised_node := main.renderer.tile_node(STACK_COORD, 1)
 	check(raised_node != null, "renderer creates an independent elevated tile node")
-	var covered_details_hidden := true
+	var covered_surface_hidden := true
+	var covered_body_visible := false
+	var covered_infill_visible := false
 	var support_node := main.renderer.tile_node(STACK_COORD, 0)
 	for child in support_node.find_children("*", "MeshInstance3D", true, false):
 		var mesh := child as MeshInstance3D
 		var lower := mesh.name.to_lower()
-		if not lower.ends_with("_body") and not lower.ends_with("_cap") and mesh.visible:
-			covered_details_hidden = false
+		if lower.ends_with("_body"):
+			covered_body_visible = mesh.visible
+		elif lower == TileVisualFactory.COVERED_INFILL_NAME.to_lower():
+			covered_infill_visible = mesh.visible
+		elif mesh.visible:
+			covered_surface_hidden = false
 	check(
-		covered_details_hidden,
-		"covered support hides its surface dressing so stacked blocks do not intersect"
+		covered_surface_hidden and covered_body_visible and covered_infill_visible,
+		"covered support hides its cap and raised dressing while retaining a solid body"
 	)
 	check(
 		raised_node != null and raised_node.position.y > target_position.y + 0.1,
@@ -793,6 +1080,14 @@ func _step_elevation_stacking() -> void:
 		absf(support_top - raised_bottom) <= 0.015,
 		"stacked tile meshes touch exactly without a flying gap"
 	)
+
+	main.placement.hold_new("structure", "struct_lantern")
+	check(
+		not main.placement.try_place_at_layer(STACK_COORD, 0)
+		and main.core.grid.free_socket(STACK_COORD, "decor", 0) < 0,
+		"objects cannot target a buried tile layer and clip through the column above"
+	)
+	main.placement.cancel_click()
 
 	main.core.stock.add_structure("struct_pot")
 	main.placement.hold_new("structure", "struct_pot")
@@ -821,6 +1116,25 @@ func _step_elevation_stacking() -> void:
 		and main.placement.held["moving"]["stack"].size() == 2
 		and not main.core.grid.has_cell(STACK_COORD),
 		"picking the bottom tile detaches the complete tile-and-object hierarchy"
+	)
+	var ghost_lower := main.placement._ghost.find_child(
+		"ghost_tile_e0",
+		true,
+		false
+	) as Node3D
+	var ghost_lower_surface_hidden := ghost_lower != null
+	var ghost_lower_infill_visible := false
+	if ghost_lower != null:
+		for child in ghost_lower.find_children("*", "MeshInstance3D", true, false):
+			var mesh := child as MeshInstance3D
+			var lower := mesh.name.to_lower()
+			if lower == TileVisualFactory.COVERED_INFILL_NAME.to_lower():
+				ghost_lower_infill_visible = mesh.visible
+			elif not lower.ends_with("_body") and mesh.visible:
+				ghost_lower_surface_hidden = false
+	check(
+		ghost_lower_surface_hidden and ghost_lower_infill_visible,
+		"multi-tile placement preview also hides covered caps and raised detail"
 	)
 	main.placement.cancel_click()
 	check(
@@ -969,14 +1283,14 @@ func _step_save_reload() -> void:
 		and main.core.grid.cell_at(STACK_COORD, 1).structures.size() == 1,
 		"elevated blocks and their decoration survive reload"
 	)
-	var restored_box := main.core.grid.find_structure(support_demo_box_iid)
-	var restored_lantern := main.core.grid.find_structure(support_demo_lantern_iid)
+	var restored_middle := main.core.grid.find_structure(support_demo_middle_iid)
+	var restored_top := main.core.grid.find_structure(support_demo_top_iid)
 	check(
-		not restored_box.is_empty()
-		and restored_box["coord"] == support_demo_coord
-		and restored_box["structure"].parent_instance_id == support_demo_stool_iid
-		and not restored_lantern.is_empty()
-		and restored_lantern["structure"].parent_instance_id == support_demo_box_iid,
+		not restored_middle.is_empty()
+		and restored_middle["coord"] == support_demo_coord
+		and restored_middle["structure"].parent_instance_id == support_demo_root_iid
+		and not restored_top.is_empty()
+		and restored_top["structure"].parent_instance_id == support_demo_middle_iid,
 		"the named object support graph survives reconciliation and reload"
 	)
 	check(main.core.skills.xp["fishing"] == expect_xp, "skills survive reload")

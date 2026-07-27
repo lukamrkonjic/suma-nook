@@ -104,6 +104,126 @@ func choice_button(text: String, selected := false) -> Button:
 	return b
 
 
+func library_category_button(text: String, selected := false) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.toggle_mode = true
+	b.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
+	b.custom_minimum_size = Vector2(70, 38)
+	b.add_theme_font_override("font", font_bold)
+	b.add_theme_font_size_override("font_size", 13)
+
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color(0.86, 0.85, 0.79, 0.62)
+	normal.set_corner_radius_all(12)
+	normal.content_margin_left = 10
+	normal.content_margin_right = 10
+	normal.content_margin_top = 8
+	normal.content_margin_bottom = 8
+	var hover := normal.duplicate()
+	hover.bg_color = Color(0.82, 0.84, 0.75, 0.9)
+	var pressed := normal.duplicate()
+	pressed.bg_color = palette.color("ui_good").lightened(0.05)
+	var focus := pressed.duplicate()
+	focus.border_width_bottom = 2
+	focus.border_color = Color(1, 1, 1, 0.5)
+	b.add_theme_stylebox_override("normal", normal)
+	b.add_theme_stylebox_override("hover", hover)
+	b.add_theme_stylebox_override("pressed", pressed)
+	b.add_theme_stylebox_override("focus", focus)
+	b.add_theme_color_override("font_color", Color(0.32, 0.31, 0.27))
+	b.add_theme_color_override("font_hover_color", Color(0.24, 0.27, 0.2))
+	b.add_theme_color_override("font_pressed_color", Color(0.98, 0.97, 0.91))
+	b.add_theme_color_override("font_focus_color", Color(0.98, 0.97, 0.91))
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	b.set_pressed_no_signal(selected)
+	return b
+
+
+func library_item_button(display_name: String, count: int) -> Button:
+	var b := Button.new()
+	b.text = "%s   x%d" % [display_name, count]
+	b.custom_minimum_size = Vector2(158, 52)
+	b.add_theme_font_override("font", font_bold)
+	b.add_theme_font_size_override("font_size", 16)
+
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color(0.91, 0.9, 0.85, 0.92)
+	normal.set_corner_radius_all(15)
+	normal.content_margin_left = 17
+	normal.content_margin_right = 17
+	normal.content_margin_top = 12
+	normal.content_margin_bottom = 12
+	var hover := normal.duplicate()
+	hover.bg_color = Color(0.95, 0.91, 0.82, 1.0)
+	hover.shadow_color = Color(0.25, 0.2, 0.14, 0.12)
+	hover.shadow_size = 5
+	hover.shadow_offset = Vector2(0, 2)
+	var pressed := normal.duplicate()
+	pressed.bg_color = palette.color("ui_accent").lightened(0.12)
+	var focus := hover.duplicate()
+	focus.border_width_bottom = 2
+	focus.border_color = palette.color("ui_good")
+	b.add_theme_stylebox_override("normal", normal)
+	b.add_theme_stylebox_override("hover", hover)
+	b.add_theme_stylebox_override("pressed", pressed)
+	b.add_theme_stylebox_override("focus", focus)
+	b.add_theme_color_override("font_color", Color(0.28, 0.27, 0.24))
+	b.add_theme_color_override("font_hover_color", Color(0.24, 0.23, 0.2))
+	b.add_theme_color_override("font_pressed_color", Color.WHITE)
+	b.add_theme_color_override("font_focus_color", Color(0.24, 0.23, 0.2))
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	return b
+
+
+func style_library_scrollbar(scroll: ScrollContainer) -> void:
+	var bar := scroll.get_h_scroll_bar()
+	bar.custom_minimum_size.y = 6
+	var track := StyleBoxFlat.new()
+	track.bg_color = Color(0.72, 0.72, 0.66, 0.28)
+	track.set_corner_radius_all(3)
+	var grabber := StyleBoxFlat.new()
+	grabber.bg_color = palette.color("ui_good").lightened(0.1)
+	grabber.set_corner_radius_all(3)
+	var grabber_hover := grabber.duplicate()
+	grabber_hover.bg_color = palette.color("ui_good").lightened(0.18)
+	var grabber_pressed := grabber.duplicate()
+	grabber_pressed.bg_color = palette.color("ui_good").darkened(0.05)
+	bar.add_theme_stylebox_override("scroll", track)
+	bar.add_theme_stylebox_override("scroll_focus", track)
+	bar.add_theme_stylebox_override("grabber", grabber)
+	bar.add_theme_stylebox_override("grabber_highlight", grabber_hover)
+	bar.add_theme_stylebox_override("grabber_pressed", grabber_pressed)
+
+
+func library_arrow_button(text: String) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.custom_minimum_size = Vector2(42, 52)
+	b.add_theme_font_override("font", font_bold)
+	b.add_theme_font_size_override("font_size", 22)
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color(0.84, 0.83, 0.77, 0.72)
+	normal.set_corner_radius_all(16)
+	var hover := normal.duplicate()
+	hover.bg_color = Color(0.78, 0.81, 0.71, 0.95)
+	var pressed := normal.duplicate()
+	pressed.bg_color = palette.color("ui_good")
+	var disabled := normal.duplicate()
+	disabled.bg_color = Color(0.84, 0.83, 0.78, 0.28)
+	b.add_theme_stylebox_override("normal", normal)
+	b.add_theme_stylebox_override("hover", hover)
+	b.add_theme_stylebox_override("pressed", pressed)
+	b.add_theme_stylebox_override("focus", hover)
+	b.add_theme_stylebox_override("disabled", disabled)
+	b.add_theme_color_override("font_color", Color(0.33, 0.32, 0.28))
+	b.add_theme_color_override("font_hover_color", Color(0.25, 0.28, 0.21))
+	b.add_theme_color_override("font_pressed_color", Color.WHITE)
+	b.add_theme_color_override("font_disabled_color", Color(0.45, 0.44, 0.4, 0.3))
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	return b
+
+
 func menu_button(text: String, accent := false) -> Button:
 	var b := Button.new()
 	b.text = text

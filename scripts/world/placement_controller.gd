@@ -10,12 +10,18 @@ signal held_changed(held: Dictionary)
 signal action_result(ok: bool, message: String, kind: String)
 signal hover_changed(display_name: String, collection_name: String)
 
+const StructureVisualFactoryScript := preload(
+	"res://scripts/world/structure_visual_factory.gd"
+)
+
 var core: GameCore
 var assets: AssetLibrary
 var camera_rig: CameraRig
 var player: PlayerController
 var effects: EffectsManager
 var world_renderer: WorldRenderer
+var _tile_visual_factory: TileVisualFactory
+var _structure_visual_factory: RefCounted
 
 var active := false
 var held: Dictionary = {}      # {kind: tile|structure|deed, id, rotation, moving: {...}|null}
@@ -52,6 +58,8 @@ func setup(
 	player = player_controller
 	effects = effects_manager
 	world_renderer = renderer
+	_tile_visual_factory = TileVisualFactory.new(assets, core.grid)
+	_structure_visual_factory = StructureVisualFactoryScript.new(assets, core.grid)
 	core.before_save.connect(prepare_for_save)
 	_ghost_ok_material = _ghost_material(Color(0.65, 0.85, 0.55, 0.55))
 	_ghost_bad_material = _ghost_material(Color(0.85, 0.5, 0.42, 0.5))
@@ -129,24 +137,21 @@ func _build_ghost() -> void:
 			if tile_def == null:
 				action_result.emit(false, "That tile is no longer available.", "invalid")
 				return
-			asset_id = (
-				"tile_water_floor"
-				if tile_def.render_profile == "continuous_water"
-				else tile_def.asset_id
-			)
+			_ghost = _tile_visual_factory.instantiate_visual(tile_def)
 		"structure":
 			var structure_def := core.registries.structure(held["id"])
 			if structure_def == null:
 				action_result.emit(false, "That decoration is no longer available.", "invalid")
 				return
-			asset_id = structure_def.asset_id
+			_ghost = _structure_visual_factory.instantiate_visual(structure_def)
 		"deed":
 			var landmark_def := core.registries.landmark(held["id"])
 			if landmark_def == null:
 				action_result.emit(false, "That landmark is no longer available.", "invalid")
 				return
 			asset_id = landmark_def.asset_id
-	_ghost = assets.instantiate(asset_id)
+	if _ghost == null:
+		_ghost = assets.instantiate(asset_id)
 	if (
 		held.get("kind", "") == "structure"
 		and held.get("moving") != null
@@ -171,21 +176,22 @@ func _build_tile_stack_ghost(stack: Array) -> void:
 		var definition := core.registries.tile(state.tile_id)
 		if definition == null:
 			continue
-		var asset_id := (
-			"tile_water_floor"
-			if definition.render_profile == "continuous_water"
-			else definition.asset_id
-		)
-		var tile_visual := assets.instantiate(asset_id)
+		var tile_visual := _tile_visual_factory.instantiate_visual(definition)
 		tile_visual.name = "ghost_tile_e%d" % relative
 		tile_visual.position.y = relative * core.grid.block_depth
 		tile_visual.rotation.y = (state.rotation - base_state.rotation) * PI * 0.5
+		_tile_visual_factory.set_surface_covered(
+			tile_visual,
+			relative < int(stack.back()["relative_elevation"])
+		)
 		_ghost.add_child(tile_visual)
 		for structure: WorldGrid.StructureState in state.structures:
 			var structure_def := core.registries.structure(structure.structure_id)
 			if structure_def == null:
 				continue
-			var structure_visual := assets.instantiate(structure_def.asset_id)
+			var structure_visual: Node3D = _structure_visual_factory.instantiate_visual(
+				structure_def
+			)
 			structure_visual.name = "ghost_structure_%d" % structure.instance_id
 			var elevation_transform := Transform3D(
 				Basis.IDENTITY,
@@ -215,7 +221,9 @@ func _add_stack_descendants_to_ghost(stack: Array[WorldGrid.StructureState]) -> 
 		var definition := core.registries.structure(structure.structure_id)
 		if definition == null:
 			continue
-		var child_visual := assets.instantiate(definition.asset_id)
+		var child_visual: Node3D = _structure_visual_factory.instantiate_visual(
+			definition
+		)
 		child_visual.name = "ghost_descendant_%d" % structure.instance_id
 		child_visual.transform = _stack_relative_transform(
 			structure.instance_id,
@@ -337,11 +345,16 @@ func _process(delta: float) -> void:
 			1.0 - exp(-delta * 22.0)
 		)
 		_set_ghost_material(_ghost_ok_material if _hover_valid else _ghost_bad_material)
-	# Color-independent validity: solid square for valid, rotated (diamond) for
-	# invalid — readable without red/green vision.
+	_sync_indicator_preview(world)
+
+
+## Valid and invalid previews share the same grid-aligned isometric footprint.
+## Validity is communicated by material only, so a rejected placement never
+## appears to rotate away from the surface it is testing.
+func _sync_indicator_preview(world: Vector3) -> void:
 	_indicator.visible = _hover_support_instance_id == 0
 	_indicator.position = world + Vector3(0, 0.03, 0)
-	_indicator.rotation.y = 0.0 if _hover_valid else PI * 0.25
+	_indicator.rotation.y = 0.0
 	_indicator.material_override = _ghost_ok_material if _hover_valid else _ghost_bad_material
 
 
@@ -442,24 +455,79 @@ func _update_hover_target() -> void:
 			get_viewport().get_mouse_position()
 		)
 		if not structure_hit.is_empty():
-			_hover_support_instance_id = int(structure_hit["instance_id"])
 			_hover_cell = structure_hit["coord"]
-			_hover_elevation = int(structure_hit["elevation"])
-			_hover_support_slot = core.grid.free_support_slot(
-				_hover_support_instance_id,
-				String(held["id"])
-			)
-			return
+			_hover_elevation = core.grid.top_elevation(_hover_cell)
+			if _resolve_highest_structure_target(_hover_cell, _hover_elevation):
+				return
 	var hit := _slot_under_mouse()
 	_hover_cell = hit["coord"]
 	var support_elevation := int(hit["elevation"])
 	match held.get("kind", ""):
 		"tile":
-			_hover_elevation = support_elevation + 1 if support_elevation >= 0 else 0
+			var tile_column_top := core.grid.top_elevation(_hover_cell)
+			_hover_elevation = tile_column_top + 1 if tile_column_top >= 0 else 0
 		"structure":
-			_hover_elevation = maxi(0, support_elevation)
+			var structure_column_top := core.grid.top_elevation(_hover_cell)
+			_hover_elevation = (
+				structure_column_top
+				if structure_column_top >= 0
+				else maxi(0, support_elevation)
+			)
+			_resolve_highest_structure_target(_hover_cell, _hover_elevation)
 		_:
 			_hover_elevation = 0
+
+
+## A column is resolved from its highest support level, with visual height as a
+## same-level tie-breaker, never from whichever lower collider won the ray. If
+## that top object cannot accept the held item, validation correctly fails.
+func _resolve_highest_structure_target(coord: Vector2i, elevation: int) -> bool:
+	var instance_id := _highest_structure_instance_at(coord, elevation)
+	if instance_id <= 0:
+		return false
+	_hover_support_instance_id = instance_id
+	_hover_support_slot = core.grid.free_support_slot(
+		instance_id,
+		String(held.get("id", ""))
+	)
+	return true
+
+
+func _highest_structure_instance_at(coord: Vector2i, elevation: int) -> int:
+	var state := core.grid.cell_at(coord, elevation)
+	if state == null or state.structures.is_empty():
+		return -1
+	var best_instance_id := -1
+	var best_height := -1.0e20
+	var best_depth := -1
+	for structure: WorldGrid.StructureState in state.structures:
+		var depth := core.grid.structure_depth(structure.instance_id)
+		var visual := world_renderer.structure_node(structure.instance_id)
+		var height := (
+			world_renderer.structure_preview_position(structure.instance_id).y
+			if visual != null
+			else (
+				core.grid.cell_to_world(coord, elevation).y
+				+ core.grid.structure_local_transform(structure.instance_id).origin.y
+			)
+		)
+		if (
+			depth > best_depth
+			or (
+				depth == best_depth
+				and (
+					height > best_height + 0.0001
+					or (
+						is_equal_approx(height, best_height)
+						and structure.instance_id > best_instance_id
+					)
+				)
+			)
+		):
+			best_instance_id = structure.instance_id
+			best_height = height
+			best_depth = depth
+	return best_instance_id
 
 
 func _validate(cell: Vector2i, elevation: int = 0) -> bool:
@@ -549,6 +617,7 @@ func try_place_at(cell: Vector2i) -> bool:
 			_hover_elevation = core.grid.top_elevation(cell) + 1 if core.grid.has_cell(cell) else 0
 		"structure":
 			_hover_elevation = maxi(0, core.grid.top_elevation(cell))
+			_resolve_highest_structure_target(cell, _hover_elevation)
 		_:
 			_hover_elevation = 0
 	_hover_valid = _validate(cell, _hover_elevation)
@@ -563,6 +632,11 @@ func try_place_at_layer(cell: Vector2i, elevation: int) -> bool:
 	_hover_support_slot = ""
 	_hover_cell = cell
 	_hover_elevation = elevation
+	if (
+		held.get("kind", "") == "structure"
+		and core.grid.top_elevation(cell) == elevation
+	):
+		_resolve_highest_structure_target(cell, elevation)
 	_hover_valid = _validate(cell, elevation)
 	if not _hover_valid:
 		return false

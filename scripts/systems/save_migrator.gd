@@ -37,6 +37,8 @@ func migrate(raw: Dictionary) -> Dictionary:
 				_migrate_v5_to_v6(data)
 			6:
 				_migrate_v6_to_v7(data)
+			7:
+				_migrate_v7_to_v8(data)
 			_:
 				warnings.append("no explicit migration for save version %d" % version)
 		version += 1
@@ -232,6 +234,19 @@ func _migrate_v6_to_v7(data: Dictionary) -> void:
 	if not view.has("pan"):
 		view["pan"] = [0.0, 0.0]
 	data["view"] = view
+
+
+func _migrate_v7_to_v8(data: Dictionary) -> void:
+	# Version 8 reduces the horizontal grid footprint from 1.70 m to 1.35 m.
+	# Grid content is coordinate-based already; only the player's continuous
+	# world-space X/Z needs conversion to remain over the same saved tile.
+	const OLD_TILE_SIZE := 1.7
+	var new_tile_size := registries.tunef("tile_size", 1.35)
+	var horizontal_scale := new_tile_size / OLD_TILE_SIZE
+	var profile: Dictionary = data.get("profile", {})
+	profile["px"] = float(profile.get("px", 0.0)) * horizontal_scale
+	profile["pz"] = float(profile.get("pz", 0.0)) * horizontal_scale
+	data["profile"] = profile
 
 
 func _ensure_structure_anchor_fields(structure: Dictionary) -> void:

@@ -228,6 +228,11 @@ func _validate() -> void:
 			load_errors.append("tile %s has invalid render profile %s" % [def.id, def.render_profile])
 		if def.collision_profile not in ["flat", "pond_basin", "none"]:
 			load_errors.append("tile %s has invalid collision profile %s" % [def.id, def.collision_profile])
+		if def.surface_detail_profile not in ["", "grass_speckles"]:
+			load_errors.append(
+				"tile %s has invalid surface detail profile %s"
+				% [def.id, def.surface_detail_profile]
+			)
 		if def.supports_tiles and def.surface_kind != "flat":
 			load_errors.append("tile %s supports stacking but does not have a flat surface" % def.id)
 		if def.render_profile == "continuous_water" and not def.water_cells.has("open_water"):
@@ -252,6 +257,11 @@ func _validate() -> void:
 			load_errors.append(
 				"structure %s has invalid collision profile %s"
 				% [def.id, def.collision_profile]
+			)
+		if def.grid_fit_profile not in ["", "tile_span"]:
+			load_errors.append(
+				"structure %s has invalid grid fit profile %s"
+				% [def.id, def.grid_fit_profile]
 			)
 		if def.allowed_surface_kinds.is_empty():
 			load_errors.append("structure %s has no allowed placement surfaces" % def.id)

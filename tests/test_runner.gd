@@ -39,6 +39,7 @@ func fresh_core(seed_value := 12345) -> GameCore:
 func _run() -> void:
 	_test_input_bindings()
 	_test_registries()
+	_test_build_library_categories()
 	_test_content_assets()
 	_test_gg_render_contract()
 	_test_game_preferences()
@@ -69,6 +70,7 @@ func _run() -> void:
 	_test_rework_save_round_trip()
 	_test_v1_save_migration()
 	_test_v5_tree_anchor_migration()
+	_test_v7_tile_scale_migration()
 	_test_missing_definition_load()
 	_test_content_alias_migration()
 	_test_world_reconciliation()
@@ -106,9 +108,9 @@ func _test_registries() -> void:
 	check(not regs.feature("combat_enabled"), "combat is disabled")
 	check(regs.feature("ferry_arrivals_enabled"), "periodic arrivals are enabled")
 	check(
-		is_equal_approx(regs.tunef("tile_size", 0.0), 1.7)
+		is_equal_approx(regs.tunef("tile_size", 0.0), 1.35)
 		and is_equal_approx(regs.tunef("block_depth", 0.0), 0.5),
-		"tile dimensions use the compact 1.70 m footprint and audited 0.50 m stacking step"
+		"tile dimensions use the GG-like 1.35 m footprint and audited 0.50 m stacking step"
 	)
 	check(
 		regs.tile("tile_open_water").render_profile == "continuous_water"
@@ -120,11 +122,78 @@ func _test_registries() -> void:
 		"pond collision is selected by its definition instead of a renderer id check"
 	)
 	check(
+		regs.tile("tile_grass").surface_detail_profile == "grass_speckles",
+		"Open Meadow opts into coverable raised grass speckles"
+	)
+	check(
 		regs.structure("struct_dock").collision_profile == "walkable_surface",
 		"the dock is classified as a walkable surface rather than a solid object blocker"
 	)
+	check(
+		regs.structure("struct_dock").grid_fit_profile == "tile_span",
+		"the dock opts into live-grid footprint fitting"
+	)
 	var fishing := regs.skill("fishing")
 	check(fishing.xp_to_next(1) > 0 and fishing.xp_to_next(2) > fishing.xp_to_next(1), "xp curve increases")
+
+
+func _test_build_library_categories() -> void:
+	var regs := Registries.new()
+	check(regs.load_all(), "build-library category registry loads")
+	var expected_tiles := {
+		"tile_open_water": "ground",
+		"tile_grass": "ground",
+		"tile_grass_flower": "ground",
+		"tile_grass_pond_edge": "ground",
+		"tile_path": "ground",
+		"tile_garden": "ground",
+		"tile_courtyard": "ground",
+		"tile_grove_mature": "woodland",
+		"tile_grove_birch": "woodland",
+		"tile_grove_mossy": "woodland",
+		"tile_grove_autumn": "woodland",
+		"tile_grove_flowering": "woodland",
+		"tile_stone_clearing": "stone",
+		"tile_stone_mossy": "stone",
+		"tile_stone_ruin": "stone",
+		"tile_stone_crystal": "stone",
+		"tile_stone_road": "stone",
+	}
+	for tile_id: String in expected_tiles:
+		check(
+			Hud.category_for_tile(regs.tile(tile_id)) == expected_tiles[tile_id],
+			"%s appears in the expected build-library terrain category" % tile_id
+		)
+
+	var expected_structures := {
+		"struct_bench": "furniture",
+		"struct_stool": "furniture",
+		"struct_table": "furniture",
+		"struct_fence": "boundaries",
+		"struct_gate": "boundaries",
+		"struct_lantern": "utilities",
+		"struct_campfire": "utilities",
+		"struct_shelter": "buildings",
+		"struct_planter": "nature",
+		"struct_pot": "nature",
+		"struct_chest": "storage",
+		"struct_box": "storage",
+		"struct_dock": "buildings",
+		"struct_sign": "boundaries",
+		"struct_ruin_arch": "buildings",
+		"struct_stone_wall": "boundaries",
+		"struct_fishing_marker": "utilities",
+		"struct_pine": "nature",
+		"struct_pine_tall": "nature",
+		"struct_pine_young": "nature",
+		"struct_bush": "nature",
+	}
+	for structure_id: String in expected_structures:
+		check(
+			Hud.category_for_structure(regs.structure(structure_id))
+			== expected_structures[structure_id],
+			"%s appears in the expected build-library object category" % structure_id
+		)
 
 
 func _test_content_assets() -> void:
@@ -494,6 +563,10 @@ func _test_elevation_stacking() -> void:
 	)
 	check(not core.grid.is_walkable(coord), "an unconnected raised column is not used as a ground route")
 	check(
+		core.grid.has_walkable_top_surface(coord),
+		"a raised column still exposes its top to physical jump traversal"
+	)
+	check(
 		core.grid.remove_tile_at(coord, 0) == null,
 		"a supporting block cannot be removed from beneath an upper block"
 	)
@@ -503,6 +576,12 @@ func _test_elevation_stacking() -> void:
 		"flat upper blocks can form a taller contiguous column"
 	)
 	check(core.grid.top_elevation(coord) == 2, "column reports its highest occupied level")
+	check(
+		not core.grid.can_place_structure_at(coord, 0, "struct_lantern")
+		and core.grid.free_socket(coord, "decor", 0) < 0
+		and core.grid.add_structure(coord, "struct_lantern", 1, 0, 0) == null,
+		"covered lower elevations cannot receive objects through any grid API"
+	)
 	check(
 		core.grid.can_place_structure_at(coord, 2, "struct_pot"),
 		"small decorations can sit on an elevated block"
@@ -675,55 +754,97 @@ func _test_object_support_graph() -> void:
 	var second := Vector2i(8, 7)
 	core.grid.place_tile(first, "tile_grass")
 	core.grid.place_tile(second, "tile_grass")
+	var expected_stackable := {
+		"struct_chest": true,
+		"struct_planter": true,
+		"struct_pot": true,
+	}
+	var expected_supports := {
+		"struct_bench": {
+			"seat_left": ["struct_pot"],
+			"seat_right": ["struct_pot"],
+		},
+		"struct_stool": {"top": ["struct_pot"]},
+		"struct_table": {
+			"top_center": ["struct_chest", "struct_planter", "struct_pot"],
+		},
+		"struct_chest": {"lid": ["struct_pot"]},
+		"struct_box": {"top": ["struct_pot"]},
+	}
 	for definition: Defs.StructureDefinition in core.registries.structures.values():
 		check(
 			definition.placement_policy_explicit,
 			"every structure explicitly declares its scalable support policy: " + definition.id
 		)
+		check(
+			definition.can_be_stacked == expected_stackable.has(definition.id),
+			"catalog classifies whether %s can sit on another object" % definition.id
+		)
+		var expected_slots: Dictionary = expected_supports.get(definition.id, {})
+		check(
+			definition.support_slots.size() == expected_slots.size(),
+			"catalog classifies every support surface exposed by %s" % definition.id
+		)
+		for slot: Defs.SupportSlotDefinition in definition.support_slots:
+			check(
+				expected_slots.has(slot.id),
+				"%s exposes only its audited support slots" % definition.id
+			)
+			var accepted_ids: Array = expected_slots.get(slot.id, [])
+			for candidate: Defs.StructureDefinition in core.registries.structures.values():
+				check(
+					slot.accepts_definition(candidate) == accepted_ids.has(candidate.id),
+					"%s:%s classifies %s consistently"
+						% [definition.id, slot.id, candidate.id]
+				)
 
-	var stool := core.grid.add_structure(first, "struct_stool", 1)
-	check(stool != null, "a supporter can be rooted directly on a tile")
+	var table := core.grid.add_structure(first, "struct_table", 1)
+	check(table != null, "a table can be rooted directly on a tile")
 	check(
 		not core.grid.can_place_structure_at(first, 0, "struct_pot"),
 		"one direct object per tile elevation remains enforced"
 	)
-	var box := core.grid.add_structure_on(stool.instance_id, "struct_box", "top")
-	check(
-		box != null
-		and box.parent_instance_id == stool.instance_id
-		and box.support_slot_id == "top",
-		"a small stackable object occupies a named stool support"
+	var chest := core.grid.add_structure_on(
+		table.instance_id,
+		"struct_chest",
+		"top_center"
 	)
 	check(
-		core.grid.add_structure_on(stool.instance_id, "struct_pot", "top") == null,
+		chest != null
+		and chest.parent_instance_id == table.instance_id
+		and chest.support_slot_id == "top_center",
+		"a storage chest fits the round table's audited tabletop surface"
+	)
+	check(
+		core.grid.add_structure_on(table.instance_id, "struct_planter", "top_center") == null,
 		"a named support slot accepts exactly one child"
 	)
-	var lantern := core.grid.add_structure_on(box.instance_id, "struct_lantern", "top")
+	var pot := core.grid.add_structure_on(chest.instance_id, "struct_pot", "lid")
 	check(
-		lantern != null and lantern.parent_instance_id == box.instance_id,
-		"typed supports compose into a multi-level object graph"
+		pot != null and pot.parent_instance_id == chest.instance_id,
+		"the chest lid accepts a genuinely small surface item"
 	)
 	check(
-		core.grid.add_structure_on(lantern.instance_id, "struct_pot") == null,
+		core.grid.add_structure_on(pot.instance_id, "struct_chest") == null,
 		"a terminal object cannot hold another item"
 	)
 	check(
 		not core.grid.can_place_tile_at(first, 1, "tile_grass"),
 		"a land tile can never be placed on an object graph"
 	)
-	var stool_transform := core.grid.structure_local_transform(stool.instance_id)
-	var box_transform := core.grid.structure_local_transform(box.instance_id)
-	var lantern_transform := core.grid.structure_local_transform(lantern.instance_id)
+	var table_transform := core.grid.structure_local_transform(table.instance_id)
+	var chest_transform := core.grid.structure_local_transform(chest.instance_id)
+	var pot_transform := core.grid.structure_local_transform(pot.instance_id)
 	check(
-		box_transform.origin.y > stool_transform.origin.y
-		and lantern_transform.origin.y > box_transform.origin.y,
+		chest_transform.origin.y > table_transform.origin.y
+		and pot_transform.origin.y > chest_transform.origin.y,
 		"support transforms compose upward without floating gaps from tile elevation"
 	)
 
-	var detached := core.grid.detach_structure_stack(stool.instance_id)
+	var detached := core.grid.detach_structure_stack(table.instance_id)
 	check(
 		detached.size() == 3
-		and core.grid.find_structure(stool.instance_id).is_empty(),
+		and core.grid.find_structure(table.instance_id).is_empty(),
 		"moving a supporter detaches its complete descendant stack atomically"
 	)
 	check(
@@ -731,21 +852,21 @@ func _test_object_support_graph() -> void:
 		"a detached object stack restores intact at a new tile root"
 	)
 	check(
-		core.grid.find_structure(box.instance_id)["structure"].parent_instance_id
-			== stool.instance_id,
+		core.grid.find_structure(chest.instance_id)["structure"].parent_instance_id
+			== table.instance_id,
 		"moving a base preserves every internal support edge"
 	)
 
 	var snapshot := core.grid.to_save_dict()
 	var restored_grid := WorldGrid.new(core.registries)
 	restored_grid.from_save_dict(snapshot)
-	var restored_box := restored_grid.find_structure(box.instance_id)
-	var restored_lantern := restored_grid.find_structure(lantern.instance_id)
+	var restored_chest := restored_grid.find_structure(chest.instance_id)
+	var restored_pot := restored_grid.find_structure(pot.instance_id)
 	check(
-		not restored_box.is_empty()
-		and restored_box["structure"].parent_instance_id == stool.instance_id
-		and restored_box["structure"].support_slot_id == "top"
-		and restored_lantern["structure"].parent_instance_id == box.instance_id,
+		not restored_chest.is_empty()
+		and restored_chest["structure"].parent_instance_id == table.instance_id
+		and restored_chest["structure"].support_slot_id == "top_center"
+		and restored_pot["structure"].parent_instance_id == chest.instance_id,
 		"support graph ids and named slots round-trip through save data"
 	)
 
@@ -975,7 +1096,7 @@ func _test_v1_save_migration() -> void:
 	}
 	var result := core.save_migrator.migrate(raw)
 	var migrated: Dictionary = result["data"]
-	check(migrated["save_version"] == 7, "v1 saves migrate through every schema version")
+	check(migrated["save_version"] == 8, "v1 saves migrate through every schema version")
 	check(
 		(migrated["inventory"].get("counts", {}) as Dictionary).is_empty(),
 		"v1 material inventory leaves the active gameplay inventory"
@@ -1081,6 +1202,29 @@ func _test_v5_tree_anchor_migration() -> void:
 	check(int(migrated["grid"]["next_iid"]) == 13, "tree migration advances instance ids safely")
 
 
+func _test_v7_tile_scale_migration() -> void:
+	var core := fresh_core()
+	var result := core.save_migrator.migrate({
+		"save_version": 7,
+		"profile": {
+			"px": 1.7,
+			"py": 0.5,
+			"pz": -3.4,
+			"facing": 0.75,
+		},
+		"grid": core.grid.to_save_dict(),
+	})
+	var migrated: Dictionary = result["data"]
+	var profile: Dictionary = migrated["profile"]
+	check(migrated["save_version"] == 8, "v7 saves migrate to the smaller tile schema")
+	check(
+		is_equal_approx(float(profile["px"]), 1.35)
+		and is_equal_approx(float(profile["pz"]), -2.7)
+		and is_equal_approx(float(profile["py"]), 0.5),
+		"saved continuous player position keeps the same logical tile after grid shrink"
+	)
+
+
 func _test_missing_definition_load() -> void:
 	var core := fresh_core()
 	core.inventory.counts["item_that_no_longer_exists"] = 3
@@ -1174,8 +1318,21 @@ func _test_world_reconciliation() -> void:
 	b.instance_id = a.instance_id
 	var graph_coord := Vector2i(3, 0)
 	core.grid.place_tile(graph_coord, "tile_grass")
-	var valid_stool := core.grid.add_structure(graph_coord, "struct_stool", 1)
-	var valid_box := core.grid.add_structure_on(valid_stool.instance_id, "struct_box", "top")
+	var valid_table := core.grid.add_structure(graph_coord, "struct_table", 1)
+	var valid_chest := core.grid.add_structure_on(
+		valid_table.instance_id,
+		"struct_chest",
+		"top_center"
+	)
+	var buried_coord := Vector2i(4, 0)
+	core.grid.place_tile(buried_coord, "tile_grass")
+	core.grid.place_tile_at(buried_coord, 1, "tile_grass")
+	var buried_lantern := WorldGrid.StructureState.new()
+	buried_lantern.instance_id = core.grid.next_instance_id
+	core.grid.next_instance_id += 1
+	buried_lantern.structure_id = "struct_lantern"
+	buried_lantern.socket_index = 1
+	core.grid.cell_at(buried_coord, 0).structures.append(buried_lantern)
 	core.grid.home_cell = Vector2i(999, 999)
 	var report := core.world_reconciler.reconcile(core.grid, core.stock)
 	check(report["changed"], "invalid loaded relationships trigger deterministic reconciliation")
@@ -1190,9 +1347,14 @@ func _test_world_reconciliation() -> void:
 	)
 	check(a.instance_id != b.instance_id, "duplicate structure instance ids are repaired")
 	check(
-		core.grid.find_structure(valid_box.instance_id)["structure"].parent_instance_id
-			== valid_stool.instance_id,
+		core.grid.find_structure(valid_chest.instance_id)["structure"].parent_instance_id
+			== valid_table.instance_id,
 		"valid named support edges survive deterministic reconciliation"
+	)
+	check(
+		core.grid.cell_at(buried_coord, 0).structures.is_empty()
+		and core.stock.structure_count("struct_lantern") >= 1,
+		"load repair returns objects saved beneath a higher tile to storage"
 	)
 	check(core.grid.has_cell(core.grid.home_cell), "invalid saved home cell moves onto preserved land")
 

@@ -66,6 +66,20 @@ func _process(delta: float) -> void:
 	core.view_state = save_state()
 
 
+## Mouse releases can be consumed by UI controls before reaching
+## _unhandled_input. Observe an active middle-drag release here as a safety net
+## so the camera can never remain stranded away from the player.
+func _input(event: InputEvent) -> void:
+	if (
+		_middle_panning
+		and event is InputEventMouseButton
+		and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_MIDDLE
+		and not (event as InputEventMouseButton).pressed
+	):
+		_middle_panning = false
+		reset_pan()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("camera_rotate_left"):
 		_yaw_target += 90.0
@@ -81,6 +95,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		var wheel := event as InputEventMouseButton
 		if wheel.button_index == MOUSE_BUTTON_MIDDLE:
 			_middle_panning = wheel.pressed
+			if not wheel.pressed:
+				reset_pan()
 			get_viewport().set_input_as_handled()
 		elif wheel.pressed:
 			var wheel_amount := maxf(0.1, wheel.factor)
@@ -106,13 +122,12 @@ func _pan_by_pixels(relative: Vector2) -> void:
 	var basis := horizontal_basis()
 	var world_per_pixel := _size_target * 0.0008
 	_pan_offset += (
-		-basis.x * relative.x * world_per_pixel
-		+ basis.z * relative.y * world_per_pixel
+		basis.x * relative.x * world_per_pixel
+		- basis.z * relative.y * world_per_pixel
 	)
 	_pan_offset.y = 0.0
 	if _pan_offset.length() > 30.0:
 		_pan_offset = _pan_offset.normalized() * 30.0
-	core.autosave_soon()
 
 
 func _zoom_by(amount: float) -> void:
@@ -170,7 +185,8 @@ func save_state() -> Dictionary:
 	return {
 		"yaw": _yaw_target,
 		"distance": _size_target,
-		"pan": [_pan_offset.x, _pan_offset.z],
+		# Middle-drag is a temporary look gesture and is never persisted.
+		"pan": [0.0, 0.0],
 	}
 
 
@@ -222,7 +238,7 @@ func restore_state(data: Dictionary) -> void:
 		core.registries.tunef("camera_min_size", 14.0),
 		core.registries.tunef("camera_max_size", 70.0)
 	)
-	var stored_pan: Array = data.get("pan", [0.0, 0.0])
-	if stored_pan.size() >= 2:
-		_pan_offset = Vector3(float(stored_pan[0]), 0.0, float(stored_pan[1]))
+	# Discard legacy persistent framing offsets. Middle-drag now returns to the
+	# player on release and must not reopen a save looking away from them.
+	_pan_offset = Vector3.ZERO
 	set_zoom_immediate(_size_target)

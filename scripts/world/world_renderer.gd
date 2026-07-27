@@ -8,6 +8,9 @@ const BLOCKER_LAYER := 1
 const PLACEABLE_PICK_LAYER := 1 << 7
 const OUTLINE_VISIBILITY_LAYER := 1 << 19
 const REST_TWEEN_SECONDS := 0.5
+const StructureVisualFactoryScript := preload(
+	"res://scripts/world/structure_visual_factory.gd"
+)
 
 var core: GameCore
 var assets: AssetLibrary
@@ -22,6 +25,7 @@ var _edge_root: Node3D
 var _silhouette_material: StandardMaterial3D
 var _water_surface: WaterSurface
 var _tile_visual_factory: TileVisualFactory
+var _structure_visual_factory: RefCounted
 var _outlined_meshes: Array[MeshInstance3D] = []
 var _hovered_structure_id := -1
 var _hover_signature := ""
@@ -36,6 +40,7 @@ func setup(game_core: GameCore, asset_library: AssetLibrary) -> void:
 	assets = asset_library
 	materials = asset_library.materials
 	_tile_visual_factory = TileVisualFactory.new(assets, core.grid)
+	_structure_visual_factory = StructureVisualFactoryScript.new(assets, core.grid)
 	_edge_root = Node3D.new()
 	_edge_root.name = "EdgeBlockers"
 	add_child(_edge_root)
@@ -105,10 +110,13 @@ func _on_slot_changed(coord: Vector2i, elevation: int) -> void:
 		_build_cell(coord, elevation, true)
 	if elevation > 0:
 		_refresh_covered_surface(coord, elevation - 1)
+	# Any changed elevation can turn a void edge into a jumpable raised
+	# neighbour (or vice versa), so physical perimeter walls follow columns,
+	# not only their elevation-zero roots.
+	_rebuild_edges()
 	if elevation == 0:
 		# A moved dock can add or remove a traversable surface on water, so the
 		# perimeter opening must follow authoritative structure state.
-		_rebuild_edges()
 		_rebuild_water_surface()
 
 
@@ -151,12 +159,7 @@ func _apply_covered_surface(
 	if not def.supports_tiles:
 		return
 	var covered := core.grid.has_cell_at(coord, elevation + 1)
-	for child in visual.find_children("*", "MeshInstance3D", true, false):
-		var mesh := child as MeshInstance3D
-		var lower := mesh.name.to_lower()
-		var is_block_shell := lower.ends_with("_body") or lower.ends_with("_cap")
-		if not is_block_shell:
-			mesh.visible = not covered
+	_tile_visual_factory.set_surface_covered(visual, covered)
 
 
 func _refresh_covered_surface(coord: Vector2i, elevation: int) -> void:
@@ -230,7 +233,7 @@ func _build_structure(holder: Node3D, s: WorldGrid.StructureState) -> void:
 	var def := core.registries.structure(s.structure_id)
 	if def == null:
 		return
-	var visual := assets.instantiate(def.asset_id)
+	var visual: Node3D = _structure_visual_factory.instantiate_visual(def)
 	visual.name = "struct_%d" % s.instance_id
 	# All visuals stay siblings under the tile holder so selecting a jar does
 	# not outline its stool (or vice versa). The persistent support graph is
@@ -900,12 +903,12 @@ func _rebuild_edges() -> void:
 		child.queue_free()
 	var size := core.grid.tile_size
 	for coord: Vector2i in core.grid.cells:
-		if not core.grid.is_traversable(coord):
+		if not _has_physical_walk_surface(coord):
 			continue
 		for offset: Vector2i in WorldGrid.NEIGHBORS:
 			if (
 				core.grid.has_cell(coord + offset)
-				and core.grid.is_traversable(coord + offset)
+				and _has_physical_walk_surface(coord + offset)
 			):
 				continue
 			var wall := StaticBody3D.new()
@@ -916,8 +919,19 @@ func _rebuild_edges() -> void:
 			box.size = Vector3(size, 2.0, 0.12) if along_x else Vector3(0.12, 2.0, size)
 			shape.shape = box
 			wall.add_child(shape)
-			wall.position = core.grid.cell_to_world(coord) + Vector3(offset.x * size * 0.5, 1.0, offset.y * size * 0.5)
+			var surface_elevation := maxi(0, core.grid.top_elevation(coord))
+			wall.position = (
+				core.grid.cell_to_world(coord, surface_elevation)
+				+ Vector3(offset.x * size * 0.5, 1.0, offset.y * size * 0.5)
+			)
 			_edge_root.add_child(wall)
+
+
+func _has_physical_walk_surface(coord: Vector2i) -> bool:
+	return (
+		core.grid.has_walkable_top_surface(coord)
+		or core.grid.has_walkable_structure_surface(coord)
+	)
 
 
 # ------------------------------------------------------------------ landmarks

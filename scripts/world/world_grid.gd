@@ -103,7 +103,7 @@ var next_instance_id: int = 1
 var home_cell := Vector2i.ZERO
 
 var tile_size: float:
-	get: return registries.tunef("tile_size", 1.7)
+	get: return registries.tunef("tile_size", 1.35)
 
 var block_depth: float:
 	get: return registries.tunef("block_depth", 0.5)
@@ -243,6 +243,18 @@ func is_walkable(coord: Vector2i) -> bool:
 	return def != null and def.walkable and top_elevation(coord) == 0
 
 
+## Physical boundary generation must distinguish a genuine void/water edge
+## from a raised but otherwise walkable column. Raised columns stay excluded
+## from automatic click routes (they require a deliberate jump), yet their top
+## surface must not be sealed behind the same tall wall used at the world edge.
+func has_walkable_top_surface(coord: Vector2i) -> bool:
+	var elevation := top_elevation(coord)
+	if elevation < 0:
+		return false
+	var definition := tile_def_at(coord, elevation)
+	return definition != null and definition.walkable
+
+
 ## Player traversal can also be supplied by an object such as a dock. Keep
 ## this separate from terrain walkability so home placement and safe-refuge
 ## logic never mistake water for permanent land.
@@ -322,7 +334,12 @@ func socket_offset(_socket_index: int) -> Vector3:
 func free_socket(coord: Vector2i, socket_type: String, elevation: int = 0) -> int:
 	var state := cell_at(coord, elevation)
 	var def := tile_def_at(coord, elevation)
-	if state == null or def == null or state.landmark_id != "":
+	if (
+		state == null
+		or def == null
+		or state.landmark_id != ""
+		or top_elevation(coord) != elevation
+	):
 		return -1
 	for s in state.structures:
 		if s.parent_instance_id != 0:
@@ -341,6 +358,7 @@ func can_place_structure_at(coord: Vector2i, elevation: int, structure_id: Strin
 	if (
 		tile == null
 		or structure == null
+		or top_elevation(coord) != elevation
 		or not tile.supports_decor
 		or not structure.supports_surface(tile.surface_kind)
 	):
@@ -429,6 +447,8 @@ func free_support_slot(
 ) -> String:
 	var parent_found := find_structure(parent_instance_id)
 	if parent_found.is_empty():
+		return ""
+	if top_elevation(parent_found["coord"]) != int(parent_found["elevation"]):
 		return ""
 	var parent_state: StructureState = parent_found["structure"]
 	var parent_def := registries.structure(parent_state.structure_id)
@@ -708,6 +728,7 @@ func add_structure(
 		state == null
 		or tile == null
 		or structure == null
+		or top_elevation(coord) != elevation
 		or not tile.supports_decor
 		or not structure.supports_surface(tile.surface_kind)
 		or (elevation > 0 and not structure.allow_elevated)

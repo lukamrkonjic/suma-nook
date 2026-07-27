@@ -12,6 +12,9 @@ const SECTION_GAP := 7.0
 const COLUMNS := 6
 const CAMERA_MIN_DISTANCE := 12.0
 const CAMERA_MAX_DISTANCE := 260.0
+const StructureVisualFactoryScript := preload(
+	"res://scripts/world/structure_visual_factory.gd"
+)
 const CATEGORY_ORDER := [
 	"Tiles",
 	"Large Decor",
@@ -23,6 +26,8 @@ var palette: CozyPalette
 var materials: MaterialLibrary
 var assets: AssetLibrary
 var kit: UiKit
+var _tile_visual_factory: TileVisualFactory
+var _structure_visual_factory: RefCounted
 
 var _manifest: Array[Dictionary] = []
 var _slot_records: Array[Dictionary] = []
@@ -63,6 +68,9 @@ func _setup_services() -> void:
 	palette = load("res://assets/palettes/gg_material_palette.tres")
 	materials = MaterialLibrary.new(palette)
 	assets = AssetLibrary.new(materials)
+	var grid := WorldGrid.new(registries)
+	_tile_visual_factory = TileVisualFactory.new(assets, grid)
+	_structure_visual_factory = StructureVisualFactoryScript.new(assets, grid)
 	kit = UiKit.new(palette)
 	_font = load("res://assets/fonts/Fredoka-Medium.ttf")
 
@@ -214,12 +222,28 @@ func _build_slot(entry: Dictionary, world_position: Vector3) -> void:
 
 	var base_tile := String(entry["base_tile"])
 	if base_tile != "":
-		var plinth := assets.instantiate(base_tile)
+		var plinth_def := registries.tile(base_tile)
+		var plinth := _tile_visual_factory.instantiate_visual(plinth_def)
 		plinth.name = "PresentationTile"
 		slot.add_child(plinth)
 
 	var model: Node3D
-	if asset_id == "tile_open_water" and not assets.exists(asset_id):
+	if String(entry["category"]) == "Tiles" and entry["source_ids"].size() > 0:
+		var tile_def := registries.tile(String(entry["source_ids"][0]))
+		if tile_def != null and tile_def.render_profile != "continuous_water":
+			model = _tile_visual_factory.instantiate_visual(tile_def)
+		else:
+			model = _build_open_water_preview()
+	elif (
+		String(entry["category"]) in ["Large Decor", "Structures"]
+		and entry["source_ids"].size() > 0
+	):
+		var structure_def := registries.structure(String(entry["source_ids"][0]))
+		if structure_def != null:
+			model = _structure_visual_factory.instantiate_visual(structure_def)
+		else:
+			model = assets.instantiate(asset_id)
+	elif asset_id == "tile_open_water" and not assets.exists(asset_id):
 		model = _build_open_water_preview()
 	else:
 		model = assets.instantiate(asset_id)
@@ -248,6 +272,9 @@ func _build_open_water_preview() -> Node3D:
 	var root := Node3D.new()
 	var floor := assets.instantiate("tile_water_floor")
 	floor.name = "WaterFloor"
+	var tile_size := _tile_visual_factory.grid.tile_size
+	var horizontal_scale := tile_size / TileVisualFactory.AUTHORED_TILE_SIZE
+	floor.scale = Vector3(horizontal_scale, 1.0, horizontal_scale)
 	root.add_child(floor)
 	var surface := WaterSurface.new()
 	surface.name = "WaterSurface"
@@ -255,7 +282,7 @@ func _build_open_water_preview() -> Node3D:
 	surface.rebuild(
 		[Vector2i.ZERO],
 		func(_cell: Vector2i) -> Vector3: return Vector3.ZERO,
-		2.0,
+		tile_size,
 		-0.14,
 		materials.material("water")
 	)

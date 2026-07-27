@@ -50,6 +50,15 @@ func _validate_catalog() -> void:
 		check(not unique_ids.has(asset_id), "asset has only one gallery slot: " + asset_id)
 		unique_ids[asset_id] = true
 		check(is_instance_valid(record["node"]), "slot node exists for " + asset_id)
+		if asset_id == "tile_grass":
+			check(
+				record["node"].find_child(
+					"surface_detail_speckles_light",
+					true,
+					false
+				) != null,
+				"Open Meadow gallery preview uses its runtime surface-detail profile"
+			)
 func _validate_sections() -> void:
 	var names := gallery.section_names()
 	for expected in [

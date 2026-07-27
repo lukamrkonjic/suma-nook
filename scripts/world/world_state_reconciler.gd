@@ -131,6 +131,12 @@ func _repair_structures(
 			if structure.parent_instance_id != 0:
 				pending.append(structure)
 				continue
+			# Objects saved on a covered layer came from the old placement
+			# fall-through bug. Rehome the complete graph instead of preserving
+			# geometry that clips through the tiles above it.
+			if grid.top_elevation(coord) != elevation:
+				pending.append(structure)
+				continue
 			var def := registries.structure(structure.structure_id)
 			var socket := _compatible_socket(
 				tile_def,
