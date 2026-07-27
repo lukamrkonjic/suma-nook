@@ -72,7 +72,7 @@ func _run() -> void:
 			print("JUMP LEDGE PASSED — %d checks" % checks)
 		else:
 			print("JUMP LEDGE FAILED — %d/%d failed" % [failures.size(), checks])
-		get_tree().quit(0 if failures.is_empty() else 1)
+		await _finish()
 		return
 	await _step_build_library_ui()
 	await _step_tile_geometry_contract()
@@ -87,13 +87,25 @@ func _run() -> void:
 	await _step_save_while_holding()
 	await _step_save_reload()
 	await _step_pause_menu()
-	await _step_admin_controls()
+	await _step_visual_runtime()
 	if failures.is_empty():
 		print("FULL LOOP PASSED — %d checks" % checks)
 	else:
 		print("FULL LOOP FAILED — %d/%d failed" % [failures.size(), checks])
 	await wait(0.5)
-	get_tree().quit(0 if failures.is_empty() else 1)
+	await _finish()
+
+
+func _finish() -> void:
+	var exit_code := 0 if failures.is_empty() else 1
+	if is_instance_valid(main):
+		# This is terminal test teardown: free synchronously so active audio
+		# playback releases its engine-side object before SceneTree.quit().
+		main.free()
+		main = null
+		await get_tree().process_frame
+		await get_tree().process_frame
+	get_tree().quit(exit_code)
 
 
 func _step_creation() -> void:
@@ -363,12 +375,14 @@ func _step_build_mode_selection_rules() -> void:
 	main.placement._hover_support_instance_id = 0
 	main.placement._hover_valid = true
 	main.placement._sync_indicator_preview(Vector3.ZERO)
-	var valid_preview_yaw := main.placement._indicator.rotation.y
+	var valid_preview_yaw: float = main.placement._preview.indicator.rotation.y
 	main.placement._hover_valid = false
 	main.placement._sync_indicator_preview(Vector3.ZERO)
 	check(
 		is_equal_approx(valid_preview_yaw, 0.0)
-		and is_equal_approx(main.placement._indicator.rotation.y, valid_preview_yaw),
+		and is_equal_approx(
+			main.placement._preview.indicator.rotation.y, valid_preview_yaw
+		),
 		"valid and invalid placement footprints keep the same grid orientation"
 	)
 	check(
@@ -1263,10 +1277,10 @@ func _step_save_reload() -> void:
 	print("STEP save & reload")
 	main.skill_actions.cancel_all()
 	main.player.set_state(PlayerController.State.FREE)
-	check(main.core.arrivals.set_presentation("postcard"), "arrival presentation switches without reward changes")
-	check(main.core.arrivals.trigger_arrival(), "postcard presentation uses the same scheduler")
-	await wait(0.6)
-	check(main.core.arrivals.has_waiting_package(), "postcard leaves the same saved Land Parcel payload")
+	check(main.core.arrivals.trigger_arrival(), "arrival uses the production scheduler")
+	main.core.arrivals.force_departure_ready()
+	await wait(0.1)
+	check(main.core.arrivals.has_waiting_package(), "ferry leaves the saved Land Parcel payload")
 	main.player.position = Vector3(0.37, 0.0, 0.41)   # deliberately between tile centers
 	await get_tree().physics_frame
 	await get_tree().physics_frame
@@ -1372,68 +1386,40 @@ func _step_pause_menu() -> void:
 	check(main.core.play_seconds > play_time_before, "world simulation resumes after closing the menu")
 
 
-func _step_admin_controls() -> void:
-	print("STEP admin controls")
-	check(main.hud.find_child("AdminCard", true, false) != null, "Admin card is visible in debug builds")
-	main.panels.toggle("debug")
-	await wait(0.1)
-	check(
-		main.panels.find_child("OpenAssetWorldButton", true, false) != null,
-		"Admin controls expose the curated Asset World"
-	)
-	var mist_choice := main.panels.find_child(
-		"DebugChoice_debug_set_weather_mist",
-		true,
-		false
-	) as Button
-	var day_choice := main.panels.find_child(
-		"DebugChoice_debug_set_weather_day",
-		true,
-		false
-	) as Button
-	check(
-		mist_choice != null and day_choice != null and day_choice.button_pressed,
-		"Admin visual choices expose their selected toggle state"
-	)
-	if mist_choice != null and day_choice != null:
-		mist_choice.button_pressed = true
-		await wait(0.05)
-		check(
-			mist_choice.button_pressed
-			and not day_choice.button_pressed
-			and main.lighting.weather_id() == "mist",
-			"clicking an Admin weather choice updates both state and selection"
-		)
-	main.panels.close()
-	await wait(0.1)
-	main.debug_set_weather("mist")
-	check(main.lighting.weather_id() == "mist", "Admin selects an explicit weather profile")
-	main.debug_set_weather("leaves")
-	check(main.lighting.weather_id() == "leaves", "Admin selects falling leaves")
+func _step_visual_runtime() -> void:
+	print("STEP visual runtime")
+	main.lighting.set_weather("mist")
+	check(main.lighting.weather_id() == "mist", "Runtime selects an explicit weather profile")
+	main.lighting.set_weather("leaves")
+	check(main.lighting.weather_id() == "leaves", "Runtime selects falling leaves")
 	var leaves := main.lighting.find_child("FallingLeaves", true, false) as GPUParticles3D
 	check(leaves != null and leaves.emitting, "Leaves profile activates its particle family")
-	main.debug_set_weather("snow")
-	check(main.lighting.weather_id() == "snow", "Admin selects snow")
+	main.lighting.set_weather("snow")
+	check(main.lighting.weather_id() == "snow", "Runtime selects snow")
 	var snow := main.lighting.find_child("SoftSnow", true, false) as GPUParticles3D
 	check(snow != null and snow.emitting, "Snow profile activates its particle family")
-	main.debug_set_weather("blossom")
-	check(main.lighting.weather_id() == "blossom", "Admin selects blossom weather")
+	main.lighting.set_weather("blossom")
+	main.core.visual_state["weather"] = "blossom"
+	check(main.lighting.weather_id() == "blossom", "Runtime selects blossom weather")
 	var blossoms := main.lighting.find_child("BlossomPetals", true, false) as GPUParticles3D
 	var spores := main.lighting.find_child("WarmSpores", true, false) as GPUParticles3D
 	check(
 		blossoms != null and blossoms.emitting and spores != null and spores.emitting,
 		"Blossom profile activates petals and warm spores"
 	)
-	main.debug_set_particle_quality("low")
+	main.lighting.set_particle_quality("low")
+	main.core.visual_state["particle_quality"] = "low"
 	check(
 		main.lighting.particle_quality_id == "low"
 		and is_equal_approx(blossoms.amount_ratio, 0.15),
-		"Admin particle quality scales the configured emission ratio"
+		"Runtime particle quality scales the configured emission ratio"
 	)
-	main.debug_set_time_of_day("sunset")
-	check(main.lighting.time_of_day_id == "sunset", "Admin selects sunset lighting")
-	main.debug_set_background("night")
-	check(main.lighting.background_preset_id == "night", "Admin selects a night background")
+	main.lighting.set_time_of_day("sunset")
+	main.core.visual_state["time_of_day"] = "sunset"
+	check(main.lighting.time_of_day_id == "sunset", "Runtime selects sunset lighting")
+	main.lighting.set_background_preset("night")
+	main.core.visual_state["background"] = "night"
+	check(main.lighting.background_preset_id == "night", "Runtime selects a night background")
 	check(main.lighting.is_dark_background(), "dark background enables high-contrast HUD text")
 	var live_visuals := main.lighting.runtime_manifest()
 	check(
@@ -1478,7 +1464,7 @@ func _step_admin_controls() -> void:
 		and animation_manifest["transitions"]["fish_cast"].has("fish_wait"),
 		"Animation manifest includes states, keyframes, events, curves, and transitions"
 	)
-	check(main.core.save(), "Admin runtime visual state saves")
+	check(main.core.save(), "Runtime visual state saves")
 	main.reload_from_save()
 	await wait(0.8)
 	check(
@@ -1488,27 +1474,23 @@ func _step_admin_controls() -> void:
 		and main.lighting.particle_quality_id == "low",
 		"Weather, time, background, and particle state restore from save"
 	)
-	main.debug_reset_visuals()
+	main.lighting.set_weather("day")
+	main.lighting.set_time_of_day("noon")
+	main.lighting.set_background_preset("profile")
+	main.lighting.set_particle_quality("high")
+	main.core.visual_state = {
+		"weather": "day",
+		"time_of_day": "noon",
+		"background": "profile",
+		"particle_quality": "high",
+	}
 	check(
 		main.lighting.weather_id() == "day"
 		and main.lighting.time_of_day_id == "noon"
 		and main.lighting.background_preset_id == "profile"
 		and main.lighting.particle_quality_id == "high",
-		"Admin visual reset restores day defaults"
+		"Runtime visual state restores day defaults"
 	)
-	var item_id := String(main.core.registries.items.keys()[0])
-	var item_before := main.core.inventory.count(item_id)
-	main.debug_grant_all_items(2)
-	check(main.core.inventory.count(item_id) == item_before + 2, "Admin grants every item")
-	check(main.core.equipment.owns("tool_axe_fine"), "Admin item grant unlocks equipment ownership")
-	var tile_id := String(main.core.registries.tiles.keys()[0])
-	var tile_before := main.core.stock.tile_count(tile_id)
-	main.debug_grant_all_tiles(2)
-	check(main.core.stock.tile_count(tile_id) == tile_before + 2, "Admin grants every tile")
-	var structure_id := String(main.core.registries.structures.keys()[0])
-	var structure_before := main.core.stock.structure_count(structure_id)
-	main.debug_grant_all_structures(2)
-	check(main.core.stock.structure_count(structure_id) == structure_before + 2, "Admin grants every structure")
 
 
 func _node_mesh_bounds(root: Node3D) -> AABB:

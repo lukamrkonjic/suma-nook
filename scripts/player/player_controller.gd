@@ -342,7 +342,7 @@ func _update_focus() -> void:
 						"point": struct_pos,
 					}
 					best_distance = struct_distance
-			if struct_def.provides.has("storage_access") and struct_distance < best_distance:
+			if struct_def.has_capability("storage_access") and struct_distance < best_distance:
 				best = {
 					"kind": "storage",
 					"coord": coord,

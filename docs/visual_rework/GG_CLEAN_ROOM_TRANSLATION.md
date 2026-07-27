@@ -30,8 +30,7 @@ The game now has one coherent runtime visual system covering:
 - original Suma player, placement, foliage, water, light, and parcel-reveal
   animation state machines;
 - persistent weather, time, background, particle-quality, and camera state;
-- an Admin Debug Controls card for granting all content and switching every
-  visual state at runtime.
+- automated runtime-manifest coverage for every shipped visual state.
 
 ## Image calibration
 

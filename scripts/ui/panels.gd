@@ -46,7 +46,6 @@ func toggle(panel_name: String) -> void:
 		"collection": win = _collection_panel()
 		"map": win = _map_panel()
 		"settings": win = _settings_panel()
-		"debug": win = _debug_panel()
 		_: return
 	_open_panel = win["root"]
 	_open_name = panel_name
@@ -346,9 +345,6 @@ func _settings_panel() -> Dictionary:
 				AudioServer.set_bus_volume_db(bus_index, linear_to_db(maxf(v, 0.001))))
 		row.add_child(slider)
 		list.add_child(row)
-	var weather_button := kit.button("Toggle weather (day / mist / rain)")
-	weather_button.pressed.connect(func(): settings_bridge.call("toggle_weather"))
-	list.add_child(weather_button)
 	var hold_check := CheckButton.new()
 	hold_check.text = "Auto-repeat skill actions"
 	hold_check.set_pressed_no_signal(true)
@@ -356,142 +352,6 @@ func _settings_panel() -> Dictionary:
 	list.add_child(hold_check)
 	list.add_child(kit.label("Camera: ←/→ or Q/X rotate · ↑/↓ or wheel zoom · H return home", 14))
 	return win
-
-
-# ------------------------------------------------------------------ debug (dev builds only)
-
-func _debug_panel() -> Dictionary:
-	var win := kit.window("Admin Debug Controls", Vector2(660, 720))
-	var parts := _scroll_list(590.0)
-	win["content"].add_child(parts["scroll"])
-	var list: VBoxContainer = parts["list"]
-	var asset_world := kit.button("Open Asset World", true)
-	asset_world.name = "OpenAssetWorldButton"
-	asset_world.tooltip_text = "Browse the curated tile and large-placeable library."
-	asset_world.pressed.connect(func():
-		settings_bridge.call_deferred("debug_open_asset_world")
-	)
-	list.add_child(asset_world)
-	var asset_world_hint := kit.label(
-		"Tiles and substantial placeables get one clear slot each. Small scatter stays hidden.",
-		14
-	)
-	asset_world_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	list.add_child(asset_world_hint)
-	list.add_child(kit.label("Content library", 20))
-	for action in [
-		["Get every item ×99", func(): settings_bridge.call("debug_grant_all_items")],
-		["Get every tile ×10", func(): settings_bridge.call("debug_grant_all_tiles")],
-		["Get every structure ×10", func(): settings_bridge.call("debug_grant_all_structures")],
-		["Get absolutely everything", func(): settings_bridge.call("debug_grant_all_content")],
-	]:
-		var content_button := kit.button(action[0], action[0] == "Get absolutely everything")
-		content_button.pressed.connect(action[1])
-		list.add_child(content_button)
-
-	var lighting := settings_bridge.get("lighting") as LightingRig
-	if lighting != null:
-		_debug_choice_row(list, "Weather", [
-			["Day", "day"],
-			["Mist", "mist"],
-			["Rain", "rain"],
-			["Leaves", "leaves"],
-			["Snow", "snow"],
-			["Blossom", "blossom"],
-		], "debug_set_weather", lighting.weather_id())
-		_debug_choice_row(list, "Time of day", [
-			["Morning", "morning"],
-			["Noon", "noon"],
-			["Sunset", "sunset"],
-			["Night", "night"],
-		], "debug_set_time_of_day", lighting.time_of_day_id)
-		_debug_choice_row(list, "Background", [
-			["Profile", "profile"],
-			["Cream", "cream"],
-			["Mist", "mist"],
-			["Dusk", "dusk"],
-			["Night", "night"],
-		], "debug_set_background", lighting.background_preset_id)
-		_debug_choice_row(list, "Particle quality", [
-			["Low", "low"],
-			["Medium", "medium"],
-			["High", "high"],
-		], "debug_set_particle_quality", lighting.particle_quality_id)
-		var reset_visuals := kit.button("Reset visual overrides")
-		reset_visuals.pressed.connect(func(): settings_bridge.call("debug_reset_visuals"))
-		list.add_child(reset_visuals)
-
-	list.add_child(kit.label("World and progression", 20))
-	var actions := [
-		["Trigger ferry arrival", func(): core.arrivals.trigger_arrival()],
-		["Force ferry delivery/departure", func(): settings_bridge.call("debug_force_ferry_departure")],
-		["Grant parcel at dock", func(): settings_bridge.call("debug_grant_dock_parcel")],
-		["Speed arrival timer ×60", func(): core.arrivals.debug_speed_multiplier = 60.0],
-		["Pause / resume arrival timer", func(): core.arrivals.paused = not core.arrivals.paused],
-		["Switch ferry / postcard", func(): settings_bridge.call("debug_toggle_arrival_presentation")],
-		["Grant 100 Fishing XP", func(): core.skills.add_xp("fishing", 100)],
-		["Grant 100 Woodland Tending XP", func(): core.skills.add_xp("woodcutting", 100)],
-		["Speed regen (all groves)", _debug_speed_regen],
-		["Save now", func(): core.save()],
-		["Reload save", func(): settings_bridge.call("reload_from_save")],
-		["Reset world (delete save)", func(): settings_bridge.call("reset_world")],
-	]
-	for action in actions:
-		var b := kit.button(action[0])
-		b.pressed.connect(action[1])
-		list.add_child(b)
-	list.add_child(kit.label("Arrival: %s · %.1fs · presentation: %s · parcels opened: %d" % [
-		core.arrivals.state, core.arrivals.time_until_next,
-		core.arrivals.presentation_id, core.parcels.opened_count], 13))
-	list.add_child(kit.label("Combat=%s · monsters=%s · material loot=%s" % [
-		str(core.registries.feature("combat_enabled")),
-		str(core.registries.feature("monsters_enabled")),
-		str(core.registries.feature("legacy_material_loot_enabled"))], 13))
-	list.add_child(kit.label("Seed: %d" % core.rng.world_seed, 13))
-	return win
-
-
-func _debug_choice_row(
-	list: VBoxContainer,
-	title: String,
-	choices: Array,
-	method_name: String,
-	active_id: String
-) -> void:
-	list.add_child(kit.label(title, 20))
-	var row := HFlowContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	list.add_child(row)
-	var group := ButtonGroup.new()
-	group.allow_unpress = false
-	for choice in choices:
-		var preset_id := String(choice[1])
-		var button := kit.choice_button(
-			String(choice[0]),
-			preset_id == active_id
-		)
-		button.name = "DebugChoice_%s_%s" % [method_name, preset_id]
-		button.button_group = group
-		button.toggled.connect(func(selected: bool) -> void:
-			if selected:
-				_debug_apply_visual_choice(method_name, preset_id)
-		)
-		row.add_child(button)
-
-
-func _debug_apply_visual_choice(method_name: String, preset_id: String) -> void:
-	settings_bridge.call(method_name, preset_id)
-
-
-func _debug_speed_regen() -> void:
-	for coord: Vector2i in core.grid.cells:
-		core.grid.cell(coord).anchor_regen_left = 0.5
-	for slot: Dictionary in core.grid.all_cell_slots():
-		var state: WorldGrid.CellState = slot["state"]
-		for structure: WorldGrid.StructureState in state.structures:
-			var definition := core.registries.structure(structure.structure_id)
-			if definition != null and definition.anchor_id != "" and structure.anchor_resting:
-				structure.anchor_regen_left = 0.5
 
 
 # ------------------------------------------------------------------ landmark resolve dialog

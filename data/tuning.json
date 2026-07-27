@@ -1,6 +1,4 @@
 {
-  "save_version": 8,
-  "content_revision": 1,
   "save_path": "user://suma_nook_world.json",
   "tile_size": 1.35,
   "block_depth": 0.5,
@@ -37,10 +35,7 @@
   "fishing_wait_min": 1.2,
   "fishing_wait_max": 3.2,
   "fishing_repeat_pause": 0.7,
-  "rare_roll_chance": 0.22,
-  "rare_pity_max_dry": 9,
   "new_tile_pity_max_duplicates": 4,
-  "tutorial_fragment_by_catch": 3,
   "grove_rest_visual_scale": 0.82,
   "default_direct_tile_reward_chance": 0.025,
   "fishing_collection_chance": 0.45,

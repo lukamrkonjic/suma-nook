@@ -6,7 +6,6 @@ extends CanvasLayer
 
 signal open_parcel_requested
 signal build_piece_selected(kind: String, id: String)
-signal admin_requested
 signal pause_requested
 
 var core: GameCore
@@ -30,7 +29,6 @@ var _selected_build_category := ""
 var _context_column: VBoxContainer
 var _parcel_button: Button
 var _bottom_buttons: HBoxContainer
-var _admin_card: PanelContainer
 var _hover_tooltip: PanelContainer
 var _hover_name_label: Label
 var _hover_collection_label: Label
@@ -56,7 +54,6 @@ func setup(game_core: GameCore, ui_kit: UiKit, placement_controller: PlacementCo
 	_build_layout()
 	core.skills.xp_gained.connect(_on_xp_gained)
 	core.skills.level_up.connect(_on_level_up)
-	core.inventory.item_gained.connect(_on_item_gained)
 	core.inventory.items_changed.connect(_refresh_parcel_button)
 	core.stock.stock_changed.connect(_refresh_build_strip)
 	if core.registries.feature("combat_enabled", false):
@@ -174,26 +171,6 @@ func _build_layout() -> void:
 	_parcel_button.visible = false
 	_parcel_button.pressed.connect(func(): open_parcel_requested.emit())
 	_bottom_buttons.add_child(_parcel_button)
-
-	# Discoverable debug entry point. The full controls open in the existing
-	# modal debug window so this card can stay compact over the game world.
-	if OS.is_debug_build():
-		_admin_card = kit.card()
-		_admin_card.name = "AdminCard"
-		_admin_card.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-		_admin_card.position += Vector2(-14, -14)
-		_admin_card.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-		_admin_card.grow_vertical = Control.GROW_DIRECTION_BEGIN
-		root.add_child(_admin_card)
-		var admin_col := VBoxContainer.new()
-		admin_col.add_theme_constant_override("separation", 4)
-		_admin_card.add_child(admin_col)
-		var admin_label := kit.label("DEBUG ADMIN", 12)
-		admin_label.add_theme_color_override("font_color", Color(0.48, 0.39, 0.26))
-		admin_col.add_child(admin_label)
-		var admin_button := kit.button("Open controls", true)
-		admin_button.pressed.connect(func(): admin_requested.emit())
-		admin_col.add_child(admin_button)
 
 	# Build library — a compact category shelf inspired by a physical tray.
 	# Both rows use real scroll containers, so large collections remain usable
@@ -550,16 +527,6 @@ func _on_level_up(skill_id: String, new_level: int, _unlocks: Array) -> void:
 	toast("✨ %s level %d!" % [def.display_name if def != null else skill_id, new_level], "levelup")
 
 
-func _on_item_gained(item_id: String, count: int, rare: bool) -> void:
-	var def := core.registries.item(item_id)
-	if def == null:
-		return
-	if not core.registries.feature("legacy_material_loot_enabled", false):
-		return
-	toast("+%d %s" % [count, def.display_name], "rare" if rare or def.rarity == "rare" else "common")
-	_refresh_parcel_button()
-
-
 func _on_health_changed(current: int, maximum: int) -> void:
 	for child in _health_box.get_children():
 		child.queue_free()
@@ -577,8 +544,6 @@ func _enemies_near() -> bool:
 func _on_build_mode(active: bool) -> void:
 	_build_bar.visible = active
 	_bottom_buttons.visible = not active
-	if _admin_card != null:
-		_admin_card.visible = not active
 	if active:
 		_refresh_build_strip()
 		call_deferred("_position_context_above_build_library")

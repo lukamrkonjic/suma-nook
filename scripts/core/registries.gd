@@ -1,9 +1,28 @@
 class_name Registries
 extends RefCounted
-## Loads every data/*.json file into typed definition dictionaries and validates
-## cross-references at startup. Adding content = adding JSON entries; adding a
-## whole new definition type = one loader + one dictionary here.
+## Typed façade over an atomically published content catalog. Existing gameplay
+## code uses the same lookup API while loading, provenance, and validation stay
+## isolated from runtime behavior.
 
+const ContentCatalogSnapshotScript := preload(
+	"res://scripts/core/content/content_catalog_snapshot.gd"
+)
+const DefinitionSourceScript := preload("res://scripts/core/content/definition_source.gd")
+const ValidationIssueScript := preload("res://scripts/core/content/validation_issue.gd")
+const CommonDefinitionValidatorScript := preload(
+	"res://scripts/core/content/validators/common_definition_validator.gd"
+)
+const TileDefinitionValidatorScript := preload(
+	"res://scripts/core/content/validators/tile_definition_validator.gd"
+)
+const StructureDefinitionValidatorScript := preload(
+	"res://scripts/core/content/validators/structure_definition_validator.gd"
+)
+const CatalogReferenceValidatorScript := preload(
+	"res://scripts/core/content/validators/catalog_reference_validator.gd"
+)
+
+var snapshot
 var tuning: Dictionary = {}
 var features: Dictionary = {}
 var arrival_config: Dictionary = {}
@@ -15,30 +34,134 @@ var recipes: Dictionary = {}
 var loot_tables: Dictionary = {}
 var parcels: Dictionary = {}
 var anchors: Dictionary = {}
+var capabilities: Dictionary = {}
 var enemies: Dictionary = {}
 var landmarks: Dictionary = {}
+var load_issues: Array = []
 var load_errors: PackedStringArray = []
+var feature_validators: Array[Callable] = []
 
 
-func load_all(base_path := "res://data") -> bool:
-	load_errors.clear()
-	tuning = _read(base_path + "/tuning.json")
-	features = _read(base_path + "/features.json")
-	arrival_config = _read(base_path + "/arrival_config.json")
-	_load_list(base_path + "/skills.json", "skills", skills, Defs.SkillDefinition.from_dict)
-	_load_list(base_path + "/items.json", "items", items, Defs.ItemDefinition.from_dict)
-	_load_list(base_path + "/tiles.json", "tiles", tiles, Defs.TileDefinition.from_dict)
-	_load_list(base_path + "/structures.json", "structures", structures, Defs.StructureDefinition.from_dict)
-	_load_list(base_path + "/recipes.json", "recipes", recipes, Defs.RecipeDefinition.from_dict)
-	_load_list(base_path + "/loot_tables.json", "tables", loot_tables, Defs.LootTableDefinition.from_dict)
-	_load_list(base_path + "/parcels.json", "parcels", parcels, Defs.ParcelDefinition.from_dict)
-	_load_list(base_path + "/anchors.json", "anchors", anchors, Defs.AnchorDefinition.from_dict)
-	_load_list(base_path + "/enemies.json", "enemies", enemies, Defs.EnemyDefinition.from_dict)
-	_load_list(base_path + "/landmarks.json", "landmarks", landmarks, Defs.LandmarkDefinition.from_dict)
-	_validate()
-	for error in load_errors:
-		push_error("Registries: " + error)
-	return load_errors.is_empty()
+func register_validator(validator: Callable) -> void:
+	if validator.is_valid() and not feature_validators.has(validator):
+		feature_validators.append(validator)
+
+
+## Loading is atomic: an invalid candidate never mutates the currently
+## published dictionaries. This also makes development reloads safe.
+func load_all(base_path := "res://data", report_issues := true) -> bool:
+	var candidate := ContentCatalogSnapshotScript.new(base_path)
+	var issues: Array = []
+	candidate.tuning = _read_object(base_path + "/tuning.json", issues)
+	candidate.features = _read_object(base_path + "/features.json", issues)
+	candidate.arrival_config = _read_object(base_path + "/arrival_config.json", issues)
+	_load_list(
+		candidate, base_path + "/skills.json", "skills", "skills",
+		candidate.skills, Defs.SkillDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/items.json", "items", "items",
+		candidate.items, Defs.ItemDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/tiles.json", "tiles", "tiles",
+		candidate.tiles, Defs.TileDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/structures.json", "structures", "structures",
+		candidate.structures, Defs.StructureDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/recipes.json", "recipes", "recipes",
+		candidate.recipes, Defs.RecipeDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/loot_tables.json", "tables", "loot_tables",
+		candidate.loot_tables, Defs.LootTableDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/parcels.json", "parcels", "parcels",
+		candidate.parcels, Defs.ParcelDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/anchors.json", "anchors", "anchors",
+		candidate.anchors, Defs.AnchorDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/capabilities.json", "capabilities", "capabilities",
+		candidate.capabilities, Defs.CapabilityDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/enemies.json", "enemies", "enemies",
+		candidate.enemies, Defs.EnemyDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/landmarks.json", "landmarks", "landmarks",
+		candidate.landmarks, Defs.LandmarkDefinition.from_dict, issues
+	)
+	CommonDefinitionValidatorScript.validate(candidate, issues)
+	TileDefinitionValidatorScript.validate(candidate, issues)
+	StructureDefinitionValidatorScript.validate(candidate, issues)
+	CatalogReferenceValidatorScript.validate(candidate, issues)
+	for validator: Callable in feature_validators:
+		validator.call(candidate, issues)
+	ContentValidator.validate_snapshot(candidate, issues)
+	_publish_issues(issues, report_issues)
+	if _has_errors(issues):
+		return false
+	_adopt(candidate)
+	return true
+
+
+func reload_all_atomic(base_path := "", report_issues := true) -> bool:
+	var reload_path := base_path
+	if reload_path == "":
+		reload_path = snapshot.base_path if snapshot != null else "res://data"
+	return load_all(reload_path, report_issues)
+
+
+func definition_source(kind: String, content_id: String):
+	return snapshot.source(kind, content_id) if snapshot != null else null
+
+
+func definition_kinds() -> Array[String]:
+	return (
+		snapshot.DEFINITION_KINDS.duplicate()
+		if snapshot != null
+		else ContentCatalogSnapshotScript.DEFINITION_KINDS.duplicate()
+	)
+
+
+func definitions(kind: String) -> Dictionary:
+	return snapshot.definitions(kind) if snapshot != null else {}
+
+
+func definition(kind: String, content_id: String):
+	return definitions(kind).get(content_id)
+
+
+func definition_traits(kind: String, content_id: String):
+	var found = definition(kind, content_id)
+	return found.traits if found != null else null
+
+
+func definition_has_tag(kind: String, content_id: String, tag: String) -> bool:
+	var traits = definition_traits(kind, content_id)
+	return traits != null and traits.has_tag(tag)
+
+
+func definition_has_capability(
+	kind: String, content_id: String, capability_id: String
+) -> bool:
+	var traits = definition_traits(kind, content_id)
+	return traits != null and traits.has_capability(capability_id)
+
+
+func definition_capability(
+	kind: String, content_id: String, capability_id: String
+) -> Dictionary:
+	var traits = definition_traits(kind, content_id)
+	return traits.capability(capability_id) if traits != null else {}
 
 
 func tune(key: String, fallback: Variant = null) -> Variant:
@@ -65,283 +188,128 @@ func recipe(id: String) -> Defs.RecipeDefinition: return recipes.get(id)
 func loot_table(id: String) -> Defs.LootTableDefinition: return loot_tables.get(id)
 func parcel(id: String) -> Defs.ParcelDefinition: return parcels.get(id)
 func anchor(id: String) -> Defs.AnchorDefinition: return anchors.get(id)
+func capability(id: String) -> Defs.CapabilityDefinition: return capabilities.get(id)
 func enemy(id: String) -> Defs.EnemyDefinition: return enemies.get(id)
 func landmark(id: String) -> Defs.LandmarkDefinition: return landmarks.get(id)
 
 
 func has_definition(kind: String, id: String) -> bool:
-	match kind:
-		"tiles": return tiles.has(id)
-		"structures": return structures.has(id)
-		"items": return items.has(id)
-		"parcels": return parcels.has(id)
-		"landmarks": return landmarks.has(id)
-		"enemies": return enemies.has(id)
-		"skills": return skills.has(id)
-	return false
-
-
-func ensure_compatibility_definition(kind: String, id: String) -> Resource:
-	if id == "":
-		return null
-	match kind:
-		"tiles":
-			if not tiles.has(id):
-				tiles[id] = Defs.TileDefinition.from_dict({
-					"id": id,
-					"name": "Recovered Tile (%s)" % id,
-					"family": "retired",
-					"asset_id": "tile_stone_clearing",
-					"weight": 0.0,
-					"obtainable": false,
-					"stackable": true,
-					"supports_tiles": true,
-					"supports_decor": true,
-					"surface_kind": "flat",
-					"render_profile": "standard",
-					"collision_profile": "flat",
-					"special_trait": "Compatibility placeholder for retired content.",
-				})
-			return tiles[id]
-		"structures":
-			if not structures.has(id):
-				structures[id] = Defs.StructureDefinition.from_dict({
-					"id": id,
-					"name": "Recovered Decoration (%s)" % id,
-					"asset_id": "prop_sign",
-					"kind": "decoration",
-					"socket_type": "decor",
-					"allow_elevated": true,
-					"placement_tags": ["recovered"],
-					"can_be_stacked": true,
-					"support_slots": [],
-				})
-			return structures[id]
-		"items":
-			if not items.has(id):
-				items[id] = Defs.ItemDefinition.from_dict({
-					"id": id,
-					"name": "Recovered Item (%s)" % id,
-					"category": "retired",
-					"stack": true,
-				})
-			return items[id]
-		"parcels":
-			if not parcels.has(id):
-				parcels[id] = Defs.ParcelDefinition.from_dict({
-					"id": id,
-					"name": "Recovered Parcel (%s)" % id,
-					"families": {"home_meadow": 1.0},
-					"option_count": 3,
-				})
-			if not items.has(id):
-				items[id] = Defs.ItemDefinition.from_dict({
-					"id": id,
-					"name": "Recovered Parcel (%s)" % id,
-					"category": "parcel",
-					"stack": true,
-				})
-			return parcels[id]
-		"landmarks":
-			if not landmarks.has(id):
-				landmarks[id] = Defs.LandmarkDefinition.from_dict({
-					"id": id,
-					"name": "Recovered Landmark (%s)" % id,
-					"asset_id": "prop_sign",
-					"footprint": [[0, 0]],
-					"min_progress_tiles": 999999,
-				})
-			return landmarks[id]
-		"enemies":
-			if not enemies.has(id):
-				enemies[id] = Defs.EnemyDefinition.from_dict({
-					"id": id,
-					"name": "Recovered Creature (%s)" % id,
-					"asset_id": "enemy_thornling_stalker",
-					"health": 1,
-					"damage": 0,
-					"speed": 0.0,
-				})
-			return enemies[id]
-		"skills":
-			if not skills.has(id):
-				skills[id] = Defs.SkillDefinition.from_dict({
-					"id": id,
-					"name": "Retired Skill (%s)" % id,
-					"future": true,
-					"max_level": 1,
-				})
-			return skills[id]
-	return null
+	return definitions(kind).has(id)
 
 
 func tiles_in_family(family: String) -> Array:
 	var result: Array = []
-	for def: Defs.TileDefinition in tiles.values():
-		if def.family == family and def.obtainable:
-			result.append(def)
+	for definition: Defs.TileDefinition in tiles.values():
+		if definition.family == family and definition.obtainable:
+			result.append(definition)
 	return result
 
 
-func _read(path: String) -> Dictionary:
+func _read_object(path: String, issues: Array) -> Dictionary:
 	if not FileAccess.file_exists(path):
-		load_errors.append("missing file " + path)
+		issues.append(ValidationIssueScript.new(
+			ValidationIssueScript.Severity.ERROR, "content.file.missing",
+			null, path, "file does not exist"
+		))
 		return {}
-	var text := FileAccess.get_file_as_string(path)
-	var parsed: Variant = JSON.parse_string(text)
+	var parser := JSON.new()
+	var error := parser.parse(FileAccess.get_file_as_string(path))
+	if error != OK:
+		issues.append(ValidationIssueScript.new(
+			ValidationIssueScript.Severity.ERROR, "content.json.invalid",
+			null, "%s:%d" % [path, parser.get_error_line()],
+			parser.get_error_message()
+		))
+		return {}
+	var parsed: Variant = parser.data
 	if not parsed is Dictionary:
-		load_errors.append("invalid JSON in " + path)
+		issues.append(ValidationIssueScript.new(
+			ValidationIssueScript.Severity.ERROR, "content.root.invalid",
+			null, path, "root value must be an object"
+		))
 		return {}
 	return parsed
 
 
-func _load_list(path: String, key: String, target: Dictionary, factory: Callable) -> void:
-	target.clear()
-	for entry in _read(path).get(key, []):
-		var def: Resource = factory.call(entry)
-		var id: String = def.get("id")
-		if id == "":
-			load_errors.append("entry without id in " + path)
-		elif target.has(id):
-			load_errors.append("duplicate id '%s' in %s" % [id, path])
-		else:
-			target[id] = def
+func _load_list(
+	candidate,
+	path: String,
+	root_key: String,
+	kind: String,
+	target: Dictionary,
+	factory: Callable,
+	issues: Array
+) -> void:
+	var root := _read_object(path, issues)
+	var raw_entries: Variant = root.get(root_key, [])
+	if not raw_entries is Array:
+		issues.append(ValidationIssueScript.new(
+			ValidationIssueScript.Severity.ERROR, "content.list.invalid",
+			null, "%s.%s" % [path, root_key],
+			"expected an array"
+		))
+		return
+	for index in raw_entries.size():
+		var raw_entry: Variant = raw_entries[index]
+		if not raw_entry is Dictionary:
+			issues.append(ValidationIssueScript.new(
+				ValidationIssueScript.Severity.ERROR, "content.entry.invalid",
+				null, "%s[%d]" % [path, index],
+				"expected an object"
+			))
+			continue
+		var content_id := String(raw_entry.get("id", ""))
+		var source := DefinitionSourceScript.new(path, kind, root_key, index, content_id)
+		if content_id == "":
+			issues.append(ValidationIssueScript.new(
+				ValidationIssueScript.Severity.ERROR, "content.id.required",
+				source, "id", "id must not be empty"
+			))
+			continue
+		if target.has(content_id):
+			issues.append(ValidationIssueScript.new(
+				ValidationIssueScript.Severity.ERROR, "content.id.duplicate",
+				source, "id",
+				"id '%s' is already defined" % content_id
+			))
+			continue
+		var definition: Resource = factory.call(raw_entry)
+		target[content_id] = definition
+		candidate.set_source(kind, content_id, source)
 
 
-func _validate() -> void:
-	var known_families := {}
-	for def: Defs.TileDefinition in tiles.values():
-		known_families[def.family] = true
-		if def.anchor_id != "" and not anchors.has(def.anchor_id):
-			load_errors.append("tile %s references missing anchor %s" % [def.id, def.anchor_id])
-		if def.asset_id == "":
-			load_errors.append("tile %s has no asset id" % def.id)
-		if def.weight < 0.0:
-			load_errors.append("tile %s has negative parcel weight" % def.id)
-		if def.decor_sockets < 0 or def.structure_sockets < 0:
-			load_errors.append("tile %s has negative socket counts" % def.id)
-		if def.structure_sockets > 1:
-			load_errors.append("tile %s declares unsupported multiple major sockets" % def.id)
-		if def.surface_kind not in ["flat", "stairs", "uneven", "water"]:
-			load_errors.append("tile %s has invalid surface kind %s" % [def.id, def.surface_kind])
-		if def.render_profile not in ["standard", "continuous_water"]:
-			load_errors.append("tile %s has invalid render profile %s" % [def.id, def.render_profile])
-		if def.collision_profile not in ["flat", "pond_basin", "none"]:
-			load_errors.append("tile %s has invalid collision profile %s" % [def.id, def.collision_profile])
-		if def.surface_detail_profile not in ["", "grass_speckles"]:
-			load_errors.append(
-				"tile %s has invalid surface detail profile %s"
-				% [def.id, def.surface_detail_profile]
-			)
-		if def.supports_tiles and def.surface_kind != "flat":
-			load_errors.append("tile %s supports stacking but does not have a flat surface" % def.id)
-		if def.render_profile == "continuous_water" and not def.water_cells.has("open_water"):
-			load_errors.append("tile %s uses continuous water rendering without the open_water tag" % def.id)
-		if def.collision_profile == "pond_basin" and not def.water_cells.has("pond"):
-			load_errors.append("tile %s uses pond collision without the pond tag" % def.id)
-		if def.structure_sockets > 0 and not def.supports_decor:
-			load_errors.append("tile %s exposes a major socket while decor support is disabled" % def.id)
-		for skill_id: String in def.unlock_level:
-			if not skills.has(skill_id):
-				load_errors.append("tile %s unlock references missing skill %s" % [def.id, skill_id])
-	for def: Defs.StructureDefinition in structures.values():
-		if def.asset_id == "":
-			load_errors.append("structure %s has no asset id" % def.id)
-		if def.anchor_id != "" and not anchors.has(def.anchor_id):
-			load_errors.append(
-				"structure %s references missing anchor %s" % [def.id, def.anchor_id]
-			)
-		if def.socket_type not in ["decor", "structure"]:
-			load_errors.append("structure %s has invalid socket type %s" % [def.id, def.socket_type])
-		if def.collision_profile not in ["blocker", "walkable_surface", "none"]:
-			load_errors.append(
-				"structure %s has invalid collision profile %s"
-				% [def.id, def.collision_profile]
-			)
-		if def.grid_fit_profile not in ["", "tile_span"]:
-			load_errors.append(
-				"structure %s has invalid grid fit profile %s"
-				% [def.id, def.grid_fit_profile]
-			)
-		if def.allowed_surface_kinds.is_empty():
-			load_errors.append("structure %s has no allowed placement surfaces" % def.id)
-		for surface_kind: String in def.allowed_surface_kinds:
-			if surface_kind not in ["flat", "stairs", "uneven", "water"]:
-				load_errors.append(
-					"structure %s allows invalid surface kind %s"
-					% [def.id, surface_kind]
-				)
-		if not def.placement_policy_explicit:
-			load_errors.append(
-				"structure %s must explicitly classify placement_tags, can_be_stacked, and support_slots"
-				% def.id
-			)
-		if def.placement_tags.is_empty():
-			load_errors.append("structure %s has no placement tags" % def.id)
-		var support_slot_ids := {}
-		for slot: Defs.SupportSlotDefinition in def.support_slots:
-			if slot.id == "":
-				load_errors.append("structure %s has an unnamed support slot" % def.id)
-			elif support_slot_ids.has(slot.id):
-				load_errors.append(
-					"structure %s duplicates support slot %s" % [def.id, slot.id]
-				)
-			else:
-				support_slot_ids[slot.id] = true
-			if slot.accepts.is_empty():
-				load_errors.append(
-					"structure %s support slot %s accepts no placement tags"
-					% [def.id, slot.id]
-				)
-	for def: Defs.AnchorDefinition in anchors.values():
-		if not skills.has(def.skill_id):
-			load_errors.append("anchor %s references missing skill %s" % [def.id, def.skill_id])
-		if def.loot_table != "" and not loot_tables.has(def.loot_table):
-			load_errors.append("anchor %s references missing loot table %s" % [def.id, def.loot_table])
-	for def: Defs.SkillDefinition in skills.values():
-		if def.loot_table != "" and not loot_tables.has(def.loot_table):
-			load_errors.append("skill %s references missing loot table %s" % [def.id, def.loot_table])
-		if def.rare_table != "" and not loot_tables.has(def.rare_table):
-			load_errors.append("skill %s references missing rare table %s" % [def.id, def.rare_table])
-		for tile_id: String in def.direct_tile_reward_pool:
-			if not tiles.has(tile_id):
-				load_errors.append("skill %s reward pool references missing tile %s" % [def.id, tile_id])
-		for unlock: Dictionary in def.unlocks:
-			var kind := String(unlock.get("kind", ""))
-			var unlock_id := String(unlock.get("id", ""))
-			if kind in ["tile", "tile_reward"] and not tiles.has(unlock_id):
-				load_errors.append("skill %s unlock references missing tile %s" % [def.id, unlock_id])
-			elif kind == "structure_reward" and not structures.has(unlock_id):
-				load_errors.append("skill %s unlock references missing structure %s" % [def.id, unlock_id])
-			elif kind == "recipe" and not recipes.has(unlock_id):
-				load_errors.append("skill %s unlock references missing recipe %s" % [def.id, unlock_id])
-			elif kind == "anchor_upgrade" and not anchors.has(unlock_id):
-				load_errors.append("skill %s unlock references missing anchor %s" % [def.id, unlock_id])
-	for def: Defs.LootTableDefinition in loot_tables.values():
-		for entry in def.entries:
-			if not items.has(entry["item"]):
-				load_errors.append("loot table %s references missing item %s" % [def.id, entry["item"]])
-	for def: Defs.RecipeDefinition in recipes.values():
-		for input_id: String in def.inputs:
-			if not items.has(input_id):
-				load_errors.append("recipe %s input references missing item %s" % [def.id, input_id])
-		var out_known: bool = items.has(def.output_id) or structures.has(def.output_id) or def.output_id == "reroll_charge"
-		if not out_known:
-			load_errors.append("recipe %s output references missing id %s" % [def.id, def.output_id])
-	for def: Defs.ParcelDefinition in parcels.values():
-		if not items.has(def.id):
-			load_errors.append("parcel %s has no matching inventory item" % def.id)
-		for family: String in def.families:
-			if not known_families.has(family):
-				load_errors.append("parcel %s references empty tile family %s" % [def.id, family])
-	for def: Defs.LandmarkDefinition in landmarks.values():
-		for spawn in def.enemies:
-			if not enemies.has(spawn.get("enemy", "")):
-				load_errors.append("landmark %s references missing enemy" % def.id)
-		if def.guardian_id != "" and not enemies.has(def.guardian_id):
-			load_errors.append("landmark %s references missing guardian" % def.id)
-		if def.guardian_reward != "" and not items.has(def.guardian_reward):
-			load_errors.append("landmark %s guardian reward missing item" % def.id)
-	for id in tuning.get("guaranteed_first_parcel_options", []):
-		if not tiles.has(id):
-			load_errors.append("tuning guaranteed option references missing tile %s" % id)
+func _adopt(candidate) -> void:
+	snapshot = candidate
+	tuning = candidate.tuning
+	features = candidate.features
+	arrival_config = candidate.arrival_config
+	skills = candidate.skills
+	items = candidate.items
+	tiles = candidate.tiles
+	structures = candidate.structures
+	recipes = candidate.recipes
+	loot_tables = candidate.loot_tables
+	parcels = candidate.parcels
+	anchors = candidate.anchors
+	capabilities = candidate.capabilities
+	enemies = candidate.enemies
+	landmarks = candidate.landmarks
+
+
+func _publish_issues(issues: Array, report_issues: bool) -> void:
+	load_issues.assign(issues)
+	load_errors.clear()
+	for issue in issues:
+		if issue.severity == ValidationIssueScript.Severity.ERROR:
+			load_errors.append(issue.format())
+			if report_issues:
+				push_error("Registries: " + issue.format())
+		elif report_issues:
+			push_warning("Registries: " + issue.format())
+
+
+func _has_errors(issues: Array) -> bool:
+	for issue in issues:
+		if issue.severity == ValidationIssueScript.Severity.ERROR:
+			return true
+	return false

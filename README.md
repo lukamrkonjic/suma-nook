@@ -43,13 +43,6 @@ material-loot grind, combat loop, survival pressure, or delivery FOMO.
 | I C K J M | Tile/Build Libraries · character · hobbies · collection · world map |
 | H | return home safely |
 | Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z | undo / redo placement |
-| F1 | debug panel (dev builds only) |
-
-The debug panel includes **Open Asset World**, a curated gallery of terrain
-tiles and substantial player-placeable decorations. Use WASD or drag to pan,
-the wheel/trackpad to zoom, Q/X to rotate, the section picker to jump, and H
-for the complete overview. Small scatter meshes stay hidden until they are
-promoted to intentional placeable content.
 
 ## Tests
 
@@ -61,7 +54,7 @@ and the windowed full-loop acceptance runner (must print `FULL LOOP PASSED`).
 `data/` JSON content → `scripts/core/registries.gd` typed definitions ·
 `scripts/` (core / systems / world / player / visuals / ui) ·
 `assets/3d` generated GLBs · `art_source/` Blender pipeline sources ·
-`scenes/` main, lighting rig, VisualStyleLab · `tools/` asset + audio
+`scenes/` main + lighting rig · `tools/` asset, content-validation, and audio
 generators · `legacy/` pre-rework prototype (unreferenced, safe to delete).
 
 ## How to add content

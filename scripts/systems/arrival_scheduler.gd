@@ -20,14 +20,11 @@ var time_until_next := 0.0
 var paused := false
 var deliveries_created := 0
 var current_payload: LandParcelPayload
-var presentation_id := "ferry"
-var debug_speed_multiplier := 1.0
 
 
 func _init(regs: Registries, rng_service: RngService) -> void:
 	registries = regs
 	rng = rng_service
-	presentation_id = String(registries.arrival_config.get("default_presentation", "ferry"))
 	_schedule_next(true)
 
 
@@ -38,7 +35,7 @@ func tick(delta: float) -> void:
 		or state != IDLE
 	):
 		return
-	time_until_next = maxf(0.0, time_until_next - delta * debug_speed_multiplier)
+	time_until_next = maxf(0.0, time_until_next - delta)
 	timer_changed.emit(time_until_next)
 	if time_until_next <= 0.0:
 		trigger_arrival()
@@ -94,13 +91,6 @@ func force_departure_ready() -> void:
 		mark_delivery_ready(current_payload)
 
 
-func set_presentation(id: String) -> bool:
-	if state == ARRIVING or id not in ["ferry", "postcard"]:
-		return false
-	presentation_id = id
-	return true
-
-
 func _schedule_next(first: bool) -> void:
 	var prefix := "first" if first else "later"
 	var minimum := float(registries.arrival_config.get("%s_arrival_min_seconds" % prefix, 60.0))
@@ -114,7 +104,6 @@ func to_save_dict() -> Dictionary:
 		"time_until_next": time_until_next,
 		"paused": paused,
 		"deliveries_created": deliveries_created,
-		"presentation_id": presentation_id,
 		"payload": current_payload.to_dict() if current_payload != null else {},
 	}
 
@@ -124,9 +113,6 @@ func from_save_dict(data: Dictionary) -> void:
 	time_until_next = maxf(0.0, float(data.get("time_until_next", time_until_next)))
 	paused = bool(data.get("paused", false))
 	deliveries_created = maxi(0, int(data.get("deliveries_created", 0)))
-	var restored_presentation := String(data.get("presentation_id", presentation_id))
-	if restored_presentation in ["ferry", "postcard"]:
-		presentation_id = restored_presentation
 	var payload_data: Dictionary = data.get("payload", {})
 	current_payload = LandParcelPayload.from_dict(payload_data) if not payload_data.is_empty() else null
 	# A quit during the animation recovers as a safe package at the dock.

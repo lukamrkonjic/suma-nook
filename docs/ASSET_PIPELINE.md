@@ -48,7 +48,8 @@ Cottage, arch, bridge-scale pieces, enemies, tools/weapons — same script famil
 3. Blender cleanup (normals, retopo, bevels, palette materials, pivot, sockets) →
    `art_source/blender/<asset_id>/<asset_id>.blend`.
 4. Export `assets/3d/final/<asset_id>.glb` using the SAME asset id as the shipped proxy.
-5. Validate in `scenes/debug/VisualStyleLab.tscn` under both profiles.
+5. Validate in the production world under day and rain profiles, then run the
+   full-loop acceptance suite.
 6. Nothing else changes: gameplay references definitions (`data/*.json` →
    `scene_path`), never proxy filenames. Swapping the file at the definition's
    `scene_path` (or editing that one JSON string) completes the replacement.

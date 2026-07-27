@@ -58,7 +58,7 @@ func open(parcel_id: String) -> Array[String]:
 	return pending_options.duplicate()
 
 
-## Ferry/postcard delivery path: reveals a parcel without routing it through
+## Ferry delivery path: reveals a parcel without routing it through
 ## the generic material inventory.
 func deliver(parcel_id: String) -> Array[String]:
 	if has_pending():

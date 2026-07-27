@@ -292,13 +292,6 @@ func set_user_post_effects(ssao_enabled: bool, bloom_enabled: bool) -> void:
 	)
 
 
-func reset_admin_overrides() -> void:
-	time_of_day_id = "noon"
-	background_preset_id = "profile"
-	particle_quality_id = "high"
-	apply_profile(day_profile)
-
-
 func weather_id() -> String:
 	if current_profile == mist_profile:
 		return "mist"

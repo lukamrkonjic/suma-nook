@@ -5,6 +5,10 @@ extends SceneTree
 
 var failures: PackedStringArray = []
 var assertions := 0
+const GameContentCatalogScript := preload("res://scripts/core/game_content_catalog.gd")
+const CurrentSaveValidatorScript := preload(
+	"res://scripts/systems/current_save_validator.gd"
+)
 
 
 func _init() -> void:
@@ -39,6 +43,7 @@ func fresh_core(seed_value := 12345) -> GameCore:
 func _run() -> void:
 	_test_input_bindings()
 	_test_registries()
+	_test_content_catalog_architecture()
 	_test_build_library_categories()
 	_test_content_assets()
 	_test_gg_render_contract()
@@ -46,13 +51,11 @@ func _run() -> void:
 	_test_starting_world()
 	_test_xp_only_hobbies()
 	_test_hobby_journal_and_direct_rewards()
-	_test_disabled_legacy_systems()
+	_test_out_of_scope_systems_disabled()
 	_test_arrival_and_parcel_loop()
-	_test_arrival_queue_and_presentation_swap()
+	_test_arrival_queue_invariants()
 	_test_xp_and_unlocks()
 	_test_deterministic_rng()
-	_test_fishing_rewards_and_tutorial()
-	_test_rare_pity()
 	_test_parcels_choice_and_duplicates()
 	_test_new_tile_pity()
 	_test_tile_adjacency_overlap_rotation()
@@ -60,6 +63,7 @@ func _run() -> void:
 	_test_connectivity_and_relocation()
 	_test_sockets_and_overlap_prevention()
 	_test_object_support_graph()
+	_test_camping_feature_contract()
 	_test_anchor_cycle_and_regen()
 	_test_crafting_transactions()
 	_test_equipment()
@@ -68,12 +72,7 @@ func _run() -> void:
 	_test_pack_and_salvage()
 	_test_deed_replacement()
 	_test_rework_save_round_trip()
-	_test_v1_save_migration()
-	_test_v5_tree_anchor_migration()
-	_test_v7_tile_scale_migration()
-	_test_missing_definition_load()
-	_test_content_alias_migration()
-	_test_world_reconciliation()
+	_test_current_save_policy()
 	_test_interrupted_reveal_recovery()
 	_test_player_defeat_safety()
 
@@ -99,12 +98,11 @@ func _action_has_key(action: StringName, physical_keycode: Key) -> bool:
 
 
 func _test_registries() -> void:
-	var regs := Registries.new()
+	var regs := GameContentCatalogScript.create()
 	check(regs.load_all(), "all data files load and cross-validate: " + ", ".join(regs.load_errors))
 	check(regs.skills.size() == 3, "three skills defined")
 	check(regs.tiles.size() >= 15, "at least 15 tile variants")
 	check(regs.skill("mining").future, "mining is a future (data-only) skill")
-	check(not regs.feature("legacy_material_loot_enabled"), "ordinary material loot is disabled")
 	check(not regs.feature("combat_enabled"), "combat is disabled")
 	check(regs.feature("ferry_arrivals_enabled"), "periodic arrivals are enabled")
 	check(
@@ -137,8 +135,69 @@ func _test_registries() -> void:
 	check(fishing.xp_to_next(1) > 0 and fishing.xp_to_next(2) > fishing.xp_to_next(1), "xp curve increases")
 
 
+func _test_content_catalog_architecture() -> void:
+	var regs := GameContentCatalogScript.create()
+	check(regs.load_all(), "catalog snapshot loads before atomic reload test")
+	var expected_kinds := [
+		"skills", "items", "tiles", "structures", "recipes", "loot_tables",
+		"parcels", "anchors", "capabilities", "enemies", "landmarks",
+	]
+	check(
+		regs.definition_kinds() == expected_kinds,
+		"one global catalog lifecycle covers every current definition family"
+	)
+	var global_count := 0
+	for kind: String in regs.definition_kinds():
+		var family: Dictionary = regs.definitions(kind)
+		check(not family.is_empty(), "%s participates in the global catalog" % kind)
+		for content_id: String in family:
+			global_count += 1
+			check(
+				regs.definition(kind, content_id) == family[content_id]
+				and regs.definition_source(kind, content_id) != null
+				and regs.definition_traits(kind, content_id) != null,
+				"%s/%s has typed data, provenance, and common traits"
+				% [kind, content_id]
+			)
+	check(global_count > 0, "every shipped definition uses the global contract")
+	check(
+		regs.definition_has_tag("items", "fish_dawnfin", "fish"),
+		"item tags are available through the global definition API"
+	)
+	check(
+		regs.definition_has_capability(
+			"structures", "struct_high_tent", "shelter"
+		)
+		and int(regs.definition_capability(
+			"structures", "struct_high_tent", "shelter"
+		).get("capacity", 0)) == 2,
+		"capabilities use the same global API rather than a tent-only registry"
+	)
+	var original_snapshot: Variant = regs.snapshot
+	var original_tile_count := regs.tiles.size()
+	var source: Variant = regs.definition_source("structures", "struct_bench")
+	check(source != null, "definitions retain source provenance")
+	check(
+		source.path.ends_with("structures.json") and source.content_id == "struct_bench",
+		"definition provenance identifies its exact file and stable id"
+	)
+	check(
+		not regs.reload_all_atomic("user://definitely_missing_suma_catalog", false),
+		"invalid development reload is rejected"
+	)
+	check(
+		regs.snapshot == original_snapshot and regs.tiles.size() == original_tile_count,
+		"failed reload preserves the previously published immutable catalog"
+	)
+	check(
+		not regs.load_issues.is_empty()
+		and String(regs.load_errors[0]).contains("definitely_missing_suma_catalog"),
+		"structured reload failures report the source path"
+	)
+
+
 func _test_build_library_categories() -> void:
-	var regs := Registries.new()
+	var regs := GameContentCatalogScript.create()
 	check(regs.load_all(), "build-library category registry loads")
 	var expected_tiles := {
 		"tile_open_water": "ground",
@@ -173,7 +232,7 @@ func _test_build_library_categories() -> void:
 		"struct_gate": "boundaries",
 		"struct_lantern": "utilities",
 		"struct_campfire": "utilities",
-		"struct_shelter": "buildings",
+		"struct_high_tent": "buildings",
 		"struct_planter": "nature",
 		"struct_pot": "nature",
 		"struct_chest": "storage",
@@ -197,7 +256,7 @@ func _test_build_library_categories() -> void:
 
 
 func _test_content_assets() -> void:
-	var regs := Registries.new()
+	var regs := GameContentCatalogScript.create()
 	check(regs.load_all(), "content asset validation registry loads")
 	var errors := ContentValidator.validate(regs)
 	check(errors.is_empty(), "every production definition resolves its visual asset: " + ", ".join(errors))
@@ -206,7 +265,7 @@ func _test_content_assets() -> void:
 func _test_gg_render_contract() -> void:
 	var profile := load("res://assets/visual_profiles/gg_day_profile.tres") as VisualStyleProfile
 	check(profile != null, "GG day visual profile loads")
-	var regs := Registries.new()
+	var regs := GameContentCatalogScript.create()
 	check(regs.load_all(), "render-contract tuning registry loads")
 	check(
 		regs.tunef("camera_min_size", 40.0) <= 14.0
@@ -312,7 +371,7 @@ func _test_starting_world() -> void:
 				placed_tree_count += 1
 			if (
 				definition != null
-				and definition.provides.has("storage_access")
+				and definition.has_capability("storage_access")
 				and slot["coord"] == Vector2i(1, 0)
 			):
 				chest_count += 1
@@ -352,8 +411,6 @@ func _test_xp_only_hobbies() -> void:
 		check(not result.has_world_reward(), "ordinary %s action has no forced world reward" % hobby_id)
 		skill.direct_tile_reward_chance = old_chance
 	check(str(core.inventory.counts) == str(inventory_before), "Fishing and Woodland Tending add no common inventory items")
-	check(core.rewards.roll_action_loot(core.registries.skill("fishing")).is_empty(), "disabled legacy fishing table cannot produce materials")
-	check(core.rewards.roll_action_loot(core.registries.skill("woodcutting")).is_empty(), "disabled legacy wood table cannot produce materials")
 
 
 func _test_hobby_journal_and_direct_rewards() -> void:
@@ -381,7 +438,7 @@ func _test_hobby_journal_and_direct_rewards() -> void:
 	fishing.direct_tile_reward_pool = old_pool
 
 
-func _test_disabled_legacy_systems() -> void:
+func _test_out_of_scope_systems_disabled() -> void:
 	var core := fresh_core()
 	check(core.crafting.available_recipes().is_empty(), "material crafting recipes are hidden")
 	check(not core.crafting.craft("recipe_meadow_parcel"), "material-to-land crafting is disabled")
@@ -420,14 +477,12 @@ func _test_arrival_and_parcel_loop() -> void:
 	check(core.arrivals.time_until_next >= 300.0, "later arrival uses configured relaxed timing")
 
 
-func _test_arrival_queue_and_presentation_swap() -> void:
+func _test_arrival_queue_invariants() -> void:
 	var core := fresh_core(707)
 	var requests := [0]
 	core.arrivals.arrival_requested.connect(func(_payload): requests[0] += 1)
-	check(core.arrivals.set_presentation("postcard"), "debug presentation can switch to postcard")
-	check(core.arrivals.presentation_id == "postcard", "presentation selection is state only")
-	check(core.arrivals.trigger_arrival(), "postcard uses the same scheduler")
-	check(requests[0] == 1, "selected presentation receives one generic request")
+	check(core.arrivals.trigger_arrival(), "arrival uses the shared scheduler")
+	check(requests[0] == 1, "presentation receives one generic request")
 	var payload := core.arrivals.current_payload
 	core.arrivals.mark_delivery_ready(payload)
 	check(not core.arrivals.trigger_arrival(), "unopened package blocks delivery accumulation")
@@ -469,24 +524,6 @@ func _test_deterministic_rng() -> void:
 		if c.rng.randi_range("determinism_probe", 0, 1_000_000) != seq_a[i]:
 			differs = true
 	check(differs, "different seeds diverge")
-
-
-func _test_fishing_rewards_and_tutorial() -> void:
-	var core := fresh_core()
-	var skill := core.registries.skill("fishing")
-	var by_catch := core.registries.tunei("tutorial_fragment_by_catch", 3)
-	for i in by_catch:
-		var grants := core.rewards.roll_action_loot(skill)
-		check(grants.is_empty(), "disabled legacy catch %d creates no material loot" % (i + 1))
-	check(core.rewards.tutorial_catches == 0, "retired material tutorial state no longer advances")
-
-
-func _test_rare_pity() -> void:
-	var core := fresh_core(4242)
-	var skill := core.registries.skill("woodcutting")
-	for i in 60:
-		check(core.rewards.roll_action_loot(skill).is_empty(), "disabled rare material roll stays empty")
-	check(core.rewards.rare_dry_streak.is_empty(), "retired rare pity state remains dormant")
 
 
 func _test_parcels_choice_and_duplicates() -> void:
@@ -1087,276 +1124,167 @@ func _test_rework_save_round_trip() -> void:
 	check(loaded_next == fresh_again.rng.randi_range("probe", 0, 999999), "rng stream state round-trips")
 
 
-func _test_v1_save_migration() -> void:
-	var core := fresh_core()
-	var raw := {
-		"save_version": 1,
-		"grid": core.grid.to_save_dict(),
-		"inventory": {"counts": {"softwood": 3}},
-	}
-	var result := core.save_migrator.migrate(raw)
-	var migrated: Dictionary = result["data"]
-	check(migrated["save_version"] == 8, "v1 saves migrate through every schema version")
+func _test_camping_feature_contract() -> void:
+	var core := fresh_core(451)
+	var tent := core.grid.add_structure(Vector2i(-1, 0), "struct_high_tent", 0)
+	check(tent != null, "High Tent places through the generic structure API")
+	if tent == null:
+		return
+	var definition = core.camping.definitions.structure("struct_high_tent")
+	check(definition != null, "camping module discovers the High Tent through capabilities")
+	check(definition.shelter.capacity == 2, "shelter capacity comes from definition data")
+	check(definition.sleep.comfort == 6, "sleep comfort comes from definition data")
+	check(definition.storage.slots == 6, "camping storage capacity comes from definition data")
+	var options: Array = core.camping.interactions.options_for("keeper", tent.instance_id)
+	check(options.size() == 1 and options[0].id == "sleep", "sleep interaction is capability-driven")
 	check(
-		(migrated["inventory"].get("counts", {}) as Dictionary).is_empty(),
-		"v1 material inventory leaves the active gameplay inventory"
+		options[0].feature_id == "camping" and options[0].disabled_reason == "",
+		"feature interaction uses the shared presentation-neutral option contract"
 	)
-	check(
-		migrated["legacy_inventory"]["counts"]["softwood"] == 3,
-		"v1 material ownership is retained in the legacy archive"
-	)
-	var northern_water := 0
-	var old_starter_plants := 0
-	var starter_chests := 0
-	var starter_docks := 0
-	for cell: Dictionary in migrated["grid"]["cells"]:
-		if (
-			int(cell.get("e", 0)) == 0
-			and int(cell.get("y", 0)) == -1
-			and String(cell.get("tile", "")) == "tile_open_water"
-		):
-			northern_water += 1
-	check(northern_water == 3, "v1 northern starter edge migrates to continuous water")
-	for cell: Dictionary in migrated["grid"]["cells"]:
-		if int(cell.get("x", 0)) == -1 and int(cell.get("y", 0)) == 0:
-			old_starter_plants = cell.get("structs", []).size()
-		if int(cell.get("x", 0)) == 1 and int(cell.get("y", 0)) == 0:
-			for structure: Dictionary in cell.get("structs", []):
-				if String(structure.get("id", "")) == "struct_chest":
-					starter_chests += 1
-		if int(cell.get("x", 0)) == 0 and int(cell.get("y", 0)) == -1:
-			for structure: Dictionary in cell.get("structs", []):
-				if String(structure.get("id", "")) == "struct_dock":
-					starter_docks += 1
-	check(old_starter_plants == 0, "legacy starter trees are removed from the opening world")
-	check(starter_chests == 1, "the starter chest remains a placed object after migration")
-	check(starter_docks == 1, "the decorative legacy dock migrates into one movable object")
-	check(
-		int(migrated.get("stock", {}).get("structures", {}).get("struct_pine", 0)) == 1,
-		"the legacy starter tree is returned to build stock"
-	)
-	var migrated_support_fields := true
-	for cell: Dictionary in migrated["grid"]["cells"]:
-		for structure: Dictionary in cell.get("structs", []):
-			migrated_support_fields = (
-				migrated_support_fields
-				and structure.has("parent")
-				and structure.has("support")
-				and structure.has("a_done")
-				and structure.has("a_rest")
-				and structure.has("a_regen")
-				and structure.has("a_up")
-			)
-	check(
-		migrated_support_fields,
-		"legacy objects migrate with support edges and object-owned resource state"
-	)
-
-
-func _test_v5_tree_anchor_migration() -> void:
-	var core := fresh_core()
-	var result := core.save_migrator.migrate({
-		"save_version": 5,
-		"grid": {
-			"cells": [{
-				"x": 4,
-				"y": 2,
-				"e": 0,
-				"tile": "tile_grove_mossy",
-				"rot": 0,
-				"starter": false,
-				"locked": false,
-				"landmark": "",
-				"a_done": 2,
-				"a_rest": true,
-				"a_regen": 7.5,
-				"a_up": 1,
-				"structs": [],
-			}],
-			"next_iid": 12,
-			"home": [0, 0],
-		},
-		"stock": {},
-	})
-	var migrated: Dictionary = result["data"]
-	var cell: Dictionary = migrated["grid"]["cells"][0]
-	var structures: Array = cell["structs"]
-	check(structures.size() == 1, "legacy grove terrain becomes one independent tree object")
-	var tree: Dictionary = structures[0]
-	check(
-		String(tree.get("id", "")) == "struct_pine"
-		and int(tree.get("iid", 0)) == 12
-		and int(tree.get("a_done", 0)) == 2
-		and bool(tree.get("a_rest", false))
-		and is_equal_approx(float(tree.get("a_regen", 0.0)), 7.5)
-		and int(tree.get("a_up", 0)) == 1,
-		"legacy Woodland Tending progress transfers onto the tree"
-	)
-	check(
-		int(cell.get("a_done", -1)) == 0
-		and not bool(cell.get("a_rest", true))
-		and is_zero_approx(float(cell.get("a_regen", -1.0)))
-		and int(cell.get("a_up", -1)) == 0,
-		"former grove terrain no longer owns resource state"
-	)
-	check(int(migrated["grid"]["next_iid"]) == 13, "tree migration advances instance ids safely")
-
-
-func _test_v7_tile_scale_migration() -> void:
-	var core := fresh_core()
-	var result := core.save_migrator.migrate({
-		"save_version": 7,
-		"profile": {
-			"px": 1.7,
-			"py": 0.5,
-			"pz": -3.4,
-			"facing": 0.75,
-		},
-		"grid": core.grid.to_save_dict(),
-	})
-	var migrated: Dictionary = result["data"]
-	var profile: Dictionary = migrated["profile"]
-	check(migrated["save_version"] == 8, "v7 saves migrate to the smaller tile schema")
-	check(
-		is_equal_approx(float(profile["px"]), 1.35)
-		and is_equal_approx(float(profile["pz"]), -2.7)
-		and is_equal_approx(float(profile["py"]), 0.5),
-		"saved continuous player position keeps the same logical tile after grid shrink"
-	)
-
-
-func _test_missing_definition_load() -> void:
-	var core := fresh_core()
-	core.inventory.counts["item_that_no_longer_exists"] = 3
-	core.equipment.owned["gear_that_no_longer_exists"] = true
-	core.stock.tiles["stored_tile_that_no_longer_exists"] = 2
-	core.stock.structures["stored_decor_that_no_longer_exists"] = 1
-	core.grid.cells[Vector2i(4, 4)] = WorldGrid.CellState.new()
-	core.grid.cells[Vector2i(4, 4)].tile_id = "tile_that_no_longer_exists"
-	check(core.save(), "save with stale ids writes")
+	check(core.camping.interactions.execute("sleep", "keeper", tent.instance_id), "keeper can occupy the tent")
+	check(core.camping.shelters.damage(tent.instance_id, 17.5), "placed shelter owns mutable durability")
+	var state = core.camping.shelters.state_for(tent.instance_id)
+	check(is_equal_approx(state.durability, 82.5), "durability mutates independently of static definition")
+	check(state.occupants == ["keeper"], "shelter occupants are instance state")
+	check(core.save(), "camping feature state saves")
 	var restored := GameCore.new()
 	restored.setup("res://data", 1)
 	restored.save_manager.save_path = core.save_manager.save_path
 	restored.save_manager.backup_path = core.save_manager.backup_path
-	check(restored.load_game(), "load survives missing definitions")
-	check(restored.inventory.count("item_that_no_longer_exists") == 3, "retired items remain player-owned")
-	check(restored.equipment.owns("gear_that_no_longer_exists"), "retired equipment ownership remains intact")
-	check(restored.grid.has_cell(Vector2i(4, 4)), "retired placed tiles remain in the world")
+	check(restored.load_game(), "camping feature state loads")
+	var restored_state = restored.camping.shelters.state_for(tent.instance_id, false)
+	check(restored_state != null, "saved tent state reconnects by stable instance id")
+	if restored_state != null:
+		check(is_equal_approx(restored_state.durability, 82.5), "tent durability round-trips")
+		check(restored_state.occupants == ["keeper"], "tent occupants round-trip")
+	var stored_stack := restored.grid.detach_structure_stack(tent.instance_id)
+	check(stored_stack.size() == 1, "stateful tent detaches as one inventory piece")
+	if not stored_stack.is_empty():
+		restored.stock.add_structure_instance(stored_stack[0])
 	check(
-		not restored.registries.tile("tile_that_no_longer_exists").obtainable,
-		"compatibility tiles cannot enter new parcel rolls"
+		restored.stock.has_structure_instance(tent.instance_id),
+		"stateful stock keeps the tent's stable instance id"
 	)
-	check(restored.stock.tile_count("stored_tile_that_no_longer_exists") == 2, "retired stored tiles remain available")
-	check(restored.stock.structure_count("stored_decor_that_no_longer_exists") == 1, "retired stored decor remains available")
-	check(restored.grid.cells.size() >= 9, "known world intact after fallback load")
+	check(restored.save(), "stored stateful tent saves")
+	var stored_reload := GameCore.new()
+	stored_reload.setup("res://data", 1)
+	stored_reload.save_manager.save_path = core.save_manager.save_path
+	stored_reload.save_manager.backup_path = core.save_manager.backup_path
+	check(stored_reload.load_game(), "stored stateful tent loads")
+	check(
+		stored_reload.stock.has_structure_instance(tent.instance_id),
+		"stored tent identity survives restart"
+	)
+	var token := stored_reload.stock.take_structure_token(
+		"struct_high_tent", tent.instance_id
+	)
+	var stored_state: Dictionary = token.get("state", {})
+	var returned_tent := WorldGrid.StructureState.from_dict(stored_state)
+	var returned_stack: Array[WorldGrid.StructureState] = [returned_tent]
+	check(
+		stored_reload.grid.restore_structure_stack(
+			Vector2i(1, 1), 0, returned_stack, 0, "", 0, 0
+		),
+		"stored tent places again through the generic support API"
+	)
+	var returned_state = stored_reload.camping.shelters.state_for(tent.instance_id, false)
+	check(returned_state != null, "re-placed tent reconnects to its feature state")
+	if returned_state != null:
+		check(
+			is_equal_approx(returned_state.durability, 82.5),
+			"store and re-place does not heal or replace the tent"
+		)
 
 
-func _test_content_alias_migration() -> void:
-	var regs := Registries.new()
-	check(regs.load_all(), "alias migration registry loads")
-	var compatibility := ContentCompatibility.new()
-	compatibility.revision = 7
-	compatibility.aliases = {
-		"tiles": {"tile_old_meadow": "tile_grass"},
-		"structures": {"struct_old_seat": "struct_bench"},
-		"items": {"old_wood": "softwood"},
-		"parcels": {},
-		"landmarks": {},
-		"enemies": {},
-		"skills": {},
+func _test_current_save_policy() -> void:
+	var core := fresh_core(7001)
+	check(core.save(), "current-format development save writes")
+	var current := core.save_manager.read()
+	check(
+		int(current.get("format", 0)) == SaveManager.CURRENT_FORMAT,
+		"save records the single current pre-release format"
+	)
+	var stale := current.duplicate(true)
+	stale["format"] = 0
+	var stale_path := "user://stale_format_test.json"
+	var file := FileAccess.open(stale_path, FileAccess.WRITE)
+	file.store_string(JSON.stringify(stale))
+	file.close()
+	var reader := SaveManager.new(core.registries)
+	reader.save_path = stale_path
+	reader.backup_path = stale_path + ".backup"
+	check(
+		reader.read().is_empty(),
+		"stale pre-release format is rejected instead of migrated"
+	)
+	DirAccess.remove_absolute(stale_path)
+	var retired := current.duplicate(true)
+	retired["stock"] = {
+		"tiles": {"retired_tile": 1},
+		"structures": {},
+		"structure_instances": [],
+		"deeds": [],
 	}
-	compatibility.retired = {}
-	var migrator := SaveMigrator.new(regs, compatibility)
-	var result := migrator.migrate({
-		"save_version": regs.tunei("save_version", 1),
-		"content_revision": 0,
-		"grid": {
-			"cells": [{
-				"x": 0, "y": 0, "e": 0, "tile": "tile_old_meadow",
-				"structs": [{"iid": 1, "id": "struct_old_seat", "socket": 0, "rot": 0}],
-			}],
+	var errors: PackedStringArray = CurrentSaveValidatorScript.validate(
+		retired, core.registries
+	)
+	check(
+		not errors.is_empty(),
+		"retired content is reported before any world state mutates"
+	)
+	var retired_reference_cases := [
+		{
+			"label": "skill state",
+			"mutate": func(save: Dictionary) -> void:
+				save["skills"]["xp"]["retired_skill"] = 1,
 		},
-		"stock": {"tiles": {"tile_old_meadow": 2, "tile_grass": 1}},
-		"inventory": {"counts": {"old_wood": 3, "softwood": 2}},
-	})
-	var migrated: Dictionary = result["data"]
-	check(migrated["grid"]["cells"][0]["tile"] == "tile_grass", "tile aliases rewrite placed content")
-	check(migrated["grid"]["cells"][0]["structs"][0]["id"] == "struct_bench", "structure aliases rewrite placed content")
-	check(migrated["stock"]["tiles"]["tile_grass"] == 3, "aliased stock counts merge without duplication")
-	check(migrated["inventory"]["counts"]["softwood"] == 5, "aliased inventory counts merge without loss")
-	check(migrated["content_revision"] == 7, "save records the applied content catalog revision")
-
-
-func _test_world_reconciliation() -> void:
-	var core := fresh_core()
-	var unsupported := WorldGrid.CellState.new()
-	unsupported.tile_id = "tile_grass"
-	core.grid.stacked_cells[core.grid.slot_key(Vector2i(5, 5), 2)] = unsupported
-	var water := core.grid.cell(Vector2i.ZERO + Vector2i(-1, -1))
-	var invalid_decor := WorldGrid.StructureState.new()
-	invalid_decor.instance_id = 1
-	invalid_decor.structure_id = "struct_bench"
-	invalid_decor.socket_index = 99
-	water.structures.append(invalid_decor)
-	var repair_coord := Vector2i(0, 0)
-	var a := core.grid.add_structure(repair_coord, "struct_pot", 1)
-	var excess := WorldGrid.StructureState.new()
-	excess.instance_id = core.grid.next_instance_id
-	core.grid.next_instance_id += 1
-	excess.structure_id = "struct_lantern"
-	excess.socket_index = 2
-	core.grid.cell(repair_coord).structures.append(excess)
-	var impossible_child := WorldGrid.StructureState.new()
-	impossible_child.instance_id = core.grid.next_instance_id
-	core.grid.next_instance_id += 1
-	impossible_child.structure_id = "struct_lantern"
-	impossible_child.parent_instance_id = a.instance_id
-	impossible_child.support_slot_id = "top"
-	core.grid.cell(repair_coord).structures.append(impossible_child)
-	core.grid.place_tile(Vector2i(2, 0), "tile_grass")
-	var b := core.grid.add_structure(Vector2i(2, 0), "struct_lantern", 1)
-	b.instance_id = a.instance_id
-	var graph_coord := Vector2i(3, 0)
-	core.grid.place_tile(graph_coord, "tile_grass")
-	var valid_table := core.grid.add_structure(graph_coord, "struct_table", 1)
-	var valid_chest := core.grid.add_structure_on(
-		valid_table.instance_id,
-		"struct_chest",
-		"top_center"
-	)
-	var buried_coord := Vector2i(4, 0)
-	core.grid.place_tile(buried_coord, "tile_grass")
-	core.grid.place_tile_at(buried_coord, 1, "tile_grass")
-	var buried_lantern := WorldGrid.StructureState.new()
-	buried_lantern.instance_id = core.grid.next_instance_id
-	core.grid.next_instance_id += 1
-	buried_lantern.structure_id = "struct_lantern"
-	buried_lantern.socket_index = 1
-	core.grid.cell_at(buried_coord, 0).structures.append(buried_lantern)
-	core.grid.home_cell = Vector2i(999, 999)
-	var report := core.world_reconciler.reconcile(core.grid, core.stock)
-	check(report["changed"], "invalid loaded relationships trigger deterministic reconciliation")
-	check(not core.grid.has_cell_at(Vector2i(5, 5), 2), "unsupported elevated tile is removed from the invalid slot")
-	check(core.stock.tile_count("tile_grass") >= 1, "unsupported elevated tile returns to storage")
-	check(core.stock.structure_count("struct_bench") >= 1, "invalid decoration returns to storage")
-	check(water.structures.is_empty(), "tile socket rules are reapplied during load repair")
-	check(
-		core.grid.cell(repair_coord).structures.size() == 1
-		and core.stock.structure_count(excess.structure_id) >= 2,
-		"extra roots and children on terminal objects return to storage"
-	)
-	check(a.instance_id != b.instance_id, "duplicate structure instance ids are repaired")
-	check(
-		core.grid.find_structure(valid_chest.instance_id)["structure"].parent_instance_id
-			== valid_table.instance_id,
-		"valid named support edges survive deterministic reconciliation"
-	)
-	check(
-		core.grid.cell_at(buried_coord, 0).structures.is_empty()
-		and core.stock.structure_count("struct_lantern") >= 1,
-		"load repair returns objects saved beneath a higher tile to storage"
-	)
-	check(core.grid.has_cell(core.grid.home_cell), "invalid saved home cell moves onto preserved land")
+		{
+			"label": "parcel state",
+			"mutate": func(save: Dictionary) -> void:
+				save["parcels"]["pending_parcel"] = "retired_parcel",
+		},
+		{
+			"label": "equipment state",
+			"mutate": func(save: Dictionary) -> void:
+				save["equipment"]["owned"].append("retired_item"),
+		},
+		{
+			"label": "landmark state",
+			"mutate": func(save: Dictionary) -> void:
+				save["landmarks"]["active"].append({
+					"id": "retired_landmark",
+					"x": 0,
+					"y": 0,
+					"phase": "silhouette",
+					"enemies": [],
+				}),
+		},
+		{
+			"label": "collection state",
+			"mutate": func(save: Dictionary) -> void:
+				save["collection"]["entries"]["gear/retired_item"] = {"count": 1},
+		},
+		{
+			"label": "feature instance state",
+			"mutate": func(save: Dictionary) -> void:
+				save["features"]["camping"]["shelters"].append({
+					"iid": 999999,
+					"durability": 1.0,
+					"occupants": [],
+					"construction_progress": 1.0,
+				}),
+		},
+	]
+	for case: Dictionary in retired_reference_cases:
+		var invalid := current.duplicate(true)
+		(case["mutate"] as Callable).call(invalid)
+		check(
+			not CurrentSaveValidatorScript.validate(
+				invalid, core.registries
+			).is_empty(),
+			"current-save validation rejects retired %s before hydration"
+			% case["label"]
+		)
 
 
 func _test_interrupted_reveal_recovery() -> void:

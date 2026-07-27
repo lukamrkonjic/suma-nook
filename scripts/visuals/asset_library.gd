@@ -40,8 +40,8 @@ func instantiate(asset_id: String) -> Node3D:
 
 func catalog_ids() -> Array[String]:
 	## Returns every unique production GLB id visible to the resolver. The
-	## admin asset world uses this instead of a hand-maintained roster, so new
-	## models appear there as soon as they are added to an asset tier.
+	## asset and content validation tools use this instead of a hand-maintained
+	## roster, so new models are discovered as soon as they enter an asset tier.
 	var unique := {}
 	for pattern: String in SEARCH_PATHS:
 		var directory_path: String = pattern.get_base_dir()

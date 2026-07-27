@@ -981,12 +981,6 @@ func from_save_dict(data: Dictionary) -> void:
 		var coord := Vector2i(int(entry.get("x", 0)), int(entry.get("y", 0)))
 		var elevation := int(entry.get("e", 0))
 		var state := CellState.from_dict(entry)
-		if registries.tile(state.tile_id) == null and state.landmark_id == "":
-			registries.ensure_compatibility_definition("tiles", state.tile_id)
-			push_warning("WorldGrid: preserving unknown tile '%s' with a compatibility visual" % state.tile_id)
-		for structure: StructureState in state.structures:
-			if registries.structure(structure.structure_id) == null:
-				registries.ensure_compatibility_definition("structures", structure.structure_id)
 		if elevation == 0:
 			cells[coord] = state
 		else:

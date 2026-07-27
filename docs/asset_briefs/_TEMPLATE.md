@@ -20,5 +20,5 @@
   non-manifold → simplify to budget (protect silhouette) → apply transforms → bevel key
   edges + weighted normals → semantic material slots with palette flat colors → pivot →
   sockets → export GLB
-- **Acceptance**: reads correctly in VisualStyleLab under day AND rain profiles; matches
+- **Acceptance**: reads correctly in the production world under day AND rain profiles; matches
   proxy scale within 10%; material slots rebind cleanly; no embedded lights/cameras.

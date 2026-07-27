@@ -138,7 +138,8 @@ func animation_manifest() -> Dictionary:
 func _tile_card(tile_id: String, index: int) -> Control:
 	var def := core.registries.tile(tile_id)
 	if def == null:
-		def = core.registries.ensure_compatibility_definition("tiles", tile_id)
+		push_error("ParcelReveal: unknown tile '%s'" % tile_id)
+		return Control.new()
 	var is_new := not core.collection.is_discovered("tiles", tile_id)
 	var card := kit.card(Vector2(210, 270))
 	var col := VBoxContainer.new()

@@ -13,6 +13,18 @@ signal hover_changed(display_name: String, collection_name: String)
 const StructureVisualFactoryScript := preload(
 	"res://scripts/world/structure_visual_factory.gd"
 )
+const PlacementHistoryScript := preload(
+	"res://scripts/world/placement/placement_history.gd"
+)
+const PlacementRulesScript := preload(
+	"res://scripts/world/placement/placement_rules.gd"
+)
+const PlacementTargetResolverScript := preload(
+	"res://scripts/world/placement/placement_target_resolver.gd"
+)
+const PlacementPreviewScript := preload(
+	"res://scripts/world/placement/placement_preview.gd"
+)
 
 var core: GameCore
 var assets: AssetLibrary
@@ -22,27 +34,24 @@ var effects: EffectsManager
 var world_renderer: WorldRenderer
 var _tile_visual_factory: TileVisualFactory
 var _structure_visual_factory: RefCounted
+var _history
+var _rules
+var _target_resolver
+var _preview
 
 var active := false
 var held: Dictionary = {}      # {kind: tile|structure|deed, id, rotation, moving: {...}|null}
 var _ghost: Node3D
-var _indicator: MeshInstance3D
 var _hover_cell := Vector2i(9999, 9999)
 var _hover_elevation := 0
 var _hover_valid := false
 var _hover_support_instance_id := 0
 var _hover_support_slot := ""
-var _undo_stack: Array[Dictionary] = []
-var _redo_stack: Array[Dictionary] = []
 var _pointer_down := false
 var _pointer_dragging := false
 var _pointer_press_position := Vector2.ZERO
 var _picked_on_pointer_press := false
 var _hover_info_signature := ""
-
-var _ghost_ok_material: StandardMaterial3D
-var _ghost_bad_material: StandardMaterial3D
-
 
 func setup(
 	game_core: GameCore,
@@ -60,23 +69,11 @@ func setup(
 	world_renderer = renderer
 	_tile_visual_factory = TileVisualFactory.new(assets, core.grid)
 	_structure_visual_factory = StructureVisualFactoryScript.new(assets, core.grid)
+	_history = PlacementHistoryScript.new()
+	_rules = PlacementRulesScript.new(core, player)
+	_target_resolver = PlacementTargetResolverScript.new(core.grid, world_renderer)
+	_preview = PlacementPreviewScript.new(self, core.grid.tile_size)
 	core.before_save.connect(prepare_for_save)
-	_ghost_ok_material = _ghost_material(Color(0.65, 0.85, 0.55, 0.55))
-	_ghost_bad_material = _ghost_material(Color(0.85, 0.5, 0.42, 0.5))
-	_indicator = MeshInstance3D.new()
-	var plane := PlaneMesh.new()
-	plane.size = Vector2(core.grid.tile_size * 0.96, core.grid.tile_size * 0.96)
-	_indicator.mesh = plane
-	_indicator.visible = false
-	add_child(_indicator)
-
-
-func _ghost_material(color: Color) -> StandardMaterial3D:
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	return mat
 
 
 # ------------------------------------------------------------------ mode
@@ -128,7 +125,7 @@ func _build_ghost() -> void:
 	):
 		_build_tile_stack_ghost(held["moving"]["stack"])
 		add_child(_ghost)
-		_set_ghost_material(_ghost_ok_material)
+		_preview.apply_ghost_material(_ghost, true)
 		return
 	var asset_id := ""
 	match held["kind"]:
@@ -159,7 +156,7 @@ func _build_ghost() -> void:
 	):
 		_add_stack_descendants_to_ghost(held["moving"]["stack"])
 	add_child(_ghost)
-	_set_ghost_material(_ghost_ok_material)
+	_preview.apply_ghost_material(_ghost, true)
 
 
 func _build_tile_stack_ghost(stack: Array) -> void:
@@ -272,26 +269,17 @@ func _stack_relative_transform(
 	)
 
 
-func _set_ghost_material(mat: StandardMaterial3D) -> void:
-	if _ghost == null:
-		return
-	for child in _ghost.find_children("*", "MeshInstance3D", true, false):
-		var mesh_instance := child as MeshInstance3D
-		for surface in mesh_instance.mesh.get_surface_count():
-			mesh_instance.set_surface_override_material(surface, mat)
-
-
 # ------------------------------------------------------------------ per-frame preview
 
 func _process(delta: float) -> void:
 	if not active:
-		_indicator.visible = false
+		_preview.hide_indicator()
 		_emit_hover_info("", "", "")
 		if _ghost != null:
 			_ghost.visible = false
 		return
 	if held.is_empty():
-		_indicator.visible = false
+		_preview.hide_indicator()
 		if _ghost != null:
 			_ghost.visible = false
 		_update_placeable_hover()
@@ -344,7 +332,7 @@ func _process(delta: float) -> void:
 			target_yaw,
 			1.0 - exp(-delta * 22.0)
 		)
-		_set_ghost_material(_ghost_ok_material if _hover_valid else _ghost_bad_material)
+		_preview.apply_ghost_material(_ghost, _hover_valid)
 	_sync_indicator_preview(world)
 
 
@@ -352,10 +340,9 @@ func _process(delta: float) -> void:
 ## Validity is communicated by material only, so a rejected placement never
 ## appears to rotate away from the surface it is testing.
 func _sync_indicator_preview(world: Vector3) -> void:
-	_indicator.visible = _hover_support_instance_id == 0
-	_indicator.position = world + Vector3(0, 0.03, 0)
-	_indicator.rotation.y = 0.0
-	_indicator.material_override = _ghost_ok_material if _hover_valid else _ghost_bad_material
+	_preview.sync_indicator(
+		world, _hover_support_instance_id == 0, _hover_valid
+	)
 
 
 func _update_placeable_hover() -> void:
@@ -482,126 +469,29 @@ func _update_hover_target() -> void:
 ## same-level tie-breaker, never from whichever lower collider won the ray. If
 ## that top object cannot accept the held item, validation correctly fails.
 func _resolve_highest_structure_target(coord: Vector2i, elevation: int) -> bool:
-	var instance_id := _highest_structure_instance_at(coord, elevation)
-	if instance_id <= 0:
-		return false
-	_hover_support_instance_id = instance_id
-	_hover_support_slot = core.grid.free_support_slot(
-		instance_id,
-		String(held.get("id", ""))
+	var target: Dictionary = _target_resolver.resolve_structure_support(
+		coord, elevation, String(held.get("id", ""))
 	)
+	if target.is_empty():
+		return false
+	_hover_support_instance_id = int(target["instance_id"])
+	_hover_support_slot = String(target["slot_id"])
 	return true
 
 
 func _highest_structure_instance_at(coord: Vector2i, elevation: int) -> int:
-	var state := core.grid.cell_at(coord, elevation)
-	if state == null or state.structures.is_empty():
-		return -1
-	var best_instance_id := -1
-	var best_height := -1.0e20
-	var best_depth := -1
-	for structure: WorldGrid.StructureState in state.structures:
-		var depth := core.grid.structure_depth(structure.instance_id)
-		var visual := world_renderer.structure_node(structure.instance_id)
-		var height := (
-			world_renderer.structure_preview_position(structure.instance_id).y
-			if visual != null
-			else (
-				core.grid.cell_to_world(coord, elevation).y
-				+ core.grid.structure_local_transform(structure.instance_id).origin.y
-			)
-		)
-		if (
-			depth > best_depth
-			or (
-				depth == best_depth
-				and (
-					height > best_height + 0.0001
-					or (
-						is_equal_approx(height, best_height)
-						and structure.instance_id > best_instance_id
-					)
-				)
-			)
-		):
-			best_instance_id = structure.instance_id
-			best_height = height
-			best_depth = depth
-	return best_instance_id
+	return _target_resolver.highest_structure_instance_at(coord, elevation)
 
 
 func _validate(cell: Vector2i, elevation: int = 0) -> bool:
-	match held.get("kind", ""):
-		"tile":
-			if held["moving"] != null and held["moving"].has("stack"):
-				if player.current_cell() == cell and elevation > 0:
-					return false
-				return core.grid.can_restore_tile_stack(
-					cell,
-					elevation,
-					held["moving"]["stack"]
-				)
-			if elevation > 0:
-				if player.current_cell() == cell:
-					return false
-				return core.grid.can_place_tile_at(cell, elevation, held["id"])
-			if held["moving"] != null and int(held["moving"].get("elevation", 0)) == 0:
-				var from: Vector2i = held["moving"]["coord"]
-				return not core.grid.has_cell(cell) and _adjacent_excluding(cell, from)
-			return core.grid.can_place_tile_at(cell, 0, held["id"])
-		"structure":
-			if _hover_support_instance_id > 0:
-				if held.get("moving") != null:
-					var moving_stack: Array[WorldGrid.StructureState] = held["moving"]["stack"]
-					if (
-						core.grid.structure_depth(_hover_support_instance_id)
-						+ 1
-						+ core.grid.structure_stack_height(moving_stack)
-						>= core.grid.max_object_stack_depth
-					):
-						return false
-				return core.grid.can_place_structure_on(
-					_hover_support_instance_id,
-					String(held["id"]),
-					_hover_support_slot
-				)
-			if (
-				held.get("moving") != null
-				and core.grid.structure_stack_height(held["moving"]["stack"])
-					>= core.grid.max_object_stack_depth
-			):
-				return false
-			return _target_socket(cell, elevation) >= 0
-		"deed":
-			if elevation != 0:
-				return false
-			var def := core.registries.landmark(held["id"])
-			var adjacent := false
-			for offset in def.footprint:
-				var coord: Vector2i = cell + offset
-				if core.grid.has_cell(coord):
-					return false
-				if core.grid.is_adjacent_to_world(coord):
-					adjacent = true
-			return adjacent
-	return false
-
-
-func _adjacent_excluding(cell: Vector2i, excluded: Vector2i) -> bool:
-	for offset: Vector2i in WorldGrid.NEIGHBORS:
-		var neighbor: Vector2i = cell + offset
-		if neighbor != excluded and core.grid.has_cell(neighbor):
-			return true
-	return false
+	return _rules.validate(
+		held, cell, elevation,
+		_hover_support_instance_id, _hover_support_slot
+	)
 
 
 func _target_socket(cell: Vector2i, elevation: int = 0) -> int:
-	if not core.grid.has_cell_at(cell, elevation):
-		return -1
-	var def := core.registries.structure(held["id"])
-	if not core.grid.can_place_structure_at(cell, elevation, def.id):
-		return -1
-	return core.grid.free_socket(cell, def.socket_type, elevation)
+	return _rules.target_socket(held, cell, elevation)
 
 
 # ------------------------------------------------------------------ clicks
@@ -723,21 +613,9 @@ func click() -> void:
 
 
 func _invalid_message() -> String:
-	if held.get("kind", "") == "tile" and _hover_elevation > 0:
-		return "That surface can't support another land tile — use a flat, clear block."
-	if held.get("kind", "") == "structure":
-		if _hover_support_instance_id > 0:
-			var parent_found := core.grid.find_structure(_hover_support_instance_id)
-			var parent_def := (
-				core.registries.structure(parent_found["structure"].structure_id)
-				if not parent_found.is_empty()
-				else null
-			)
-			if parent_def != null and parent_def.support_slots.is_empty():
-				return "That object cannot hold another item."
-			return "That support is full or does not fit this item."
-		return "That object needs a clear supported spot."
-	return "It can't go there — land must touch the world edge-to-edge."
+	return _rules.invalid_message(
+		held, _hover_elevation, _hover_support_instance_id
+	)
 
 
 func _place_tile() -> void:
@@ -853,15 +731,28 @@ func _place_structure() -> void:
 		held = {}
 		core.autosave_paused = false
 	else:
-		if not core.stock.take_structure(structure_id):
+		var stock_token := core.stock.take_structure_token(structure_id)
+		if stock_token.is_empty():
 			action_result.emit(false, "That piece isn't in storage anymore.", "invalid")
 			return
-		if _hover_support_instance_id > 0:
-			placed = core.grid.add_structure_on(
+		var stored_state: Dictionary = stock_token.get("state", {})
+		if not stored_state.is_empty():
+			var restored := WorldGrid.StructureState.from_dict(stored_state)
+			var restored_stack: Array[WorldGrid.StructureState] = [restored]
+			if core.grid.restore_structure_stack(
+				_hover_cell,
+				_hover_elevation,
+				restored_stack,
 				_hover_support_instance_id,
-				structure_id,
 				_hover_support_slot,
-				held["rotation"]
+				socket,
+				int(held["rotation"])
+			):
+				placed = restored
+		elif _hover_support_instance_id > 0:
+			placed = core.grid.add_structure_on(
+				_hover_support_instance_id, structure_id,
+				_hover_support_slot, held["rotation"]
 			)
 		else:
 			placed = core.grid.add_structure(
@@ -872,7 +763,7 @@ func _place_structure() -> void:
 				_hover_elevation
 			)
 		if placed == null:
-			core.stock.add_structure(structure_id)
+			core.stock.return_structure_token(stock_token)
 			action_result.emit(false, "That support changed before the item could settle.", "invalid")
 			return
 		core.collection.record_placed("structures", structure_id)
@@ -886,6 +777,7 @@ func _place_structure() -> void:
 			"rot": held["rotation"],
 			"parent": _hover_support_instance_id,
 			"support": _hover_support_slot,
+			"stack": [placed],
 		})
 		if core.stock.structure_count(structure_id) <= 0:
 			held = {}
@@ -1050,8 +942,7 @@ func store_held() -> void:
 	match held["kind"]:
 		"structure":
 			var moved_stack: Array[WorldGrid.StructureState] = held["moving"]["stack"]
-			for structure: WorldGrid.StructureState in moved_stack:
-				core.stock.add_structure(structure.structure_id)
+			_return_structure_stack_to_stock(moved_stack)
 			_push_undo({
 				"type": "store_structure",
 				"structure_id": held["id"],
@@ -1140,27 +1031,16 @@ func _cancel_held(restore: bool) -> void:
 # ------------------------------------------------------------------ undo / redo
 
 func _push_undo(entry: Dictionary) -> void:
-	_undo_stack.append(entry)
-	if _undo_stack.size() > 40:
-		_undo_stack.pop_front()
-	_redo_stack.clear()
+	_history.record(entry)
 
 
 func undo() -> void:
-	if _undo_stack.is_empty():
-		return
-	var entry: Dictionary = _undo_stack.pop_back()
-	if _apply(entry, true):
-		_redo_stack.append(entry)
+	if _history.undo(_apply):
 		action_result.emit(true, "", "undo")
 
 
 func redo() -> void:
-	if _redo_stack.is_empty():
-		return
-	var entry: Dictionary = _redo_stack.pop_back()
-	if _apply(entry, false):
-		_undo_stack.append(entry)
+	if _history.redo(_apply):
 		action_result.emit(true, "", "redo")
 
 
@@ -1190,30 +1070,24 @@ func _apply(entry: Dictionary, reverse: bool) -> bool:
 				var removed_stack := core.grid.detach_structure_stack(entry["iid"])
 				if removed_stack.is_empty():
 					return false
-				for removed_s: WorldGrid.StructureState in removed_stack:
-					core.stock.add_structure(removed_s.structure_id)
+				entry["stack"] = removed_stack
+				_return_structure_stack_to_stock(removed_stack)
 				return true
-			if core.stock.take_structure(entry["structure_id"]):
-				var s: WorldGrid.StructureState = null
-				if int(entry.get("parent", 0)) > 0:
-					s = core.grid.add_structure_on(
-						int(entry["parent"]),
-						entry["structure_id"],
-						String(entry.get("support", "")),
-						int(entry.get("rot", 0))
-					)
-				else:
-					s = core.grid.add_structure(
-						entry["coord"],
-						entry["structure_id"],
-						int(entry.get("socket", -1)),
-						int(entry.get("rot", 0)),
-						structure_elevation
-					)
-				if s != null:
-					entry["iid"] = s.instance_id
-					return true
-				core.stock.add_structure(entry["structure_id"])
+			var placed_stack: Array[WorldGrid.StructureState] = entry.get("stack", [])
+			if placed_stack.is_empty() or not _take_structure_stack_from_stock(placed_stack):
+				return false
+			if core.grid.restore_structure_stack(
+				entry["coord"],
+				structure_elevation,
+				placed_stack,
+				int(entry.get("parent", 0)),
+				String(entry.get("support", "")),
+				int(entry.get("socket", -1)),
+				int(entry.get("rot", 0))
+			):
+				entry["iid"] = placed_stack[0].instance_id
+				return true
+			_return_structure_stack_to_stock(placed_stack)
 			return false
 		"move_tile_stack":
 			var from: Vector2i = entry["to"] if reverse else entry["from"]
@@ -1340,41 +1214,47 @@ func _structure_id_of(entry: Dictionary) -> String:
 
 
 func _take_structure_stack_from_stock(stack: Array[WorldGrid.StructureState]) -> bool:
-	var taken: Array[String] = []
+	var taken: Array[Dictionary] = []
 	for structure: WorldGrid.StructureState in stack:
-		if not core.stock.take_structure(structure.structure_id):
-			for structure_id: String in taken:
-				core.stock.add_structure(structure_id)
+		var token := core.stock.take_structure_token(
+			structure.structure_id, structure.instance_id
+		)
+		if token.is_empty():
+			for previous_token: Dictionary in taken:
+				core.stock.return_structure_token(previous_token)
 			return false
-		taken.append(structure.structure_id)
+		taken.append(token)
 	return true
 
 
 func _return_structure_stack_to_stock(stack: Array[WorldGrid.StructureState]) -> void:
 	for structure: WorldGrid.StructureState in stack:
-		core.stock.add_structure(structure.structure_id)
+		core.stock.add_structure_instance(structure)
 
 
 func _take_tile_stack_from_stock(stack: Array) -> bool:
 	var taken_tiles: Array[String] = []
-	var taken_structures: Array[String] = []
+	var taken_structures: Array[Dictionary] = []
 	for entry: Dictionary in stack:
 		var state: WorldGrid.CellState = entry["state"]
 		if not core.stock.take_tile(state.tile_id):
 			for tile_id: String in taken_tiles:
 				core.stock.add_tile(tile_id)
-			for structure_id: String in taken_structures:
-				core.stock.add_structure(structure_id)
+			for token: Dictionary in taken_structures:
+				core.stock.return_structure_token(token)
 			return false
 		taken_tiles.append(state.tile_id)
 		for structure: WorldGrid.StructureState in state.structures:
-			if not core.stock.take_structure(structure.structure_id):
+			var token := core.stock.take_structure_token(
+				structure.structure_id, structure.instance_id
+			)
+			if token.is_empty():
 				for tile_id: String in taken_tiles:
 					core.stock.add_tile(tile_id)
-				for structure_id: String in taken_structures:
-					core.stock.add_structure(structure_id)
+				for previous_token: Dictionary in taken_structures:
+					core.stock.return_structure_token(previous_token)
 				return false
-			taken_structures.append(structure.structure_id)
+			taken_structures.append(token)
 	return true
 
 
@@ -1383,7 +1263,7 @@ func _return_tile_stack_to_stock(stack: Array) -> void:
 		var state: WorldGrid.CellState = entry["state"]
 		core.stock.add_tile(state.tile_id)
 		for structure: WorldGrid.StructureState in state.structures:
-			core.stock.add_structure(structure.structure_id)
+			core.stock.add_structure_instance(structure)
 
 
 func _settle_animation(coord: Vector2i, elevation: int = 0) -> void:

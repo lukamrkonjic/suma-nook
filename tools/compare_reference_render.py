@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Measure a Garden Galaxy Match Lab capture against the reference targets.
+"""Measure a visual acceptance capture against the reference targets.
 
 Usage:
     python3 tools/compare_reference_render.py docs/visual_match/captures/day \
         [--label day] [--old docs/style_comparisons/final_gameplay_day.png] \
         [--reference docs/style_reference/garden_galaxy/garden_galaxy_day_reference_01.png]
 
-Expects <base>.png, <base>_post.png and <base>.json written by
-scripts/debug/garden_visual_capture.gd. Produces a Delta E 2000 report
+Expects <base>.png, <base>_post.png and <base>.json from a capture run. Produces
+a Delta E 2000 report
 (markdown + JSON), a swatch comparison card, a side-by-side image, and — when a
 reference screenshot is available on disk — a per-pixel difference heatmap.
 All colors are screen-space rendered values, compared in CIE Lab (D65).

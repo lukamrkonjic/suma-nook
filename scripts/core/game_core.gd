@@ -9,6 +9,14 @@ signal world_grown(coord: Vector2i)
 signal notified(message: String, tone: String)   # lightweight toast channel
 signal before_save
 
+const GameContentCatalogScript := preload("res://scripts/core/game_content_catalog.gd")
+const CampingModuleScript := preload(
+	"res://scripts/features/camping/camping_module.gd"
+)
+const CurrentSaveValidatorScript := preload(
+	"res://scripts/systems/current_save_validator.gd"
+)
+
 var registries: Registries
 var rng: RngService
 var grid: WorldGrid
@@ -25,9 +33,7 @@ var equipment: EquipmentManager
 var landmarks: LandmarkManager
 var combat: CombatManager
 var save_manager: SaveManager
-var content_compatibility: ContentCompatibility
-var save_migrator: SaveMigrator
-var world_reconciler: WorldStateReconciler
+var camping
 
 var autosave_timer := 0.0
 var autosave_paused := false
@@ -40,39 +46,20 @@ var visual_state: Dictionary = {
 	"particle_quality": "high",
 }
 var _dirty := false
-var legacy_inventory: Dictionary = {}
 
 const FIRST_WATER_COORD := Vector2i(-1, -1)
 const STARTER_DOCK_COORD := Vector2i(0, -1)
 
 
 func setup(data_path := "res://data", seed_value := 0) -> bool:
-	registries = Registries.new()
+	registries = GameContentCatalogScript.create()
 	var ok := registries.load_all(data_path)
-	for error: String in ContentValidator.validate(registries):
-		push_error("ContentValidator: " + error)
-		ok = false
-	content_compatibility = ContentCompatibility.new()
-	if not content_compatibility.load_from(data_path + "/content_compat.json"):
-		for error in content_compatibility.load_errors:
-			push_error("ContentCompatibility: " + error)
-		ok = false
-	if content_compatibility.revision != registries.tunei("content_revision", 0):
-		push_error(
-			"ContentCompatibility: catalog revision %d does not match tuning revision %d"
-			% [
-				content_compatibility.revision,
-				registries.tunei("content_revision", 0),
-			]
-		)
-		ok = false
-	save_migrator = SaveMigrator.new(registries, content_compatibility)
-	world_reconciler = WorldStateReconciler.new(registries)
 	rng = RngService.new(seed_value)
 	grid = WorldGrid.new(registries)
 	profile = PlayerProfile.new()
 	inventory = InventoryManager.new(registries)
 	stock = StockManager.new(registries)
+	camping = CampingModuleScript.new(registries, grid, stock)
 	collection = CollectionManager.new(registries)
 	skills = SkillManager.new(registries)
 	rewards = RewardManager.new(registries, rng, inventory, stock, collection)
@@ -84,14 +71,40 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 	combat = CombatManager.new(registries, landmarks, rewards, equipment, collection)
 	save_manager = SaveManager.new(registries)
 
-	skills.level_up.connect(_on_level_up)
-	if registries.feature("legacy_material_loot_enabled", false):
-		inventory.item_gained.connect(func(item_id, count, _rare): _record_material(item_id, count))
-	grid.grid_changed.connect(func(): _dirty = true)
-	grid.slot_changed.connect(func(_coord, _elevation): _dirty = true)
-	inventory.items_changed.connect(func(): _dirty = true)
-	stock.stock_changed.connect(func(): _dirty = true)
-	equipment.equipment_changed.connect(func(): _dirty = true)
+	# Managers are RefCounted children of this composition root. Their signals
+	# must not retain the root, otherwise root -> manager -> callable -> root
+	# forms a permanent reference cycle each time a game session is rebuilt.
+	var owner_ref: WeakRef = weakref(self)
+	skills.level_up.connect(func(skill_id, new_level, unlocks):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._on_level_up(skill_id, new_level, unlocks)
+	)
+	grid.grid_changed.connect(func():
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._dirty = true
+	)
+	grid.slot_changed.connect(func(_coord, _elevation):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._dirty = true
+	)
+	inventory.items_changed.connect(func():
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._dirty = true
+	)
+	stock.stock_changed.connect(func():
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._dirty = true
+	)
+	equipment.equipment_changed.connect(func():
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._dirty = true
+	)
 	return ok
 
 
@@ -99,6 +112,7 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 
 func new_game(new_profile: PlayerProfile) -> void:
 	profile = new_profile
+	camping.reset()
 	_compose_starting_world()
 	grid.home_cell = Vector2i.ZERO
 	profile.position = grid.cell_to_world(Vector2i.ZERO)
@@ -180,14 +194,6 @@ func place_tile_from_stock(
 	return true
 
 
-func _record_material(item_id: String, count: int) -> void:
-	var def := registries.item(item_id)
-	if def == null:
-		return
-	var category := "fish" if def.tags.has("fish") else def.category + "s"
-	collection.record(category, item_id, count)
-
-
 # ------------------------------------------------------------------ tick & persistence
 
 func tick(delta: float) -> void:
@@ -242,16 +248,17 @@ func save() -> bool:
 		"profile": profile.to_save_dict(),
 		"grid": grid.to_save_dict(),
 		"inventory": inventory.to_save_dict(),
-		"legacy_inventory": legacy_inventory.duplicate(true),
 		"stock": stock.to_save_dict(),
 		"collection": collection.to_save_dict(),
 		"skills": skills.to_save_dict(),
-		"rewards": rewards.to_save_dict(),
 		"parcels": parcels.to_save_dict(),
 		"arrivals": arrivals.to_save_dict(),
 		"equipment": equipment.to_save_dict(),
 		"landmarks": landmarks.to_save_dict(),
 		"combat": combat.to_save_dict(),
+		"features": {
+			"camping": camping.to_save_dict(),
+		},
 		"view": view_state.duplicate(true),
 		"visual": visual_state.duplicate(true),
 		"play_seconds": play_seconds,
@@ -264,31 +271,32 @@ func load_game() -> bool:
 	var raw_data := save_manager.read()
 	if raw_data.is_empty():
 		return false
-	var migration := save_migrator.migrate(raw_data)
-	var data: Dictionary = migration["data"]
-	for warning: String in migration["warnings"]:
-		push_warning("SaveMigrator: " + warning)
+	var data: Dictionary = raw_data
+	var save_errors := CurrentSaveValidatorScript.validate(data, registries)
+	if not save_errors.is_empty():
+		var reason := "development save references retired content: " + save_errors[0]
+		save_manager.load_failed.emit(reason)
+		push_warning("SaveManager: " + reason)
+		return false
 	rng.from_save_dict(data.get("rng", {}))
 	profile.from_save_dict(data.get("profile", {}))
 	grid.from_save_dict(data.get("grid", {}))
-	legacy_inventory = data.get("legacy_inventory", {}).duplicate(true)
 	inventory.from_save_dict(data.get("inventory", {}))
 	stock.from_save_dict(data.get("stock", {}))
+	camping.from_save_dict(
+		(data.get("features", {}) as Dictionary).get("camping", {})
+	)
 	collection.from_save_dict(data.get("collection", {}))
 	skills.from_save_dict(data.get("skills", {}))
-	rewards.from_save_dict(data.get("rewards", {}))
 	parcels.from_save_dict(data.get("parcels", {}))
 	arrivals.from_save_dict(data.get("arrivals", {}))
 	equipment.from_save_dict(data.get("equipment", {}))
 	landmarks.from_save_dict(data.get("landmarks", {}))
 	combat.from_save_dict(data.get("combat", {}))
-	var reconciliation := world_reconciler.reconcile(grid, stock)
-	for warning: String in reconciliation["warnings"]:
-		push_warning("WorldStateReconciler: " + warning)
 	view_state = data.get("view", view_state).duplicate(true)
 	visual_state = data.get("visual", visual_state).duplicate(true)
 	play_seconds = float(data.get("play_seconds", 0.0))
 	if not grid.is_traversable(grid.world_to_cell(profile.position)):
 		profile.position = grid.cell_to_world(grid.nearest_walkable(grid.world_to_cell(profile.position)))
-	_dirty = bool(migration["changed"]) or bool(reconciliation["changed"])
+	_dirty = false
 	return true

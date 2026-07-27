@@ -1,9 +1,9 @@
 class_name SaveManager
 extends RefCounted
-## Versioned atomic persistence: serialize → temp file → validate → rename,
-## with one rotating backup. Loading tolerates missing definitions (they are
-## dropped with warnings, never crashes) and refuses files from future schema
-## versions rather than corrupting them.
+const CURRENT_FORMAT := 1
+## Atomic persistence: serialize → temp file → validate → rename, with one
+## rotating backup. During pre-release development only the current format is
+## accepted; incompatible saves are rejected with a clear reset message.
 
 signal saved(path: String)
 signal load_failed(reason: String)
@@ -24,8 +24,7 @@ func has_save() -> bool:
 
 
 func write(payload: Dictionary) -> bool:
-	payload["save_version"] = registries.tunei("save_version", 1)
-	payload["content_revision"] = registries.tunei("content_revision", 0)
+	payload["format"] = CURRENT_FORMAT
 	payload["timestamp"] = Time.get_datetime_string_from_system()
 	var text := JSON.stringify(payload, "  ")
 	var temp_path := save_path + ".tmp"
@@ -57,9 +56,11 @@ func read() -> Dictionary:
 			continue
 		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 		if parsed is Dictionary:
-			var version := int(parsed.get("save_version", 0))
-			if version > registries.tunei("save_version", 1):
-				load_failed.emit("save is from a newer version")
+			var format := int(parsed.get("format", 0))
+			if format != CURRENT_FORMAT:
+				load_failed.emit(
+					"pre-release save format changed; reset this development save"
+				)
 				return {}
 			if path == backup_path:
 				push_warning("SaveManager: primary save unreadable, recovered from backup")

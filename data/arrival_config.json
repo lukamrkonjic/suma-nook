@@ -1,5 +1,4 @@
 {
-  "default_presentation": "ferry",
   "first_arrival_min_seconds": 60.0,
   "first_arrival_max_seconds": 90.0,
   "later_arrival_min_seconds": 300.0,
@@ -9,6 +8,5 @@
   "ferry_departure_seconds": 3.6,
   "active_playtime_only": true,
   "maximum_queued_deliveries": 1,
-  "parcel_id": "parcel_wild",
-  "debug_arrival_seconds": 2.0
+  "parcel_id": "parcel_wild"
 }

@@ -5,6 +5,10 @@ extends Node
 ## Owns global input routing and the handful of cross-cutting flows (weather,
 ## defeat recovery, landmark encounters, footsteps, tutorial hints).
 
+const InteractionTargetResolverScript := preload(
+	"res://scripts/world/interaction_target_resolver.gd"
+)
+
 var palette: CozyPalette
 var materials: MaterialLibrary
 var assets: AssetLibrary
@@ -17,7 +21,6 @@ var renderer: WorldRenderer
 var effects: EffectsManager
 var delivery_point: DeliveryPoint
 var ferry_presentation: FerryArrivalPresentation
-var postcard_presentation: InstantPostcardArrivalPresentation
 var player: PlayerController
 var player_visual: PlayerVisual
 var camera_rig: CameraRig
@@ -28,6 +31,7 @@ var panels: GamePanels
 var pause_menu: PauseMenu
 var parcel_reveal: ParcelReveal
 var audio: GameAudio
+var interaction_targets
 var save_path_override := ""  # injected before _ready by isolated scene tests
 
 var _encounters: Dictionary = {}   # landmark_id -> LandmarkEncounter
@@ -51,116 +55,10 @@ func _ready() -> void:
 	_build_ui()
 	_connect_flows()
 
-	var user_args := OS.get_cmdline_user_args()
-	for arg in user_args:
-		if arg.begins_with("--save="):   # test harness isolation
-			core.save_manager.save_path = arg.trim_prefix("--save=")
-			core.save_manager.backup_path = core.save_manager.save_path + ".backup"
-	if _handle_dev_shot(user_args):
-		return
 	if core.save_manager.has_save() and core.load_game():
 		_start_gameplay(false)
 	else:
 		_start_character_creation()
-
-
-## Dev harness:
-## `godot -- --shot=docs/foo.png [--weather=snow] [--time=night]
-##     [--background=dusk] [--particles=high] [--admin] [--zoom=50]
-##     [--focus=x,z] [--stack-demo]`
-## boots a fresh throwaway world, waits for frames to settle, captures, quits.
-func _handle_dev_shot(user_args: PackedStringArray) -> bool:
-	var shot_path := ""
-	var shot_weather := "day"
-	var shot_time := "noon"
-	var shot_background := "profile"
-	var shot_particles := "high"
-	var shot_focus := Vector2.ZERO
-	var has_shot_focus := false
-	var shot_pause_page := ""
-	for arg in user_args:
-		if arg.begins_with("--shot="):
-			shot_path = arg.trim_prefix("--shot=")
-		elif arg.begins_with("--weather="):
-			shot_weather = arg.trim_prefix("--weather=")
-		elif arg.begins_with("--time="):
-			shot_time = arg.trim_prefix("--time=")
-		elif arg.begins_with("--background="):
-			shot_background = arg.trim_prefix("--background=")
-		elif arg.begins_with("--particles="):
-			shot_particles = arg.trim_prefix("--particles=")
-		elif arg.begins_with("--focus="):
-			var components := arg.trim_prefix("--focus=").split(",", false)
-			if components.size() == 2 and components[0].is_valid_float() and components[1].is_valid_float():
-				shot_focus = Vector2(float(components[0]), float(components[1]))
-				has_shot_focus = true
-		elif arg.begins_with("--pause-page="):
-			shot_pause_page = arg.trim_prefix("--pause-page=")
-	# Backward-compatible aliases used by the existing visual audit docs.
-	if user_args.has("--rain"):
-		shot_weather = "rain"
-	elif user_args.has("--mist"):
-		shot_weather = "mist"
-	if shot_path == "":
-		return false
-	core.save_manager.save_path = "user://shot_throwaway.json"
-	core.save_manager.backup_path = "user://shot_throwaway.json.backup"
-	var profile := PlayerProfile.new()
-	profile.display_name = "Keeper"
-	if user_args.has("--creator"):
-		_start_character_creation()
-	else:
-		core.new_game(profile)
-		renderer.rebuild_all()
-		player.position = core.profile.position
-		_start_gameplay(true)
-	if user_args.has("--ferry"):
-		core.arrivals.trigger_arrival()
-	elif user_args.has("--package"):
-		core.arrivals.trigger_arrival()
-		debug_force_ferry_departure()
-	if shot_weather == "rain":
-		core.grid.add_structure(Vector2i(-1, 0), "struct_campfire", 0, 0)
-		core.grid.add_structure(Vector2i(0, 1), "struct_lantern", 2, 0)
-		renderer.rebuild_all()
-	debug_set_weather(shot_weather)
-	debug_set_time_of_day(shot_time)
-	debug_set_background(shot_background)
-	debug_set_particle_quality(shot_particles)
-	if user_args.has("--stack-demo"):
-		var tall_column := Vector2i.ZERO
-		var low_column := Vector2i(0, 1)
-		core.grid.place_tile_at(tall_column, 1, "tile_stone_clearing")
-		core.grid.place_tile_at(tall_column, 2, "tile_grass")
-		core.grid.add_structure(tall_column, "struct_pot", 1, 0, 2)
-		core.grid.place_tile_at(low_column, 1, "tile_grass")
-		core.grid.add_structure(low_column, "struct_bench", 2, 1, 1)
-		renderer.rebuild_all()
-		player.position = core.grid.cell_to_world(Vector2i(1, 1))
-		shot_focus = Vector2(0.0, 0.45)
-		has_shot_focus = true
-	for arg in user_args:
-		if arg.begins_with("--zoom="):
-			camera_rig.set_zoom_immediate(float(arg.trim_prefix("--zoom=")))
-	if has_shot_focus:
-		camera_rig.target = null
-		camera_rig.global_position = Vector3(shot_focus.x, 0.0, shot_focus.y)
-	if user_args.has("--admin"):
-		panels.toggle("debug")
-	for arg in user_args:
-		if arg.begins_with("--hover-iid="):
-			renderer.set_hovered_structure(int(arg.trim_prefix("--hover-iid=")))
-	if shot_pause_page != "":
-		open_pause_menu(shot_pause_page)
-		# Visual audits must stay deterministic even if the capture window
-		# briefly receives stray mouse or keyboard input from the desktop.
-		get_viewport().gui_disable_input = true
-	get_tree().create_timer(2.2).timeout.connect(func():
-		var image := get_viewport().get_texture().get_image()
-		image.save_png(shot_path)
-		print("SHOT SAVED: " + shot_path)
-		get_tree().quit())
-	return true
 
 
 # ------------------------------------------------------------------ scene assembly
@@ -196,10 +94,6 @@ func _build_world_scene() -> void:
 	ferry_presentation.name = "FerryArrivalPresentation"
 	world_root.add_child(ferry_presentation)
 	ferry_presentation.setup(materials)
-	postcard_presentation = InstantPostcardArrivalPresentation.new()
-	postcard_presentation.name = "InstantPostcardArrivalPresentation"
-	world_root.add_child(postcard_presentation)
-	postcard_presentation.setup(materials)
 
 	player = PlayerController.new()
 	player.name = "Player"
@@ -222,6 +116,9 @@ func _build_world_scene() -> void:
 	camera_rig.setup(core, player)
 	camera_rig.zoom_changed.connect(lighting.set_camera_shadow_distance)
 	lighting.set_camera_shadow_distance(camera_rig.zoom_distance())
+	interaction_targets = InteractionTargetResolverScript.new(
+		self, core, camera_rig.camera, delivery_point
+	)
 
 	placement = PlacementController.new()
 	placement.name = "Placement"
@@ -269,7 +166,6 @@ func _connect_flows() -> void:
 	hud.open_parcel_requested.connect(func():
 		audio.play_event("parcel_open")
 		parcel_reveal.open_best_available())
-	hud.admin_requested.connect(func(): panels.toggle("debug"))
 	hud.pause_requested.connect(func(): open_pause_menu())
 	hud.build_piece_selected.connect(func(kind, id):
 		audio.play_event("build_preview")
@@ -309,7 +205,6 @@ func _connect_flows() -> void:
 	core.arrivals.delivery_resolved.connect(func(): delivery_point.hide_package())
 	ferry_presentation.arrival_started.connect(_on_presentation_arrival_started)
 	ferry_presentation.delivery_ready.connect(_on_presentation_delivery_ready)
-	postcard_presentation.delivery_ready.connect(_on_presentation_delivery_ready)
 	lighting.profile_applied.connect(_on_profile_applied)
 	if lighting.current_profile != null:
 		_on_profile_applied(lighting.current_profile)
@@ -449,9 +344,7 @@ func _hovered_clickable_control() -> Control:
 func _unhandled_input(event: InputEvent) -> void:
 	if not _gameplay_started:
 		return
-	if event.is_action_pressed("debug_panel") and OS.is_debug_build():
-		panels.toggle("debug")
-	elif event.is_action_pressed("build_mode"):
+	if event.is_action_pressed("build_mode"):
 		skill_actions.cancel_all()
 		placement.toggle()
 	elif event.is_action_pressed("rotate_piece"):
@@ -546,168 +439,11 @@ func _handle_world_click(screen_position: Vector2) -> void:
 
 
 func _ground_point_at_screen(screen_position: Vector2) -> Variant:
-	var origin := camera_rig.camera.project_ray_origin(screen_position)
-	var direction := camera_rig.camera.project_ray_normal(screen_position)
-	if absf(direction.y) < 0.0001:
-		return null
-	var distance := -origin.y / direction.y
-	if distance < 0.0:
-		return null
-	var point := origin + direction * distance
-	point.y = 0.0
-	return point
+	return interaction_targets.ground_point(screen_position)
 
 
 func _interaction_at_screen(screen_position: Vector2) -> Dictionary:
-	var best: Dictionary = {}
-	var best_distance := INF
-	var base_radius := core.registries.tunef("click_target_screen_radius", 54.0)
-
-	for enemy in get_tree().get_nodes_in_group("enemies"):
-		if not core.registries.feature("combat_enabled", false):
-			break
-		var enemy_node := enemy as Node3D
-		if not is_instance_valid(enemy_node):
-			continue
-		var point := enemy_node.global_position
-		var candidate := _screen_candidate(
-			screen_position,
-			point + Vector3(0, 0.55, 0),
-			base_radius,
-			{"kind": "enemy", "node": enemy_node, "point": point}
-		)
-		if not candidate.is_empty() and candidate["_distance"] < best_distance:
-			best = candidate
-			best_distance = candidate["_distance"]
-
-	for marker in get_tree().get_nodes_in_group("landmark_prompts"):
-		if not core.registries.feature("hostile_landmarks_enabled", false):
-			break
-		var marker_node := marker as Node3D
-		if not is_instance_valid(marker_node):
-			continue
-		var point := marker_node.global_position
-		var candidate := _screen_candidate(
-			screen_position,
-			point + Vector3(0, 1.05, 0),
-			base_radius,
-			{"kind": "landmark_prompt", "node": marker_node, "point": point}
-		)
-		if not candidate.is_empty() and candidate["_distance"] < best_distance:
-			best = candidate
-			best_distance = candidate["_distance"]
-
-	for package in get_tree().get_nodes_in_group("delivery_packages"):
-		var package_node := package as Node3D
-		if not is_instance_valid(package_node) or not package_node.visible:
-			continue
-		var candidate := _screen_candidate(
-			screen_position,
-			package_node.global_position + Vector3(0, 0.25, 0),
-			base_radius * 1.2,
-			{
-				"kind": "delivery_package",
-				"node": package_node,
-				"point": delivery_point.player_interaction.global_position,
-			}
-		)
-		if not candidate.is_empty():
-			candidate["_distance"] -= base_radius
-		if not candidate.is_empty() and candidate["_distance"] < best_distance:
-			best = candidate
-			best_distance = candidate["_distance"]
-
-	for coord: Vector2i in core.grid.cells:
-		var state := core.grid.cell(coord)
-		var tile_def := core.grid.tile_def(coord)
-		var center := core.grid.cell_to_world(coord)
-		if tile_def != null and tile_def.anchor_id != "" and not state.anchor_resting:
-			var anchor := core.registries.anchor(tile_def.anchor_id)
-			if anchor != null and core.skills.is_playable(anchor.skill_id):
-				var interaction_point := center
-				if not tile_def.walkable and tile_def.water_cells.has("open_water"):
-					interaction_point += Vector3(0, 0, 1.25)
-				var candidate := _screen_candidate(
-					screen_position,
-					center + Vector3(0, 0.55, 0),
-					base_radius * 1.35,
-					{"kind": "anchor", "coord": coord, "anchor": anchor, "point": interaction_point}
-				)
-				if not candidate.is_empty() and candidate["_distance"] < best_distance:
-					best = candidate
-					best_distance = candidate["_distance"]
-	for slot: Dictionary in core.grid.all_cell_slots():
-		var coord: Vector2i = slot["coord"]
-		var elevation := int(slot["elevation"])
-		var state: WorldGrid.CellState = slot["state"]
-		var center := core.grid.cell_to_world(coord, elevation)
-		for structure: WorldGrid.StructureState in state.structures:
-			var structure_def := core.registries.structure(structure.structure_id)
-			if structure_def == null:
-				continue
-			var point := center + core.grid.structure_local_transform(
-				structure.instance_id
-			).origin
-			if structure_def.anchor_id != "" and not structure.anchor_resting:
-				var anchor := core.registries.anchor(structure_def.anchor_id)
-				if anchor != null and core.skills.is_playable(anchor.skill_id):
-					var anchor_candidate := _screen_candidate(
-						screen_position,
-						point + Vector3(0, 0.8, 0),
-						base_radius * 1.35,
-						{
-							"kind": "anchor",
-							"coord": coord,
-							"elevation": elevation,
-							"instance_id": structure.instance_id,
-							"anchor": anchor,
-							"point": point,
-						}
-					)
-					if (
-						not anchor_candidate.is_empty()
-						and anchor_candidate["_distance"] < best_distance
-					):
-						best = anchor_candidate
-						best_distance = anchor_candidate["_distance"]
-			if structure_def.provides.has("storage_access"):
-				var storage_candidate := _screen_candidate(
-					screen_position,
-					point + Vector3(0, 0.45, 0),
-					base_radius,
-					{
-						"kind": "storage",
-						"coord": coord,
-						"elevation": elevation,
-						"instance_id": structure.instance_id,
-						"point": point,
-					}
-				)
-				if (
-					not storage_candidate.is_empty()
-					and storage_candidate["_distance"] < best_distance
-				):
-					best = storage_candidate
-					best_distance = storage_candidate["_distance"]
-
-	best.erase("_distance")
-	return best
-
-
-func _screen_candidate(
-	screen_position: Vector2,
-	visual_point: Vector3,
-	radius: float,
-	interaction: Dictionary
-) -> Dictionary:
-	if camera_rig.camera.is_position_behind(visual_point):
-		return {}
-	var distance := screen_position.distance_to(camera_rig.camera.unproject_position(visual_point))
-	if distance > radius:
-		return {}
-	var candidate := interaction.duplicate()
-	candidate["_distance"] = distance
-	return candidate
+	return interaction_targets.interaction_at(screen_position)
 
 
 # ------------------------------------------------------------------ cross-cutting flows
@@ -789,10 +525,30 @@ func _on_focus_changed(focus: Dictionary) -> void:
 
 
 func _on_click_interaction_reached(interaction: Dictionary) -> void:
-	if interaction.get("kind", "") == "delivery_package":
-		_open_delivery_package()
-	else:
-		skill_actions.interact_with(interaction)
+	match interaction.get("kind", ""):
+		"delivery_package":
+			_open_delivery_package()
+		"feature_interaction":
+			_execute_feature_interaction(interaction)
+		_:
+			skill_actions.interact_with(interaction)
+
+
+func _execute_feature_interaction(interaction: Dictionary) -> void:
+	var option = interaction.get("option")
+	if option == null:
+		return
+	if not option.enabled:
+		hud.toast(option.disabled_reason, "warn")
+		return
+	if (
+		option.feature_id == "camping"
+		and core.camping.interactions.execute(
+			option.id, "player", int(interaction.get("instance_id", 0))
+		)
+	):
+		hud.toast("You settle into the shelter.", "good")
+		core.autosave_soon()
 
 
 func _open_delivery_package() -> void:
@@ -805,12 +561,7 @@ func _open_delivery_package() -> void:
 
 
 func _on_arrival_requested(payload: LandParcelPayload) -> void:
-	var presentation: ArrivalPresentationBase = (
-		postcard_presentation
-		if core.arrivals.presentation_id == "postcard"
-		else ferry_presentation
-	)
-	presentation.play(delivery_point, payload, core.registries.arrival_config)
+	ferry_presentation.play(delivery_point, payload, core.registries.arrival_config)
 
 
 func _on_presentation_arrival_started() -> void:
@@ -913,110 +664,6 @@ func _return_home() -> void:
 	player.teleport_home()
 	camera_rig.reset_pan()
 	hud.toast("Home again.", "good")
-
-
-# ------------------------------------------------------------------ settings bridge (panels call these)
-
-func toggle_weather() -> void:
-	lighting.toggle_profile()
-
-
-func debug_set_weather(weather_id: String) -> void:
-	lighting.set_weather(weather_id)
-	core.visual_state["weather"] = weather_id
-	core.autosave_soon()
-	hud.toast("Weather: %s" % weather_id.capitalize(), "good")
-
-
-func debug_set_time_of_day(preset_id: String) -> void:
-	lighting.set_time_of_day(preset_id)
-	core.visual_state["time_of_day"] = preset_id
-	core.autosave_soon()
-	hud.toast("Time of day: %s" % preset_id.capitalize(), "good")
-
-
-func debug_set_background(preset_id: String) -> void:
-	lighting.set_background_preset(preset_id)
-	core.visual_state["background"] = preset_id
-	core.autosave_soon()
-	hud.toast("Background: %s" % preset_id.capitalize(), "good")
-
-
-func debug_set_particle_quality(quality_id: String) -> void:
-	lighting.set_particle_quality(quality_id)
-	core.visual_state["particle_quality"] = quality_id
-	core.autosave_soon()
-	hud.toast("Particles: %s" % quality_id.capitalize(), "good")
-
-
-func debug_reset_visuals() -> void:
-	lighting.reset_admin_overrides()
-	core.visual_state = {
-		"weather": "day",
-		"time_of_day": "noon",
-		"background": "profile",
-		"particle_quality": "high",
-	}
-	core.autosave_soon()
-	hud.toast("Visual overrides reset.", "good")
-
-
-func debug_open_asset_world() -> void:
-	if not OS.is_debug_build():
-		return
-	core.save()
-	get_tree().change_scene_to_file("res://scenes/debug/AdminAssetWorld.tscn")
-
-
-func debug_grant_all_items(amount := 99) -> void:
-	for item_id: String in core.registries.items:
-		var def := core.registries.item(item_id)
-		core.inventory.grant(item_id, amount, def.rarity == "rare", true)
-		if def.slot != "":
-			core.equipment.acquire(item_id)
-			core.collection.record("gear", item_id, 0)
-	hud.toast("Granted every item ×%d." % amount, "levelup")
-
-
-func debug_grant_all_tiles(amount := 10) -> void:
-	for tile_id: String in core.registries.tiles:
-		core.stock.add_tile(tile_id, amount)
-		core.collection.record("tiles", tile_id, 0)
-	hud.toast("Granted every tile ×%d." % amount, "levelup")
-
-
-func debug_grant_all_structures(amount := 10) -> void:
-	for structure_id: String in core.registries.structures:
-		core.stock.add_structure(structure_id, amount)
-		core.collection.record("structures", structure_id, 0)
-	hud.toast("Granted every structure ×%d." % amount, "levelup")
-
-
-func debug_grant_all_content() -> void:
-	debug_grant_all_items()
-	debug_grant_all_tiles()
-	debug_grant_all_structures()
-
-
-func debug_force_ferry_departure() -> void:
-	if ferry_presentation.active:
-		ferry_presentation.force_departure()
-	elif postcard_presentation.active:
-		postcard_presentation.force_departure()
-	else:
-		core.arrivals.force_departure_ready()
-
-
-func debug_grant_dock_parcel() -> void:
-	if core.arrivals.state == ArrivalScheduler.IDLE:
-		core.arrivals.trigger_arrival()
-	debug_force_ferry_departure()
-
-
-func debug_toggle_arrival_presentation() -> void:
-	var next := "postcard" if core.arrivals.presentation_id == "ferry" else "ferry"
-	if core.arrivals.set_presentation(next):
-		hud.toast("Arrival presentation: %s" % next.capitalize(), "good")
 
 
 func _on_profile_applied(profile: VisualStyleProfile) -> void:

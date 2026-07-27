@@ -5,10 +5,54 @@ extends RefCounted
 ## behavior on display names, and never reuse a shipped id for something else.
 
 
+class DefinitionTraits:
+	extends RefCounted
+	## Uniform metadata available on every definition family. Feature systems
+	## may interpret registered capability payloads; tags remain classification.
+	var tags: Array[String] = []
+	var capabilities: Dictionary = {}
+	var parse_errors: Array[String] = []
+
+	static func from_dict(data: Dictionary) -> DefinitionTraits:
+		var traits := DefinitionTraits.new()
+		var raw_tags: Variant = data.get("tags", [])
+		if not raw_tags is Array:
+			traits.parse_errors.append("tags must be an array")
+		else:
+			for tag in raw_tags:
+				if not tag is String:
+					traits.parse_errors.append("every tag must be a string")
+					continue
+				traits.tags.append(String(tag))
+		var raw_capabilities: Variant = data.get("capabilities", {})
+		if not raw_capabilities is Dictionary:
+			traits.parse_errors.append("capabilities must be an object")
+		else:
+			for capability_id: String in raw_capabilities:
+				var payload: Variant = raw_capabilities[capability_id]
+				if not payload is Dictionary:
+					traits.parse_errors.append(
+						"capability '%s' payload must be an object" % capability_id
+					)
+					continue
+				traits.capabilities[capability_id] = payload.duplicate(true)
+		return traits
+
+	func has_tag(tag: String) -> bool:
+		return tags.has(tag)
+
+	func has_capability(capability_id: String) -> bool:
+		return capabilities.has(capability_id)
+
+	func capability(capability_id: String) -> Dictionary:
+		return (capabilities.get(capability_id, {}) as Dictionary).duplicate(true)
+
+
 class SkillDefinition:
 	extends Resource
 	var id: String
 	var display_name: String
+	var traits := DefinitionTraits.new()
 	var description: String
 	var icon_glyph: String
 	var max_level: int = 20
@@ -32,6 +76,7 @@ class SkillDefinition:
 		var s := SkillDefinition.new()
 		s.id = d.get("id", "")
 		s.display_name = d.get("name", s.id.capitalize())
+		s.traits = DefinitionTraits.from_dict(d)
 		s.description = d.get("description", "")
 		s.icon_glyph = d.get("icon", "?")
 		s.max_level = int(d.get("max_level", 20))
@@ -68,6 +113,7 @@ class ItemDefinition:
 	extends Resource
 	var id: String
 	var display_name: String
+	var traits := DefinitionTraits.new()
 	var description: String
 	var category: String = "material"  # material|tool|equipment|parcel|structure_kit|relic
 	var tags: Array[String] = []
@@ -85,10 +131,10 @@ class ItemDefinition:
 		var it := ItemDefinition.new()
 		it.id = d.get("id", "")
 		it.display_name = d.get("name", it.id.capitalize())
+		it.traits = DefinitionTraits.from_dict(d)
 		it.description = d.get("description", "")
 		it.category = d.get("category", "material")
-		for tag in d.get("tags", []):
-			it.tags.append(String(tag))
+		it.tags.assign(it.traits.tags)
 		it.rarity = d.get("rarity", "common")
 		it.stack = bool(d.get("stack", it.category == "material" or it.category == "parcel"))
 		it.slot = d.get("slot", "")
@@ -105,6 +151,7 @@ class AnchorDefinition:
 	var id: String
 	var skill_id: String
 	var display_name: String
+	var traits := DefinitionTraits.new()
 	var loot_table: String = ""
 	var cycle_actions: int = 4         # actions before the anchor rests
 	var regen_seconds: float = 45.0
@@ -115,6 +162,7 @@ class AnchorDefinition:
 		a.id = d.get("id", "")
 		a.skill_id = d.get("skill", "")
 		a.display_name = d.get("name", a.id.capitalize())
+		a.traits = DefinitionTraits.from_dict(d)
 		a.loot_table = d.get("loot_table", "")
 		a.cycle_actions = int(d.get("cycle_actions", 4))
 		a.regen_seconds = float(d.get("regen_seconds", 45.0))
@@ -126,6 +174,7 @@ class TileDefinition:
 	extends Resource
 	var id: String
 	var display_name: String
+	var traits := DefinitionTraits.new()
 	var family: String                 # home_meadow|living_grove|stonebound
 	var biome_tags: Array[String] = []
 	var asset_id: String
@@ -160,6 +209,7 @@ class TileDefinition:
 		var t := TileDefinition.new()
 		t.id = d.get("id", "")
 		t.display_name = d.get("name", t.id.capitalize())
+		t.traits = DefinitionTraits.from_dict(d)
 		t.family = d.get("family", "home_meadow")
 		for tag in d.get("biome_tags", []):
 			t.biome_tags.append(String(tag))
@@ -234,10 +284,27 @@ class SupportSlotDefinition:
 		return false
 
 
+class CapabilityDefinition:
+	extends Resource
+	var id: String
+	var traits := DefinitionTraits.new()
+	var owner: String
+	var description: String
+
+	static func from_dict(d: Dictionary) -> CapabilityDefinition:
+		var capability := CapabilityDefinition.new()
+		capability.id = String(d.get("id", ""))
+		capability.traits = DefinitionTraits.from_dict(d)
+		capability.owner = String(d.get("owner", "core"))
+		capability.description = String(d.get("description", ""))
+		return capability
+
+
 class StructureDefinition:
 	extends Resource
 	var id: String
 	var display_name: String
+	var traits := DefinitionTraits.new()
 	var asset_id: String
 	var anchor_id: String = ""         # optional resource interaction owned by this object
 	var kind: String = "decoration"    # building|decoration|path|utility
@@ -253,7 +320,13 @@ class StructureDefinition:
 	var light_flicker := false
 	var placement_sound: String = "wood"
 	var visitor_tags: Array[String] = []  # future-visitor metadata (seating, viewing...)
-	var provides: Array[String] = []   # capability tags: storage_access, light, rest
+	# Declarative behavior configuration. Capability ids are registered content;
+	# their typed payloads are parsed and owned by the corresponding feature.
+	var capabilities: Dictionary = {}
+	var capability_parse_errors: Array[String] = []
+	# Stateful instances keep their stable iid and mutable feature state when
+	# moved into stock. Most decorations remain anonymous counted pieces.
+	var preserve_instance_state := false
 	var allow_elevated := true
 	# Direct tile placement is surface-typed. Ordinary objects stay on solid
 	# terrain; water-only pieces such as docks opt into "water" explicitly.
@@ -272,6 +345,7 @@ class StructureDefinition:
 		var s := StructureDefinition.new()
 		s.id = d.get("id", "")
 		s.display_name = d.get("name", s.id.capitalize())
+		s.traits = DefinitionTraits.from_dict(d)
 		s.asset_id = d.get("asset_id", "")
 		s.anchor_id = d.get("anchor", "")
 		s.kind = d.get("kind", "decoration")
@@ -282,14 +356,15 @@ class StructureDefinition:
 		s.light_height = float(d.get("light_height", 0.7))
 		s.light_flicker = bool(d.get("light_flicker", false))
 		s.placement_sound = d.get("placement_sound", "wood")
+		s.preserve_instance_state = bool(d.get("preserve_instance_state", false))
 		s.allow_elevated = bool(d.get("allow_elevated", s.socket_type == "decor"))
 		s.allowed_surface_kinds.clear()
 		for surface in d.get("allowed_surfaces", ["flat", "stairs", "uneven"]):
 			s.allowed_surface_kinds.append(String(surface))
 		for tag in d.get("visitor_tags", []):
 			s.visitor_tags.append(String(tag))
-		for cap in d.get("provides", []):
-			s.provides.append(String(cap))
+		s.capabilities = s.traits.capabilities.duplicate(true)
+		s.capability_parse_errors.assign(s.traits.parse_errors)
 		s.placement_policy_explicit = (
 			d.has("placement_tags")
 			and d.has("can_be_stacked")
@@ -314,11 +389,18 @@ class StructureDefinition:
 	func supports_surface(surface_kind: String) -> bool:
 		return allowed_surface_kinds.has(surface_kind)
 
+	func has_capability(capability_id: String) -> bool:
+		return capabilities.has(capability_id)
+
+	func capability(capability_id: String) -> Dictionary:
+		return (capabilities.get(capability_id, {}) as Dictionary).duplicate(true)
+
 
 class RecipeDefinition:
 	extends Resource
 	var id: String
 	var display_name: String
+	var traits := DefinitionTraits.new()
 	var category: String = "decorations"  # land|buildings|decorations|tools|equipment
 	var inputs: Dictionary = {}           # item_id -> count
 	var output_id: String
@@ -331,6 +413,7 @@ class RecipeDefinition:
 		var r := RecipeDefinition.new()
 		r.id = d.get("id", "")
 		r.display_name = d.get("name", r.id.capitalize())
+		r.traits = DefinitionTraits.from_dict(d)
 		r.category = d.get("category", "decorations")
 		r.inputs = d.get("inputs", {})
 		r.output_id = d.get("output", "")
@@ -344,11 +427,13 @@ class RecipeDefinition:
 class LootTableDefinition:
 	extends Resource
 	var id: String
+	var traits := DefinitionTraits.new()
 	var entries: Array[Dictionary] = []  # {item, weight, min, max, rare}
 
 	static func from_dict(d: Dictionary) -> LootTableDefinition:
 		var l := LootTableDefinition.new()
 		l.id = d.get("id", "")
+		l.traits = DefinitionTraits.from_dict(d)
 		for raw in d.get("entries", []):
 			l.entries.append({
 				"item": raw.get("item", ""),
@@ -364,6 +449,7 @@ class ParcelDefinition:
 	extends Resource
 	var id: String
 	var display_name: String
+	var traits := DefinitionTraits.new()
 	var families: Dictionary = {}      # family -> weight when rolling options
 	var option_count: int = 3
 
@@ -371,6 +457,7 @@ class ParcelDefinition:
 		var p := ParcelDefinition.new()
 		p.id = d.get("id", "")
 		p.display_name = d.get("name", p.id.capitalize())
+		p.traits = DefinitionTraits.from_dict(d)
 		p.families = d.get("families", {})
 		p.option_count = int(d.get("option_count", 3))
 		return p
@@ -380,6 +467,7 @@ class EnemyDefinition:
 	extends Resource
 	var id: String
 	var display_name: String
+	var traits := DefinitionTraits.new()
 	var asset_id: String
 	var max_health: int = 3
 	var damage: int = 1
@@ -395,6 +483,7 @@ class EnemyDefinition:
 		var e := EnemyDefinition.new()
 		e.id = d.get("id", "")
 		e.display_name = d.get("name", e.id.capitalize())
+		e.traits = DefinitionTraits.from_dict(d)
 		e.asset_id = d.get("asset_id", "")
 		e.max_health = int(d.get("health", 3))
 		e.damage = int(d.get("damage", 1))
@@ -412,6 +501,7 @@ class LandmarkDefinition:
 	extends Resource
 	var id: String
 	var display_name: String
+	var traits := DefinitionTraits.new()
 	var asset_id: String
 	var reclaimed_dressing_asset: String = ""
 	var footprint: Array[Vector2i] = []   # occupied cells relative to origin
@@ -432,6 +522,7 @@ class LandmarkDefinition:
 		var m := LandmarkDefinition.new()
 		m.id = d.get("id", "")
 		m.display_name = d.get("name", m.id.capitalize())
+		m.traits = DefinitionTraits.from_dict(d)
 		m.asset_id = d.get("asset_id", "")
 		m.reclaimed_dressing_asset = d.get("reclaimed_dressing_asset", "")
 		for cell in d.get("footprint", [[0, 0]]):

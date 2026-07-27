@@ -2,40 +2,90 @@ class_name ContentValidator
 extends RefCounted
 ## Production content integrity checks that require the imported asset catalog.
 
+const ValidationIssueScript := preload("res://scripts/core/content/validation_issue.gd")
+
 
 static func validate(registries: Registries) -> PackedStringArray:
+	var issues: Array = []
+	_validate_definitions(
+		registries.tiles,
+		registries.structures,
+		registries.items,
+		registries.enemies,
+		registries.landmarks,
+		issues,
+		func(kind: String, id: String):
+			return registries.definition_source(kind, id)
+	)
 	var errors := PackedStringArray()
-	for def: Defs.TileDefinition in registries.tiles.values():
-		var asset_id := "tile_water_floor" if def.render_profile == "continuous_water" else def.asset_id
-		_require_asset(errors, "tile", def.id, asset_id)
-	for def: Defs.StructureDefinition in registries.structures.values():
-		_require_asset(errors, "structure", def.id, def.asset_id)
-	for def: Defs.ItemDefinition in registries.items.values():
-		if def.asset_id != "":
-			_require_asset(errors, "item", def.id, def.asset_id)
-	for def: Defs.EnemyDefinition in registries.enemies.values():
-		_require_asset(errors, "enemy", def.id, def.asset_id)
-	for def: Defs.LandmarkDefinition in registries.landmarks.values():
-		_require_asset(errors, "landmark", def.id, def.asset_id)
-		if def.reclaimed_dressing_asset != "":
-			_require_asset(
-				errors,
-				"landmark dressing",
-				def.id,
-				def.reclaimed_dressing_asset
-			)
+	for issue in issues:
+		if issue.severity == ValidationIssueScript.Severity.ERROR:
+			errors.append(issue.format())
 	return errors
 
 
+static func validate_snapshot(snapshot, issues: Array) -> void:
+	_validate_definitions(
+		snapshot.tiles,
+		snapshot.structures,
+		snapshot.items,
+		snapshot.enemies,
+		snapshot.landmarks,
+		issues,
+		func(kind: String, id: String):
+			return snapshot.source(kind, id)
+	)
+
+
+static func _validate_definitions(
+	tiles: Dictionary,
+	structures: Dictionary,
+	items: Dictionary,
+	enemies: Dictionary,
+	landmarks: Dictionary,
+	issues: Array,
+	source_for: Callable
+) -> void:
+	for def: Defs.TileDefinition in tiles.values():
+		var asset_id := "tile_water_floor" if def.render_profile == "continuous_water" else def.asset_id
+		_require_asset(issues, "tiles", def.id, asset_id, source_for)
+	for def: Defs.StructureDefinition in structures.values():
+		_require_asset(issues, "structures", def.id, def.asset_id, source_for)
+	for def: Defs.ItemDefinition in items.values():
+		if def.asset_id != "":
+			_require_asset(issues, "items", def.id, def.asset_id, source_for)
+	for def: Defs.EnemyDefinition in enemies.values():
+		_require_asset(issues, "enemies", def.id, def.asset_id, source_for)
+	for def: Defs.LandmarkDefinition in landmarks.values():
+		_require_asset(issues, "landmarks", def.id, def.asset_id, source_for)
+		if def.reclaimed_dressing_asset != "":
+			_require_asset(
+				issues,
+				"landmarks",
+				def.id,
+				def.reclaimed_dressing_asset,
+				source_for,
+				"reclaimed_dressing_asset"
+			)
+
+
 static func _require_asset(
-	errors: PackedStringArray,
+	issues: Array,
 	kind: String,
 	content_id: String,
-	asset_id: String
+	asset_id: String,
+	source_for: Callable,
+	field: String = "asset_id"
 ) -> void:
 	if asset_id == "":
-		errors.append("%s %s has no asset id" % [kind, content_id])
+		issues.append(ValidationIssueScript.new(
+			ValidationIssueScript.Severity.ERROR, "asset.required",
+			source_for.call(kind, content_id), field,
+			"asset id must not be empty"
+		))
 	elif AssetLibrary.resolve_path(asset_id) == "":
-		errors.append(
-			"%s %s references missing asset %s" % [kind, content_id, asset_id]
-		)
+		issues.append(ValidationIssueScript.new(
+			ValidationIssueScript.Severity.ERROR, "asset.missing",
+			source_for.call(kind, content_id), field,
+			"referenced asset '%s' does not exist" % asset_id
+		))

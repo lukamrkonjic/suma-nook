@@ -260,7 +260,7 @@ func _build_structure(holder: Node3D, s: WorldGrid.StructureState) -> void:
 			_add_structure_blocker(visual)
 		"walkable_surface":
 			_add_walkable_structure_surface(visual)
-	if def.provides.has("light"):
+	if def.has_capability("light"):
 		_add_warm_light(
 			visual,
 			1.1 if def.id == "struct_campfire" else 0.6,

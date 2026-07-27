@@ -2,7 +2,6 @@ class_name RewardManager
 extends RefCounted
 ## Hobby reward resolver. Ordinary actions yield XP/collection metadata and
 ## optional finished world pieces; they never yield common material stacks.
-## The legacy table functions remain for disabled combat/old-save code.
 
 signal loot_granted(grants: Array)   # [{item_id, count, rare}]
 signal hobby_result_resolved(result: HobbyActionResult)
@@ -12,12 +11,6 @@ var rng: RngService
 var inventory: InventoryManager
 var stock: StockManager
 var collection: CollectionManager
-
-var rare_dry_streak: Dictionary = {}     # skill_id -> rolls since last rare
-var tutorial_catches: int = 0
-var tutorial_fragment_granted := false
-var first_parcel_granted := false
-
 
 func _init(
 	regs: Registries,
@@ -74,46 +67,6 @@ func resolve_hobby_action(skill: Defs.SkillDefinition) -> HobbyActionResult:
 	return result
 
 
-## One completed skill action → guaranteed XP handled by caller; this rolls
-## materials + the rare layer. yield_bonus/rare_bonus come from equipment.
-func roll_action_loot(skill: Defs.SkillDefinition, yield_bonus := 0.0, rare_bonus := 0.0) -> Array:
-	if not registries.feature("legacy_material_loot_enabled", false):
-		return []
-	var grants: Array = []
-	var table := registries.loot_table(skill.loot_table)
-	if table != null and not table.entries.is_empty():
-		var entry := rng.weighted("loot_" + skill.id, table.entries)
-		var count := rng.randi_range("loot_" + skill.id, int(entry["min"]), int(entry["max"]))
-		if yield_bonus > 0.0 and rng.chance("loot_" + skill.id, yield_bonus):
-			count += 1
-		grants.append({"item_id": entry["item"], "count": count, "rare": false})
-
-	# Tutorial guarantee: early fishing must produce a Land Fragment quickly.
-	if skill.id == "fishing":
-		tutorial_catches += 1
-		if not tutorial_fragment_granted and tutorial_catches >= registries.tunei("tutorial_fragment_by_catch", 3):
-			tutorial_fragment_granted = true
-			grants.append({"item_id": "land_fragment", "count": 1, "rare": false, "guaranteed": true})
-
-	# Rare layer with pity.
-	var rare_table := registries.loot_table(skill.rare_table)
-	if rare_table != null and not rare_table.entries.is_empty():
-		var dry := int(rare_dry_streak.get(skill.id, 0))
-		var pity_max := registries.tunei("rare_pity_max_dry", 9)
-		var chance := registries.tunef("rare_roll_chance", 0.22) + rare_bonus
-		chance += (float(dry) / pity_max) * 0.5   # pity ramp
-		if dry >= pity_max or rng.chance("rare_" + skill.id, chance):
-			var entry := rng.weighted("rare_" + skill.id, rare_table.entries)
-			var count := rng.randi_range("rare_" + skill.id, int(entry["min"]), int(entry["max"]))
-			grants.append({"item_id": entry["item"], "count": count, "rare": bool(entry["rare"])})
-			rare_dry_streak[skill.id] = 0
-		else:
-			rare_dry_streak[skill.id] = dry + 1
-
-	_apply(grants)
-	return grants
-
-
 ## Data-driven hobby milestones grant finished placeable pieces directly.
 func on_level_unlocks(unlocks: Array) -> Array:
 	var grants: Array = []
@@ -153,19 +106,3 @@ func _apply(grants: Array) -> void:
 		inventory.grant(grant["item_id"], grant["count"], bool(grant.get("rare", false)))
 	if not grants.is_empty():
 		loot_granted.emit(grants)
-
-
-func to_save_dict() -> Dictionary:
-	return {
-		"rare_dry": rare_dry_streak.duplicate(),
-		"tutorial_catches": tutorial_catches,
-		"tutorial_fragment": tutorial_fragment_granted,
-		"first_parcel": first_parcel_granted,
-	}
-
-
-func from_save_dict(data: Dictionary) -> void:
-	rare_dry_streak = data.get("rare_dry", {}).duplicate()
-	tutorial_catches = int(data.get("tutorial_catches", 0))
-	tutorial_fragment_granted = bool(data.get("tutorial_fragment", false))
-	first_parcel_granted = bool(data.get("first_parcel", false))

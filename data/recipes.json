@@ -13,7 +13,7 @@
     { "id": "recipe_gate", "name": "Gate", "category": "decorations", "inputs": { "softwood": 2, "old_metal": 1 }, "output": "struct_gate", "unlock": { "woodcutting": 2 } },
     { "id": "recipe_lantern", "name": "Warm Lantern", "category": "decorations", "inputs": { "driftwood": 1, "resin": 1, "old_metal": 1 }, "output": "struct_lantern", "unlock": { "woodcutting": 4 } },
     { "id": "recipe_campfire", "name": "Campfire", "category": "buildings", "inputs": { "driftwood": 2, "smooth_stone": 3 }, "output": "struct_campfire", "unlock": {} },
-    { "id": "recipe_shelter", "name": "Tiny Shelter", "category": "buildings", "inputs": { "softwood": 4, "hardwood": 2, "reeds": 2 }, "output": "struct_shelter", "unlock": { "woodcutting": 6 } },
+    { "id": "recipe_high_tent", "name": "High Tent", "category": "buildings", "inputs": { "softwood": 4, "hardwood": 2, "reeds": 2 }, "output": "struct_high_tent", "unlock": { "woodcutting": 6 } },
     { "id": "recipe_planter", "name": "Planter", "category": "decorations", "inputs": { "softwood": 1, "reeds": 1 }, "output": "struct_planter", "unlock": {} },
     { "id": "recipe_pot", "name": "Terracotta Pot", "category": "decorations", "inputs": { "smooth_stone": 2 }, "output": "struct_pot", "unlock": {} },
     { "id": "recipe_dock", "name": "Small Dock", "category": "buildings", "inputs": { "driftwood": 3, "reeds": 2 }, "output": "struct_dock", "unlock": { "fishing": 5 } },

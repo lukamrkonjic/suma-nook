@@ -51,12 +51,31 @@ func _ready() -> void:
 		_players.append(player)
 	_wind = _make_loop("ambience_wind")
 	_rain = _make_loop("ambience_rain")
-	_wind.play()
+	# The headless acceptance runner has no audible output and Godot's dummy
+	# audio driver otherwise retains a looping WAV playback through shutdown.
+	if DisplayServer.get_name() != "headless":
+		_wind.play()
 	_bird_timer = Timer.new()
 	_bird_timer.wait_time = 7.0
 	_bird_timer.autostart = true
 	_bird_timer.timeout.connect(_on_bird_timer)
 	add_child(_bird_timer)
+
+
+func _exit_tree() -> void:
+	# Explicitly release active playback objects before a session is rebuilt or
+	# the scene tree shuts down. Leaving the looping wind attached until final
+	# engine teardown keeps its stream and playback resource alive.
+	for player: AudioStreamPlayer in _players:
+		player.stop()
+		player.stream = null
+	if _wind != null:
+		_wind.stop()
+		_wind.stream = null
+	if _rain != null:
+		_rain.stop()
+		_rain.stream = null
+	_streams.clear()
 
 
 func _make_loop(event: String) -> AudioStreamPlayer:
