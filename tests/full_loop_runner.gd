@@ -50,6 +50,21 @@ func wait(seconds: float) -> void:
 	await get_tree().create_timer(seconds).timeout
 
 
+## With no perimeter guard rail, scripted held-input walks must start from
+## the island interior with a known camera yaw, or they stroll into the
+## water/void mid-assertion.
+func anchor_for_walk(cell: Vector2i, yaw := 45.0) -> void:
+	main.camera_rig._yaw = yaw
+	main.camera_rig._yaw_target = yaw
+	main.camera_rig.rotation.y = deg_to_rad(yaw)
+	main.player.position = main.core.grid.cell_to_world(
+		main.core.grid.nearest_walkable(cell)
+	)
+	main.player.velocity = Vector3.ZERO
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+
+
 func _ready() -> void:
 	for path in [SAVE_PATH, SAVE_PATH + ".backup"]:
 		if FileAccess.file_exists(path):
@@ -1204,6 +1219,7 @@ func _step_movement() -> void:
 		"every authored runtime animation closes horizontal root travel"
 	)
 
+	await anchor_for_walk(Vector2i(0, 1))
 	var start := player.position
 	var samples: Array[Vector3] = []
 	var animation_samples := PackedFloat32Array()
@@ -1297,6 +1313,7 @@ func _step_movement() -> void:
 	await wait(0.3)
 	check(rest.distance_to(player.position) < 0.01, "releasing input keeps the exact stop position")
 	# diagonal speed
+	await anchor_for_walk(Vector2i(0, 0))
 	Input.action_press("move_down")
 	Input.action_press("move_left")
 	var t0 := player.position
@@ -1307,6 +1324,7 @@ func _step_movement() -> void:
 	Input.action_release("move_left")
 	check(diag_speed < main.core.registries.tunef("walk_speed", 2.2) * 1.15, "diagonal not faster (%.2f m/s)" % diag_speed)
 	# camera-relative after rotation
+	await anchor_for_walk(Vector2i(0, 1))
 	main.camera_rig._yaw_target += 90.0
 	await wait(0.6)
 	Input.action_press("move_up")
@@ -1510,13 +1528,15 @@ func _step_place_tile() -> void:
 	await wait(0.6)
 	await shot("screenshot_tile_placement")
 	main.placement.set_active(false)
-	# walk onto it
-	main.player.position = main.core.grid.cell_to_world(Vector2i(1, 0))
+	# walk onto it: at yaw 45, right+down sums to pure +x — straight from
+	# (1,0) onto the new (2,0) tile, stopping at its center.
+	await anchor_for_walk(Vector2i(1, 0))
 	Input.action_press("move_right")
-	main.camera_rig.rotation_degrees.y = 45.0
-	for i in 50:
+	Input.action_press("move_down")
+	for i in 36:
 		await get_tree().physics_frame
 	Input.action_release("move_right")
+	Input.action_release("move_down")
 	check(main.player.position.y > -0.5, "player walks onto the new tile without falling")
 
 

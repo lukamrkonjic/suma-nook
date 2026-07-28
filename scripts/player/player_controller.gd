@@ -20,10 +20,6 @@ var visual: PlayerVisual
 
 var state: State = State.FREE
 var move_locked := false
-## True from a deliberate jump until the next landing — only then does the
-## island's perimeter lip open up. Pushes, steps, and teleports never slip
-## through by accident.
-var _jump_airborne := false
 ## Grace window after spawns/reloads: world colliders can take a few frames
 ## to rebuild, and the brief floorless drop must not trigger the rescue.
 var _rescue_grace := 0.0
@@ -46,7 +42,9 @@ func setup(game_core: GameCore, rig: CameraRig, player_visual: PlayerVisual) -> 
 	position = core.profile.position
 	rotation.y = core.profile.facing
 	floor_snap_length = 0.4
-	collision_mask = GROUND_MASK | EDGE_WALL_MASK
+	# Only the ground layer: the perimeter lip exists for enemies, never for
+	# the player — stepping off the edge is a real choice (swim or portal).
+	collision_mask = GROUND_MASK
 	suspend_water_rescue()
 
 
@@ -76,12 +74,7 @@ func _physics_process(delta: float) -> void:
 			velocity.y -= core.registries.tunef("jump_gravity", 25.0) * delta
 		else:
 			velocity.y = maxf(velocity.y, 0.0)
-	# The island's perimeter lip opens only for a deliberate jump; every other
-	# kind of movement keeps its guard rail.
-	collision_mask = GROUND_MASK if _jump_airborne else (GROUND_MASK | EDGE_WALL_MASK)
 	move_and_slide()
-	if is_on_floor():
-		_jump_airborne = false
 	# Landing in open water means floating, not sinking: swim mode.
 	if (
 		state in [State.FREE, State.BUILDING, State.DODGING, State.HIT]
@@ -90,7 +83,6 @@ func _physics_process(delta: float) -> void:
 		and position.y < core.registries.tunef("water_level_y", -0.14) - 0.05
 	):
 		velocity.y = 0.0
-		_jump_airborne = false
 		set_state(State.SWIMMING)
 	# Falling into the VOID — off the world entirely, no water beneath, Mario
 	# Kart style — is what summons the rescue hole. Skill loops, cutscenes,
@@ -200,7 +192,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			# Kick out of the water — enough to mount the shoreline lip.
 			set_state(State.FREE)
 		velocity.y = core.registries.tunef("jump_velocity", 5.4) * (0.9 if swim_hop else 1.0)
-		_jump_airborne = true
 		floor_snap_length = 0.0
 		get_tree().create_timer(0.12).timeout.connect(func():
 			floor_snap_length = 0.4
@@ -314,7 +305,9 @@ func _begin_water_rescue() -> void:
 	# The same portal animation on land: grow small-to-large, then the player
 	# plops out of it onto the tile.
 	rescue.tween_callback(func():
-		var exit_hole := _spawn_rescue_hole(target + Vector3(0.0, 0.03, 0.0))
+		# Sits above every speckle/pebble decoration layer so nothing
+		# renders on top of the portal.
+		var exit_hole := _spawn_rescue_hole(target + Vector3(0.0, 0.1, 0.0))
 		_grow_hole(exit_hole)
 		_close_hole(exit_hole, 0.78)
 		position = Vector3(target.x, target.y - 1.2, target.z)
@@ -369,7 +362,7 @@ func _abort_rescue() -> void:
 func _spawn_rescue_hole(at: Vector3) -> MeshInstance3D:
 	var hole := MeshInstance3D.new()
 	var disc := QuadMesh.new()
-	disc.size = Vector2(1.35, 1.35)
+	disc.size = Vector2(0.81, 0.81)
 	hole.mesh = disc
 	var material := ShaderMaterial.new()
 	material.shader = RESCUE_HOLE_SHADER
