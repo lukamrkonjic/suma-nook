@@ -788,16 +788,20 @@ func apply_equipment(equipment: EquipmentManager, held_tool_type := "") -> void:
 # ------------------------------------------------------------------ animation
 
 func set_walk(amount: float, delta: float) -> void:
+	# Above 1.0 means sprinting: the stride quickens and a light run wobble
+	# rolls the body. 1.6 matches the sprint speed multiplier's ceiling.
 	_walk_amount = lerpf(
 		_walk_amount,
-		clampf(amount, 0.0, 1.0),
+		clampf(amount, 0.0, 1.6),
 		minf(1.0, 12.0 * delta)
 	)
 	_walk_phase += delta * WALK_BOB_HZ * (0.4 + 0.6 * _walk_amount)
 	_idle_phase += delta * TAU / 2.4
 	if _current_anim != "idle":
 		return
-	var bob := absf(sin(_walk_phase)) * 0.05 * _walk_amount
+	var gait := minf(_walk_amount, 1.0)
+	var sprint_blend := clampf((_walk_amount - 1.0) / 0.6, 0.0, 1.0)
+	var bob := absf(sin(_walk_phase)) * 0.05 * gait
 	if _uses_rigged_preview:
 		var wants_walk := _walk_amount > (0.06 if _locomotion_walking else 0.14)
 		_set_locomotion(wants_walk)
@@ -805,22 +809,30 @@ func set_walk(amount: float, delta: float) -> void:
 			lerpf(
 				_asset_profile.walk_speed_scale_min,
 				_asset_profile.walk_speed_scale_max,
-				_walk_amount
-			)
+				gait
+			) * (1.0 + 0.45 * sprint_blend)
 			if wants_walk
 			else 1.0
 		)
-		# The authored clips own the gait. Rewriting the root transform here
-		# invalidates physics interpolation and presents as high-frequency jitter.
+		# The authored clips own the gait (no root rewrites — they invalidate
+		# physics interpolation), but a gentle roll on the body wrapper sells
+		# the sprint wobble without touching root translation.
+		_body.rotation.z = lerpf(
+			_body.rotation.z,
+			sin(_walk_phase) * 0.055 * sprint_blend,
+			minf(1.0, 10.0 * delta)
+		)
 		return
 	if _walk_amount < 0.05:
 		bob += sin(_idle_phase) * 0.006
 		_head_group.rotation.z = sin(_idle_phase * 0.5) * 0.008
 	else:
 		_head_group.rotation.z = lerpf(_head_group.rotation.z, 0.0, minf(1.0, delta * 8.0))
-	_body.position.y = bob
-	_body.rotation.x = _walk_amount * 0.06
-	var swing := sin(_walk_phase) * 0.55 * _walk_amount
+	_body.position.y = bob + absf(sin(_walk_phase)) * 0.02 * sprint_blend
+	# Sprinting leans further into the run and rolls side to side.
+	_body.rotation.x = gait * 0.06 + sprint_blend * 0.07
+	_body.rotation.z = sin(_walk_phase) * 0.055 * sprint_blend
+	var swing := sin(_walk_phase) * 0.55 * minf(_walk_amount, 1.25)
 	_arm_r.rotation.x = swing
 	_arm_l.rotation.x = -swing
 

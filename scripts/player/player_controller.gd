@@ -122,7 +122,16 @@ func _free_move(delta: float) -> void:
 				wish = wish.normalized()
 		elif state == State.FREE and not _click_path.is_empty():
 			wish = _click_wish()
-	var speed := core.registries.tunef("walk_speed", 2.2)
+	var walk_speed := core.registries.tunef("walk_speed", 2.2)
+	var speed := walk_speed
+	# Hold sprint to run: faster feet, faster clip, and a happy wobble.
+	var sprinting := (
+		Input.is_action_pressed("sprint")
+		and state == State.FREE
+		and wish.length_squared() > 0.001
+	)
+	if sprinting:
+		speed *= core.registries.tunef("sprint_multiplier", 1.6)
 	var accel := core.registries.tunef("walk_accel", 26.0) if wish != Vector3.ZERO else core.registries.tunef("walk_decel", 32.0)
 	var horizontal := Vector3(velocity.x, 0, velocity.z)
 	horizontal = horizontal.move_toward(wish * speed, accel * delta)
@@ -131,7 +140,9 @@ func _free_move(delta: float) -> void:
 	if wish.length_squared() > 0.001:
 		var target_yaw := atan2(-wish.x, -wish.z)
 		rotation.y = lerp_angle(rotation.y, target_yaw, core.registries.tunef("turn_speed", 12.0) * delta)
-	visual.set_walk(horizontal.length() / speed, delta)
+	# Normalized against WALK speed so a sprint drives the gait above 1.0
+	# (faster stride and the run wobble in PlayerVisual).
+	visual.set_walk(horizontal.length() / walk_speed, delta)
 
 
 ## Floating in open water: slower movement, a buoyancy spring that holds the
@@ -150,6 +161,8 @@ func _swim_move(delta: float) -> void:
 		if wish.length_squared() > 1.0:
 			wish = wish.normalized()
 	var speed := core.registries.tunef("swim_speed", 1.35)
+	if Input.is_action_pressed("sprint") and wish.length_squared() > 0.001:
+		speed *= core.registries.tunef("swim_sprint_multiplier", 1.3)
 	var horizontal := Vector3(velocity.x, 0, velocity.z)
 	horizontal = horizontal.move_toward(wish * speed, core.registries.tunef("swim_accel", 14.0) * delta)
 	velocity.x = horizontal.x
