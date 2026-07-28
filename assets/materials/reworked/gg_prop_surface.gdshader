@@ -24,9 +24,9 @@ uniform vec3 ramp_bottom_tint = vec3(0.985, 0.99, 1.02);
 // reading as solid fills.
 uniform float mottle_amount = 0.035;
 uniform float mottle_scale = 1.2;
-// Soft satin edge sheen: GG's beveled geometry catches a broad, quiet
-// grazing-light glow; a gentle rim term reads the same on Suma's meshes.
-uniform float rim_amount : hint_range(0.0, 1.0) = 0.12;
+// Optional edge sheen. Off by default: the GG studio read is crisp, and the
+// rim term hazed it — keep at 0 unless a specific prop needs it.
+uniform float rim_amount : hint_range(0.0, 1.0) = 0.0;
 uniform float rim_tint_amount : hint_range(0.0, 1.0) = 0.6;
 
 varying float object_height;

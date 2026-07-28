@@ -28,8 +28,8 @@ func _ready() -> void:
 	# wrap, and a broad structure spread — a GG-complexity scene. Pull the
 	# camera to GG's inspected diorama distance so the whole island frames.
 	_main.debug_build_mock_world()
-	_main.camera_rig._size_target = 52.0
-	_main.camera_rig.camera.position.z = 52.0
+	_main.camera_rig._size_target = 42.0
+	_main.camera_rig.camera.position.z = 42.0
 	await _settle(30)
 	await _save_viewport("gg_exact_noon.png")
 	_main.lighting.set_time_of_day("night")

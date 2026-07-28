@@ -2,10 +2,10 @@
   "source": "Original Suma Nook semantic material translation; GG live property blocks were not observed",
   "defaults": {
     "family": "painted_matte",
-    "roughness": 0.66,
+    "roughness": 0.72,
     "metallic": 0.0,
-    "specular": 0.38,
-    "calm_cream_mix": 0.0,
+    "specular": 0.5,
+    "calm_cream_mix": 0.08,
     "calm_value_lift": 0.0
   },
   "families": [
@@ -21,10 +21,10 @@
         "flora",
         "reed"
       ],
-      "roughness": 0.72,
+      "roughness": 0.74,
       "metallic": 0.0,
-      "specular": 0.35,
-      "calm_cream_mix": 0.0,
+      "specular": 0.5,
+      "calm_cream_mix": 0.14,
       "calm_value_lift": 0.0
     },
     {
@@ -34,10 +34,10 @@
         "soil",
         "sand"
       ],
-      "roughness": 0.78,
+      "roughness": 0.8,
       "metallic": 0.0,
-      "specular": 0.3,
-      "calm_cream_mix": 0.0,
+      "specular": 0.45,
+      "calm_cream_mix": 0.08,
       "calm_value_lift": 0.0
     },
     {
@@ -47,10 +47,10 @@
         "rock",
         "sage_gray"
       ],
-      "roughness": 0.62,
+      "roughness": 0.7,
       "metallic": 0.0,
-      "specular": 0.4,
-      "calm_cream_mix": 0.0,
+      "specular": 0.5,
+      "calm_cream_mix": 0.06,
       "calm_value_lift": 0.0
     },
     {
@@ -59,10 +59,10 @@
         "wood",
         "cardboard"
       ],
-      "roughness": 0.66,
+      "roughness": 0.72,
       "metallic": 0.0,
-      "specular": 0.38,
-      "calm_cream_mix": 0.0,
+      "specular": 0.5,
+      "calm_cream_mix": 0.1,
       "calm_value_lift": 0.0
     },
     {
@@ -72,10 +72,10 @@
         "coral",
         "burnt_red"
       ],
-      "roughness": 0.58,
+      "roughness": 0.66,
       "metallic": 0.0,
-      "specular": 0.42,
-      "calm_cream_mix": 0.0,
+      "specular": 0.55,
+      "calm_cream_mix": 0.1,
       "calm_value_lift": 0.0
     },
     {
@@ -89,10 +89,10 @@
         "mushroom",
         "cream_fabric"
       ],
-      "roughness": 0.78,
+      "roughness": 0.8,
       "metallic": 0.0,
-      "specular": 0.32,
-      "calm_cream_mix": 0.0,
+      "specular": 0.45,
+      "calm_cream_mix": 0.08,
       "calm_value_lift": 0.0
     },
     {
