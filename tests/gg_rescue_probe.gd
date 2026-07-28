@@ -21,7 +21,33 @@ func _ready() -> void:
 	creator._finish()
 	await get_tree().create_timer(0.7).timeout
 	var player := _main.player
-	# Fling the player well past the island edge, below the waterline.
+	# Part 1: land in open water — expect floating (SWIMMING), no rescue.
+	var water_cell := Vector2i.MAX
+	for coord: Vector2i in _main.core.grid.cells:
+		var def := _main.core.grid.tile_def(coord)
+		if def != null and def.water_cells.has("open_water"):
+			water_cell = coord
+			break
+	if water_cell != Vector2i.MAX:
+		player.position = _main.core.grid.cell_to_world(water_cell) + Vector3(0, 0.4, 0)
+		player.velocity = Vector3.ZERO
+		await get_tree().create_timer(1.6).timeout
+		var floating := (
+			player.state == PlayerController.State.SWIMMING
+			and player.position.y > -0.7
+			and player.position.y < -0.2
+		)
+		if not floating:
+			print(
+				"RESCUE PROBE FAILED — swim: state=%s y=%.2f over %s"
+				% [player.state, player.position.y, water_cell]
+			)
+			get_tree().quit(1)
+			return
+		print("  swim ok — floating at y=%.2f over %s" % [player.position.y, water_cell])
+	else:
+		print("  (no open_water cells in starter world; swim check skipped)")
+	# Part 2: fling into the void past everything — expect the hole rescue.
 	var start_cell := player.current_cell()
 	player.position = _main.core.grid.cell_to_world(start_cell) + Vector3(-14.0, -0.2, 0.0)
 	player.velocity = Vector3.ZERO

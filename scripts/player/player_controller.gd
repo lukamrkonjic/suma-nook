@@ -9,7 +9,7 @@ signal state_changed(new_state: State)
 signal interaction_focus_changed(focus: Dictionary)   # {} when none
 signal click_interaction_reached(interaction: Dictionary)
 
-enum State { FREE, FISHING_CAST, FISHING_WAIT, FISHING_CATCH, WOODCUTTING, ATTACKING, DODGING, HIT, BUILDING, DISABLED, RESCUED }
+enum State { FREE, FISHING_CAST, FISHING_WAIT, FISHING_CATCH, WOODCUTTING, ATTACKING, DODGING, HIT, BUILDING, DISABLED, RESCUED, SWIMMING }
 
 const GROUND_MASK := 1
 const EDGE_WALL_MASK := WorldRenderer.EDGE_WALL_LAYER
@@ -28,6 +28,7 @@ var _jump_airborne := false
 ## to rebuild, and the brief floorless drop must not trigger the rescue.
 var _rescue_grace := 0.0
 var _rescue_tween: Tween
+var _swim_phase := 0.0
 var _dodge_timer := 0.0
 var _dodge_dir := Vector3.ZERO
 var _invuln_timer := 0.0
@@ -66,25 +67,39 @@ func _physics_process(delta: float) -> void:
 				set_state(State.FREE)
 		State.DISABLED:
 			velocity = Vector3.ZERO
+		State.SWIMMING:
+			_swim_move(delta)
 		_:
 			_free_move(delta)
-	if not is_on_floor():
-		velocity.y -= core.registries.tunef("jump_gravity", 25.0) * delta
-	else:
-		velocity.y = maxf(velocity.y, 0.0)
+	if state != State.SWIMMING:
+		if not is_on_floor():
+			velocity.y -= core.registries.tunef("jump_gravity", 25.0) * delta
+		else:
+			velocity.y = maxf(velocity.y, 0.0)
 	# The island's perimeter lip opens only for a deliberate jump; every other
 	# kind of movement keeps its guard rail.
 	collision_mask = GROUND_MASK if _jump_airborne else (GROUND_MASK | EDGE_WALL_MASK)
 	move_and_slide()
 	if is_on_floor():
 		_jump_airborne = false
-	# Overboard means actually falling well below the waterline while simply
-	# moving about. Skill loops, cutscenes, and scripted states are never
-	# hijacked — their anchors own the player until they finish.
+	# Landing in open water means floating, not sinking: swim mode.
+	if (
+		state in [State.FREE, State.BUILDING, State.DODGING, State.HIT]
+		and velocity.y <= 0.0
+		and _over_open_water()
+		and position.y < core.registries.tunef("water_level_y", -0.14) - 0.05
+	):
+		velocity.y = 0.0
+		_jump_airborne = false
+		set_state(State.SWIMMING)
+	# Falling into the VOID — off the world entirely, no water beneath, Mario
+	# Kart style — is what summons the rescue hole. Skill loops, cutscenes,
+	# and scripted states are never hijacked.
 	if (
 		_rescue_grace <= 0.0
 		and not is_on_floor()
-		and state in [State.FREE, State.BUILDING, State.DODGING, State.HIT]
+		and state in [State.FREE, State.BUILDING, State.DODGING, State.HIT, State.SWIMMING]
+		and not _over_open_water()
 		and position.y < core.registries.tunef("water_rescue_trigger_y", -0.9)
 	):
 		_begin_water_rescue()
@@ -127,16 +142,64 @@ func _free_move(delta: float) -> void:
 	visual.set_walk(horizontal.length() / speed, delta)
 
 
+## Floating in open water: slower movement, a buoyancy spring that holds the
+## swimmer at the surface with a gentle bob, and paddling arms from the walk
+## cycle. Jump kicks out of the water; swimming past the water's edge into
+## the void hands over to the rescue.
+func _swim_move(delta: float) -> void:
+	var input := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	if input.length_squared() > 0.04:
+		cancel_click_command()
+	var wish := Vector3.ZERO
+	if not move_locked and input.length_squared() > 0.04:
+		var basis := camera_rig.horizontal_basis()
+		wish = (basis.x * input.x + basis.z * input.y)
+		wish.y = 0.0
+		if wish.length_squared() > 1.0:
+			wish = wish.normalized()
+	var speed := core.registries.tunef("swim_speed", 1.35)
+	var horizontal := Vector3(velocity.x, 0, velocity.z)
+	horizontal = horizontal.move_toward(wish * speed, core.registries.tunef("swim_accel", 14.0) * delta)
+	velocity.x = horizontal.x
+	velocity.z = horizontal.z
+	if wish.length_squared() > 0.001:
+		var target_yaw := atan2(-wish.x, -wish.z)
+		rotation.y = lerp_angle(rotation.y, target_yaw, core.registries.tunef("turn_speed", 12.0) * 0.7 * delta)
+	_swim_phase += delta * 2.6
+	if _over_open_water():
+		var water_level := core.registries.tunef("water_level_y", -0.14)
+		var swim_line := water_level - core.registries.tunef("swim_submerge", 0.32)
+		var bob := sin(_swim_phase) * 0.05
+		velocity.y = (swim_line + bob - position.y) * 8.0
+	else:
+		# Swam past the last water tile: nothing holds them up out here.
+		velocity.y -= core.registries.tunef("jump_gravity", 25.0) * delta
+	visual.set_walk(clampf(horizontal.length() / speed, 0.25, 1.0) * 0.85, delta)
+	if is_on_floor():
+		set_state(State.FREE)
+
+
+func _over_open_water() -> bool:
+	var def := core.grid.tile_def(current_cell())
+	return def != null and def.water_cells.has("open_water")
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if state == State.DISABLED:
 		return
 	if (
 		event.is_action_pressed("jump")
-		and is_on_floor()
-		and state in [State.FREE, State.BUILDING]
 		and not move_locked
+		and (
+			(is_on_floor() and state in [State.FREE, State.BUILDING])
+			or state == State.SWIMMING
+		)
 	):
-		velocity.y = core.registries.tunef("jump_velocity", 5.4)
+		var swim_hop := state == State.SWIMMING
+		if swim_hop:
+			# Kick out of the water — enough to mount the shoreline lip.
+			set_state(State.FREE)
+		velocity.y = core.registries.tunef("jump_velocity", 5.4) * (0.9 if swim_hop else 1.0)
 		_jump_airborne = true
 		floor_snap_length = 0.0
 		get_tree().create_timer(0.12).timeout.connect(func():
@@ -230,23 +293,21 @@ func _begin_water_rescue() -> void:
 	var splash := position
 	var target_cell := core.grid.nearest_walkable(current_cell())
 	var target := core.grid.cell_to_world(target_cell)
-	var water_surface_y := core.registries.tunef("water_level_y", -0.14)
 	var rescue := create_tween()
 	_rescue_tween = rescue
-	# The long fall first — well under the surface before anything magical.
-	rescue.tween_property(self, "position:y", splash.y - 2.6, 0.55) \
+	# Mario Kart void poof: the hole opens right where the faller is — out of
+	# bounds, under the level — and they drop straight through it.
+	rescue.tween_property(self, "position:y", splash.y - 2.1, 0.34) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	# Only now the hole opens flat on the water above them; from the camera it
-	# covers the sunken swimmer, so they visibly drop "into" it.
 	rescue.parallel().tween_callback(func():
 		var swallow_hole := _spawn_rescue_hole(
-			Vector3(splash.x, water_surface_y + 0.04, splash.z)
+			Vector3(splash.x, splash.y - 1.15, splash.z)
 		)
 		_pop_hole(swallow_hole, 1.0)
-		_close_hole(swallow_hole, 0.34)
-	).set_delay(0.34)
+		_close_hole(swallow_hole, 0.3)
+	).set_delay(0.06)
 	# Teleport beat while the hole is shut.
-	rescue.tween_interval(0.18)
+	rescue.tween_interval(0.16)
 	# Pop OUT of a ground hole at the shore: player rises up through it.
 	rescue.tween_callback(func():
 		var exit_hole := _spawn_rescue_hole(target + Vector3(0.0, 0.03, 0.0))
