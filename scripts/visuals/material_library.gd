@@ -11,6 +11,13 @@ extends RefCounted
 const WATER_SHADER: Shader = preload("res://assets/materials/reworked/gg_water.gdshader")
 const UNDERWATER_SHADER: Shader = preload("res://assets/materials/reworked/gg_underwater.gdshader")
 const FLORA_SHADER: Shader = preload("res://assets/materials/reworked/gg_uw_flora.gdshader")
+const SURFACE_SHADER: Shader = preload("res://assets/materials/reworked/gg_prop_surface.gdshader")
+## GG-style baked-shading emulation shared by every opaque surface material.
+const SURFACE_RAMP := {
+	"ramp_height": 1.35,
+	"ramp_top_lift": 0.10,
+	"ramp_bottom_drop": 0.16,
+}
 const STYLE_DATA_PATH := "res://data/material_styles.json"
 const WATER_PARAMETERS := {
 	"wave_height": 0.048,
@@ -73,21 +80,36 @@ func material(key: String) -> Material:
 		return _cache(key, _underwater_material(key))
 	if not palette.colors.has(key):
 		return _fallback()
+	var style := material_parameters(key)
+	var emission_energy := float(style.get("emission_energy", EMISSIVE.get(key, 0.0)))
+	var alpha := float(style.get("alpha", 1.0))
+	# Opaque, non-emissive surfaces use the GG diorama shader (baked-ramp
+	# emulation). Emissive and translucent keys keep StandardMaterial3D.
+	if emission_energy <= 0.0 and alpha >= 1.0:
+		var surface := ShaderMaterial.new()
+		surface.resource_name = key
+		surface.shader = SURFACE_SHADER
+		surface.set_shader_parameter("albedo", _styled_albedo(key, palette.color(key), style))
+		surface.set_shader_parameter("roughness_val", float(style["roughness"]))
+		surface.set_shader_parameter("metallic_val", float(style["metallic"]))
+		surface.set_shader_parameter("specular_val", float(style["specular"]))
+		for parameter in SURFACE_RAMP:
+			surface.set_shader_parameter(parameter, SURFACE_RAMP[parameter])
+		_materials[key] = surface
+		return surface
 	var m := StandardMaterial3D.new()
 	m.resource_name = key
-	var style := material_parameters(key)
 	m.albedo_color = _styled_albedo(key, palette.color(key), style)
 	m.roughness = float(style["roughness"])
 	m.metallic = float(style["metallic"])
 	m.metallic_specular = float(style["specular"])
-	var emission_energy := float(style.get("emission_energy", EMISSIVE.get(key, 0.0)))
 	if emission_energy > 0.0:
 		m.emission_enabled = true
 		m.emission = palette.color(key)
 		m.emission_energy_multiplier = emission_energy
-	if float(style.get("alpha", 1.0)) < 1.0:
+	if alpha < 1.0:
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		m.albedo_color.a = float(style["alpha"])
+		m.albedo_color.a = alpha
 	_materials[key] = m
 	return m
 
@@ -141,6 +163,21 @@ func material_parameter_manifest() -> Dictionary:
 
 func _shader_material_manifest(key: String, shader_material: ShaderMaterial) -> Dictionary:
 	var parameters := {}
+	if shader_material.shader == SURFACE_SHADER:
+		for parameter_name in [
+			"albedo", "roughness_val", "metallic_val", "specular_val",
+			"ramp_height", "ramp_top_lift", "ramp_bottom_drop",
+		]:
+			parameters[parameter_name] = shader_material.get_shader_parameter(parameter_name)
+		parameters["roughness"] = parameters["roughness_val"]
+		parameters["metallic"] = parameters["metallic_val"]
+		parameters["specular"] = parameters["specular_val"]
+		return {
+			"family": "gg_diorama_surface",
+			"material_class": "ShaderMaterial",
+			"shader_path": shader_material.shader.resource_path,
+			"parameters": parameters,
+		}
 	var family := "original_underwater_shader"
 	var names: Array = ["albedo", "caustic_color"]
 	if key == "water":
