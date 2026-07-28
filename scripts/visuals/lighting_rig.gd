@@ -749,29 +749,94 @@ func _apply_particle_quality() -> void:
 		particles.amount_ratio = float(particles.get_meta("base_amount_ratio", 1.0)) * quality_multiplier
 
 
-## GG WorldThemeController light levels: the reference is a binary light/dark
-## toggle blended linearly; Suma's four slots sit on that same axis.
+## The six serialized WorldTheme assets from the GG reference build
+## (sharedassets1 202-207). "sky"/"equator" are HDR pickers and therefore
+## LINEAR radiance; every other color is sRGB-authored. "night_*" values are
+## the dark-mode multipliers/targets used by WorldTheme.Calculate.
+const GG_THEMES := {
+	"default": {
+		"bg0": Color(0.906, 0.87623, 0.78265), "bg1": Color(0.90588, 0.87059, 0.81569),
+		"night_bg": Color(0.913, 0.80487, 0.70666),
+		"sky": Color(0.8, 0.74118, 0.76863), "equator": Color(0.65098, 0.41961, 0.37255),
+		"night_tint": Color(1.0, 0.90825, 0.78931),
+		"light": Color(1.0, 1.0, 0.99216), "night_light": Color(1.0, 0.87073, 0.67451),
+		"min_intensity": 0.8,
+	},
+	"blue": {
+		"bg0": Color(0.62125, 0.69434, 0.71), "bg1": Color(0.80029, 0.955, 0.84412),
+		"night_bg": Color(0.26171, 0.27566, 0.318),
+		"sky": Color(0.75294, 0.82745, 0.87843), "equator": Color(0.70196, 0.61569, 0.62745),
+		"night_tint": Color(0.5451, 0.60691, 0.67059),
+		"light": Color(1.0, 0.96078, 0.89804), "night_light": Color(0.43137, 0.60784, 0.77255),
+		"min_intensity": 0.8,
+	},
+	"green": {
+		"bg0": Color(0.78824, 0.81176, 0.57255), "bg1": Color(0.93217, 0.96, 0.6771),
+		"night_bg": Color(0.28948, 0.30371, 0.396),
+		"sky": Color(0.8, 0.74118, 0.76863), "equator": Color(0.50196, 0.43529, 0.33725),
+		"night_tint": Color(0.54385, 0.65407, 0.67059),
+		"light": Color(1.0, 0.96471, 0.91373), "night_light": Color(0.59069, 0.743, 0.71471),
+		"min_intensity": 0.8,
+	},
+	"brown": {
+		"bg0": Color(0.241, 0.216, 0.21184), "bg1": Color(0.276, 0.24892, 0.23902),
+		"night_bg": Color(0.76821, 0.78708, 0.80189),
+		"sky": Color(0.61569, 0.48235, 0.35294), "equator": Color(0.65098, 0.50588, 0.46667),
+		"night_tint": Color(0.721, 0.62799, 0.47298),
+		"light": Color(1.0, 1.0, 0.99216), "night_light": Color(0.83137, 0.88235, 0.90196),
+		"min_intensity": 0.6,
+	},
+	"orange": {
+		"bg0": Color(0.95294, 0.78039, 0.53725), "bg1": Color(0.96078, 0.61252, 0.45882),
+		"night_bg": Color(0.55189, 0.61503, 0.67059),
+		"sky": Color(0.8, 0.74118, 0.76863), "equator": Color(0.65098, 0.41961, 0.37255),
+		"night_tint": Color(0.72642, 0.68393, 0.51854),
+		"light": Color(0.95283, 0.84909, 0.68915), "night_light": Color(0.8331, 0.92453, 0.80824),
+		"min_intensity": 0.85,
+	},
+	"pink": {
+		"bg0": Color(0.90588, 0.67524, 0.67216), "bg1": Color(0.95686, 0.83735, 0.8),
+		"night_bg": Color(0.31765, 0.26275, 0.29295),
+		"sky": Color(0.87843, 0.75294, 0.76966), "equator": Color(0.70196, 0.61569, 0.62745),
+		"night_tint": Color(0.5451, 0.60691, 0.67059),
+		"light": Color(1.0, 0.89804, 0.89928), "night_light": Color(0.55434, 0.43137, 0.77255),
+		"min_intensity": 0.95,
+	},
+}
+
+## Each Suma time slot is an exact steady GG state (theme id, lightLevel).
+## Verified against the official screenshot set: cream days are Default
+## light, the rosy garden is Pink light, warm evenings are Orange light, and
+## GG's iconic starry night is the Brown theme's dark backdrop.
+const GG_TIME_STATES := {
+	"morning": ["pink", 1.0],
+	"noon": ["default", 1.0],
+	"sunset": ["orange", 1.0],
+	"night": ["brown", 0.0],
+}
+
+
+func _gg_time_state() -> Array:
+	return GG_TIME_STATES.get(time_of_day_id, ["default", 1.0])
+
+
 func _gg_light_level() -> float:
-	match time_of_day_id:
-		"morning":
-			return 0.75
-		"sunset":
-			return 0.35
-		"night":
-			return 0.0
-	return 1.0
+	return float(_gg_time_state()[1])
 
 
-## WorldTheme.Calculate, verbatim: night multiplies the background by
-## nightBgColor and the ambient set by nightTint, while the sun lerps to the
-## night color, min intensity, and night pitch.
+## WorldTheme.Calculate, verbatim, over the exact serialized theme table:
+## dark mode multiplies the background by nightBgColor and the ambient set by
+## nightTint, while the sun lerps to the night color, min intensity, and
+## night pitch.
 func _apply_gg_time_of_day() -> void:
 	var profile := current_profile
 	var env := _environment.environment
-	var level := _gg_light_level()
-	var ambient_tint := profile.night_ambient_tint.lerp(Color.WHITE, level)
-	_sun.light_color = profile.night_light_color.lerp(profile.sun_color, level)
-	_sun.light_energy = lerpf(profile.min_light_intensity, 1.0, level) * profile.sun_energy
+	var state := _gg_time_state()
+	var theme: Dictionary = GG_THEMES[state[0]]
+	var level := float(state[1])
+	var ambient_tint := (theme.night_tint as Color).lerp(Color.WHITE, level)
+	_sun.light_color = (theme.night_light as Color).lerp(theme.light, level)
+	_sun.light_energy = lerpf(theme.min_intensity, 1.0, level) * profile.sun_energy
 	_sun.rotation_degrees = Vector3(
 		lerpf(profile.sun_pitch_night_deg, profile.sun_pitch_deg, level),
 		profile.sun_yaw_deg,
@@ -782,19 +847,19 @@ func _apply_gg_time_of_day() -> void:
 	# conversion at render time, so pre-encode to make that conversion land
 	# back on the reference linear values. The night tint multiplies the
 	# linear values (matching WorldTheme.Calculate's raw multiply).
-	_ambient_material.sky_top_color = (profile.ambient_sky_color * ambient_tint).linear_to_srgb()
-	_ambient_material.sky_horizon_color = (profile.ambient_equator_color * ambient_tint).linear_to_srgb()
+	_ambient_material.sky_top_color = ((theme.sky as Color) * ambient_tint).linear_to_srgb()
+	_ambient_material.sky_horizon_color = ((theme.equator as Color) * ambient_tint).linear_to_srgb()
 	_ambient_material.ground_horizon_color = _ambient_material.sky_horizon_color
 	_ambient_material.ground_bottom_color = (profile.ambient_ground_color * ambient_tint).linear_to_srgb()
 	env.ambient_light_energy = profile.ambient_energy
 	env.glow_enabled = profile.glow_enabled and _user_bloom_enabled
 	env.glow_intensity = profile.glow_intensity
-	var bg_tint := profile.night_bg_multiply.lerp(Color.WHITE, level)
-	env.background_color = profile.background_color * bg_tint
+	var bg_tint := (theme.night_bg as Color).lerp(Color.WHITE, level)
+	env.background_color = (theme.bg1 as Color) * bg_tint
 	if profile.background_gg_gradient and background_preset_id == "profile":
 		_set_gg_background(
-			profile.bg_color0 * bg_tint,
-			profile.bg_color1 * bg_tint,
+			(theme.bg0 as Color) * bg_tint,
+			(theme.bg1 as Color) * bg_tint,
 			profile.bg_sparkles_enabled
 		)
 
@@ -863,10 +928,12 @@ func _apply_background_preset() -> void:
 			)
 		_:
 			if current_profile.background_gg_gradient:
-				var bg_tint := current_profile.night_bg_multiply.lerp(Color.WHITE, _gg_light_level())
+				var state := _gg_time_state()
+				var theme: Dictionary = GG_THEMES[state[0]]
+				var bg_tint := (theme.night_bg as Color).lerp(Color.WHITE, float(state[1]))
 				_set_gg_background(
-					current_profile.bg_color0 * bg_tint,
-					current_profile.bg_color1 * bg_tint,
+					(theme.bg0 as Color) * bg_tint,
+					(theme.bg1 as Color) * bg_tint,
 					current_profile.bg_sparkles_enabled
 				)
 			elif current_profile.background_gradient:

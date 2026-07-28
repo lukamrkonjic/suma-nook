@@ -24,6 +24,12 @@ func _ready() -> void:
 	await get_tree().create_timer(0.5).timeout
 	await _enter_gameplay()
 	_hide_ui()
+	# The admin showcase island: every tile family, stacked elevation, water
+	# wrap, and a broad structure spread — a GG-complexity scene. Pull the
+	# camera to GG's inspected diorama distance so the whole island frames.
+	_main.debug_build_mock_world()
+	_main.camera_rig._size_target = 52.0
+	_main.camera_rig.camera.position.z = 52.0
 	await _settle(30)
 	await _save_viewport("gg_exact_noon.png")
 	_main.lighting.set_time_of_day("night")
