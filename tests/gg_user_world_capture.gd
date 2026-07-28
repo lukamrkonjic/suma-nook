@@ -30,7 +30,11 @@ func _ready() -> void:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	var path := _output_dir.path_join("user_world_noon.png")
-	get_viewport().get_texture().get_image().save_png(path)
+	var image := get_viewport().get_texture().get_image()
+	# Encode the linear hdr_2d buffer the way the display blit does, so the
+	# PNG matches the on-screen frame.
+	GGCaptureEncode.encode_srgb(image)
+	image.save_png(path)
 	print("  [probe shot] %s" % path)
 	var manifest := _main.lighting.runtime_manifest()
 	var env_info := {

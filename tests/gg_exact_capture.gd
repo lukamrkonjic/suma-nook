@@ -92,7 +92,12 @@ func _settle_time(seconds: float) -> void:
 func _save_viewport(file_name: String) -> void:
 	await RenderingServer.frame_post_draw
 	var path := _output_dir.path_join(file_name)
-	var error := get_viewport().get_texture().get_image().save_png(path)
+	var image := get_viewport().get_texture().get_image()
+	# With hdr_2d the viewport texture is the LINEAR 2D buffer; the display
+	# blit applies the sRGB encode. Apply the same encode so the PNG matches
+	# what the player actually sees on screen.
+	GGCaptureEncode.encode_srgb(image)
+	var error := image.save_png(path)
 	if error != OK:
 		push_error("Could not save GG capture %s (error %d)." % [path, error])
 	else:

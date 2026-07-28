@@ -26,18 +26,8 @@ void fragment() {
 			col = mix(col, vec3(0.96, 0.98, 0.96), smoothstep(0.06, 0.0, d) * 0.75);
 		}
 	}
-	// With HDR 2D enabled this rect's output is decoded sRGB->linear twice on
-	// its way to the 3D pipeline: once when written into the linear 2D buffer
-	// and once when BG_CANVAS samples that buffer as the 3D background
-	// (verified by measurement). Encode twice so the authored color lands in
-	// the 3D pass unchanged, preserving the look this preset was tuned under.
-	vec3 encoded = col;
-	for (int i = 0; i < 2; i++) {
-		encoded = mix(
-			encoded * 12.92,
-			1.055 * pow(max(encoded, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055,
-			step(vec3(0.0031308), encoded)
-		);
-	}
-	COLOR = vec4(encoded, 1.0);
+	// With hdr_2d the canvas buffer is linear and BG_CANVAS feeds it to the
+	// 3D pass as-is, which matches how these authored values behaved before
+	// hdr_2d — no conversion needed.
+	COLOR = vec4(col, 1.0);
 }

@@ -82,13 +82,9 @@ void fragment() {
 	graded = clamp(graded, vec3(0.0), vec3(1.0));
 	graded = mix(clamp(color, vec3(0.0), vec3(1.0)), graded, effect_weight);
 
-	// Canvas output is treated as sRGB and decoded into the linear 2D buffer,
-	// so encode here; the final blit's encode then lands on exactly this
-	// value. (Verified numerically against the reference grade chain.)
-	vec3 encoded = mix(
-		graded * 12.92,
-		1.055 * pow(graded, vec3(1.0 / 2.4)) - 0.055,
-		step(vec3(0.0031308), graded)
-	);
-	COLOR = vec4(encoded, 1.0);
+	// Output LINEAR. With hdr_2d the 2D buffer is linear and the display blit
+	// applies the single sRGB encode. (Viewport get_image() reads this buffer
+	// raw — capture tools must encode when saving PNGs; do NOT re-add an
+	// encode here, it double-encodes the actual screen output.)
+	COLOR = vec4(graded, 1.0);
 }

@@ -65,5 +65,14 @@ void fragment() {
 	hsv.z = floor(hsv.z * value_steps + 0.5) / value_steps;
 	hsv.y = floor(hsv.y * sat_steps + 0.5) / sat_steps;
 	vec3 quantized = hsv2rgb(hsv);
-	COLOR = vec4(mix(src.rgb, quantized, posterize_strength), src.a);
+	vec3 result = mix(src.rgb, quantized, posterize_strength);
+	// The math above runs in sRGB display space; the hdr_2d buffer this pass
+	// writes into is linear (the display blit applies the encode), so decode
+	// the result back to linear.
+	result = mix(
+		result / 12.92,
+		pow((result + 0.055) / 1.055, vec3(2.4)),
+		step(vec3(0.04045), result)
+	);
+	COLOR = vec4(result, src.a);
 }
