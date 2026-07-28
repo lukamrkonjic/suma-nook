@@ -59,7 +59,7 @@ func _ready() -> void:
 		if player.state == PlayerController.State.RESCUED:
 			if not saw_rescue:
 				saw_rescue = true
-				get_tree().create_timer(0.52).timeout.connect(func():
+				get_tree().create_timer(0.26).timeout.connect(func():
 					if shot_saved:
 						return
 					shot_saved = true

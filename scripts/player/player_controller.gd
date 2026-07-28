@@ -293,44 +293,56 @@ func _begin_water_rescue() -> void:
 	var splash := position
 	var target_cell := core.grid.nearest_walkable(current_cell())
 	var target := core.grid.cell_to_world(target_cell)
+	# Plop out BESIDE the exit hole, biased toward the island interior so the
+	# landing spot stays on the walkable tile.
+	var inward := Vector3(target.x - splash.x, 0.0, target.z - splash.z)
+	inward = inward.normalized() if inward.length() > 0.1 else -global_basis.z
+	var land_spot := target + inward * 0.42
 	var rescue := create_tween()
 	_rescue_tween = rescue
 	# Mario Kart void poof: the hole opens right where the faller is — out of
-	# bounds, under the level — and they drop straight through it.
+	# bounds, under the level — growing small-to-large as they drop into it.
+	var swallow_hole := _spawn_rescue_hole(Vector3(splash.x, splash.y - 1.15, splash.z))
+	_grow_hole(swallow_hole, 0.05)
 	rescue.tween_property(self, "position:y", splash.y - 2.1, 0.34) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	rescue.parallel().tween_callback(func():
-		var swallow_hole := _spawn_rescue_hole(
-			Vector3(splash.x, splash.y - 1.15, splash.z)
-		)
-		_pop_hole(swallow_hole, 1.0)
-		_close_hole(swallow_hole, 0.3)
-	).set_delay(0.06)
+	# Eaten: the player vanishes as they pass the portal plane, then it shuts.
+	rescue.parallel().tween_callback(func(): visual.visible = false).set_delay(0.24)
+	rescue.tween_callback(_close_hole.bind(swallow_hole))
 	# Teleport beat while the hole is shut.
 	rescue.tween_interval(0.16)
-	# Pop OUT of a ground hole at the shore: player rises up through it.
+	# The same portal animation on land: grow small-to-large, then the player
+	# plops out of it onto the tile.
 	rescue.tween_callback(func():
 		var exit_hole := _spawn_rescue_hole(target + Vector3(0.0, 0.03, 0.0))
-		_pop_hole(exit_hole, 0.9)
-		_close_hole(exit_hole, 0.5)
-		position = Vector3(target.x, target.y - 1.3, target.z)
+		_grow_hole(exit_hole)
+		_close_hole(exit_hole, 0.78)
+		position = Vector3(target.x, target.y - 1.2, target.z)
 		rotation.y = wrapf(rotation.y, -PI, PI)
 	)
-	rescue.tween_interval(0.12)
-	# Launch up out of the hole, then the bouncy squash landing.
-	rescue.tween_callback(_squash.bind(0.9, 1.14))
-	rescue.tween_property(self, "position:y", target.y + 0.55, 0.2) \
+	rescue.tween_interval(0.24)
+	# Plop! Reappear rising out of the hole, arc onto the tile beside it.
+	rescue.tween_callback(func():
+		visual.visible = true
+		_squash(0.86, 1.18)
+	)
+	rescue.tween_property(self, "position:y", target.y + 0.62, 0.18) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	rescue.tween_property(self, "position:y", target.y, 0.16) \
+	rescue.parallel().tween_property(self, "position:x", land_spot.x, 0.32) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	rescue.parallel().tween_property(self, "position:z", land_spot.z, 0.32) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	rescue.tween_property(self, "position:y", target.y, 0.14) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	# Bouncy squash-and-stretch landing beside the shrinking hole.
 	rescue.tween_callback(_squash.bind(1.26, 0.7))
-	rescue.tween_property(self, "position:y", target.y + 0.22, 0.12) \
+	rescue.tween_property(self, "position:y", target.y + 0.2, 0.12) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	rescue.tween_callback(_squash.bind(0.9, 1.12))
 	rescue.tween_property(self, "position:y", target.y, 0.12) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	rescue.tween_callback(_squash.bind(1.1, 0.88))
-	rescue.tween_property(self, "position:y", target.y + 0.08, 0.08) \
+	rescue.tween_property(self, "position:y", target.y + 0.07, 0.08) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	rescue.tween_property(self, "position:y", target.y, 0.08) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
@@ -350,6 +362,7 @@ func _abort_rescue() -> void:
 		_rescue_tween.kill()
 	_rescue_tween = null
 	visual.scale = Vector3.ONE
+	visual.visible = true
 	velocity = Vector3.ZERO
 
 
@@ -369,10 +382,16 @@ func _spawn_rescue_hole(at: Vector3) -> MeshInstance3D:
 	return hole
 
 
-func _pop_hole(hole: MeshInstance3D, size: float) -> void:
-	var pop := create_tween()
-	pop.tween_property(hole, "scale", Vector3(size, size, size), 0.18) \
+## The portal's signature entrance: a small pupil of a hole that snaps open,
+## then widens to full size.
+func _grow_hole(hole: MeshInstance3D, delay := 0.0) -> void:
+	var grow := create_tween()
+	if delay > 0.0:
+		grow.tween_interval(delay)
+	grow.tween_property(hole, "scale", Vector3(0.38, 0.38, 0.38), 0.1) \
 		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	grow.tween_property(hole, "scale", Vector3.ONE, 0.16) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 
 func _close_hole(hole: MeshInstance3D, delay := 0.0) -> void:
