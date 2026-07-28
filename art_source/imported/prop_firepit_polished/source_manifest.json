@@ -1,0 +1,7 @@
+{
+  "asset_id": "prop_firepit_polished",
+  "source_file": "firepit_source.glb",
+  "source_sha256": "119abd694fa6a6579f9f66620e54bafb52c403aef79bd91c26f626be7b407fe7",
+  "origin": "Luka's generated firepit model",
+  "processing": "Exact-position weld, degenerate-face cleanup, outward normals, and 60-degree smooth-by-angle normals. No remeshing or vertex smoothing; game copy is translated only to establish a bottom-centre pivot."
+}

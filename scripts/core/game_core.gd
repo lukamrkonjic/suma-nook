@@ -50,6 +50,10 @@ var _dirty := false
 const FIRST_WATER_COORD := Vector2i(-1, -1)
 const STARTER_DOCK_COORD := Vector2i(0, -1)
 const DEFAULT_BODY_ITEM_ID := "cosmetic_cowboy_vest"
+const SHOWCASE_STRUCTURE_IDS := [
+	"struct_stone_wall_polished",
+	"struct_firepit_polished",
+]
 
 
 func setup(data_path := "res://data", seed_value := 0) -> bool:
@@ -125,6 +129,7 @@ func new_game(new_profile: PlayerProfile) -> void:
 	# Trees begin unplaced in the Build Library. The storage chest is the only
 	# progression utility deliberately authored into the opening world.
 	stock.add_structure("struct_pine")
+	_ensure_showcase_placeables()
 	collection.record("gear", "tool_rod_basic")
 	collection.record("gear", "tool_axe_basic")
 	for coord: Vector2i in grid.cells:
@@ -296,12 +301,13 @@ func load_game() -> bool:
 	landmarks.from_save_dict(data.get("landmarks", {}))
 	combat.from_save_dict(data.get("combat", {}))
 	var wardrobe_migrated := _ensure_default_body_item()
+	var showcase_placeables_migrated := _ensure_showcase_placeables()
 	view_state = data.get("view", view_state).duplicate(true)
 	visual_state = data.get("visual", visual_state).duplicate(true)
 	play_seconds = float(data.get("play_seconds", 0.0))
 	if not grid.is_traversable(grid.world_to_cell(profile.position)):
 		profile.position = grid.cell_to_world(grid.nearest_walkable(grid.world_to_cell(profile.position)))
-	_dirty = wardrobe_migrated
+	_dirty = wardrobe_migrated or showcase_placeables_migrated
 	return true
 
 
@@ -313,4 +319,28 @@ func _ensure_default_body_item() -> bool:
 		changed = true
 	if equipment.equipped_in("body") == null:
 		changed = equipment.equip(DEFAULT_BODY_ITEM_ID) or changed
+	return changed
+
+
+## New authored showcase objects should be immediately discoverable in Build
+## mode without replacing their legacy counterparts. Existing saves receive
+## one only when that object is neither stored nor already placed.
+func _ensure_showcase_placeables() -> bool:
+	var changed := false
+	for structure_id: String in SHOWCASE_STRUCTURE_IDS:
+		if stock.structure_count(structure_id) > 0:
+			continue
+		var is_placed := false
+		for slot: Dictionary in grid.all_cell_slots():
+			var state: WorldGrid.CellState = slot["state"]
+			for structure: WorldGrid.StructureState in state.structures:
+				if structure.structure_id == structure_id:
+					is_placed = true
+					break
+			if is_placed:
+				break
+		if is_placed:
+			continue
+		stock.add_structure(structure_id)
+		changed = true
 	return changed

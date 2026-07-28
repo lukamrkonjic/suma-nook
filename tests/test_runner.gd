@@ -247,6 +247,7 @@ func _test_build_library_categories() -> void:
 		"struct_gate": "boundaries",
 		"struct_lantern": "utilities",
 		"struct_campfire": "utilities",
+		"struct_firepit_polished": "utilities",
 		"struct_high_tent": "buildings",
 		"struct_planter": "nature",
 		"struct_pot": "nature",
@@ -256,6 +257,7 @@ func _test_build_library_categories() -> void:
 		"struct_sign": "boundaries",
 		"struct_ruin_arch": "buildings",
 		"struct_stone_wall": "boundaries",
+		"struct_stone_wall_polished": "boundaries",
 		"struct_fishing_marker": "utilities",
 		"struct_pine": "nature",
 		"struct_pine_tall": "nature",
@@ -628,6 +630,14 @@ func _test_starting_world() -> void:
 	check(placed_tree_count == 0, "fresh worlds do not pre-place any trees")
 	check(chest_count == 1, "the inventory chest starts as one independent object")
 	check(core.stock.structure_count("struct_pine") == 1, "the starter tree waits in build stock")
+	check(
+		core.stock.structure_count("struct_stone_wall_polished") == 1,
+		"the polished stone wall is immediately discoverable in build stock"
+	)
+	check(
+		core.stock.structure_count("struct_firepit_polished") == 1,
+		"the polished firepit is immediately discoverable in build stock"
+	)
 	for tile_id: String in [
 		"tile_grove_mature",
 		"tile_grove_birch",

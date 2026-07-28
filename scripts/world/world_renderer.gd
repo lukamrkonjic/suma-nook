@@ -266,14 +266,15 @@ func _build_structure(holder: Node3D, s: WorldGrid.StructureState) -> void:
 			_add_structure_blocker(visual)
 		"walkable_surface":
 			_add_walkable_structure_surface(visual)
+	var is_firepit := def.id in ["struct_campfire", "struct_firepit_polished"]
 	if def.has_capability("light"):
 		_add_warm_light(
 			visual,
-			1.1 if def.id == "struct_campfire" else 0.6,
+			1.1 if is_firepit else 0.6,
 			def.light_height,
 			def.light_flicker
 		)
-	if def.id == "struct_campfire":
+	if is_firepit:
 		_animate_flame(visual)
 	if "tree" in def.placement_tags:
 		_attach_tree_wind(visual, s.instance_id)

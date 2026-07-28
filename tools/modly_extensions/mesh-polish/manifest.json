@@ -1,0 +1,261 @@
+{
+  "id": "mesh-polish",
+  "name": "Mesh Polish",
+  "type": "process",
+  "entry": "processor.py",
+  "version": "1.0.0",
+  "author": "Suma",
+  "description": "Repairs, close-surface remeshes, and Taubin-smooths original mesh components without replacing or rearranging geometry.",
+  "nodes": [
+    {
+      "id": "polish",
+      "name": "Mesh Polish",
+      "input": "mesh",
+      "output": "mesh",
+      "params_schema": [
+        {
+          "id": "preset",
+          "label": "Preset",
+          "type": "select",
+          "default": "standard_polish",
+          "options": [
+            { "value": "soft_polish", "label": "Soft Polish" },
+            { "value": "standard_polish", "label": "Standard Polish" },
+            { "value": "strong_polish", "label": "Strong Polish" },
+            { "value": "normals_only", "label": "Normals Only" },
+            { "value": "preserve_hard_surface", "label": "Preserve Hard Surface" },
+            { "value": "custom", "label": "Custom Parameters" }
+          ],
+          "tooltip": "Named presets use locked, tested values. Select Custom Parameters to use every control below verbatim."
+        },
+        {
+          "id": "remesh_enabled",
+          "label": "Remesh",
+          "type": "select",
+          "default": "true",
+          "options": [
+            { "value": "true", "label": "Enabled" },
+            { "value": "false", "label": "Disabled" }
+          ],
+          "tooltip": "Use close-surface isotropic explicit remeshing. Voxel remeshing is never used."
+        },
+        {
+          "id": "remesh_iterations",
+          "label": "Remesh Passes",
+          "type": "int",
+          "default": 3,
+          "min": 1,
+          "max": 8,
+          "step": 1,
+          "tooltip": "Number of explicit isotropic remeshing iterations."
+        },
+        {
+          "id": "adaptive",
+          "label": "Adaptive",
+          "type": "select",
+          "default": "false",
+          "options": [
+            { "value": "false", "label": "No — Isotropic" },
+            { "value": "true", "label": "Yes" }
+          ],
+          "tooltip": "Disabled by default so triangle sizing remains predictable."
+        },
+        {
+          "id": "target_edge_length_percent",
+          "label": "Target Edge %",
+          "type": "float",
+          "default": 2.0,
+          "min": 0.25,
+          "max": 10.0,
+          "step": 0.25,
+          "tooltip": "Target edge length as a percent of each component bounding-box diagonal."
+        },
+        {
+          "id": "feature_angle",
+          "label": "Feature Angle",
+          "type": "float",
+          "default": 50.0,
+          "min": 5.0,
+          "max": 90.0,
+          "step": 5.0,
+          "tooltip": "Crease angle preserved by the remesher."
+        },
+        {
+          "id": "check_surface_distance",
+          "label": "Surface Check",
+          "type": "select",
+          "default": "true",
+          "options": [
+            { "value": "true", "label": "Enabled" },
+            { "value": "false", "label": "Disabled" }
+          ],
+          "tooltip": "Reject remeshing operations that move too far from the original surface."
+        },
+        {
+          "id": "maximum_surface_distance_percent",
+          "label": "Remesh Max Dist %",
+          "type": "float",
+          "default": 1.0,
+          "min": 0.1,
+          "max": 5.0,
+          "step": 0.25,
+          "tooltip": "PyMeshLab remesher displacement limit as a percent of component diagonal."
+        },
+        {
+          "id": "refine_step",
+          "label": "Refine Step",
+          "type": "select",
+          "default": "true",
+          "options": [
+            { "value": "true", "label": "Enabled" },
+            { "value": "false", "label": "Disabled" }
+          ]
+        },
+        {
+          "id": "collapse_step",
+          "label": "Collapse Step",
+          "type": "select",
+          "default": "true",
+          "options": [
+            { "value": "true", "label": "Enabled" },
+            { "value": "false", "label": "Disabled" }
+          ]
+        },
+        {
+          "id": "edge_swap",
+          "label": "Edge Swap",
+          "type": "select",
+          "default": "true",
+          "options": [
+            { "value": "true", "label": "Enabled" },
+            { "value": "false", "label": "Disabled" }
+          ]
+        },
+        {
+          "id": "smoothing_step",
+          "label": "Remesh Smooth",
+          "type": "select",
+          "default": "true",
+          "options": [
+            { "value": "true", "label": "Enabled" },
+            { "value": "false", "label": "Disabled" }
+          ]
+        },
+        {
+          "id": "reproject_step",
+          "label": "Reproject",
+          "type": "select",
+          "default": "true",
+          "options": [
+            { "value": "true", "label": "Enabled" },
+            { "value": "false", "label": "Disabled" }
+          ],
+          "tooltip": "Reprojects remeshed vertices to the original surface."
+        },
+        {
+          "id": "taubin_lambda",
+          "label": "Taubin Lambda",
+          "type": "float",
+          "default": 0.45,
+          "min": 0.05,
+          "max": 0.75,
+          "step": 0.01
+        },
+        {
+          "id": "taubin_mu",
+          "label": "Taubin Mu",
+          "type": "float",
+          "default": -0.48,
+          "min": -0.8,
+          "max": -0.05,
+          "step": 0.01
+        },
+        {
+          "id": "smoothing_iterations",
+          "label": "Polish Strength",
+          "type": "select",
+          "default": "6",
+          "options": [
+            { "value": "2", "label": "Very Light — 2" },
+            { "value": "4", "label": "Light — 4" },
+            { "value": "6", "label": "Medium — 6" },
+            { "value": "10", "label": "Strong — 10" },
+            { "value": "0", "label": "None — 0" }
+          ],
+          "tooltip": "Taubin iteration count. Safety clamping can automatically reduce it, never raise it."
+        },
+        {
+          "id": "maximum_dimension_change_percent",
+          "label": "Max Dimension %",
+          "type": "float",
+          "default": 3.0,
+          "min": 0.1,
+          "max": 10.0,
+          "step": 0.25,
+          "tooltip": "Maximum per-component dimension change before fallback."
+        },
+        {
+          "id": "maximum_overall_bounds_change_percent",
+          "label": "Max Bounds %",
+          "type": "float",
+          "default": 2.0,
+          "min": 0.1,
+          "max": 10.0,
+          "step": 0.25,
+          "tooltip": "Maximum whole-scene bounds change before the polished geometry is rejected."
+        },
+        {
+          "id": "maximum_surface_displacement_percent",
+          "label": "Max Displace %",
+          "type": "float",
+          "default": 1.5,
+          "min": 0.1,
+          "max": 5.0,
+          "step": 0.25,
+          "tooltip": "Symmetric closest-surface displacement limit as a percent of component diagonal."
+        },
+        {
+          "id": "normals_mode",
+          "label": "Normals",
+          "type": "select",
+          "default": "smooth_by_angle",
+          "options": [
+            { "value": "smooth_all", "label": "Smooth All" },
+            { "value": "smooth_by_angle", "label": "Smooth by Angle" }
+          ]
+        },
+        {
+          "id": "normals_angle",
+          "label": "Normals Angle",
+          "type": "float",
+          "default": 60.0,
+          "min": 5.0,
+          "max": 180.0,
+          "step": 5.0,
+          "tooltip": "Faces meeting below this angle share smooth vertex normals."
+        },
+        {
+          "id": "decimation_enabled",
+          "label": "Final Decimation",
+          "type": "select",
+          "default": "false",
+          "options": [
+            { "value": "false", "label": "Disabled" },
+            { "value": "true", "label": "Enabled" }
+          ],
+          "tooltip": "Optional topology-preserving decimation after smoothing."
+        },
+        {
+          "id": "decimation_ratio",
+          "label": "Keep Faces",
+          "type": "float",
+          "default": 0.9,
+          "min": 0.8,
+          "max": 1.0,
+          "step": 0.05,
+          "tooltip": "Fraction of smoothed faces retained when final decimation is enabled."
+        }
+      ]
+    }
+  ]
+}

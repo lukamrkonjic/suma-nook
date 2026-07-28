@@ -1,0 +1,7 @@
+{
+  "asset_id": "prop_stone_wall_polished",
+  "source_file": "stone-wall_source.glb",
+  "source_sha256": "2bf9a664c2b89b155f092434abdc8bc4ce22c9c8ac5e61fcbc86923a934c38ab",
+  "origin": "Luka's generated stone-wall model",
+  "processing": "Exact-position weld, degenerate-face cleanup, outward normals, and 60-degree smooth-by-angle normals. No remeshing or vertex smoothing; game copy is translated only to establish a bottom-centre pivot."
+}

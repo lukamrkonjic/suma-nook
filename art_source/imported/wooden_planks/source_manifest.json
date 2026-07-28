@@ -1,0 +1,7 @@
+{
+  "asset_id": "tile_wooden_planks",
+  "source_file": "wooden_planks_source.glb",
+  "source_sha256": "6157e17e003697ca41e56126b4a4887cd18f5ec6494aadf05420d8896f091f00",
+  "origin": "Luka's generated wooden-planks model",
+  "processing": "Bisect away the generated lower block; retain the original four-plank upper geometry, spacing, UVs, and embedded material; weld coincident vertices, clean harmless planar triangulation, apply the established 60-degree smooth-by-angle normals polish without moving vertices, fit the cap nearly edge-to-edge into the standard 55 mm surface slot, and mount it on the clean standardized tile_grass body using a mid-warm exposed seam material."
+}
