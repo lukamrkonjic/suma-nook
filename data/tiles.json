@@ -409,8 +409,9 @@
       "surface_kind": "flat",
       "placement_sound": "grass",
       "special_trait": "An untouched blanket of warm-white snow.",
-      "geometry_profile": "soft_recessed_top",
-      "connection_mode": "soft_isolated"
+      "geometry_profile": "organic_overlay_square",
+      "connection_mode": "full_flush",
+      "exposed_top": "raised"
     },
     {
       "id": "tile_snow_drift",

@@ -29,7 +29,9 @@ var skill_actions: SkillActions
 var hud: Hud
 var pixel_look: PixelLook
 const LightingTunerScript := preload("res://scripts/ui/lighting_tuner.gd")
+const AssetViewerScript := preload("res://scripts/ui/asset_viewer.gd")
 var lighting_tuner: CanvasLayer
+var asset_viewer: AssetViewer
 var panels: GamePanels
 var pause_menu: PauseMenu
 var parcel_reveal: ParcelReveal
@@ -185,6 +187,21 @@ func toggle_lighting_tuner() -> bool:
 	if lighting_tuner.visible:
 		lighting_tuner.refresh()
 	return lighting_tuner.visible
+
+
+## Opens a production-material asset review room from the debug Admin page.
+## It is built lazily and restores the current game exactly when closed.
+func open_asset_viewer() -> void:
+	if not OS.is_debug_build():
+		return
+	if pause_menu.is_open():
+		pause_menu.close()
+	if asset_viewer == null:
+		asset_viewer = AssetViewerScript.new()
+		asset_viewer.name = "AssetViewer"
+		add_child(asset_viewer)
+		asset_viewer.setup(self)
+	asset_viewer.open()
 
 
 # A hand-composed showcase island (Admin page): every tile family, stacked
@@ -465,7 +482,15 @@ func _hovered_clickable_control() -> Control:
 func _unhandled_input(event: InputEvent) -> void:
 	if not _gameplay_started:
 		return
-	if event.is_action_pressed("build_mode"):
+	if (
+		OS.is_debug_build()
+		and event is InputEventKey
+		and event.pressed
+		and not event.echo
+		and (event as InputEventKey).physical_keycode == KEY_F8
+	):
+		open_asset_viewer()
+	elif event.is_action_pressed("build_mode"):
 		skill_actions.cancel_all()
 		placement.toggle()
 	elif event.is_action_pressed("rotate_piece"):

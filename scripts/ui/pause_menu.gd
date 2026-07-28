@@ -359,6 +359,15 @@ func _build_admin_page() -> void:
 	var lighting := settings_bridge.lighting
 	if lighting != null:
 		list.add_child(kit.section_label("Visuals"))
+		var open_asset_viewer := func() -> void:
+			settings_bridge.call_deferred("open_asset_viewer")
+		_admin_action_row(
+			list,
+			"Asset Viewer",
+			"Inspect any tile or model under live light and weather. Shortcut: F8.",
+			"Open viewer",
+			open_asset_viewer
+		)
 		_admin_action_row(list, "Lighting tuner",
 			"ReShade-style overlay with every lighting slider, bottom-left over the game.",
 			"Toggle overlay", toggle_tuner)

@@ -1,0 +1,7 @@
+{
+  "asset_id": "tile_snowfield",
+  "source_file": "snow_tile_source.glb",
+  "source_sha256": "F200BA1D6B64B7055F00616831FAC667850E12D64D1ABF1E8E32E861BA79C2C4",
+  "origin": "Luka's generated low-poly snow-tile model",
+  "processing": "Sample the mesh's actual upper snow height field, discard its generated lower block, apply eight restrained Taubin passes, three local relaxation passes, and five contour-following passes to remove prominent low-poly facets, retain a clearly readable 10.5 cm relief range and lift the middle of the height distribution without restoring faceting, blend only the narrow perimeter to a shared tileable edge, apply smooth normals, color the cap and standard Suma body with the warm-white snow_top swatch, and export the composite as tile_snowfield.glb."
+}

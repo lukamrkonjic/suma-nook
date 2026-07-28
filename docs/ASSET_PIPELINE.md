@@ -142,12 +142,18 @@ palette quantisation). Copy the nearest one and adjust.
    `surface_kind: "flat"`, placement_sound — `"wood"` is a registered sound).
    New structure → `data/structures.json`. No code changes; definitions load
    by id.
-8. **Validate.** `godot --headless --path . --import` first — **without a
-   reimport Godot renders the stale cached mesh**, then
+8. **Validate and review.** `godot --headless --path . --import` first —
+   **without a reimport Godot renders the stale cached mesh**, then
    `godot --headless --path . --script tests/test_runner.gd` (must print ALL
-   TESTS PASSED), then screenshot the gallery:
-   `godot --path . tests/catalog_expansion_review.tscn -- --shot-dir=<dir>`
-   (add the new id to its TILE_IDS/STRUCTURE_IDS).
+   TESTS PASSED). For interactive review, launch the normal game and press
+   **F8** (or Pause → Admin Controls → Asset Viewer). The viewer discovers
+   every registered tile and model, renders tiles as a 3×3 seam patch, uses
+   the production material/lighting/weather stack, and can capture PNGs.
+   The automated viewer proof is:
+
+   ```powershell
+   godot --path . tests/asset_viewer_review.tscn -- --shot-dir=res://artifacts/asset_viewer
+   ```
 9. **Record provenance** in `docs/ASSET_PROVENANCE.md` (source, tool, pin).
 
 ### Blender scripting gotchas (cost us real debugging time)

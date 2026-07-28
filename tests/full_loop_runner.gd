@@ -273,6 +273,48 @@ func _step_build_library_ui() -> void:
 				main.lighting_tuner != null and not main.lighting_tuner.visible,
 				"toggling again hides the lighting tuner"
 			)
+		var viewer_button := main.pause_menu.find_child(
+			"AdminRowAssetViewer", true, false
+		) as Button
+		check(
+			viewer_button != null,
+			"the admin page offers the production asset viewer"
+		)
+		if viewer_button != null:
+			viewer_button.pressed.emit()
+			await wait(0.15)
+			check(
+				main.asset_viewer != null and main.asset_viewer.is_open(),
+				"the asset viewer opens over the running game"
+			)
+			if main.asset_viewer != null:
+				main.asset_viewer.select_content("tile_sand")
+				check(
+					main.asset_viewer.selected_asset_id() == "tile_sand",
+					"the viewer selects registered tiles through production asset ids"
+				)
+				main.asset_viewer.select_content("struct_firepit_polished")
+				check(
+					main.asset_viewer.selected_asset_id() == "prop_firepit_polished",
+					"the viewer switches from tiles to registered models"
+				)
+				main.asset_viewer.set_weather_preset("rain")
+				main.asset_viewer.set_light_preset("sunset")
+				check(
+					main.lighting.weather_id() == "rain"
+					and main.lighting.time_of_day_id == "sunset",
+					"viewer weather and light controls drive the production rig"
+				)
+				main.asset_viewer.close()
+				await wait(0.05)
+				check(
+					not main.asset_viewer.is_open()
+					and not main.get_tree().paused
+					and main.hud.visible,
+					"returning from the viewer restores gameplay"
+				)
+			main.pause_menu.open("admin")
+			await wait(0.05)
 		main.pause_menu.close()
 		await wait(0.05)
 
