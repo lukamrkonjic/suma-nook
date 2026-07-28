@@ -2,9 +2,9 @@
   "source": "Original Suma Nook semantic material translation; GG live property blocks were not observed",
   "defaults": {
     "family": "painted_matte",
-    "roughness": 0.72,
+    "roughness": 0.66,
     "metallic": 0.0,
-    "specular": 0.5,
+    "specular": 0.38,
     "calm_cream_mix": 0.0,
     "calm_value_lift": 0.0
   },
@@ -21,9 +21,9 @@
         "flora",
         "reed"
       ],
-      "roughness": 0.74,
+      "roughness": 0.72,
       "metallic": 0.0,
-      "specular": 0.5,
+      "specular": 0.35,
       "calm_cream_mix": 0.0,
       "calm_value_lift": 0.0
     },
@@ -34,9 +34,9 @@
         "soil",
         "sand"
       ],
-      "roughness": 0.8,
+      "roughness": 0.78,
       "metallic": 0.0,
-      "specular": 0.45,
+      "specular": 0.3,
       "calm_cream_mix": 0.0,
       "calm_value_lift": 0.0
     },
@@ -47,9 +47,9 @@
         "rock",
         "sage_gray"
       ],
-      "roughness": 0.7,
+      "roughness": 0.62,
       "metallic": 0.0,
-      "specular": 0.5,
+      "specular": 0.4,
       "calm_cream_mix": 0.0,
       "calm_value_lift": 0.0
     },
@@ -59,9 +59,9 @@
         "wood",
         "cardboard"
       ],
-      "roughness": 0.72,
+      "roughness": 0.66,
       "metallic": 0.0,
-      "specular": 0.5,
+      "specular": 0.38,
       "calm_cream_mix": 0.0,
       "calm_value_lift": 0.0
     },
@@ -72,9 +72,9 @@
         "coral",
         "burnt_red"
       ],
-      "roughness": 0.66,
+      "roughness": 0.58,
       "metallic": 0.0,
-      "specular": 0.55,
+      "specular": 0.42,
       "calm_cream_mix": 0.0,
       "calm_value_lift": 0.0
     },
@@ -89,9 +89,9 @@
         "mushroom",
         "cream_fabric"
       ],
-      "roughness": 0.8,
+      "roughness": 0.78,
       "metallic": 0.0,
-      "specular": 0.45,
+      "specular": 0.32,
       "calm_cream_mix": 0.0,
       "calm_value_lift": 0.0
     },

@@ -24,6 +24,10 @@ uniform vec3 ramp_bottom_tint = vec3(0.985, 0.99, 1.02);
 // reading as solid fills.
 uniform float mottle_amount = 0.035;
 uniform float mottle_scale = 1.2;
+// Soft satin edge sheen: GG's beveled geometry catches a broad, quiet
+// grazing-light glow; a gentle rim term reads the same on Suma's meshes.
+uniform float rim_amount : hint_range(0.0, 1.0) = 0.12;
+uniform float rim_tint_amount : hint_range(0.0, 1.0) = 0.6;
 
 varying float object_height;
 varying vec3 world_pos;
@@ -55,4 +59,6 @@ void fragment() {
 	ROUGHNESS = roughness_val;
 	METALLIC = metallic_val;
 	SPECULAR = specular_val;
+	RIM = rim_amount;
+	RIM_TINT = rim_tint_amount;
 }
