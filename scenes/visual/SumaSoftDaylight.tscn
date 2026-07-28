@@ -1,6 +1,7 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scripts/visuals/lighting_rig.gd" id="1"]
+[ext_resource type="Resource" path="res://assets/visual_profiles/garden_galaxy_exact.tres" id="11"]
 [ext_resource type="Resource" path="res://assets/visual_profiles/suma_soft_daylight_warm.tres" id="2"]
 [ext_resource type="Resource" path="res://assets/visual_profiles/garden_rain.tres" id="3"]
 [ext_resource type="Resource" path="res://assets/visual_profiles/garden_galaxy_mist.tres" id="4"]
@@ -13,7 +14,7 @@
 
 [node name="SumaSoftDaylight" type="Node3D"]
 script = ExtResource("1")
-day_profile = ExtResource("2")
+day_profile = ExtResource("11")
 mist_profile = ExtResource("4")
 rain_profile = ExtResource("3")
 leaves_profile = ExtResource("5")

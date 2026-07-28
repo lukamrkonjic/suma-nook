@@ -88,6 +88,38 @@ extends Resource
 @export var reflection_probe_update_always := false
 @export var reflection_probe_shadows := false
 
+@export_group("GG exact pipeline")
+## Switches the rig onto the Garden Galaxy reference pipeline: LINEAR env
+## tonemap plus a screen-space grade pass that reproduces Unity PPv2's
+## PP_MainCamera profile (postExposure -> LogC contrast -> LMS white balance
+## -> saturation -> Neutral tonemap). Serialized reference values are the
+## defaults below.
+@export var gg_pipeline_enabled := false
+@export var grade_post_exposure_ev := 0.3
+@export var grade_temperature := 10.0
+@export var grade_tint := -7.0
+@export var grade_saturation := 6.0
+@export var grade_contrast := 35.0
+## "neutral" or "none".
+@export var grade_tonemapper := "neutral"
+## Screen-space two-color backdrop matching "Custom/Screen Skybox"
+## (theme bgColor0/bgColor1) with the sparse sparkle field.
+@export var background_gg_gradient := false
+@export var bg_color0 := Color(0.906, 0.87623, 0.78265)
+@export var bg_color1 := Color(0.90588, 0.87059, 0.81569)
+@export var bg_sparkles_enabled := true
+## Theme Default dark-mode constants (WorldTheme.Calculate): background is
+## multiplied by night_bg_multiply, ambient/sky by night_ambient_tint, the sun
+## lerps to night_light_color and min_light_intensity, and the sun pitch
+## lerps from day toward sun_pitch_night_deg.
+@export var night_bg_multiply := Color(0.913, 0.80487, 0.70666)
+@export var night_ambient_tint := Color(1.0, 0.90825, 0.78931)
+@export var night_light_color := Color(1.0, 0.87073, 0.67451)
+@export var min_light_intensity := 0.8
+@export var sun_pitch_night_deg := -50.0
+## PPv2 forward-path AO multiplies the whole lit image, not just ambient.
+@export var ssao_light_affect := 0.0
+
 @export_group("Weather")
 @export var rain_enabled := false
 @export var motes_enabled := false

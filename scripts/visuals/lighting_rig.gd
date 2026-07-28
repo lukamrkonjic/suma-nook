@@ -9,6 +9,8 @@ extends Node3D
 signal profile_applied(profile: VisualStyleProfile)
 
 const MIST_BG_SHADER: Shader = preload("res://assets/materials/mist_background.gdshader")
+const GG_BG_SHADER: Shader = preload("res://assets/materials/gg_screen_skybox.gdshader")
+const GG_GRADE_SHADER: Shader = preload("res://assets/materials/gg_color_grade.gdshader")
 
 @export var day_profile: VisualStyleProfile
 @export var mist_profile: VisualStyleProfile
@@ -36,6 +38,11 @@ var _spores: GPUParticles3D
 var _bg_layer: CanvasLayer
 var _bg_rect: ColorRect
 var _bg_material: ShaderMaterial
+var _gg_bg_material: ShaderMaterial
+var _gg_bg_quad: MeshInstance3D
+var _grade_layer: CanvasLayer
+var _grade_rect: ColorRect
+var _grade_material: ShaderMaterial
 var time_of_day_id := "noon"
 var background_preset_id := "profile"
 var particle_quality_id := "high"
@@ -94,6 +101,41 @@ func _ready() -> void:
 	_bg_rect.material = _bg_material
 	_bg_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_bg_layer.add_child(_bg_rect)
+	# GG backdrop drawn like Unity's camera skybox: a far-plane fullscreen
+	# quad inside the 3D pass, so its colors enter the grade pass as exact
+	# linear radiance with no canvas color-space ambiguity.
+	_gg_bg_material = ShaderMaterial.new()
+	_gg_bg_material.shader = GG_BG_SHADER
+	_gg_bg_quad = MeshInstance3D.new()
+	_gg_bg_quad.name = "GGBackdrop"
+	var quad := QuadMesh.new()
+	quad.size = Vector2(2.0, 2.0)
+	_gg_bg_quad.mesh = quad
+	_gg_bg_quad.material_override = _gg_bg_material
+	_gg_bg_quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# The vertex shader pins it to the far plane regardless of transform, so
+	# only culling has to be defeated.
+	_gg_bg_quad.custom_aabb = AABB(Vector3(-50000, -50000, -50000), Vector3(100000, 100000, 100000))
+	_gg_bg_quad.visible = false
+	add_child(_gg_bg_quad)
+
+	# GG-exact grade pass (Unity PPv2 PP_MainCamera chain). Layer 0 sits above
+	# the 3D image and every negative background layer while staying below the
+	# HUD (layer 1) and menus, so only the camera image is graded — matching
+	# where PPv2 runs in the reference.
+	_grade_layer = CanvasLayer.new()
+	_grade_layer.name = "GGColorGrade"
+	_grade_layer.layer = 0
+	_grade_layer.visible = false
+	add_child(_grade_layer)
+	_grade_material = ShaderMaterial.new()
+	_grade_material.shader = GG_GRADE_SHADER
+	_grade_rect = ColorRect.new()
+	_grade_rect.name = "GradeRect"
+	_grade_rect.material = _grade_material
+	_grade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_grade_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_grade_layer.add_child(_grade_rect)
 
 	_rain = _build_rain()
 	add_child(_rain)
@@ -109,7 +151,7 @@ func _ready() -> void:
 	add_child(_spores)
 
 	if day_profile == null:
-		day_profile = load("res://assets/visual_profiles/suma_soft_daylight_warm.tres")
+		day_profile = load("res://assets/visual_profiles/garden_galaxy_exact.tres")
 	if mist_profile == null:
 		mist_profile = load("res://assets/visual_profiles/garden_galaxy_mist.tres")
 	if rain_profile == null:
@@ -134,7 +176,8 @@ func _ready() -> void:
 func apply_profile(profile: VisualStyleProfile) -> void:
 	current_profile = profile
 	var env := _environment.environment
-	env.background_mode = Environment.BG_CANVAS if profile.background_gradient else Environment.BG_COLOR
+	var uses_canvas_bg := profile.background_gradient or profile.background_gg_gradient
+	env.background_mode = Environment.BG_CANVAS if uses_canvas_bg else Environment.BG_COLOR
 	env.background_color = profile.background_color
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY if profile.ambient_gradient_enabled else Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = profile.ambient_color
@@ -145,22 +188,31 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	_ambient_material.sky_horizon_color = profile.ambient_equator_color
 	_ambient_material.ground_horizon_color = profile.ambient_equator_color
 	_ambient_material.ground_bottom_color = profile.ambient_ground_color
-	match profile.tonemap:
-		"agx":
-			env.tonemap_mode = Environment.TONE_MAPPER_AGX
-		"aces":
-			env.tonemap_mode = Environment.TONE_MAPPER_ACES
-		"filmic":
-			env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-		_:
-			env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
-	env.tonemap_exposure = profile.exposure
-	env.tonemap_agx_white = profile.agx_white
-	env.tonemap_agx_contrast = profile.agx_contrast
-	env.adjustment_enabled = true
-	env.adjustment_brightness = profile.brightness
-	env.adjustment_contrast = profile.contrast
-	env.adjustment_saturation = profile.saturation
+	if profile.gg_pipeline_enabled:
+		# The reference camera image is produced entirely by the grade pass:
+		# Godot's own tonemapper stays LINEAR and adjustments stay off so the
+		# screen buffer reaching the grade shader is raw linear HDR light.
+		env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+		env.tonemap_exposure = 1.0
+		env.adjustment_enabled = false
+	else:
+		match profile.tonemap:
+			"agx":
+				env.tonemap_mode = Environment.TONE_MAPPER_AGX
+			"aces":
+				env.tonemap_mode = Environment.TONE_MAPPER_ACES
+			"filmic":
+				env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+			_:
+				env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+		env.tonemap_exposure = profile.exposure
+		env.tonemap_agx_white = profile.agx_white
+		env.tonemap_agx_contrast = profile.agx_contrast
+		env.adjustment_enabled = true
+		env.adjustment_brightness = profile.brightness
+		env.adjustment_contrast = profile.contrast
+		env.adjustment_saturation = profile.saturation
+	_configure_grade_pass(profile)
 	env.ssao_enabled = profile.ssao_enabled and _user_ssao_enabled
 	env.ssao_intensity = profile.ssao_intensity
 	env.ssao_radius = profile.ssao_radius
@@ -168,7 +220,7 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	env.ssao_detail = profile.ssao_detail
 	env.ssao_horizon = profile.ssao_horizon
 	env.ssao_sharpness = profile.ssao_sharpness
-	env.ssao_light_affect = 0.0
+	env.ssao_light_affect = profile.ssao_light_affect
 	env.ssao_ao_channel_affect = 0.0
 	env.ssil_enabled = profile.ssil_enabled
 	env.ssil_intensity = profile.ssil_intensity
@@ -184,14 +236,24 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	env.glow_intensity = profile.glow_intensity
 	env.glow_hdr_threshold = profile.glow_hdr_threshold
 	env.glow_bloom = profile.glow_bloom
-	env.glow_normalized = true
+	# PPv2 bloom is a plain additive composite before grading; the legacy
+	# profiles were tuned against Godot's normalized soft-light glow.
+	env.glow_normalized = not profile.gg_pipeline_enabled
+	env.glow_blend_mode = (
+		Environment.GLOW_BLEND_MODE_ADDITIVE
+		if profile.gg_pipeline_enabled
+		else Environment.GLOW_BLEND_MODE_SOFTLIGHT
+	)
 	env.fog_enabled = profile.fog_enabled
 	env.fog_light_color = profile.fog_color
 	env.fog_density = profile.fog_density
 	env.fog_sky_affect = 0.0
 
-	_bg_layer.visible = profile.background_gradient
-	if profile.background_gradient:
+	_bg_layer.visible = uses_canvas_bg
+	if profile.background_gg_gradient:
+		_set_gg_background(profile.bg_color0, profile.bg_color1, profile.bg_sparkles_enabled)
+	elif profile.background_gradient:
+		_bg_rect.material = _bg_material
 		_bg_material.set_shader_parameter("top_color", profile.gradient_top)
 		_bg_material.set_shader_parameter("mid_color", profile.gradient_mid)
 		_bg_material.set_shader_parameter("bottom_color", profile.gradient_bottom)
@@ -408,7 +470,15 @@ func runtime_manifest() -> Dictionary:
 			"background": background_preset_id,
 			"particle_quality": particle_quality_id,
 			"profile": current_profile.profile_id,
-			"transition_duration_seconds": 1.0,
+			"transition_duration_seconds": 0.35 if current_profile.gg_pipeline_enabled else 1.0,
+		},
+		"gg_grade_pass": {
+			"enabled": _grade_layer.visible,
+			"post_exposure": _grade_material.get_shader_parameter("post_exposure"),
+			"color_balance": _grade_material.get_shader_parameter("color_balance"),
+			"contrast": _grade_material.get_shader_parameter("grade_contrast"),
+			"saturation": _grade_material.get_shader_parameter("grade_saturation"),
+			"tonemapper": _grade_material.get_shader_parameter("tonemapper"),
 		},
 		"directional_light": {
 			"color": _sun.light_color,
@@ -544,6 +614,9 @@ func _transition_to_profile(profile: VisualStyleProfile) -> void:
 func _capture_visual_state() -> Dictionary:
 	var env := _environment.environment
 	var fallback := env.background_color
+	# The GG screen-skybox backdrop blends as a flat color; only the mist
+	# gradient material carries tweenable top/mid/bottom parameters.
+	var mist_visible := _bg_layer.visible and _bg_rect.material == _bg_material
 	return {
 		"sun_color": _sun.light_color,
 		"sun_energy": _sun.light_energy,
@@ -561,11 +634,14 @@ func _capture_visual_state() -> Dictionary:
 		"equator": _ambient_material.sky_horizon_color,
 		"ground": _ambient_material.ground_bottom_color,
 		"background": env.background_color,
-		"gradient_visible": _bg_layer.visible,
-		"gradient_top": _bg_material.get_shader_parameter("top_color") if _bg_layer.visible else fallback,
-		"gradient_mid": _bg_material.get_shader_parameter("mid_color") if _bg_layer.visible else fallback,
-		"gradient_bottom": _bg_material.get_shader_parameter("bottom_color") if _bg_layer.visible else fallback,
-		"stars": float(_bg_material.get_shader_parameter("stars_amount")) if _bg_layer.visible else 0.0,
+		"gradient_visible": mist_visible,
+		"gradient_top": _bg_material.get_shader_parameter("top_color") if mist_visible else fallback,
+		"gradient_mid": _bg_material.get_shader_parameter("mid_color") if mist_visible else fallback,
+		"gradient_bottom": _bg_material.get_shader_parameter("bottom_color") if mist_visible else fallback,
+		"stars": float(_bg_material.get_shader_parameter("stars_amount")) if mist_visible else 0.0,
+		"gg_bg_visible": _gg_bg_quad.visible,
+		"gg_bg0": _gg_bg_material.get_shader_parameter("color0") if _gg_bg_quad.visible else fallback,
+		"gg_bg1": _gg_bg_material.get_shader_parameter("color1") if _gg_bg_quad.visible else fallback,
 	}
 
 
@@ -603,12 +679,18 @@ func _start_visual_transition(from: Dictionary, target: Dictionary) -> void:
 	if _theme_tween != null and _theme_tween.is_valid():
 		_theme_tween.kill()
 	_theme_tween = create_tween()
-	_theme_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	# GG's WorldThemeController blends linearly over 0.35 s; the legacy
+	# profiles keep their original one-second eased fade.
+	var gg := current_profile != null and current_profile.gg_pipeline_enabled
+	if gg:
+		_theme_tween.set_trans(Tween.TRANS_LINEAR)
+	else:
+		_theme_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_theme_tween.tween_method(
 		func(weight: float): _blend_visual_state(from, target, weight),
 		0.0,
 		1.0,
-		1.0
+		0.35 if gg else 1.0
 	)
 	_theme_tween.tween_callback(func():
 		_apply_time_of_day()
@@ -634,6 +716,17 @@ func _blend_visual_state(from: Dictionary, target: Dictionary, weight: float) ->
 	_ambient_material.sky_horizon_color = (from["equator"] as Color).lerp(target["equator"], weight)
 	_ambient_material.ground_horizon_color = _ambient_material.sky_horizon_color
 	_ambient_material.ground_bottom_color = (from["ground"] as Color).lerp(target["ground"], weight)
+	var quad_involved: bool = bool(from.get("gg_bg_visible", false)) or bool(target.get("gg_bg_visible", false))
+	if quad_involved:
+		var from0 := from.get("gg_bg0", from["background"]) as Color
+		var from1 := from.get("gg_bg1", from["background"]) as Color
+		var target0 := target.get("gg_bg0", target["background"]) as Color
+		var target1 := target.get("gg_bg1", target["background"]) as Color
+		var sparkles := 0.0
+		if _gg_bg_material.get_shader_parameter("sparkle_amount") != null:
+			sparkles = float(_gg_bg_material.get_shader_parameter("sparkle_amount"))
+		_set_gg_background(from0.lerp(target0, weight), from1.lerp(target1, weight), sparkles > 0.5)
+		return
 	var from_top := from["gradient_top"] as Color
 	var from_mid := from["gradient_mid"] as Color
 	var from_bottom := from["gradient_bottom"] as Color
@@ -656,8 +749,61 @@ func _apply_particle_quality() -> void:
 		particles.amount_ratio = float(particles.get_meta("base_amount_ratio", 1.0)) * quality_multiplier
 
 
+## GG WorldThemeController light levels: the reference is a binary light/dark
+## toggle blended linearly; Suma's four slots sit on that same axis.
+func _gg_light_level() -> float:
+	match time_of_day_id:
+		"morning":
+			return 0.75
+		"sunset":
+			return 0.35
+		"night":
+			return 0.0
+	return 1.0
+
+
+## WorldTheme.Calculate, verbatim: night multiplies the background by
+## nightBgColor and the ambient set by nightTint, while the sun lerps to the
+## night color, min intensity, and night pitch.
+func _apply_gg_time_of_day() -> void:
+	var profile := current_profile
+	var env := _environment.environment
+	var level := _gg_light_level()
+	var ambient_tint := profile.night_ambient_tint.lerp(Color.WHITE, level)
+	_sun.light_color = profile.night_light_color.lerp(profile.sun_color, level)
+	_sun.light_energy = lerpf(profile.min_light_intensity, 1.0, level) * profile.sun_energy
+	_sun.rotation_degrees = Vector3(
+		lerpf(profile.sun_pitch_night_deg, profile.sun_pitch_deg, level),
+		profile.sun_yaw_deg,
+		0.0
+	)
+	# The GG trilight colors are serialized from Unity HDR pickers, i.e. they
+	# are already LINEAR radiance. Godot color properties get an sRGB->linear
+	# conversion at render time, so pre-encode to make that conversion land
+	# back on the reference linear values. The night tint multiplies the
+	# linear values (matching WorldTheme.Calculate's raw multiply).
+	_ambient_material.sky_top_color = (profile.ambient_sky_color * ambient_tint).linear_to_srgb()
+	_ambient_material.sky_horizon_color = (profile.ambient_equator_color * ambient_tint).linear_to_srgb()
+	_ambient_material.ground_horizon_color = _ambient_material.sky_horizon_color
+	_ambient_material.ground_bottom_color = (profile.ambient_ground_color * ambient_tint).linear_to_srgb()
+	env.ambient_light_energy = profile.ambient_energy
+	env.glow_enabled = profile.glow_enabled and _user_bloom_enabled
+	env.glow_intensity = profile.glow_intensity
+	var bg_tint := profile.night_bg_multiply.lerp(Color.WHITE, level)
+	env.background_color = profile.background_color * bg_tint
+	if profile.background_gg_gradient and background_preset_id == "profile":
+		_set_gg_background(
+			profile.bg_color0 * bg_tint,
+			profile.bg_color1 * bg_tint,
+			profile.bg_sparkles_enabled
+		)
+
+
 func _apply_time_of_day() -> void:
 	if current_profile == null:
+		return
+	if current_profile.gg_pipeline_enabled:
+		_apply_gg_time_of_day()
 		return
 	var env := _environment.environment
 	_sun.light_color = current_profile.sun_color
@@ -716,7 +862,14 @@ func _apply_background_preset() -> void:
 				1.0
 			)
 		_:
-			if current_profile.background_gradient:
+			if current_profile.background_gg_gradient:
+				var bg_tint := current_profile.night_bg_multiply.lerp(Color.WHITE, _gg_light_level())
+				_set_gg_background(
+					current_profile.bg_color0 * bg_tint,
+					current_profile.bg_color1 * bg_tint,
+					current_profile.bg_sparkles_enabled
+				)
+			elif current_profile.background_gradient:
 				_set_gradient_background(
 					current_profile.gradient_top,
 					current_profile.gradient_mid,
@@ -731,15 +884,59 @@ func _set_flat_background(color: Color) -> void:
 	_environment.environment.background_mode = Environment.BG_COLOR
 	_environment.environment.background_color = color
 	_bg_layer.visible = false
+	_gg_bg_quad.visible = false
 
 
 func _set_gradient_background(top: Color, middle: Color, bottom: Color, stars: float) -> void:
 	_environment.environment.background_mode = Environment.BG_CANVAS
 	_bg_layer.visible = true
+	_gg_bg_quad.visible = false
+	_bg_rect.material = _bg_material
 	_bg_material.set_shader_parameter("top_color", top)
 	_bg_material.set_shader_parameter("mid_color", middle)
 	_bg_material.set_shader_parameter("bottom_color", bottom)
 	_bg_material.set_shader_parameter("stars_amount", stars)
+
+
+## GG "Custom/Screen Skybox" backdrop: bgColor0/bgColor1 wash plus sparkles,
+## rendered by the far-plane quad inside the 3D pass.
+func _set_gg_background(color0: Color, color1: Color, sparkles: bool) -> void:
+	_environment.environment.background_mode = Environment.BG_COLOR
+	_bg_layer.visible = false
+	_gg_bg_quad.visible = true
+	_gg_bg_material.set_shader_parameter("color0", color0)
+	_gg_bg_material.set_shader_parameter("color1", color1)
+	_gg_bg_material.set_shader_parameter("sparkle_amount", 1.0 if sparkles else 0.0)
+
+
+func _configure_grade_pass(profile: VisualStyleProfile) -> void:
+	_grade_layer.visible = profile.gg_pipeline_enabled
+	if not profile.gg_pipeline_enabled:
+		return
+	_grade_material.set_shader_parameter("post_exposure", pow(2.0, profile.grade_post_exposure_ev))
+	_grade_material.set_shader_parameter(
+		"color_balance",
+		_compute_color_balance(profile.grade_temperature, profile.grade_tint)
+	)
+	_grade_material.set_shader_parameter("grade_contrast", 1.0 + profile.grade_contrast / 100.0)
+	_grade_material.set_shader_parameter("grade_saturation", 1.0 + profile.grade_saturation / 100.0)
+	_grade_material.set_shader_parameter("tonemapper", 1 if profile.grade_tonemapper == "neutral" else 0)
+	_grade_material.set_shader_parameter("effect_weight", 1.0)
+
+
+## Unity PPv2 ColorUtilities.ComputeColorBalance: temperature/tint to an LMS
+## white-balance multiplier, transcribed with the reference constants.
+static func _compute_color_balance(temperature: float, tint: float) -> Vector3:
+	var t1 := temperature / 60.0
+	var t2 := tint / 60.0
+	var x := 0.31271 - t1 * (0.1 if t1 < 0.0 else 0.05)
+	var y := 2.87 * x - 3.0 * x * x - 0.27509507 + t2 * 0.05
+	var big_x := x / y
+	var big_z := (1.0 - x - y) / y
+	var l := 0.7328 * big_x + 0.4296 - 0.1624 * big_z
+	var m := -0.7036 * big_x + 1.6975 + 0.0061 * big_z
+	var s := 0.0030 * big_x + 0.0136 + 0.9834 * big_z
+	return Vector3(0.949237 / l, 1.03542 / m, 1.08728 / s)
 
 
 func _build_rain() -> GPUParticles3D:

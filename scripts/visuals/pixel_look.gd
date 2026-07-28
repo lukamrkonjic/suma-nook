@@ -22,7 +22,11 @@ var _material: ShaderMaterial
 
 
 func _init() -> void:
-	layer = -10
+	# Layer 0 draws after the 3D scene (and after the lighting rig's grade
+	# pass, which is added to the tree earlier) but below the HUD at layer 1.
+	# A negative layer would be treated as the 3D background whenever the
+	# environment uses BG_CANVAS, which the GG backdrop relies on.
+	layer = 0
 
 
 func _ready() -> void:

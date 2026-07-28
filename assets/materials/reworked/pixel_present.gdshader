@@ -43,6 +43,15 @@ void fragment() {
 	vec2 block = vec2(max(pixel_size, 1.0));
 	vec2 uv = (floor(SCREEN_UV * resolution / block) + 0.5) * block / resolution;
 	vec4 src = texture(screen_tex, uv);
+	// With HDR 2D the screen sample arrives linear while this pass's grade
+	// and posterize math (and its output convention) are sRGB-domain; encode
+	// the sample so behavior matches the pre-HDR pipeline exactly.
+	src.rgb = clamp(src.rgb, vec3(0.0), vec3(1.0));
+	src.rgb = mix(
+		src.rgb * 12.92,
+		1.055 * pow(src.rgb, vec3(1.0 / 2.4)) - 0.055,
+		step(vec3(0.0031308), src.rgb)
+	);
 
 	// Colour grade (Imota's palette_snap grade, defaults neutral).
 	float luma = dot(src.rgb, vec3(0.299, 0.587, 0.114));
