@@ -9,7 +9,10 @@ signal state_changed(new_state: State)
 signal interaction_focus_changed(focus: Dictionary)   # {} when none
 signal click_interaction_reached(interaction: Dictionary)
 
-enum State { FREE, FISHING_CAST, FISHING_WAIT, FISHING_CATCH, WOODCUTTING, ATTACKING, DODGING, HIT, BUILDING, DISABLED }
+enum State { FREE, FISHING_CAST, FISHING_WAIT, FISHING_CATCH, WOODCUTTING, ATTACKING, DODGING, HIT, BUILDING, DISABLED, RESCUED }
+
+const GROUND_MASK := 1
+const EDGE_WALL_MASK := WorldRenderer.EDGE_WALL_LAYER
 
 var core: GameCore
 var camera_rig: CameraRig
@@ -17,6 +20,14 @@ var visual: PlayerVisual
 
 var state: State = State.FREE
 var move_locked := false
+## True from a deliberate jump until the next landing — only then does the
+## island's perimeter lip open up. Pushes, steps, and teleports never slip
+## through by accident.
+var _jump_airborne := false
+## Grace window after spawns/reloads: world colliders can take a few frames
+## to rebuild, and the brief floorless drop must not trigger the rescue.
+var _rescue_grace := 0.0
+var _rescue_tween: Tween
 var _dodge_timer := 0.0
 var _dodge_dir := Vector3.ZERO
 var _invuln_timer := 0.0
@@ -34,12 +45,19 @@ func setup(game_core: GameCore, rig: CameraRig, player_visual: PlayerVisual) -> 
 	position = core.profile.position
 	rotation.y = core.profile.facing
 	floor_snap_length = 0.4
+	collision_mask = GROUND_MASK | EDGE_WALL_MASK
+	suspend_water_rescue()
 
 
 func _physics_process(delta: float) -> void:
 	if core == null:
 		return
+	if state == State.RESCUED:
+		# The rescue tween owns the transform; physics stays out of the way.
+		core.profile.position = position
+		return
 	_invuln_timer = maxf(0.0, _invuln_timer - delta)
+	_rescue_grace = maxf(0.0, _rescue_grace - delta)
 	match state:
 		State.DODGING:
 			_dodge_timer -= delta
@@ -54,7 +72,23 @@ func _physics_process(delta: float) -> void:
 		velocity.y -= core.registries.tunef("jump_gravity", 25.0) * delta
 	else:
 		velocity.y = maxf(velocity.y, 0.0)
+	# The island's perimeter lip opens only for a deliberate jump; every other
+	# kind of movement keeps its guard rail.
+	collision_mask = GROUND_MASK if _jump_airborne else (GROUND_MASK | EDGE_WALL_MASK)
 	move_and_slide()
+	if is_on_floor():
+		_jump_airborne = false
+	# Overboard means actually falling well below the waterline while simply
+	# moving about. Skill loops, cutscenes, and scripted states are never
+	# hijacked — their anchors own the player until they finish.
+	if (
+		_rescue_grace <= 0.0
+		and not is_on_floor()
+		and state in [State.FREE, State.BUILDING, State.DODGING, State.HIT]
+		and position.y < core.registries.tunef("water_rescue_trigger_y", -0.9)
+	):
+		_begin_water_rescue()
+		return
 	core.profile.position = position
 	core.profile.facing = rotation.y
 	_focus_scan_accum += delta
@@ -103,6 +137,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		and not move_locked
 	):
 		velocity.y = core.registries.tunef("jump_velocity", 5.4)
+		_jump_airborne = true
 		floor_snap_length = 0.0
 		get_tree().create_timer(0.12).timeout.connect(func():
 			floor_snap_length = 0.4
@@ -127,7 +162,10 @@ func _start_dodge() -> void:
 func set_state(new_state: State) -> void:
 	if state == new_state:
 		return
+	var leaving_rescue := state == State.RESCUED
 	state = new_state
+	if leaving_rescue:
+		_abort_rescue()
 	if new_state != State.FREE:
 		cancel_click_command()
 	if new_state == State.FREE:
@@ -148,6 +186,7 @@ func take_hit(damage: int) -> void:
 		or _invuln_timer > 0.0
 		or state == State.DODGING
 		or state == State.DISABLED
+		or state == State.RESCUED
 	):
 		return
 	_invuln_timer = core.registries.tunef("player_hit_invuln_seconds", 0.8)
@@ -159,11 +198,135 @@ func current_cell() -> Vector2i:
 	return core.grid.world_to_cell(position)
 
 
+## Give the world a moment (rebuilds, teleports) before overboard detection
+## resumes.
+func suspend_water_rescue(seconds := 1.2) -> void:
+	_rescue_grace = seconds
+
+
 func teleport_home() -> void:
 	cancel_click_command()
 	var home := core.grid.nearest_walkable(core.grid.home_cell)
 	position = core.grid.cell_to_world(home)
 	velocity = Vector3.ZERO
+
+
+# ------------------------------------------------------------------ water rescue
+
+const RESCUE_HOLE_SHADER: Shader = preload("res://assets/materials/reworked/rescue_black_hole.gdshader")
+
+## Overboard! The swimmer takes a proper long plunge, a flat matte hole
+## (Donut County-style) opens on the water right under them, they drop
+## through it like a teleport, and pop back out of a ground hole on the
+## nearest shore with a squashy double bounce.
+func _begin_water_rescue() -> void:
+	if state == State.RESCUED:
+		return
+	set_state(State.RESCUED)
+	cancel_click_command()
+	velocity = Vector3.ZERO
+	visual.set_walk(0.0, 0.016)
+	visual.play("idle")
+	var splash := position
+	var target_cell := core.grid.nearest_walkable(current_cell())
+	var target := core.grid.cell_to_world(target_cell)
+	var water_surface_y := core.registries.tunef("water_level_y", -0.14)
+	var rescue := create_tween()
+	_rescue_tween = rescue
+	# The long fall first — well under the surface before anything magical.
+	rescue.tween_property(self, "position:y", splash.y - 2.6, 0.55) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	# Only now the hole opens flat on the water above them; from the camera it
+	# covers the sunken swimmer, so they visibly drop "into" it.
+	rescue.parallel().tween_callback(func():
+		var swallow_hole := _spawn_rescue_hole(
+			Vector3(splash.x, water_surface_y + 0.04, splash.z)
+		)
+		_pop_hole(swallow_hole, 1.0)
+		_close_hole(swallow_hole, 0.34)
+	).set_delay(0.34)
+	# Teleport beat while the hole is shut.
+	rescue.tween_interval(0.18)
+	# Pop OUT of a ground hole at the shore: player rises up through it.
+	rescue.tween_callback(func():
+		var exit_hole := _spawn_rescue_hole(target + Vector3(0.0, 0.03, 0.0))
+		_pop_hole(exit_hole, 0.9)
+		_close_hole(exit_hole, 0.5)
+		position = Vector3(target.x, target.y - 1.3, target.z)
+		rotation.y = wrapf(rotation.y, -PI, PI)
+	)
+	rescue.tween_interval(0.12)
+	# Launch up out of the hole, then the bouncy squash landing.
+	rescue.tween_callback(_squash.bind(0.9, 1.14))
+	rescue.tween_property(self, "position:y", target.y + 0.55, 0.2) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	rescue.tween_property(self, "position:y", target.y, 0.16) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	rescue.tween_callback(_squash.bind(1.26, 0.7))
+	rescue.tween_property(self, "position:y", target.y + 0.22, 0.12) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	rescue.tween_callback(_squash.bind(0.9, 1.12))
+	rescue.tween_property(self, "position:y", target.y, 0.12) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	rescue.tween_callback(_squash.bind(1.1, 0.88))
+	rescue.tween_property(self, "position:y", target.y + 0.08, 0.08) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	rescue.tween_property(self, "position:y", target.y, 0.08) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	rescue.tween_callback(func():
+		_squash(1.0, 1.0)
+		velocity = Vector3.ZERO
+		core.profile.position = position
+		core.profile.facing = rotation.y
+		set_state(State.FREE)
+	)
+
+
+## External systems (cutscenes, scripted teleports, tests) may force the
+## state away mid-rescue; the tween must not keep dragging the player around.
+func _abort_rescue() -> void:
+	if _rescue_tween != null and _rescue_tween.is_valid():
+		_rescue_tween.kill()
+	_rescue_tween = null
+	visual.scale = Vector3.ONE
+	velocity = Vector3.ZERO
+
+
+func _spawn_rescue_hole(at: Vector3) -> MeshInstance3D:
+	var hole := MeshInstance3D.new()
+	var disc := QuadMesh.new()
+	disc.size = Vector2(1.35, 1.35)
+	hole.mesh = disc
+	var material := ShaderMaterial.new()
+	material.shader = RESCUE_HOLE_SHADER
+	hole.material_override = material
+	hole.rotation_degrees.x = -90.0
+	hole.scale = Vector3(0.01, 0.01, 0.01)
+	hole.top_level = true
+	add_child(hole)
+	hole.global_position = at
+	return hole
+
+
+func _pop_hole(hole: MeshInstance3D, size: float) -> void:
+	var pop := create_tween()
+	pop.tween_property(hole, "scale", Vector3(size, size, size), 0.18) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+func _close_hole(hole: MeshInstance3D, delay := 0.0) -> void:
+	var close := create_tween()
+	if delay > 0.0:
+		close.tween_interval(delay)
+	close.tween_property(hole, "scale", Vector3(0.01, 0.01, 0.01), 0.14) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	close.tween_callback(hole.queue_free)
+
+
+func _squash(width: float, height: float) -> void:
+	var squash := create_tween()
+	squash.tween_property(visual, "scale", Vector3(width, height, width), 0.09) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 
 # ------------------------------------------------------------------ click movement

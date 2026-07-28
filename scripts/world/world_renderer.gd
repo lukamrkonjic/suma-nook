@@ -5,6 +5,10 @@ extends Node3D
 ## State-diff driven (cell_changed / grid_changed) — never per-frame scans.
 
 const BLOCKER_LAYER := 1
+## Perimeter walls live on their own layer: the player collides with it only
+## while grounded, so walking off the island is blocked but a deliberate jump
+## sails over the lip (and the water rescue brings them home).
+const EDGE_WALL_LAYER := 1 << 3
 const PLACEABLE_PICK_LAYER := 1 << 7
 const OUTLINE_VISIBILITY_LAYER := 1 << 19
 const REST_TWEEN_SECONDS := 0.5
@@ -928,7 +932,7 @@ func _rebuild_edges() -> void:
 			):
 				continue
 			var wall := StaticBody3D.new()
-			wall.collision_layer = BLOCKER_LAYER
+			wall.collision_layer = EDGE_WALL_LAYER
 			var shape := CollisionShape3D.new()
 			var box := BoxShape3D.new()
 			var along_x := offset.y != 0

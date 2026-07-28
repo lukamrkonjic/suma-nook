@@ -369,6 +369,7 @@ func _start_gameplay(fresh: bool) -> void:
 	if not fresh:
 		renderer.rebuild_all()
 		player.position = core.profile.position
+		player.suspend_water_rescue()
 		player.rotation.y = core.profile.facing
 		player_visual.apply_profile(core.profile)
 		player_visual.apply_equipment(core.equipment)
@@ -816,6 +817,7 @@ func reload_from_save() -> void:
 	if core.load_game():
 		renderer.rebuild_all()
 		player.position = core.profile.position
+		player.suspend_water_rescue()
 		player_visual.apply_profile(core.profile)
 		player_visual.apply_equipment(core.equipment)
 		for encounter in _encounters.values():

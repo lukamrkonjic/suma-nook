@@ -29,6 +29,9 @@ func setup(game_core: GameCore, assets: AssetLibrary, enemy_def: Defs.EnemyDefin
 	home_point = spawn_point
 	player = target
 	position = spawn_point
+	# Enemies never jump, so they always collide with the island's perimeter
+	# lip (which lives on its own layer so the player can leap over it).
+	collision_mask = PlayerController.GROUND_MASK | PlayerController.EDGE_WALL_MASK
 	add_to_group("enemies")
 
 	_visual = assets.instantiate(enemy_def.asset_id)
