@@ -104,7 +104,10 @@ one asset.
 (same bone names, no new Skeleton3D in the export), set
 `attachment_type = "skinned"`, list the body regions it covers in
 `hidden_regions` (PlayerArmorRegions names — the body hides them via its
-shader mask), and test in T-pose, idle, and walk.
+shader mask), and test in T-pose, idle, and walk. For the full
+image-to-garment workflow (ChatGPT concept → Meshy/Modly mesh → cleanup →
+fit → weight copy → export → wiring), see
+`docs/CLOTHING_GENERATION_GUIDE.md`.
 
 **Another body profile (e.g. female)** — export a new mannequin GLB sharing
 the `mixamo_34` skeleton contract, create a new `CharacterBodyProfile` with
