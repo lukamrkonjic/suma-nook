@@ -194,6 +194,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	if state == State.DISABLED:
 		return
 	if (
+		state == State.BUILDING
+		and (
+			event is InputEventJoypadButton
+			or event is InputEventJoypadMotion
+		)
+	):
+		# Controller face buttons and triggers belong to the build context.
+		return
+	if (
 		event.is_action_pressed("jump")
 		and not move_locked
 		and (

@@ -47,8 +47,17 @@ static func _validate_definitions(
 	source_for: Callable
 ) -> void:
 	for def: Defs.TileDefinition in tiles.values():
-		var asset_id := "tile_water_floor" if def.render_profile == "continuous_water" else def.asset_id
-		_require_asset(issues, "tiles", def.id, asset_id, source_for)
+		if def.render_profile == "continuous_water":
+			_require_asset(issues, "tiles", def.id, "tile_water_floor", source_for)
+		elif def.uses_layered_visual():
+			for index in def.visual_layers.size():
+				var layer: Defs.TileVisualLayerDefinition = def.visual_layers[index]
+				_require_asset(
+					issues, "tiles", def.id, layer.asset_id, source_for,
+					"layers[%d].asset_id" % index
+				)
+		else:
+			_require_asset(issues, "tiles", def.id, def.asset_id, source_for)
 	for def: Defs.StructureDefinition in structures.values():
 		_require_asset(issues, "structures", def.id, def.asset_id, source_for)
 	for def: Defs.ItemDefinition in items.values():

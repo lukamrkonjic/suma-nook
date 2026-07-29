@@ -48,18 +48,22 @@ func resolve_hobby_action(skill: Defs.SkillDefinition) -> HobbyActionResult:
 	var reward_chance := skill.direct_tile_reward_chance
 	if reward_chance < 0.0:
 		reward_chance = registries.tunef("default_direct_tile_reward_chance", 0.0)
+	var active_reward_pool: Array[String] = []
+	for tile_id: String in skill.direct_tile_reward_pool:
+		if registries.is_tile_active(tile_id):
+			active_reward_pool.append(tile_id)
 	if (
 		stock != null
 		and reward_chance > 0.0
-		and not skill.direct_tile_reward_pool.is_empty()
+		and not active_reward_pool.is_empty()
 		and rng.chance("hobby_world_reward_" + skill.id, reward_chance)
 	):
 		var index := rng.randi_range(
 			"hobby_world_reward_" + skill.id,
 			0,
-			skill.direct_tile_reward_pool.size() - 1
+			active_reward_pool.size() - 1
 		)
-		result.optional_tile_reward_id = skill.direct_tile_reward_pool[index]
+		result.optional_tile_reward_id = active_reward_pool[index]
 		result.reward_rarity = "rare"
 		stock.add_tile(result.optional_tile_reward_id)
 
@@ -73,7 +77,12 @@ func on_level_unlocks(unlocks: Array) -> Array:
 	for unlock in unlocks:
 		var kind := String(unlock.get("kind", ""))
 		var reward_id := String(unlock.get("id", ""))
-		if kind == "tile_reward" and stock != null and registries.tile(reward_id) != null:
+		if (
+			kind == "tile_reward"
+			and stock != null
+			and registries.tile(reward_id) != null
+			and registries.is_tile_active(reward_id)
+		):
 			stock.add_tile(reward_id)
 			grants.append({"tile_id": reward_id, "count": 1, "rare": true, "guaranteed": true})
 		elif kind == "structure_reward" and stock != null and registries.structure(reward_id) != null:

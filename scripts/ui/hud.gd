@@ -6,6 +6,7 @@ extends CanvasLayer
 
 signal open_parcel_requested
 signal build_piece_selected(kind: String, id: String)
+signal build_world_browse_requested
 signal pause_requested
 
 var core: GameCore
@@ -24,14 +25,21 @@ var _build_item_scroll: ScrollContainer
 var _build_strip: HBoxContainer
 var _build_previous_button: Button
 var _build_next_button: Button
+var _build_browse_button: Button
 var _build_category_group: ButtonGroup
 var _selected_build_category := ""
 var _context_column: VBoxContainer
 var _parcel_button: Button
 var _bottom_buttons: HBoxContainer
+var _menu_button: Button
+var _build_button: Button
+var _build_hint_label: Label
 var _hover_tooltip: PanelContainer
 var _hover_name_label: Label
 var _hover_collection_label: Label
+var _prompt_action := &""
+var _prompt_description := ""
+var _prompt_secondary: Array[Dictionary] = []
 
 const BUILD_CATEGORIES := [
 	{"id": "ground", "label": "Ground"},
@@ -61,9 +69,17 @@ func setup(game_core: GameCore, ui_kit: UiKit, placement_controller: PlacementCo
 		core.combat.health_changed.connect(_on_health_changed)
 	core.notified.connect(func(message, tone): toast(message, tone))
 	placement.mode_changed.connect(_on_build_mode)
+	placement.held_changed.connect(_on_held_changed)
 	placement.action_result.connect(_on_action_result)
 	placement.hover_changed.connect(set_hover_tooltip)
+	InputDeviceService.shared().input_method_changed.connect(_on_input_method_changed)
+	InputDeviceService.shared().active_controller_changed.connect(
+		func(_device): _on_input_method_changed(
+			InputDeviceService.shared().input_method
+		)
+	)
 	_refresh_all()
+	_on_input_method_changed(InputDeviceService.shared().input_method)
 
 
 func _build_layout() -> void:
@@ -162,12 +178,12 @@ func _build_layout() -> void:
 	_bottom_buttons.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_bottom_buttons.add_theme_constant_override("separation", 8)
 	root.add_child(_bottom_buttons)
-	var menu_button := kit.button("Menu  [Esc]")
-	menu_button.pressed.connect(func(): pause_requested.emit())
-	_bottom_buttons.add_child(menu_button)
-	var build_button := kit.button("Shape Land  [B]", true)
-	build_button.pressed.connect(func(): placement.toggle())
-	_bottom_buttons.add_child(build_button)
+	_menu_button = kit.button("Menu")
+	_menu_button.pressed.connect(func(): pause_requested.emit())
+	_bottom_buttons.add_child(_menu_button)
+	_build_button = kit.button("Shape Land", true)
+	_build_button.pressed.connect(func(): placement.toggle())
+	_bottom_buttons.add_child(_build_button)
 	_parcel_button = kit.button("Open Land Parcel ✨", true)
 	_parcel_button.visible = false
 	_parcel_button.pressed.connect(func(): open_parcel_requested.emit())
@@ -197,6 +213,7 @@ func _build_layout() -> void:
 	_build_category_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	_build_category_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_build_category_scroll.scroll_deadzone = 8
+	_build_category_scroll.follow_focus = true
 	_build_category_scroll.gui_input.connect(
 		func(event): _on_library_scroll_input(event, _build_category_scroll)
 	)
@@ -209,6 +226,15 @@ func _build_layout() -> void:
 	var item_row := HBoxContainer.new()
 	item_row.add_theme_constant_override("separation", 7)
 	bar_col.add_child(item_row)
+	_build_browse_button = kit.library_arrow_button("◎")
+	_build_browse_button.name = "BuildBrowseWorld"
+	_build_browse_button.tooltip_text = (
+		"Move the grid cursor over an existing tile or object, then pick it up."
+	)
+	_build_browse_button.pressed.connect(
+		func(): build_world_browse_requested.emit()
+	)
+	item_row.add_child(_build_browse_button)
 	_build_previous_button = kit.library_arrow_button("<")
 	_build_previous_button.name = "BuildPreviousPage"
 	_build_previous_button.tooltip_text = "Previous items"
@@ -236,12 +262,9 @@ func _build_layout() -> void:
 	_build_next_button.tooltip_text = "More items"
 	_build_next_button.pressed.connect(func(): _page_build_items(1))
 	item_row.add_child(_build_next_button)
-	var build_hint := kit.label(
-		"Click to place  ·  wheel, scrollbar or arrows to browse  ·  R rotate  ·  X store  ·  Esc close",
-		12
-	)
-	build_hint.add_theme_color_override("font_color", Color(0.45, 0.4, 0.33))
-	bar_col.add_child(build_hint)
+	_build_hint_label = kit.label("", 12)
+	_build_hint_label.add_theme_color_override("font_color", Color(0.45, 0.4, 0.33))
+	bar_col.add_child(_build_hint_label)
 	_build_category_group = ButtonGroup.new()
 	get_viewport().size_changed.connect(_resize_build_library)
 	_resize_build_library()
@@ -315,7 +338,11 @@ func _collect_build_entries() -> Dictionary:
 	for tile_id: String in core.stock.tiles:
 		var definition := core.registries.tile(tile_id)
 		var count := core.stock.tile_count(tile_id)
-		if definition == null or count <= 0:
+		if (
+			definition == null
+			or count <= 0
+			or not core.registries.is_tile_active(tile_id)
+		):
 			continue
 		var category_id := category_for_tile(definition)
 		result[category_id].append({
@@ -337,7 +364,10 @@ func _collect_build_entries() -> Dictionary:
 			"id": structure_id,
 			"name": definition.display_name,
 			"count": count,
-			"tooltip": "%s · click to place" % _build_category_label(category_id),
+			"tooltip": "%s · %s" % [
+				_build_category_label(category_id),
+				InputDeviceService.shared().format_action(&"build_confirm", "place"),
+			],
 		})
 
 	var deed_counts := {}
@@ -352,7 +382,9 @@ func _collect_build_entries() -> Dictionary:
 			"id": landmark_id,
 			"name": definition.display_name,
 			"count": int(deed_counts[landmark_id]),
-			"tooltip": "Packed landmark · click to place",
+			"tooltip": "Packed landmark · %s" % (
+				InputDeviceService.shared().format_action(&"build_confirm", "place")
+			),
 		})
 
 	for category_id: String in result:
@@ -384,7 +416,16 @@ func _refresh_build_items(entries_by_category: Dictionary) -> void:
 			int(entry["count"])
 		)
 		item_button.name = "BuildItem_%s" % entry["id"]
-		item_button.tooltip_text = String(entry["tooltip"])
+		var tooltip := String(entry["tooltip"])
+		var place_prompt := InputDeviceService.shared().format_action(
+			&"ui_accept" if InputDeviceService.shared().is_controller() else &"interact",
+			"place"
+		)
+		item_button.tooltip_text = (
+			"%s\n%s" % [tooltip, place_prompt]
+			if tooltip != ""
+			else place_prompt
+		)
 		var kind := String(entry["kind"])
 		var content_id := String(entry["id"])
 		item_button.pressed.connect(
@@ -550,7 +591,10 @@ func _on_build_mode(active: bool) -> void:
 	if active:
 		_refresh_build_strip()
 		call_deferred("_position_context_above_build_library")
+		if InputDeviceService.shared().is_controller() and placement.held.is_empty():
+			focus_build_library()
 	else:
+		release_build_focus()
 		_position_context_above_build_library()
 
 
@@ -561,8 +605,30 @@ func _on_action_result(ok: bool, message: String, _kind: String) -> void:
 
 # ------------------------------------------------------------------ prompt / hints / toasts
 
-func set_prompt(text: String) -> void:
-	_prompt_label.text = text
+func set_prompt(
+	action: StringName,
+	description: String,
+	secondary: Array[Dictionary] = []
+) -> void:
+	_prompt_action = action
+	_prompt_description = description
+	_prompt_secondary = secondary.duplicate(true)
+	_refresh_prompt()
+
+
+func _refresh_prompt() -> void:
+	if _prompt_action == &"" or _prompt_description == "":
+		_prompt_label.text = ""
+		return
+	var parts := PackedStringArray([
+		InputDeviceService.shared().format_action(_prompt_action, _prompt_description)
+	])
+	for entry: Dictionary in _prompt_secondary:
+		parts.append(InputDeviceService.shared().format_action(
+			StringName(entry.get("action", "")),
+			String(entry.get("label", ""))
+		))
+	_prompt_label.text = "  ·  ".join(parts)
 
 
 func set_hint(text: String) -> void:
@@ -621,11 +687,17 @@ func update_tutorial() -> void:
 	if core.arrivals.has_waiting_package():
 		set_hint("A Land Parcel is waiting at the northern dock.")
 	elif core.skills.lifetime_actions.get("fishing", 0) == 0:
-		set_hint("Try catch-and-release fishing along the northern water. (walk close, then E)")
+		set_hint(
+			"Try catch-and-release fishing along the northern water. (%s)"
+			% InputDeviceService.shared().format_action(&"interact", "when close")
+		)
 	elif core.parcels.has_pending():
 		set_hint("Choose one finished tile from the Land Parcel.")
 	elif core.grid.placed_tile_count() == 0 and core.stock.total_tiles() > 0:
-		set_hint("Place your new land beside the world you have. (B for build mode)")
+		set_hint(
+			"Place your new land beside the world you have. (%s)"
+			% InputDeviceService.shared().format_action(&"build_mode", "build mode")
+		)
 	elif core.grid.placed_tile_count() > 0 and core.skills.lifetime_actions.get("woodcutting", 0) == 0:
 		if _has_placed_tree():
 			set_hint("Tend your placed tree — it will rest, then regrow.")
@@ -635,6 +707,68 @@ func update_tutorial() -> void:
 			set_hint("")
 	else:
 		set_hint("")
+
+
+func focus_build_library() -> void:
+	if not InputDeviceService.shared().is_controller() or not _build_bar.visible:
+		return
+	var preferred: Control
+	for child in _build_strip.get_children():
+		var button := child as BaseButton
+		if button != null and not button.disabled:
+			preferred = button
+			break
+	if preferred == null:
+		preferred = _build_browse_button
+	InputDeviceService.shared().focus_first(_build_bar, preferred)
+
+
+func release_build_focus() -> void:
+	if _build_bar != null:
+		InputDeviceService.shared().release_focus_in(_build_bar)
+
+
+func focus_default() -> void:
+	if _build_bar.visible:
+		focus_build_library()
+	else:
+		InputDeviceService.shared().focus_first(_bottom_buttons, _build_button)
+
+
+func _on_held_changed(value: Dictionary) -> void:
+	if not placement.active or not InputDeviceService.shared().is_controller():
+		return
+	if value.is_empty() and not placement.controller_cursor_active():
+		focus_build_library()
+	else:
+		release_build_focus()
+
+
+func _on_input_method_changed(_method: int) -> void:
+	if _menu_button == null:
+		return
+	_menu_button.text = InputDeviceService.shared().format_action(
+		&"pause" if InputDeviceService.shared().is_controller() else &"cancel",
+		"Menu"
+	)
+	_build_button.text = InputDeviceService.shared().format_action(
+		&"build_mode",
+		"Shape Land"
+	)
+	_build_browse_button.visible = InputDeviceService.shared().is_controller()
+	_build_hint_label.text = (
+		"Choose a piece or browse the world  ·  D-pad moves  ·  A places  ·  B backs out"
+		if InputDeviceService.shared().is_controller()
+		else "Click to place  ·  wheel or arrows browse  ·  R rotates  ·  X stores  ·  Esc closes"
+	)
+	_refresh_prompt()
+	update_tutorial()
+	if placement.active:
+		_refresh_build_strip()
+		if InputDeviceService.shared().is_controller() and placement.held.is_empty():
+			focus_build_library()
+		elif not InputDeviceService.shared().is_controller():
+			release_build_focus()
 
 
 func _has_placed_tree() -> bool:

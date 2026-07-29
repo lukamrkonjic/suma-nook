@@ -1,0 +1,22 @@
+{
+  "asset_id": "tile_concrete_brutalist",
+  "source_file": "concrete_tile_source_v2.glb",
+  "source_sha256": "6643CE66290E74C426070F91F0C756CCBCF63D2D625859D224A1AF0ECBAE852A",
+  "source_size_bytes": 18808,
+  "origin": "Luka's revised, untextured brutalist concrete tile source supplied as concrete-tile.glb",
+  "source_history": [
+    {
+      "file": "concrete_tile_source.glb",
+      "sha256": "00562A103B5FEA099E8D8A5EEDB635B01E8C8BB18846EA7A43BC1B5F0ABF7EE3",
+      "size_bytes": 2325984,
+      "status": "superseded; retained unchanged for provenance"
+    },
+    {
+      "file": "concrete_tile_source_v2.glb",
+      "sha256": "6643CE66290E74C426070F91F0C756CCBCF63D2D625859D224A1AF0ECBAE852A",
+      "size_bytes": 18808,
+      "status": "active"
+    }
+  ],
+  "processing": "Preserve the revised source's four-panel constructed top and recessed cross-joint geometry and its authored flat shading. Perform no smoothing, welding, subdivision, decimation, or remeshing. Only normalize the footprint to the 1.70 m authored tile frame, align the source shell to the deep constructed zone y=-0.18..0 after Godot Y-up conversion, assign the semantic concrete_top runtime material, and export tile_layer_surface_concrete_brutalist.glb. Runtime composition supplies tile_layer_base_deep_recess with concrete_side."
+}

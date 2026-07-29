@@ -1,4 +1,4 @@
-"""Build ``tile_sand`` from Luka's generated dune and Suma's standard body.
+"""Build the sand surface layer from Luka's generated dune.
 
 The source GLB contains one low-poly sand mesh. Its useful information is the
 actual asymmetric upper dune field; its generated block, hard facets, color,
@@ -10,11 +10,11 @@ and irregular underside are discarded. This processor:
   contour-following filter that softens facets without erasing the dunes;
 * blends only the outer 16% to a shared zero-height edge so repeated tiles meet;
 * adds a short sand-colored cap skirt down to the standard body seam;
-* mounts the cap on the clean structural body copied from ``tile_grass``.
+* exports only that replaceable surface layer.
 
-The resulting GLB keeps the normal Suma footprint, 0.50 m stack step, flat
-collision plane, body/cap visibility contract, and one shared ``sand_top``
-material across the complete block.
+The runtime mounts the resulting GLB on ``tile_layer_base_standard``. Keeping
+the structural base separate means this source processor never has to copy or
+join a body mesh, and future surface revisions cannot change gameplay depth.
 
 Run from the repository root with Blender 5.x:
 
@@ -34,8 +34,7 @@ from mathutils import Vector
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "art_source" / "imported" / "sand_tile" / "sand_tile_source_v3.glb"
-BASE_SOURCE = ROOT / "assets" / "3d" / "reworked" / "tile_grass.glb"
-OUTPUT = ROOT / "assets" / "3d" / "reworked" / "tile_sand.glb"
+OUTPUT = ROOT / "assets" / "3d" / "reworked" / "tile_layer_surface_sand.glb"
 EXPECTED_SOURCE_SHA256 = (
     "429444B1DA517DF193CE6BAEA469436AB62F86482B9C088D876620FC91F169F8"
 )
@@ -43,12 +42,12 @@ ASSET_LABEL = "sand"
 MATERIAL_NAME = "sand_top"
 CAP_OBJECT_NAME = "sand_cap"
 CAP_MESH_NAME = "smoothed_source_dune_cap_mesh"
-BODY_OBJECT_NAME = "sand_body"
-BODY_MESH_NAME = "clean_standard_sand_body_mesh"
-REPORT_PREFIX = "SAND_TILE_COMPOSITE_REPORT="
+REPORT_PREFIX = "SAND_TILE_SURFACE_REPORT="
 
 TILE = 1.70
-CAP_SPAN = TILE - 0.002
+# Connected terrain reaches the exact slot boundary. A deliberate gap here
+# exposes the cap skirt in a 3x3 patch and reads as a dark artificial grid.
+CAP_SPAN = TILE
 CAP_BOTTOM = -0.055
 EDGE_HEIGHT = 0.0
 GRID_SIZE = 41
@@ -427,39 +426,9 @@ def create_dune_cap(heights: list[list[float]]) -> bpy.types.Object:
     return cap
 
 
-def import_standard_body() -> bpy.types.Object:
-    before_import = set(bpy.context.scene.objects)
-    bpy.ops.import_scene.gltf(filepath=str(BASE_SOURCE))
-    imported = [
-        obj
-        for obj in bpy.context.scene.objects
-        if obj not in before_import and obj.type == "MESH"
-    ]
-    body_candidates = [
-        obj for obj in imported if obj.name.lower().endswith("_body")
-    ]
-    if len(body_candidates) != 1:
-        raise RuntimeError(
-            f"Expected one standardized body mesh, found {len(body_candidates)}"
-        )
-    body = body_candidates[0]
-    for obj in imported:
-        if obj != body:
-            bpy.data.objects.remove(obj, do_unlink=True)
-    body.name = BODY_OBJECT_NAME
-    body.data.name = BODY_MESH_NAME
-    body.data.materials.clear()
-    body.data.materials.append(semantic_material(MATERIAL_NAME))
-    for polygon in body.data.polygons:
-        polygon.material_index = 0
-    return body
-
-
 def main() -> None:
     if not SOURCE.is_file():
         raise FileNotFoundError(f"Missing {ASSET_LABEL} source: {SOURCE}")
-    if not BASE_SOURCE.is_file():
-        raise FileNotFoundError(f"Missing standardized Suma body: {BASE_SOURCE}")
     source_hash = hashlib.sha256(SOURCE.read_bytes()).hexdigest().upper()
     if source_hash != EXPECTED_SOURCE_SHA256:
         raise RuntimeError(
@@ -496,23 +465,8 @@ def main() -> None:
         bpy.data.objects.remove(obj, do_unlink=True)
 
     cap = create_dune_cap(dune_heights)
-    body = import_standard_body()
-
-    body_lower, body_upper = object_bounds(body)
     cap_lower, cap_upper = object_bounds(cap)
     epsilon = 0.001
-    if (
-        abs(body_lower.x + TILE * 0.5) > epsilon
-        or abs(body_upper.x - TILE * 0.5) > epsilon
-        or abs(body_lower.y + TILE * 0.5) > epsilon
-        or abs(body_upper.y - TILE * 0.5) > epsilon
-        or abs(body_lower.z + 0.5) > epsilon
-        or abs(body_upper.z - CAP_BOTTOM) > epsilon
-    ):
-        raise RuntimeError(
-            "Standardized body no longer matches the tile contract: "
-            f"{body_lower} .. {body_upper}"
-        )
     if (
         abs(cap_lower.x + CAP_SPAN * 0.5) > epsilon
         or abs(cap_upper.x - CAP_SPAN * 0.5) > epsilon
@@ -534,7 +488,6 @@ def main() -> None:
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.object.select_all(action="DESELECT")
-    body.select_set(True)
     cap.select_set(True)
     bpy.context.view_layer.objects.active = cap
     bpy.ops.export_scene.gltf(
@@ -559,8 +512,9 @@ def main() -> None:
             {
                 "source": str(SOURCE.relative_to(ROOT)),
                 "source_sha256": source_hash,
-                "base_source": str(BASE_SOURCE.relative_to(ROOT)),
                 "output": str(OUTPUT.relative_to(ROOT)),
+                "layer_role": "surface",
+                "runtime_base": "tile_layer_base_standard",
                 "source_height_field_retained": True,
                 "discarded_generated_block": True,
                 "source_mesh_count": len(source_meshes),
@@ -579,13 +533,8 @@ def main() -> None:
                 "source_triangles": source_triangles,
                 "output_triangles": sum(
                     max(0, len(polygon.vertices) - 2)
-                    for obj in (body, cap)
-                    for polygon in obj.data.polygons
+                    for polygon in cap.data.polygons
                 ),
-                "body_bounds": {
-                    "min": [round(value, 4) for value in body_lower],
-                    "max": [round(value, 4) for value in body_upper],
-                },
                 "cap_bounds": {
                     "min": [round(value, 4) for value in cap_lower],
                     "max": [round(value, 4) for value in cap_upper],

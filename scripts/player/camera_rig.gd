@@ -87,6 +87,26 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	var controller := target as PlayerController
+	if (
+		event is InputEventJoypadButton
+		or event is InputEventJoypadMotion
+	):
+		if get_viewport().gui_get_focus_owner() != null:
+			return
+		if (
+			controller != null
+			and controller.state == PlayerController.State.BUILDING
+		):
+			# Triggers and shoulders are context actions while constructing.
+			return
+	if (
+		controller != null
+		and controller.state == PlayerController.State.BUILDING
+		and event.is_action_pressed("store_piece")
+	):
+		# X is camera-right during exploration and store while constructing.
+		return
 	if event.is_action_pressed("camera_rotate_left"):
 		_yaw_target += 90.0
 		core.autosave_soon()

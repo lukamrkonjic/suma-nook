@@ -49,9 +49,15 @@
   "autosave_interval": 40.0,
   "pattern_dust_per_duplicate": 1,
   "reroll_dust_cost": 3,
+  "active_tile_ids": [
+    "tile_grass",
+    "tile_sand",
+    "tile_concrete_brutalist",
+    "tile_snowfield"
+  ],
   "guaranteed_first_parcel_options": [
-    "tile_grove_mature",
-    "tile_grove_birch",
-    "tile_grove_mossy"
+    "tile_grass",
+    "tile_sand",
+    "tile_snowfield"
   ]
 }

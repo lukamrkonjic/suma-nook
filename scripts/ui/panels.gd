@@ -6,8 +6,17 @@ extends CanvasLayer
 signal panel_toggled(panel_name: String, open: bool)
 signal landmark_resolution_chosen(landmark_id: String, resolution: String)
 
+const PANEL_ORDER := [
+	"inventory",
+	"character",
+	"skills",
+	"collection",
+	"map",
+]
+
 var core: GameCore
 var kit: UiKit
+var _input_service: InputDeviceService
 var settings_bridge: Node   # main.gd — exposes audio volumes / profile toggle
 
 var _open_panel: Control
@@ -17,6 +26,7 @@ var _open_name := ""
 func setup(game_core: GameCore, ui_kit: UiKit, bridge: Node) -> void:
 	core = game_core
 	kit = ui_kit
+	_input_service = InputDeviceService.shared()
 	settings_bridge = bridge
 
 
@@ -26,6 +36,7 @@ func is_open() -> bool:
 
 func close() -> void:
 	if _open_panel != null:
+		_input_service.release_focus_in(_open_panel)
 		_open_panel.queue_free()
 		_open_panel = null
 		panel_toggled.emit(_open_name, false)
@@ -57,12 +68,40 @@ func toggle(panel_name: String) -> void:
 	var tween := card.create_tween()
 	tween.tween_property(card, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	panel_toggled.emit(panel_name, true)
+	focus_default()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not is_open():
+		return
+	if event.is_action_pressed("cancel"):
+		close()
+	elif event.is_action_pressed("panel_previous"):
+		_cycle_panel(-1)
+	elif event.is_action_pressed("panel_next"):
+		_cycle_panel(1)
+	else:
+		return
+	get_viewport().set_input_as_handled()
+
+
+func _cycle_panel(direction: int) -> void:
+	if _open_name not in PANEL_ORDER:
+		return
+	var index := PANEL_ORDER.find(_open_name)
+	toggle(PANEL_ORDER[posmod(index + direction, PANEL_ORDER.size())])
+
+
+func focus_default() -> void:
+	if _open_panel != null:
+		_input_service.focus_first(_open_panel)
 
 
 func _scroll_list(height := 380.0) -> Dictionary:
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(0, height)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.follow_focus = true
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", 6)
@@ -78,12 +117,14 @@ func _inventory_panel() -> Dictionary:
 	win["content"].add_child(parts["scroll"])
 	var list: VBoxContainer = parts["list"]
 	list.add_child(kit.label("Tile Library", 20))
+	var visible_tile_count := 0
 	for tile_id: String in core.stock.tiles:
 		var tile := core.registries.tile(tile_id)
-		if tile == null:
+		if tile == null or not core.registries.is_tile_active(tile_id):
 			continue
+		visible_tile_count += 1
 		list.add_child(kit.label("⬢ %s ×%d" % [tile.display_name, core.stock.tile_count(tile_id)], 16))
-	if core.stock.tiles.is_empty():
+	if visible_tile_count == 0:
 		list.add_child(kit.label("No unplaced tiles yet. The ferry brings Land Parcels.", 14))
 	list.add_child(kit.label("Build Library", 20))
 	for structure_id: String in core.stock.structures:
@@ -93,7 +134,11 @@ func _inventory_panel() -> Dictionary:
 		list.add_child(kit.label("⌂ %s ×%d" % [structure.display_name, core.stock.structure_count(structure_id)], 16))
 	if core.stock.structures.is_empty():
 		list.add_child(kit.label("No stored decorations yet.", 14))
-	list.add_child(kit.label("Press B to place anything from either library.", 14))
+	list.add_child(kit.label(
+		"%s to place anything from either library."
+		% _input_service.format_action(&"build_mode", "Open build mode"),
+		14
+	))
 	return win
 
 
@@ -246,13 +291,19 @@ func _collection_panel() -> Dictionary:
 	win["content"].add_child(parts["scroll"])
 	var list: VBoxContainer = parts["list"]
 	var categories := [
-		["Land tiles", "tiles", core.registries.tiles.size()],
+		["Land tiles", "tiles", core.registries.active_tile_ids().size()],
 		["Structures", "structures", core.registries.structures.size()],
 		["Fish", "fish", 3],
 		["Woodland notes", "woodland", 3],
 	]
 	for section in categories:
 		var found := core.collection.discovered_in(section[1])
+		if section[1] == "tiles":
+			var active_found: Array = []
+			for tile_id: String in found:
+				if core.registries.is_tile_active(tile_id):
+					active_found.append(tile_id)
+			found = active_found
 		var total := int(section[2])
 		var header_text: String = section[0] + ("  %d/%d" % [found.size(), total] if total > 0 else "  %d" % found.size())
 		list.add_child(kit.label(header_text, 19))
@@ -356,7 +407,15 @@ func _settings_panel() -> Dictionary:
 	hold_check.set_pressed_no_signal(true)
 	hold_check.add_theme_font_override("font", kit.font)
 	list.add_child(hold_check)
-	list.add_child(kit.label("Camera: ←/→ or Q/X rotate · ↑/↓ or wheel zoom · H return home", 14))
+	list.add_child(kit.label(
+		"Camera: %s  ·  %s  ·  %s"
+		% [
+			_input_service.format_action(&"camera_rotate_left", "Rotate"),
+			_input_service.format_action(&"camera_zoom_in", "Zoom"),
+			_input_service.format_action(&"return_home", "Return home"),
+		],
+		14
+	))
 	return win
 
 
@@ -391,3 +450,4 @@ func show_landmark_choice(landmark_id: String) -> void:
 		var hint := kit.label(option[2], 13)
 		hint.add_theme_color_override("font_color", Color(0.5, 0.46, 0.38))
 		col.add_child(hint)
+	focus_default()

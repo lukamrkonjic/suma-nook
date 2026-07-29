@@ -19,8 +19,17 @@ defines authored content, and typed GDScript interprets capabilities.
 - `scripts/main.gd` composes scene-facing controllers and presentation. It
   does not own definition data or placement/interaction rules.
 - `scripts/world/world_grid.gd` owns the authoritative placed-world model.
+- `scripts/input/input_device_service.gd` owns active-device detection,
+  controller-family prompts, focus hand-off, and the enforced controller
+  action contract. Feature systems consume semantic actions and never inspect
+  controller brands.
 - Systems communicate through small APIs and signals. There is no global
   gameplay event bus, service locator, ECS, or database.
+
+All player-facing features are controller-complete by definition. Interactive
+UI must be focus navigable and expose focused tooltips; world-space targeting
+must provide a controller-native selection model. See
+`docs/CONTROLLER_SUPPORT.md`.
 
 Definition data, runtime state, save data, behaviour, and presentation are
 separate:

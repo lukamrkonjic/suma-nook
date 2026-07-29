@@ -11,6 +11,7 @@ var core: GameCore
 var kit: UiKit
 var settings_bridge: Main
 var preferences := GamePreferences.new()
+var _input_service: InputDeviceService
 
 var _root: Control
 var _card: PanelContainer
@@ -23,10 +24,15 @@ func setup(game_core: GameCore, ui_kit: UiKit, bridge: Main) -> void:
 	core = game_core
 	kit = ui_kit
 	settings_bridge = bridge
+	_input_service = InputDeviceService.shared()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 80
 	_build_shell()
 	load_preferences_from_core()
+	_input_service.input_method_changed.connect(_on_input_method_changed)
+	_input_service.active_controller_changed.connect(
+		func(_device): _on_input_method_changed(_input_service.input_method)
+	)
 
 
 func load_preferences_from_core() -> void:
@@ -55,6 +61,7 @@ func open(page := "menu") -> void:
 func close() -> void:
 	if not is_open():
 		return
+	_input_service.release_focus_in(_root)
 	_root.visible = false
 	get_tree().paused = false
 	_play("panel_close")
@@ -62,9 +69,13 @@ func close() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not is_open() or not event.is_action_pressed("cancel"):
+	if not is_open():
 		return
-	if _page == "menu":
+	if event.is_action_pressed("pause"):
+		close()
+	elif not event.is_action_pressed("cancel"):
+		return
+	elif _page == "menu":
 		close()
 	else:
 		_request_page("menu")
@@ -130,6 +141,17 @@ func _show_page(page: String) -> void:
 	var tween := _card.create_tween()
 	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	tween.tween_property(_card, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	focus_default()
+
+
+func focus_default() -> void:
+	if is_open():
+		_input_service.focus_first(_content)
+
+
+func _on_input_method_changed(_method: int) -> void:
+	if is_open() and _page == "controls":
+		call_deferred("_show_page", "controls")
 
 
 func _request_page(page: String) -> void:
@@ -190,6 +212,7 @@ func _build_settings_page() -> void:
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(0, 555)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.follow_focus = true
 	_content.add_child(scroll)
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -271,7 +294,6 @@ func _build_settings_page() -> void:
 	_status_label = kit.label("", 15)
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_content.add_child(_status_label)
-	apply.call_deferred("grab_focus")
 
 
 func _build_controls_page() -> void:
@@ -280,6 +302,7 @@ func _build_controls_page() -> void:
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(0, 620)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.follow_focus = true
 	_content.add_child(scroll)
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -287,7 +310,7 @@ func _build_controls_page() -> void:
 	scroll.add_child(list)
 
 	list.add_child(kit.section_label("Keeper"))
-	for entry in [
+	var keeper_controls := [
 		["Move", ["W", "A", "S", "D"], "Walk freely across connected land."],
 		["Jump", ["Space"], "Clear objects and one raised land layer."],
 		["Interact", ["E"], "Use the focused pond, parcel, or tree."],
@@ -295,27 +318,72 @@ func _build_controls_page() -> void:
 		["Rotate piece", ["R"], "Turn the held tile or decoration."],
 		["Store piece", ["X"], "Return a held piece to its library."],
 		["Undo / redo", ["Ctrl+Z", "Ctrl+Shift+Z"], "Reverse recent building changes."],
-	]:
+	]
+	if _input_service.is_controller():
+		keeper_controls = [
+			["Move / sprint", ["Left Stick", "L3"], "Walk freely; press the stick to sprint."],
+			["Jump", [_input_service.prompt_for_action(&"jump")], "Clear objects and one raised land layer."],
+			["Interact", [_input_service.prompt_for_action(&"interact")], "Use the focused pond, parcel, or tree."],
+			["Shape land", [_input_service.prompt_for_action(&"build_mode")], "Open build mode and your tile library."],
+			["Place / pick up", [_input_service.prompt_for_action(&"build_confirm")], "Use the camera-relative grid cursor."],
+			["Rotate piece", [_input_service.prompt_for_action(&"rotate_piece")], "Turn the held tile or decoration."],
+			["Store piece", [_input_service.prompt_for_action(&"store_piece")], "Return a moved piece to its library."],
+			["Undo / redo", [
+				_input_service.prompt_for_action(&"undo"),
+				_input_service.prompt_for_action(&"redo"),
+			], "Reverse recent building changes."],
+		]
+	for entry in keeper_controls:
 		list.add_child(_control_row(entry[0], entry[1], entry[2]))
 
 	list.add_child(kit.section_label("Camera"))
-	for entry in [
+	var camera_controls := [
 		["Zoom", ["Wheel", "Up", "Down"], "Move from full-diorama view to close inspection."],
 		["Pan", ["Middle mouse"], "Drag the diorama to inspect another area."],
 		["Rotate view", ["Q", "X", "Left", "Right"], "Orbit by a quarter turn."],
 		["Return home", ["H"], "Return the keeper and camera to the home tile."],
-	]:
+	]
+	if _input_service.is_controller():
+		camera_controls = [
+			["Zoom", [
+				_input_service.prompt_for_action(&"camera_zoom_in"),
+				_input_service.prompt_for_action(&"camera_zoom_out"),
+			], "Move from full-diorama view to close inspection."],
+			["Rotate view", [
+				_input_service.prompt_for_action(&"camera_rotate_left"),
+				_input_service.prompt_for_action(&"camera_rotate_right"),
+			], "Orbit by a quarter turn."],
+			["Return home", [_input_service.prompt_for_action(&"return_home")], "Return the keeper and camera to the home tile."],
+		]
+	for entry in camera_controls:
 		list.add_child(_control_row(entry[0], entry[1], entry[2]))
 
 	list.add_child(kit.section_label("Journal"))
-	for entry in [
+	var journal_controls := [
 		["Tile library", ["I"], "See stored land and decorations."],
 		["Keeper", ["C"], "Review equipment and appearance."],
 		["Skills", ["K"], "Check hobby levels and unlocks."],
 		["Collection", ["J"], "Review everything discovered."],
 		["Map", ["M"], "See the shape of your world."],
 		["Pause / back", ["Esc"], "Open this menu or return one page."],
-	]:
+	]
+	if _input_service.is_controller():
+		journal_controls = [
+			["Tile library", [_input_service.prompt_for_action(&"panel_inventory")], "See stored land and decorations."],
+			["Keeper", [_input_service.prompt_for_action(&"panel_character")], "Review equipment and appearance."],
+			["Skills", [_input_service.prompt_for_action(&"panel_skills")], "Check hobby levels and unlocks."],
+			["Collection", [_input_service.prompt_for_action(&"panel_collection")], "Review everything discovered."],
+			["Map", [_input_service.prompt_for_action(&"panel_map")], "See the shape of your world."],
+			["Change journal page", [
+				_input_service.prompt_for_action(&"panel_previous"),
+				_input_service.prompt_for_action(&"panel_next"),
+			], "Cycle between open journal pages."],
+			["Pause / back", [
+				_input_service.prompt_for_action(&"pause"),
+				_input_service.prompt_for_action(&"cancel"),
+			], "Open this menu or return one page."],
+		]
+	for entry in journal_controls:
 		list.add_child(_control_row(entry[0], entry[1], entry[2]))
 
 func _build_admin_page() -> void:
@@ -327,6 +395,7 @@ func _build_admin_page() -> void:
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(0, 600)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.follow_focus = true
 	_content.add_child(scroll)
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -338,16 +407,19 @@ func _build_admin_page() -> void:
 			core.inventory.grant(String(item_id), 99, false, true)
 		_admin_status("Granted 99 of every item (%d kinds)." % core.registries.items.size())
 	var grant_tiles := func() -> void:
-		for tile_id in core.registries.tiles:
+		for tile_id in core.registries.active_tile_ids():
 			core.stock.add_tile(String(tile_id), 10)
-		_admin_status("Stocked 10 of every tile (%d kinds)." % core.registries.tiles.size())
+		_admin_status(
+			"Stocked 10 of every active tile (%d kinds)."
+			% core.registries.active_tile_ids().size()
+		)
 	var grant_structures := func() -> void:
 		for structure_id in core.registries.structures:
 			core.stock.add_structure(String(structure_id), 10)
 		_admin_status("Stocked 10 of every structure (%d kinds)." % core.registries.structures.size())
 	list.add_child(kit.section_label("Content library"))
 	_admin_action_row(list, "Every item", "Grant 99 of each registered item, quietly.", "Grant ×99", grant_items)
-	_admin_action_row(list, "Every tile", "Stock 10 of each tile in the build library.", "Grant ×10", grant_tiles)
+	_admin_action_row(list, "Every tile", "Stock 10 of each active tile in the build library.", "Grant ×10", grant_tiles)
 	_admin_action_row(list, "Every structure", "Stock 10 of each structure and decoration.", "Grant ×10", grant_structures)
 
 	var toggle_tuner := func() -> void:

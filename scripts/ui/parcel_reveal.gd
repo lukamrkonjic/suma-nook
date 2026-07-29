@@ -10,14 +10,17 @@ signal card_revealed(tile_id: String, index: int)
 
 var core: GameCore
 var kit: UiKit
+var _input_service: InputDeviceService
 
 var _root: Control
 var _cards: Array[Control] = []
+var _choice_buttons: Array[Button] = []
 
 
 func setup(game_core: GameCore, ui_kit: UiKit) -> void:
 	core = game_core
 	kit = ui_kit
+	_input_service = InputDeviceService.shared()
 
 
 func is_open() -> bool:
@@ -45,6 +48,8 @@ func _show(options: Array[String]) -> void:
 	reveal_started.emit(options)
 	_root = Control.new()
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_root.mouse_filter = Control.MOUSE_FILTER_STOP
+	_root.theme = kit.theme
 	add_child(_root)
 	var dim := ColorRect.new()
 	dim.color = Color(0.15, 0.13, 0.1, 0.45)
@@ -67,6 +72,7 @@ func _show(options: Array[String]) -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_child(row)
 	_cards.clear()
+	_choice_buttons.clear()
 	for index in options.size():
 		var card := _tile_card(options[index], index)
 		row.add_child(card)
@@ -99,6 +105,7 @@ func _show(options: Array[String]) -> void:
 		tween.tween_property(card, "modulate:a", 1.0, 0.22)
 		tween.parallel().tween_property(card, "position:y", card.position.y - 30, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		tween.tween_callback(func(): card_revealed.emit(options[index], index))
+	focus_default()
 
 
 func animation_manifest() -> Dictionary:
@@ -176,8 +183,10 @@ func _tile_card(tile_id: String, index: int) -> Control:
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	col.add_child(spacer)
 	var choose := kit.button("Choose", true)
+	choose.tooltip_text = "Choose %s for your build library." % def.display_name
 	choose.pressed.connect(func(): _choose(index))
 	col.add_child(choose)
+	_choice_buttons.append(choose)
 	return card
 
 
@@ -216,6 +225,13 @@ func _choose(index: int) -> void:
 
 func _close() -> void:
 	if _root != null:
+		_input_service.release_focus_in(_root)
 		_root.queue_free()
 		_root = null
 	_cards.clear()
+	_choice_buttons.clear()
+
+
+func focus_default() -> void:
+	if _root != null and not _choice_buttons.is_empty():
+		_input_service.focus_first(_root, _choice_buttons[0])

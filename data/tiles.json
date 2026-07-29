@@ -29,15 +29,30 @@
       "name": "Open Meadow",
       "family": "home_meadow",
       "asset_id": "tile_grass",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_layer_base_standard",
+          "material": "earth_mid",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_layer_surface_flat",
+          "material": "grass_primary",
+          "cover_behavior": "hide"
+        }
+      ],
       "weight": 3.0,
       "stackable": true,
       "supports_tiles": true,
       "surface_kind": "flat",
-      "surface_detail_profile": "grass_speckles",
       "placement_sound": "grass",
       "collection_hint": "The gentle default. Everything grows from here.",
       "geometry_profile": "micro_bevel_square",
-      "connection_mode": "full_flush"
+      "connection_mode": "full_flush",
+      "exposed_top": "flush"
     },
     {
       "id": "tile_plain_ground",
@@ -192,6 +207,21 @@
       "name": "Pale Sand",
       "family": "home_meadow",
       "asset_id": "tile_sand",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_layer_base_standard",
+          "material": "sand_top",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_layer_surface_sand",
+          "material": "sand_top",
+          "cover_behavior": "hide"
+        }
+      ],
       "weight": 1.1,
       "rarity": "uncommon",
       "stackable": true,
@@ -399,10 +429,56 @@
       "connection_mode": "full_flush"
     },
     {
+      "id": "tile_concrete_brutalist",
+      "name": "Brutalist Concrete",
+      "family": "stonebound",
+      "asset_id": "tile_layer_surface_concrete_brutalist",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_layer_base_deep_recess",
+          "material": "concrete_side",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_layer_surface_concrete_brutalist",
+          "material": "concrete_top",
+          "cover_behavior": "hide"
+        }
+      ],
+      "weight": 1.0,
+      "rarity": "uncommon",
+      "stackable": true,
+      "supports_tiles": true,
+      "surface_kind": "flat",
+      "placement_sound": "stone",
+      "special_trait": "Four heavy precast panels divided by recessed control joints.",
+      "geometry_profile": "constructed_material",
+      "connection_mode": "tiny_individual_seam",
+      "exposed_top": "flush"
+    },
+    {
       "id": "tile_snowfield",
       "name": "Fresh Snow",
       "family": "winter",
       "asset_id": "tile_snowfield",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_layer_base_standard",
+          "material": "snow_side",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_layer_surface_snow",
+          "material": "snow_top",
+          "cover_behavior": "hide"
+        }
+      ],
       "weight": 3.0,
       "stackable": true,
       "supports_tiles": true,

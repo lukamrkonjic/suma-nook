@@ -9,10 +9,10 @@
 
 [resource]
 script = ExtResource("1_profile")
-profile_id = "temporary_mixamo_keeper"
-testing_only = true
-asset_id = "suma_player"
-model_resource_path = "res://assets/3d/reworked/suma_player.glb"
+profile_id = "imota_player_male"
+testing_only = false
+asset_id = "player_male_rigged"
+model_resource_path = "res://assets/3d/reworked/player_male_rigged.glb"
 walk_source_path = "res://art_source/animation_sources/player_walk.glb"
 target_height = 1.17
 model_yaw_degrees = 180.0
@@ -81,8 +81,8 @@ armor_region_bones = {
 "upper_chest_r": "mixamorigSpine2"
 }
 material_shader = ExtResource("3_shader")
-material_saturation = 1.14
-material_value_scale = 0.88
-material_tint = Color(1, 0.97, 0.92, 1)
+material_saturation = 1.0
+material_value_scale = 1.0
+material_tint = Color(1, 1, 1, 1)
 material_roughness = 0.9
 material_specular = 0.14

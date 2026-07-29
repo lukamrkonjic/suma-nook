@@ -4,18 +4,22 @@ extends RefCounted
 const ValidationIssueScript := preload("res://scripts/core/content/validation_issue.gd")
 
 const SURFACE_KINDS := ["flat", "stairs", "uneven", "water"]
-const RENDER_PROFILES := ["standard", "continuous_water"]
+const RENDER_PROFILES := ["standard", "layered", "continuous_water"]
 const COLLISION_PROFILES := ["flat", "pond_basin", "none"]
 const DETAIL_PROFILES := ["", "grass_speckles"]
+const LAYER_ROLES := ["base", "surface", "detail", "edge"]
+const COVER_BEHAVIORS := ["persist", "hide"]
+const SCALE_MODES := ["tile_xz", "none"]
 
 
 static func validate(snapshot, issues: Array) -> void:
 	for definition: Defs.TileDefinition in snapshot.tiles.values():
 		var source: Variant = snapshot.source("tiles", definition.id)
-		_require(
-			issues, definition.asset_id != "", "tile.asset.required", source, "asset_id",
-			"asset id must not be empty"
-		)
+		if definition.render_profile != "layered":
+			_require(
+				issues, definition.asset_id != "", "tile.asset.required", source, "asset_id",
+				"asset id must not be empty"
+			)
 		_require(
 			issues, definition.weight >= 0.0, "tile.weight.range", source, "weight",
 			"parcel weight must be zero or greater"
@@ -38,6 +42,8 @@ static func validate(snapshot, issues: Array) -> void:
 			issues, definition.render_profile, RENDER_PROFILES, "tile.render_profile.invalid",
 			source, "render_profile"
 		)
+		if definition.render_profile == "layered":
+			_validate_layers(definition, source, issues)
 		_require_member(
 			issues, definition.collision_profile, COLLISION_PROFILES,
 			"tile.collision_profile.invalid", source, "collision_profile"
@@ -70,6 +76,50 @@ static func validate(snapshot, issues: Array) -> void:
 			"tile.socket.decor_support", source, "structure_sockets",
 			"a major socket requires decor support"
 		)
+
+
+static func _validate_layers(
+	definition: Defs.TileDefinition,
+	source,
+	issues: Array
+) -> void:
+	var role_counts := {}
+	for index in definition.visual_layers.size():
+		var layer: Defs.TileVisualLayerDefinition = definition.visual_layers[index]
+		var field_prefix := "layers[%d]" % index
+		_require_member(
+			issues, layer.role, LAYER_ROLES, "tile.layer.role.invalid",
+			source, "%s.role" % field_prefix
+		)
+		_require(
+			issues, layer.asset_id != "", "tile.layer.asset.required",
+			source, "%s.asset_id" % field_prefix, "layer asset id must not be empty"
+		)
+		_require_member(
+			issues, layer.cover_behavior, COVER_BEHAVIORS,
+			"tile.layer.cover_behavior.invalid",
+			source, "%s.cover_behavior" % field_prefix
+		)
+		_require_member(
+			issues, layer.scale_mode, SCALE_MODES, "tile.layer.scale_mode.invalid",
+			source, "%s.scale_mode" % field_prefix
+		)
+		role_counts[layer.role] = int(role_counts.get(layer.role, 0)) + 1
+		if layer.role == "base":
+			_require(
+				issues, layer.cover_behavior == "persist",
+				"tile.layer.base.cover_behavior", source,
+				"%s.cover_behavior" % field_prefix,
+				"the structural base must persist when a tile is covered"
+			)
+	_require(
+		issues, int(role_counts.get("base", 0)) == 1, "tile.layer.base.count",
+		source, "layers", "a layered tile requires exactly one base layer"
+	)
+	_require(
+		issues, int(role_counts.get("surface", 0)) == 1, "tile.layer.surface.count",
+		source, "layers", "a layered tile requires exactly one surface layer"
+	)
 
 
 static func _require(

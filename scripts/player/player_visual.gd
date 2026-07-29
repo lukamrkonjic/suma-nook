@@ -8,6 +8,18 @@ const WALK_BOB_HZ := 7.5
 const CURRENT_PLAYER_PROFILE: PlayerAssetProfile = preload(
 	"res://assets/player/current_player_profile.tres"
 )
+const RIGGED_HEAD_MODULE_NAMES := [
+	"EyeL",
+	"EyeR",
+	"Nose",
+	"Brows",
+	"Moustache",
+	"Mouth",
+	"Hair00",
+	"Hair01",
+	"Hair02",
+	"Hair03",
+]
 
 signal animation_started(animation_name: String)
 signal animation_event(animation_name: String, event_name: String)
@@ -175,10 +187,16 @@ var _back_mount: Node3D
 var _head_mount: Node3D
 var _hair_nodes: Array[Node3D] = []
 var _eye_nodes: Array[MeshInstance3D] = []
+var _rigged_skin_nodes: Array[MeshInstance3D] = []
+var _rigged_brow_nodes: Array[MeshInstance3D] = []
+var _rigged_moustache_nodes: Array[MeshInstance3D] = []
+var _rigged_mouth_nodes: Array[MeshInstance3D] = []
 var _animation_player: AnimationPlayer
 var _skeleton: Skeleton3D
 var _asset_profile: PlayerAssetProfile
 var _uses_rigged_preview := false
+var _active_hair_style := 0
+var _hair_hidden_by_headwear := false
 var _base_body_meshes: Array[MeshInstance3D] = []
 var _body_garment_meshes: Array[MeshInstance3D] = []
 var _armor_anchors: Dictionary = {}
@@ -226,6 +244,7 @@ func _setup_rigged_preview() -> void:
 	var preview_scale := _asset_profile.target_height / authored_height
 	_skeleton = _body.find_child("Skeleton3D", true, false) as Skeleton3D
 	_animation_player = _body.find_child("AnimationPlayer", true, false) as AnimationPlayer
+	_bind_rigged_head_modules()
 	_prepare_embedded_animation_library()
 	var rig_errors := _asset_profile.rig_validation_errors(
 		_skeleton, _animation_player
@@ -266,6 +285,7 @@ func _setup_rigged_preview() -> void:
 	)
 	_body.position = _body_base_position
 	_apply_authored_materials()
+	_collect_rigged_customization_parts()
 	_capture_base_body_meshes()
 	_tool_mount = _make_bone_mount(
 		"ToolMount", _asset_profile.tool_bone, preview_scale
@@ -283,7 +303,27 @@ func _setup_rigged_preview() -> void:
 	if _asset_profile.animation_updates_in_physics:
 		physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
 		_body.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
-		reset_physics_interpolation()
+	reset_physics_interpolation()
+
+
+func _bind_rigged_head_modules() -> void:
+	if _skeleton == null:
+		return
+	var modules: Array[MeshInstance3D] = []
+	for module_name in RIGGED_HEAD_MODULE_NAMES:
+		var module := _find(module_name) as MeshInstance3D
+		if module != null:
+			modules.append(module)
+	if modules.is_empty():
+		return
+	var attachment := BoneAttachment3D.new()
+	attachment.name = "PlayerHeadSocket"
+	attachment.bone_name = _asset_profile.head_bone
+	_skeleton.add_child(attachment)
+	for module in modules:
+		var reviewed_transform := module.global_transform
+		module.reparent(attachment, false)
+		module.global_transform = reviewed_transform
 
 
 func _install_walk_animation() -> void:
@@ -330,6 +370,7 @@ func install_rig_animation(
 	var clip := source.duplicate(true) as Animation
 	clip.resource_name = str(clip_name)
 	clip.loop_mode = loop_mode
+	_retarget_animation_to_live_skeleton(clip)
 	_normalize_animation_in_place(clip)
 	library.add_animation(clip_name, clip)
 
@@ -345,10 +386,33 @@ func _prepare_embedded_animation_library() -> void:
 		var source := source_library.get_animation(clip_name)
 		var clip := source.duplicate(true) as Animation
 		clip.resource_name = source.resource_name
+		_retarget_animation_to_live_skeleton(clip)
 		_normalize_animation_in_place(clip)
 		runtime_library.add_animation(clip_name, clip)
 	_animation_player.remove_animation_library("")
 	_animation_player.add_animation_library("", runtime_library)
+
+
+func _retarget_animation_to_live_skeleton(animation: Animation) -> void:
+	if _animation_player == null or _skeleton == null:
+		return
+	var animation_root := _animation_player.get_node_or_null(
+		_animation_player.root_node
+	)
+	if animation_root == null:
+		return
+	var skeleton_path := animation_root.get_path_to(_skeleton)
+	for track_index in animation.get_track_count():
+		var source_path := String(animation.track_get_path(track_index))
+		if not source_path.contains(":"):
+			continue
+		var bone_name := source_path.get_slice(":", 1)
+		if _skeleton.find_bone(bone_name) < 0:
+			continue
+		animation.track_set_path(
+			track_index,
+			NodePath("%s:%s" % [skeleton_path, bone_name])
+		)
 
 
 func _normalize_animation_in_place(animation: Animation) -> int:
@@ -469,6 +533,12 @@ func _apply_authored_material_to(mesh_instance: MeshInstance3D) -> void:
 
 func _capture_base_body_meshes() -> void:
 	_base_body_meshes.clear()
+	var modular_body := _body.find_child(
+		"PlayerMaleBody", true, false
+	) as MeshInstance3D
+	if modular_body != null:
+		_base_body_meshes.append(modular_body)
+		return
 	for child in _body.find_children("*", "MeshInstance3D", true, false):
 		_base_body_meshes.append(child as MeshInstance3D)
 
@@ -501,7 +571,10 @@ func _set_body_region_mask(regions: Array[String]) -> void:
 		unknown.is_empty(),
 		"Unknown player armor regions: %s" % ", ".join(unknown)
 	)
-	_body_region_mask = PlayerArmorRegions.mask_for(regions)
+	var next_mask := PlayerArmorRegions.mask_for(regions)
+	if next_mask == _body_region_mask:
+		return
+	_body_region_mask = next_mask
 	for mesh_instance in _base_body_meshes:
 		if is_instance_valid(mesh_instance):
 			mesh_instance.set_instance_shader_parameter(
@@ -539,6 +612,14 @@ func _clear_body_garment() -> void:
 
 func _attach_skinned_body_bundle(asset_id: String) -> bool:
 	if _skeleton == null or asset_id == "" or not assets.exists(asset_id):
+		return false
+	if (
+		_body.find_child("PlayerMaleBody", true, false)
+		is MeshInstance3D
+	):
+		# Existing body-slot bundles were fitted to the retired character and
+		# are deliberately ignored until wardrobe assets are authored for this
+		# production body.
 		return false
 	var bundle := assets.instantiate(asset_id)
 	var source_skeleton := (
@@ -675,6 +756,40 @@ func _collect_parts() -> void:
 	_head_group.add_child(_head_mount)
 
 
+func _collect_rigged_customization_parts() -> void:
+	_hair_nodes.clear()
+	_eye_nodes.clear()
+	_rigged_skin_nodes.clear()
+	_rigged_brow_nodes.clear()
+	_rigged_moustache_nodes.clear()
+	_rigged_mouth_nodes.clear()
+	for style_index in 4:
+		var hair := _find("Hair%02d" % style_index)
+		if hair != null:
+			_hair_nodes.append(hair)
+	for eye_name in ["EyeL", "EyeR"]:
+		var eye := _find(eye_name) as MeshInstance3D
+		if eye != null:
+			_eye_nodes.append(eye)
+	for node_name in ["PlayerMaleBody", "Nose"]:
+		var skin_node := _find(node_name) as MeshInstance3D
+		if skin_node != null:
+			_rigged_skin_nodes.append(skin_node)
+	for node_name in ["Brows"]:
+		var brow_node := _find(node_name) as MeshInstance3D
+		if brow_node != null:
+			_rigged_brow_nodes.append(brow_node)
+	for node_name in ["Moustache"]:
+		var moustache_node := _find(node_name) as MeshInstance3D
+		if moustache_node != null:
+			_rigged_moustache_nodes.append(moustache_node)
+	for node_name in ["Mouth"]:
+		var mouth_node := _find(node_name) as MeshInstance3D
+		if mouth_node != null:
+			_rigged_mouth_nodes.append(mouth_node)
+	_update_hair_visibility()
+
+
 func _find(node_name: String) -> Node3D:
 	return _body.find_child(node_name, true, false) as Node3D
 
@@ -699,9 +814,7 @@ func _wrap_pivot(pivot_name: String, pivot_pos: Vector3, part_names: Array) -> N
 
 func apply_profile(profile: PlayerProfile) -> void:
 	if _uses_rigged_preview:
-		# This authored preview intentionally ignores the character creator.
-		# Keeping that boundary explicit prevents profile data from damaging the
-		# model's single textured material while the new default is evaluated.
+		_apply_rigged_profile(profile)
 		return
 	var skin := palette.skin_tones[clampi(profile.skin_index, 0, palette.skin_tones.size() - 1)]
 	var hair := palette.hair_colors[clampi(profile.hair_color_index, 0, palette.hair_colors.size() - 1)]
@@ -729,6 +842,63 @@ func apply_profile(profile: PlayerProfile) -> void:
 		_:
 			for eye in _eye_nodes:
 				eye.scale = Vector3.ONE
+
+
+func _apply_rigged_profile(profile: PlayerProfile) -> void:
+	var skin := palette.skin_tones[
+		clampi(profile.skin_index, 0, palette.skin_tones.size() - 1)
+	]
+	var hair := palette.hair_colors[
+		clampi(profile.hair_color_index, 0, palette.hair_colors.size() - 1)
+	]
+	_active_hair_style = clampi(profile.hair_style, 0, 3)
+	for skin_node in _rigged_skin_nodes:
+		_set_rigged_mesh_color(skin_node, skin)
+	for hair_node in _hair_nodes:
+		_set_rigged_mesh_color(hair_node as MeshInstance3D, hair)
+	for brow_node in _rigged_brow_nodes:
+		_set_rigged_mesh_color(brow_node, hair)
+	for moustache_node in _rigged_moustache_nodes:
+		_set_rigged_mesh_color(moustache_node, hair)
+	for eye in _eye_nodes:
+		_set_rigged_mesh_color(eye, palette.color("eyes"))
+	for mouth_node in _rigged_mouth_nodes:
+		_set_rigged_mesh_color(
+			mouth_node,
+			skin.lerp(palette.color("soft_coral"), 0.42)
+		)
+	_update_hair_visibility()
+	match profile.eye_index:
+		1:  # sleepy
+			for eye in _eye_nodes:
+				eye.scale = Vector3(1.0, 0.55, 1.0)
+		2:  # bright
+			for eye in _eye_nodes:
+				eye.scale = Vector3.ONE * 1.18
+		_:
+			for eye in _eye_nodes:
+				eye.scale = Vector3.ONE
+
+
+func _set_rigged_mesh_color(mesh_instance: MeshInstance3D, color: Color) -> void:
+	if mesh_instance == null or mesh_instance.mesh == null:
+		return
+	for surface_index in mesh_instance.mesh.get_surface_count():
+		var material := mesh_instance.get_surface_override_material(surface_index)
+		if material is ShaderMaterial:
+			var styled := material as ShaderMaterial
+			styled.set_shader_parameter("base_albedo", color)
+			styled.set_shader_parameter("palette_tint", Color.WHITE)
+			styled.set_shader_parameter("saturation", 1.0)
+			styled.set_shader_parameter("value_scale", 1.0)
+
+
+func _update_hair_visibility() -> void:
+	for hair_node in _hair_nodes:
+		hair_node.visible = (
+			not _hair_hidden_by_headwear
+			and hair_node.name == "Hair%02d" % _active_hair_style
+		)
 
 
 func _tint_parts(part_names: Array, mat: Material) -> void:
@@ -767,6 +937,12 @@ func apply_equipment(equipment: EquipmentManager, held_tool_type := "") -> void:
 		var head_visual := assets.instantiate(head_item.asset_id)
 		head_visual.scale = Vector3.ONE * 1.35
 		_head_mount.add_child(head_visual)
+	_hair_hidden_by_headwear = (
+		_uses_rigged_preview
+		and head_item != null
+		and head_item.asset_id != ""
+	)
+	_update_hair_visibility()
 	var back_item := equipment.equipped_in("back")
 	if back_item != null and back_item.asset_id != "":
 		_back_mount.add_child(assets.instantiate(back_item.asset_id))

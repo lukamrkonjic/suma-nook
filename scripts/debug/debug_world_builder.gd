@@ -10,6 +10,7 @@ const MAXED_TILE_COUNT := 10000
 const MAXED_MODEL_COUNT := 10000
 const DEFAULT_SEED := 8675309
 const BIOME_PATCH_SIZE := 8
+const SPAWN_CLEAR_RADIUS := 2
 
 
 static func populate(
@@ -87,32 +88,31 @@ static func populate(
 				state.tile_id = safe_tile
 				state.rotation = 0
 
-	var outer_coords: Array[Vector2i] = []
-	var spawn_coords: Array[Vector2i] = []
-	for coord: Vector2i in coords:
-		if absi(coord.x) <= 2 and absi(coord.y) <= 2:
-			spawn_coords.append(coord)
-		else:
-			outer_coords.append(coord)
-	_shuffle_coords(outer_coords, rng)
-	_shuffle_coords(spawn_coords, rng)
 	var model_coords: Array[Vector2i] = []
-	model_coords.append_array(outer_coords)
-	model_coords.append_array(spawn_coords)
+	var spawn_clear_coords: Array[Vector2i] = []
+	for coord: Vector2i in coords:
+		if (
+			absi(coord.x) <= SPAWN_CLEAR_RADIUS
+			and absi(coord.y) <= SPAWN_CLEAR_RADIUS
+		):
+			spawn_clear_coords.append(coord)
+		else:
+			model_coords.append(coord)
+	_shuffle_coords(model_coords, rng)
+	var overflow_models := maxi(0, model_count - model_coords.size())
 	for index in model_count:
-		# Sparse stress worlds fill the outer cells first, preserving a clear
-		# spawn. At maximum density the final 25 entries deliberately fill that
-		# area too, guaranteeing exactly one model on every tile.
-		var coord := model_coords[index]
+		# The 5x5 grass patch is a permanent collision-free spawn clearing.
+		# Max-density overflow is relocated as small decor on outer cells so
+		# the stress contract remains exactly 10,000 models without surrounding
+		# the player with colliders from neighboring cells.
+		if model_coords.is_empty():
+			break
+		var coord := model_coords[index % model_coords.size()]
 		var structure_id := structure_ids[index % structure_ids.size()]
 		if (
-			model_count == tile_count
-			and coord == Vector2i.ZERO
+			index >= model_coords.size()
 			and structure_ids.has("struct_pot")
 		):
-			# Preserve a usable player spawn without weakening the density
-			# contract: the small pot still occupies the center tile, but sits
-			# on a decor socket away from its walkable center.
 			structure_id = "struct_pot"
 		var definition := core.registries.structure(structure_id)
 		var structure := WorldGrid.StructureState.new()
@@ -136,7 +136,16 @@ static func populate(
 		"models": model_count,
 		"tile_types": tile_ids.size(),
 		"model_types": structure_ids.size(),
-		"models_on_every_tile": model_count == tile_count,
+		"models_on_every_tile": false,
+		"model_occupied_cells": mini(model_count, model_coords.size()),
+		"overflow_models": overflow_models,
+		"spawn_clear_cell_count": spawn_clear_coords.size(),
+		"spawn_clear_radius": SPAWN_CLEAR_RADIUS,
+		"spawn_models": (
+			grid.cell(Vector2i.ZERO).structures.size()
+			if grid.cell(Vector2i.ZERO) != null
+			else 0
+		),
 		"side": side,
 		"seed": seed_value,
 	}

@@ -1,7 +1,9 @@
 extends SceneTree
-## Narrow import smoke test for the temporary Mixamo-backed default player.
+## Narrow import smoke test for the modular Rigify-authored default player.
 
-const PLAYER_SCENE := preload("res://assets/3d/reworked/suma_player.glb")
+const PLAYER_SCENE := preload(
+	"res://assets/3d/reworked/player_male_rigged.glb"
+)
 const WALK_ANIMATION: Animation = preload(
 	"res://assets/animations/player_walk.tres"
 )
@@ -15,9 +17,13 @@ func _initialize() -> void:
 		PLAYER_PROFILE.validation_errors().is_empty(),
 		"Current player asset profile must be complete"
 	)
-	assert(PLAYER_PROFILE.testing_only, "Current authored character must remain marked testing-only")
 	assert(
-		PLAYER_PROFILE.model_resource_path == "res://assets/3d/reworked/suma_player.glb",
+		not PLAYER_PROFILE.testing_only,
+		"Current authored character must be production-ready"
+	)
+	assert(
+		PLAYER_PROFILE.model_resource_path
+			== "res://assets/3d/reworked/player_male_rigged.glb",
 		"Probe and current player profile must target the same model"
 	)
 	assert(
@@ -27,6 +33,43 @@ func _initialize() -> void:
 	var player := PLAYER_SCENE.instantiate()
 	root.add_child(player)
 	_print_tree(player)
+	for node_name in [
+		"PlayerMaleBody",
+		"EyeL",
+		"EyeR",
+		"Nose",
+		"Brows",
+		"Moustache",
+		"Mouth",
+		"Hair00",
+		"Hair01",
+		"Hair02",
+		"Hair03",
+	]:
+		assert(
+			player.find_child(node_name, true, false) is MeshInstance3D,
+			"Modular player is missing skinned mesh '%s'" % node_name
+		)
+	for node_name in [
+		"EyeL",
+		"EyeR",
+		"Nose",
+		"Brows",
+		"Moustache",
+		"Mouth",
+		"Hair00",
+		"Hair01",
+		"Hair02",
+		"Hair03",
+	]:
+		var module := player.find_child(
+			node_name, true, false
+		) as MeshInstance3D
+		assert(
+			module.skin == null,
+			"Rigid module '%s' must not carry an independent skin"
+			% node_name
+		)
 	var animation_player := _find_first(player, "AnimationPlayer") as AnimationPlayer
 	assert(animation_player != null, "Mixamo player must import an AnimationPlayer")
 	var names := animation_player.get_animation_list()
@@ -146,7 +189,9 @@ func _initialize() -> void:
 			< chop_start.angle_to(chop_swing) * 0.65,
 		"Chop clip must visibly recover toward its starting pose before looping"
 	)
-	var mesh := _find_first(player, "MeshInstance3D") as MeshInstance3D
+	var mesh := player.find_child(
+		"PlayerMaleBody", true, false
+	) as MeshInstance3D
 	assert(mesh != null and mesh.skin != null, "Player mesh must retain its skin")
 	print("MIXAMO_MESH_AABB=", mesh.get_aabb())
 	for surface_index in mesh.mesh.get_surface_count():
@@ -213,7 +258,9 @@ func _initialize() -> void:
 		lowest_toe_max = maxf(lowest_toe_max, lowest_toe)
 	print("MIXAMO_LOWEST_TOE_RANGE=", lowest_toe_min, "..", lowest_toe_max)
 	var library := animation_player.get_animation_library("")
-	library.add_animation("walk_probe", WALK_ANIMATION.duplicate(true))
+	var walk_probe := WALK_ANIMATION.duplicate(true) as Animation
+	_retarget_to_live_skeleton(walk_probe, animation_player, skeleton)
+	library.add_animation("walk_probe", walk_probe)
 	animation_player.callback_mode_process = (
 		AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_PHYSICS
 	)
@@ -233,8 +280,85 @@ func _initialize() -> void:
 	animation_player.seek(0.0, true)
 	await process_frame
 	await process_frame
+	var palette := load(
+		"res://assets/palettes/gg_material_palette.tres"
+	) as CozyPalette
+	var assets := AssetLibrary.new(MaterialLibrary.new(palette))
+	var visual := PlayerVisual.new()
+	root.add_child(visual)
+	visual.build(assets, palette)
+	var head_socket := visual.find_child(
+		"PlayerHeadSocket", true, false
+	) as BoneAttachment3D
+	assert(head_socket != null, "Runtime player must create one head socket")
+	for node_name in [
+		"EyeL",
+		"EyeR",
+		"Brows",
+		"Moustache",
+		"Mouth",
+		"Hair00",
+		"Hair01",
+		"Hair02",
+		"Hair03",
+	]:
+		var module := visual.find_child(
+			node_name, true, false
+		) as MeshInstance3D
+		assert(
+			module != null and module.get_parent() == head_socket,
+			"Runtime module '%s' must bind to PlayerHeadSocket" % node_name
+		)
+	var profile := PlayerProfile.new()
+	profile.hair_style = 2
+	profile.hair_color_index = 5
+	visual.apply_profile(profile)
+	for style_index in 4:
+		var hair := visual.find_child(
+			"Hair%02d" % style_index, true, false
+		) as MeshInstance3D
+		assert(
+			hair.visible == (style_index == 2),
+			"Only the selected hairstyle may render"
+		)
+	var core := GameCore.new()
+	assert(core.setup(), "Equipment content must load for player socket probe")
+	core.equipment.acquire("armor_explorer_hood")
+	assert(
+		core.equipment.equip("armor_explorer_hood"),
+		"Explorer hood must equip for hair-occlusion probe"
+	)
+	visual.apply_equipment(core.equipment)
+	for style_index in 4:
+		assert(
+			not (
+				visual.find_child(
+					"Hair%02d" % style_index, true, false
+				) as MeshInstance3D
+			).visible,
+			"Headwear must hide every hairstyle without hiding facial features"
+		)
 	print("MIXAMO_PLAYER_IMPORT_OK")
 	quit()
+
+
+func _retarget_to_live_skeleton(
+	animation: Animation,
+	animation_player: AnimationPlayer,
+	skeleton: Skeleton3D
+) -> void:
+	var animation_root := animation_player.get_node(animation_player.root_node)
+	var skeleton_path := animation_root.get_path_to(skeleton)
+	for track_index in animation.get_track_count():
+		var source_path := String(animation.track_get_path(track_index))
+		if not source_path.contains(":"):
+			continue
+		var bone_name := source_path.get_slice(":", 1)
+		if skeleton.find_bone(bone_name) >= 0:
+			animation.track_set_path(
+				track_index,
+				NodePath("%s:%s" % [skeleton_path, bone_name])
+			)
 
 
 func _print_tree(node: Node, depth := 0) -> void:

@@ -11,6 +11,8 @@ signal profile_applied(profile: VisualStyleProfile)
 const MIST_BG_SHADER: Shader = preload("res://assets/materials/mist_background.gdshader")
 const GG_BG_SHADER: Shader = preload("res://assets/materials/gg_screen_skybox.gdshader")
 const GG_GRADE_SHADER: Shader = preload("res://assets/materials/gg_color_grade.gdshader")
+const CozyGroundFogScript := preload("res://scripts/visuals/cozy_ground_fog.gd")
+const CozyRainSurfaceScript := preload("res://scripts/visuals/cozy_rain_surface.gd")
 
 # Night is intentionally authored as darkness with small pools of warm light,
 # rather than a blue-tinted version of daytime. These multipliers retain just
@@ -22,6 +24,9 @@ const NIGHT_LOCAL_LIGHT_MULTIPLIER := 3.6
 const NIGHT_GLOW_INTENSITY := 0.34
 const NIGHT_AMBIENT_TINT := Color(0.34, 0.46, 0.72)
 const NIGHT_BACKGROUND_TINT := Color(0.24, 0.34, 0.55)
+# 70-unit authored camera maximum plus the existing 20-unit caster padding.
+# Keeping this constant prevents shadow projection rescaling during zoom.
+const FULL_ZOOM_SHADOW_ENVELOPE := 90.0
 
 @export var day_profile: VisualStyleProfile
 @export var mist_profile: VisualStyleProfile
@@ -54,6 +59,8 @@ var _gg_bg_quad: MeshInstance3D
 var _grade_layer: CanvasLayer
 var _grade_rect: ColorRect
 var _grade_material: ShaderMaterial
+var _ground_fog: CozyGroundFog
+var _rain_surface: CozyRainSurface
 var time_of_day_id := "noon"
 var background_preset_id := "profile"
 var particle_quality_id := "high"
@@ -67,9 +74,9 @@ func _ready() -> void:
 	_sun = DirectionalLight3D.new()
 	_sun.name = "Sun"
 	_sun.shadow_enabled = true
-	# The active profile selects the cascade layout. The map is fitted again
-	# whenever gameplay zoom changes so close-ups do not waste texels on the
-	# complete camera envelope.
+	# The active profile selects the cascade layout. Projection coverage stays
+	# fixed for the complete zoom range so smooth camera motion cannot make the
+	# shadow atlas repeatedly rescale.
 	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	_sun.directional_shadow_max_distance = 80.0
 	_sun.directional_shadow_blend_splits = true
@@ -85,6 +92,10 @@ func _ready() -> void:
 	_ambient_sky.sky_material = _ambient_material
 	_environment.environment.sky = _ambient_sky
 	add_child(_environment)
+
+	_ground_fog = CozyGroundFogScript.new()
+	_ground_fog.name = "CozyGroundFog"
+	add_child(_ground_fog)
 
 	# Confirmed reference probe envelope: realtime, 128 px, one bounce,
 	# approximately 50 × 15 × 50 units with box projection disabled.
@@ -150,6 +161,10 @@ func _ready() -> void:
 
 	_rain = _build_rain()
 	add_child(_rain)
+	_rain_surface = CozyRainSurfaceScript.new()
+	_rain_surface.name = "CozyRainSurface"
+	add_child(_rain_surface)
+	_rain_surface.attach_falling_rain(_rain)
 	_motes = _build_motes()
 	add_child(_motes)
 	_leaves = _build_leaves()
@@ -256,10 +271,24 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 		if profile.gg_pipeline_enabled
 		else Environment.GLOW_BLEND_MODE_SOFTLIGHT
 	)
-	env.fog_enabled = profile.fog_enabled
+	# Traditional fog was the old full-screen distance wash, while Godot's
+	# volumetric froxel grid shimmered whenever this isometric camera scrolled.
+	# Keep both render paths off. CozyGroundFog is a full-resolution,
+	# world-anchored layer renderer with no screen-relative reconstruction.
+	env.fog_enabled = false
 	env.fog_light_color = profile.fog_color
-	env.fog_density = profile.fog_density
+	env.fog_density = 0.0
 	env.fog_sky_affect = 0.0
+	env.volumetric_fog_enabled = false
+	env.volumetric_fog_density = 0.0
+	env.volumetric_fog_albedo = Color.WHITE
+	env.volumetric_fog_emission = Color.BLACK
+	env.volumetric_fog_emission_energy = 0.0
+	env.volumetric_fog_ambient_inject = 0.0
+	env.volumetric_fog_gi_inject = 0.0
+	env.volumetric_fog_sky_affect = 0.0
+	env.volumetric_fog_temporal_reprojection_enabled = false
+	_ground_fog.configure(profile)
 
 	_bg_layer.visible = uses_canvas_bg
 	if profile.background_gg_gradient:
@@ -286,7 +315,7 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	_sun.directional_shadow_split_2 = profile.shadow_split_2
 	_sun.directional_shadow_split_3 = profile.shadow_split_3
 	_sun.directional_shadow_blend_splits = profile.shadow_blend_splits
-	_refresh_camera_shadow_fit()
+	_apply_stable_shadow_envelope()
 	_sun.shadow_opacity = profile.shadow_opacity
 	_sun.shadow_blur = profile.shadow_blur
 	_sun.light_angular_distance = profile.sun_angular_distance
@@ -301,6 +330,7 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	)
 
 	_rain.emitting = profile.rain_enabled
+	_rain_surface.configure(profile)
 	_motes.emitting = profile.motes_enabled
 	_leaves.emitting = profile.leaves_enabled
 	_snow.emitting = profile.snow_enabled
@@ -312,21 +342,30 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	profile_applied.emit(profile)
 
 
-## Keep every visible caster inside the shadow frustum while spending the
-## available texels on the currently visible camera envelope. The 20-unit
-## padding covers the complete starter island around the camera focus.
+## Fog/rain coverage follows framing distance. Directional shadows do not:
+## changing their projection during smooth zoom causes visible texel snapping.
 func set_camera_shadow_distance(camera_distance: float) -> void:
 	_camera_shadow_distance = camera_distance
-	_refresh_camera_shadow_fit()
+	if _ground_fog != null:
+		_ground_fog.set_camera_distance(camera_distance)
+	if _rain_surface != null:
+		_rain_surface.set_camera_distance(camera_distance)
 
 
-func _refresh_camera_shadow_fit() -> void:
+func bind_fog_interactors(actor: Node3D, camera_focus: Node3D) -> void:
+	if _ground_fog != null:
+		_ground_fog.bind_interactors(actor, camera_focus)
+	if _rain_surface != null:
+		_rain_surface.bind_interactors(actor, camera_focus)
+
+
+func _apply_stable_shadow_envelope() -> void:
 	if _sun == null or current_profile == null:
 		return
 	_sun.directional_shadow_max_distance = clampf(
-		_camera_shadow_distance + 20.0,
+		minf(current_profile.shadow_max_distance, FULL_ZOOM_SHADOW_ENVELOPE),
 		30.0,
-		current_profile.shadow_max_distance
+		FULL_ZOOM_SHADOW_ENVELOPE
 	)
 
 
@@ -481,6 +520,12 @@ func refresh_local_light(light: OmniLight3D) -> void:
 		scaled_energy / base_energy if base_energy > 0.0 else 1.0
 	)
 	light.light_energy = scaled_energy
+	# Volumetric fog is deliberately absent. The mist shader samples a fixed
+	# four-light analytic budget, so even the 581-light stress world cannot
+	# enroll these lights in a second renderer pass.
+	light.light_volumetric_fog_energy = 0.0
+	if _ground_fog != null:
+		_ground_fog.request_light_refresh()
 
 
 func _on_tree_node_added(node: Node) -> void:
@@ -520,6 +565,9 @@ func runtime_manifest() -> Dictionary:
 			"shadow_enabled": _sun.shadow_enabled,
 			"shadow_mode": _sun.directional_shadow_mode,
 			"shadow_max_distance": _sun.directional_shadow_max_distance,
+			"shadow_fit_policy": "fixed_full_zoom_envelope",
+			"shadow_zoom_stable": true,
+			"observed_camera_distance": _camera_shadow_distance,
 			"shadow_blended_splits": _sun.directional_shadow_blend_splits,
 			"shadow_split_1": _sun.directional_shadow_split_1,
 			"shadow_split_2": _sun.directional_shadow_split_2,
@@ -544,11 +592,23 @@ func runtime_manifest() -> Dictionary:
 			"reflected_light_source": env.reflected_light_source,
 		},
 		"fog": {
-			"enabled": env.fog_enabled,
-			"color": env.fog_light_color,
-			"density": env.fog_density,
-			"sky_affect": env.fog_sky_affect,
+			"legacy_global": {
+				"enabled": env.fog_enabled,
+				"density": env.fog_density,
+				"sky_affect": env.fog_sky_affect,
+			},
+			"volumetric": {
+				"enabled": env.volumetric_fog_enabled,
+				"global_density": env.volumetric_fog_density,
+				"ambient_inject": env.volumetric_fog_ambient_inject,
+				"gi_inject": env.volumetric_fog_gi_inject,
+				"sky_affect": env.volumetric_fog_sky_affect,
+				"temporal_reprojection": env.volumetric_fog_temporal_reprojection_enabled,
+				"reason_disabled": "camera-scroll-stable world-space mist renderer",
+			},
+			"localized_ground": _ground_fog.runtime_manifest(),
 		},
+		"rain_surface": _rain_surface.runtime_manifest(),
 		"reflection_probe": {
 			"enabled": _reflection_probe.visible,
 			"size": _reflection_probe.size,
@@ -779,6 +839,8 @@ func _apply_particle_quality() -> void:
 		if particles == null:
 			continue
 		particles.amount_ratio = float(particles.get_meta("base_amount_ratio", 1.0)) * quality_multiplier
+	if _rain_surface != null:
+		_rain_surface.set_quality(particle_quality_id)
 
 
 ## The six serialized WorldTheme assets from the GG reference build
@@ -1063,33 +1125,44 @@ static func _compute_color_balance(temperature: float, tint: float) -> Vector3:
 func _build_rain() -> GPUParticles3D:
 	var particles := GPUParticles3D.new()
 	particles.name = "Rain"
-	particles.amount = 900
-	particles.lifetime = 1.1
+	particles.amount = 720
+	particles.lifetime = 0.86
+	particles.preprocess = 0.86
+	particles.randomness = 0.34
 	particles.emitting = false
 	particles.set_meta("base_amount_ratio", 1.0)
-	particles.visibility_aabb = AABB(Vector3(-30, -5, -30), Vector3(60, 30, 60))
+	particles.fixed_fps = 30
+	particles.interpolate = true
+	particles.fract_delta = true
+	particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	particles.visibility_aabb = AABB(Vector3(-32, -18, -32), Vector3(64, 35, 64))
 	var mat := ParticleProcessMaterial.new()
 	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-	mat.emission_box_extents = Vector3(24, 0.1, 24)
-	mat.direction = Vector3(0.06, -1, 0.02)
-	mat.spread = 0.0
-	mat.initial_velocity_min = 15.0
-	mat.initial_velocity_max = 19.0
+	mat.emission_box_extents = Vector3(26, 0.35, 26)
+	mat.direction = Vector3(0.10, -1, 0.035)
+	mat.spread = 2.0
+	mat.initial_velocity_min = 21.0
+	mat.initial_velocity_max = 27.0
 	mat.gravity = Vector3.ZERO
+	mat.scale_min = 0.7
+	mat.scale_max = 1.35
 	particles.process_material = mat
 	_apply_particle_curves(
 		particles,
 		mat,
-		[[0.0, 0.75], [0.08, 1.0], [0.9, 1.0], [1.0, 0.45]],
-		[[0.0, 0.0], [0.04, 1.0], [0.9, 0.85], [1.0, 0.0]]
+		[[0.0, 0.62], [0.06, 1.0], [0.88, 0.92], [1.0, 0.3]],
+		[[0.0, 0.0], [0.035, 0.84], [0.84, 0.68], [1.0, 0.0]]
 	)
-	particles.position.y = 16.0
+	particles.position.y = 15.5
 	var streak := BoxMesh.new()
-	streak.size = Vector3(0.015, 0.5, 0.015)
+	streak.size = Vector3(0.012, 0.68, 0.012)
 	var streak_mat := StandardMaterial3D.new()
-	streak_mat.albedo_color = Color(0.85, 0.9, 0.88, 0.4)
+	streak_mat.albedo_color = Color(0.76, 0.88, 0.92, 0.36)
 	streak_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	streak_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	streak_mat.emission_enabled = true
+	streak_mat.emission = Color(0.54, 0.68, 0.72)
+	streak_mat.emission_energy_multiplier = 0.22
 	streak.material = streak_mat
 	particles.draw_pass_1 = streak
 	return particles

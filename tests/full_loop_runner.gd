@@ -6,9 +6,7 @@ extends Node
 ## Prints "FULL LOOP PASSED" or FAIL lines, then quits.
 
 const SAVE_PATH := "user://loop_test_save.json"
-# Keep the stacking-transition fixture on an authored grass tile. The center
-# lane is the direct GG Plain Ground control now, whose single hard-block mesh
-# deliberately has no removable grass presentation layer to cross-fade.
+# Keep the stacking-transition fixture on the active layered grass tile.
 const STACK_COORD := Vector2i(1, 1)
 const StructureVisualFactoryScript := preload(
 	"res://scripts/world/structure_visual_factory.gd"
@@ -84,6 +82,7 @@ func _ready() -> void:
 func _run() -> void:
 	await wait(0.5)
 	await _step_creation()
+	await _step_controller_input()
 	if OS.get_cmdline_user_args().has("--mock-shot"):
 		# Visual QA: build the admin showcase island and save one screenshot.
 		var placed := main.debug_build_mock_world()
@@ -176,6 +175,78 @@ func _step_creation() -> void:
 	await shot("screenshot_starting_world")
 
 
+func _step_controller_input() -> void:
+	print("STEP controller input and hot switching")
+	await _tap_joy_button(JOY_BUTTON_START)
+	check(
+		InputDeviceService.shared().is_controller(),
+		"meaningful controller input switches the active device"
+	)
+	check(
+		Input.mouse_mode == Input.MOUSE_MODE_HIDDEN,
+		"controller input hides the unused pointer"
+	)
+	check(
+		InputDeviceService.shared().prompt_for_action(&"interact") == "X",
+		"world prompts immediately use the active controller layout"
+	)
+	check(main.pause_menu.is_open(), "Menu/Options opens the pause flow")
+	var pause_focus := get_viewport().gui_get_focus_owner()
+	check(
+		pause_focus != null
+		and main.pause_menu._root.is_ancestor_of(pause_focus),
+		"controller-opened pause UI assigns deterministic focus"
+	)
+	await _tap_joy_button(JOY_BUTTON_B)
+	check(not main.pause_menu.is_open(), "B/east face closes the pause flow")
+
+	await _tap_joy_button(JOY_BUTTON_Y)
+	await wait(0.1)
+	check(main.placement.active, "Y/north face opens build mode")
+	var build_focus := get_viewport().gui_get_focus_owner()
+	check(
+		build_focus != null
+		and main.hud._build_bar.is_ancestor_of(build_focus),
+		"controller build mode focuses the categorized library"
+	)
+	check(
+		build_focus != null and build_focus.tooltip_text != "",
+		"focused build controls expose controller-visible tooltips"
+	)
+	await _tap_joy_button(JOY_BUTTON_B)
+	check(
+		not main.placement.active,
+		"B/east face exits the focused build library"
+	)
+
+	var mouse_motion := InputEventMouseMotion.new()
+	mouse_motion.position = Vector2(120, 90)
+	mouse_motion.relative = Vector2(12, 8)
+	Input.parse_input_event(mouse_motion)
+	await get_tree().process_frame
+	check(
+		not InputDeviceService.shared().is_controller(),
+		"meaningful mouse movement switches back without a settings toggle"
+	)
+	check(
+		Input.mouse_mode == Input.MOUSE_MODE_VISIBLE,
+		"switching back restores the pointer"
+	)
+
+
+func _tap_joy_button(button_index: JoyButton) -> void:
+	var press := InputEventJoypadButton.new()
+	press.device = 0
+	press.button_index = button_index
+	press.pressed = true
+	Input.parse_input_event(press)
+	await get_tree().process_frame
+	var release := press.duplicate() as InputEventJoypadButton
+	release.pressed = false
+	Input.parse_input_event(release)
+	await get_tree().process_frame
+
+
 func _step_build_library_ui() -> void:
 	print("STEP categorized build library")
 	var original_tiles := main.core.stock.tiles.duplicate(true)
@@ -183,7 +254,7 @@ func _step_build_library_ui() -> void:
 	var original_deeds := main.core.stock.landmark_deeds.duplicate()
 
 	main.core.stock.tiles.clear()
-	for tile_id: String in main.core.registries.tiles:
+	for tile_id: String in main.core.registries.active_tile_ids():
 		main.core.stock.tiles[tile_id] = 10
 	main.core.stock.structures.clear()
 	for structure_id: String in main.core.registries.structures:
@@ -196,8 +267,13 @@ func _step_build_library_ui() -> void:
 	await wait(0.15)
 
 	check(main.hud._build_bar.visible, "build mode opens the categorized library shelf")
+	var populated_category_count := 0
+	var entries_by_category := main.hud._collect_build_entries()
+	for category: Dictionary in Hud.BUILD_CATEGORIES:
+		if not (entries_by_category[String(category["id"])] as Array).is_empty():
+			populated_category_count += 1
 	check(
-		main.hud._build_category_strip.get_child_count() == Hud.BUILD_CATEGORIES.size(),
+		main.hud._build_category_strip.get_child_count() == populated_category_count,
 		"every populated content family receives one category button"
 	)
 	check(
@@ -207,8 +283,14 @@ func _step_build_library_ui() -> void:
 	main.hud._select_build_category("ground")
 	await wait(0.05)
 	check(
-		main.hud._build_strip.get_child_count() == 15,
-		"ground keeps meadow, earth, water, and plank tiles separate from other terrain families"
+		main.hud._build_strip.get_child_count() == 2,
+		"ground temporarily contains only the active meadow and sand tiles"
+	)
+	main.hud._select_build_category("winter")
+	await wait(0.05)
+	check(
+		main.hud._build_strip.get_child_count() == 1,
+		"winter temporarily contains only the active snow tile"
 	)
 
 	await shot("screenshot_build_library")
@@ -218,7 +300,7 @@ func _step_build_library_ui() -> void:
 		main.hud._build_strip.get_child_count() == 4,
 		"furniture opens as a focused wood-and-stone seating and table shelf"
 	)
-	main.hud._select_build_category("ground")
+	main.hud._select_build_category("nature")
 	await wait(0.05)
 	var horizontal_bar := main.hud._build_item_scroll.get_h_scroll_bar()
 	check(
@@ -251,12 +333,13 @@ func _step_build_library_ui() -> void:
 		var grant_tiles_button := main.pause_menu.find_child("AdminRowEveryTile", true, false) as Button
 		check(grant_tiles_button != null, "the admin page offers the grant-every-tile action")
 		if grant_tiles_button != null:
-			var planks_before := int(main.core.stock.tiles.get("tile_wooden_planks", 0))
+			var grass_before := int(main.core.stock.tiles.get("tile_grass", 0))
 			grant_tiles_button.pressed.emit()
 			await wait(0.05)
 			check(
-				int(main.core.stock.tiles.get("tile_wooden_planks", 0)) == planks_before + 10,
-				"the admin grant action stocks every registered tile"
+				int(main.core.stock.tiles.get("tile_grass", 0)) == grass_before + 10
+				and not main.core.stock.tiles.has("tile_wooden_planks"),
+				"the admin grant action stocks every active tile and no inactive tile"
 			)
 		var tuner_button := main.pause_menu.find_child("AdminRowLightingTuner", true, false) as Button
 		check(tuner_button != null, "the admin page offers the lighting tuner toggle")
@@ -346,13 +429,16 @@ func _step_tile_geometry_contract() -> void:
 	var all_fit := true
 	var all_structural_shells_end_at_surface := true
 	var all_surface_detail_is_low_relief := true
-	var grass_has_raised_speckles := false
+	var active_tiles_have_base_and_surface := true
+	var grass_is_clean_and_flat := false
 	var all_are_free_of_baked_decor := true
 	var grove_mesh_counts_ok := true
 	var tile_factory := TileVisualFactory.new(main.assets, main.core.grid)
 	for tile_def: Defs.TileDefinition in main.core.registries.tiles.values():
 		var visual := tile_factory.instantiate_visual(tile_def)
 		add_child(visual)
+		var roles := {}
+		var grass_surface_top := -INF
 		var bounds := _node_mesh_bounds(visual)
 		# Declared-raised skins (the sand dunes) keep a periodic boundary that
 		# deliberately crosses the slot line a little so neighbours interlock;
@@ -371,14 +457,19 @@ func _step_tile_geometry_contract() -> void:
 			var is_surface_detail := bool(
 				mesh.get_meta(TileVisualFactory.SURFACE_DETAIL_META, false)
 			)
+			var layer_role := String(
+				mesh.get_meta(TileVisualFactory.LAYER_ROLE_META, "")
+			)
+			if layer_role != "":
+				roles[layer_role] = int(roles.get(layer_role, 0)) + 1
+			if tile_def.id == "tile_grass" and layer_role == "surface":
+				grass_surface_top = maxf(grass_surface_top, mesh_bounds.end.y)
 			if is_surface_detail:
 				all_surface_detail_is_low_relief = (
 					all_surface_detail_is_low_relief
 					and mesh_bounds.position.y >= -0.002
 					and mesh_bounds.end.y <= 0.05
 				)
-				if tile_def.id == "tile_grass" and mesh_bounds.end.y > 0.01:
-					grass_has_raised_speckles = true
 			elif mesh_bounds.end.y > (0.35 if tile_def.exposed_top == "raised" else 0.015):
 				# Declared-raised exposed tops (the sculpted sand skin) may
 				# rise above the walkable plane: the cover swap removes the
@@ -394,6 +485,17 @@ func _step_tile_geometry_contract() -> void:
 				or lower.contains("found")
 			):
 				all_are_free_of_baked_decor = false
+		if main.core.registries.is_tile_active(tile_def.id):
+			active_tiles_have_base_and_surface = (
+				active_tiles_have_base_and_surface
+				and int(roles.get("base", 0)) >= 1
+				and int(roles.get("surface", 0)) >= 1
+			)
+		if tile_def.id == "tile_grass":
+			grass_is_clean_and_flat = (
+				int(roles.get("detail", 0)) == 0
+				and grass_surface_top <= 0.005
+			)
 		if tile_def.id.begins_with("tile_grove_"):
 			var grove_mesh_count := visual.find_children(
 				"*",
@@ -413,8 +515,12 @@ func _step_tile_geometry_contract() -> void:
 		"raised surface profiles stay subtle and below the gameplay collision budget"
 	)
 	check(
-		grass_has_raised_speckles,
-		"Open Meadow restores visible low-relief grass speckles above its top plane"
+		active_tiles_have_base_and_surface,
+		"every active tile assembles explicit structural base and surface layers"
+	)
+	check(
+		grass_is_clean_and_flat,
+		"Open Meadow is the retained clean green block without baked foliage"
 	)
 	check(all_are_free_of_baked_decor, "tile GLBs contain no baked trees or raised decor")
 	check(grove_mesh_counts_ok, "former grove tiles are flat body-and-cap variants")
@@ -1549,7 +1655,7 @@ func _step_parcel() -> void:
 	check(main.parcel_reveal.is_open(), "reveal modal opens")
 	check(main.core.parcels.pending_options.size() == 3, "three tile options offered")
 	await shot("screenshot_land_parcel_reveal")
-	main.parcel_reveal._choose(0)
+	main.parcel_reveal._choose(1)
 	await wait(0.8)
 	check(main.core.stock.total_tiles() == 1, "chosen tile in stock")
 	check(main.core.inventory.counts.is_empty(), "ferry reward bypasses material inventory")

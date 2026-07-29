@@ -30,7 +30,9 @@ const LIGHT_PRESETS := [
 
 var _main: Main
 var _kit: UiKit
+var _input_service: InputDeviceService
 var _assets: AssetLibrary
+var _tile_factory: TileVisualFactory
 
 var _root: Control
 var _preview_input: Control
@@ -69,11 +71,17 @@ var _saved_tuner_visible := false
 func setup(game: Main) -> void:
 	_main = game
 	_kit = game.kit
+	_input_service = InputDeviceService.shared()
 	_assets = game.assets
+	_tile_factory = TileVisualFactory.new(game.assets, game.core.grid)
 	layer = 70
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_build_preview_stage()
 	_build_ui()
+	_input_service.input_method_changed.connect(_on_input_method_changed)
+	_input_service.active_controller_changed.connect(
+		func(_device): _on_input_method_changed(_input_service.input_method)
+	)
 	visible = false
 
 
@@ -106,13 +114,18 @@ func open() -> void:
 	else:
 		_rebuild_preview()
 	_refresh_preset_buttons()
-	_search.grab_focus()
+	if _input_service.is_controller():
+		_input_service.focus_first(_root, _tile_tab)
+	else:
+		_search.grab_focus()
+	_refresh_input_hint()
 
 
 func close() -> void:
 	if not visible:
 		return
 	_dragging = false
+	_input_service.release_focus_in(_root)
 	visible = false
 	_preview_root.visible = false
 	_restore_gameplay_presentation()
@@ -124,6 +137,26 @@ func close() -> void:
 		_saved_camera.current = true
 	get_tree().paused = _saved_tree_paused
 	closed.emit()
+
+
+func _process(delta: float) -> void:
+	if not visible or not _input_service.is_controller():
+		return
+	var look := Input.get_vector(
+		"look_left",
+		"look_right",
+		"look_up",
+		"look_down"
+	)
+	if look.length_squared() < 0.04:
+		return
+	_orbit_yaw -= look.x * delta * 1.8
+	_orbit_pitch = clampf(
+		_orbit_pitch - look.y * delta * 1.4,
+		deg_to_rad(8.0),
+		deg_to_rad(78.0)
+	)
+	_refresh_camera()
 
 
 func selected_asset_id() -> String:
@@ -302,6 +335,7 @@ func _build_ui() -> void:
 	scroll.name = "AssetViewerCatalogScroll"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.follow_focus = true
 	browser_column.add_child(scroll)
 	_list = VBoxContainer.new()
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -440,7 +474,7 @@ func _rebuild_catalog() -> void:
 		child.queue_free()
 	_entries.clear()
 	if _category == "tiles":
-		for content_id: String in _main.core.registries.tiles:
+		for content_id: String in _main.core.registries.active_tile_ids():
 			var definition := _main.core.registries.tile(content_id)
 			_entries.append({
 				"content_id": content_id,
@@ -496,7 +530,16 @@ func _first_visible_entry() -> Dictionary:
 
 
 func _rebuild_preview() -> void:
-	if _selected_asset_id.is_empty() or not _assets.exists(_selected_asset_id):
+	var selected_tile := _main.core.registries.tile(_selected_content_id)
+	var uses_layered_tile := (
+		_category == "tiles"
+		and selected_tile != null
+		and selected_tile.uses_layered_visual()
+	)
+	if (
+		_selected_asset_id.is_empty()
+		or (not uses_layered_tile and not _assets.exists(_selected_asset_id))
+	):
 		_status.text = "Missing production asset: %s" % _selected_asset_id
 		return
 	for child in _content_root.get_children():
@@ -505,7 +548,7 @@ func _rebuild_preview() -> void:
 	if _category == "tiles":
 		for z in range(-TILE_PATCH_RADIUS, TILE_PATCH_RADIUS + 1):
 			for x in range(-TILE_PATCH_RADIUS, TILE_PATCH_RADIUS + 1):
-				var tile := _assets.instantiate(_selected_asset_id)
+				var tile := _tile_factory.instantiate_visual(selected_tile, false)
 				tile.position = Vector3(x * tile_size, 0.0, z * tile_size)
 				_content_root.add_child(tile)
 	else:
@@ -640,6 +683,41 @@ func _unhandled_input(event: InputEvent) -> void:
 	):
 		close()
 		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("camera_zoom_in"):
+		_zoom_preview(-1.0)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("camera_zoom_out"):
+		_zoom_preview(1.0)
+		get_viewport().set_input_as_handled()
+
+
+func _zoom_preview(direction: float) -> void:
+	_orbit_distance = clampf(
+		_orbit_distance * (1.0 + direction * 0.1),
+		2.0,
+		40.0
+	)
+	_refresh_camera()
+
+
+func _on_input_method_changed(_method: int) -> void:
+	_refresh_input_hint()
+	if visible and _input_service.is_controller():
+		_input_service.focus_first(_root, _tile_tab)
+
+
+func _refresh_input_hint() -> void:
+	if _hint == null:
+		return
+	_hint.text = (
+		"%s  ·  %s  ·  3×3 tile seam check"
+		% [
+			_input_service.format_action(&"look_right", "orbit"),
+			_input_service.format_action(&"camera_zoom_in", "zoom"),
+		]
+		if _input_service.is_controller()
+		else "Drag to orbit  ·  Wheel to zoom  ·  3×3 tile seam check"
+	)
 
 
 func _toggle_fine_tuner() -> void:

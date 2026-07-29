@@ -10,6 +10,8 @@ const COVERED_INFILL_NAME := "CoveredSurfaceInfill"
 const STACK_SEAM_NAME := "StackSeamCollar"
 const PREVIEW_WATER_SURFACE_NAME := "PreviewWaterSurface"
 const SURFACE_DETAIL_META := "tile_surface_detail"
+const LAYER_ROLE_META := "tile_layer_role"
+const LAYER_COVER_BEHAVIOR_META := "tile_layer_cover_behavior"
 const COVER_FADE_DELAY := 0.075
 const COVER_FADE_SECONDS := 0.105
 const COVER_TWEEN_META := "covered_surface_tween"
@@ -36,12 +38,15 @@ func instantiate_visual(def: Defs.TileDefinition, preview := false) -> Node3D:
 	var authored_visual: Node3D
 	if def.render_profile == "continuous_water":
 		authored_visual = _continuous_water_bed()
+	elif def.uses_layered_visual():
+		authored_visual = _instantiate_layered_visual(def)
 	else:
 		authored_visual = assets.instantiate(def.asset_id)
-	var horizontal_scale := grid.tile_size / AUTHORED_TILE_SIZE
-	authored_visual.scale = Vector3(horizontal_scale, 1.0, horizontal_scale)
+	if not def.uses_layered_visual():
+		var horizontal_scale := grid.tile_size / AUTHORED_TILE_SIZE
+		authored_visual.scale = Vector3(horizontal_scale, 1.0, horizontal_scale)
 	visual.add_child(authored_visual)
-	if def.render_profile != "continuous_water":
+	if def.render_profile == "standard":
 		_mark_authored_surface_details(authored_visual)
 	_add_surface_detail(visual, def.surface_detail_profile)
 	if preview and def.render_profile == "continuous_water":
@@ -50,7 +55,7 @@ func instantiate_visual(def: Defs.TileDefinition, preview := false) -> Node3D:
 
 
 ## Static scalable-world variant of instantiate_visual(). The complete
-## generated presentation is resolved once for each cover/seam state,
+## layered/generated presentation is resolved once for each cover/seam state,
 ## flattened by material, then reused by chunk MultiMeshes.
 func batch_mesh(
 	def: Defs.TileDefinition,
@@ -69,6 +74,31 @@ func batch_mesh(
 	if combined != null:
 		_batch_mesh_cache[key] = combined
 	return combined
+
+
+func _instantiate_layered_visual(def: Defs.TileDefinition) -> Node3D:
+	var root := Node3D.new()
+	root.name = "LayeredTileVisual"
+	var horizontal_scale := grid.tile_size / AUTHORED_TILE_SIZE
+	for index in def.visual_layers.size():
+		var layer: Defs.TileVisualLayerDefinition = def.visual_layers[index]
+		var layer_visual := assets.instantiate(layer.asset_id)
+		layer_visual.name = "%02d_%s_%s" % [index, layer.role, layer.asset_id]
+		layer_visual.set_meta(LAYER_ROLE_META, layer.role)
+		layer_visual.set_meta(LAYER_COVER_BEHAVIOR_META, layer.cover_behavior)
+		if layer.scale_mode == "tile_xz":
+			layer_visual.scale = Vector3(horizontal_scale, 1.0, horizontal_scale)
+		layer_visual.position = layer.offset
+		root.add_child(layer_visual)
+		for child in layer_visual.find_children("*", "MeshInstance3D", true, false):
+			var mesh := child as MeshInstance3D
+			mesh.set_meta(LAYER_ROLE_META, layer.role)
+			mesh.set_meta(LAYER_COVER_BEHAVIOR_META, layer.cover_behavior)
+			if layer.material_key != "":
+				mesh.material_override = assets.materials.material(layer.material_key)
+			if layer.role == "detail":
+				mesh.set_meta(SURFACE_DETAIL_META, true)
+	return root
 
 
 func _mark_authored_surface_details(authored_visual: Node3D) -> void:
@@ -158,9 +188,20 @@ func set_surface_covered(
 		var mesh := child as MeshInstance3D
 		if mesh == infill or mesh.name == STACK_SEAM_NAME:
 			continue
-		var is_body := mesh.name.to_lower().ends_with("_body")
+		var layer_role := String(mesh.get_meta(LAYER_ROLE_META, ""))
+		var cover_behavior := String(mesh.get_meta(LAYER_COVER_BEHAVIOR_META, ""))
+		var is_body := (
+			layer_role == "base"
+			or (
+				layer_role == ""
+				and mesh.name.to_lower().ends_with("_body")
+			)
+		)
 		if is_body:
-			body_mesh = mesh
+			if body_mesh == null:
+				body_mesh = mesh
+			mesh.visible = true
+		elif cover_behavior == "persist":
 			mesh.visible = true
 		else:
 			# Caps, imported relief, and generated speckles all belong to one
@@ -289,6 +330,8 @@ func _add_surface_detail(root: Node3D, profile: String) -> void:
 			var detail_root := Node3D.new()
 			detail_root.name = "TileSurfaceDetails"
 			detail_root.set_meta(SURFACE_DETAIL_META, true)
+			detail_root.set_meta(LAYER_ROLE_META, "detail")
+			detail_root.set_meta(LAYER_COVER_BEHAVIOR_META, "hide")
 			root.add_child(detail_root)
 			_add_speckle_layer(
 				detail_root,
@@ -322,6 +365,8 @@ func _add_speckle_layer(
 	var mesh_instance := MeshInstance3D.new()
 	mesh_instance.name = node_name
 	mesh_instance.set_meta(SURFACE_DETAIL_META, true)
+	mesh_instance.set_meta(LAYER_ROLE_META, "detail")
+	mesh_instance.set_meta(LAYER_COVER_BEHAVIOR_META, "hide")
 	mesh_instance.mesh = _speckle_mesh(seed_value, count, min_height, max_height)
 	mesh_instance.material_override = assets.materials.material(material_key)
 	root.add_child(mesh_instance)
@@ -394,7 +439,10 @@ func _stack_seam_collar(visual: Node3D) -> MeshInstance3D:
 	var body_mesh: MeshInstance3D
 	for child in visual.find_children("*", "MeshInstance3D", true, false):
 		var candidate := child as MeshInstance3D
-		if candidate.name.to_lower().ends_with("_body"):
+		if (
+			String(candidate.get_meta(LAYER_ROLE_META, "")) == "base"
+			or candidate.name.to_lower().ends_with("_body")
+		):
 			body_mesh = candidate
 			break
 	if body_mesh == null:

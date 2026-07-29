@@ -1,23 +1,24 @@
 # Asset pipeline
 
 One shared technical contract for every 3D asset; three creation tiers; one
-import recipe for external/generated models (see "Importing a generated
-model" below).
+import recipe for external/generated models. Tile composition, top extraction,
+and future grass/fern/snow/sand GLB intake are specified in
+[`TILE_AUTHORING.md`](TILE_AUTHORING.md).
 
 ## Technical contract
 
 - 1 Godot unit = 1 m. Tiles use a compact 1.70 m horizontal footprint; the land
   block top sits at y = 0.0 and extends to y = -0.50. Every elevation step is
   exactly 0.50 m so stacked visuals and collision touch without a gap.
-- Tile GLBs may use recessed seams or basins below y = 0. Ordinary structural
-  tile geometry must never extend above y = 0, with one exception: **coverable
-  surface relief** (cobbles, clods, drifts, lane lenses) may rise into
-  y ∈ [0, 0.05]. `tile_visual_factory.gd` classifies any mesh whose bounds sit
-  wholly inside that band as fade-when-covered detail — meshes named `*_body`
-  or `*_cap` are exempt (structural). So: name the walkable block `<x>_cap` /
-  `<x>_body`, keep every decoration inside the 0–0.05 budget, and never exceed
-  it (taller relief clips through a tile stacked on top). Trees, planters,
-  crystals, ruins and other readable silhouettes are independent placeables.
+- New tiles are layered, not fused: one required `base`, one required
+  `surface`, and optional `detail`/`edge` GLBs form one logical tile at
+  runtime. The base owns the exact -0.50 m structural depth; the surface owns
+  flat, recessed, or raised top geometry. Layer role and `cover_behavior`
+  explicitly control stacking visibility—bounds/name guessing remains only
+  for legacy fused assets.
+- Readable plants and props remain independent geometry. Small tile-specific
+  grass, ferns, leaves, pebbles, or tracks may be `detail` layers, but never
+  belong to the structural `base`.
 - Y-up, forward = -Z, origin at bottom-center (pivot exceptions documented per asset).
 - Rotation/scale applied; clean object and material names; no embedded lights/cameras;
   no hidden high-poly duplicates; simplified collision authored in Godot, not Blender.
@@ -69,33 +70,29 @@ Cottage, arch, bridge-scale pieces, enemies, tools/weapons — same script famil
    `scene_path`), never proxy filenames. Swapping the file at the definition's
    `scene_path` (or editing that one JSON string) completes the replacement.
 
-## Two-form tiles (exposed top vs covered block)
+## Layered two-form tiles (exposed top vs covered block)
 
 Every land tile has two visual forms, swapped by the runtime
 (`tile_visual_factory.set_surface_covered`) when a tile is stacked above:
 
-- **Exposed** (nothing above): `<x>_body` + `<x>_cap` + relief. The top may sit
-  flush with the walkable plane, dip below it (recessed plank beds, carved
-  tops) or rise above it (debris piles, mounds). Declare the kind on the tile
-  definition as `exposed_top: "flush" | "recessed" | "raised"` — the slot-fill
-  test grants recessed tops down to -0.12 and raised tops up to +0.35.
-- **Covered** (a tile above): the entire top layer hides and a generated
-  flush infill lid (full `tile_size` footprint, body-top to y=0, body
-  material) completes the block — so a stack always reads as clean, exactly
-  slot-sized bands, with only the topmost tile carrying its detail.
+- **Exposed** (nothing above): `base` + `surface` + optional `detail`/`edge`
+  layers. The surface may be flush, recessed, or raised; declare
+  `exposed_top: "flush" | "recessed" | "raised"`.
+- **Covered** (a tile above): `base` and any `persist` layers remain;
+  `hide` layers cross-fade out. A generated base-material lid fills from the
+  base top to y = 0 so every stacked band is structurally complete.
 
-Authoring rule: whatever the exposed top does, the `_body` must still be the
-full-footprint filler to -0.50 (validated), because it plus the lid IS the
-covered block. New "constructed" blocks (recessed planks, paver patterns,
-rubble tops) need nothing beyond correct `_body`/`_cap` naming and the
-`exposed_top` declaration.
+Authoring rule: whatever the exposed top does, the `base` must remain the exact
+full-footprint filler to y = -0.50. Meaningful plank/slab/snow/sand depth is
+mesh geometry, not a height-map illusion. See `TILE_AUTHORING.md` for the
+schema and role-by-role bounds.
 
 ## Importing a generated model (tiles, props, characters)
 
 The reproducible pattern for turning an external/AI-generated GLB into a Suma
-asset. Precedents: `art_source/blender/process_stylized_pyramid_tent.py`
-(prop) and `art_source/blender/process_wooden_planks_tile.py` (tile, with
-palette quantisation). Copy the nearest one and adjust.
+asset. For a tile source, first classify it as `surface`, `detail`, or `edge`
+using `TILE_AUTHORING.md`; discard its generated lower block and export only
+the useful layer. For props, use the nearest existing processor.
 
 1. **Archive + pin.** Copy the source to
    `art_source/imported/<asset_id>/<asset_id>_source.glb` (never overwritten,
@@ -123,10 +120,10 @@ palette quantisation). Copy the nearest one and adjust.
    planks processor does. Multi-material meshes are fine — rebinding handles
    every surface.
 5. **Normalise to the contract.**
-   - *Tile*: scale to exactly 1.70 × 1.70 × 0.50 with the walkable top at
-     z = 0 (Blender) / y = 0 (Godot), and rename the mesh `<x>_cap` (plus a
-     `<x>_body` filler block if the model doesn't reach z = -0.50). Baked
-     surface decoration must respect the 0–0.05 relief budget above.
+   - *Tile layer*: keep the authored cell frame at exactly 1.70 × 1.70 and the
+     surface contact plane at z = 0 (Blender) / y = 0 (Godot). Do not add or
+     copy a 0.50 m body. The shared base supplies it. Use
+     `tile_layer_surface_*`, `tile_layer_detail_*`, or `tile_layer_edge_*`.
    - *Prop/structure*: ground at z = 0, footprint inside ~1.5 m (structures
      with `grid_fit_profile: "tile_span"` are auto-fitted; a 10 cm inset per
      edge reads best). Name animated subtrees explicitly (e.g. the water
@@ -137,17 +134,16 @@ palette quantisation). Copy the nearest one and adjust.
 6. **Export** with the standard flags:
    `use_selection, export_apply, export_yup, no animations/skins/lights/cameras`
    to `assets/3d/reworked/<asset_id>.glb`.
-7. **Wire the data.** New tile → one entry in `data/tiles.json` (id, name,
-   family, asset_id, weight/rarity, stackable/supports_tiles,
-   `surface_kind: "flat"`, placement_sound — `"wood"` is a registered sound).
-   New structure → `data/structures.json`. No code changes; definitions load
-   by id.
+7. **Wire the data.** New tile → one entry in `data/tiles.json` with
+   `render_profile: "layered"` and its layer array. Add it to
+   `data/tuning.json::active_tile_ids` only after review. New structure →
+   `data/structures.json`.
 8. **Validate and review.** `godot --headless --path . --import` first —
    **without a reimport Godot renders the stale cached mesh**, then
    `godot --headless --path . --script tests/test_runner.gd` (must print ALL
    TESTS PASSED). For interactive review, launch the normal game and press
-   **F8** (or Pause → Admin Controls → Asset Viewer). The viewer discovers
-   every registered tile and model, renders tiles as a 3×3 seam patch, uses
+   **F8** (or Pause → Admin Controls → Asset Viewer). The viewer lists active
+   tiles and all registered models, renders tiles as a 3×3 seam patch, uses
    the production material/lighting/weather stack, and can capture PNGs.
    The automated viewer proof is:
 

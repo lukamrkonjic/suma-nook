@@ -83,6 +83,17 @@ extends Resource
 @export var fog_color := Color(0.9137, 0.8863, 0.8118)
 @export var fog_density := 0.01
 
+@export_group("Localized ground fog")
+## These drive the full-resolution world-space mist layers. fog_density above
+## is retained only for old profile compatibility; traditional full-screen
+## and volumetric froxel fog both stay disabled.
+@export var ground_fog_density := 0.0
+@export var ground_fog_height := 1.65
+@export var ground_fog_noise_scale := 0.11
+@export var ground_fog_wind := Vector2(0.025, -0.018)
+@export var ground_fog_disturbance_radius := 0.78
+@export var ground_fog_close_seconds := 1.8
+
 @export_group("Reflection quality")
 @export var reflection_probe_enabled := true
 @export var reflection_probe_update_always := false
@@ -122,6 +133,12 @@ extends Resource
 
 @export_group("Weather")
 @export var rain_enabled := false
+## Fixed-budget world-space rain surface. These affect one shared overlay and
+## one player-foot emitter, never individual tiles.
+@export var rain_surface_wetness := 0.0
+@export var rain_puddle_amount := 0.0
+@export var rain_ripple_amount := 0.0
+@export var rain_walk_splash_amount := 0.0
 @export var motes_enabled := false
 @export var leaves_enabled := false
 @export var snow_enabled := false

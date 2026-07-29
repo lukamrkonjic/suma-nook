@@ -20,6 +20,21 @@ func _init(pal: CozyPalette) -> void:
 	theme = Theme.new()
 	theme.default_font = font
 	theme.default_font_size = 18
+	var focus := StyleBoxFlat.new()
+	focus.bg_color = Color(1.0, 0.93, 0.58, 0.12)
+	focus.border_color = palette.color("ui_accent").lightened(0.18)
+	focus.set_border_width_all(3)
+	focus.set_corner_radius_all(10)
+	for control_type in [
+		"Button",
+		"CheckButton",
+		"OptionButton",
+		"HSlider",
+		"VSlider",
+		"LineEdit",
+		"TextEdit",
+	]:
+		theme.set_stylebox("focus", control_type, focus)
 
 
 func panel_style(dark := false, radius := 12) -> StyleBoxFlat:
@@ -75,6 +90,8 @@ func button(text: String, accent := false) -> Button:
 	disabled.bg_color = Color(0.8, 0.78, 0.73, 0.6)
 	var focus := normal.duplicate()
 	focus.bg_color = normal.bg_color.lightened(0.04)
+	focus.border_color = palette.color("ui_accent").lightened(0.2)
+	focus.set_border_width_all(3)
 	b.add_theme_stylebox_override("normal", normal)
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("pressed", pressed)
@@ -125,8 +142,8 @@ func library_category_button(text: String, selected := false) -> Button:
 	var pressed := normal.duplicate()
 	pressed.bg_color = palette.color("ui_good").lightened(0.05)
 	var focus := pressed.duplicate()
-	focus.border_width_bottom = 2
-	focus.border_color = Color(1, 1, 1, 0.5)
+	focus.set_border_width_all(3)
+	focus.border_color = palette.color("ui_accent").lightened(0.2)
 	b.add_theme_stylebox_override("normal", normal)
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("pressed", pressed)
@@ -162,8 +179,8 @@ func library_item_button(display_name: String, count: int) -> Button:
 	var pressed := normal.duplicate()
 	pressed.bg_color = palette.color("ui_accent").lightened(0.12)
 	var focus := hover.duplicate()
-	focus.border_width_bottom = 2
-	focus.border_color = palette.color("ui_good")
+	focus.set_border_width_all(3)
+	focus.border_color = palette.color("ui_accent").lightened(0.2)
 	b.add_theme_stylebox_override("normal", normal)
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("pressed", pressed)
@@ -211,10 +228,13 @@ func library_arrow_button(text: String) -> Button:
 	pressed.bg_color = palette.color("ui_good")
 	var disabled := normal.duplicate()
 	disabled.bg_color = Color(0.84, 0.83, 0.78, 0.28)
+	var focus := hover.duplicate()
+	focus.border_color = palette.color("ui_accent").lightened(0.2)
+	focus.set_border_width_all(3)
 	b.add_theme_stylebox_override("normal", normal)
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("pressed", pressed)
-	b.add_theme_stylebox_override("focus", hover)
+	b.add_theme_stylebox_override("focus", focus)
 	b.add_theme_stylebox_override("disabled", disabled)
 	b.add_theme_color_override("font_color", Color(0.33, 0.32, 0.28))
 	b.add_theme_color_override("font_hover_color", Color(0.25, 0.28, 0.21))
@@ -244,6 +264,8 @@ func menu_button(text: String, accent := false) -> Button:
 	pressed.bg_color = Color(0.78, 0.8, 0.73, 0.46)
 	var focus := normal.duplicate()
 	focus.bg_color = Color(1, 1, 1, 0.3)
+	focus.border_color = palette.color("ui_accent").lightened(0.2)
+	focus.set_border_width_all(3)
 	b.add_theme_stylebox_override("normal", normal)
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("pressed", pressed)
@@ -298,6 +320,7 @@ func window(title: String, size: Vector2) -> Dictionary:
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_STOP  # swallow clicks behind the panel
+	root.theme = theme
 	var scrim := ColorRect.new()
 	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	scrim.color = Color(0.18, 0.17, 0.14, 0.22)

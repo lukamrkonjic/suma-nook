@@ -53,6 +53,9 @@ var _pointer_press_position := Vector2.ZERO
 var _picked_on_pointer_press := false
 var _hover_info_signature := ""
 var _animate_ghost_rotation := false
+var _controller_mode := false
+var _controller_cursor_active := false
+var _controller_cell := Vector2i.ZERO
 
 func setup(
 	game_core: GameCore,
@@ -75,6 +78,10 @@ func setup(
 	_target_resolver = PlacementTargetResolverScript.new(core.grid, world_renderer)
 	_preview = PlacementPreviewScript.new(self, core.grid.tile_size)
 	core.before_save.connect(prepare_for_save)
+	held_changed.connect(func(value: Dictionary):
+		if _controller_mode and value.is_empty():
+			_controller_cursor_active = false
+	)
 
 
 # ------------------------------------------------------------------ mode
@@ -87,7 +94,11 @@ func set_active(enabled: bool) -> void:
 	if active == enabled:
 		return
 	active = enabled
+	if active and _controller_mode:
+		_controller_cell = player.current_cell()
+		_controller_cursor_active = not held.is_empty()
 	if not active:
+		_controller_cursor_active = false
 		world_renderer.clear_structure_hover()
 		_emit_hover_info("", "", "")
 		_cancel_held(true)
@@ -102,8 +113,78 @@ func hold_new(kind: String, id: String) -> void:
 		set_active(true)
 	_cancel_held(true)
 	held = {"kind": kind, "id": id, "rotation": 0, "moving": null}
+	if _controller_mode:
+		_controller_cursor_active = true
 	_build_ghost()
 	held_changed.emit(held)
+
+
+## Controller placement is an explicit grid cursor, not a simulated mouse.
+## That keeps selection deterministic at any resolution and leaves the OS
+## pointer untouched when switching devices.
+func set_controller_mode(enabled: bool) -> void:
+	if _controller_mode == enabled:
+		return
+	_controller_mode = enabled
+	world_renderer.clear_structure_hover()
+	_emit_hover_info("", "", "")
+	if not enabled:
+		_controller_cursor_active = false
+		return
+	_controller_cell = player.current_cell()
+	_controller_cursor_active = active and not held.is_empty()
+
+
+func begin_controller_browse() -> void:
+	if not active or not _controller_mode:
+		return
+	_controller_cursor_active = true
+	if not core.grid.has_cell(_controller_cell):
+		_controller_cell = player.current_cell()
+
+
+func show_controller_library() -> void:
+	if not active or not _controller_mode or not held.is_empty():
+		return
+	_controller_cursor_active = false
+	world_renderer.clear_structure_hover()
+	_emit_hover_info("", "", "")
+
+
+func controller_cursor_active() -> bool:
+	return _controller_mode and _controller_cursor_active
+
+
+func controller_mode() -> bool:
+	return _controller_mode
+
+
+func controller_cursor_cell() -> Vector2i:
+	return _controller_cell
+
+
+func move_controller_cursor(screen_direction: Vector2i) -> void:
+	if not active or not controller_cursor_active():
+		return
+	var quarter_turn := posmod(
+		roundi((camera_rig.rotation_degrees.y - 45.0) / 90.0),
+		4
+	)
+	var grid_direction := controller_grid_direction(
+		screen_direction,
+		quarter_turn
+	)
+	_controller_cell += grid_direction
+
+
+static func controller_grid_direction(
+	screen_direction: Vector2i,
+	quarter_turn: int
+) -> Vector2i:
+	var grid_direction := screen_direction
+	for _turn in posmod(quarter_turn, 4):
+		grid_direction = Vector2i(grid_direction.y, -grid_direction.x)
+	return grid_direction
 
 
 func rotate_held() -> void:
@@ -291,7 +372,14 @@ func _process(delta: float) -> void:
 		_preview.hide_indicator()
 		if _ghost != null:
 			_ghost.visible = false
-		_update_placeable_hover()
+		if _controller_mode:
+			if _controller_cursor_active:
+				_update_controller_placeable_hover()
+			else:
+				world_renderer.clear_structure_hover()
+				_emit_hover_info("", "", "")
+		else:
+			_update_placeable_hover()
 		return
 	world_renderer.clear_structure_hover()
 	_emit_hover_info("", "", "")
@@ -486,6 +574,57 @@ func _update_placeable_hover() -> void:
 	)
 
 
+func _update_controller_placeable_hover() -> void:
+	world_renderer.clear_structure_hover()
+	var elevation := core.grid.top_elevation(_controller_cell)
+	if elevation < 0:
+		_emit_hover_info(
+			"empty:%d:%d" % [_controller_cell.x, _controller_cell.y],
+			"Empty ground",
+			"Move the cursor onto a placed piece"
+		)
+		return
+	var instance_id := _highest_structure_instance_at(
+		_controller_cell,
+		elevation
+	)
+	if instance_id > 0:
+		var found := core.grid.find_structure(instance_id)
+		if not found.is_empty():
+			var structure: WorldGrid.StructureState = found["structure"]
+			var definition := core.registries.structure(structure.structure_id)
+			world_renderer.set_hovered_structure(instance_id, true)
+			_emit_hover_info(
+				"structure:%d" % instance_id,
+				(
+					definition.display_name
+					if definition != null
+					else structure.structure_id
+				),
+				_structure_collection_name(definition)
+			)
+			return
+	var state := core.grid.cell_at(_controller_cell, elevation)
+	var tile_definition := core.grid.tile_def_at(_controller_cell, elevation)
+	if state == null:
+		_emit_hover_info("", "", "")
+		return
+	world_renderer.set_hovered_tile(_controller_cell, elevation, true)
+	_emit_hover_info(
+		"tile:%d:%d:%d" % [
+			_controller_cell.x,
+			_controller_cell.y,
+			elevation,
+		],
+		(
+			tile_definition.display_name
+			if tile_definition != null
+			else state.tile_id
+		),
+		_tile_collection_name(tile_definition)
+	)
+
+
 func _tile_collection_name(definition: Defs.TileDefinition) -> String:
 	if definition == null:
 		return "Tile Collection"
@@ -540,6 +679,9 @@ func _cell_under_mouse() -> Vector2i:
 func _update_hover_target() -> void:
 	_hover_support_instance_id = 0
 	_hover_support_slot = ""
+	if _controller_mode and _controller_cursor_active:
+		_update_controller_hover_target()
+		return
 	if held.get("kind", "") == "structure":
 		var structure_hit := world_renderer.pick_structure_at_screen(
 			camera_rig.camera,
@@ -565,6 +707,26 @@ func _update_hover_target() -> void:
 				else maxi(0, support_elevation)
 			)
 			_resolve_highest_structure_target(_hover_cell, _hover_elevation)
+		_:
+			_hover_elevation = 0
+
+
+func _update_controller_hover_target() -> void:
+	_hover_cell = _controller_cell
+	match held.get("kind", ""):
+		"tile":
+			var tile_column_top := core.grid.top_elevation(_hover_cell)
+			_hover_elevation = (
+				tile_column_top + 1
+				if tile_column_top >= 0
+				else 0
+			)
+		"structure":
+			_hover_elevation = maxi(0, core.grid.top_elevation(_hover_cell))
+			_resolve_highest_structure_target(
+				_hover_cell,
+				_hover_elevation
+			)
 		_:
 			_hover_elevation = 0
 
@@ -918,6 +1080,19 @@ func _place_deed() -> void:
 
 ## Pick up an existing structure (preferred) or a movable tile under the cursor.
 func _try_pick_up() -> void:
+	if _controller_mode and _controller_cursor_active:
+		var controller_elevation := core.grid.top_elevation(_controller_cell)
+		if controller_elevation >= 0:
+			var controller_instance := _highest_structure_instance_at(
+				_controller_cell,
+				controller_elevation
+			)
+			_pick_up_from(
+				_controller_cell,
+				controller_elevation,
+				controller_instance
+			)
+		return
 	var hit := world_renderer.pick_placeable_at_screen(
 		camera_rig.camera,
 		get_viewport().get_mouse_position()

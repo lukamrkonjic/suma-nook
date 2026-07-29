@@ -66,6 +66,16 @@ PROFILES = {
         "cap": [(0.0, "BOT"), (0.0, 0.0)],
         "skin_wraps_sides": False,
     },
+    # Reusable lowered structural body for authored caps whose readable
+    # thickness, joints, gaps, or recesses need more than the standard
+    # 5.5 cm skin. The exposed cap fills -0.20..0.0; stacking still uses
+    # the universal 0.50 m block step.
+    "deep_recess_constructed": {
+        "radius": 0.0,
+        "turf": 0.20,
+        "cap": [(0.0, "BOT"), (0.0, 0.0)],
+        "skin_wraps_sides": False,
+    },
     "soft_recessed_top": {
         "radius": 0.0,
         "turf": 0.07,

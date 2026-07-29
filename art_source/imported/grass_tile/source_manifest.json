@@ -1,0 +1,7 @@
+{
+  "asset_id": "tile_grass",
+  "source_file": "grass_tile_source_v2.glb",
+  "source_sha256": "5696144AF826C61DE668621FA1EA69268BBB8F6110767413EDF93BC097013967",
+  "origin": "Luka's second replacement generated grass-tile model",
+  "processing": "Preserve the supplied layered foliage arrangement, source height, horizontal proportions, UVs, embedded textures, and color variation; discard its generated lower block and broad perimeter surfaces; weld only coincident vertices; remove isolated one-to-three-triangle export fragments; apply restrained 55-degree smooth-by-angle normals without moving any vertices; fit the foliage to the complete Suma footprint with no border; and mount it on a clean grass-colored cap and the standard earthy tile body."
+}

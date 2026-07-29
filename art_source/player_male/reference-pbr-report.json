@@ -1,0 +1,87 @@
+{
+  "ok": true,
+  "verdict": "pass",
+  "confidence": 0.86,
+  "estimatedFidelity": 0.86,
+  "targetThreshold": 0.7,
+  "materialId": "skin",
+  "sourceImage": "C:\\Users\\Luka\\AppData\\Local\\Temp\\codex-clipboard-66c453e0-e4b2-477a-953b-55622d0cdb80.png",
+  "outDir": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr",
+  "palette": [
+    "#F8BC7F",
+    "#EFAE6E",
+    "#623C1F",
+    "#DB9A5A",
+    "#FCC893",
+    "#BA793D"
+  ],
+  "maps": {
+    "albedo": {
+      "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_albedo.png",
+      "url": "skin_albedo.png",
+      "channel": "albedo",
+      "source": "reference-pixel-extraction"
+    },
+    "roughness": {
+      "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_roughness.png",
+      "url": "skin_roughness.png",
+      "channel": "roughness",
+      "source": "reference-pixel-extraction"
+    },
+    "height": {
+      "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_height.png",
+      "url": "skin_height.png",
+      "channel": "height",
+      "source": "reference-pixel-extraction"
+    },
+    "normal": {
+      "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_normal.png",
+      "url": "skin_normal.png",
+      "channel": "normal",
+      "source": "reference-pixel-extraction"
+    },
+    "ao": {
+      "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_ao.png",
+      "url": "skin_ao.png",
+      "channel": "ao",
+      "source": "reference-pixel-extraction"
+    }
+  },
+  "diagnostics": {
+    "sourceWidth": 1254,
+    "sourceHeight": 1254,
+    "mapSize": 512,
+    "cropBBoxPixels": {
+      "x": 265,
+      "y": 60,
+      "width": 722,
+      "height": 1084
+    },
+    "mask": {
+      "backgroundColor": "#F9F4F1",
+      "backgroundNoise": 1.414,
+      "transparentPixelFraction": 0.0,
+      "foregroundCoverage": 0.1654
+    },
+    "mapStats": {
+      "valueRange": 0.6049,
+      "heightP90Gradient": 0.04184,
+      "roughnessBase": 0.68,
+      "roughnessVariation": 0.065,
+      "normalStrength": 0.205,
+      "blurRadius": 10
+    },
+    "palette": [
+      "#F8BC7F",
+      "#EFAE6E",
+      "#623C1F",
+      "#DB9A5A",
+      "#FCC893",
+      "#BA793D"
+    ]
+  },
+  "warnings": [
+    "single-image inverse rendering cannot prove true physical PBR; confidence is capped"
+  ],
+  "limitation": "single-image PBR extraction is an estimate; 70%+ extraction confidence still needs render screenshot review"
+}

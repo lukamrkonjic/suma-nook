@@ -27,11 +27,23 @@ func _ready() -> void:
 		await _finish(1)
 		return
 
+	_main.asset_viewer.select_content("tile_grass")
+	_main.asset_viewer.set_weather_preset("day")
+	_main.asset_viewer.set_light_preset("noon")
+	await _settle(45)
+	await _capture("asset_viewer_tile_grass_v2_corrected_day.png")
+
 	_main.asset_viewer.select_content("tile_sand")
 	_main.asset_viewer.set_weather_preset("day")
 	_main.asset_viewer.set_light_preset("noon")
 	await _settle(45)
 	await _capture("asset_viewer_tile_sand_day.png")
+
+	_main.asset_viewer.select_content("tile_concrete_brutalist")
+	_main.asset_viewer.set_weather_preset("day")
+	_main.asset_viewer.set_light_preset("noon")
+	await _settle(45)
+	await _capture("asset_viewer_tile_concrete_brutalist_day.png")
 
 	_main.asset_viewer.select_content("tile_snowfield")
 	_main.asset_viewer.set_weather_preset("day")

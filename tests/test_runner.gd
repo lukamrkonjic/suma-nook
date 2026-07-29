@@ -9,6 +9,12 @@ const GameContentCatalogScript := preload("res://scripts/core/game_content_catal
 const CurrentSaveValidatorScript := preload(
 	"res://scripts/systems/current_save_validator.gd"
 )
+const DebugWorldBuilderScript := preload(
+	"res://scripts/debug/debug_world_builder.gd"
+)
+const InputDeviceServiceScript := preload(
+	"res://scripts/input/input_device_service.gd"
+)
 
 
 func _init() -> void:
@@ -51,6 +57,7 @@ func _run() -> void:
 	_test_gg_render_contract()
 	_test_game_preferences()
 	_test_starting_world()
+	_test_maxed_debug_world_spawn()
 	_test_xp_only_hobbies()
 	_test_hobby_journal_and_direct_rewards()
 	_test_out_of_scope_systems_disabled()
@@ -79,7 +86,51 @@ func _run() -> void:
 	_test_player_defeat_safety()
 
 
+func _test_maxed_debug_world_spawn() -> void:
+	var core := fresh_core(8675309)
+	var report: Dictionary = DebugWorldBuilderScript.populate(
+		core,
+		DebugWorldBuilderScript.MAXED_TILE_COUNT,
+		DebugWorldBuilderScript.MAXED_MODEL_COUNT,
+		8675309
+	)
+	var models := 0
+	var spawn_clear := true
+	for state: WorldGrid.CellState in core.grid.cells.values():
+		models += state.structures.size()
+	for y in range(
+		-DebugWorldBuilderScript.SPAWN_CLEAR_RADIUS,
+		DebugWorldBuilderScript.SPAWN_CLEAR_RADIUS + 1
+	):
+		for x in range(
+			-DebugWorldBuilderScript.SPAWN_CLEAR_RADIUS,
+			DebugWorldBuilderScript.SPAWN_CLEAR_RADIUS + 1
+		):
+			var state := core.grid.cell(Vector2i(x, y))
+			if state != null and not state.structures.is_empty():
+				spawn_clear = false
+	check(
+		spawn_clear,
+		"maxed debug world keeps the complete spawn clearing model-free"
+	)
+	check(
+		models == DebugWorldBuilderScript.MAXED_MODEL_COUNT,
+		"maxed debug world relocates spawn models without reducing stress count"
+	)
+	check(
+		int(report["spawn_models"]) == 0
+		and int(report["spawn_clear_cell_count"]) == 25,
+		"debug report records the zero-model 5x5 spawn clearing"
+	)
+	check(
+		core.grid.tile_def(Vector2i.ZERO).id == "tile_grass"
+		and core.profile.position == core.grid.cell_to_world(Vector2i.ZERO),
+		"maxed debug player starts on the reserved grass center"
+	)
+
+
 func _test_input_bindings() -> void:
+	var input_service := InputDeviceServiceScript.new()
 	check(_action_has_key("move_up", KEY_W), "W remains bound to character movement")
 	check(_action_has_key("move_left", KEY_A), "A remains bound to character movement")
 	check(not _action_has_key("move_up", KEY_UP), "up arrow no longer moves the character")
@@ -89,12 +140,123 @@ func _test_input_bindings() -> void:
 	check(_action_has_key("camera_zoom_in", KEY_UP), "up arrow zooms the camera in")
 	check(_action_has_key("camera_zoom_out", KEY_DOWN), "down arrow zooms the camera out")
 	check(_action_has_key("cancel", KEY_ESCAPE), "Escape opens and closes the pause flow")
+	for action: StringName in InputDeviceService.REQUIRED_CONTROLLER_ACTIONS:
+		check(
+			InputMap.has_action(action)
+			and input_service.action_has_controller_binding(action),
+			"%s has a controller binding" % action
+		)
+	check(
+		_action_has_joypad_button("interact", JOY_BUTTON_X),
+		"west face button is contextual interact"
+	)
+	check(
+		_action_has_joypad_button("jump", JOY_BUTTON_A),
+		"south face button is jump and UI confirm"
+	)
+	check(
+		_action_has_joypad_button("build_mode", JOY_BUTTON_Y),
+		"north face button enters the build context"
+	)
+	check(
+		_action_has_joypad_button("cancel", JOY_BUTTON_B),
+		"east face button is contextual back"
+	)
+	check(
+		_action_has_joypad_axis("undo", JOY_AXIS_TRIGGER_LEFT, 1.0)
+		and _action_has_joypad_axis(
+			"camera_zoom_in", JOY_AXIS_TRIGGER_LEFT, 1.0
+		),
+		"left trigger is contextually undo in build mode and zoom elsewhere"
+	)
+	check(
+		input_service.prompt_for_action(
+			&"interact",
+			InputDeviceService.InputMethod.CONTROLLER
+		) == "X",
+		"controller prompts are resolved from InputMap"
+	)
+	check(
+		input_service.prompt_for_action(
+			&"build_confirm",
+			InputDeviceService.InputMethod.KEYBOARD_MOUSE
+		) == "Left Click",
+		"the build confirm prompt retains its mouse path"
+	)
+	check(
+		InputDeviceService.controller_family_for_name("DualSense Wireless")
+			== InputDeviceService.ControllerFamily.PLAYSTATION
+		and InputDeviceService.controller_family_for_name(
+			"Nintendo Switch Pro Controller"
+		) == InputDeviceService.ControllerFamily.NINTENDO,
+		"controller family detection supports PlayStation and Nintendo names"
+	)
+	var joy_button := InputEventJoypadButton.new()
+	joy_button.pressed = true
+	var quiet_axis := InputEventJoypadMotion.new()
+	quiet_axis.axis_value = 0.2
+	var deliberate_axis := InputEventJoypadMotion.new()
+	deliberate_axis.axis_value = 0.8
+	check(
+		InputDeviceService.classify_event(joy_button)
+			== InputDeviceService.InputMethod.CONTROLLER
+		and InputDeviceService.classify_event(quiet_axis) == -1
+		and InputDeviceService.classify_event(deliberate_axis)
+			== InputDeviceService.InputMethod.CONTROLLER,
+		"device switching ignores stick drift and accepts deliberate input"
+	)
+	check(
+		PlacementController.controller_grid_direction(
+			Vector2i.UP, 0
+		) == Vector2i.UP
+		and PlacementController.controller_grid_direction(
+			Vector2i.UP, 1
+		) == Vector2i.LEFT
+		and PlacementController.controller_grid_direction(
+			Vector2i.UP, 2
+		) == Vector2i.DOWN
+		and PlacementController.controller_grid_direction(
+			Vector2i.UP, 3
+		) == Vector2i.RIGHT,
+		"build cursor directions remain camera-relative through every orbit"
+	)
+	input_service.free()
 
 
 func _action_has_key(action: StringName, physical_keycode: Key) -> bool:
 	for event in InputMap.action_get_events(action):
 		var key_event := event as InputEventKey
 		if key_event != null and key_event.physical_keycode == physical_keycode:
+			return true
+	return false
+
+
+func _action_has_joypad_button(
+	action: StringName,
+	button_index: JoyButton
+) -> bool:
+	for event in InputMap.action_get_events(action):
+		var button_event := event as InputEventJoypadButton
+		if (
+			button_event != null
+			and button_event.button_index == button_index
+		):
+			return true
+	return false
+
+
+func _action_has_joypad_axis(
+	action: StringName,
+	axis: JoyAxis,
+	axis_value: float
+) -> bool:
+	for event in InputMap.action_get_events(action):
+		var motion_event := event as InputEventJoypadMotion
+		if (
+			motion_event != null
+			and motion_event.axis == axis
+			and is_equal_approx(motion_event.axis_value, axis_value)
+		):
 			return true
 	return false
 
@@ -122,8 +284,20 @@ func _test_registries() -> void:
 		"pond collision is selected by its definition instead of a renderer id check"
 	)
 	check(
-		regs.tile("tile_grass").surface_detail_profile == "grass_speckles",
-		"Open Meadow opts into coverable raised grass speckles"
+		regs.active_tile_ids() == [
+			"tile_grass", "tile_sand", "tile_concrete_brutalist",
+			"tile_snowfield"
+		]
+		and regs.tile("tile_grass").uses_layered_visual()
+		and regs.tile("tile_grass").visual_layers.size() == 2
+		and regs.tile("tile_grass").visual_layer("base").asset_id
+			== "tile_layer_base_standard"
+		and regs.tile("tile_grass").visual_layer("surface").asset_id
+			== "tile_layer_surface_flat"
+		and regs.tile("tile_concrete_brutalist").visual_layer("base").asset_id
+			== "tile_layer_base_deep_recess"
+		and regs.tile("tile_grass").surface_detail_profile == "",
+		"the active roster uses the deep constructed base for concrete and a clean meadow surface"
 	)
 	check(
 		regs.structure("struct_dock").collision_profile == "walkable_surface",
@@ -228,6 +402,7 @@ func _test_build_library_categories() -> void:
 		"tile_stone_road": "stone",
 		"tile_cobblestone": "stone",
 		"tile_flagstone": "stone",
+		"tile_concrete_brutalist": "stone",
 		"tile_snowfield": "winter",
 		"tile_snow_drift": "winter",
 		"tile_snow_path": "winter",
@@ -328,38 +503,47 @@ func _test_tile_slot_fill() -> void:
 		)
 		if def.surface_kind == "water":
 			continue
-		var scene := _tile_scene(def.asset_id)
-		check(scene != null, "tile %s resolves a GLB for slot validation" % tile_id)
-		if scene == null:
-			continue
-		var root := scene.instantiate()
+		var asset_ids: Array[String] = [def.asset_id] as Array[String]
+		if def.uses_layered_visual():
+			asset_ids.clear()
+			for layer: Defs.TileVisualLayerDefinition in def.visual_layers:
+				if layer.role in ["base", "surface"]:
+					asset_ids.append(layer.asset_id)
 		var shell := AABB()
 		var has_shell := false
 		var has_filler := false
-		for found in root.find_children("*", "MeshInstance3D", true, false):
-			var mesh_instance := found as MeshInstance3D
-			var lower := String(mesh_instance.name).to_lower()
-			if not (lower.ends_with("_body") or lower.ends_with("_cap")):
+		for asset_id: String in asset_ids:
+			var scene := _tile_scene(asset_id)
+			check(
+				scene != null,
+				"tile %s layer asset %s resolves for slot validation"
+				% [tile_id, asset_id]
+			)
+			if scene == null:
 				continue
-			var relative := Transform3D.IDENTITY
-			var cursor: Node3D = mesh_instance
-			while cursor != null and cursor != root:
-				relative = cursor.transform * relative
-				cursor = cursor.get_parent() as Node3D
-			var bounds: AABB = relative * mesh_instance.get_aabb()
-			shell = bounds if not has_shell else shell.merge(bounds)
-			has_shell = true
-			# A slot filler: one structural mesh whose own footprint is the
-			# full cell AND that reaches the block bottom — a wide cap over a
-			# narrow body would merge to a passing AABB while leaving open
-			# flanks below cap level, so the guarantee must come from a
-			# single mesh.
-			if (
-				bounds.size.x >= TILE_SLOT - EPS and bounds.size.z >= TILE_SLOT - EPS
-				and bounds.position.y <= -0.5 + EPS
-			):
-				has_filler = true
-		root.free()
+			var root := scene.instantiate()
+			for found in root.find_children("*", "MeshInstance3D", true, false):
+				var mesh_instance := found as MeshInstance3D
+				var lower := String(mesh_instance.name).to_lower()
+				if not (lower.ends_with("_body") or lower.ends_with("_cap")):
+					continue
+				var relative := Transform3D.IDENTITY
+				var cursor: Node3D = mesh_instance
+				while cursor != null and cursor != root:
+					relative = cursor.transform * relative
+					cursor = cursor.get_parent() as Node3D
+				var bounds: AABB = relative * mesh_instance.get_aabb()
+				shell = bounds if not has_shell else shell.merge(bounds)
+				has_shell = true
+				# The shared base itself must fill the structural slot; the
+				# merged AABB of multiple narrower pieces is not sufficient.
+				if (
+					bounds.size.x >= TILE_SLOT - EPS
+					and bounds.size.z >= TILE_SLOT - EPS
+					and bounds.position.y <= -0.5 + EPS
+				):
+					has_filler = true
+			root.free()
 		check(has_shell, "tile %s has structural _body/_cap meshes" % tile_id)
 		if not has_shell:
 			continue
@@ -389,6 +573,71 @@ func _test_tile_slot_fill() -> void:
 			has_filler,
 			"tile %s has a full-footprint structural mesh flush to the block bottom" % tile_id
 		)
+
+	var core := fresh_core(303)
+	var palette := load(
+		"res://assets/palettes/gg_material_palette.tres"
+	) as CozyPalette
+	var assets := AssetLibrary.new(MaterialLibrary.new(palette))
+	var factory := TileVisualFactory.new(assets, core.grid)
+	for tile_id: String in core.registries.active_tile_ids():
+		var visual := factory.instantiate_visual(core.registries.tile(tile_id))
+		var base_meshes: Array[MeshInstance3D] = []
+		var surface_meshes: Array[MeshInstance3D] = []
+		for found in visual.find_children("*", "MeshInstance3D", true, false):
+			var mesh := found as MeshInstance3D
+			match String(mesh.get_meta(TileVisualFactory.LAYER_ROLE_META, "")):
+				"base":
+					base_meshes.append(mesh)
+				"surface":
+					surface_meshes.append(mesh)
+		check(
+			not base_meshes.is_empty() and not surface_meshes.is_empty(),
+			"active tile %s assembles explicit base and surface render layers" % tile_id
+		)
+		if tile_id == "tile_concrete_brutalist":
+			var concrete_base_top := -INF
+			var concrete_surface_bottom := INF
+			for mesh in base_meshes + surface_meshes:
+				var relative := Transform3D.IDENTITY
+				var cursor: Node3D = mesh
+				while cursor != null and cursor != visual:
+					relative = cursor.transform * relative
+					cursor = cursor.get_parent() as Node3D
+				var bounds: AABB = relative * mesh.get_aabb()
+				if base_meshes.has(mesh):
+					concrete_base_top = maxf(concrete_base_top, bounds.end.y)
+				else:
+					concrete_surface_bottom = minf(
+						concrete_surface_bottom, bounds.position.y
+					)
+			check(
+				absf(concrete_base_top + 0.20) <= EPS
+				and absf(concrete_surface_bottom + 0.20) <= EPS,
+				"concrete base and hard-shaded cap meet at the 20 cm deep constructed seam"
+			)
+		factory.set_surface_covered(visual, true, false)
+		check(
+			base_meshes.all(func(mesh: MeshInstance3D): return mesh.visible)
+			and surface_meshes.all(func(mesh: MeshInstance3D): return not mesh.visible),
+			"covering %s persists its base and hides its complete surface layer" % tile_id
+		)
+		if tile_id == "tile_concrete_brutalist":
+			var infill := visual.find_child(
+				TileVisualFactory.COVERED_INFILL_NAME, true, false
+			) as MeshInstance3D
+			check(
+				infill != null
+				and absf(infill.position.y + 0.10) <= EPS
+				and absf(infill.get_aabb().size.y - 0.20) <= EPS,
+				"covered concrete replaces its deep cap with an exact 20 cm flush infill"
+			)
+		factory.set_surface_covered(visual, false, false)
+		check(
+			surface_meshes.all(func(mesh: MeshInstance3D): return mesh.visible),
+			"uncovering %s restores its surface layer" % tile_id
+		)
+		visual.free()
 
 
 const TILE_SLOT := 1.70
@@ -596,9 +845,9 @@ func _test_starting_world() -> void:
 	for y in [0, 1]:
 		check(
 			core.grid.tile_def(Vector2i(-1, y)).id == "tile_grass"
-			and core.grid.tile_def(Vector2i(0, y)).id == "tile_plain_ground"
+			and core.grid.tile_def(Vector2i(0, y)).id == "tile_grass"
 			and core.grid.tile_def(Vector2i(1, y)).id == "tile_grass",
-			"opening land row %d is forest / path / forest" % y
+			"opening land row %d uses only the retained standard green tile" % y
 		)
 	var locked: Array[Vector2i] = []
 	for coord: Vector2i in core.grid.cells:
@@ -684,14 +933,14 @@ func _test_hobby_journal_and_direct_rewards() -> void:
 	check(first.was_new_discovery, "first journal catch is marked new")
 	check(core.collection.is_discovered("fish", "test_sunfish"), "journal metadata is recorded")
 	check(core.inventory.counts.is_empty(), "journal discovery creates no fish item stack")
-	var before_tiles := core.stock.tile_count("tile_open_water")
+	var before_tiles := core.stock.tile_count("tile_sand")
 	var old_chance := fishing.direct_tile_reward_chance
 	var old_pool := fishing.direct_tile_reward_pool.duplicate()
 	fishing.direct_tile_reward_chance = 1.0
-	fishing.direct_tile_reward_pool = ["tile_open_water"] as Array[String]
+	fishing.direct_tile_reward_pool = ["tile_sand"] as Array[String]
 	var rare := core.rewards.resolve_hobby_action(fishing)
-	check(rare.optional_tile_reward_id == "tile_open_water", "rare hobby reward is already a finished tile")
-	check(core.stock.tile_count("tile_open_water") == before_tiles + 1, "rare tile enters the Tile Library directly")
+	check(rare.optional_tile_reward_id == "tile_sand", "rare hobby reward is already a finished active tile")
+	check(core.stock.tile_count("tile_sand") == before_tiles + 1, "rare active tile enters the Tile Library directly")
 	check(core.inventory.counts.is_empty(), "rare world reward bypasses material inventory")
 	fishing.collection_entries = old_entries
 	fishing.direct_tile_reward_chance = old_chance
@@ -792,9 +1041,9 @@ func _test_parcels_choice_and_duplicates() -> void:
 	var options := core.parcels.open("parcel_wild")
 	check(options.size() == 3, "parcel reveals three options")
 	var guaranteed: Array = core.registries.tune("guaranteed_first_parcel_options", [])
-	check(str(options) == str(guaranteed), "first-ever parcel offers the guaranteed grove trio")
-	var chosen := core.parcels.choose(0)
-	check(chosen == options[0], "choose returns the picked tile")
+	check(str(options) == str(guaranteed), "first-ever parcel offers the guaranteed active tile trio")
+	var chosen := core.parcels.choose(1)
+	check(chosen == options[1], "choose returns the picked tile")
 	check(core.stock.tile_count(chosen) == 1, "chosen tile lands in build stock")
 	check(core.collection.is_discovered("tiles", chosen), "choice recorded in collection")
 	# duplicate → pattern dust

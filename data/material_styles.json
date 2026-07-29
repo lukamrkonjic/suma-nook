@@ -45,6 +45,7 @@
       "contains": [
         "stone",
         "rock",
+        "concrete",
         "sage_gray"
       ],
       "roughness": 0.7,
@@ -139,6 +140,34 @@
       "roughness": 0.88,
       "metallic": 0.0,
       "specular": 0.25,
+      "calm_cream_mix": 0.0
+    },
+    "concrete_top": {
+      "family": "stone",
+      "roughness": 0.91,
+      "metallic": 0.0,
+      "specular": 0.16,
+      "calm_cream_mix": 0.0
+    },
+    "concrete_side": {
+      "family": "stone",
+      "roughness": 0.89,
+      "metallic": 0.0,
+      "specular": 0.16,
+      "calm_cream_mix": 0.0
+    },
+    "snow_top": {
+      "family": "painted_matte",
+      "roughness": 0.94,
+      "metallic": 0.0,
+      "specular": 0.12,
+      "calm_cream_mix": 0.0
+    },
+    "snow_side": {
+      "family": "painted_matte",
+      "roughness": 0.9,
+      "metallic": 0.0,
+      "specular": 0.14,
       "calm_cream_mix": 0.0
     },
     "plain_ground_gg": {

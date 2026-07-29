@@ -172,6 +172,36 @@ class AnchorDefinition:
 		return a
 
 
+class TileVisualLayerDefinition:
+	extends RefCounted
+	## One render-only component of a logical tile. Gameplay, collision, save
+	## identity, and placement remain owned by TileDefinition.
+	var role: String = "surface"          # base|surface|detail|edge
+	var asset_id: String = ""
+	var material_key: String = ""         # optional semantic palette override
+	var cover_behavior: String = "hide"   # persist|hide
+	var scale_mode: String = "tile_xz"    # tile_xz|none
+	var offset := Vector3.ZERO
+
+	static func from_dict(d: Dictionary) -> TileVisualLayerDefinition:
+		var layer := TileVisualLayerDefinition.new()
+		layer.role = String(d.get("role", "surface"))
+		layer.asset_id = String(d.get("asset_id", ""))
+		layer.material_key = String(d.get("material", ""))
+		layer.cover_behavior = String(
+			d.get("cover_behavior", "persist" if layer.role == "base" else "hide")
+		)
+		layer.scale_mode = String(d.get("scale_mode", "tile_xz"))
+		var raw_offset: Variant = d.get("offset", [0.0, 0.0, 0.0])
+		if raw_offset is Array and raw_offset.size() >= 3:
+			layer.offset = Vector3(
+				float(raw_offset[0]),
+				float(raw_offset[1]),
+				float(raw_offset[2])
+			)
+		return layer
+
+
 class TileDefinition:
 	extends Resource
 	var id: String
@@ -200,7 +230,11 @@ class TileDefinition:
 	var supports_tiles := false
 	var supports_decor := true
 	var surface_kind: String = "flat"  # flat|stairs|uneven|water
-	var render_profile: String = "standard"       # standard|continuous_water
+	var render_profile: String = "standard"       # standard|layered|continuous_water
+	# Layered tiles assemble shared structural shells, replaceable surface
+	# treatments, and optional dressing without destructively joining meshes.
+	# Legacy fused asset_id tiles remain supported for shipped saves/content.
+	var visual_layers: Array[TileVisualLayerDefinition] = []
 	var collision_profile: String = "flat"        # flat|pond_basin|none
 	# Optional low-relief geometry authored by the tile presentation layer.
 	# It may rise above y=0, but is hidden (along with the authored top cap)
@@ -261,12 +295,24 @@ class TileDefinition:
 			"render_profile",
 			"continuous_water" if t.water_cells.has("open_water") else "standard"
 		)
+		for raw_layer: Variant in d.get("layers", []):
+			if raw_layer is Dictionary:
+				t.visual_layers.append(TileVisualLayerDefinition.from_dict(raw_layer))
 		t.collision_profile = d.get(
 			"collision_profile",
 			"pond_basin" if t.water_cells.has("pond") else ("flat" if t.walkable else "none")
 		)
 		t.surface_detail_profile = d.get("surface_detail_profile", "")
 		return t
+
+	func uses_layered_visual() -> bool:
+		return render_profile == "layered"
+
+	func visual_layer(role: String) -> TileVisualLayerDefinition:
+		for layer: TileVisualLayerDefinition in visual_layers:
+			if layer.role == role:
+				return layer
+		return null
 
 
 class SupportSlotDefinition:

@@ -7,6 +7,8 @@ extends CanvasLayer
 ## the current values on the clipboard as .tres lines; "Save" writes them back
 ## to the profile's resource file so the tuning becomes permanent.
 
+signal closed
+
 const SLIDERS := [
 	# section, label, field, min, max, step
 	["Sun", "Energy", "sun_energy", 0.0, 8.0, 0.05],
@@ -31,6 +33,15 @@ const SLIDERS := [
 	["Effects", "Glow threshold", "glow_hdr_threshold", 0.5, 3.0, 0.05],
 	["Effects", "Glow bloom", "glow_bloom", 0.0, 0.2, 0.005],
 	["Effects", "Local lights", "local_light_multiplier", 0.0, 3.0, 0.05],
+	["Fog", "Ground density", "ground_fog_density", 0.0, 2.0, 0.01],
+	["Fog", "Layer height", "ground_fog_height", 0.3, 3.5, 0.05],
+	["Fog", "Noise scale", "ground_fog_noise_scale", 0.02, 0.35, 0.005],
+	["Fog", "Wake radius", "ground_fog_disturbance_radius", 0.3, 1.8, 0.05],
+	["Fog", "Close seconds", "ground_fog_close_seconds", 0.25, 4.0, 0.05],
+	["Rain", "Surface wetness", "rain_surface_wetness", 0.0, 1.5, 0.02],
+	["Rain", "Pooling", "rain_puddle_amount", 0.0, 1.5, 0.02],
+	["Rain", "Impact ripples", "rain_ripple_amount", 0.0, 1.5, 0.02],
+	["Rain", "Walking splash", "rain_walk_splash_amount", 0.0, 1.5, 0.02],
 ]
 const COLORS := [
 	["Sun", "Sun color", "sun_color"],
@@ -39,12 +50,14 @@ const COLORS := [
 	["Ambient", "Equator", "ambient_equator_color"],
 	["Ambient", "Ground", "ambient_ground_color"],
 	["Backdrop", "Background", "background_color"],
+	["Fog", "Fog albedo", "fog_color"],
 ]
 const TOGGLES := [
 	["Ambient", "Sky gradient fill", "ambient_gradient_enabled"],
 	["Effects", "SSAO", "ssao_enabled"],
 	["Effects", "SSIL", "ssil_enabled"],
 	["Effects", "Glow", "glow_enabled"],
+	["Fog", "Localized fog", "fog_enabled"],
 ]
 const TONEMAPS := ["linear", "filmic", "aces", "agx"]
 const COPY_FIELDS := [
@@ -56,7 +69,11 @@ const COPY_FIELDS := [
 	"ssao_power", "ssil_enabled", "ssil_intensity", "glow_enabled",
 	"glow_intensity", "glow_hdr_threshold", "glow_bloom", "exposure",
 	"tonemap", "agx_white", "agx_contrast", "brightness", "contrast",
-	"saturation", "local_light_multiplier",
+	"saturation", "local_light_multiplier", "fog_enabled", "fog_color",
+	"ground_fog_density", "ground_fog_height", "ground_fog_noise_scale",
+	"ground_fog_disturbance_radius", "ground_fog_close_seconds",
+	"rain_surface_wetness", "rain_puddle_amount", "rain_ripple_amount",
+	"rain_walk_splash_amount",
 ]
 
 var _lighting: LightingRig
@@ -68,17 +85,34 @@ var _pickers: Dictionary = {}
 var _checks: Dictionary = {}
 var _tonemap_option: OptionButton
 var _refreshing := false
+var _root: Control
+var _input_service: InputDeviceService
 
 
 func setup(lighting_rig: LightingRig, ui_kit: UiKit) -> void:
 	_lighting = lighting_rig
 	_kit = ui_kit
+	_input_service = InputDeviceService.shared()
 	# Above the pause menu (layer 80): the cockpit stays usable with the menu open.
 	layer = 90
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_build()
 	_lighting.profile_applied.connect(_on_profile_applied)
 	refresh()
+
+
+func focus_default() -> void:
+	if visible and _root != null:
+		_input_service.focus_first(_root)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not visible or not event.is_action_pressed("cancel"):
+		return
+	_input_service.release_focus_in(_root)
+	visible = false
+	closed.emit()
+	get_viewport().set_input_as_handled()
 
 
 func _on_profile_applied(_profile: VisualStyleProfile) -> void:
@@ -117,11 +151,11 @@ func _apply() -> void:
 
 
 func _build() -> void:
-	var root := Control.new()
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.theme = _kit.theme
-	add_child(root)
+	_root = Control.new()
+	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.theme = _kit.theme
+	add_child(_root)
 
 	var panel := PanelContainer.new()
 	panel.name = "LightingTunerPanel"
@@ -131,7 +165,7 @@ func _build() -> void:
 	panel.position = Vector2(12, -74)
 	panel.custom_minimum_size = Vector2(420, 0)
 	panel.add_theme_stylebox_override("panel", _kit.cloud_panel_style())
-	root.add_child(panel)
+	_root.add_child(panel)
 
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 4)
@@ -155,6 +189,7 @@ func _build() -> void:
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(0, 460)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
 	column.add_child(scroll)
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL

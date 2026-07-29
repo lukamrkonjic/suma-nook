@@ -110,22 +110,18 @@ func _run() -> void:
 
 	var live_skeletons := visual.find_children("*", "Skeleton3D", true, false)
 	_check(live_skeletons.size() == 1, "equipped player keeps exactly one live skeleton")
-	var live_skeleton := live_skeletons[0] as Skeleton3D
 	var vest := visual.find_child("CowboyVest", true, false) as MeshInstance3D
 	var exposed := visual.find_child(
 		"BodyExposedForCowboyVest", true, false
 	) as MeshInstance3D
-	_check(vest != null and exposed != null, "both wardrobe meshes attach at runtime")
-	for mesh in [vest, exposed]:
-		if mesh == null:
-			continue
-		_check(mesh.get_parent() == live_skeleton, "%s uses the live player skeleton" % mesh.name)
-		_check(mesh.skin != null, "%s retains skin data after reparenting" % mesh.name)
-		_check(mesh.skeleton == NodePath(".."), "%s resolves the live skeleton path" % mesh.name)
+	_check(
+		vest == null and exposed == null,
+		"modular player skips the incompatible legacy vest bundle"
+	)
 	_check(
 		visual._base_body_meshes.size() == 1
-		and not visual._base_body_meshes[0].visible,
-		"canonical body is hidden only while the fitted replacement is active"
+		and visual._base_body_meshes[0].visible,
+		"modular body remains visible when legacy clothing is equipped"
 	)
 	var body_item := core.equipment.equipped_in("body")
 	var expected_mask := PlayerArmorRegions.mask_for(body_item.hide_regions)
@@ -134,15 +130,12 @@ func _run() -> void:
 		"fitted body derivative needs no coarse runtime shoulder mask"
 	)
 	_check(
-		int(exposed.get_instance_shader_parameter("hide_mask"))
-			== expected_mask,
-		"equipped body clone receives the item's semantic hide mask"
+		exposed == null,
+		"legacy exposed-body clone cannot restore the retired player"
 	)
 	_check(
-		int(visual._base_body_meshes[0].get_instance_shader_parameter(
-			"hide_mask"
-		)) == expected_mask,
-		"canonical body receives the same mask before replacement"
+		visual._body_region_mask == expected_mask,
+		"skipped legacy clothing leaves the canonical body mask unchanged"
 	)
 
 	core.equipment.unequip("body")
@@ -156,9 +149,7 @@ func _run() -> void:
 		"unequipping restores the untouched canonical body"
 	)
 	_check(
-		int(visual._base_body_meshes[0].get_instance_shader_parameter(
-			"hide_mask"
-		)) == 0,
+		visual._body_region_mask == 0,
 		"unequipping clears the canonical body's armor mask"
 	)
 	await process_frame

@@ -17,6 +17,9 @@ material-loot grind, combat loop, survival pressure, or delivery FOMO.
 - Architecture: `docs/ARCHITECTURE.md` · Visual target:
   `docs/STYLE_BREAKDOWN.md` + `docs/VISUAL_FIDELITY_CHECKLIST.md`
 - Asset pipeline (incl. Modly → Blender Tier C flow): `docs/ASSET_PIPELINE.md`
+- Layered tile system and GLB intake: `docs/TILE_AUTHORING.md`
+- Copy-ready tile reference-image prompts: `docs/TILE_IMAGE_GENERATION_PROMPTS.md`
+- Large-world renderer, benchmarks, and F3 profiler: `docs/PERFORMANCE_AUDIT.md`
 
 ## Requirements & running
 
@@ -29,20 +32,31 @@ material-loot grind, combat loop, survival pressure, or delivery FOMO.
 
 ## Controls
 
-| Input | Action |
-|---|---|
-| WASD / left stick | walk (continuous, camera-relative; overrides click travel) |
-| Left click ground | walk there |
-| Left click object / E | approach and interact / contextual interact |
-| Space | dodge |
-| B | building mode · click place · click placed piece to move |
-| R | rotate held piece · X store held piece |
-| ← / → or Q / X | rotate camera 90° with the grid |
-| ↑ / ↓ or mouse wheel / trackpad | zoom camera |
-| Esc / right click | cancel / close |
-| I C K J M | Tile/Build Libraries · character · hobbies · collection · world map |
-| H | return home safely |
-| Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z | undo / redo placement |
+Controllers are hot-pluggable. Suma switches prompts, focus, and pointer
+visibility as soon as a controller is discovered or either input method is
+used. PlayStation and Nintendo button names are shown automatically.
+
+| Action | Keyboard / mouse | Controller |
+|---|---|---|
+| Walk / sprint | WASD / Shift | left stick / L3 |
+| Click travel | left click ground or object | — |
+| Interact | E | X / west face |
+| Jump | Space | A / south face |
+| Build mode / library | B | Y / north face |
+| Place / pick up in build mode | click | A / south face |
+| Move build cursor | pointer | D-pad |
+| Rotate / store held piece | R / X | R3 / X-west |
+| Rotate camera | ← / → or Q / X | LB / RB |
+| Zoom; build undo / redo | ↑ / ↓ or wheel; Ctrl+Z / Ctrl+Shift+Z | LT / RT |
+| Cancel / close | Esc / right click | B / east face |
+| Journals | I C K J M | D-pad; LB/RB changes an open page |
+| Return home | H | R3 outside build mode |
+| Pause | Esc | Menu / Options |
+| Debug asset viewer | F8; drag / wheel | right stick / LT-RT |
+| Performance HUD (debug) | F3 | pause menu Admin page |
+
+The implementation contract and feature checklist live in
+`docs/CONTROLLER_SUPPORT.md`.
 
 ## Tests
 
@@ -67,15 +81,15 @@ direct tile reward chance/pool, collection category/entries, milestones), an
 anchor in `anchors.json`, and host tiles in `tiles.json`. Ordinary hobby
 actions intentionally have no common material drop table.
 
-**A tile** — model it in `art_source/procedural/build_assets.py` (or drop a
-GLB with semantic material names into `assets/3d/final/`), run
-`tools/build_assets.sh`, then add an entry to `data/tiles.json` (family,
-asset_id, weight, optional anchor/unlock levels). It joins the parcel pools
-automatically. Elevation is data-driven: `stackable` allows the tile to be an
-upper block, `supports_tiles` allows another block above it, and
-`supports_decor` allows objects on its surface. Stairs should use
-`surface_kind: "stairs"`, `supports_tiles: false`, and
-`supports_decor: true`.
+**A tile** — follow `docs/TILE_AUTHORING.md`. One logical tile composes a
+required reusable structural `base`, one replaceable `surface`, and optional
+`detail`/`edge` GLBs. Generated sand, snow, grass, fern, leaf, or plank sources
+are archived and hash-pinned, then a deterministic Blender processor exports
+only the useful layer; do not join a copied block into every top. Add the tile
+to `data/tiles.json`, and add its id to `data/tuning.json::active_tile_ids`
+when it is ready for players. Elevation remains data-driven: `stackable`
+allows an upper block, `supports_tiles` allows another block above it, and
+`supports_decor` allows objects on its surface.
 
 **A Land Parcel type** — add an item (`category: "parcel"`) in `items.json`
 plus an entry in `parcels.json` with family weights; optionally a recipe.

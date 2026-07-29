@@ -19,6 +19,41 @@ static func validate(snapshot, issues: Array) -> void:
 				issues, snapshot, "tiles", definition.id,
 				"unlock_level.%s" % skill_id, skill_id, "skills", snapshot.skills
 			)
+	var active_tile_ids: Variant = snapshot.tuning.get("active_tile_ids", [])
+	if not active_tile_ids is Array or active_tile_ids.is_empty():
+		issues.append(ValidationIssueScript.new(
+			ValidationIssueScript.Severity.ERROR, "tuning.active_tiles.required", null,
+			"%s/tuning.json active_tile_ids" % snapshot.base_path,
+			"active_tile_ids must contain at least one tile"
+		))
+	else:
+		var seen_active := {}
+		for index in active_tile_ids.size():
+			var active_tile_id := String(active_tile_ids[index])
+			if not snapshot.tiles.has(active_tile_id):
+				issues.append(ValidationIssueScript.new(
+					ValidationIssueScript.Severity.ERROR, "tuning.active_tile.missing", null,
+					"%s/tuning.json active_tile_ids[%d]" % [snapshot.base_path, index],
+					"referenced tile '%s' does not exist" % active_tile_id
+				))
+			elif (
+				snapshot.tiles[active_tile_id].surface_kind != "water"
+				and not snapshot.tiles[active_tile_id].uses_layered_visual()
+			):
+				issues.append(ValidationIssueScript.new(
+					ValidationIssueScript.Severity.ERROR,
+					"tuning.active_tile.not_layered", null,
+					"%s/tuning.json active_tile_ids[%d]" % [snapshot.base_path, index],
+					"active land tile '%s' must use the layered render profile"
+					% active_tile_id
+				))
+			elif seen_active.has(active_tile_id):
+				issues.append(ValidationIssueScript.new(
+					ValidationIssueScript.Severity.ERROR, "tuning.active_tile.duplicate", null,
+					"%s/tuning.json active_tile_ids[%d]" % [snapshot.base_path, index],
+					"tile '%s' appears more than once" % active_tile_id
+				))
+			seen_active[active_tile_id] = true
 	for definition: Defs.StructureDefinition in snapshot.structures.values():
 		_reference(
 			issues, snapshot, "structures", definition.id, "anchor", definition.anchor_id,
@@ -43,11 +78,25 @@ static func validate(snapshot, issues: Array) -> void:
 			"loot_tables", snapshot.loot_tables
 		)
 		for index in definition.direct_tile_reward_pool.size():
+			var direct_tile_id := definition.direct_tile_reward_pool[index]
 			_reference(
 				issues, snapshot, "skills", definition.id,
 				"direct_tile_reward_pool[%d]" % index,
-				definition.direct_tile_reward_pool[index], "tiles", snapshot.tiles, false
+				direct_tile_id, "tiles", snapshot.tiles, false
 			)
+			if (
+				active_tile_ids is Array
+				and snapshot.tiles.has(direct_tile_id)
+				and not active_tile_ids.has(direct_tile_id)
+			):
+				issues.append(ValidationIssueScript.new(
+					ValidationIssueScript.Severity.ERROR,
+					"skill.direct_tile_reward.inactive",
+					snapshot.source("skills", definition.id),
+					"direct_tile_reward_pool[%d]" % index,
+					"direct reward tile '%s' is not in active_tile_ids"
+					% direct_tile_id
+				))
 		for index in definition.unlocks.size():
 			var unlock: Dictionary = definition.unlocks[index]
 			var kind := String(unlock.get("kind", ""))
@@ -72,6 +121,20 @@ static func validate(snapshot, issues: Array) -> void:
 					issues, snapshot, "skills", definition.id,
 					"unlocks[%d].id" % index, content_id, target_kind, target, false
 				)
+			if (
+				kind == "tile_reward"
+				and active_tile_ids is Array
+				and snapshot.tiles.has(content_id)
+				and not active_tile_ids.has(content_id)
+			):
+				issues.append(ValidationIssueScript.new(
+					ValidationIssueScript.Severity.ERROR,
+					"skill.tile_reward.inactive",
+					snapshot.source("skills", definition.id),
+					"unlocks[%d].id" % index,
+					"milestone reward tile '%s' is not in active_tile_ids"
+					% content_id
+				))
 	for definition: Defs.LootTableDefinition in snapshot.loot_tables.values():
 		for index in definition.entries.size():
 			_reference(
@@ -133,6 +196,13 @@ static func validate(snapshot, issues: Array) -> void:
 				"%s/tuning.json guaranteed_first_parcel_options[%d]"
 				% [snapshot.base_path, index],
 				"referenced tile '%s' does not exist" % tile_id
+			))
+		elif active_tile_ids is Array and not active_tile_ids.has(tile_id):
+			issues.append(ValidationIssueScript.new(
+				ValidationIssueScript.Severity.ERROR, "tuning.guaranteed_option.inactive", null,
+				"%s/tuning.json guaranteed_first_parcel_options[%d]"
+				% [snapshot.base_path, index],
+				"guaranteed tile '%s' is not in active_tile_ids" % tile_id
 			))
 
 

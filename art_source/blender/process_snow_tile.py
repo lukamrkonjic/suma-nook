@@ -1,9 +1,9 @@
-"""Build ``tile_snowfield`` from Luka's generated snow and Suma's standard body.
+"""Build the snow surface layer from Luka's generated snow.
 
 The shared surface-extraction pipeline samples the original upper snow shape,
 regularizes it into a tileable height field, applies a deliberately strong
-low-frequency polish, compresses the relief, and mounts the result on the same
-clean structural body used by the other production tiles.
+low-frequency polish, compresses the relief, and exports a replaceable surface
+that the runtime mounts on the shared structural tile base.
 
 Run from the repository root with Blender 5.x:
 
@@ -28,7 +28,11 @@ processor.SOURCE = (
     / "snow_tile_source.glb"
 )
 processor.OUTPUT = (
-    processor.ROOT / "assets" / "3d" / "reworked" / "tile_snowfield.glb"
+    processor.ROOT
+    / "assets"
+    / "3d"
+    / "reworked"
+    / "tile_layer_surface_snow.glb"
 )
 processor.EXPECTED_SOURCE_SHA256 = (
     "F200BA1D6B64B7055F00616831FAC667850E12D64D1ABF1E8E32E861BA79C2C4"
@@ -37,9 +41,7 @@ processor.ASSET_LABEL = "snow"
 processor.MATERIAL_NAME = "snow_top"
 processor.CAP_OBJECT_NAME = "snow_cap"
 processor.CAP_MESH_NAME = "heavily_smoothed_source_snow_cap_mesh"
-processor.BODY_OBJECT_NAME = "snow_body"
-processor.BODY_MESH_NAME = "clean_standard_snow_body_mesh"
-processor.REPORT_PREFIX = "SNOW_TILE_COMPOSITE_REPORT="
+processor.REPORT_PREFIX = "SNOW_TILE_SURFACE_REPORT="
 processor.PALETTE = {
     "snow_top": "F1ECE2",
 }

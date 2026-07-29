@@ -197,10 +197,41 @@ func has_definition(kind: String, id: String) -> bool:
 	return definitions(kind).has(id)
 
 
+func active_tile_ids() -> Array[String]:
+	var configured: Variant = tuning.get("active_tile_ids", [])
+	var result: Array[String] = []
+	if configured is Array and not configured.is_empty():
+		for tile_id: Variant in configured:
+			var normalized := String(tile_id)
+			if tiles.has(normalized) and not result.has(normalized):
+				result.append(normalized)
+		return result
+	# Compatibility for custom/older data sets that predate the active roster.
+	for definition: Defs.TileDefinition in tiles.values():
+		if definition.obtainable:
+			result.append(definition.id)
+	return result
+
+
+func is_tile_active(tile_id: String) -> bool:
+	return active_tile_ids().has(tile_id)
+
+
+func active_tiles() -> Array:
+	var result: Array = []
+	for tile_id: String in active_tile_ids():
+		result.append(tiles[tile_id])
+	return result
+
+
 func tiles_in_family(family: String) -> Array:
 	var result: Array = []
 	for definition: Defs.TileDefinition in tiles.values():
-		if definition.family == family and definition.obtainable:
+		if (
+			definition.family == family
+			and definition.obtainable
+			and is_tile_active(definition.id)
+		):
 			result.append(definition)
 	return result
 

@@ -1,0 +1,5698 @@
+{
+  "targetName": "Imota player male",
+  "targetId": "imota-player-male",
+  "schemaVersion": "2.1",
+  "terminologyProfile": {
+    "domain": "native procedural Godot 4 asset",
+    "geometryTerms": [
+      "silhouette",
+      "topology",
+      "primitive",
+      "bevel",
+      "chamfer",
+      "taper",
+      "bend",
+      "boolean cut",
+      "edge loop",
+      "surface normal",
+      "displacement"
+    ],
+    "materialTerms": [
+      "albedo",
+      "baseColor",
+      "roughness",
+      "metalness",
+      "normal map",
+      "bump map",
+      "ambient occlusion",
+      "cavity dirt",
+      "edge wear",
+      "clearcoat"
+    ],
+    "lightingTerms": [
+      "key light",
+      "fill light",
+      "rim light",
+      "HDRI/environment reflection",
+      "contact shadow"
+    ],
+    "descriptionRule": "Use measurable 3D graphics terms. Avoid vague words unless they are paired with concrete geometry/material/shader parameters."
+  },
+  "sourceImage": "C:\\Users\\Luka\\AppData\\Local\\Temp\\codex-clipboard-66c453e0-e4b2-477a-953b-55622d0cdb80.png",
+  "referenceCamera": {
+    "solved": false,
+    "fovDegrees": 40.0,
+    "aspect": 1.0,
+    "orientation": {
+      "yaw": 0.0,
+      "pitch": 0.0,
+      "roll": 0.0
+    },
+    "positionHint": [
+      0.0,
+      0.0,
+      3.0
+    ],
+    "note": "For likeness work, solve the reference camera (forge/stage1_intake/solve_camera_pose.py) so the review render aligns with the photo and the reference can be projected. Confirm by overlay review."
+  },
+  "suitability": "conditional",
+  "scores": {
+    "object_isolation": 0,
+    "silhouette_readability": 0,
+    "depth_inference": 0,
+    "primitive_decomposition": 0,
+    "material_procedurality": 0,
+    "occlusion_risk": 0,
+    "interaction_fit": 0
+  },
+  "preSpecAssessment": {
+    "objectClass": {
+      "primaryType": "stylized humanoid player character",
+      "primaryDomain": "character",
+      "formLanguage": [
+        "rounded clay-like silhouette",
+        "oversized head and compact torso",
+        "soft continuous limbs with bulb hands and feet",
+        "symmetrical graphic facial features"
+      ],
+      "structureKind": [
+        "single connected character surface",
+        "humanoid deformation rig",
+        "surface color zones for face and hair"
+      ],
+      "motionPotential": [
+        "full-body humanoid locomotion",
+        "tool actions from right hand",
+        "head and spine secondary motion"
+      ],
+      "materialFamilies": [
+        "matte warm skin",
+        "soft satin brown hair",
+        "glossy dark eyes"
+      ],
+      "notes": "Observed: front orthographic-style T-pose, continuous rounded body, large head, swoop hair, brows, oval eyes, bulb nose, moustache and small mouth. Inferred: unseen rear surfaces continue the same smooth clay language; exact back hair shape remains review-dependent."
+    },
+    "complexity": {
+      "tier": "complex",
+      "scores": {
+        "silhouetteComplexity": 3,
+        "componentCount": 3,
+        "hierarchyDepth": 3,
+        "repetitionDensity": 2,
+        "materialLayerCount": 3,
+        "localDetailDensity": 3,
+        "occlusionRisk": 3,
+        "actionReadinessNeed": 3
+      },
+      "estimatedCounts": {
+        "macroComponents": 7,
+        "mesoComponents": 16,
+        "microFeatureGroups": 12,
+        "materialLayers": 4,
+        "repetitionSystems": 1
+      },
+      "reasoning": [
+        "The source silhouette is visually simple but a production player requires stable limb deformation, equipment sockets, locomotion, facial palette separation, and close camera readability.",
+        "The supplied mesh is a single 1,800-triangle connected surface, so feature classification and weight cleanup are higher-risk than its polygon count suggests."
+      ]
+    },
+    "specDepthDecision": {
+      "requiredDepth": "complex",
+      "minimumComponentLevels": [
+        "macro",
+        "meso",
+        "micro"
+      ],
+      "needsRepetitionSystems": true,
+      "needsMaterialLocalOverrides": true,
+      "needsMultipleReviewViews": true,
+      "needsActionReadyHierarchy": true,
+      "rationale": "The character is the persistent player avatar and must deform, animate, carry tools, and remain readable from the isometric camera."
+    },
+    "unknownsToResolveBeforeImplementation": [],
+    "detailInventory": {
+      "scanMethod": "component-zones",
+      "targetMinDetails": 10,
+      "note": "Identity details were checked in head, face, upper-body and lower-body crops and map to explicit feature/material IDs.",
+      "details": [
+        {
+          "id": "d01",
+          "kind": "contour",
+          "mapsTo": {
+            "ref": "hair-quiff"
+          }
+        },
+        {
+          "id": "d02",
+          "kind": "ridge",
+          "mapsTo": {
+            "ref": "brow-l"
+          }
+        },
+        {
+          "id": "d03",
+          "kind": "ridge",
+          "mapsTo": {
+            "ref": "brow-r"
+          }
+        },
+        {
+          "id": "d04",
+          "kind": "gloss",
+          "mapsTo": {
+            "ref": "eyes"
+          }
+        },
+        {
+          "id": "d05",
+          "kind": "contour",
+          "mapsTo": {
+            "ref": "nose"
+          }
+        },
+        {
+          "id": "d06",
+          "kind": "ridge",
+          "mapsTo": {
+            "ref": "moustache-l"
+          }
+        },
+        {
+          "id": "d07",
+          "kind": "ridge",
+          "mapsTo": {
+            "ref": "moustache-r"
+          }
+        },
+        {
+          "id": "d08",
+          "kind": "groove",
+          "mapsTo": {
+            "ref": "mouth"
+          }
+        },
+        {
+          "id": "d09",
+          "kind": "contour",
+          "mapsTo": {
+            "ref": "ear-l"
+          }
+        },
+        {
+          "id": "d10",
+          "kind": "contour",
+          "mapsTo": {
+            "ref": "ear-r"
+          }
+        }
+      ]
+    },
+    "anatomy": {
+      "applies": true,
+      "styleHeads": 2.55,
+      "proportions": {
+        "headUnit": 1.0,
+        "torso": 0.68,
+        "legs": 0.92,
+        "shoulderWidth": 1.55,
+        "hipWidth": 0.72
+      },
+      "pose": {
+        "type": "front T-pose",
+        "jointAngles": {
+          "shoulders": 90.0,
+          "elbows": 0.0,
+          "hips": 0.0,
+          "knees": 0.0
+        }
+      },
+      "faceLandmarks": {
+        "eyeLine": 0.285,
+        "eyeSpacing": 0.115,
+        "noseBase": 0.345,
+        "mouthLine": 0.385,
+        "hairline": 0.165
+      },
+      "features": [
+        "asymmetric upward hair quiff",
+        "paired arched brows",
+        "paired vertical oval eyes",
+        "round protruding nose",
+        "two-lobed moustache",
+        "small centered mouth",
+        "round side ears"
+      ],
+      "confidence": 0.9,
+      "note": "Measurements are normalized observations from the admitted front reference; depth and rear anatomy remain image-guided inference."
+    },
+    "sourceImage": "C:\\Users\\Luka\\AppData\\Local\\Temp\\codex-clipboard-66c453e0-e4b2-477a-953b-55622d0cdb80.png"
+  },
+  "qualityContract": {
+    "qualityBar": "complex",
+    "definitionOfDone": [
+      "The in-game player matches the supplied rounded male silhouette and Imota skin/hair/eye palette from the isometric gameplay camera.",
+      "A generated Rigify control rig drives a clean deformation/export rig with stable hands, feet, head and equipment sockets.",
+      "Eyes, nose, brows, moustache, mouth and four hairstyle meshes remain separate head-bone modules so hairstyles can switch and headwear can hide hair.",
+      "Idle and walk clips deform without shoulder collapse, foot sliding, facial tearing, or visible low-poly faceting.",
+      "The exported runtime mesh remains inexpensive enough for the player avatar and does not add per-frame scripts or extra draw passes."
+    ],
+    "minimumSpecDepth": {
+      "macroComponents": 7,
+      "mesoComponents": 12,
+      "microFeatureGroups": 10,
+      "materialLayers": 4,
+      "repetitionSystems": 1,
+      "reviewViewpoints": 4
+    },
+    "featureGroups": [
+      {
+        "id": "overall-silhouette",
+        "name": "Overall silhouette and proportions",
+        "required": true,
+        "qualityCriteria": [
+          "Bounding shape, dominant curves, negative spaces, and scale relationships are explicitly described."
+        ],
+        "evidenceRefs": [
+          "full-object"
+        ],
+        "failureModes": [
+          "model reads as a generic placeholder instead of the reference object",
+          "major proportions are guessed without evidence"
+        ]
+      },
+      {
+        "id": "primary-structure",
+        "name": "Primary structure and hierarchy",
+        "required": true,
+        "qualityCriteria": [
+          "Major parts, joints, seams, contact points, and parent-child relationships are named before code generation."
+        ],
+        "evidenceRefs": [
+          "full-object"
+        ],
+        "failureModes": [
+          "large visible parts are merged into one mesh",
+          "component hierarchy is too shallow for the observed complexity"
+        ]
+      },
+      {
+        "id": "attachment-joint-correctness",
+        "name": "Attachment and joint correctness",
+        "required": true,
+        "qualityCriteria": [
+          "Every visible child appendage, branch, limb, handle, connector, tube, cable, horn, wing, leg, or hinged part has an attachment contract with parent socket, localStart/localEnd, contact type, embed/overlap, and gap tolerance."
+        ],
+        "evidenceRefs": [
+          "full-object"
+        ],
+        "failureModes": [
+          "child part root floats away from the parent",
+          "branch/limb/tube is centered in space instead of pivoting from its root",
+          "parent-child transform mixes world and local coordinates"
+        ]
+      },
+      {
+        "id": "surface-material-response",
+        "name": "Surface material response",
+        "required": true,
+        "qualityCriteria": [
+          "Albedo zones, roughness, normal/bump/displacement intent, cavity dirt, edge wear, and local overrides are specified where visible.",
+          "Important materials define independent albedo, roughness, height/normal, and AO responses instead of reusing one texture for unrelated PBR channels.",
+          "Surface response is decomposed into macro, meso, and micro frequency bands with scale and amplitude tied to object scale."
+        ],
+        "evidenceRefs": [
+          "full-object"
+        ],
+        "failureModes": [
+          "surface looks like flat plastic",
+          "local material variation is missing or not tied to image evidence"
+        ]
+      },
+      {
+        "id": "reference-lookdev",
+        "name": "Reference color, material, and lighting response",
+        "required": true,
+        "qualityCriteria": [
+          "Material-pass names the reference-derived albedo palette, roughness variation, tactile normal/bump/displacement response, and local masks.",
+          "When a source image is available, run reference PBR extraction and require confidence >= 0.7 before treating maps as implementation-ready.",
+          "Lighting-pass names key/fill/rim or environment light, exposure, tone mapping, background, and contact shadow behavior.",
+          "Neutral, grazing-angle, and reference-matched renders prove that surface relief survives relighting and is not painted into albedo."
+        ],
+        "evidenceRefs": [
+          "full-object"
+        ],
+        "failureModes": [
+          "model has acceptable shape but reads as flat shaded or plastic",
+          "colors are a generic average instead of reference-observed local color zones",
+          "lighting is evenly ambient and cannot reproduce the source value range"
+        ]
+      }
+    ],
+    "visualDeltaChecks": [
+      "silhouette and negative-space delta",
+      "component hierarchy depth delta",
+      "repetition density and distribution delta",
+      "material albedo/roughness/normal response delta",
+      "local feature placement and scale delta"
+    ],
+    "antiShallowSpecRules": [
+      "Do not proceed to code if qualityContract.qualityBar is unassessed.",
+      "Do not proceed to code if the spec only contains a root component for a moderate or complex object.",
+      "Do not proceed to code if required featureGroups are not represented by componentTree, materials, or repetitionSystems.",
+      "Do not proceed to code if visible local features are described only in prose and not attached to components/materials/evidenceRefs.",
+      "Do not proceed past structural-pass if attached child parts lack attachment.parentSocket, localStart, localEnd, embedDepth/overlap, and gapTolerance.",
+      "Do not pass material look-dev when albedo is reused as roughness, height, normal, or AO.",
+      "Do not pass material look-dev without macro, meso, and micro surface frequency bands for close-up materials.",
+      "Do not pass reference-fidelity material look-dev from a source image without usable referencePbr maps or an explicit documented limitation.",
+      "Do not patch a spec with extracted PBR maps when extraction confidence is below the target threshold unless the user explicitly accepts lower fidelity.",
+      "Do not place adjacent separate-geometry parts below 0.02 world-unit seam overlap (source: grimoire/build/geometry_patterns.md).",
+      "Do not satisfy raised or recessed relief, fasteners, or grip structure with a map alone when the feature affects form; use geometry or displacement (source: grimoire/build/geometry_patterns.md).",
+      "Adjacent components must overlap by at least 0.02 world units at shared seams (source: grimoire/build/geometry_patterns.md).",
+      "Raised or recessed relief and fasteners must be geometry, instanced micro-parts, or displacement; a map alone is an approximation (source: grimoire/build/geometry_patterns.md)."
+    ],
+    "mustNotDo": [
+      "Do not proceed to code if qualityContract.qualityBar is unassessed.",
+      "Do not proceed to code if the spec only contains a root component for a moderate or complex object.",
+      "Do not proceed to code if required featureGroups are not represented by componentTree, materials, or repetitionSystems.",
+      "Do not proceed to code if visible local features are described only in prose and not attached to components/materials/evidenceRefs.",
+      "Do not proceed past structural-pass if attached child parts lack attachment.parentSocket, localStart, localEnd, embedDepth/overlap, and gapTolerance.",
+      "Do not pass material look-dev when albedo is reused as roughness, height, normal, or AO.",
+      "Do not pass material look-dev without macro, meso, and micro surface frequency bands for close-up materials.",
+      "Do not pass reference-fidelity material look-dev from a source image without usable referencePbr maps or an explicit documented limitation.",
+      "Do not patch a spec with extracted PBR maps when extraction confidence is below the target threshold unless the user explicitly accepts lower fidelity.",
+      "Do not place adjacent separate-geometry parts below 0.02 world-unit seam overlap (source: grimoire/build/geometry_patterns.md).",
+      "Do not satisfy raised or recessed relief, fasteners, or grip structure with a map alone when the feature affects form; use geometry or displacement (source: grimoire/build/geometry_patterns.md).",
+      "Adjacent components must overlap by at least 0.02 world units at shared seams (source: grimoire/build/geometry_patterns.md).",
+      "Raised or recessed relief and fasteners must be geometry, instanced micro-parts, or displacement; a map alone is an approximation (source: grimoire/build/geometry_patterns.md)."
+    ]
+  },
+  "qualityTargets": {
+    "targetFidelity": 0.7,
+    "mustMatch": [
+      "macro silhouette and proportions",
+      "primary material albedo/roughness response",
+      "reference-derived PBR material response at or above 0.7 confidence when source pixels are usable",
+      "most recognizable local features"
+    ],
+    "niceToHave": [
+      "micro scratches, stains, chips, and dirt masks",
+      "secondary lighting match"
+    ],
+    "fpsTarget": 60,
+    "reviewViewpoints": [
+      "front",
+      "three-quarter",
+      "side",
+      "isometric-gameplay"
+    ]
+  },
+  "selfCorrectLoop": {
+    "enabled": true,
+    "visualAcceptance": {
+      "reviewer": "ai-vision",
+      "threshold": 0.7,
+      "comparisonArtifactRequired": true,
+      "layerScoresRequired": true,
+      "codePixelDiffIsAcceptanceAuthority": false,
+      "scoringRule": "AI vision must inspect a side-by-side reference/render sheet and score the current pass from 0 to 1. Pixel-diff code may assist diagnostics but cannot approve a pass.",
+      "requiredLayerScores": [
+        "silhouetteProportion",
+        "componentStructure",
+        "formDetail",
+        "materialSurface",
+        "lightingCamera"
+      ],
+      "featureReviewPolicy": {
+        "enabled": true,
+        "reviewUnit": "semantic-subsystem",
+        "maxCriticalFeaturesPerPass": 5,
+        "maxImportantFeaturesPerPass": 3,
+        "criticalDefaultThreshold": 0.8,
+        "importantAverageThreshold": 0.65,
+        "adaptiveEscalation": true,
+        "singleImagePairOnly": true,
+        "selectionRule": "Choose only the most visually salient, identity-defining, user-prioritized, or high-risk semantic systems. Group repeated parts instead of reviewing every mesh. AI vision scores every selected feature from the same full reference/render pair."
+      }
+    },
+    "reviewAfterPasses": [
+      "blockout",
+      "structural-pass",
+      "form-refinement",
+      "material-pass",
+      "surface-pass",
+      "lighting-pass",
+      "interaction-pass",
+      "optimization-pass"
+    ],
+    "allowedActions": [
+      "continue",
+      "refine-spec",
+      "refine-code",
+      "request-input",
+      "stop"
+    ],
+    "specRefineTriggers": [
+      "missing component",
+      "wrong primitive family",
+      "wrong proportions",
+      "material layer under-specified",
+      "local feature not traceable to viewEvidence",
+      "reference ambiguity discovered during implementation"
+    ],
+    "codeRefineTriggers": [
+      "spec is adequate but generated geometry/material does not match",
+      "Godot render differs from reference",
+      "performance budget exceeded",
+      "lighting hides geometry or material response"
+    ],
+    "stopCriteria": [
+      "target fidelity reached or user accepts current approximation",
+      "remaining gaps require new reference images or manual art"
+    ],
+    "screenshotPolicy": {
+      "requiredForPasses": [
+        "blockout",
+        "structural-pass",
+        "form-refinement",
+        "material-pass",
+        "surface-pass",
+        "lighting-pass",
+        "interaction-pass"
+      ],
+      "preferredCapture": "generated-godot-review-capture",
+      "fallbackCapture": "user-supplied-screenshot-path",
+      "minimumEvidence": "Each visual pass needs a reference image, rendered screenshot, side-by-side comparison sheet, AI vision score, layer scores, and critique before choosing continue.",
+      "reviewPairRule": "Compare the same camera/viewpoint whenever possible; do not judge a front reference against a random render angle.",
+      "acceptanceAuthority": "AI vision review of the comparison sheet. Code-generated pixel similarity is not sufficient evidence."
+    }
+  },
+  "featureReviewTargets": [
+    {
+      "id": "anatomy-proportion",
+      "name": "Head-unit proportions and pose",
+      "tier": "critical",
+      "passIds": [
+        "blockout",
+        "proportion-lock"
+      ],
+      "minimumScore": 0.78,
+      "mustPass": true,
+      "componentRefs": [
+        "root",
+        "head",
+        "torso"
+      ],
+      "evidenceRefs": [
+        "full-object"
+      ]
+    },
+    {
+      "id": "face-landmark-placement",
+      "name": "Face landmarks + glasses placement",
+      "tier": "critical",
+      "passIds": [
+        "feature-placement"
+      ],
+      "minimumScore": 0.75,
+      "mustPass": true,
+      "componentRefs": [
+        "head",
+        "glasses-frame-l"
+      ],
+      "evidenceRefs": [
+        "full-object"
+      ]
+    },
+    {
+      "id": "pose-silhouette",
+      "name": "Pose and bust silhouette",
+      "tier": "critical",
+      "passIds": [
+        "blockout",
+        "proportion-lock"
+      ],
+      "minimumScore": 0.75,
+      "mustPass": true,
+      "componentRefs": [
+        "root",
+        "arm-l"
+      ],
+      "evidenceRefs": [
+        "full-object"
+      ]
+    },
+    {
+      "id": "outfit-and-palette",
+      "name": "Outfit + accessories + palette",
+      "tier": "important",
+      "passIds": [
+        "material-pass"
+      ],
+      "minimumScore": 0.7,
+      "mustPass": false,
+      "componentRefs": [
+        "shirt-decal",
+        "headphone",
+        "glasses-frame-l"
+      ],
+      "evidenceRefs": [
+        "full-object"
+      ]
+    }
+  ],
+  "sculptPipeline": {
+    "passGateMode": "locked-sequential",
+    "passOrder": [
+      "blockout",
+      "structural-pass",
+      "material-pass",
+      "lighting-pass",
+      "interaction-pass",
+      "optimization-pass"
+    ],
+    "currentPass": "structural-pass",
+    "completedPasses": [
+      "blockout"
+    ],
+    "lastCompletedPass": "blockout",
+    "blockedReason": "",
+    "nextRequiredEvidence": [
+      "No faceting at gameplay distance.",
+      "Shoulders, elbows, hips and knees deform without collapse.",
+      "attachment contracts for child appendages/connectors",
+      "no floating child roots/joints in the Godot capture",
+      "Godot render from the generated review project",
+      "single side-by-side full reference/render comparison sheet",
+      "all critical semantic feature scores at or above their thresholds",
+      "self-correction review appended with action=continue before the next pass"
+    ]
+  },
+  "lookDevTargets": {
+    "qualityPriority": "reference-fidelity",
+    "materialPass": {
+      "albedoPaletteRequired": true,
+      "roughnessVariationRequired": true,
+      "normalOrBumpRequired": true,
+      "localOverridesRequired": true,
+      "minimumTextureResolution": 512,
+      "preferredTextureResolution": 512,
+      "independentMapChannels": [
+        "albedo",
+        "roughness",
+        "height",
+        "normal",
+        "ambient-occlusion"
+      ],
+      "requiredSurfaceFrequencyBands": [
+        "macro",
+        "meso",
+        "micro"
+      ],
+      "geometryReliefRequiredWhenSilhouetteAffected": true,
+      "referencePbrExtraction": {
+        "requiredWhenSourceImagePresent": true,
+        "targetThreshold": 0.7,
+        "stopOnLowConfidence": true,
+        "script": "forge/stage1_intake/extract_pbr_evidence.py",
+        "acceptedLimitation": "single-image extraction is reference-derived inference, not exact photogrammetry"
+      },
+      "mustAvoid": [
+        "single flat albedo per material",
+        "uniform roughness",
+        "albedo texture reused as roughness/height/normal/AO",
+        "single-frequency random noise",
+        "plastic-looking smooth bark, stone, cloth, foliage, or aged material",
+        "local color/detail described only in prose without material masks",
+        "claiming exact PBR recovery when confidence is below the target threshold"
+      ]
+    },
+    "lightingPass": {
+      "requiredTerms": [
+        "key light",
+        "fill light",
+        "rim or environment light",
+        "exposure",
+        "tone mapping",
+        "background",
+        "contact shadow"
+      ],
+      "mustAvoid": [
+        "ambient-only lighting",
+        "flat value range",
+        "missing contact shadow",
+        "reference lighting copied without separating material readability"
+      ]
+    },
+    "screenshotReview": [
+      "Compare albedo palette and local color zones.",
+      "Compare roughness/normal/bump response under light.",
+      "Compare cavity dirt, edge wear, stains, moss, scratches, or other local masks.",
+      "Compare key/fill/rim structure, exposure, tone mapping, background, and contact shadows.",
+      "Capture a neutral-light render to verify material readability without reference lighting.",
+      "Capture a grazing-light close-up to expose flat normals, uniform roughness, tiling, and plastic highlights.",
+      "Capture a reference-matched render from the same camera framing as the source."
+    ]
+  },
+  "actionReadiness": {
+    "contract": "Every macro/meso component should be generated as a stable named Node3D pivot with a MeshInstance3D child, action metadata, optional Marker3D sockets, collider proxy, and destruction metadata.",
+    "defaultRigType": "Rigify humanoid control rig plus deformation-only game export rig",
+    "rootMotionNode": "mixamorigHips",
+    "requiredComponentFields": [
+      "id",
+      "parent",
+      "transform",
+      "attachment for child appendages, connectors, limbs, tubes, handles, legs, horns, wings, branches, or cables",
+      "actionProfile.animationRole",
+      "actionProfile.pivot",
+      "actionProfile.collider",
+      "actionProfile.destruction"
+    ],
+    "transformChannels": [
+      "translate",
+      "rotate",
+      "scale",
+      "bend",
+      "twist",
+      "detach",
+      "visibility",
+      "material-state"
+    ],
+    "authoringRules": [
+      "Do not collapse independently movable parts into one mesh.",
+      "Put transforms on component pivot groups, not only on raw meshes.",
+      "For attached child parts, put the pivot at the semantic root/socket and build visible geometry from localStart to localEnd.",
+      "Represent hinge, socket, detachable, and breakable intent even when no animation is implemented yet.",
+      "Use simplified collider proxies for runtime physics instead of visual mesh colliders by default."
+    ],
+    "destructionPolicy": {
+      "defaultBreakable": false,
+      "fractureGroupNaming": "Use stable semantic names such as body-shell, left-hinge, glass-panel, branch-segment.",
+      "debrisStrategy": "Prefer detachable component groups and a small number of procedural fragments over random mesh explosion."
+    }
+  },
+  "assumptions": [],
+  "coordinateFrame": {
+    "front": "camera-facing side in the reference image",
+    "up": "image up direction",
+    "scaleReference": "unit scale; adjust after the first Godot review capture"
+  },
+  "silhouette": {
+    "boundingShape": "",
+    "aspectRatios": [],
+    "symmetry": "",
+    "dominantCurves": [],
+    "negativeSpaces": [],
+    "landmarks": []
+  },
+  "viewEvidence": [
+    {
+      "id": "full-object",
+      "view": "primary",
+      "imageRegion": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1.0,
+        "height": 1.0,
+        "units": "normalized"
+      },
+      "observations": [],
+      "confidence": 0.5
+    }
+  ],
+  "componentTree": [
+    {
+      "id": "root",
+      "name": "Character root",
+      "level": "macro",
+      "role": "body",
+      "importance": 1.0,
+      "confidence": 0.8,
+      "primitive": "sphere",
+      "topologyClass": "assembled-solid",
+      "topologyRationale": "Character root is represented as a semantic region of the supplied continuous sculpt so palette assignment and rig review stay stable even though the source contains one connected mesh.",
+      "geometryDescriptor": {
+        "topologyIntent": "stylized character part",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "smooth vertex normals"
+      },
+      "parent": null,
+      "attachment": null,
+      "dimensions": {
+        "width": 1.0,
+        "height": 1.0,
+        "depth": 1.0,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "deforming-surface",
+        "pivot": {
+          "mode": "bone-driven",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": true,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "box proxy"
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "root",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "hidden"
+        }
+      },
+      "material": "skin",
+      "materialLayers": [
+        "skin"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [],
+      "surfaceDetail": {
+        "macroRoughness": 0.03,
+        "microRoughness": 0.015,
+        "bumpAmplitude": 0.004,
+        "normalPattern": "subtle broad clay response",
+        "displacementPattern": "none",
+        "occlusionPattern": "contact creases only",
+        "edgeWearPattern": "none",
+        "notes": "Smooth, not faceted; preserve the authored silhouette."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [],
+      "fidelityTier": "hero",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(224, 176, 108, 1.0)",
+        "secondaryAlbedo": "rgba(224, 176, 108, 1.0)",
+        "materialClass": "skin",
+        "materialClassConfidence": 0.9,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      }
+    },
+    {
+      "id": "body",
+      "name": "Rounded torso and pelvis",
+      "level": "macro",
+      "role": "body",
+      "importance": 1.0,
+      "confidence": 0.8,
+      "primitive": "capsule",
+      "topologyClass": "continuous-sculpt",
+      "topologyRationale": "Rounded torso and pelvis is represented as a semantic region of the supplied continuous sculpt so palette assignment and rig review stay stable even though the source contains one connected mesh.",
+      "geometryDescriptor": {
+        "topologyIntent": "stylized character part",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "smooth vertex normals"
+      },
+      "parent": "root",
+      "attachment": {
+        "parentId": "root",
+        "parentSocket": "root-surface",
+        "localStart": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "localEnd": [
+          0.0,
+          0.02,
+          0.0
+        ],
+        "contactNormal": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "contactType": "continuous-overlap",
+        "embedDepth": 0.025,
+        "overlap": 0.025,
+        "gapTolerance": 0.005,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 1.0,
+        "depth": 1.0,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "deforming-surface",
+        "pivot": {
+          "mode": "bone-driven",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": true,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "box proxy"
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "root",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "hidden"
+        }
+      },
+      "material": "skin",
+      "materialLayers": [
+        "skin"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "body-contour",
+          "description": "Rounded torso and pelvis",
+          "evidenceRefs": [
+            "full-object"
+          ]
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.03,
+        "microRoughness": 0.015,
+        "bumpAmplitude": 0.004,
+        "normalPattern": "subtle broad clay response",
+        "displacementPattern": "none",
+        "occlusionPattern": "contact creases only",
+        "edgeWearPattern": "none",
+        "notes": "Smooth, not faceted; preserve the authored silhouette."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [],
+      "fidelityTier": "hero",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(224, 176, 108, 1.0)",
+        "secondaryAlbedo": "rgba(224, 176, 108, 1.0)",
+        "materialClass": "skin",
+        "materialClassConfidence": 0.9,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      }
+    },
+    {
+      "id": "head",
+      "name": "Oversized rounded head",
+      "level": "macro",
+      "role": "body",
+      "importance": 1.0,
+      "confidence": 0.8,
+      "primitive": "sphere",
+      "topologyClass": "continuous-sculpt",
+      "topologyRationale": "Oversized rounded head is represented as a semantic region of the supplied continuous sculpt so palette assignment and rig review stay stable even though the source contains one connected mesh.",
+      "geometryDescriptor": {
+        "topologyIntent": "stylized character part",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "smooth vertex normals"
+      },
+      "parent": "body",
+      "attachment": {
+        "parentId": "body",
+        "parentSocket": "body-surface",
+        "localStart": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "localEnd": [
+          0.0,
+          0.02,
+          0.0
+        ],
+        "contactNormal": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "contactType": "continuous-overlap",
+        "embedDepth": 0.025,
+        "overlap": 0.025,
+        "gapTolerance": 0.005,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 1.0,
+        "depth": 1.0,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "deforming-surface",
+        "pivot": {
+          "mode": "bone-driven",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": true,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "box proxy"
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "root",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "hidden"
+        }
+      },
+      "material": "skin",
+      "materialLayers": [
+        "skin"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "head-contour",
+          "description": "Oversized rounded head",
+          "evidenceRefs": [
+            "full-object"
+          ]
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.03,
+        "microRoughness": 0.015,
+        "bumpAmplitude": 0.004,
+        "normalPattern": "subtle broad clay response",
+        "displacementPattern": "none",
+        "occlusionPattern": "contact creases only",
+        "edgeWearPattern": "none",
+        "notes": "Smooth, not faceted; preserve the authored silhouette."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [],
+      "fidelityTier": "hero",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(224, 176, 108, 1.0)",
+        "secondaryAlbedo": "rgba(224, 176, 108, 1.0)",
+        "materialClass": "skin",
+        "materialClassConfidence": 0.9,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      }
+    },
+    {
+      "id": "arm-l",
+      "name": "Left arm and bulb hand",
+      "level": "macro",
+      "role": "limb",
+      "importance": 1.0,
+      "confidence": 0.8,
+      "primitive": "capsule",
+      "topologyClass": "continuous-sculpt",
+      "topologyRationale": "Left arm and bulb hand is represented as a semantic region of the supplied continuous sculpt so palette assignment and rig review stay stable even though the source contains one connected mesh.",
+      "geometryDescriptor": {
+        "topologyIntent": "stylized character part",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "smooth vertex normals"
+      },
+      "parent": "body",
+      "attachment": {
+        "parentId": "body",
+        "parentSocket": "body-surface",
+        "localStart": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "localEnd": [
+          0.0,
+          0.02,
+          0.0
+        ],
+        "contactNormal": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "contactType": "continuous-overlap",
+        "embedDepth": 0.025,
+        "overlap": 0.025,
+        "gapTolerance": 0.005,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 1.0,
+        "depth": 1.0,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "deforming-limb",
+        "pivot": {
+          "mode": "joint-root",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": true,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "box proxy"
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "root",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "hidden"
+        }
+      },
+      "material": "skin",
+      "materialLayers": [
+        "skin"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "arm-l-contour",
+          "description": "Left arm and bulb hand",
+          "evidenceRefs": [
+            "full-object"
+          ]
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.03,
+        "microRoughness": 0.015,
+        "bumpAmplitude": 0.004,
+        "normalPattern": "subtle broad clay response",
+        "displacementPattern": "none",
+        "occlusionPattern": "contact creases only",
+        "edgeWearPattern": "none",
+        "notes": "Smooth, not faceted; preserve the authored silhouette."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [],
+      "fidelityTier": "hero",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(224, 176, 108, 1.0)",
+        "secondaryAlbedo": "rgba(224, 176, 108, 1.0)",
+        "materialClass": "skin",
+        "materialClassConfidence": 0.9,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      }
+    },
+    {
+      "id": "arm-r",
+      "name": "Right arm and bulb hand",
+      "level": "macro",
+      "role": "limb",
+      "importance": 1.0,
+      "confidence": 0.8,
+      "primitive": "capsule",
+      "topologyClass": "continuous-sculpt",
+      "topologyRationale": "Right arm and bulb hand is represented as a semantic region of the supplied continuous sculpt so palette assignment and rig review stay stable even though the source contains one connected mesh.",
+      "geometryDescriptor": {
+        "topologyIntent": "stylized character part",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "smooth vertex normals"
+      },
+      "parent": "body",
+      "attachment": {
+        "parentId": "body",
+        "parentSocket": "body-surface",
+        "localStart": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "localEnd": [
+          0.0,
+          0.02,
+          0.0
+        ],
+        "contactNormal": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "contactType": "continuous-overlap",
+        "embedDepth": 0.025,
+        "overlap": 0.025,
+        "gapTolerance": 0.005,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 1.0,
+        "depth": 1.0,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "deforming-limb",
+        "pivot": {
+          "mode": "joint-root",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": true,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "box proxy"
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "root",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "hidden"
+        }
+      },
+      "material": "skin",
+      "materialLayers": [
+        "skin"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "arm-r-contour",
+          "description": "Right arm and bulb hand",
+          "evidenceRefs": [
+            "full-object"
+          ]
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.03,
+        "microRoughness": 0.015,
+        "bumpAmplitude": 0.004,
+        "normalPattern": "subtle broad clay response",
+        "displacementPattern": "none",
+        "occlusionPattern": "contact creases only",
+        "edgeWearPattern": "none",
+        "notes": "Smooth, not faceted; preserve the authored silhouette."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [],
+      "fidelityTier": "hero",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(224, 176, 108, 1.0)",
+        "secondaryAlbedo": "rgba(224, 176, 108, 1.0)",
+        "materialClass": "skin",
+        "materialClassConfidence": 0.9,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      }
+    },
+    {
+      "id": "leg-l",
+      "name": "Left leg and rounded foot",
+      "level": "macro",
+      "role": "limb",
+      "importance": 1.0,
+      "confidence": 0.8,
+      "primitive": "capsule",
+      "topologyClass": "continuous-sculpt",
+      "topologyRationale": "Left leg and rounded foot is represented as a semantic region of the supplied continuous sculpt so palette assignment and rig review stay stable even though the source contains one connected mesh.",
+      "geometryDescriptor": {
+        "topologyIntent": "stylized character part",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "smooth vertex normals"
+      },
+      "parent": "body",
+      "attachment": {
+        "parentId": "body",
+        "parentSocket": "body-surface",
+        "localStart": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "localEnd": [
+          0.0,
+          0.02,
+          0.0
+        ],
+        "contactNormal": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "contactType": "continuous-overlap",
+        "embedDepth": 0.025,
+        "overlap": 0.025,
+        "gapTolerance": 0.005,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 1.0,
+        "depth": 1.0,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "deforming-limb",
+        "pivot": {
+          "mode": "joint-root",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": true,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "box proxy"
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "root",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "hidden"
+        }
+      },
+      "material": "skin",
+      "materialLayers": [
+        "skin"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "leg-l-contour",
+          "description": "Left leg and rounded foot",
+          "evidenceRefs": [
+            "full-object"
+          ]
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.03,
+        "microRoughness": 0.015,
+        "bumpAmplitude": 0.004,
+        "normalPattern": "subtle broad clay response",
+        "displacementPattern": "none",
+        "occlusionPattern": "contact creases only",
+        "edgeWearPattern": "none",
+        "notes": "Smooth, not faceted; preserve the authored silhouette."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [],
+      "fidelityTier": "hero",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(224, 176, 108, 1.0)",
+        "secondaryAlbedo": "rgba(224, 176, 108, 1.0)",
+        "materialClass": "skin",
+        "materialClassConfidence": 0.9,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      }
+    },
+    {
+      "id": "leg-r",
+      "name": "Right leg and rounded foot",
+      "level": "macro",
+      "role": "limb",
+      "importance": 1.0,
+      "confidence": 0.8,
+      "primitive": "capsule",
+      "topologyClass": "continuous-sculpt",
+      "topologyRationale": "Right leg and rounded foot is represented as a semantic region of the supplied continuous sculpt so palette assignment and rig review stay stable even though the source contains one connected mesh.",
+      "geometryDescriptor": {
+        "topologyIntent": "stylized character part",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "smooth vertex normals"
+      },
+      "parent": "body",
+      "attachment": {
+        "parentId": "body",
+        "parentSocket": "body-surface",
+        "localStart": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "localEnd": [
+          0.0,
+          0.02,
+          0.0
+        ],
+        "contactNormal": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "contactType": "continuous-overlap",
+        "embedDepth": 0.025,
+        "overlap": 0.025,
+        "gapTolerance": 0.005,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 1.0,
+        "depth": 1.0,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "deforming-limb",
+        "pivot": {
+          "mode": "joint-root",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": true,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "box proxy"
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "root",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "hidden"
+        }
+      },
+      "material": "skin",
+      "materialLayers": [
+        "skin"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "leg-r-contour",
+          "description": "Right leg and rounded foot",
+          "evidenceRefs": [
+            "full-object"
+          ]
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.03,
+        "microRoughness": 0.015,
+        "bumpAmplitude": 0.004,
+        "normalPattern": "subtle broad clay response",
+        "displacementPattern": "none",
+        "occlusionPattern": "contact creases only",
+        "edgeWearPattern": "none",
+        "notes": "Smooth, not faceted; preserve the authored silhouette."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [],
+      "fidelityTier": "hero",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(224, 176, 108, 1.0)",
+        "secondaryAlbedo": "rgba(224, 176, 108, 1.0)",
+        "materialClass": "skin",
+        "materialClassConfidence": 0.9,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      }
+    },
+    {
+      "id": "hair-crown",
+      "name": "Brown side hair mass",
+      "level": "meso",
+      "role": "surface",
+      "importance": 1.0,
+      "confidence": 0.8,
+      "primitive": "sphere",
+      "topologyClass": "surface-relief",
+      "topologyRationale": "Brown side hair mass is represented as a semantic region of the supplied continuous sculpt so palette assignment and rig review stay stable even though the source contains one connected mesh.",
+      "geometryDescriptor": {
+        "topologyIntent": "stylized character part",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "smooth vertex normals"
+      },
+      "parent": "head",
+      "attachment": {
+        "parentId": "head",
+        "parentSocket": "head-surface",
+        "localStart": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "localEnd": [
+          0.0,
+          0.02,
+          0.0
+        ],
+        "contactNormal": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "contactType": "continuous-overlap",
+        "embedDepth": 0.025,
+        "overlap": 0.025,
+        "gapTolerance": 0.005,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 1.0,
+        "depth": 1.0,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "deforming-surface",
+        "pivot": {
+          "mode": "bone-driven",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": true,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "box proxy"
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "root",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "hidden"
+        }
+      },
+      "material": "hair",
+      "materialLayers": [
+        "hair"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "hair-crown",
+          "description": "Brown side hair mass",
+          "evidenceRefs": [
+            "full-object"
+          ]
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.03,
+        "microRoughness": 0.015,
+        "bumpAmplitude": 0.004,
+        "normalPattern": "subtle broad clay response",
+        "displacementPattern": "none",
+        "occlusionPattern": "contact creases only",
+        "edgeWearPattern": "none",
+        "notes": "Smooth, not faceted; preserve the authored silhouette."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [],
+      "fidelityTier": "hero",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(84, 56, 38, 1.0)",
+        "secondaryAlbedo": "rgba(84, 56, 38, 1.0)",
+        "materialClass": "plastic",
+        "materialClassConfidence": 0.9,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      }
+    },
+    {
+      "id": "hair-quiff",
+      "name": "Asymmetric upward hair quiff",
+      "level": "meso",
+      "role": "surface",
+      "importance": 1.0,
+      "confidence": 0.8,
+      "primitive": "sphere",
+      "topologyClass": "surface-relief",
+      "topologyRationale": "Asymmetric upward hair quiff is represented as a semantic region of the supplied continuous sculpt so palette assignment and rig review stay stable even though the source contains one connected mesh.",
+      "geometryDescriptor": {
+        "topologyIntent": "stylized character part",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "smooth vertex normals"
+      },
+      "parent": "hair-crown",
+      "attachment": {
+        "parentId": "hair-crown",
+        "parentSocket": "hair-crown-surface",
+        "localStart": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "localEnd": [
+          0.0,
+          0.02,
+          0.0
+        ],
+        "contactNormal": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "contactType": "continuous-overlap",
+        "embedDepth": 0.025,
+        "overlap": 0.025,
+        "gapTolerance": 0.005,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 1.0,
+        "depth": 1.0,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "deforming-surface",
+        "pivot": {
+          "mode": "bone-driven",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": true,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "box proxy"
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "root",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "hidden"
+        }
+      },
+      "material": "hair",
+      "materialLayers": [
+        "hair"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "hair-quiff",
+          "description": "Asymmetric upward hair quiff",
+          "evidenceRefs": [
+            "full-object"
+          ]
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.03,
+        "microRoughness": 0.015,
+        "bumpAmplitude": 0.004,
+        "normalPattern": "subtle broad clay response",
+        "displacementPattern": "none",
+        "occlusionPattern": "contact creases only",
+        "edgeWearPattern": "none",
+        "notes": "Smooth, not faceted; preserve the authored silhouette."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [],
+      "fidelityTier": "hero",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(84, 56, 38, 1.0)",
+        "secondaryAlbedo": "rgba(84, 56, 38, 1.0)",
+        "materialClass": "plastic",
+        "materialClassConfidence": 0.9,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      }
+    },
+    {
+      "id": "hair-crop",
+      "name": "Compact cropped hairstyle",
+      "level": "meso",
+      "role": "surface",
+      "importance": 1.0,
+      "confidence": 0.8,
+      "primitive": "sphere",
+      "topologyClass": "surface-relief",
+      "topologyRationale": "Compact cropped hairstyle is represented as a semantic region of the supplied continuous sculpt so palette assignment and rig review stay stable even though the source contains one connected mesh.",
+      "geometryDescriptor": {
+        "topologyIntent": "stylized character part",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "smooth vertex normals"
+      },
+      "parent": "head",
+      "attachment": {
+        "parentId": "head",
+        "parentSocket": "head-surface",
+        "localStart": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "localEnd": [
+          0.0,
+          0.02,
+          0.0
+        ],
+        "contactNormal": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "contactType": "continuous-overlap",
+        "embedDepth": 0.025,
+        "overlap": 0.025,
+        "gapTolerance": 0.005,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 1.0,
+        "depth": 1.0,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "deforming-surface",
+        "pivot": {
+          "mode": "bone-driven",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": true,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "box proxy"
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "root",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "hidden"
+        }
+      },
+      "material": "hair",
+      "materialLayers": [
+        "hair"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "hair-crop",
+          "description": "Compact cropped hairstyle",
+          "evidenceRefs": [
+            "full-object"
+          ]
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.03,
+        "microRoughness": 0.015,
+        "bumpAmplitude": 0.004,
+        "normalPattern": "subtle broad clay response",
+        "displacementPattern": "none",
+        "occlusionPattern": "contact creases only",
+        "edgeWearPattern": "none",
+        "notes": "Smooth, not faceted; preserve the authored silhouette."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [],
+      "fidelityTier": "hero",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(84, 56, 38, 1.0)",
+        "secondaryAlbedo": "rgba(84, 56, 38, 1.0)",
+        "materialClass": "plastic",
+        "materialClassConfidence": 0.9,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      }
+    },
+    {
+      "id": "hair-bun",
+      "name": "Rounded bun hairstyle",
+      "level": "meso",
+      "role": "surface",
+      "importance": 1.0,
+      "confidence": 0.8,
+      "primitive": "sphere",
+      "topologyClass": "surface-relief",
+      "topologyRationale": "Rounded bun hairstyle is represented as a semantic region of the supplied continuous sculpt so palette assignment and rig review stay stable even though the source contains one connected mesh.",
+      "geometryDescriptor": {
+        "topologyIntent": "stylized character part",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "smooth vertex normals"
+      },
+      "parent": "head",
+      "attachment": {
+        "parentId": "head",
+        "parentSocket": "head-surface",
+        "localStart": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "localEnd": [
+          0.0,
+          0.02,
+          0.0
+        ],
+        "contactNormal": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "contactType": "continuous-overlap",
+        "embedDepth": 0.025,
+        "overlap": 0.025,
+        "gapTolerance": 0.005,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 1.0,
+        "depth": 1.0,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "deforming-surface",
+        "pivot": {
+          "mode": "bone-driven",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": true,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "box proxy"
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "root",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "hidden"
+        }
+      },
+      "material": "hair",
+      "materialLayers": [
+        "hair"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "hair-bun",
+          "description": "Rounded bun hairstyle",
+          "evidenceRefs": [
+            "full-object"
+          ]
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.03,
+        "microRoughness": 0.015,
+        "bumpAmplitude": 0.004,
+        "normalPattern": "subtle broad clay response",
+        "displacementPattern": "none",
+        "occlusionPattern": "contact creases only",
+        "edgeWearPattern": "none",
+        "notes": "Smooth, not faceted; preserve the authored silhouette."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [],
+      "fidelityTier": "hero",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(84, 56, 38, 1.0)",
+        "secondaryAlbedo": "rgba(84, 56, 38, 1.0)",
+        "materialClass": "plastic",
+        "materialClassConfidence": 0.9,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      }
+    },
+    {
+      "id": "hair-long",
+      "name": "Long rear hair fall",
+      "level": "meso",
+      "role": "surface",
+      "importance": 1.0,
+      "confidence": 0.8,
+      "primitive": "sphere",
+      "topologyClass": "surface-relief",
+      "topologyRationale": "Long rear hair fall is represented as a semantic region of the supplied continuous sculpt so palette assignment and rig review stay stable even though the source contains one connected mesh.",
+      "geometryDescriptor": {
+        "topologyIntent": "stylized character part",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "smooth vertex normals"
+      },
+      "parent": "head",
+      "attachment": {
+        "parentId": "head",
+        "parentSocket": "head-surface",
+        "localStart": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "localEnd": [
+          0.0,
+          0.02,
+          0.0
+        ],
+        "contactNormal": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "contactType": "continuous-overlap",
+        "embedDepth": 0.025,
+        "overlap": 0.025,
+        "gapTolerance": 0.005,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 1.0,
+        "depth": 1.0,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "deforming-surface",
+        "pivot": {
+          "mode": "bone-driven",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": true,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "box proxy"
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "root",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "hidden"
+        }
+      },
+      "material": "hair",
+      "materialLayers": [
+        "hair"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "hair-long",
+          "description": "Long rear hair fall",
+          "evidenceRefs": [
+            "full-object"
+          ]
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.03,
+        "microRoughness": 0.015,
+        "bumpAmplitude": 0.004,
+        "normalPattern": "subtle broad clay response",
+        "displacementPattern": "none",
+        "occlusionPattern": "contact creases only",
+        "edgeWearPattern": "none",
+        "notes": "Smooth, not faceted; preserve the authored silhouette."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [],
+      "fidelityTier": "hero",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(84, 56, 38, 1.0)",
+        "secondaryAlbedo": "rgba(84, 56, 38, 1.0)",
+        "materialClass": "plastic",
+        "materialClassConfidence": 0.9,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      }
+    },
+    {
+      "id": "brow-l",
+      "name": "Left arched eyebrow",
+      "level": "meso",
+      "role": "surface",
+      "importance": 1.0,
+      "confidence": 0.8,
+      "primitive": "curve-sweep",
+      "topologyClass": "surface-relief",
+      "topologyRationale": "Left arched eyebrow is represented as a semantic region of the supplied continuous sculpt so palette assignment and rig review stay stable even though the source contains one connected mesh.",
+      "geometryDescriptor": {
+        "topologyIntent": "stylized character part",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "smooth vertex normals"
+      },
+      "parent": "head",
+      "attachment": {
+        "parentId": "head",
+        "parentSocket": "head-surface",
+        "localStart": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "localEnd": [
+          0.0,
+          0.02,
+          0.0
+        ],
+        "contactNormal": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "contactType": "continuous-overlap",
+        "embedDepth": 0.025,
+        "overlap": 0.025,
+        "gapTolerance": 0.005,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 1.0,
+        "depth": 1.0,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "deforming-surface",
+        "pivot": {
+          "mode": "bone-driven",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": true,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "box proxy"
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "root",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "hidden"
+        }
+      },
+      "material": "hair",
+      "materialLayers": [
+        "hair"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "brow-l",
+          "description": "Left arched eyebrow",
+          "evidenceRefs": [
+            "full-object"
+          ]
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.03,
+        "microRoughness": 0.015,
+        "bumpAmplitude": 0.004,
+        "normalPattern": "subtle broad clay response",
+        "displacementPattern": "none",
+        "occlusionPattern": "contact creases only",
+        "edgeWearPattern": "none",
+        "notes": "Smooth, not faceted; preserve the authored silhouette."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [],
+      "fidelityTier": "hero",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(84, 56, 38, 1.0)",
+        "secondaryAlbedo": "rgba(84, 56, 38, 1.0)",
+        "materialClass": "plastic",
+        "materialClassConfidence": 0.9,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      }
+    },
+    {
+      "id": "brow-r",
+      "name": "Right arched eyebrow",
+      "level": "meso",
+      "role": "surface",
+      "importance": 1.0,
+      "confidence": 0.8,
+      "primitive": "curve-sweep",
+      "topologyClass": "surface-relief",
+      "topologyRationale": "Right arched eyebrow is represented as a semantic region of the supplied continuous sculpt so palette assignment and rig review stay stable even though the source contains one connected mesh.",
+      "geometryDescriptor": {
+        "topologyIntent": "stylized character part",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "smooth vertex normals"
+      },
+      "parent": "head",
+      "attachment": {
+        "parentId": "head",
+        "parentSocket": "head-surface",
+        "localStart": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "localEnd": [
+          0.0,
+          0.02,
+          0.0
+        ],
+        "contactNormal": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "contactType": "continuous-overlap",
+        "embedDepth": 0.025,
+        "overlap": 0.025,
+        "gapTolerance": 0.005,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 1.0,
+        "depth": 1.0,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "deforming-surface",
+        "pivot": {
+          "mode": "bone-driven",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": true,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "box proxy"
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "root",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "hidden"
+        }
+      },
+      "material": "hair",
+      "materialLayers": [
+        "hair"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "brow-r",
+          "description": "Right arched eyebrow",
+          "evidenceRefs": [
+            "full-object"
+          ]
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.03,
+        "microRoughness": 0.015,
+        "bumpAmplitude": 0.004,
+        "normalPattern": "subtle broad clay response",
+        "displacementPattern": "none",
+        "occlusionPattern": "contact creases only",
+        "edgeWearPattern": "none",
+        "notes": "Smooth, not faceted; preserve the authored silhouette."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [],
+      "fidelityTier": "hero",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(84, 56, 38, 1.0)",
+        "secondaryAlbedo": "rgba(84, 56, 38, 1.0)",
+        "materialClass": "plastic",
+        "materialClassConfidence": 0.9,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      }
+    },
+    {
+      "id": "eye-l",
+      "name": "Left vertical oval eye",
+      "level": "meso",
+      "role": "surface",
+      "importance": 1.0,
+      "confidence": 0.8,
+      "primitive": "sphere",
+      "topologyClass": "surface-relief",
+      "topologyRationale": "Left vertical oval eye is represented as a semantic region of the supplied continuous sculpt so palette assignment and rig review stay stable even though the source contains one connected mesh.",
+      "geometryDescriptor": {
+        "topologyIntent": "stylized character part",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "smooth vertex normals"
+      },
+      "parent": "head",
+      "attachment": {
+        "parentId": "head",
+        "parentSocket": "head-surface",
+        "localStart": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "localEnd": [
+          0.0,
+          0.02,
+          0.0
+        ],
+        "contactNormal": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "contactType": "continuous-overlap",
+        "embedDepth": 0.025,
+        "overlap": 0.025,
+        "gapTolerance": 0.005,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 1.0,
+        "depth": 1.0,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "deforming-surface",
+        "pivot": {
+          "mode": "bone-driven",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": true,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "box proxy"
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "root",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "hidden"
+        }
+      },
+      "material": "eyes",
+      "materialLayers": [
+        "eyes"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "eye-l",
+          "description": "Left vertical oval eye",
+          "evidenceRefs": [
+            "full-object"
+          ]
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.03,
+        "microRoughness": 0.015,
+        "bumpAmplitude": 0.004,
+        "normalPattern": "subtle broad clay response",
+        "displacementPattern": "none",
+        "occlusionPattern": "contact creases only",
+        "edgeWearPattern": "none",
+        "notes": "Smooth, not faceted; preserve the authored silhouette."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [],
+      "fidelityTier": "hero",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(56, 36, 25, 1.0)",
+        "secondaryAlbedo": "rgba(56, 36, 25, 1.0)",
+        "materialClass": "plastic",
+        "materialClassConfidence": 0.9,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      }
+    },
+    {
+      "id": "eye-r",
+      "name": "Right vertical oval eye",
+      "level": "meso",
+      "role": "surface",
+      "importance": 1.0,
+      "confidence": 0.8,
+      "primitive": "sphere",
+      "topologyClass": "surface-relief",
+      "topologyRationale": "Right vertical oval eye is represented as a semantic region of the supplied continuous sculpt so palette assignment and rig review stay stable even though the source contains one connected mesh.",
+      "geometryDescriptor": {
+        "topologyIntent": "stylized character part",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "smooth vertex normals"
+      },
+      "parent": "head",
+      "attachment": {
+        "parentId": "head",
+        "parentSocket": "head-surface",
+        "localStart": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "localEnd": [
+          0.0,
+          0.02,
+          0.0
+        ],
+        "contactNormal": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "contactType": "continuous-overlap",
+        "embedDepth": 0.025,
+        "overlap": 0.025,
+        "gapTolerance": 0.005,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 1.0,
+        "depth": 1.0,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "deforming-surface",
+        "pivot": {
+          "mode": "bone-driven",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": true,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "box proxy"
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "root",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "hidden"
+        }
+      },
+      "material": "eyes",
+      "materialLayers": [
+        "eyes"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "eye-r",
+          "description": "Right vertical oval eye",
+          "evidenceRefs": [
+            "full-object"
+          ]
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.03,
+        "microRoughness": 0.015,
+        "bumpAmplitude": 0.004,
+        "normalPattern": "subtle broad clay response",
+        "displacementPattern": "none",
+        "occlusionPattern": "contact creases only",
+        "edgeWearPattern": "none",
+        "notes": "Smooth, not faceted; preserve the authored silhouette."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [],
+      "fidelityTier": "hero",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(56, 36, 25, 1.0)",
+        "secondaryAlbedo": "rgba(56, 36, 25, 1.0)",
+        "materialClass": "plastic",
+        "materialClassConfidence": 0.9,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      }
+    },
+    {
+      "id": "nose",
+      "name": "Round protruding nose",
+      "level": "meso",
+      "role": "surface",
+      "importance": 1.0,
+      "confidence": 0.8,
+      "primitive": "sphere",
+      "topologyClass": "continuous-sculpt",
+      "topologyRationale": "Round protruding nose is represented as a semantic region of the supplied continuous sculpt so palette assignment and rig review stay stable even though the source contains one connected mesh.",
+      "geometryDescriptor": {
+        "topologyIntent": "stylized character part",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "smooth vertex normals"
+      },
+      "parent": "head",
+      "attachment": {
+        "parentId": "head",
+        "parentSocket": "head-surface",
+        "localStart": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "localEnd": [
+          0.0,
+          0.02,
+          0.0
+        ],
+        "contactNormal": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "contactType": "continuous-overlap",
+        "embedDepth": 0.025,
+        "overlap": 0.025,
+        "gapTolerance": 0.005,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 1.0,
+        "depth": 1.0,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "deforming-surface",
+        "pivot": {
+          "mode": "bone-driven",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": true,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "box proxy"
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "root",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "hidden"
+        }
+      },
+      "material": "skin",
+      "materialLayers": [
+        "skin"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "nose",
+          "description": "Round protruding nose",
+          "evidenceRefs": [
+            "full-object"
+          ]
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.03,
+        "microRoughness": 0.015,
+        "bumpAmplitude": 0.004,
+        "normalPattern": "subtle broad clay response",
+        "displacementPattern": "none",
+        "occlusionPattern": "contact creases only",
+        "edgeWearPattern": "none",
+        "notes": "Smooth, not faceted; preserve the authored silhouette."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [],
+      "fidelityTier": "hero",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(224, 176, 108, 1.0)",
+        "secondaryAlbedo": "rgba(224, 176, 108, 1.0)",
+        "materialClass": "skin",
+        "materialClassConfidence": 0.9,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      }
+    },
+    {
+      "id": "moustache-l",
+      "name": "Left moustache lobe",
+      "level": "meso",
+      "role": "surface",
+      "importance": 1.0,
+      "confidence": 0.8,
+      "primitive": "sphere",
+      "topologyClass": "surface-relief",
+      "topologyRationale": "Left moustache lobe is represented as a semantic region of the supplied continuous sculpt so palette assignment and rig review stay stable even though the source contains one connected mesh.",
+      "geometryDescriptor": {
+        "topologyIntent": "stylized character part",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "smooth vertex normals"
+      },
+      "parent": "head",
+      "attachment": {
+        "parentId": "head",
+        "parentSocket": "head-surface",
+        "localStart": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "localEnd": [
+          0.0,
+          0.02,
+          0.0
+        ],
+        "contactNormal": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "contactType": "continuous-overlap",
+        "embedDepth": 0.025,
+        "overlap": 0.025,
+        "gapTolerance": 0.005,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 1.0,
+        "depth": 1.0,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "deforming-surface",
+        "pivot": {
+          "mode": "bone-driven",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": true,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "box proxy"
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "root",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "hidden"
+        }
+      },
+      "material": "hair",
+      "materialLayers": [
+        "hair"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "moustache-l",
+          "description": "Left moustache lobe",
+          "evidenceRefs": [
+            "full-object"
+          ]
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.03,
+        "microRoughness": 0.015,
+        "bumpAmplitude": 0.004,
+        "normalPattern": "subtle broad clay response",
+        "displacementPattern": "none",
+        "occlusionPattern": "contact creases only",
+        "edgeWearPattern": "none",
+        "notes": "Smooth, not faceted; preserve the authored silhouette."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [],
+      "fidelityTier": "hero",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(84, 56, 38, 1.0)",
+        "secondaryAlbedo": "rgba(84, 56, 38, 1.0)",
+        "materialClass": "plastic",
+        "materialClassConfidence": 0.9,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      }
+    },
+    {
+      "id": "moustache-r",
+      "name": "Right moustache lobe",
+      "level": "meso",
+      "role": "surface",
+      "importance": 1.0,
+      "confidence": 0.8,
+      "primitive": "sphere",
+      "topologyClass": "surface-relief",
+      "topologyRationale": "Right moustache lobe is represented as a semantic region of the supplied continuous sculpt so palette assignment and rig review stay stable even though the source contains one connected mesh.",
+      "geometryDescriptor": {
+        "topologyIntent": "stylized character part",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "smooth vertex normals"
+      },
+      "parent": "head",
+      "attachment": {
+        "parentId": "head",
+        "parentSocket": "head-surface",
+        "localStart": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "localEnd": [
+          0.0,
+          0.02,
+          0.0
+        ],
+        "contactNormal": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "contactType": "continuous-overlap",
+        "embedDepth": 0.025,
+        "overlap": 0.025,
+        "gapTolerance": 0.005,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 1.0,
+        "depth": 1.0,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "deforming-surface",
+        "pivot": {
+          "mode": "bone-driven",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": true,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "box proxy"
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "root",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "hidden"
+        }
+      },
+      "material": "hair",
+      "materialLayers": [
+        "hair"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "moustache-r",
+          "description": "Right moustache lobe",
+          "evidenceRefs": [
+            "full-object"
+          ]
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.03,
+        "microRoughness": 0.015,
+        "bumpAmplitude": 0.004,
+        "normalPattern": "subtle broad clay response",
+        "displacementPattern": "none",
+        "occlusionPattern": "contact creases only",
+        "edgeWearPattern": "none",
+        "notes": "Smooth, not faceted; preserve the authored silhouette."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [],
+      "fidelityTier": "hero",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(84, 56, 38, 1.0)",
+        "secondaryAlbedo": "rgba(84, 56, 38, 1.0)",
+        "materialClass": "plastic",
+        "materialClassConfidence": 0.9,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      }
+    },
+    {
+      "id": "mouth",
+      "name": "Small centered mouth",
+      "level": "meso",
+      "role": "surface",
+      "importance": 1.0,
+      "confidence": 0.8,
+      "primitive": "curve-sweep",
+      "topologyClass": "surface-relief",
+      "topologyRationale": "Small centered mouth is represented as a semantic region of the supplied continuous sculpt so palette assignment and rig review stay stable even though the source contains one connected mesh.",
+      "geometryDescriptor": {
+        "topologyIntent": "stylized character part",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "smooth vertex normals"
+      },
+      "parent": "head",
+      "attachment": {
+        "parentId": "head",
+        "parentSocket": "head-surface",
+        "localStart": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "localEnd": [
+          0.0,
+          0.02,
+          0.0
+        ],
+        "contactNormal": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "contactType": "continuous-overlap",
+        "embedDepth": 0.025,
+        "overlap": 0.025,
+        "gapTolerance": 0.005,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 1.0,
+        "depth": 1.0,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "deforming-surface",
+        "pivot": {
+          "mode": "bone-driven",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": true,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "box proxy"
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "root",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "hidden"
+        }
+      },
+      "material": "mouth",
+      "materialLayers": [
+        "mouth"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "mouth",
+          "description": "Small centered mouth",
+          "evidenceRefs": [
+            "full-object"
+          ]
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.03,
+        "microRoughness": 0.015,
+        "bumpAmplitude": 0.004,
+        "normalPattern": "subtle broad clay response",
+        "displacementPattern": "none",
+        "occlusionPattern": "contact creases only",
+        "edgeWearPattern": "none",
+        "notes": "Smooth, not faceted; preserve the authored silhouette."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [],
+      "fidelityTier": "hero",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(150, 115, 99, 1.0)",
+        "secondaryAlbedo": "rgba(150, 115, 99, 1.0)",
+        "materialClass": "plastic",
+        "materialClassConfidence": 0.9,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      }
+    },
+    {
+      "id": "ear-l",
+      "name": "Left round ear",
+      "level": "meso",
+      "role": "surface",
+      "importance": 1.0,
+      "confidence": 0.8,
+      "primitive": "sphere",
+      "topologyClass": "continuous-sculpt",
+      "topologyRationale": "Left round ear is represented as a semantic region of the supplied continuous sculpt so palette assignment and rig review stay stable even though the source contains one connected mesh.",
+      "geometryDescriptor": {
+        "topologyIntent": "stylized character part",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "smooth vertex normals"
+      },
+      "parent": "head",
+      "attachment": {
+        "parentId": "head",
+        "parentSocket": "head-surface",
+        "localStart": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "localEnd": [
+          0.0,
+          0.02,
+          0.0
+        ],
+        "contactNormal": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "contactType": "continuous-overlap",
+        "embedDepth": 0.025,
+        "overlap": 0.025,
+        "gapTolerance": 0.005,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 1.0,
+        "depth": 1.0,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "deforming-surface",
+        "pivot": {
+          "mode": "bone-driven",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": true,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "box proxy"
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "root",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "hidden"
+        }
+      },
+      "material": "skin",
+      "materialLayers": [
+        "skin"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "ear-l",
+          "description": "Left round ear",
+          "evidenceRefs": [
+            "full-object"
+          ]
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.03,
+        "microRoughness": 0.015,
+        "bumpAmplitude": 0.004,
+        "normalPattern": "subtle broad clay response",
+        "displacementPattern": "none",
+        "occlusionPattern": "contact creases only",
+        "edgeWearPattern": "none",
+        "notes": "Smooth, not faceted; preserve the authored silhouette."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [],
+      "fidelityTier": "hero",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(224, 176, 108, 1.0)",
+        "secondaryAlbedo": "rgba(224, 176, 108, 1.0)",
+        "materialClass": "skin",
+        "materialClassConfidence": 0.9,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      }
+    },
+    {
+      "id": "ear-r",
+      "name": "Right round ear",
+      "level": "meso",
+      "role": "surface",
+      "importance": 1.0,
+      "confidence": 0.8,
+      "primitive": "sphere",
+      "topologyClass": "continuous-sculpt",
+      "topologyRationale": "Right round ear is represented as a semantic region of the supplied continuous sculpt so palette assignment and rig review stay stable even though the source contains one connected mesh.",
+      "geometryDescriptor": {
+        "topologyIntent": "stylized character part",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "smooth vertex normals"
+      },
+      "parent": "head",
+      "attachment": {
+        "parentId": "head",
+        "parentSocket": "head-surface",
+        "localStart": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "localEnd": [
+          0.0,
+          0.02,
+          0.0
+        ],
+        "contactNormal": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "contactType": "continuous-overlap",
+        "embedDepth": 0.025,
+        "overlap": 0.025,
+        "gapTolerance": 0.005,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      },
+      "dimensions": {
+        "width": 1.0,
+        "height": 1.0,
+        "depth": 1.0,
+        "units": "relative",
+        "confidence": 0.8
+      },
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "actionProfile": {
+        "animationRole": "deforming-surface",
+        "pivot": {
+          "mode": "bone-driven",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.7
+        },
+        "transformChannels": {
+          "translate": true,
+          "rotate": true,
+          "scale": true,
+          "bend": false,
+          "twist": false,
+          "detach": false,
+          "visibility": true,
+          "materialState": false
+        },
+        "sockets": [],
+        "collider": {
+          "type": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "isTrigger": false,
+          "notes": "box proxy"
+        },
+        "constraints": [],
+        "destruction": {
+          "breakable": false,
+          "fractureGroup": "root",
+          "seamRefs": [],
+          "detachableFragments": [],
+          "breakImpulse": 0.0,
+          "debrisMaterial": "hidden"
+        }
+      },
+      "material": "skin",
+      "materialLayers": [
+        "skin"
+      ],
+      "deformations": [],
+      "joints": [],
+      "seams": [],
+      "localFeatures": [
+        {
+          "id": "ear-r",
+          "description": "Right round ear",
+          "evidenceRefs": [
+            "full-object"
+          ]
+        }
+      ],
+      "surfaceDetail": {
+        "macroRoughness": 0.03,
+        "microRoughness": 0.015,
+        "bumpAmplitude": 0.004,
+        "normalPattern": "subtle broad clay response",
+        "displacementPattern": "none",
+        "occlusionPattern": "contact creases only",
+        "edgeWearPattern": "none",
+        "notes": "Smooth, not faceted; preserve the authored silhouette."
+      },
+      "evidenceRefs": [
+        "full-object"
+      ],
+      "details": [],
+      "fidelityTier": "hero",
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(224, 176, 108, 1.0)",
+        "secondaryAlbedo": "rgba(224, 176, 108, 1.0)",
+        "materialClass": "skin",
+        "materialClassConfidence": 0.9,
+        "evidenceRefs": [
+          "full-object"
+        ]
+      }
+    }
+  ],
+  "materials": [
+    {
+      "id": "skin",
+      "name": "Imota palette skin",
+      "type": "standard",
+      "shaderModel": "Godot spatial ShaderMaterial / StandardMaterial3D PBR",
+      "baseColor": "#E0B06C",
+      "color": "#E0B06C",
+      "albedo": {
+        "dominant": "#E0B06C",
+        "secondary": [
+          "#E0B06C"
+        ],
+        "samplingNotes": "Use image-observed local color zones, not a single averaged color."
+      },
+      "colorVariation": {
+        "palette": [
+          "#E0B06C"
+        ],
+        "pattern": "subtle reference-derived clay value",
+        "amplitude": 0.025,
+        "heightCorrelation": 0.3
+      },
+      "textureResolution": 512,
+      "textureProjection": {
+        "mode": "uv",
+        "repeat": [
+          2.0,
+          2.0
+        ],
+        "anisotropy": 8,
+        "texelDensityIntent": "Preserve stable world/object-scale detail; do not stretch micro detail with component scale."
+      },
+      "surfaceFrequencyBands": [
+        {
+          "id": "macro",
+          "frequency": 2.0,
+          "amplitude": 0.42,
+          "role": "broad color and height breakup"
+        },
+        {
+          "id": "meso",
+          "frequency": 12.0,
+          "amplitude": 0.22,
+          "role": "ridges, pores, grain, dents, or equivalent visible relief"
+        },
+        {
+          "id": "micro",
+          "frequency": 56.0,
+          "amplitude": 0.08,
+          "role": "highlight breakup visible under grazing light"
+        }
+      ],
+      "roughness": {
+        "base": 0.68,
+        "variation": 0.035,
+        "map": {
+          "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_roughness.png",
+          "url": "skin_roughness.png",
+          "channel": "roughness",
+          "source": "reference-pixel-extraction"
+        },
+        "localResponse": "subtle cavity increase and broad highlight breakup"
+      },
+      "metalness": {
+        "base": 0.0,
+        "variation": 0.0
+      },
+      "normal": {
+        "pattern": "reference-derived height-gradient normal map",
+        "strength": 0.08,
+        "map": {
+          "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_normal.png",
+          "url": "skin_normal.png",
+          "channel": "normal",
+          "source": "reference-pixel-extraction"
+        },
+        "heightSource": {
+          "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_height.png",
+          "url": "skin_height.png",
+          "channel": "height",
+          "source": "reference-pixel-extraction"
+        },
+        "space": "tangent"
+      },
+      "bump": {
+        "pattern": "none",
+        "amplitude": 0.0,
+        "scale": 1.0
+      },
+      "displacement": {
+        "pattern": "none",
+        "amplitude": 0.0,
+        "scale": 1.0,
+        "silhouetteAffects": false
+      },
+      "ambientOcclusion": {
+        "cavityStrength": 0.16,
+        "contactShadowBias": 0.3,
+        "map": {
+          "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_ao.png",
+          "url": "skin_ao.png",
+          "channel": "ao",
+          "source": "reference-pixel-extraction"
+        },
+        "notes": "Restrained in facial creases and attachment seams."
+      },
+      "wear": {
+        "edgeWear": 0.0,
+        "scratches": [],
+        "chips": []
+      },
+      "dirt": {
+        "amount": 0.0,
+        "cavityBias": 0.0,
+        "color": "#2F2A22"
+      },
+      "localOverrides": [
+        {
+          "id": "skin-local-response",
+          "region": "feature silhouettes and cavities",
+          "roughness": 0.68,
+          "notes": "Preserve clean cozy clay; no dirt, scratches, or wear."
+        }
+      ],
+      "shaderNotes": [
+        "Use a Godot spatial ShaderMaterial when clearcoat, sheen, transmission, or thin-surface response is observed; otherwise use StandardMaterial3D-compatible PBR channels.",
+        "Generate albedo, roughness, height/normal, and AO independently; never alias albedo into roughness.",
+        "Use normal/bump/displacement only when they map to observed surface relief.",
+        "Use displacement geometry when the observed relief changes the close-up silhouette; texture-only relief is insufficient there."
+      ],
+      "notes": "Palette-locked flat color with restrained clay response. Reference maps document image evidence; runtime uses cheap material constants and geometry normals.",
+      "qualityTier": "hero",
+      "referencePbr": {
+        "version": "1.0",
+        "sourceImage": "C:\\Users\\Luka\\AppData\\Local\\Temp\\codex-clipboard-66c453e0-e4b2-477a-953b-55622d0cdb80.png",
+        "extractor": "stage1_intake/extract_pbr_evidence.py",
+        "method": "single-image pixel evidence with de-lighting estimate; not photogrammetry",
+        "usable": true,
+        "verdict": "pass",
+        "confidence": 0.86,
+        "estimatedFidelity": 0.86,
+        "targetThreshold": 0.7,
+        "hardLimit": "A single image cannot uniquely recover true albedo/roughness/normal/AO; maps are reference-derived estimates.",
+        "maps": {
+          "albedo": {
+            "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_albedo.png",
+            "url": "skin_albedo.png",
+            "channel": "albedo",
+            "source": "reference-pixel-extraction"
+          },
+          "roughness": {
+            "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_roughness.png",
+            "url": "skin_roughness.png",
+            "channel": "roughness",
+            "source": "reference-pixel-extraction"
+          },
+          "height": {
+            "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_height.png",
+            "url": "skin_height.png",
+            "channel": "height",
+            "source": "reference-pixel-extraction"
+          },
+          "normal": {
+            "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_normal.png",
+            "url": "skin_normal.png",
+            "channel": "normal",
+            "source": "reference-pixel-extraction"
+          },
+          "ao": {
+            "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_ao.png",
+            "url": "skin_ao.png",
+            "channel": "ao",
+            "source": "reference-pixel-extraction"
+          }
+        },
+        "diagnostics": {
+          "sourceWidth": 1254,
+          "sourceHeight": 1254,
+          "mapSize": 512,
+          "cropBBoxPixels": {
+            "x": 265,
+            "y": 60,
+            "width": 722,
+            "height": 1084
+          },
+          "mask": {
+            "backgroundColor": "#F9F4F1",
+            "backgroundNoise": 1.414,
+            "transparentPixelFraction": 0.0,
+            "foregroundCoverage": 0.1654
+          },
+          "mapStats": {
+            "valueRange": 0.6049,
+            "heightP90Gradient": 0.04184,
+            "roughnessBase": 0.68,
+            "roughnessVariation": 0.065,
+            "normalStrength": 0.205,
+            "blurRadius": 10
+          },
+          "palette": [
+            "#F8BC7F",
+            "#EFAE6E",
+            "#623C1F",
+            "#DB9A5A",
+            "#FCC893",
+            "#BA793D"
+          ]
+        },
+        "warnings": [
+          "single-image inverse rendering cannot prove true physical PBR; confidence is capped"
+        ]
+      }
+    },
+    {
+      "id": "hair",
+      "name": "Imota palette hair",
+      "type": "standard",
+      "shaderModel": "Godot spatial ShaderMaterial / StandardMaterial3D PBR",
+      "baseColor": "#543826",
+      "color": "#543826",
+      "albedo": {
+        "dominant": "#543826",
+        "secondary": [
+          "#543826"
+        ],
+        "samplingNotes": "Use image-observed local color zones, not a single averaged color."
+      },
+      "colorVariation": {
+        "palette": [
+          "#543826"
+        ],
+        "pattern": "subtle reference-derived clay value",
+        "amplitude": 0.025,
+        "heightCorrelation": 0.3
+      },
+      "textureResolution": 512,
+      "textureProjection": {
+        "mode": "uv",
+        "repeat": [
+          2.0,
+          2.0
+        ],
+        "anisotropy": 8,
+        "texelDensityIntent": "Preserve stable world/object-scale detail; do not stretch micro detail with component scale."
+      },
+      "surfaceFrequencyBands": [
+        {
+          "id": "macro",
+          "frequency": 2.0,
+          "amplitude": 0.42,
+          "role": "broad color and height breakup"
+        },
+        {
+          "id": "meso",
+          "frequency": 12.0,
+          "amplitude": 0.22,
+          "role": "ridges, pores, grain, dents, or equivalent visible relief"
+        },
+        {
+          "id": "micro",
+          "frequency": 56.0,
+          "amplitude": 0.08,
+          "role": "highlight breakup visible under grazing light"
+        }
+      ],
+      "roughness": {
+        "base": 0.72,
+        "variation": 0.035,
+        "map": {
+          "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_roughness.png",
+          "url": "skin_roughness.png",
+          "channel": "roughness",
+          "source": "reference-pixel-extraction"
+        },
+        "localResponse": "subtle cavity increase and broad highlight breakup"
+      },
+      "metalness": {
+        "base": 0.0,
+        "variation": 0.0
+      },
+      "normal": {
+        "pattern": "reference-derived height-gradient normal map",
+        "strength": 0.08,
+        "map": {
+          "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_normal.png",
+          "url": "skin_normal.png",
+          "channel": "normal",
+          "source": "reference-pixel-extraction"
+        },
+        "heightSource": {
+          "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_height.png",
+          "url": "skin_height.png",
+          "channel": "height",
+          "source": "reference-pixel-extraction"
+        },
+        "space": "tangent"
+      },
+      "bump": {
+        "pattern": "none",
+        "amplitude": 0.0,
+        "scale": 1.0
+      },
+      "displacement": {
+        "pattern": "none",
+        "amplitude": 0.0,
+        "scale": 1.0,
+        "silhouetteAffects": false
+      },
+      "ambientOcclusion": {
+        "cavityStrength": 0.16,
+        "contactShadowBias": 0.3,
+        "map": {
+          "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_ao.png",
+          "url": "skin_ao.png",
+          "channel": "ao",
+          "source": "reference-pixel-extraction"
+        },
+        "notes": "Restrained in facial creases and attachment seams."
+      },
+      "wear": {
+        "edgeWear": 0.0,
+        "scratches": [],
+        "chips": []
+      },
+      "dirt": {
+        "amount": 0.0,
+        "cavityBias": 0.0,
+        "color": "#2F2A22"
+      },
+      "localOverrides": [
+        {
+          "id": "hair-local-response",
+          "region": "feature silhouettes and cavities",
+          "roughness": 0.72,
+          "notes": "Preserve clean cozy clay; no dirt, scratches, or wear."
+        }
+      ],
+      "shaderNotes": [
+        "Use a Godot spatial ShaderMaterial when clearcoat, sheen, transmission, or thin-surface response is observed; otherwise use StandardMaterial3D-compatible PBR channels.",
+        "Generate albedo, roughness, height/normal, and AO independently; never alias albedo into roughness.",
+        "Use normal/bump/displacement only when they map to observed surface relief.",
+        "Use displacement geometry when the observed relief changes the close-up silhouette; texture-only relief is insufficient there."
+      ],
+      "notes": "Palette-locked flat color with restrained clay response. Reference maps document image evidence; runtime uses cheap material constants and geometry normals.",
+      "qualityTier": "hero",
+      "referencePbr": {
+        "version": "1.0",
+        "sourceImage": "C:\\Users\\Luka\\AppData\\Local\\Temp\\codex-clipboard-66c453e0-e4b2-477a-953b-55622d0cdb80.png",
+        "extractor": "stage1_intake/extract_pbr_evidence.py",
+        "method": "single-image pixel evidence with de-lighting estimate; not photogrammetry",
+        "usable": true,
+        "verdict": "pass",
+        "confidence": 0.86,
+        "estimatedFidelity": 0.86,
+        "targetThreshold": 0.7,
+        "hardLimit": "A single image cannot uniquely recover true albedo/roughness/normal/AO; maps are reference-derived estimates.",
+        "maps": {
+          "albedo": {
+            "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_albedo.png",
+            "url": "skin_albedo.png",
+            "channel": "albedo",
+            "source": "reference-pixel-extraction"
+          },
+          "roughness": {
+            "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_roughness.png",
+            "url": "skin_roughness.png",
+            "channel": "roughness",
+            "source": "reference-pixel-extraction"
+          },
+          "height": {
+            "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_height.png",
+            "url": "skin_height.png",
+            "channel": "height",
+            "source": "reference-pixel-extraction"
+          },
+          "normal": {
+            "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_normal.png",
+            "url": "skin_normal.png",
+            "channel": "normal",
+            "source": "reference-pixel-extraction"
+          },
+          "ao": {
+            "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_ao.png",
+            "url": "skin_ao.png",
+            "channel": "ao",
+            "source": "reference-pixel-extraction"
+          }
+        },
+        "diagnostics": {
+          "sourceWidth": 1254,
+          "sourceHeight": 1254,
+          "mapSize": 512,
+          "cropBBoxPixels": {
+            "x": 265,
+            "y": 60,
+            "width": 722,
+            "height": 1084
+          },
+          "mask": {
+            "backgroundColor": "#F9F4F1",
+            "backgroundNoise": 1.414,
+            "transparentPixelFraction": 0.0,
+            "foregroundCoverage": 0.1654
+          },
+          "mapStats": {
+            "valueRange": 0.6049,
+            "heightP90Gradient": 0.04184,
+            "roughnessBase": 0.68,
+            "roughnessVariation": 0.065,
+            "normalStrength": 0.205,
+            "blurRadius": 10
+          },
+          "palette": [
+            "#F8BC7F",
+            "#EFAE6E",
+            "#623C1F",
+            "#DB9A5A",
+            "#FCC893",
+            "#BA793D"
+          ]
+        },
+        "warnings": [
+          "single-image inverse rendering cannot prove true physical PBR; confidence is capped"
+        ]
+      }
+    },
+    {
+      "id": "eyes",
+      "name": "Imota palette eyes",
+      "type": "standard",
+      "shaderModel": "Godot spatial ShaderMaterial / StandardMaterial3D PBR",
+      "baseColor": "#382419",
+      "color": "#382419",
+      "albedo": {
+        "dominant": "#382419",
+        "secondary": [
+          "#382419"
+        ],
+        "samplingNotes": "Use image-observed local color zones, not a single averaged color."
+      },
+      "colorVariation": {
+        "palette": [
+          "#382419"
+        ],
+        "pattern": "subtle reference-derived clay value",
+        "amplitude": 0.025,
+        "heightCorrelation": 0.3
+      },
+      "textureResolution": 512,
+      "textureProjection": {
+        "mode": "uv",
+        "repeat": [
+          2.0,
+          2.0
+        ],
+        "anisotropy": 8,
+        "texelDensityIntent": "Preserve stable world/object-scale detail; do not stretch micro detail with component scale."
+      },
+      "surfaceFrequencyBands": [
+        {
+          "id": "macro",
+          "frequency": 2.0,
+          "amplitude": 0.42,
+          "role": "broad color and height breakup"
+        },
+        {
+          "id": "meso",
+          "frequency": 12.0,
+          "amplitude": 0.22,
+          "role": "ridges, pores, grain, dents, or equivalent visible relief"
+        },
+        {
+          "id": "micro",
+          "frequency": 56.0,
+          "amplitude": 0.08,
+          "role": "highlight breakup visible under grazing light"
+        }
+      ],
+      "roughness": {
+        "base": 0.24,
+        "variation": 0.035,
+        "map": {
+          "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_roughness.png",
+          "url": "skin_roughness.png",
+          "channel": "roughness",
+          "source": "reference-pixel-extraction"
+        },
+        "localResponse": "subtle cavity increase and broad highlight breakup"
+      },
+      "metalness": {
+        "base": 0.0,
+        "variation": 0.0
+      },
+      "normal": {
+        "pattern": "reference-derived height-gradient normal map",
+        "strength": 0.025,
+        "map": {
+          "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_normal.png",
+          "url": "skin_normal.png",
+          "channel": "normal",
+          "source": "reference-pixel-extraction"
+        },
+        "heightSource": {
+          "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_height.png",
+          "url": "skin_height.png",
+          "channel": "height",
+          "source": "reference-pixel-extraction"
+        },
+        "space": "tangent"
+      },
+      "bump": {
+        "pattern": "none",
+        "amplitude": 0.0,
+        "scale": 1.0
+      },
+      "displacement": {
+        "pattern": "none",
+        "amplitude": 0.0,
+        "scale": 1.0,
+        "silhouetteAffects": false
+      },
+      "ambientOcclusion": {
+        "cavityStrength": 0.16,
+        "contactShadowBias": 0.3,
+        "map": {
+          "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_ao.png",
+          "url": "skin_ao.png",
+          "channel": "ao",
+          "source": "reference-pixel-extraction"
+        },
+        "notes": "Restrained in facial creases and attachment seams."
+      },
+      "wear": {
+        "edgeWear": 0.0,
+        "scratches": [],
+        "chips": []
+      },
+      "dirt": {
+        "amount": 0.0,
+        "cavityBias": 0.0,
+        "color": "#2F2A22"
+      },
+      "localOverrides": [
+        {
+          "id": "eyes-local-response",
+          "region": "feature silhouettes and cavities",
+          "roughness": 0.24,
+          "notes": "Preserve clean cozy clay; no dirt, scratches, or wear."
+        }
+      ],
+      "shaderNotes": [
+        "Use a Godot spatial ShaderMaterial when clearcoat, sheen, transmission, or thin-surface response is observed; otherwise use StandardMaterial3D-compatible PBR channels.",
+        "Generate albedo, roughness, height/normal, and AO independently; never alias albedo into roughness.",
+        "Use normal/bump/displacement only when they map to observed surface relief.",
+        "Use displacement geometry when the observed relief changes the close-up silhouette; texture-only relief is insufficient there."
+      ],
+      "notes": "Palette-locked flat color with restrained clay response. Reference maps document image evidence; runtime uses cheap material constants and geometry normals.",
+      "qualityTier": "hero",
+      "referencePbr": {
+        "version": "1.0",
+        "sourceImage": "C:\\Users\\Luka\\AppData\\Local\\Temp\\codex-clipboard-66c453e0-e4b2-477a-953b-55622d0cdb80.png",
+        "extractor": "stage1_intake/extract_pbr_evidence.py",
+        "method": "single-image pixel evidence with de-lighting estimate; not photogrammetry",
+        "usable": true,
+        "verdict": "pass",
+        "confidence": 0.86,
+        "estimatedFidelity": 0.86,
+        "targetThreshold": 0.7,
+        "hardLimit": "A single image cannot uniquely recover true albedo/roughness/normal/AO; maps are reference-derived estimates.",
+        "maps": {
+          "albedo": {
+            "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_albedo.png",
+            "url": "skin_albedo.png",
+            "channel": "albedo",
+            "source": "reference-pixel-extraction"
+          },
+          "roughness": {
+            "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_roughness.png",
+            "url": "skin_roughness.png",
+            "channel": "roughness",
+            "source": "reference-pixel-extraction"
+          },
+          "height": {
+            "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_height.png",
+            "url": "skin_height.png",
+            "channel": "height",
+            "source": "reference-pixel-extraction"
+          },
+          "normal": {
+            "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_normal.png",
+            "url": "skin_normal.png",
+            "channel": "normal",
+            "source": "reference-pixel-extraction"
+          },
+          "ao": {
+            "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_ao.png",
+            "url": "skin_ao.png",
+            "channel": "ao",
+            "source": "reference-pixel-extraction"
+          }
+        },
+        "diagnostics": {
+          "sourceWidth": 1254,
+          "sourceHeight": 1254,
+          "mapSize": 512,
+          "cropBBoxPixels": {
+            "x": 265,
+            "y": 60,
+            "width": 722,
+            "height": 1084
+          },
+          "mask": {
+            "backgroundColor": "#F9F4F1",
+            "backgroundNoise": 1.414,
+            "transparentPixelFraction": 0.0,
+            "foregroundCoverage": 0.1654
+          },
+          "mapStats": {
+            "valueRange": 0.6049,
+            "heightP90Gradient": 0.04184,
+            "roughnessBase": 0.68,
+            "roughnessVariation": 0.065,
+            "normalStrength": 0.205,
+            "blurRadius": 10
+          },
+          "palette": [
+            "#F8BC7F",
+            "#EFAE6E",
+            "#623C1F",
+            "#DB9A5A",
+            "#FCC893",
+            "#BA793D"
+          ]
+        },
+        "warnings": [
+          "single-image inverse rendering cannot prove true physical PBR; confidence is capped"
+        ]
+      }
+    },
+    {
+      "id": "mouth",
+      "name": "Imota palette mouth",
+      "type": "standard",
+      "shaderModel": "Godot spatial ShaderMaterial / StandardMaterial3D PBR",
+      "baseColor": "#967363",
+      "color": "#967363",
+      "albedo": {
+        "dominant": "#967363",
+        "secondary": [
+          "#967363"
+        ],
+        "samplingNotes": "Use image-observed local color zones, not a single averaged color."
+      },
+      "colorVariation": {
+        "palette": [
+          "#967363"
+        ],
+        "pattern": "subtle reference-derived clay value",
+        "amplitude": 0.025,
+        "heightCorrelation": 0.3
+      },
+      "textureResolution": 512,
+      "textureProjection": {
+        "mode": "uv",
+        "repeat": [
+          2.0,
+          2.0
+        ],
+        "anisotropy": 8,
+        "texelDensityIntent": "Preserve stable world/object-scale detail; do not stretch micro detail with component scale."
+      },
+      "surfaceFrequencyBands": [
+        {
+          "id": "macro",
+          "frequency": 2.0,
+          "amplitude": 0.42,
+          "role": "broad color and height breakup"
+        },
+        {
+          "id": "meso",
+          "frequency": 12.0,
+          "amplitude": 0.22,
+          "role": "ridges, pores, grain, dents, or equivalent visible relief"
+        },
+        {
+          "id": "micro",
+          "frequency": 56.0,
+          "amplitude": 0.08,
+          "role": "highlight breakup visible under grazing light"
+        }
+      ],
+      "roughness": {
+        "base": 0.48,
+        "variation": 0.035,
+        "map": {
+          "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_roughness.png",
+          "url": "skin_roughness.png",
+          "channel": "roughness",
+          "source": "reference-pixel-extraction"
+        },
+        "localResponse": "subtle cavity increase and broad highlight breakup"
+      },
+      "metalness": {
+        "base": 0.0,
+        "variation": 0.0
+      },
+      "normal": {
+        "pattern": "reference-derived height-gradient normal map",
+        "strength": 0.08,
+        "map": {
+          "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_normal.png",
+          "url": "skin_normal.png",
+          "channel": "normal",
+          "source": "reference-pixel-extraction"
+        },
+        "heightSource": {
+          "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_height.png",
+          "url": "skin_height.png",
+          "channel": "height",
+          "source": "reference-pixel-extraction"
+        },
+        "space": "tangent"
+      },
+      "bump": {
+        "pattern": "none",
+        "amplitude": 0.0,
+        "scale": 1.0
+      },
+      "displacement": {
+        "pattern": "none",
+        "amplitude": 0.0,
+        "scale": 1.0,
+        "silhouetteAffects": false
+      },
+      "ambientOcclusion": {
+        "cavityStrength": 0.16,
+        "contactShadowBias": 0.3,
+        "map": {
+          "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_ao.png",
+          "url": "skin_ao.png",
+          "channel": "ao",
+          "source": "reference-pixel-extraction"
+        },
+        "notes": "Restrained in facial creases and attachment seams."
+      },
+      "wear": {
+        "edgeWear": 0.0,
+        "scratches": [],
+        "chips": []
+      },
+      "dirt": {
+        "amount": 0.0,
+        "cavityBias": 0.0,
+        "color": "#2F2A22"
+      },
+      "localOverrides": [
+        {
+          "id": "mouth-local-response",
+          "region": "feature silhouettes and cavities",
+          "roughness": 0.48,
+          "notes": "Preserve clean cozy clay; no dirt, scratches, or wear."
+        }
+      ],
+      "shaderNotes": [
+        "Use a Godot spatial ShaderMaterial when clearcoat, sheen, transmission, or thin-surface response is observed; otherwise use StandardMaterial3D-compatible PBR channels.",
+        "Generate albedo, roughness, height/normal, and AO independently; never alias albedo into roughness.",
+        "Use normal/bump/displacement only when they map to observed surface relief.",
+        "Use displacement geometry when the observed relief changes the close-up silhouette; texture-only relief is insufficient there."
+      ],
+      "notes": "Palette-locked flat color with restrained clay response. Reference maps document image evidence; runtime uses cheap material constants and geometry normals.",
+      "qualityTier": "hero",
+      "referencePbr": {
+        "version": "1.0",
+        "sourceImage": "C:\\Users\\Luka\\AppData\\Local\\Temp\\codex-clipboard-66c453e0-e4b2-477a-953b-55622d0cdb80.png",
+        "extractor": "stage1_intake/extract_pbr_evidence.py",
+        "method": "single-image pixel evidence with de-lighting estimate; not photogrammetry",
+        "usable": true,
+        "verdict": "pass",
+        "confidence": 0.86,
+        "estimatedFidelity": 0.86,
+        "targetThreshold": 0.7,
+        "hardLimit": "A single image cannot uniquely recover true albedo/roughness/normal/AO; maps are reference-derived estimates.",
+        "maps": {
+          "albedo": {
+            "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_albedo.png",
+            "url": "skin_albedo.png",
+            "channel": "albedo",
+            "source": "reference-pixel-extraction"
+          },
+          "roughness": {
+            "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_roughness.png",
+            "url": "skin_roughness.png",
+            "channel": "roughness",
+            "source": "reference-pixel-extraction"
+          },
+          "height": {
+            "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_height.png",
+            "url": "skin_height.png",
+            "channel": "height",
+            "source": "reference-pixel-extraction"
+          },
+          "normal": {
+            "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_normal.png",
+            "url": "skin_normal.png",
+            "channel": "normal",
+            "source": "reference-pixel-extraction"
+          },
+          "ao": {
+            "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_ao.png",
+            "url": "skin_ao.png",
+            "channel": "ao",
+            "source": "reference-pixel-extraction"
+          }
+        },
+        "diagnostics": {
+          "sourceWidth": 1254,
+          "sourceHeight": 1254,
+          "mapSize": 512,
+          "cropBBoxPixels": {
+            "x": 265,
+            "y": 60,
+            "width": 722,
+            "height": 1084
+          },
+          "mask": {
+            "backgroundColor": "#F9F4F1",
+            "backgroundNoise": 1.414,
+            "transparentPixelFraction": 0.0,
+            "foregroundCoverage": 0.1654
+          },
+          "mapStats": {
+            "valueRange": 0.6049,
+            "heightP90Gradient": 0.04184,
+            "roughnessBase": 0.68,
+            "roughnessVariation": 0.065,
+            "normalStrength": 0.205,
+            "blurRadius": 10
+          },
+          "palette": [
+            "#F8BC7F",
+            "#EFAE6E",
+            "#623C1F",
+            "#DB9A5A",
+            "#FCC893",
+            "#BA793D"
+          ]
+        },
+        "warnings": [
+          "single-image inverse rendering cannot prove true physical PBR; confidence is capped"
+        ]
+      }
+    }
+  ],
+  "repetitionSystems": [
+    {
+      "id": "bilateral-anatomy",
+      "name": "Bilateral face and limb pairing",
+      "realization": "mirrored semantic placement",
+      "buildsGeometry": true,
+      "geometry": "paired brows, eyes, ears, arms, legs and moustache lobes",
+      "instances": 6,
+      "evidenceRefs": [
+        "full-object"
+      ]
+    }
+  ],
+  "buildPasses": [
+    {
+      "id": "blockout",
+      "goal": "Confirm supplied silhouette, orientation and scale.",
+      "componentRefs": [
+        "root",
+        "body",
+        "head"
+      ],
+      "acceptance": [
+        "T-pose proportions match the admitted reference."
+      ]
+    },
+    {
+      "id": "structural-pass",
+      "goal": "Smooth topology, fit Rigify, skin and validate joints.",
+      "componentRefs": [
+        "body",
+        "head",
+        "arm-l",
+        "arm-r",
+        "leg-l",
+        "leg-r"
+      ],
+      "acceptance": [
+        "No faceting at gameplay distance.",
+        "Shoulders, elbows, hips and knees deform without collapse."
+      ]
+    },
+    {
+      "id": "material-pass",
+      "goal": "Apply the Imota palette to skin, hair, eyes and mouth.",
+      "componentRefs": [
+        "head",
+        "hair-quiff",
+        "hair-crop",
+        "hair-bun",
+        "hair-long",
+        "eye-l",
+        "eye-r"
+      ],
+      "acceptance": [
+        "Palette zones read clearly in neutral and game lighting."
+      ]
+    },
+    {
+      "id": "lighting-pass",
+      "goal": "Review neutral, grazing and gameplay light response.",
+      "componentRefs": [
+        "root"
+      ],
+      "acceptance": [
+        "Clay response is soft and not plastic or flat."
+      ]
+    },
+    {
+      "id": "interaction-pass",
+      "goal": "Validate locomotion and equipment sockets.",
+      "componentRefs": [
+        "arm-l",
+        "arm-r",
+        "head",
+        "body"
+      ],
+      "acceptance": [
+        "Idle/walk transition, hand tool mount, head and back mounts work."
+      ]
+    },
+    {
+      "id": "optimization-pass",
+      "goal": "Keep the skinned runtime asset compact.",
+      "componentRefs": [
+        "root"
+      ],
+      "acceptance": [
+        "One body mesh plus independently hidden head modules, four shared palette materials, and deform bones only."
+      ]
+    }
+  ],
+  "visualEvidence": [
+    {
+      "timestamp": "2026-07-29T11:40:43.929368+00:00",
+      "passId": "blockout",
+      "estimatedFidelity": 0.79,
+      "aiVisionScore": 0.79,
+      "visualAcceptanceThreshold": 0.7,
+      "layerScores": {
+        "silhouetteProportion": 0.8,
+        "componentStructure": 0.86,
+        "formDetail": 0.78,
+        "materialSurface": 0.72,
+        "lightingCamera": 0.76
+      },
+      "featureReviews": [
+        {
+          "id": "anatomy-proportion",
+          "score": 0.8,
+          "notes": "Rounded chibi proportions and T-pose match; the supplied base is modestly broader."
+        },
+        {
+          "id": "pose-silhouette",
+          "score": 0.82,
+          "notes": "T-pose and major silhouette read cleanly from the same full comparison pair."
+        }
+      ],
+      "referenceScreenshot": "C:\\Users\\Luka\\AppData\\Local\\Temp\\codex-clipboard-66c453e0-e4b2-477a-953b-55622d0cdb80.png",
+      "renderScreenshot": "C:\\Dev\\suma-nook\\artifacts\\player_male_review\\player_front_tpose.png",
+      "comparisonImage": "C:\\Dev\\suma-nook\\artifacts\\player_male_review\\reference_vs_godot.png",
+      "cameraView": "front",
+      "notes": "Front orthographic Godot capture; no ground plane in the blockout evidence.",
+      "aiVisionNotes": "The same-image comparison shows a strong semantic match and correct T-pose. The runtime is flatter and a little broader than the studio reference, but all identity-defining face/hair components are present and aligned. The clean diagnostic silhouette IoU is 0.858; remaining strict aspect/scale deltas reflect supplied base proportions and framing rather than detached geometry."
+    }
+  ],
+  "reviewHistory": [
+    {
+      "timestamp": "2026-07-29T11:40:43.929368+00:00",
+      "passId": "blockout",
+      "estimatedFidelity": 0.79,
+      "aiVisionScore": 0.79,
+      "visualAcceptanceThreshold": 0.7,
+      "layerScores": {
+        "silhouetteProportion": 0.8,
+        "componentStructure": 0.86,
+        "formDetail": 0.78,
+        "materialSurface": 0.72,
+        "lightingCamera": 0.76
+      },
+      "featureReviews": [
+        {
+          "id": "anatomy-proportion",
+          "score": 0.8,
+          "notes": "Rounded chibi proportions and T-pose match; the supplied base is modestly broader."
+        },
+        {
+          "id": "pose-silhouette",
+          "score": 0.82,
+          "notes": "T-pose and major silhouette read cleanly from the same full comparison pair."
+        }
+      ],
+      "action": "continue",
+      "summary": "Godot T-pose preserves the supplied body silhouette and now includes the reference-critical quiff, brows, oval eyes, protruding nose, moustache, mouth, and ears; runtime idle/walk captures confirm the rigid head socket prevents feature drift.",
+      "matched": [
+        "T-pose and rounded body silhouette",
+        "All critical facial volumes present",
+        "Quiff and side hair silhouette",
+        "Bilateral feature placement",
+        "Actual Godot idle and walk alignment"
+      ],
+      "mismatches": [
+        "Runtime clay lighting is flatter than the studio reference",
+        "Supplied base body is slightly broader and shorter than the idealized reference",
+        "Rear hair remains inferred from one front reference"
+      ],
+      "specFixes": [],
+      "codeFixes": [
+        "Keep one PlayerHeadSocket attachment as the only rigid-feature parent",
+        "Continue using palette shader without per-frame material work"
+      ],
+      "evidence": [
+        "C:\\Dev\\suma-nook\\artifacts\\player_male_review\\player_front_tpose.png",
+        "C:\\Dev\\suma-nook\\artifacts\\player_male_review\\player_walk_aligned.png",
+        "C:\\Dev\\suma-nook\\art_source\\player_male\\captures\\side.png",
+        "C:\\Dev\\suma-nook\\art_source\\player_male\\captures\\isometric.png",
+        "C:\\Dev\\suma-nook\\artifacts\\player_male_review\\player_legacy_vest_skipped.png"
+      ],
+      "outOfSequence": true,
+      "mapStrippedRender": "C:\\Dev\\suma-nook\\artifacts\\player_male_review\\player_front_tpose.png",
+      "reviewViewpoints": [
+        "front",
+        "three-quarter",
+        "side",
+        "isometric-gameplay",
+        "long-axis",
+        "thickness-axis"
+      ],
+      "visualEvidence": {
+        "referenceScreenshot": "C:\\Users\\Luka\\AppData\\Local\\Temp\\codex-clipboard-66c453e0-e4b2-477a-953b-55622d0cdb80.png",
+        "renderScreenshot": "C:\\Dev\\suma-nook\\artifacts\\player_male_review\\player_front_tpose.png",
+        "comparisonImage": "C:\\Dev\\suma-nook\\artifacts\\player_male_review\\reference_vs_godot.png",
+        "cameraView": "front",
+        "notes": "Front orthographic Godot capture; no ground plane in the blockout evidence.",
+        "aiVisionNotes": "The same-image comparison shows a strong semantic match and correct T-pose. The runtime is flatter and a little broader than the studio reference, but all identity-defining face/hair components are present and aligned. The clean diagnostic silhouette IoU is 0.858; remaining strict aspect/scale deltas reflect supplied base proportions and framing rather than detached geometry."
+      }
+    }
+  ],
+  "lodPlan": [
+    {
+      "tier": "near",
+      "distance": 0,
+      "strategy": "full component tree and material layers"
+    },
+    {
+      "tier": "far",
+      "distance": 30,
+      "strategy": "merge static components and reduce local feature geometry"
+    }
+  ],
+  "performanceBudget": {
+    "qualityPriority": "reference-fidelity",
+    "targetTriangles": 250000,
+    "maxDrawCalls": 160,
+    "textureSize": 2048,
+    "fpsTarget": 30,
+    "optimizationPolicy": "Reach accepted visual fidelity first, then optimize without removing reference-critical geometry or surface layers.",
+    "targetTriangleCount": 30000,
+    "maximumTriangleCount": 45000,
+    "targetMaterialSlots": 4,
+    "targetSkinnedMeshes": 1,
+    "notes": "Subdivision is applied offline. Modular head meshes are bound once to the head socket and inactive hairstyles are hidden, so there is no runtime subdivision, simulation, or per-frame material work."
+  },
+  "lightingFromPhoto": [
+    "Large warm key light from camera upper-left; soft clay highlights.",
+    "Low-intensity neutral fill preserves eye and moustache silhouettes.",
+    "Subtle rim/environment light, ACES tone mapping, exposure 0, warm background, ambient occlusion and soft ground contact shadow."
+  ],
+  "proceduralStrategy": [
+    "Block out macro silhouette first.",
+    "Add component hierarchy and joints.",
+    "Create stable pivot groups, sockets, collider proxies, and destruction metadata before visual polish.",
+    "Refine forms with bevels, tapers, bends, and procedural noise.",
+    "Run reference PBR extraction for important source-image materials and stop when confidence is below the target threshold.",
+    "Add material variation before adding expensive micro-geometry."
+  ],
+  "animationAnchors": [
+    "root pivot node supports whole-object translation, rotation, scale, and visibility changes",
+    "component pivot groups support later local transforms without rebuilding geometry"
+  ],
+  "destructionAnchors": [
+    "actionProfile.destruction.fractureGroup marks detachable or breakable component sets",
+    "component seams and sockets define plausible break points instead of random explosions"
+  ],
+  "risks": [
+    "Single-view reference cannot prove the rear hair silhouette.",
+    "Supplied GLB has one connected surface and no material-boundary metadata."
+  ],
+  "localSpecSearch": {
+    "collection": "core_3d",
+    "query": "Imota player male",
+    "index": {
+      "status": "hit",
+      "reason": "current",
+      "fingerprint": "f0f30c5b240307f11856ccf1ec550563e199ddcaf2e60b27e13512821ea41c54"
+    },
+    "matches": []
+  },
+  "pbrExtractionHistory": [
+    {
+      "materialId": "skin",
+      "confidence": 0.86,
+      "verdict": "pass",
+      "usable": true,
+      "maps": {
+        "albedo": {
+          "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_albedo.png",
+          "url": "skin_albedo.png",
+          "channel": "albedo",
+          "source": "reference-pixel-extraction"
+        },
+        "roughness": {
+          "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_roughness.png",
+          "url": "skin_roughness.png",
+          "channel": "roughness",
+          "source": "reference-pixel-extraction"
+        },
+        "height": {
+          "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_height.png",
+          "url": "skin_height.png",
+          "channel": "height",
+          "source": "reference-pixel-extraction"
+        },
+        "normal": {
+          "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_normal.png",
+          "url": "skin_normal.png",
+          "channel": "normal",
+          "source": "reference-pixel-extraction"
+        },
+        "ao": {
+          "path": "C:\\Dev\\suma-nook\\art_source\\player_male\\reference-pbr\\skin_ao.png",
+          "url": "skin_ao.png",
+          "channel": "ao",
+          "source": "reference-pixel-extraction"
+        }
+      }
+    }
+  ],
+  "tier1Results": [
+    {
+      "passed": false,
+      "checks": {
+        "silhouetteIoU": 0.3591,
+        "aspectRatioDelta": 0.7034,
+        "scaleDelta": 0.9471,
+        "bilateralSymmetryError": 0.007,
+        "colorDelta": {
+          "checked": 22,
+          "maxDeltaE": 30.29,
+          "perComponent": [
+            {
+              "componentId": null,
+              "deltaE": 16.76
+            },
+            {
+              "componentId": null,
+              "deltaE": 16.76
+            },
+            {
+              "componentId": null,
+              "deltaE": 16.76
+            },
+            {
+              "componentId": null,
+              "deltaE": 16.76
+            },
+            {
+              "componentId": null,
+              "deltaE": 16.76
+            },
+            {
+              "componentId": null,
+              "deltaE": 16.76
+            },
+            {
+              "componentId": null,
+              "deltaE": 16.76
+            },
+            {
+              "componentId": null,
+              "deltaE": 14.11
+            },
+            {
+              "componentId": null,
+              "deltaE": 14.11
+            },
+            {
+              "componentId": null,
+              "deltaE": 14.11
+            },
+            {
+              "componentId": null,
+              "deltaE": 14.11
+            },
+            {
+              "componentId": null,
+              "deltaE": 14.11
+            },
+            {
+              "componentId": null,
+              "deltaE": 14.11
+            },
+            {
+              "componentId": null,
+              "deltaE": 14.11
+            },
+            {
+              "componentId": null,
+              "deltaE": 21.5
+            },
+            {
+              "componentId": null,
+              "deltaE": 21.5
+            },
+            {
+              "componentId": null,
+              "deltaE": 16.76
+            },
+            {
+              "componentId": null,
+              "deltaE": 14.11
+            },
+            {
+              "componentId": null,
+              "deltaE": 14.11
+            },
+            {
+              "componentId": null,
+              "deltaE": 30.29
+            },
+            {
+              "componentId": null,
+              "deltaE": 16.76
+            },
+            {
+              "componentId": null,
+              "deltaE": 16.76
+            }
+          ],
+          "gated": false
+        }
+      },
+      "failures": [
+        "silhouette IoU 0.359 is below threshold 0.85",
+        "aspect-ratio delta 0.703 exceeds threshold 0.05",
+        "scale delta 0.947 exceeds threshold 0.08",
+        "blockout requires --map-stripped-render evidence"
+      ],
+      "renderHash": "949be57ac5108a10",
+      "passId": "blockout"
+    },
+    {
+      "passed": false,
+      "checks": {
+        "silhouetteIoU": 0.8581,
+        "aspectRatioDelta": 0.0699,
+        "scaleDelta": 0.1252,
+        "bilateralSymmetryError": 0.007,
+        "colorDelta": {
+          "checked": 22,
+          "maxDeltaE": 20.29,
+          "perComponent": [
+            {
+              "componentId": null,
+              "deltaE": 16.47
+            },
+            {
+              "componentId": null,
+              "deltaE": 16.47
+            },
+            {
+              "componentId": null,
+              "deltaE": 16.47
+            },
+            {
+              "componentId": null,
+              "deltaE": 16.47
+            },
+            {
+              "componentId": null,
+              "deltaE": 16.47
+            },
+            {
+              "componentId": null,
+              "deltaE": 16.47
+            },
+            {
+              "componentId": null,
+              "deltaE": 16.47
+            },
+            {
+              "componentId": null,
+              "deltaE": 13.69
+            },
+            {
+              "componentId": null,
+              "deltaE": 13.69
+            },
+            {
+              "componentId": null,
+              "deltaE": 13.69
+            },
+            {
+              "componentId": null,
+              "deltaE": 13.69
+            },
+            {
+              "componentId": null,
+              "deltaE": 13.69
+            },
+            {
+              "componentId": null,
+              "deltaE": 13.69
+            },
+            {
+              "componentId": null,
+              "deltaE": 13.69
+            },
+            {
+              "componentId": null,
+              "deltaE": 20.29
+            },
+            {
+              "componentId": null,
+              "deltaE": 20.29
+            },
+            {
+              "componentId": null,
+              "deltaE": 16.47
+            },
+            {
+              "componentId": null,
+              "deltaE": 13.69
+            },
+            {
+              "componentId": null,
+              "deltaE": 13.69
+            },
+            {
+              "componentId": null,
+              "deltaE": 18.69
+            },
+            {
+              "componentId": null,
+              "deltaE": 16.47
+            },
+            {
+              "componentId": null,
+              "deltaE": 16.47
+            }
+          ],
+          "gated": false
+        }
+      },
+      "failures": [
+        "aspect-ratio delta 0.070 exceeds threshold 0.05",
+        "scale delta 0.125 exceeds threshold 0.08"
+      ],
+      "renderHash": "08500e4774fabe5b",
+      "passId": "blockout",
+      "mapStrippedRender": "C:\\Dev\\suma-nook\\artifacts\\player_male_review\\player_front_tpose.png"
+    }
+  ]
+}

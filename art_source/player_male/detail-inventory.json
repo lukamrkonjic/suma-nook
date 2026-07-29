@@ -1,0 +1,91 @@
+{
+  "sourceImage": "C:\\Users\\Luka\\AppData\\Local\\Temp\\codex-clipboard-66c453e0-e4b2-477a-953b-55622d0cdb80.png",
+  "zonesDir": "C:\\Dev\\suma-nook\\art_source\\player_male\\detail-zones",
+  "detailInventory": {
+    "scanMethod": "component-zones",
+    "targetMinDetails": 10,
+    "details": [
+      {
+        "id": "head",
+        "kind": "",
+        "description": "",
+        "region": {
+          "x": 0.25,
+          "y": 0.04,
+          "width": 0.5,
+          "height": 0.42,
+          "units": "normalized"
+        },
+        "scale": "",
+        "affects": "",
+        "mapsTo": {
+          "type": "",
+          "ref": ""
+        },
+        "evidenceRef": "C:\\Dev\\suma-nook\\art_source\\player_male\\detail-zones\\head.png",
+        "confidence": 0.0
+      },
+      {
+        "id": "face",
+        "kind": "",
+        "description": "",
+        "region": {
+          "x": 0.32,
+          "y": 0.14,
+          "width": 0.36,
+          "height": 0.27,
+          "units": "normalized"
+        },
+        "scale": "",
+        "affects": "",
+        "mapsTo": {
+          "type": "",
+          "ref": ""
+        },
+        "evidenceRef": "C:\\Dev\\suma-nook\\art_source\\player_male\\detail-zones\\face.png",
+        "confidence": 0.0
+      },
+      {
+        "id": "upper-body",
+        "kind": "",
+        "description": "",
+        "region": {
+          "x": 0.18,
+          "y": 0.36,
+          "width": 0.64,
+          "height": 0.28,
+          "units": "normalized"
+        },
+        "scale": "",
+        "affects": "",
+        "mapsTo": {
+          "type": "",
+          "ref": ""
+        },
+        "evidenceRef": "C:\\Dev\\suma-nook\\art_source\\player_male\\detail-zones\\upper-body.png",
+        "confidence": 0.0
+      },
+      {
+        "id": "lower-body",
+        "kind": "",
+        "description": "",
+        "region": {
+          "x": 0.32,
+          "y": 0.6,
+          "width": 0.36,
+          "height": 0.34,
+          "units": "normalized"
+        },
+        "scale": "",
+        "affects": "",
+        "mapsTo": {
+          "type": "",
+          "ref": ""
+        },
+        "evidenceRef": "C:\\Dev\\suma-nook\\art_source\\player_male\\detail-zones\\lower-body.png",
+        "confidence": 0.0
+      }
+    ]
+  },
+  "authoringInstruction": "Open each zone crop under zonesDir and replace every detail stub's kind, description, scale, affects, mapsTo, and confidence with what is actually observed. Add more detail entries per zone if a single zone contains multiple distinct marks; do not leave stubs unfilled or unlinked (mapsTo must reference a real component.localFeatures or material.localOverrides entry)."
+}

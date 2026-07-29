@@ -11,6 +11,9 @@ const InteractionTargetResolverScript := preload(
 const DebugWorldBuilderScript := preload(
 	"res://scripts/debug/debug_world_builder.gd"
 )
+const InputHintOverlayScript := preload(
+	"res://scripts/ui/input_hint_overlay.gd"
+)
 const DEBUG_WORLD_TILE_COUNT := 5000
 const DEBUG_WORLD_MODEL_COUNT := 1250
 const MAXED_WORLD_TILE_COUNT := 10000
@@ -45,6 +48,8 @@ var performance_hud
 var panels: GamePanels
 var pause_menu: PauseMenu
 var parcel_reveal: ParcelReveal
+var input_hints: InputHintOverlay
+var character_creator: CharacterCreator
 var audio: GameAudio
 var interaction_targets
 var save_path_override := ""  # injected before _ready by isolated scene tests
@@ -170,6 +175,7 @@ func _build_world_scene() -> void:
 
 	renderer.setup(core, assets)
 	player.setup(core, camera_rig, player_visual)
+	lighting.bind_fog_interactors(player, camera_rig)
 	skill_actions.setup(core, player, player_visual, effects)
 	player_visual.apply_profile(core.profile)
 	player_visual.apply_equipment(core.equipment)
@@ -200,6 +206,11 @@ func _build_ui() -> void:
 	add_child(pause_menu)
 	pause_menu.setup(core, kit, self)
 
+	input_hints = InputHintOverlayScript.new()
+	input_hints.name = "InputHints"
+	add_child(input_hints)
+	input_hints.setup(kit)
+
 	performance_hud = PerformanceHudScript.new()
 	performance_hud.name = "PerformanceHud"
 	add_child(performance_hud)
@@ -218,10 +229,20 @@ func toggle_lighting_tuner() -> bool:
 		lighting_tuner.name = "LightingTuner"
 		add_child(lighting_tuner)
 		lighting_tuner.setup(lighting, kit)
+		lighting_tuner.closed.connect(func():
+			if pause_menu.is_open():
+				pause_menu.focus_default()
+		)
+		if InputDeviceService.shared().is_controller():
+			lighting_tuner.focus_default()
 		return true
 	lighting_tuner.visible = not lighting_tuner.visible
 	if lighting_tuner.visible:
 		lighting_tuner.refresh()
+		if InputDeviceService.shared().is_controller():
+			lighting_tuner.focus_default()
+	elif pause_menu.is_open():
+		pause_menu.focus_default()
 	return lighting_tuner.visible
 
 
@@ -243,7 +264,9 @@ func open_asset_viewer() -> void:
 		asset_viewer.name = "AssetViewer"
 		add_child(asset_viewer)
 		asset_viewer.setup(self)
+		asset_viewer.closed.connect(_refresh_controller_hints)
 	asset_viewer.open()
+	_refresh_controller_hints()
 
 
 # A hand-composed showcase island (Admin page): every tile family, stacked
@@ -252,23 +275,21 @@ func open_asset_viewer() -> void:
 # stood on each cell, so building it replaces the current island in place.
 const MOCK_WORLD_ORIGIN := Vector2i(-4, -3)
 const MOCK_WORLD_TILES := {
-	"W": "tile_open_water", "G": "tile_grass", "F": "tile_grass_flower",
-	"V": "tile_grove_mature", "C": "tile_cobblestone", "L": "tile_flagstone",
-	"T": "tile_courtyard", "R": "tile_dirt_road", "X": "tile_dirt_crossroad",
-	"D": "tile_dirt", "S": "tile_sand", "N": "tile_snowfield",
-	"M": "tile_mud", "K": "tile_wooden_planks", "Y": "tile_clay",
-	"U": "tile_garden", "P": "tile_path", "B": "tile_plain_ground",
-	"O": "tile_stone_clearing",
+	"W": "tile_open_water",
+	"G": "tile_grass",
+	"S": "tile_sand",
+	"C": "tile_concrete_brutalist",
+	"N": "tile_snowfield",
 }
 const MOCK_WORLD_ROWS := [
 	"WWWWWWWWWW",
-	"WGGVVGFGGW",
-	"WGRCCCCRGW",
-	"WVRCTTCRUW",
-	"WGRCLLCRUW",
-	"WFXRRRRXDW",
-	"WKKKKNNDMW",
-	"WKSSKNNYBW",
+	"WGGGGGGGGW",
+	"WGSSSSSSGW",
+	"WGSSGGSSGW",
+	"WGCCGGCCGW",
+	"WGNNNNNNGW",
+	"WGGSSGGGGW",
+	"WWWWWWWWWW",
 ]
 const MOCK_WORLD_STRUCTURES := [
 	[Vector2i(-1, -2), "struct_pine_tall", 0],
@@ -405,12 +426,16 @@ func _apply_debug_visual_overrides() -> void:
 	if not OS.is_debug_build():
 		return
 	for arg: String in OS.get_cmdline_user_args():
-		if not arg.begins_with("--time-of-day="):
-			continue
-		var requested := arg.trim_prefix("--time-of-day=")
-		if requested in ["morning", "noon", "sunset", "night"]:
-			lighting.set_time_of_day(requested)
-		return
+		if arg.begins_with("--time-of-day="):
+			var requested_time := arg.trim_prefix("--time-of-day=")
+			if requested_time in ["morning", "noon", "sunset", "night"]:
+				lighting.set_time_of_day(requested_time)
+		elif arg.begins_with("--weather="):
+			var requested_weather := arg.trim_prefix("--weather=")
+			if requested_weather in [
+				"day", "mist", "rain", "leaves", "snow", "blossom"
+			]:
+				lighting.set_weather(requested_weather)
 
 
 func _schedule_debug_capture() -> void:
@@ -467,10 +492,17 @@ func _connect_flows() -> void:
 	hud.build_piece_selected.connect(func(kind, id):
 		audio.play_event("build_preview")
 		placement.hold_new(kind, id))
+	hud.build_world_browse_requested.connect(_begin_controller_world_browse)
 	parcel_reveal.reveal_finished.connect(_on_tile_chosen)
+	parcel_reveal.reveal_started.connect(func(_options): _refresh_controller_hints())
 	core.parcels.options_revealed.connect(func(_p, _o): audio.play_event("parcel_reveal"))
 	panels.landmark_resolution_chosen.connect(_on_landmark_resolution)
-	panels.panel_toggled.connect(func(_n, open): audio.play_event("panel_open" if open else "panel_close"))
+	panels.panel_toggled.connect(func(_n, open):
+		audio.play_event("panel_open" if open else "panel_close")
+		_refresh_controller_hints()
+	)
+	pause_menu.opened.connect(_refresh_controller_hints)
+	pause_menu.closed.connect(_refresh_controller_hints)
 
 	skill_actions.action_feedback.connect(_on_action_feedback)
 	skill_actions.storage_requested.connect(func(): panels.toggle("inventory"))
@@ -479,6 +511,8 @@ func _connect_flows() -> void:
 		panels.show_landmark_choice(String(node.get_meta("landmark_id"))))
 
 	placement.action_result.connect(_on_placement_result)
+	placement.mode_changed.connect(func(_active): _refresh_controller_hints())
+	placement.held_changed.connect(func(_held): _refresh_controller_hints())
 	player.interaction_focus_changed.connect(_on_focus_changed)
 	player.click_interaction_reached.connect(_on_click_interaction_reached)
 
@@ -507,16 +541,24 @@ func _connect_flows() -> void:
 	lighting.profile_applied.connect(_on_profile_applied)
 	if lighting.current_profile != null:
 		_on_profile_applied(lighting.current_profile)
+	InputDeviceService.shared().input_method_changed.connect(_on_input_method_changed)
+	InputDeviceService.shared().controller_connection_changed.connect(
+		_on_controller_connection_changed
+	)
+	InputDeviceService.shared().active_controller_changed.connect(
+		func(_device): _refresh_controller_hints()
+	)
+	_on_input_method_changed(InputDeviceService.shared().input_method)
 
 
 # ------------------------------------------------------------------ boot flows
 
 func _start_character_creation() -> void:
-	var creator := CharacterCreator.new()
-	creator.name = "Creator"
-	add_child(creator)
-	core.profile = creator.profile
-	creator.setup(kit, palette, func(profile):
+	character_creator = CharacterCreator.new()
+	character_creator.name = "Creator"
+	add_child(character_creator)
+	core.profile = character_creator.profile
+	character_creator.setup(kit, palette, func(profile):
 		player_visual.apply_profile(profile))
 	# A pleasant preview world sits behind the creator.
 	core._compose_starting_world()
@@ -526,10 +568,14 @@ func _start_character_creation() -> void:
 	player.rotation.y = PI
 	camera_rig.zoom_for_creator()
 	player.set_state(PlayerController.State.DISABLED)
-	creator.creation_finished.connect(_on_creation_finished)
+	character_creator.creation_finished.connect(_on_creation_finished)
+	if InputDeviceService.shared().is_controller():
+		character_creator.focus_default()
+	_refresh_controller_hints()
 
 
 func _on_creation_finished(profile: PlayerProfile) -> void:
+	character_creator = null
 	core.new_game(profile)
 	renderer.rebuild_all()
 	player_visual.apply_profile(profile)
@@ -560,6 +606,7 @@ func _start_gameplay(fresh: bool) -> void:
 	hud.update_tutorial()
 	hud.toast("Welcome%s, %s." % ["" if fresh else " back", core.profile.display_name], "good")
 	core.arrivals.announce_restored_delivery()
+	_refresh_controller_hints()
 
 
 func _apply_saved_visual_state() -> void:
@@ -639,6 +686,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if not _gameplay_started:
 		return
+	if asset_viewer != null and asset_viewer.is_open():
+		return
+	if pause_menu.is_open() or parcel_reveal.is_open() or panels.is_open():
+		return
 	if (
 		OS.is_debug_build()
 		and event is InputEventKey
@@ -647,16 +698,29 @@ func _unhandled_input(event: InputEvent) -> void:
 		and (event as InputEventKey).physical_keycode == KEY_F8
 	):
 		open_asset_viewer()
-	elif event.is_action_pressed("build_mode"):
+		return
+	if event.is_action_pressed("pause"):
+		open_pause_menu()
+		get_viewport().set_input_as_handled()
+		return
+	if placement.active and placement.controller_mode():
+		_handle_controller_build_input(event)
+		return
+	if event.is_action_pressed("build_mode"):
 		skill_actions.cancel_all()
 		placement.toggle()
-	elif event.is_action_pressed("rotate_piece"):
+	elif event.is_action_pressed("rotate_piece") and placement.active:
 		placement.rotate_held()
-		if placement.active:
-			audio.play_event("build_rotate")
-	elif event.is_action_pressed("undo"):
+		audio.play_event("build_rotate")
+	elif (
+		event.is_action_pressed("undo")
+		and not _is_controller_event(event)
+	):
 		placement.undo()
-	elif event.is_action_pressed("redo"):
+	elif (
+		event.is_action_pressed("redo")
+		and not _is_controller_event(event)
+	):
 		placement.redo()
 	elif event.is_action_pressed("panel_inventory"):
 		panels.toggle("inventory")
@@ -677,6 +741,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			player.cancel_click_command()
 			skill_actions.try_interact()
 	elif event.is_action_pressed("cancel"):
+		if (
+			_is_controller_event(event)
+			and core.registries.feature("combat_enabled", false)
+			and event.is_action_pressed("dodge")
+		):
+			# B/Circle is dodge in combat and Back everywhere else.
+			return
 		if panels.is_open():
 			panels.close()
 		elif parcel_reveal.is_open():
@@ -703,11 +774,72 @@ func _unhandled_input(event: InputEvent) -> void:
 				placement.cancel_click()
 	elif event is InputEventMouseMotion and placement.active:
 		placement.pointer_motion((event as InputEventMouseMotion).position)
-	elif event is InputEventKey and event.pressed and not event.echo:
-		var key := event as InputEventKey
-		if key.physical_keycode == KEY_X and placement.active:
-			placement.store_held()
-			audio.play_event("store")
+	elif event.is_action_pressed("store_piece") and placement.active:
+		placement.store_held()
+		audio.play_event("store")
+
+
+func _handle_controller_build_input(event: InputEvent) -> void:
+	if event.is_action_pressed("build_mode"):
+		if placement.held.is_empty():
+			if placement.controller_cursor_active():
+				placement.show_controller_library()
+				hud.focus_build_library()
+			else:
+				_begin_controller_world_browse()
+		get_viewport().set_input_as_handled()
+		_refresh_controller_hints()
+		return
+	if event.is_action_pressed("cancel"):
+		placement.cancel_click()
+		get_viewport().set_input_as_handled()
+		_refresh_controller_hints()
+		return
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused != null:
+		# Directional and confirm input belongs to the focused build library.
+		return
+	var cursor_direction := Vector2i.ZERO
+	if event.is_action_pressed("build_cursor_left"):
+		cursor_direction = Vector2i.LEFT
+	elif event.is_action_pressed("build_cursor_right"):
+		cursor_direction = Vector2i.RIGHT
+	elif event.is_action_pressed("build_cursor_up"):
+		cursor_direction = Vector2i.UP
+	elif event.is_action_pressed("build_cursor_down"):
+		cursor_direction = Vector2i.DOWN
+	if cursor_direction != Vector2i.ZERO:
+		placement.move_controller_cursor(cursor_direction)
+		get_viewport().set_input_as_handled()
+		return
+	if (
+		event.is_action_pressed("build_confirm")
+		and placement.controller_cursor_active()
+	):
+		placement.click()
+	elif event.is_action_pressed("rotate_piece"):
+		placement.rotate_held()
+		audio.play_event("build_rotate")
+	elif event.is_action_pressed("store_piece"):
+		placement.store_held()
+		audio.play_event("store")
+	elif event.is_action_pressed("undo"):
+		placement.undo()
+	elif event.is_action_pressed("redo"):
+		placement.redo()
+	else:
+		return
+	get_viewport().set_input_as_handled()
+
+
+func _begin_controller_world_browse() -> void:
+	placement.begin_controller_browse()
+	hud.release_build_focus()
+	_refresh_controller_hints()
+
+
+func _is_controller_event(event: InputEvent) -> bool:
+	return event is InputEventJoypadButton or event is InputEventJoypadMotion
 
 
 func open_pause_menu(page := "menu") -> void:
@@ -717,6 +849,112 @@ func open_pause_menu(page := "menu") -> void:
 	if panels.is_open():
 		panels.close()
 	pause_menu.open(page)
+
+
+func _on_input_method_changed(method: int) -> void:
+	var using_controller := method == InputDeviceService.InputMethod.CONTROLLER
+	placement.set_controller_mode(using_controller)
+	if using_controller:
+		if pause_menu.is_open():
+			pause_menu.focus_default()
+		elif panels.is_open():
+			panels.focus_default()
+		elif parcel_reveal.is_open():
+			parcel_reveal.focus_default()
+		elif (
+			character_creator != null
+			and is_instance_valid(character_creator)
+		):
+			character_creator.focus_default()
+		elif placement.active and placement.held.is_empty():
+			hud.focus_build_library()
+	else:
+		hud.release_build_focus()
+	_refresh_controller_hints()
+
+
+func _on_controller_connection_changed(
+	device: int,
+	connected: bool
+) -> void:
+	if not connected or not _gameplay_started:
+		return
+	var controller_name := Input.get_joy_name(device)
+	hud.toast(
+		"%s connected — controller prompts are ready."
+		% (controller_name if controller_name != "" else "Controller"),
+		"good"
+	)
+
+
+func _refresh_controller_hints() -> void:
+	if input_hints == null:
+		return
+	var actions: Array[Dictionary] = []
+	if (
+		character_creator != null
+		and is_instance_valid(character_creator)
+	):
+		actions = [
+			{"action": &"ui_accept", "label": "Choose"},
+		]
+	elif asset_viewer != null and asset_viewer.is_open():
+		actions = [
+			{"action": &"look_right", "label": "Orbit"},
+			{"action": &"camera_zoom_in", "label": "Zoom"},
+			{"action": &"cancel", "label": "Return"},
+		]
+	elif pause_menu.is_open():
+		actions = [
+			{"action": &"ui_accept", "label": "Select"},
+			{"action": &"cancel", "label": "Back"},
+		]
+	elif parcel_reveal.is_open():
+		actions = [
+			{"action": &"ui_accept", "label": "Choose land"},
+		]
+	elif panels.is_open():
+		actions = [
+			{"action": &"panel_previous", "label": "Previous page"},
+			{"action": &"panel_next", "label": "Next page"},
+			{"action": &"cancel", "label": "Close"},
+		]
+	elif placement.active:
+		if not placement.held.is_empty():
+			actions = [
+				{"action": &"build_cursor_up", "label": "Move cursor"},
+				{"action": &"build_confirm", "label": "Place"},
+				{"action": &"rotate_piece", "label": "Rotate"},
+				{"action": &"cancel", "label": "Cancel"},
+			]
+			if placement.held.get("moving") != null:
+				actions.insert(
+					3,
+					{"action": &"store_piece", "label": "Store"}
+				)
+		elif placement.controller_cursor_active():
+			actions = [
+				{"action": &"build_cursor_up", "label": "Move cursor"},
+				{"action": &"build_confirm", "label": "Pick up"},
+				{"action": &"build_mode", "label": "Library"},
+				{"action": &"cancel", "label": "Exit"},
+			]
+		else:
+			actions = [
+				{"action": &"ui_accept", "label": "Choose piece"},
+				{"action": &"build_mode", "label": "Browse world"},
+				{"action": &"cancel", "label": "Exit"},
+			]
+	else:
+		actions = [
+			{"action": &"move_up", "label": "Move"},
+			{"action": &"jump", "label": "Jump"},
+			{"action": &"build_mode", "label": "Build"},
+			{"action": &"panel_map", "label": "Map"},
+		]
+		if not player.focus().is_empty():
+			actions.insert(1, {"action": &"interact", "label": "Interact"})
+	input_hints.set_context(actions)
 
 
 # ------------------------------------------------------------------ click commands
@@ -832,17 +1070,28 @@ func _on_focus_changed(focus: Dictionary) -> void:
 		"anchor":
 			var anchor: Defs.AnchorDefinition = focus["anchor"]
 			var skill := core.registries.skill(anchor.skill_id)
-			hud.set_prompt("E — %s (%s)" % [skill.display_name, anchor.display_name])
+			hud.set_prompt(
+				&"interact",
+				"%s (%s)" % [skill.display_name, anchor.display_name]
+			)
 		"storage":
-			hud.set_prompt("E — open Tile & Build Library")
+			hud.set_prompt(&"interact", "Open Tile & Build Library")
 		"delivery_package":
-			hud.set_prompt("E — open the ferry's Land Parcel")
+			hud.set_prompt(&"interact", "Open the ferry's Land Parcel")
 		"enemy":
-			hud.set_prompt("E — attack   ·   Space — jump   ·   Shift — dodge")
+			hud.set_prompt(
+				&"interact",
+				"Attack",
+				[
+					{"action": &"jump", "label": "Jump"},
+					{"action": &"dodge", "label": "Dodge"},
+				]
+			)
 		"landmark_prompt":
-			hud.set_prompt("E — claim the watchpost")
+			hud.set_prompt(&"interact", "Claim the watchpost")
 		_:
-			hud.set_prompt("")
+			hud.set_prompt(&"", "")
+	_refresh_controller_hints()
 
 
 func _on_click_interaction_reached(interaction: Dictionary) -> void:
