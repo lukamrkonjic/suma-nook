@@ -257,8 +257,8 @@ func _is_over_open_water() -> bool:
 func _build_entry_splash() -> void:
 	_entry_splash = GPUParticles3D.new()
 	_entry_splash.name = "WaterEntrySplash"
-	_entry_splash.amount = 48
-	_entry_splash.lifetime = 0.58
+	_entry_splash.amount = 18
+	_entry_splash.lifetime = 0.40
 	_entry_splash.one_shot = true
 	_entry_splash.explosiveness = 0.94
 	_entry_splash.randomness = 0.58
@@ -273,17 +273,17 @@ func _build_entry_splash() -> void:
 	_entry_splash.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var process := ParticleProcessMaterial.new()
 	process.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	process.emission_sphere_radius = 0.29
+	process.emission_sphere_radius = 0.17
 	process.direction = Vector3.UP
-	process.spread = 54.0
-	process.initial_velocity_min = 1.9
-	process.initial_velocity_max = 4.0
-	process.gravity = Vector3(0.0, -8.5, 0.0)
-	process.scale_min = 0.62
-	process.scale_max = 1.2
+	process.spread = 46.0
+	process.initial_velocity_min = 1.35
+	process.initial_velocity_max = 2.75
+	process.gravity = Vector3(0.0, -8.0, 0.0)
+	process.scale_min = 0.55
+	process.scale_max = 1.0
 	process.color_ramp = _particle_fade_ramp()
 	_entry_splash.process_material = process
-	_entry_splash.draw_pass_1 = _droplet_mesh(0.038, 0.09, 12, 6)
+	_entry_splash.draw_pass_1 = _droplet_mesh(0.018, 0.046, 12, 6)
 	_entry_splash.emitting = false
 	add_child(_entry_splash)
 
@@ -291,8 +291,8 @@ func _build_entry_splash() -> void:
 func _build_movement_splash() -> void:
 	_movement_splash = GPUParticles3D.new()
 	_movement_splash.name = "WaterMovementSplash"
-	_movement_splash.amount = 20
-	_movement_splash.lifetime = 0.32
+	_movement_splash.amount = 8
+	_movement_splash.lifetime = 0.24
 	_movement_splash.randomness = 0.72
 	_movement_splash.local_coords = false
 	_movement_splash.fixed_fps = 60
@@ -307,17 +307,17 @@ func _build_movement_splash() -> void:
 	)
 	var process := ParticleProcessMaterial.new()
 	process.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	process.emission_sphere_radius = 0.24
+	process.emission_sphere_radius = 0.16
 	process.direction = Vector3.UP
-	process.spread = 69.0
-	process.initial_velocity_min = 0.55
-	process.initial_velocity_max = 1.15
-	process.gravity = Vector3(0.0, -5.5, 0.0)
-	process.scale_min = 0.42
-	process.scale_max = 0.9
+	process.spread = 58.0
+	process.initial_velocity_min = 0.34
+	process.initial_velocity_max = 0.74
+	process.gravity = Vector3(0.0, -4.8, 0.0)
+	process.scale_min = 0.45
+	process.scale_max = 0.8
 	process.color_ramp = _particle_fade_ramp()
 	_movement_splash.process_material = process
-	_movement_splash.draw_pass_1 = _droplet_mesh(0.026, 0.058, 10, 5)
+	_movement_splash.draw_pass_1 = _droplet_mesh(0.012, 0.032, 10, 5)
 	_movement_splash.emitting = false
 	add_child(_movement_splash)
 
@@ -334,7 +334,7 @@ func _droplet_mesh(
 	droplet.radial_segments = radial_segments
 	droplet.rings = rings
 	var material := StandardMaterial3D.new()
-	material.albedo_color = Color(0.80, 0.94, 0.94, 0.88)
+	material.albedo_color = Color(0.78, 0.92, 0.93, 0.62)
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.vertex_color_use_as_albedo = true
@@ -346,8 +346,8 @@ func _particle_fade_ramp() -> GradientTexture1D:
 	var gradient := Gradient.new()
 	gradient.offsets = PackedFloat32Array([0.0, 0.58, 1.0])
 	gradient.colors = PackedColorArray([
-		Color(0.88, 0.98, 0.97, 0.78),
-		Color(0.74, 0.92, 0.93, 0.94),
+		Color(0.88, 0.98, 0.97, 0.28),
+		Color(0.74, 0.92, 0.93, 0.54),
 		Color(0.56, 0.80, 0.84, 0.0),
 	])
 	var texture := GradientTexture1D.new()

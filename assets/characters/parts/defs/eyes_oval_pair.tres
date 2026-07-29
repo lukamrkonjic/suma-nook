@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CharacterPartDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_part_fit.gd" id="1_l5835"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/eyes_oval_pair.glb" id="2_4u5c3"]
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="3_2sjpo"]
+
+[sub_resource type="Resource" id="Resource_c3yih"]
+script = ExtResource("1_l5835")
+body_profile_id = "body_male"
+notes = "Authored directly against body_male; identity fit."
+validated = true
+
+[resource]
+script = ExtResource("3_2sjpo")
+part_id = "eyes_oval_pair"
+display_name = "Warm Ovals"
+slot = "EYES"
+compatibility_tags = PackedStringArray()
+scene = ExtResource("2_4u5c3")
+socket = "EyesSocket"
+compatible_body_profiles = PackedStringArray()
+fits = Array[ExtResource("1_l5835")]([SubResource("Resource_c3yih")])
+hidden_regions = PackedStringArray()
+hides_slots = PackedStringArray()
+color_channel = "eyes"

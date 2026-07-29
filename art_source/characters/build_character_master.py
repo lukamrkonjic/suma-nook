@@ -47,10 +47,12 @@ HEAD_HEIGHT = HEAD_TOP - HEAD_BOTTOM
 SKULL_HALF_WIDTH = 0.131
 
 # Reference-derived facial layout (see docs in character_manifest.json).
-EYE_Z = 0.250
+# ACNH-style eyes: big solid near-black vertical ovals, height ~2x width,
+# ~20% of head height, mid-face with a generous forehead.
+EYE_Z = 0.246
 EYE_X = 0.048
-EYE_HALF = Vector((0.0145, 0.010, 0.023))
-BROW_Z = 0.287
+EYE_HALF = Vector((0.018, 0.011, 0.0315))
+BROW_Z = 0.292
 NOSE_Z = 0.217
 MOUSTACHE_Z = 0.186
 MOUTH_Z = 0.150
@@ -80,6 +82,12 @@ PART_EXPORTS = {
 IDLE_FPS = 30
 IDLE_FRAMES = 156  # 5.2 s loop, closes exactly (all phases are 1x frequency)
 IDLE_NAME = "idle_relaxed"
+# The extracted walk/action clips follow the Mixamo convention: the hips ride
+# a ground-relative baseline (~0.246 above the model origin) instead of the
+# centered rest. The idle must share that baseline or the runtime ground
+# offset (measured from the idle) makes the character float during locomotion.
+# 0.381 lifts the rest hips (-0.135) to the walk clip's standing key (0.246).
+IDLE_HIPS_LIFT = 0.381
 
 
 def load_player_pipeline():
@@ -431,14 +439,14 @@ IDLE_BASE_POSE = [
     ("mixamorigRightShoulder", Y, -4.0),
     ("mixamorigLeftShoulder", Z, 2.0),      # slightly open, not collapsed
     ("mixamorigRightShoulder", Z, -2.0),
-    ("mixamorigLeftArm", Y, 72.0),          # hang with ~15 deg of clearance
-    ("mixamorigRightArm", Y, -72.0),
-    ("mixamorigLeftArm", X, -5.0),          # a few degrees forward
-    ("mixamorigRightArm", X, -5.0),
-    ("mixamorigLeftForeArm", X, -10.0),     # soft elbows
-    ("mixamorigRightForeArm", X, -10.0),
-    ("mixamorigLeftHand", X, -3.0),
-    ("mixamorigRightHand", X, -3.0),
+    ("mixamorigLeftArm", Y, 64.0),          # hang with ~26 deg of clearance
+    ("mixamorigRightArm", Y, -64.0),
+    ("mixamorigLeftArm", X, -6.0),          # a few degrees forward
+    ("mixamorigRightArm", X, -6.0),
+    ("mixamorigLeftForeArm", X, -12.0),     # soft elbows
+    ("mixamorigRightForeArm", X, -12.0),
+    ("mixamorigLeftHand", X, -4.0),
+    ("mixamorigRightHand", X, -4.0),
     ("mixamorigLeftUpLeg", Y, -1.5),        # natural stance width
     ("mixamorigRightUpLeg", Y, 1.5),
     ("mixamorigLeftUpLeg", Z, 2.0),         # toes slightly out
@@ -493,6 +501,14 @@ def author_idle(armature: bpy.types.Object) -> None:
 
     for bone_name, axis, degrees in IDLE_BASE_POSE:
         _rotate_bone_world(armature, bone_name, axis, degrees)
+
+    hips = armature.pose.bones["mixamorigHips"]
+    hips_matrix = hips.matrix.copy()
+    hips_matrix.translation = hips_matrix.translation + Vector(
+        (0.0, 0.0, IDLE_HIPS_LIFT)
+    )
+    hips.matrix = hips_matrix
+    bpy.context.view_layer.update()
 
     base_rotation: dict[str, Quaternion] = {}
     motion_axes: dict[tuple[str, tuple], Vector] = {}
@@ -652,7 +668,10 @@ def render_reviews(cameras: dict, armature: bpy.types.Object) -> None:
         render(cameras[view], REVIEW_DIR / f"tpose_{view}.png")
 
     # Idle stills at the frame where the base pose is unmodified (frame 0).
+    # The idle carries the Mixamo-convention hips lift; the runtime ground
+    # offset compensates in-game, so compensate here the same way.
     armature.data.pose_position = "POSE"
+    armature.location.z -= IDLE_HIPS_LIFT
     scene.frame_set(0)
     for view in ("front", "front_head", "three_quarter", "side", "game"):
         render(cameras[view], REVIEW_DIR / f"idle_{view}.png")
@@ -672,6 +691,7 @@ def render_reviews(cameras: dict, armature: bpy.types.Object) -> None:
         render(pivot_camera, REVIEW_DIR / f"turntable_{step}.png")
     pivot_camera.location = original
     PIPE.look_at(pivot_camera, Vector((0.0, 0.0, 0.02)))
+    armature.location.z += IDLE_HIPS_LIFT
 
 
 # ---------------------------------------------------------------- exporting
@@ -682,8 +702,12 @@ def export_part(obj: bpy.types.Object, stem: str, socket_name: str) -> dict:
     duplicate = obj.copy()
     duplicate.data = obj.data.copy()
     bpy.context.scene.collection.objects.link(duplicate)
+    # Bake the full object transform into the mesh first (primitives and
+    # joined objects keep non-zero object locations), then rebase the data so
+    # the part's origin is exactly its socket.
+    duplicate.data.transform(duplicate.matrix_world)
+    duplicate.matrix_world = Matrix.Identity(4)
     duplicate.data.transform(Matrix.Translation(-socket))
-    duplicate.location = (0.0, 0.0, 0.0)
     bpy.ops.object.select_all(action="DESELECT")
     duplicate.select_set(True)
     bpy.context.view_layer.objects.active = duplicate
@@ -748,7 +772,7 @@ def main() -> None:
             "Suma_Hair", srgb_to_linear(PIPE.COLORS["hair"]), 0.72, 0.16
         ),
         "eyes": PIPE.make_material(
-            "Suma_Eyes", srgb_to_linear(PIPE.COLORS["eyes"]), 0.24, 0.38
+            "Suma_Eyes", srgb_to_linear((0.141, 0.102, 0.078, 1.0)), 0.3, 0.3
         ),
         "mouth": PIPE.make_material(
             "Suma_Mouth", srgb_to_linear((0.36, 0.215, 0.16, 1.0)), 0.48, 0.20

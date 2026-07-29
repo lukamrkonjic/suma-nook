@@ -8,18 +8,9 @@ const WALK_BOB_HZ := 7.5
 const CURRENT_PLAYER_PROFILE: PlayerAssetProfile = preload(
 	"res://assets/player/current_player_profile.tres"
 )
-const RIGGED_HEAD_MODULE_NAMES := [
-	"EyeL",
-	"EyeR",
-	"Nose",
-	"Brows",
-	"Moustache",
-	"Mouth",
-	"Hair00",
-	"Hair01",
-	"Hair02",
-	"Hair03",
-]
+const DEFAULT_APPEARANCE: CharacterAppearancePreset = preload(
+	"res://assets/characters/presets/default_male_appearance.tres"
+)
 
 signal animation_started(animation_name: String)
 signal animation_event(animation_name: String, event_name: String)
@@ -186,11 +177,9 @@ var _tool_mount: Node3D
 var _back_mount: Node3D
 var _head_mount: Node3D
 var _hair_nodes: Array[Node3D] = []
-var _eye_nodes: Array[MeshInstance3D] = []
+var _eye_nodes: Array[Node3D] = []
 var _rigged_skin_nodes: Array[MeshInstance3D] = []
-var _rigged_brow_nodes: Array[MeshInstance3D] = []
-var _rigged_moustache_nodes: Array[MeshInstance3D] = []
-var _rigged_mouth_nodes: Array[MeshInstance3D] = []
+var _appearance_assembler := CharacterAssembler.new()
 var _animation_player: AnimationPlayer
 var _skeleton: Skeleton3D
 var _asset_profile: PlayerAssetProfile
@@ -244,7 +233,7 @@ func _setup_rigged_preview() -> void:
 	var preview_scale := _asset_profile.target_height / authored_height
 	_skeleton = _body.find_child("Skeleton3D", true, false) as Skeleton3D
 	_animation_player = _body.find_child("AnimationPlayer", true, false) as AnimationPlayer
-	_bind_rigged_head_modules()
+	_assemble_default_appearance()
 	_prepare_embedded_animation_library()
 	var rig_errors := _asset_profile.rig_validation_errors(
 		_skeleton, _animation_player
@@ -306,24 +295,18 @@ func _setup_rigged_preview() -> void:
 	reset_physics_interpolation()
 
 
-func _bind_rigged_head_modules() -> void:
+## The default appearance is pure data: a CharacterAppearancePreset assembled
+## onto the mannequin through the shared CharacterAssembler. Changing the
+## player's face, hair, or future clothing means editing resources, not this
+## class.
+func _assemble_default_appearance() -> void:
 	if _skeleton == null:
 		return
-	var modules: Array[MeshInstance3D] = []
-	for module_name in RIGGED_HEAD_MODULE_NAMES:
-		var module := _find(module_name) as MeshInstance3D
-		if module != null:
-			modules.append(module)
-	if modules.is_empty():
-		return
-	var attachment := BoneAttachment3D.new()
-	attachment.name = "PlayerHeadSocket"
-	attachment.bone_name = _asset_profile.head_bone
-	_skeleton.add_child(attachment)
-	for module in modules:
-		var reviewed_transform := module.global_transform
-		module.reparent(attachment, false)
-		module.global_transform = reviewed_transform
+	if not _appearance_assembler.assemble_onto(_body, DEFAULT_APPEARANCE):
+		push_warning(
+			"PlayerVisual: default appearance failed to assemble: %s"
+			% ", ".join(_appearance_assembler.last_warnings)
+		)
 
 
 func _install_walk_animation() -> void:
@@ -760,33 +743,15 @@ func _collect_rigged_customization_parts() -> void:
 	_hair_nodes.clear()
 	_eye_nodes.clear()
 	_rigged_skin_nodes.clear()
-	_rigged_brow_nodes.clear()
-	_rigged_moustache_nodes.clear()
-	_rigged_mouth_nodes.clear()
-	for style_index in 4:
-		var hair := _find("Hair%02d" % style_index)
-		if hair != null:
-			_hair_nodes.append(hair)
-	for eye_name in ["EyeL", "EyeR"]:
-		var eye := _find(eye_name) as MeshInstance3D
-		if eye != null:
-			_eye_nodes.append(eye)
-	for node_name in ["PlayerMaleBody", "Nose"]:
-		var skin_node := _find(node_name) as MeshInstance3D
-		if skin_node != null:
-			_rigged_skin_nodes.append(skin_node)
-	for node_name in ["Brows"]:
-		var brow_node := _find(node_name) as MeshInstance3D
-		if brow_node != null:
-			_rigged_brow_nodes.append(brow_node)
-	for node_name in ["Moustache"]:
-		var moustache_node := _find(node_name) as MeshInstance3D
-		if moustache_node != null:
-			_rigged_moustache_nodes.append(moustache_node)
-	for node_name in ["Mouth"]:
-		var mouth_node := _find(node_name) as MeshInstance3D
-		if mouth_node != null:
-			_rigged_mouth_nodes.append(mouth_node)
+	var body_mesh := _find("PlayerMaleBody") as MeshInstance3D
+	if body_mesh != null:
+		_rigged_skin_nodes.append(body_mesh)
+	var hair_root := _appearance_assembler.equipped_node(CharacterSlots.HAIR)
+	if hair_root != null:
+		_hair_nodes.append(hair_root)
+	var eyes_root := _appearance_assembler.equipped_node(CharacterSlots.EYES)
+	if eyes_root != null:
+		_eye_nodes.append(eyes_root)
 	_update_hair_visibility()
 
 
@@ -851,22 +816,20 @@ func _apply_rigged_profile(profile: PlayerProfile) -> void:
 	var hair := palette.hair_colors[
 		clampi(profile.hair_color_index, 0, palette.hair_colors.size() - 1)
 	]
+	# Hair styles beyond the default become additional CharacterPartDefinitions;
+	# the index is retained so saves keep their selection when styles return.
 	_active_hair_style = clampi(profile.hair_style, 0, 3)
 	for skin_node in _rigged_skin_nodes:
 		_set_rigged_mesh_color(skin_node, skin)
-	for hair_node in _hair_nodes:
-		_set_rigged_mesh_color(hair_node as MeshInstance3D, hair)
-	for brow_node in _rigged_brow_nodes:
-		_set_rigged_mesh_color(brow_node, hair)
-	for moustache_node in _rigged_moustache_nodes:
-		_set_rigged_mesh_color(moustache_node, hair)
-	for eye in _eye_nodes:
-		_set_rigged_mesh_color(eye, palette.color("eyes"))
-	for mouth_node in _rigged_mouth_nodes:
-		_set_rigged_mesh_color(
-			mouth_node,
-			skin.lerp(palette.color("soft_coral"), 0.42)
-		)
+	_appearance_assembler.apply_color(CharacterSlots.NOSE, skin)
+	_appearance_assembler.apply_color(CharacterSlots.HAIR, hair)
+	_appearance_assembler.apply_color(CharacterSlots.EYEBROWS, hair)
+	_appearance_assembler.apply_color(CharacterSlots.MOUSTACHE, hair)
+	_appearance_assembler.apply_color(
+		CharacterSlots.EYES, palette.color("eyes")
+	)
+	# The mouth keeps its authored deep warm brown so the smile stays readable
+	# on every skin tone.
 	_update_hair_visibility()
 	match profile.eye_index:
 		1:  # sleepy
@@ -894,6 +857,11 @@ func _set_rigged_mesh_color(mesh_instance: MeshInstance3D, color: Color) -> void
 
 
 func _update_hair_visibility() -> void:
+	if _uses_rigged_preview:
+		_appearance_assembler.set_slot_visible(
+			CharacterSlots.HAIR, not _hair_hidden_by_headwear
+		)
+		return
 	for hair_node in _hair_nodes:
 		hair_node.visible = (
 			not _hair_hidden_by_headwear

@@ -9,19 +9,19 @@
 
 [resource]
 script = ExtResource("1_profile")
-profile_id = "imota_player_male"
+profile_id = "suma_player_male"
 testing_only = false
-asset_id = "player_male_rigged"
-model_resource_path = "res://assets/3d/reworked/player_male_rigged.glb"
+asset_id = "player_male_mannequin"
+model_resource_path = "res://assets/3d/reworked/player_male_mannequin.glb"
 walk_source_path = "res://art_source/animation_sources/player_walk.glb"
-target_height = 1.17
+target_height = 1.09
 model_yaw_degrees = 180.0
-idle_clip_name = "mixamo_com"
+idle_clip_name = "idle_relaxed"
 walk_clip_name = "walk"
 walk_animation = ExtResource("2_walk")
 locomotion_blend_seconds = 0.22
-walk_speed_scale_min = 0.5
-walk_speed_scale_max = 0.62
+walk_speed_scale_min = 0.8
+walk_speed_scale_max = 1.0
 animation_updates_in_physics = true
 action_source_paths = {
 "chop": "res://art_source/animation_sources/player_chop.glb",

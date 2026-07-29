@@ -31,8 +31,8 @@ drag the water effect vertically.
 | Resource | Fixed budget |
 | --- | ---: |
 | Water impulse slots | 6 |
-| Entry particles | 48 |
-| Movement particles | 20 |
+| Entry particles | 18 |
+| Movement particles | 8 |
 | Particle simulation rate | 60 Hz |
 | Additional particle draw calls | 2 maximum |
 | Per-tile interaction nodes | 0 |

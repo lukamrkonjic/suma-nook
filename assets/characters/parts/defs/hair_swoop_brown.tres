@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CharacterPartDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_part_fit.gd" id="1_vequu"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/hair_swoop_brown.glb" id="2_wjes2"]
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="3_7c5nc"]
+
+[sub_resource type="Resource" id="Resource_wlcnt"]
+script = ExtResource("1_vequu")
+body_profile_id = "body_male"
+notes = "Authored directly against body_male; identity fit."
+validated = true
+
+[resource]
+script = ExtResource("3_7c5nc")
+part_id = "hair_swoop_brown"
+display_name = "Brown Swoop"
+slot = "HAIR"
+compatibility_tags = PackedStringArray()
+scene = ExtResource("2_wjes2")
+socket = "HairSocket"
+compatible_body_profiles = PackedStringArray()
+fits = Array[ExtResource("1_vequu")]([SubResource("Resource_wlcnt")])
+hidden_regions = PackedStringArray()
+hides_slots = PackedStringArray()
+color_channel = "hair"

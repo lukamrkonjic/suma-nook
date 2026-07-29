@@ -81,13 +81,14 @@ func _ready() -> void:
 
 	# A swim hop changes the actor's Y, but the interaction surface must remain
 	# pinned to the authored world waterline.
+	var exit_count_before_hop := system._exit_count
 	var jump_event := InputEventAction.new()
 	jump_event.action = "jump"
 	jump_event.pressed = true
 	_main.player._unhandled_input(jump_event)
 	await get_tree().create_timer(0.22).timeout
 	if (
-		system._exit_count != 1
+		system._exit_count != exit_count_before_hop + 1
 		or not is_equal_approx(system._last_surface_position.y, water_level)
 	):
 		push_error(

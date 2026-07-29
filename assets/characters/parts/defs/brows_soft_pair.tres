@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CharacterPartDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_part_fit.gd" id="1_0p2ec"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/brows_soft_pair.glb" id="2_xlxcl"]
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="3_pe34s"]
+
+[sub_resource type="Resource" id="Resource_ar1qm"]
+script = ExtResource("1_0p2ec")
+body_profile_id = "body_male"
+notes = "Authored directly against body_male; identity fit."
+validated = true
+
+[resource]
+script = ExtResource("3_pe34s")
+part_id = "brows_soft_pair"
+display_name = "Soft Brows"
+slot = "EYEBROWS"
+compatibility_tags = PackedStringArray()
+scene = ExtResource("2_xlxcl")
+socket = "BrowsSocket"
+compatible_body_profiles = PackedStringArray()
+fits = Array[ExtResource("1_0p2ec")]([SubResource("Resource_ar1qm")])
+hidden_regions = PackedStringArray()
+hides_slots = PackedStringArray()
+color_channel = "brows"

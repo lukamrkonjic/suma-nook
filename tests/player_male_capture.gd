@@ -12,6 +12,7 @@ func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(OUTPUT_DIR)
 	_build_stage()
 	await _settle(12)
+	_print_ground_diagnostics()
 	await _capture("player_idle_aligned.png")
 	_camera.position = Vector3(0.0, 0.82, -2.5)
 	_camera.size = 1.52
@@ -116,6 +117,27 @@ func _build_stage() -> void:
 	profile.hair_style = 0
 	profile.eye_index = 0
 	_visual.apply_profile(profile)
+
+
+## Where do the feet actually land relative to the stage ground (y = 0)?
+func _print_ground_diagnostics() -> void:
+	var skeleton := _visual._skeleton
+	var body := _visual._body
+	var mesh := body.find_child("PlayerMaleBody", true, false) as MeshInstance3D
+	print("PLAYER_GROUND body_position=", body.position, " scale=", body.scale)
+	if mesh != null:
+		print("PLAYER_GROUND mesh_aabb=", mesh.get_aabb())
+	for toe_name in ["mixamorigLeftToeBase", "mixamorigRightToeBase"]:
+		var toe_index := skeleton.find_bone(toe_name)
+		var rest := skeleton.get_bone_global_rest(toe_index).origin
+		var pose := skeleton.get_bone_global_pose(toe_index).origin
+		var world := (
+			skeleton.global_transform * pose
+		)
+		print(
+			"PLAYER_GROUND ", toe_name,
+			" rest=", rest, " pose=", pose, " world=", world
+		)
 
 
 func _settle(frame_count: int) -> void:
