@@ -93,11 +93,18 @@ func _rebuild() -> void:
 	if preset == null:
 		_report(["no preset selected"])
 		return
-	_character = assembler.assemble(preset)
-	if _character == null:
+	if preset.body_profile == null or preset.body_profile.body_scene == null:
+		_report(["selected preset has no body scene"])
+		return
+	# Socket fitting reads global transforms, so the body must be inside the
+	# preview tree before CharacterAssembler builds its attachment hierarchy.
+	_character = preset.body_profile.body_scene.instantiate() as Node3D
+	add_child(_character)
+	if not assembler.assemble_onto(_character, preset):
+		_character.queue_free()
+		_character = null
 		_report(assembler.last_warnings)
 		return
-	add_child(_character)
 	_character.position = Vector3.ZERO
 	# Ground against the animated pose: clips follow the Mixamo convention of
 	# a lifted hips baseline, so a raw AABB drop would leave the feet mid-air.

@@ -1,0 +1,94 @@
+{
+	"body_profile_id": "body_male",
+	"cuff_forward": 0.002209081,
+	"cuff_radius": 1.08,
+	"hidden_regions": [
+		"chest",
+		"abdomen",
+		"upper_chest_l",
+		"upper_chest_r",
+		"clavicle_l",
+		"clavicle_r",
+		"shoulder_l",
+		"shoulder_r",
+		"shoulder_cap_l",
+		"shoulder_cap_r",
+		"armpit_l",
+		"armpit_r",
+		"upper_arm_l",
+		"upper_arm_r",
+		"upper_arm_inner_l",
+		"upper_arm_inner_r",
+		"forearm_l",
+		"forearm_r"
+	],
+	"landmarks": {
+		"left": {
+			"forearm": [
+				0.205000013113022,
+				0.019999984651804,
+				0.0950000062584877
+			],
+			"hand": [
+				0.277999997138977,
+				0.0239999815821648,
+				0.0920000076293945
+			],
+			"shoulder": [
+				0.129999995231628,
+				0.0239999908953905,
+				0.100000016391277
+			],
+			"wrist": [
+				0.270000010728836,
+				0.0159999839961529,
+				0.0920000076293945
+			]
+		},
+		"right": {
+			"forearm": [
+				-0.204999953508377,
+				0.0199999939650297,
+				0.0949999839067459
+			],
+			"hand": [
+				-0.277999937534332,
+				0.0239999797195196,
+				0.0919999778270721
+			],
+			"shoulder": [
+				-0.129999965429306,
+				0.0239999983459711,
+				0.100000008940697
+			],
+			"wrist": [
+				-0.269999951124191,
+				0.0159999914467335,
+				0.0919999778270721
+			]
+		}
+	},
+	"position": [
+		0.0,
+		0.0,
+		0.0
+	],
+	"rotation_degrees": [
+		0.0,
+		0.0,
+		0.0
+	],
+	"scale": [
+		0.528005003929138,
+		0.597675025463104,
+		0.504158973693848
+	],
+	"shoulder_lift": 0.0325,
+	"sleeve_length": 1.00000008,
+	"sleeve_lift": -0.023981314,
+	"sleeve_room": 1.195,
+	"source_file": "res://art_source/imported/jacket_default/jacket_source.glb",
+	"symmetric": true,
+	"torso_depth": 1.0,
+	"torso_width": 1.0
+}

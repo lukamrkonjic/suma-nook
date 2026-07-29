@@ -37,7 +37,13 @@ func setup(game_core: GameCore, ui_kit: UiKit, bridge: Main) -> void:
 
 func load_preferences_from_core() -> void:
 	preferences.from_dict(core.visual_state.get("preferences", {}))
-	preferences.apply(get_viewport(), settings_bridge.lighting, settings_bridge.hud, settings_bridge.pixel_look)
+	preferences.apply(
+		get_viewport(),
+		settings_bridge.lighting,
+		settings_bridge.hud,
+		settings_bridge.pixel_look,
+		settings_bridge.clouds
+	)
 
 
 func is_open() -> bool:
@@ -268,6 +274,13 @@ func _build_settings_page() -> void:
 	list.add_child(_setting_row("Contact shading", "Adds depth where objects meet the ground.", ssao_check))
 	var bloom_check := _check_button("Bloom", preferences.bloom)
 	list.add_child(_setting_row("Gentle bloom", "Softens bright fires and magical highlights.", bloom_check))
+	var cloud_shadow_check := _check_button("Cloud shadows", preferences.cloud_shadows)
+	cloud_shadow_check.name = "CloudShadowsCheck"
+	list.add_child(_setting_row(
+		"Cloud shadows",
+		"Let high drifting clouds dapple the garden.",
+		cloud_shadow_check
+	))
 
 	list.add_child(kit.section_label("Pixel look"))
 	var pixel_option := OptionButton.new()
@@ -306,6 +319,7 @@ func _build_settings_page() -> void:
 		][aa_option.selected]
 		preferences.ssao = ssao_check.button_pressed
 		preferences.bloom = bloom_check.button_pressed
+		preferences.cloud_shadows = cloud_shadow_check.button_pressed
 		preferences.pixel_size = pixel_option.selected
 		preferences.pixel_cel = cel_check.button_pressed
 		preferences.master_volume = float(master_control["slider"].value)
@@ -725,7 +739,13 @@ func _control_row(action: String, keys: Array, description: String) -> MarginCon
 func _apply_preferences() -> void:
 	core.visual_state["preferences"] = preferences.to_dict()
 	core.autosave_soon()
-	preferences.apply(get_viewport(), settings_bridge.lighting, settings_bridge.hud, settings_bridge.pixel_look)
+	preferences.apply(
+		get_viewport(),
+		settings_bridge.lighting,
+		settings_bridge.hud,
+		settings_bridge.pixel_look,
+		settings_bridge.clouds
+	)
 
 
 func _save_game() -> void:

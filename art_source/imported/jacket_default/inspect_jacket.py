@@ -7,14 +7,25 @@ Run:
 from __future__ import annotations
 
 import json
+import os
 from math import radians
 from pathlib import Path
 
 import bpy
 from mathutils import Vector
 
-DIR = Path(r"C:\Dev\suma-nook\art_source\imported\jacket_default")
-GLB = DIR / "jacket_source.glb"
+DIR = Path(
+    os.environ.get(
+        "CLOTHING_LAB_INSPECT_DIR",
+        r"C:\Dev\suma-nook\art_source\imported\jacket_default",
+    )
+)
+GLB = Path(
+    os.environ.get(
+        "CLOTHING_LAB_INSPECT_GLB",
+        str(DIR / "jacket_source.glb"),
+    )
+)
 
 
 def look_at(obj, target):
@@ -26,6 +37,11 @@ def main() -> None:
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=str(GLB))
     meshes = [o for o in bpy.context.scene.objects if o.type == "MESH"]
+    # Generated GLBs can contain a template cube in addition to the garment.
+    # The garment is always the highest-detail mesh; inspection and the
+    # production builder use the same deterministic selection rule.
+    garment = max(meshes, key=lambda obj: len(obj.data.vertices))
+    meshes = [garment]
     report = {"objects": []}
     for obj in meshes:
         coords = [obj.matrix_world @ v.co for v in obj.data.vertices]

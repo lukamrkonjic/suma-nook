@@ -1,0 +1,408 @@
+{
+  "processor": "Clothing Lab rest-pose garment fit v2",
+  "source": {
+    "path": "C:\\Dev\\suma-nook\\art_source\\imported\\jacket_default\\jacket_source.glb",
+    "sha256": "420B1529F0E2BF10827116875391BCDDB566260E217012CA7D8707D2AC06ADF8",
+    "vertices": 985,
+    "triangles": 1000,
+    "uv_layer": "UVMap",
+    "materials": [
+      "Material_0.001"
+    ],
+    "normals_preserved": true,
+    "topology_preserved": true
+  },
+  "stage_1_rest_and_transforms": {
+    "rig_pose": "REST/T-pose",
+    "garment_transforms_applied": true,
+    "common_origin": true,
+    "common_scale": true,
+    "immutable_mannequin": {
+      "body_and_rig_unchanged": true,
+      "bone_count": 34,
+      "rest_t_pose": true
+    }
+  },
+  "stage_2_fit_only_garment": {
+    "controls": {
+      "method": "explicit lab controls only",
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation_degrees": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        0.5280050039291382,
+        0.5976750254631042,
+        0.5041589736938477
+      ],
+      "symmetric_controls": true,
+      "torso_width": 1.0,
+      "torso_depth": 1.0,
+      "sleeve_lift": -0.023981314,
+      "sleeve_length": 1.00000008,
+      "sleeve_room": 1.195,
+      "shoulder_lift": 0.0325,
+      "cuff_radius": 1.08,
+      "cuff_forward": 0.002209081,
+      "landmark_targets": {
+        "shoulder_x": 0.13,
+        "wrist": [
+          0.27,
+          0.016,
+          0.092
+        ],
+        "sleeve_root_x": 0.115,
+        "before_hand_endpoint_x": 0.264,
+        "baseline_length_scale": 1.000001,
+        "baseline_forward_shift": 0.002067,
+        "baseline_lift": 0.1216
+      },
+      "source_normals_smoothed": false,
+      "source_geometry_subdivided_or_decimated": false
+    },
+    "mirror": {
+      "method": "bilateral sleeve position mirror around X=0",
+      "matched_pairs": 123,
+      "maximum_source_delta": 0.017333,
+      "torso_collar_hem_pockets_and_uvs_untouched": true
+    },
+    "limited_shrinkwrap": {
+      "method": "masked Blender Shrinkwrap, nearest surface outside",
+      "target_clearance": 0.004,
+      "unsafe_vertices": 130,
+      "minimum_signed_before": -0.054974,
+      "minimum_signed_after": 0.003925,
+      "safe_vertices_pulled_inward": false,
+      "feature_preservation_masks": {
+        "collar": 64,
+        "hem": 0,
+        "pockets": 26,
+        "buttons": 89,
+        "cuff_openings": 23
+      }
+    },
+    "preserved_features": [
+      "collar",
+      "hem",
+      "pockets",
+      "buttons",
+      "cuff openings"
+    ]
+  },
+  "stage_3_cuffs": {
+    "shoulder_x": 0.13,
+    "wrist": [
+      0.27,
+      0.016,
+      0.092
+    ],
+    "sleeve_root_x": 0.115,
+    "before_hand_endpoint_x": 0.264,
+    "baseline_length_scale": 1.000001,
+    "baseline_forward_shift": 0.002067,
+    "baseline_lift": 0.1216
+  },
+  "stage_4_deformation_geometry": {
+    "strategy": "UV-safe local edge subdivision with zero smoothing; no welding, relaxation or global subdivision",
+    "selected_unique_edges": 342,
+    "zone_edges_before": {
+      "shoulders": 24,
+      "armpits": 16,
+      "elbows": 147,
+      "cuffs": 155
+    },
+    "zone_vertex_counts_before": {
+      "shoulders": 22,
+      "armpits": 23,
+      "elbows": 115,
+      "cuffs": 107
+    },
+    "zone_vertex_counts_after": {
+      "shoulders": 47,
+      "armpits": 41,
+      "elbows": 262,
+      "cuffs": 263
+    },
+    "minimum_required_per_zone": 32,
+    "single_stretched_deformation_polygon": false,
+    "triangles_before": 1000,
+    "triangles_after": 1520,
+    "topology_modified": true,
+    "smoothing_applied": false,
+    "uv_welding_applied": false
+  },
+  "stage_5_single_armature": {
+    "armature": "GameExportRig",
+    "modifier_count": 1,
+    "independent_rig": false,
+    "bone_attachment": false
+  },
+  "stage_6_weights": {
+    "source": "PlayerMaleBody",
+    "mapping": "POLYINTERP_NEAREST",
+    "automatic_weights_used": false,
+    "deterministic_cleanup": {
+      "left_fingers_to_hand": {
+        "target": "mixamorigLeftHand",
+        "affected_vertices": 277,
+        "remapped_weight": 109.283832,
+        "removed_groups": [
+          "mixamorigLeftHandThumb1",
+          "mixamorigLeftHandThumb2",
+          "mixamorigLeftHandThumb3",
+          "mixamorigLeftHandIndex1",
+          "mixamorigLeftHandIndex2",
+          "mixamorigLeftHandIndex3"
+        ]
+      },
+      "right_fingers_to_hand": {
+        "target": "mixamorigRightHand",
+        "affected_vertices": 270,
+        "remapped_weight": 110.144084,
+        "removed_groups": [
+          "mixamorigRightHandThumb1",
+          "mixamorigRightHandThumb2",
+          "mixamorigRightHandThumb3",
+          "mixamorigRightHandIndex1",
+          "mixamorigRightHandIndex2",
+          "mixamorigRightHandIndex3"
+        ]
+      },
+      "lower_body_to_hips": {
+        "target": "mixamorigHips",
+        "affected_vertices": 473,
+        "remapped_weight": 177.033073,
+        "removed_groups": [
+          "mixamorigLeftUpLeg",
+          "mixamorigLeftLeg",
+          "mixamorigLeftFoot",
+          "mixamorigLeftToeBase",
+          "mixamorigRightUpLeg",
+          "mixamorigRightLeg",
+          "mixamorigRightFoot",
+          "mixamorigRightToeBase"
+        ]
+      },
+      "shoulder_armpit_elbow_weights": {
+        "method": "nearest-face body weights plus connected-edge and coincident-seam weight-only relaxation",
+        "corrected_vertices": 440,
+        "zones": {
+          "shoulder_armpit": 140,
+          "elbow": 300
+        },
+        "passes": {
+          "shoulder_armpit": 4,
+          "elbow": 3
+        },
+        "surface_geometry_smoothed": false,
+        "source_normals_preserved": true,
+        "uvs_or_materials_changed": false
+      },
+      "pose_corrected_cuffs": {
+        "left": {
+          "vertices": 103,
+          "weights": "forearm 0.74\u21920.50, hand 0.26\u21920.50"
+        },
+        "right": {
+          "vertices": 117,
+          "weights": "forearm 0.74\u21920.50, hand 0.26\u21920.50"
+        }
+      }
+    },
+    "clean_threshold": 0.0001,
+    "maximum_influences": 4,
+    "minimum_weight_total": 1.0,
+    "maximum_weight_total": 1.0,
+    "armature_modifier_target": "GameExportRig",
+    "independent_armature_created": false
+  },
+  "stage_7_pose_validation_captures": [
+    {
+      "pose": "rest",
+      "camera": "CAM_FRONT_ORTHO",
+      "file": "C:\\Dev\\suma-nook\\art_source\\characters\\review\\jacket_tpose_front.png"
+    },
+    {
+      "pose": "rest",
+      "camera": "CAM_THREE_QUARTER",
+      "file": "C:\\Dev\\suma-nook\\art_source\\characters\\review\\jacket_tpose_three_quarter.png"
+    },
+    {
+      "pose": "rest",
+      "camera": "CAM_SIDE_ORTHO",
+      "file": "C:\\Dev\\suma-nook\\art_source\\characters\\review\\jacket_tpose_side.png"
+    },
+    {
+      "pose": "idle",
+      "camera": "CAM_FRONT_ORTHO",
+      "file": "C:\\Dev\\suma-nook\\art_source\\characters\\review\\jacket_idle_front.png"
+    },
+    {
+      "pose": "walk",
+      "camera": "CAM_FRONT_ORTHO",
+      "file": "C:\\Dev\\suma-nook\\art_source\\characters\\review\\jacket_walk_front.png"
+    },
+    {
+      "pose": "elbows_bent",
+      "camera": "CAM_THREE_QUARTER",
+      "file": "C:\\Dev\\suma-nook\\art_source\\characters\\review\\jacket_bent_elbows.png"
+    },
+    {
+      "pose": "arms_raised",
+      "camera": "CAM_FRONT_ORTHO",
+      "file": "C:\\Dev\\suma-nook\\art_source\\characters\\review\\jacket_arms_raised.png"
+    },
+    {
+      "pose": "walk",
+      "camera": "CAM_GAME_APPROX",
+      "file": "C:\\Dev\\suma-nook\\art_source\\characters\\review\\jacket_game.png"
+    }
+  ],
+  "stage_8_body_mask_contract": {
+    "hide": [
+      "chest",
+      "abdomen",
+      "upper_chest_l",
+      "upper_chest_r",
+      "clavicle_l",
+      "clavicle_r",
+      "shoulder_l",
+      "shoulder_r",
+      "shoulder_cap_l",
+      "shoulder_cap_r",
+      "armpit_l",
+      "armpit_r",
+      "upper_arm_l",
+      "upper_arm_r",
+      "upper_arm_inner_l",
+      "upper_arm_inner_r",
+      "forearm_l",
+      "forearm_r"
+    ],
+    "never_hide": [
+      "hand_l",
+      "hand_r"
+    ]
+  },
+  "stage_9_godot_contract": {
+    "live_skeleton": "existing Skeleton3D via CharacterAssembler rebind",
+    "bone_names_and_rest": "canonical GameExportRig, 34 bones",
+    "garment_animation_player": false
+  },
+  "weights_and_bind": {
+    "source": "PlayerMaleBody",
+    "mapping": "POLYINTERP_NEAREST",
+    "automatic_weights_used": false,
+    "deterministic_cleanup": {
+      "left_fingers_to_hand": {
+        "target": "mixamorigLeftHand",
+        "affected_vertices": 277,
+        "remapped_weight": 109.283832,
+        "removed_groups": [
+          "mixamorigLeftHandThumb1",
+          "mixamorigLeftHandThumb2",
+          "mixamorigLeftHandThumb3",
+          "mixamorigLeftHandIndex1",
+          "mixamorigLeftHandIndex2",
+          "mixamorigLeftHandIndex3"
+        ]
+      },
+      "right_fingers_to_hand": {
+        "target": "mixamorigRightHand",
+        "affected_vertices": 270,
+        "remapped_weight": 110.144084,
+        "removed_groups": [
+          "mixamorigRightHandThumb1",
+          "mixamorigRightHandThumb2",
+          "mixamorigRightHandThumb3",
+          "mixamorigRightHandIndex1",
+          "mixamorigRightHandIndex2",
+          "mixamorigRightHandIndex3"
+        ]
+      },
+      "lower_body_to_hips": {
+        "target": "mixamorigHips",
+        "affected_vertices": 473,
+        "remapped_weight": 177.033073,
+        "removed_groups": [
+          "mixamorigLeftUpLeg",
+          "mixamorigLeftLeg",
+          "mixamorigLeftFoot",
+          "mixamorigLeftToeBase",
+          "mixamorigRightUpLeg",
+          "mixamorigRightLeg",
+          "mixamorigRightFoot",
+          "mixamorigRightToeBase"
+        ]
+      },
+      "shoulder_armpit_elbow_weights": {
+        "method": "nearest-face body weights plus connected-edge and coincident-seam weight-only relaxation",
+        "corrected_vertices": 440,
+        "zones": {
+          "shoulder_armpit": 140,
+          "elbow": 300
+        },
+        "passes": {
+          "shoulder_armpit": 4,
+          "elbow": 3
+        },
+        "surface_geometry_smoothed": false,
+        "source_normals_preserved": true,
+        "uvs_or_materials_changed": false
+      },
+      "pose_corrected_cuffs": {
+        "left": {
+          "vertices": 103,
+          "weights": "forearm 0.74\u21920.50, hand 0.26\u21920.50"
+        },
+        "right": {
+          "vertices": 117,
+          "weights": "forearm 0.74\u21920.50, hand 0.26\u21920.50"
+        }
+      }
+    },
+    "clean_threshold": 0.0001,
+    "maximum_influences": 4,
+    "minimum_weight_total": 1.0,
+    "maximum_weight_total": 1.0,
+    "armature_modifier_target": "GameExportRig",
+    "independent_armature_created": false
+  },
+  "immutable_contract": {
+    "body_and_rig_unchanged": true,
+    "bone_count": 34,
+    "rest_t_pose": true
+  },
+  "hidden_regions": [
+    "chest",
+    "abdomen",
+    "upper_chest_l",
+    "upper_chest_r",
+    "clavicle_l",
+    "clavicle_r",
+    "shoulder_l",
+    "shoulder_r",
+    "shoulder_cap_l",
+    "shoulder_cap_r",
+    "armpit_l",
+    "armpit_r",
+    "upper_arm_l",
+    "upper_arm_r",
+    "upper_arm_inner_l",
+    "upper_arm_inner_r",
+    "forearm_l",
+    "forearm_r"
+  ],
+  "hands_hidden": false,
+  "output": "C:\\Dev\\suma-nook\\art_source\\imported\\jacket_default\\top_jacket_cozy_final_review.glb",
+  "review_blend": "C:\\Dev\\suma-nook\\art_source\\characters\\review\\clothing_lab_review.blend",
+  "garment_triangles": 1520,
+  "garment_vertices": 1327,
+  "animations_exported": false
+}

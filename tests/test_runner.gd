@@ -51,6 +51,7 @@ func fresh_core(seed_value := 12345) -> GameCore:
 
 func _run() -> void:
 	_test_input_bindings()
+	_test_clothing_lab_contract()
 	_test_registries()
 	_test_ground_impact_surface_profiles()
 	_test_content_catalog_architecture()
@@ -88,6 +89,171 @@ func _run() -> void:
 	_test_current_save_policy()
 	_test_interrupted_reveal_recovery()
 	_test_player_defeat_safety()
+
+
+func _test_clothing_lab_contract() -> void:
+	var fit := load(
+		"res://assets/characters/parts/fits/top_jacket_cozy_fit.tres"
+	) as ClothingFitSettings
+	check(fit != null, "Clothing Lab fit resource loads")
+	if fit == null:
+		return
+	var fit_json := fit.to_json_data()
+	check(
+		String(fit_json.get("body_profile_id", "")) == "body_male"
+		and String(fit_json.get("source_file", "")).ends_with(".glb"),
+		"Clothing Lab fit generates deterministic source/body JSON"
+	)
+	var round_trip := fit.duplicate(true) as ClothingFitSettings
+	round_trip.position = Vector3(0.012, -0.004, 0.008)
+	round_trip.sleeve_length = 1.075
+	round_trip.sleeve_room = 1.12
+	var round_trip_path := "user://clothing_lab_fit_round_trip.tres"
+	var save_error := ResourceSaver.save(round_trip, round_trip_path)
+	var loaded_round_trip := load(round_trip_path) as ClothingFitSettings
+	check(
+		save_error == OK
+		and loaded_round_trip != null
+		and loaded_round_trip.position == round_trip.position
+		and is_equal_approx(
+			loaded_round_trip.sleeve_length, round_trip.sleeve_length
+		)
+		and is_equal_approx(
+			loaded_round_trip.sleeve_room, round_trip.sleeve_room
+		),
+		"Clothing Lab fit settings save/load without losing authored values"
+	)
+	DirAccess.remove_absolute(
+		ProjectSettings.globalize_path(round_trip_path)
+	)
+	check(
+		not fit.hidden_regions.has("hand_l")
+		and not fit.hidden_regions.has("hand_r")
+		and fit.hidden_regions.has("forearm_l")
+		and fit.hidden_regions.has("forearm_r")
+		and fit.hidden_regions.has("upper_arm_l")
+		and fit.hidden_regions.has("upper_arm_r"),
+		"jacket coverage hides covered arms and preserves neck/hands"
+	)
+	var part := load(
+		"res://assets/characters/parts/defs/top_jacket_cozy.tres"
+	) as CharacterPartDefinition
+	check(
+		part != null
+		and part.clothing_fit != null
+		and part.hidden_regions == fit.hidden_regions,
+		"saved CharacterPartDefinition references the fit and matching coverage"
+	)
+	var preset := load(
+		"res://assets/characters/presets/default_male_appearance.tres"
+	) as CharacterAppearancePreset
+	var assembler := CharacterAssembler.new()
+	var body := assembler.assemble(preset)
+	check(body != null, "Clothing Lab preset assembles for runtime validation")
+	if body != null:
+		var skeletons := body.find_children(
+			"*", "Skeleton3D", true, false
+		)
+		var garment := assembler.equipped_node(CharacterSlots.TOP_OUTER)
+		check(
+			skeletons.size() == 1
+			and garment is MeshInstance3D
+			and garment.get_parent() == skeletons[0],
+			"skinned clothing uses the one live body Skeleton3D at runtime"
+		)
+		check(
+			garment.find_children(
+				"*", "AnimationPlayer", true, false
+			).is_empty(),
+			"runtime garment adds no AnimationPlayer"
+		)
+		body.free()
+	var processor := FileAccess.get_file_as_string(
+		"res://tools/clothing_lab/process_clothing.py"
+	)
+	check(
+		"POLYINTERP_NEAREST" in processor
+		and "LimitedBodyClearanceShrinkwrap" in processor
+		and "correct_arm_chain_weights(garment)" in processor
+		and "surface_geometry_smoothed" in processor
+		and "export_animations=False" in processor
+		and "source_normals_smoothed\": False" in processor,
+		"Clothing Lab shrinkwraps clearance, copies/relaxes body weights, and preserves normals"
+	)
+	var lab_scene_text := FileAccess.get_file_as_string(
+		"res://characters/lab/clothing_lab.tscn"
+	)
+	var lab_script_text := FileAccess.get_file_as_string(
+		"res://characters/lab/clothing_lab.gd"
+	)
+	check(
+		"play_idle = false" in lab_scene_text
+		and "REST / T-POSE" in lab_script_text
+		and "GLTFDocument.new()" in lab_script_text
+		and "Auto Clear Body" in lab_script_text
+		and "Raw Fit" in lab_script_text
+		and "Final Output" in lab_script_text
+		and "FIT READY TO BIND" in lab_script_text
+		and "_final_output_revision" in lab_script_text
+		and "Accept Final Output + Save for In-game" in lab_script_text
+		and "_current_staging_output_path" in lab_script_text
+		and "Preview pose" not in lab_script_text,
+		"Clothing Lab separates editable Raw Fit from accepted exact Final Output"
+	)
+	check(
+		"MOUSE_BUTTON_MIDDLE" in lab_script_text
+		and "func _input(event: InputEvent)" in lab_script_text
+		and "_orbit_preview" in lab_script_text
+		and "_snap_axis_view" in lab_script_text
+		and "look_up" in lab_script_text
+		and "look_down" in lab_script_text
+		and "\"+X\"" in lab_script_text
+		and "\"-X\"" in lab_script_text
+		and "\"+Y\"" in lab_script_text
+		and "\"-Y\"" in lab_script_text
+		and "\"+Z\"" in lab_script_text
+		and "\"-Z\"" in lab_script_text,
+		"Clothing Lab supports MMB/controller 3D orbit and six axis snaps"
+	)
+	check(
+		"_numeric_drag_handle" in lab_script_text
+		and "_revert_numeric_field" in lab_script_text
+		and "event.is_action_pressed(\"undo\"" in lab_script_text
+		and "event.is_action_pressed(\"redo\"" in lab_script_text
+		and "_begin_history_batch" in lab_script_text
+		and "One continuous handle drag" in FileAccess.get_file_as_string(
+			"res://tools/clothing_lab/README.md"
+		),
+		"Clothing Lab exposes draggable fields, per-field revert, and grouped undo/redo"
+	)
+	check(
+		"sphere.radius = 0.013" in lab_script_text
+		and "material.no_depth_test = true" in lab_script_text
+		and "material.render_priority = 127" in lab_script_text,
+		"Clothing Lab landmarks are large depth-independent overlays"
+	)
+	check(
+		"ORBIT_MOUSE_SENSITIVITY := 0.004" in lab_script_text
+		and "-mouse_motion.relative * ORBIT_MOUSE_SENSITIVITY"
+		in lab_script_text,
+		"Clothing Lab MMB orbit is inverted and uses reduced sensitivity"
+	)
+	check(
+		"Live Preview Hidden Regions" in lab_script_text
+		and "_preview_hidden_regions.button_pressed = true"
+		in lab_script_text
+		and "_enable_live_hide_preview()" in lab_script_text,
+		"Clothing Lab coverage checkboxes preview body hiding immediately"
+	)
+	var character_builder := FileAccess.get_file_as_string(
+		"res://art_source/characters/build_character_master.py"
+	)
+	check(
+		"if z > 0.145:" in character_builder
+		and "if ax > 0.245 and z < 0.15:" in character_builder
+		and "return f\"clavicle_{side}\"" in character_builder,
+		"body mask seams stay beneath collars/cuffs while neck and hands remain visible"
+	)
 
 
 func _test_ground_impact_surface_profiles() -> void:
@@ -842,6 +1008,7 @@ func _test_game_preferences() -> void:
 		"anti_aliasing": GamePreferences.AA_BALANCED,
 		"ssao": false,
 		"bloom": false,
+		"cloud_shadows": false,
 		"master_volume": 0.35,
 		"music_volume": 0.2,
 		"tutorial_hints": false,
@@ -854,6 +1021,7 @@ func _test_game_preferences() -> void:
 	)
 	check(
 		not saved["ssao"] and not saved["bloom"]
+		and not saved["cloud_shadows"]
 		and is_equal_approx(saved["master_volume"], 0.35)
 		and is_equal_approx(saved["music_volume"], 0.2),
 		"post-processing and audio preferences round-trip"

@@ -24,6 +24,9 @@ const ATTACHMENT_SKINNED := "skinned"
 ## Empty means: fits every body profile.
 @export var compatible_body_profiles: PackedStringArray = []
 @export var fits: Array[CharacterPartFit] = []
+## Optional deterministic Blender fitting inputs for skinned clothing. Runtime
+## assembly still consumes only the exported scene and hidden regions.
+@export var clothing_fit: ClothingFitSettings
 
 @export_group("Interactions")
 ## Body regions this part covers (PlayerArmorRegions names), e.g. a shirt
@@ -73,4 +76,6 @@ func validation_errors() -> PackedStringArray:
 			errors.append("part '%s' has a null fit entry" % part_id)
 		else:
 			errors.append_array(fit.validation_errors())
+	if clothing_fit != null:
+		errors.append_array(clothing_fit.validation_errors())
 	return errors

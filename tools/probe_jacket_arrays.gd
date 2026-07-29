@@ -35,8 +35,18 @@ func _dump_sample_weights() -> void:
 		load("res://assets/characters/parts/top_jacket_cozy.glb") as PackedScene
 	).instantiate()
 	var mesh_instance := instance.find_child(
-		"JacketCozy", true, false
+		"*", true, false
 	) as MeshInstance3D
+	if mesh_instance == null:
+		for child in instance.find_children(
+			"*", "MeshInstance3D", true, false
+		):
+			mesh_instance = child as MeshInstance3D
+			break
+	if mesh_instance == null:
+		push_error("Jacket bundle contains no MeshInstance3D")
+		instance.free()
+		return
 	var skin := mesh_instance.skin
 	var arrays := mesh_instance.mesh.surface_get_arrays(0)
 	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]

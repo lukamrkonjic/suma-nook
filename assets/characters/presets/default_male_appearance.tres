@@ -10,7 +10,7 @@
 [ext_resource type="PackedScene" path="res://assets/characters/parts/nose_round.glb" id="8_0adgc"]
 [ext_resource type="PackedScene" path="res://assets/characters/parts/moustache_walrus.glb" id="9_dklj4"]
 [ext_resource type="PackedScene" path="res://assets/characters/parts/mouth_smile.glb" id="10_yy12j"]
-[ext_resource type="PackedScene" path="res://assets/characters/parts/top_jacket_cozy.glb" id="11_t3udd"]
+[ext_resource type="Resource" path="res://assets/characters/parts/defs/top_jacket_cozy.tres" id="11_j85bp"]
 [ext_resource type="Script" path="res://scripts/characters/character_appearance_preset.gd" id="12_nvjcy"]
 
 [sub_resource type="Resource" id="Resource_i3ysk"]
@@ -158,20 +158,8 @@ hidden_regions = PackedStringArray()
 hides_slots = PackedStringArray()
 color_channel = "mouth"
 
-[sub_resource type="Resource" id="Resource_gwd4x"]
-script = ExtResource("3_dfuay")
-part_id = "top_jacket_cozy"
-display_name = "Cozy Mustard Jacket"
-slot = "TOP_OUTER"
-compatibility_tags = PackedStringArray()
-scene = ExtResource("11_t3udd")
-attachment_type = "skinned"
-compatible_body_profiles = PackedStringArray("body_male")
-hidden_regions = PackedStringArray("chest", "abdomen", "hips", "upper_chest_l", "upper_chest_r", "clavicle_l", "clavicle_r", "shoulder_l", "shoulder_r", "shoulder_cap_l", "shoulder_cap_r", "armpit_l", "armpit_r", "upper_arm_l", "upper_arm_r", "upper_arm_inner_l", "upper_arm_inner_r", "forearm_l", "forearm_r")
-hides_slots = PackedStringArray()
-
 [resource]
 script = ExtResource("12_nvjcy")
 preset_id = "default_male"
 body_profile = SubResource("Resource_i3ysk")
-parts = Array[ExtResource("3_dfuay")]([SubResource("Resource_ijnhy"), SubResource("Resource_8076d"), SubResource("Resource_o23ub"), SubResource("Resource_v7i10"), SubResource("Resource_nbgrm"), SubResource("Resource_f2joe"), SubResource("Resource_gwd4x")])
+parts = Array[ExtResource("3_dfuay")]([SubResource("Resource_ijnhy"), SubResource("Resource_8076d"), SubResource("Resource_o23ub"), SubResource("Resource_v7i10"), SubResource("Resource_nbgrm"), SubResource("Resource_f2joe"), ExtResource("11_j85bp")])

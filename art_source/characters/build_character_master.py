@@ -424,7 +424,10 @@ def _region_for(center: Vector) -> str:
     # Arm chain: shoulder 0.13, elbow 0.205, wrist 0.27 (bone landmarks).
     # The arm band lives between z 0 and 0.15; the head's sides and ears sit
     # above it and must never match the arm/shoulder rules.
-    if ax > 0.262 and z < 0.15:
+    # Keep a short wrist band with the hand region so the forearm/hand mask
+    # transition stays buried beneath garment cuffs.  Cutting at the wrist
+    # landmark itself exposes the low-poly triangle ring as a visible notch.
+    if ax > 0.245 and z < 0.15:
         return f"hand_{side}"
     if ax > 0.205 and -0.02 < z < 0.15:
         return f"forearm_{side}"
@@ -440,8 +443,14 @@ def _region_for(center: Vector) -> str:
         return f"shoulder_{side}"
     if z > 0.165:
         return "head"
-    if z > 0.118:
+    # Preserve the visible upper neck, but classify the collar-enclosed lower
+    # band with the clavicles. Treating the whole 0.118-0.165 range as neck
+    # leaves pale, low-poly wedges poking through collared garments; hiding
+    # all of it makes the head float.
+    if z > 0.145:
         return "neck"
+    if z > 0.118:
+        return f"clavicle_{side}"
     if z > 0.085:
         return f"clavicle_{side}"
     if z > 0.04:

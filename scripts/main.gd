@@ -14,6 +14,9 @@ const DebugWorldBuilderScript := preload(
 const InputHintOverlayScript := preload(
 	"res://scripts/ui/input_hint_overlay.gd"
 )
+const CozyCloudLayerScript := preload(
+	"res://scripts/visuals/cozy_cloud_layer.gd"
+)
 const DEBUG_WORLD_TILE_COUNT := 5000
 const DEBUG_WORLD_MODEL_COUNT := 1250
 const MAXED_WORLD_TILE_COUNT := 10000
@@ -36,6 +39,7 @@ var ferry_presentation: FerryArrivalPresentation
 var player: PlayerController
 var player_visual: PlayerVisual
 var camera_rig: CameraRig
+var clouds
 var placement: PlacementController
 var skill_actions: SkillActions
 var hud: Hud
@@ -164,6 +168,12 @@ func _build_world_scene() -> void:
 	camera_rig.setup(core, player)
 	camera_rig.zoom_changed.connect(lighting.set_camera_shadow_distance)
 	lighting.set_camera_shadow_distance(camera_rig.zoom_distance())
+
+	clouds = CozyCloudLayerScript.new()
+	clouds.name = "CloudLayer"
+	world_root.add_child(clouds)
+	clouds.setup(camera_rig, camera_rig.zoom_distance())
+	camera_rig.zoom_changed.connect(clouds.set_camera_distance)
 	interaction_targets = InteractionTargetResolverScript.new(
 		self, core, camera_rig.camera, delivery_point
 	)

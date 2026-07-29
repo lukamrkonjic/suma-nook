@@ -200,9 +200,21 @@ func _build_socket_tree() -> void:
 	# them into the attachment's local space so they ride the head bone.
 	var head_index := _skeleton.find_bone(_profile.head_bone)
 	var bone_rest := _skeleton.get_bone_global_rest(head_index)
+	# assemble() is also used by headless tools before the body enters a
+	# SceneTree.  In that case, derive the same relative transform from the
+	# local hierarchy instead of querying invalid global transforms.
+	var body_global := (
+		_body_root.global_transform
+		if _body_root.is_inside_tree()
+		else _body_root.transform
+	)
+	var skeleton_global := (
+		_skeleton.global_transform
+		if _skeleton.is_inside_tree()
+		else _body_root.transform * _skeleton.transform
+	)
 	var body_to_skeleton := (
-		_body_root.global_transform.affine_inverse()
-		* _skeleton.global_transform
+		body_global.affine_inverse() * skeleton_global
 	)
 	var attachment_in_body := body_to_skeleton * bone_rest
 	var to_head_local := attachment_in_body.affine_inverse()

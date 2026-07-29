@@ -9,8 +9,20 @@ func _initialize() -> void:
 		print("UV2_MISSING")
 	else:
 		var ids := {}
-		for value in uv2:
-			ids[int(round((value as Vector2).x))] = true
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var bounds_by_id := {}
+		for index in uv2.size():
+			var region_id := int(round((uv2[index] as Vector2).x))
+			ids[region_id] = true
+			if not bounds_by_id.has(region_id):
+				bounds_by_id[region_id] = AABB(
+					vertices[index], Vector3.ZERO
+				)
+			else:
+				bounds_by_id[region_id] = (
+					bounds_by_id[region_id] as AABB
+				).expand(vertices[index])
 		print("UV2_PRESENT distinct_region_ids=", ids.keys().size(), " ids=", ids.keys())
+		print("UV2_NECK_BOUNDS ", bounds_by_id.get(1, AABB()))
 	instance.free()
 	quit(0)

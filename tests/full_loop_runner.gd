@@ -421,11 +421,51 @@ func _step_build_library_ui() -> void:
 	# presentation layer stays hidden while the setting is off.
 	check(not main.pixel_look.visible, "the pixel look stays off by default")
 	main.pause_menu.preferences.pixel_size = 3
-	main.pause_menu.preferences.apply(main.get_viewport(), main.lighting, main.hud, main.pixel_look)
+	main.pause_menu.preferences.apply(
+		main.get_viewport(),
+		main.lighting,
+		main.hud,
+		main.pixel_look,
+		main.clouds
+	)
 	check(main.pixel_look.visible, "choosing a pixel size enables the retro presentation layer")
 	main.pause_menu.preferences.pixel_size = 0
-	main.pause_menu.preferences.apply(main.get_viewport(), main.lighting, main.hud, main.pixel_look)
+	main.pause_menu.preferences.apply(
+		main.get_viewport(),
+		main.lighting,
+		main.hud,
+		main.pixel_look,
+		main.clouds
+	)
 	check(not main.pixel_look.visible, "returning pixel size to off hides the layer again")
+	check(
+		main.clouds.visible_cloud_count() > 0,
+		"the fixed-budget cloud field is populated"
+	)
+	main.pause_menu.preferences.cloud_shadows = false
+	main.pause_menu.preferences.apply(
+		main.get_viewport(),
+		main.lighting,
+		main.hud,
+		main.pixel_look,
+		main.clouds
+	)
+	check(
+		not main.clouds.shadows_enabled(),
+		"the saved visual preference disables only the cloud shadow pass"
+	)
+	main.pause_menu.preferences.cloud_shadows = true
+	main.pause_menu.preferences.apply(
+		main.get_viewport(),
+		main.lighting,
+		main.hud,
+		main.pixel_look,
+		main.clouds
+	)
+	check(
+		main.clouds.shadows_enabled(),
+		"cloud shadows can be restored without rebuilding the cloud field"
+	)
 
 	main.core.stock.tiles = original_tiles
 	main.core.stock.structures = original_structures
@@ -2286,6 +2326,10 @@ func _step_pause_menu() -> void:
 	)
 	var back_button := main.pause_menu.find_child("PauseBackButton", true, false) as Button
 	check(back_button != null, "settings page exposes a working back control")
+	check(
+		main.pause_menu.find_child("CloudShadowsCheck", true, false) != null,
+		"settings page exposes the save-backed cloud shadow toggle"
+	)
 	back_button.pressed.emit()
 	await wait(0.1)
 	var controls_button := main.pause_menu.find_child("PauseControlsButton", true, false) as Button

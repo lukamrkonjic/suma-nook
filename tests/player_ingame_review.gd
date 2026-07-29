@@ -1,6 +1,9 @@
 extends Node
-## Captures the modular default player through the actual main game: idle and
-## walking from the real gameplay camera, plus grounding diagnostics.
+## Captures the modular default player through the actual main game: idle,
+## walking, and every authored gameplay action from the real gameplay camera.
+## Action clips are paused and scrubbed deterministically so the full garment
+## deformation envelope is reviewed instead of whichever pose happens to land
+## on a wall-clock screenshot.
 
 const SAVE_PATH := "user://player_ingame_review_save.json"
 
@@ -44,6 +47,23 @@ func _ready() -> void:
 	await _settle(30)
 	_print_grounding()
 	await _capture("player_ingame_settled.png")
+
+	_main.toggle_all_hud()
+	_main.camera_rig.set_zoom_immediate(7.5)
+	_main.camera_rig.global_position = _main.player.global_position
+	await _settle(8)
+	await _capture_action_sequence(
+		"chop",
+		[0.0, 0.16, 0.32, 0.48, 0.64, 0.80, 0.98]
+	)
+	await _capture_action_sequence(
+		"fish_cast",
+		[0.0, 0.16, 0.32, 0.48, 0.64, 0.80, 0.98]
+	)
+	await _capture_action_sequence(
+		"fish_wait",
+		[0.0, 0.16, 0.32, 0.48, 0.64, 0.80, 0.98]
+	)
 	print("PLAYER_INGAME_REVIEW_DONE")
 	await _finish(0)
 
@@ -83,6 +103,31 @@ func _enter_gameplay() -> void:
 func _settle(frame_count: int) -> void:
 	for _frame in frame_count:
 		await get_tree().process_frame
+
+
+func _capture_action_sequence(action: String, samples: Array) -> void:
+	var visual := _main.player_visual
+	var animation_player: AnimationPlayer = visual._animation_player
+	visual.play(action)
+	await get_tree().process_frame
+	if not animation_player.has_animation(action):
+		push_error("Player review could not find authored action: %s" % action)
+		return
+	var animation := animation_player.get_animation(action)
+	# The production call above intentionally blends into an authored action.
+	# Remove that blend only for deterministic scrubbing; otherwise pausing on
+	# the next frame freezes the previous locomotion clip at blend weight 1.
+	animation_player.play(action, 0.0, 1.0)
+	animation_player.pause()
+	for sample_index in samples.size():
+		var normalized_time: float = float(samples[sample_index])
+		animation_player.seek(animation.length * normalized_time, true)
+		await _settle(1)
+		await _capture(
+			"player_ingame_%s_%02d.png" % [action, sample_index]
+		)
+	visual.play("idle")
+	await _settle(8)
 
 
 func _capture(filename: String) -> void:
