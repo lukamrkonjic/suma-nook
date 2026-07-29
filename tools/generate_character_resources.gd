@@ -30,7 +30,7 @@ const CLOTHING_TABLE := {
 		"TOP_OUTER",
 		"Cozy Mustard Jacket",
 		[
-			"chest", "abdomen", "upper_chest_l", "upper_chest_r",
+			"chest", "abdomen", "hips", "upper_chest_l", "upper_chest_r",
 			"clavicle_l", "clavicle_r", "shoulder_l", "shoulder_r",
 			"shoulder_cap_l", "shoulder_cap_r", "armpit_l", "armpit_r",
 			"upper_arm_l", "upper_arm_r",

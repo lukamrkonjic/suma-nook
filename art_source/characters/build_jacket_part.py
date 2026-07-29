@@ -138,6 +138,18 @@ def fit_to_mannequin(jacket: bpy.types.Object) -> dict:
         if ramp > 0.0:
             vertex.co.z += lift * min(ramp, 1.0)
 
+    # Flare the hem outward so mid-stride thighs never punch through it.
+    hem_top = -0.055
+    hem_bottom = HEM_BOTTOM_Z
+    for vertex in jacket.data.vertices:
+        if vertex.co.z < hem_top and abs(vertex.co.x) < 0.16:
+            ramp = min(
+                (hem_top - vertex.co.z) / (hem_top - hem_bottom), 1.0
+            )
+            factor = 1.0 + 0.10 * ramp
+            vertex.co.x *= factor
+            vertex.co.y *= factor
+
     jacket.location = (0.0, 0.0, 0.0)
     jacket.rotation_euler = (0.0, 0.0, 0.0)
     jacket.scale = (1.0, 1.0, 1.0)
@@ -175,14 +187,12 @@ def assign_region_materials(jacket: bpy.types.Object) -> dict:
         index = 0
         if abs(center.x) > cuff_x - 0.055:
             index = 1  # cuffs
-        elif center.z > 0.082 and neck_radial < 0.115:
-            index = 1  # shawl collar ring around the neck
         elif (
-            -0.005 < center.z < 0.09
-            and abs(center.x) < 0.052
-            and center.y < front_baseline + 0.004
+            center.z > 0.082
+            and neck_radial < 0.115
+            and (center.y > -0.045 or center.z > 0.105)
         ):
-            index = 1  # cream lapel V rolling down the front opening
+            index = 1  # collar ring: back and sides only, no chest cream
         if (
             abs(center.x) < 0.034
             and -0.05 < center.z < 0.06
@@ -247,11 +257,38 @@ def transfer_weights(jacket: bpy.types.Object) -> int:
     apply_modifier(jacket, transfer)
     filled = _fill_missing_weights(jacket, body)
 
-    # glTF exports at most four influences per vertex; limit + normalize here
-    # so the export renormalization can never underweight a vertex.
+    # Per-vertex nearest-face sampling leaves sharp weight discontinuities
+    # (visible as spikes and lumps once posed). Smooth the weights so the
+    # garment deforms like one piece of fabric, then limit + normalize so
+    # glTF's four-influence export can never underweight a vertex.
     bpy.context.view_layer.objects.active = jacket
     bpy.ops.object.select_all(action="DESELECT")
     jacket.select_set(True)
+    bpy.ops.object.mode_set(mode="WEIGHT_PAINT")
+    bpy.ops.object.vertex_group_smooth(
+        group_select_mode="ALL", factor=0.5, repeat=4, expand=0.15
+    )
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+    # A jacket hangs from the torso: leg and foot influences make the hem
+    # ride the stride and let thighs punch through. Strip them entirely and
+    # renormalize onto the remaining torso/arm bones.
+    for group in list(jacket.vertex_groups):
+        if any(
+            part in group.name
+            for part in ("UpLeg", "LeftLeg", "RightLeg", "Foot", "ToeBase")
+        ):
+            jacket.vertex_groups.remove(group)
+
+    # Guard: a vertex whose only influences were legs would now be weightless
+    # and collapse to the origin in Godot. Anchor any such vertex to the hips.
+    hips_group = jacket.vertex_groups.get("mixamorigHips")
+    if hips_group is None:
+        hips_group = jacket.vertex_groups.new(name="mixamorigHips")
+    for vertex in jacket.data.vertices:
+        if sum(entry.weight for entry in vertex.groups) < 0.001:
+            hips_group.add([vertex.index], 1.0, "REPLACE")
+
     bpy.ops.object.vertex_group_limit_total(limit=4)
     bpy.ops.object.vertex_group_normalize_all(lock_active=False)
 

@@ -12,8 +12,8 @@
     "torso_half_source": 0.4582
   },
   "material_faces": {
-    "body": 692,
-    "trim": 307,
+    "body": 714,
+    "trim": 285,
     "buttons": 1
   },
   "triangles": 1000,
