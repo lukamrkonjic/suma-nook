@@ -19,6 +19,7 @@ var _skeleton: Skeleton3D
 var _profile: CharacterBodyProfile
 var _sockets: Dictionary = {}          # socket name -> Node3D
 var _equipped: Dictionary = {}         # slot -> Node3D (part instance root)
+var _equipped_meshes: Dictionary = {}  # slot -> Array of skinned MeshInstance3D
 var _equipped_parts: Dictionary = {}   # slot -> CharacterPartDefinition
 var _suppressed_slots: Dictionary = {} # slot -> true
 var _head_attachment: BoneAttachment3D
@@ -94,7 +95,12 @@ func clear_parts() -> void:
 		var node := _equipped[slot] as Node3D
 		if is_instance_valid(node):
 			node.queue_free()
+	for slot in _equipped_meshes:
+		for mesh in _equipped_meshes[slot]:
+			if is_instance_valid(mesh) and mesh != _equipped.get(slot):
+				(mesh as Node).queue_free()
 	_equipped.clear()
+	_equipped_meshes.clear()
 	_equipped_parts.clear()
 	if is_instance_valid(_head_attachment):
 		_head_attachment.queue_free()
@@ -147,12 +153,22 @@ func hidden_regions() -> Array[String]:
 ## Temporarily hides a slot's part (e.g. headwear hiding hair) without
 ## re-assembling.
 func set_slot_visible(slot: String, visible: bool) -> void:
+	for mesh in _equipped_meshes.get(slot, []):
+		if is_instance_valid(mesh):
+			(mesh as MeshInstance3D).visible = visible
+	if _equipped_meshes.has(slot):
+		return
 	var node := equipped_node(slot)
 	if node != null:
 		node.visible = visible
 
 
 func apply_color(slot: String, color: Color) -> void:
+	for mesh in _equipped_meshes.get(slot, []):
+		if is_instance_valid(mesh):
+			_tint_mesh(mesh as MeshInstance3D, color)
+	if _equipped_meshes.has(slot):
+		return
 	var node := equipped_node(slot)
 	if node == null:
 		return
@@ -274,6 +290,10 @@ func _equip_part(
 ## Skinned clothing binds to the live skeleton; the garment scene must be
 ## authored against the same skeleton contract (bone names + rest pose) and
 ## must not bring its own runtime Skeleton3D.
+##
+## Meshes are parented directly under the live Skeleton3D with the skeleton
+## path set BEFORE they enter the tree: Godot resolves the skin binding at
+## ENTER_TREE, and a path corrected afterwards is not reliably re-resolved.
 func _equip_skinned_part(
 	part: CharacterPartDefinition, preset: CharacterAppearancePreset
 ) -> void:
@@ -281,9 +301,6 @@ func _equip_skinned_part(
 	var source_skeleton := bundle.find_child(
 		"Skeleton3D", true, false
 	) as Skeleton3D
-	var holder := Node3D.new()
-	holder.name = "Part_%s" % part.part_id
-	_skeleton.add_child(holder)
 	var meshes := (
 		source_skeleton.find_children("*", "MeshInstance3D", true, false)
 		if source_skeleton != null
@@ -292,17 +309,20 @@ func _equip_skinned_part(
 	if meshes.is_empty():
 		_warn("skinned part '%s' contains no meshes" % part.part_id)
 		bundle.free()
-		holder.queue_free()
 		return
+	var attached: Array[MeshInstance3D] = []
 	for child in meshes:
 		var mesh_instance := child as MeshInstance3D
 		mesh_instance.get_parent().remove_child(mesh_instance)
 		mesh_instance.owner = null
-		holder.add_child(mesh_instance)
+		mesh_instance.name = "Part_%s_%s" % [part.part_id, mesh_instance.name]
 		mesh_instance.transform = Transform3D.IDENTITY
-		mesh_instance.skeleton = mesh_instance.get_path_to(_skeleton)
+		mesh_instance.skeleton = NodePath("..")
+		_skeleton.add_child(mesh_instance)
+		attached.append(mesh_instance)
 	bundle.free()
-	_equipped[part.slot] = holder
+	_equipped[part.slot] = attached[0]
+	_equipped_meshes[part.slot] = attached
 	_equipped_parts[part.slot] = part
 	if not part.color_channel.is_empty():
 		apply_color(part.slot, preset.color_for_channel(part.color_channel))

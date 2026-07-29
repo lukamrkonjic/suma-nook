@@ -19,6 +19,7 @@ const DEBUG_WORLD_MODEL_COUNT := 1250
 const MAXED_WORLD_TILE_COUNT := 10000
 const MAXED_WORLD_MODEL_COUNT := 10000
 const DEBUG_WORLD_SEED := 8675309
+const CONTROLLER_HOME_HOLD_SECONDS := 0.65
 
 var palette: CozyPalette
 var materials: MaterialLibrary
@@ -58,6 +59,13 @@ var _encounters: Dictionary = {}   # landmark_id -> LandmarkEncounter
 var _footstep_accum := 0.0
 var _gameplay_started := false
 var _celebration_pending := false
+var _hud_hidden := false
+var _hud_visible_before_hide := true
+var _input_hints_visible_before_hide := true
+var _performance_hud_visible_before_hide := false
+var _controller_hud_hold_elapsed := 0.0
+var _controller_hud_hold_active := false
+var _controller_hud_hold_home_fired := false
 
 
 func _ready() -> void:
@@ -250,7 +258,48 @@ func toggle_lighting_tuner() -> bool:
 func toggle_performance_hud() -> bool:
 	if not OS.is_debug_build() or performance_hud == null:
 		return false
-	return performance_hud.toggle()
+	var wants_visible: bool = performance_hud.toggle()
+	if _hud_hidden:
+		_performance_hud_visible_before_hide = wants_visible
+		performance_hud.visible = false
+		return false
+	return wants_visible
+
+
+## H hides the normal gameplay overlays for clean screenshots and immersion.
+## Menus remain independent so the player can always pause and recover them.
+func toggle_all_hud() -> bool:
+	if not _gameplay_started:
+		return false
+	if _hud_hidden:
+		_hud_hidden = false
+		if hud != null:
+			hud.visible = _hud_visible_before_hide
+		if input_hints != null:
+			input_hints.visible = _input_hints_visible_before_hide
+		if performance_hud != null:
+			performance_hud.visible = _performance_hud_visible_before_hide
+		_refresh_controller_hints()
+		return false
+	_hud_visible_before_hide = hud != null and hud.visible
+	_input_hints_visible_before_hide = (
+		input_hints != null and input_hints.visible
+	)
+	_performance_hud_visible_before_hide = (
+		performance_hud != null and performance_hud.visible
+	)
+	_hud_hidden = true
+	if hud != null:
+		hud.visible = false
+	if input_hints != null:
+		input_hints.visible = false
+	if performance_hud != null:
+		performance_hud.visible = false
+	return true
+
+
+func hud_hidden() -> bool:
+	return _hud_hidden
 
 
 ## Opens a production-material asset review room from the debug Admin page.
@@ -617,8 +666,22 @@ func _apply_saved_visual_state() -> void:
 func _process(delta: float) -> void:
 	if not _gameplay_started:
 		return
+	_tick_controller_hud_hold(delta)
 	core.tick(delta)
 	_tick_footsteps(delta)
+
+
+func _tick_controller_hud_hold(delta: float) -> void:
+	if (
+		not _controller_hud_hold_active
+		or _controller_hud_hold_home_fired
+	):
+		return
+	_controller_hud_hold_elapsed += delta
+	if _controller_hud_hold_elapsed < CONTROLLER_HOME_HOLD_SECONDS:
+		return
+	_controller_hud_hold_home_fired = true
+	_return_home()
 
 
 func _tick_footsteps(delta: float) -> void:
@@ -682,7 +745,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		and not event.echo
 		and (event as InputEventKey).physical_keycode == KEY_F3
 	):
-		performance_hud.toggle()
+		toggle_performance_hud()
 		get_viewport().set_input_as_handled()
 		return
 	if not _gameplay_started:
@@ -690,6 +753,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if asset_viewer != null and asset_viewer.is_open():
 		return
 	if pause_menu.is_open() or parcel_reveal.is_open() or panels.is_open():
+		return
+	if _handle_hud_shortcut(event):
+		get_viewport().set_input_as_handled()
 		return
 	if (
 		OS.is_debug_build()
@@ -831,6 +897,28 @@ func _handle_controller_build_input(event: InputEvent) -> void:
 	else:
 		return
 	get_viewport().set_input_as_handled()
+
+
+func _handle_hud_shortcut(event: InputEvent) -> bool:
+	if not event.is_action("toggle_hud"):
+		return false
+	if event is InputEventJoypadButton:
+		var button := event as InputEventJoypadButton
+		if button.pressed:
+			_controller_hud_hold_elapsed = 0.0
+			_controller_hud_hold_active = true
+			_controller_hud_hold_home_fired = false
+		elif _controller_hud_hold_active:
+			if not _controller_hud_hold_home_fired:
+				toggle_all_hud()
+			_controller_hud_hold_elapsed = 0.0
+			_controller_hud_hold_active = false
+			_controller_hud_hold_home_fired = false
+		return true
+	if event.is_action_pressed("toggle_hud"):
+		toggle_all_hud()
+		return true
+	return false
 
 
 func _begin_controller_world_browse() -> void:

@@ -549,12 +549,19 @@ func armor_anchor(region_name: String) -> Node3D:
 
 
 func _set_body_region_mask(regions: Array[String]) -> void:
-	var unknown := PlayerArmorRegions.unknown_regions(regions)
+	# Preset clothing (via the assembler) and equipped garments both cover
+	# body regions; the body mask is their union.
+	var combined: Array[String] = regions.duplicate()
+	if _uses_rigged_preview:
+		for region in _appearance_assembler.hidden_regions():
+			if not combined.has(region):
+				combined.append(region)
+	var unknown := PlayerArmorRegions.unknown_regions(combined)
 	assert(
 		unknown.is_empty(),
 		"Unknown player armor regions: %s" % ", ".join(unknown)
 	)
-	var next_mask := PlayerArmorRegions.mask_for(regions)
+	var next_mask := PlayerArmorRegions.mask_for(combined)
 	if next_mask == _body_region_mask:
 		return
 	_body_region_mask = next_mask

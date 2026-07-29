@@ -51,6 +51,7 @@ const REQUIRED_CONTROLLER_ACTIONS: Array[StringName] = [
 	&"panel_previous",
 	&"panel_next",
 	&"return_home",
+	&"toggle_hud",
 	&"undo",
 	&"redo",
 	&"look_left",

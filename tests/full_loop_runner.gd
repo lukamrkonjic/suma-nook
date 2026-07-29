@@ -199,6 +199,10 @@ func _step_controller_input() -> void:
 	)
 	await _tap_joy_button(JOY_BUTTON_B)
 	check(not main.pause_menu.is_open(), "B/east face closes the pause flow")
+	await _tap_joy_button(JOY_BUTTON_RIGHT_STICK)
+	check(main.hud_hidden(), "an R3 tap hides the gameplay HUD")
+	await _tap_joy_button(JOY_BUTTON_RIGHT_STICK)
+	check(not main.hud_hidden(), "a second R3 tap restores the gameplay HUD")
 
 	await _tap_joy_button(JOY_BUTTON_Y)
 	await wait(0.1)
@@ -242,6 +246,18 @@ func _tap_joy_button(button_index: JoyButton) -> void:
 	Input.parse_input_event(press)
 	await get_tree().process_frame
 	var release := press.duplicate() as InputEventJoypadButton
+	release.pressed = false
+	Input.parse_input_event(release)
+	await get_tree().process_frame
+
+
+func _tap_key(physical_keycode: Key) -> void:
+	var press := InputEventKey.new()
+	press.physical_keycode = physical_keycode
+	press.pressed = true
+	Input.parse_input_event(press)
+	await get_tree().process_frame
+	var release := press.duplicate() as InputEventKey
 	release.pressed = false
 	Input.parse_input_event(release)
 	await get_tree().process_frame
@@ -2203,11 +2219,40 @@ func _step_save_while_holding() -> void:
 
 func _step_pause_menu() -> void:
 	print("STEP pause menu")
+	var performance_was_visible: bool = main.performance_hud.visible
+	main.performance_hud.visible = true
+	await _tap_key(KEY_H)
+	check(
+		main.hud_hidden()
+		and not main.hud.visible
+		and not main.input_hints.visible
+		and not main.performance_hud.visible,
+		"H hides every gameplay HUD layer"
+	)
+	await _tap_key(KEY_H)
+	check(
+		not main.hud_hidden()
+		and main.hud.visible
+		and main.input_hints.visible
+		and main.performance_hud.visible,
+		"H restores the HUD layers to their prior visibility"
+	)
+	main.performance_hud.visible = performance_was_visible
 	var play_time_before := main.core.play_seconds
 	main.open_pause_menu()
 	await wait(0.2)
 	check(main.pause_menu.is_open(), "Escape menu opens over live gameplay")
 	check(get_tree().paused, "Escape menu pauses the scene tree")
+	var shortcut_helper := main.pause_menu.find_child(
+		"PauseShortcutHelper", true, false
+	) as Label
+	check(
+		shortcut_helper != null
+		and "Hide HUD" in shortcut_helper.text
+		and InputDeviceService.shared().prompt_for_action(&"toggle_hud")
+			in shortcut_helper.text,
+		"the pause landing page shows the active HUD shortcut"
+	)
 	check(
 		is_equal_approx(main.core.play_seconds, play_time_before),
 		"world simulation stops while the Escape menu is open"

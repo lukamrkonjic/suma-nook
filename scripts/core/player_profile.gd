@@ -6,7 +6,7 @@ extends RefCounted
 signal profile_changed
 
 var display_name := "Keeper"
-var skin_index := 1
+var skin_index := 0
 var hair_style := 0      # 0..3 → Hair00..Hair03 meshes
 var hair_color_index := 0
 var eye_index := 0       # 0 wide | 1 sleepy | 2 bright (eye scale/spacing variant)

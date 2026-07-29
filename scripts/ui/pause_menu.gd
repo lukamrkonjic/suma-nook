@@ -150,8 +150,8 @@ func focus_default() -> void:
 
 
 func _on_input_method_changed(_method: int) -> void:
-	if is_open() and _page == "controls":
-		call_deferred("_show_page", "controls")
+	if is_open() and _page in ["menu", "controls"]:
+		call_deferred("_show_page", _page)
 
 
 func _request_page(page: String) -> void:
@@ -169,7 +169,7 @@ func _clear_page() -> void:
 
 
 func _build_menu_page() -> void:
-	_card.custom_minimum_size = Vector2(500, 620 if OS.is_debug_build() else 550)
+	_card.custom_minimum_size = Vector2(500, 660 if OS.is_debug_build() else 590)
 	_add_brand_header("PAUSED", "Your nook will wait for you.")
 
 	var resume := kit.menu_button("Resume Garden", true)
@@ -198,12 +198,37 @@ func _build_menu_page() -> void:
 	exit.pressed.connect(_request_page.bind("exit"))
 	_content.add_child(exit)
 
+	var shortcut_helper := kit.label(_shortcut_helper_text(), 14, false, true)
+	shortcut_helper.name = "PauseShortcutHelper"
+	shortcut_helper.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	shortcut_helper.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	shortcut_helper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shortcut_helper.add_theme_color_override(
+		"font_color",
+		kit.palette.color("ui_text").darkened(0.28)
+	)
+	_content.add_child(shortcut_helper)
+
 	_status_label = kit.label("", 15)
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status_label.custom_minimum_size.y = 24
 	_status_label.add_theme_color_override("font_color", kit.palette.color("ui_good").darkened(0.12))
 	_content.add_child(_status_label)
 	resume.call_deferred("grab_focus")
+
+
+func _shortcut_helper_text() -> String:
+	var hud_prompt := _input_service.prompt_for_action(&"toggle_hud")
+	var home_prompt := _input_service.prompt_for_action(&"return_home")
+	if _input_service.is_controller() and hud_prompt == home_prompt:
+		return "%s tap  Hide HUD   •   %s hold  Return home" % [
+			hud_prompt,
+			home_prompt,
+		]
+	return "%s  Hide HUD   •   %s  Return home" % [
+		hud_prompt,
+		home_prompt,
+	]
 
 
 func _build_settings_page() -> void:
@@ -341,7 +366,8 @@ func _build_controls_page() -> void:
 		["Zoom", ["Wheel", "Up", "Down"], "Move from full-diorama view to close inspection."],
 		["Pan", ["Middle mouse"], "Drag the diorama to inspect another area."],
 		["Rotate view", ["Q", "X", "Left", "Right"], "Orbit by a quarter turn."],
-		["Return home", ["H"], "Return the keeper and camera to the home tile."],
+		["Hide HUD", ["H"], "Hide or restore every gameplay overlay."],
+		["Return home", ["Home"], "Return the keeper and camera to the home tile."],
 	]
 	if _input_service.is_controller():
 		camera_controls = [
@@ -353,7 +379,8 @@ func _build_controls_page() -> void:
 				_input_service.prompt_for_action(&"camera_rotate_left"),
 				_input_service.prompt_for_action(&"camera_rotate_right"),
 			], "Orbit by a quarter turn."],
-			["Return home", [_input_service.prompt_for_action(&"return_home")], "Return the keeper and camera to the home tile."],
+			["Hide HUD", [_input_service.prompt_for_action(&"toggle_hud")], "Tap to hide or restore every gameplay overlay."],
+			["Return home", [_input_service.prompt_for_action(&"return_home")], "Hold to return the keeper and camera to the home tile."],
 		]
 	for entry in camera_controls:
 		list.add_child(_control_row(entry[0], entry[1], entry[2]))

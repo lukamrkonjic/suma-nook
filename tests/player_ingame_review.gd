@@ -71,7 +71,7 @@ func _enter_gameplay() -> void:
 	if creator == null:
 		push_error("Player review could not find the character creator.")
 		return
-	creator.profile.skin_index = 1
+	creator.profile.skin_index = 0
 	creator.profile.hair_style = 0
 	creator.profile.hair_color_index = 0
 	creator._preview()

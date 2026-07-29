@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CharacterPartDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_part_fit.gd" id="1_if53h"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/top_jacket_cozy.glb" id="2_oebue"]
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="3_ihscy"]
+
+[resource]
+script = ExtResource("3_ihscy")
+part_id = "top_jacket_cozy"
+display_name = "Cozy Mustard Jacket"
+slot = "TOP_OUTER"
+compatibility_tags = PackedStringArray()
+scene = ExtResource("2_oebue")
+attachment_type = "skinned"
+compatible_body_profiles = PackedStringArray("body_male")
+hidden_regions = PackedStringArray("chest", "abdomen", "upper_chest_l", "upper_chest_r", "clavicle_l", "clavicle_r", "shoulder_l", "shoulder_r", "shoulder_cap_l", "shoulder_cap_r", "armpit_l", "armpit_r", "upper_arm_l", "upper_arm_r", "upper_arm_inner_l", "upper_arm_inner_r", "forearm_l", "forearm_r")
+hides_slots = PackedStringArray()

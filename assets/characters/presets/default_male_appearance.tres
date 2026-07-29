@@ -1,21 +1,22 @@
 [gd_resource type="Resource" script_class="CharacterAppearancePreset" format=3]
 
-[ext_resource type="PackedScene" path="res://assets/3d/reworked/player_male_mannequin.glb" id="1_ipi2d"]
-[ext_resource type="Script" path="res://scripts/characters/character_body_profile.gd" id="2_j85bp"]
-[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="3_y3juo"]
-[ext_resource type="Script" path="res://scripts/characters/character_part_fit.gd" id="4_dfuay"]
-[ext_resource type="PackedScene" path="res://assets/characters/parts/hair_swoop_brown.glb" id="5_4v1w5"]
-[ext_resource type="PackedScene" path="res://assets/characters/parts/eyes_oval_pair.glb" id="6_8bdw1"]
-[ext_resource type="PackedScene" path="res://assets/characters/parts/brows_soft_pair.glb" id="7_bkpas"]
-[ext_resource type="PackedScene" path="res://assets/characters/parts/nose_round.glb" id="8_xet7a"]
-[ext_resource type="PackedScene" path="res://assets/characters/parts/moustache_walrus.glb" id="9_0adgc"]
-[ext_resource type="PackedScene" path="res://assets/characters/parts/mouth_smile.glb" id="10_dklj4"]
-[ext_resource type="Script" path="res://scripts/characters/character_appearance_preset.gd" id="11_yy12j"]
+[ext_resource type="PackedScene" path="res://assets/3d/reworked/player_male_mannequin.glb" id="1_j85bp"]
+[ext_resource type="Script" path="res://scripts/characters/character_body_profile.gd" id="2_y3juo"]
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="3_dfuay"]
+[ext_resource type="Script" path="res://scripts/characters/character_part_fit.gd" id="4_4v1w5"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/hair_swoop_brown.glb" id="5_8bdw1"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/eyes_oval_pair.glb" id="6_bkpas"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/brows_soft_pair.glb" id="7_xet7a"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/nose_round.glb" id="8_0adgc"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/moustache_walrus.glb" id="9_dklj4"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/mouth_smile.glb" id="10_yy12j"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/top_jacket_cozy.glb" id="11_t3udd"]
+[ext_resource type="Script" path="res://scripts/characters/character_appearance_preset.gd" id="12_nvjcy"]
 
-[sub_resource type="Resource" id="Resource_t3udd"]
-script = ExtResource("2_j85bp")
+[sub_resource type="Resource" id="Resource_i3ysk"]
+script = ExtResource("2_y3juo")
 asset_id = "player_male_mannequin"
-body_scene = ExtResource("1_ipi2d")
+body_scene = ExtResource("1_j85bp")
 compatibility_tags = PackedStringArray("male", "human")
 face_sockets = Dictionary[String, Vector3]({
 "BeardSocket": Vector3(0, 0.12, 0.12),
@@ -38,127 +39,139 @@ bone_sockets = Dictionary[String, String]({
 })
 
 [sub_resource type="Resource" id="Resource_wlcnt"]
-script = ExtResource("4_dfuay")
-body_profile_id = "body_male"
-notes = "Authored directly against body_male; identity fit."
-validated = true
-
-[sub_resource type="Resource" id="Resource_nvjcy"]
-script = ExtResource("3_y3juo")
-part_id = "hair_swoop_brown"
-display_name = "Brown Swoop"
-slot = "HAIR"
-compatibility_tags = PackedStringArray()
-scene = ExtResource("5_4v1w5")
-socket = "HairSocket"
-compatible_body_profiles = PackedStringArray()
-fits = Array[ExtResource("4_dfuay")]([SubResource("Resource_wlcnt")])
-hidden_regions = PackedStringArray()
-hides_slots = PackedStringArray()
-color_channel = "hair"
-
-[sub_resource type="Resource" id="Resource_c3yih"]
-script = ExtResource("4_dfuay")
-body_profile_id = "body_male"
-notes = "Authored directly against body_male; identity fit."
-validated = true
-
-[sub_resource type="Resource" id="Resource_i3ysk"]
-script = ExtResource("3_y3juo")
-part_id = "eyes_oval_pair"
-display_name = "Warm Ovals"
-slot = "EYES"
-compatibility_tags = PackedStringArray()
-scene = ExtResource("6_8bdw1")
-socket = "EyesSocket"
-compatible_body_profiles = PackedStringArray()
-fits = Array[ExtResource("4_dfuay")]([SubResource("Resource_c3yih")])
-hidden_regions = PackedStringArray()
-hides_slots = PackedStringArray()
-color_channel = "eyes"
-
-[sub_resource type="Resource" id="Resource_ar1qm"]
-script = ExtResource("4_dfuay")
+script = ExtResource("4_4v1w5")
 body_profile_id = "body_male"
 notes = "Authored directly against body_male; identity fit."
 validated = true
 
 [sub_resource type="Resource" id="Resource_ijnhy"]
-script = ExtResource("3_y3juo")
-part_id = "brows_soft_pair"
-display_name = "Soft Brows"
-slot = "EYEBROWS"
+script = ExtResource("3_dfuay")
+part_id = "hair_swoop_brown"
+display_name = "Brown Swoop"
+slot = "HAIR"
 compatibility_tags = PackedStringArray()
-scene = ExtResource("7_bkpas")
-socket = "BrowsSocket"
+scene = ExtResource("5_8bdw1")
+socket = "HairSocket"
 compatible_body_profiles = PackedStringArray()
-fits = Array[ExtResource("4_dfuay")]([SubResource("Resource_ar1qm")])
+fits = Array[ExtResource("4_4v1w5")]([SubResource("Resource_wlcnt")])
 hidden_regions = PackedStringArray()
 hides_slots = PackedStringArray()
-color_channel = "brows"
+color_channel = "hair"
 
-[sub_resource type="Resource" id="Resource_ym1qa"]
-script = ExtResource("4_dfuay")
+[sub_resource type="Resource" id="Resource_c3yih"]
+script = ExtResource("4_4v1w5")
 body_profile_id = "body_male"
 notes = "Authored directly against body_male; identity fit."
 validated = true
 
 [sub_resource type="Resource" id="Resource_8076d"]
-script = ExtResource("3_y3juo")
-part_id = "nose_round"
-display_name = "Round Nose"
-slot = "NOSE"
+script = ExtResource("3_dfuay")
+part_id = "eyes_oval_pair"
+display_name = "Warm Ovals"
+slot = "EYES"
 compatibility_tags = PackedStringArray()
-scene = ExtResource("8_xet7a")
-socket = "NoseSocket"
+scene = ExtResource("6_bkpas")
+socket = "EyesSocket"
 compatible_body_profiles = PackedStringArray()
-fits = Array[ExtResource("4_dfuay")]([SubResource("Resource_ym1qa")])
+fits = Array[ExtResource("4_4v1w5")]([SubResource("Resource_c3yih")])
 hidden_regions = PackedStringArray()
 hides_slots = PackedStringArray()
-color_channel = "skin"
+color_channel = "eyes"
 
-[sub_resource type="Resource" id="Resource_sgbkm"]
-script = ExtResource("4_dfuay")
+[sub_resource type="Resource" id="Resource_ar1qm"]
+script = ExtResource("4_4v1w5")
 body_profile_id = "body_male"
 notes = "Authored directly against body_male; identity fit."
 validated = true
 
 [sub_resource type="Resource" id="Resource_o23ub"]
-script = ExtResource("3_y3juo")
-part_id = "moustache_walrus"
-display_name = "Friendly Walrus"
-slot = "MOUSTACHE"
+script = ExtResource("3_dfuay")
+part_id = "brows_soft_pair"
+display_name = "Soft Brows"
+slot = "EYEBROWS"
 compatibility_tags = PackedStringArray()
-scene = ExtResource("9_0adgc")
-socket = "MoustacheSocket"
+scene = ExtResource("7_xet7a")
+socket = "BrowsSocket"
 compatible_body_profiles = PackedStringArray()
-fits = Array[ExtResource("4_dfuay")]([SubResource("Resource_sgbkm")])
+fits = Array[ExtResource("4_4v1w5")]([SubResource("Resource_ar1qm")])
 hidden_regions = PackedStringArray()
 hides_slots = PackedStringArray()
-color_channel = "moustache"
+color_channel = "brows"
 
-[sub_resource type="Resource" id="Resource_j1qq5"]
-script = ExtResource("4_dfuay")
+[sub_resource type="Resource" id="Resource_ym1qa"]
+script = ExtResource("4_4v1w5")
 body_profile_id = "body_male"
 notes = "Authored directly against body_male; identity fit."
 validated = true
 
 [sub_resource type="Resource" id="Resource_v7i10"]
-script = ExtResource("3_y3juo")
+script = ExtResource("3_dfuay")
+part_id = "nose_round"
+display_name = "Round Nose"
+slot = "NOSE"
+compatibility_tags = PackedStringArray()
+scene = ExtResource("8_0adgc")
+socket = "NoseSocket"
+compatible_body_profiles = PackedStringArray()
+fits = Array[ExtResource("4_4v1w5")]([SubResource("Resource_ym1qa")])
+hidden_regions = PackedStringArray()
+hides_slots = PackedStringArray()
+color_channel = "skin"
+
+[sub_resource type="Resource" id="Resource_sgbkm"]
+script = ExtResource("4_4v1w5")
+body_profile_id = "body_male"
+notes = "Authored directly against body_male; identity fit."
+validated = true
+
+[sub_resource type="Resource" id="Resource_nbgrm"]
+script = ExtResource("3_dfuay")
+part_id = "moustache_walrus"
+display_name = "Friendly Walrus"
+slot = "MOUSTACHE"
+compatibility_tags = PackedStringArray()
+scene = ExtResource("9_dklj4")
+socket = "MoustacheSocket"
+compatible_body_profiles = PackedStringArray()
+fits = Array[ExtResource("4_4v1w5")]([SubResource("Resource_sgbkm")])
+hidden_regions = PackedStringArray()
+hides_slots = PackedStringArray()
+color_channel = "moustache"
+
+[sub_resource type="Resource" id="Resource_j1qq5"]
+script = ExtResource("4_4v1w5")
+body_profile_id = "body_male"
+notes = "Authored directly against body_male; identity fit."
+validated = true
+
+[sub_resource type="Resource" id="Resource_f2joe"]
+script = ExtResource("3_dfuay")
 part_id = "mouth_smile"
 display_name = "Gentle Smile"
 slot = "MOUTH"
 compatibility_tags = PackedStringArray()
-scene = ExtResource("10_dklj4")
+scene = ExtResource("10_yy12j")
 socket = "MouthSocket"
 compatible_body_profiles = PackedStringArray()
-fits = Array[ExtResource("4_dfuay")]([SubResource("Resource_j1qq5")])
+fits = Array[ExtResource("4_4v1w5")]([SubResource("Resource_j1qq5")])
 hidden_regions = PackedStringArray()
 hides_slots = PackedStringArray()
 color_channel = "mouth"
 
+[sub_resource type="Resource" id="Resource_gwd4x"]
+script = ExtResource("3_dfuay")
+part_id = "top_jacket_cozy"
+display_name = "Cozy Mustard Jacket"
+slot = "TOP_OUTER"
+compatibility_tags = PackedStringArray()
+scene = ExtResource("11_t3udd")
+attachment_type = "skinned"
+compatible_body_profiles = PackedStringArray("body_male")
+hidden_regions = PackedStringArray("chest", "abdomen", "upper_chest_l", "upper_chest_r", "clavicle_l", "clavicle_r", "shoulder_l", "shoulder_r", "shoulder_cap_l", "shoulder_cap_r", "armpit_l", "armpit_r", "upper_arm_l", "upper_arm_r", "upper_arm_inner_l", "upper_arm_inner_r", "forearm_l", "forearm_r")
+hides_slots = PackedStringArray()
+
 [resource]
-script = ExtResource("11_yy12j")
+script = ExtResource("12_nvjcy")
 preset_id = "default_male"
-body_profile = SubResource("Resource_t3udd")
-parts = Array[ExtResource("3_y3juo")]([SubResource("Resource_nvjcy"), SubResource("Resource_i3ysk"), SubResource("Resource_ijnhy"), SubResource("Resource_8076d"), SubResource("Resource_o23ub"), SubResource("Resource_v7i10")])
+body_profile = SubResource("Resource_i3ysk")
+parts = Array[ExtResource("3_dfuay")]([SubResource("Resource_ijnhy"), SubResource("Resource_8076d"), SubResource("Resource_o23ub"), SubResource("Resource_v7i10"), SubResource("Resource_nbgrm"), SubResource("Resource_f2joe"), SubResource("Resource_gwd4x")])

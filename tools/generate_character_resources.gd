@@ -23,6 +23,23 @@ const PART_TABLE := {
 	"mouth_smile": ["MOUTH", "mouth", "Gentle Smile"],
 }
 
+## Skinned clothing authored against the canonical skeleton (see
+## docs/CLOTHING_GENERATION_GUIDE.md). stem -> [slot, display name, regions].
+const CLOTHING_TABLE := {
+	"top_jacket_cozy": [
+		"TOP_OUTER",
+		"Cozy Mustard Jacket",
+		[
+			"chest", "abdomen", "upper_chest_l", "upper_chest_r",
+			"clavicle_l", "clavicle_r", "shoulder_l", "shoulder_r",
+			"shoulder_cap_l", "shoulder_cap_r", "armpit_l", "armpit_r",
+			"upper_arm_l", "upper_arm_r",
+			"upper_arm_inner_l", "upper_arm_inner_r",
+			"forearm_l", "forearm_r",
+		],
+	],
+}
+
 
 func _initialize() -> void:
 	var manifest := _load_manifest()
@@ -40,6 +57,10 @@ func _initialize() -> void:
 		var part := _build_part(stem, manifest)
 		_save(part, "%s/%s.tres" % [PART_DEF_DIR, stem])
 		parts.append(part)
+	for stem in CLOTHING_TABLE:
+		var garment := _build_clothing(stem)
+		_save(garment, "%s/%s.tres" % [PART_DEF_DIR, stem])
+		parts.append(garment)
 
 	var preset := CharacterAppearancePreset.new()
 	preset.preset_id = "default_male"
@@ -120,6 +141,28 @@ func _build_part(stem: String, manifest: Dictionary) -> CharacterPartDefinition:
 	part.fits = [fit]
 	var errors := part.validation_errors()
 	assert(errors.is_empty(), "Generated part '%s' invalid: %s" % [stem, errors])
+	return part
+
+
+func _build_clothing(stem: String) -> CharacterPartDefinition:
+	var table: Array = CLOTHING_TABLE[stem]
+	var part := CharacterPartDefinition.new()
+	part.part_id = stem
+	part.slot = String(table[0])
+	part.display_name = String(table[1])
+	part.attachment_type = CharacterPartDefinition.ATTACHMENT_SKINNED
+	var scene_path := "res://assets/characters/parts/%s.glb" % stem
+	part.scene = load(scene_path) as PackedScene
+	assert(part.scene != null, "Clothing scene missing: %s" % scene_path)
+	part.compatible_body_profiles = PackedStringArray(["body_male"])
+	var regions: PackedStringArray = []
+	for region in table[2]:
+		regions.append(String(region))
+	part.hidden_regions = regions
+	var errors := part.validation_errors()
+	assert(
+		errors.is_empty(), "Generated clothing '%s' invalid: %s" % [stem, errors]
+	)
 	return part
 
 

@@ -91,11 +91,22 @@ Open `suma_character_master.blend`, import the GLB, then:
 Skinned clothing must deform with the existing skeleton. Do not add bones,
 do not run automatic weights, do not touch the rest pose.
 
-1. Select the garment → **Data Transfer** modifier: source `PlayerMaleBody`,
+1. **Set the rig to rest first**: `GameExportRig` → pose_position = REST.
+   The master file keeps the idle action applied, and Data Transfer samples
+   the EVALUATED (posed) body — against the lifted idle pose the legs sit at
+   sleeve height, so a garment transferred without this step inherits leg and
+   foot weights (T-posed sleeves at idle, exploding hem during walk).
+2. Select the garment → **Data Transfer** modifier: source `PlayerMaleBody`,
    Vertex Data → Vertex Groups, mapping "Nearest Face Interpolated" → apply.
    The garment now carries the body's own weights.
-2. Add an **Armature** modifier targeting `GameExportRig`.
-3. Test deformation before export:
+3. Limit to four influences and normalize (`Weights → Limit Total (4)`,
+   `Normalize All`) so glTF's four-influence export can never underweight a
+   vertex.
+4. Add an **Armature** modifier targeting `GameExportRig` **and make the rig
+   the garment's object parent** (`jacket.parent = rig`). The glTF exporter
+   exports the skin in the wrong space without the object parenting, and the
+   garment explodes the moment any pose plays.
+5. Test deformation before export:
    - set the rig to the `idle_relaxed` action and scrub the loop;
    - rotate the arm bones down ~65° (the idle hang) in pose mode;
    - check armpits, collar, hem for clipping.

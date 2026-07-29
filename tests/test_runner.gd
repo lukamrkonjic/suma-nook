@@ -140,6 +140,19 @@ func _test_input_bindings() -> void:
 	check(_action_has_key("camera_zoom_in", KEY_UP), "up arrow zooms the camera in")
 	check(_action_has_key("camera_zoom_out", KEY_DOWN), "down arrow zooms the camera out")
 	check(_action_has_key("cancel", KEY_ESCAPE), "Escape opens and closes the pause flow")
+	check(_action_has_key("toggle_hud", KEY_H), "H hides and restores the HUD")
+	check(
+		not _action_has_key("return_home", KEY_H)
+		and _action_has_key("return_home", KEY_HOME),
+		"Home returns the player home without conflicting with the HUD shortcut"
+	)
+	check(
+		_action_has_joypad_button("toggle_hud", JOY_BUTTON_RIGHT_STICK)
+		and _action_has_joypad_button(
+			"return_home", JOY_BUTTON_RIGHT_STICK
+		),
+		"R3 supports tap-to-hide and hold-to-return-home"
+	)
 	for action: StringName in InputDeviceService.REQUIRED_CONTROLLER_ACTIONS:
 		check(
 			InputMap.has_action(action)
