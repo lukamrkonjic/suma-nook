@@ -30,7 +30,7 @@ HEM_BOTTOM_Z = -0.128       # upper hips
 TORSO_HALF_X = 0.123        # body chest 0.114 + clearance
 TORSO_BACK_Y = 0.097        # body back 0.088 + clearance
 TORSO_FRONT_Y = 0.107       # body belly front 0.095 + clearance
-SLEEVE_END_X = 0.295        # wrist; stub hands (0.27..0.32) peek out
+SLEEVE_END_X = 0.28         # wrist; stub hands (0.262..0.31) peek out
 ARM_CENTER_Z = 0.093        # arm bone centerline height
 TARGET_TRIANGLES = 3800
 

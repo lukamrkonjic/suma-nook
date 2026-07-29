@@ -104,7 +104,11 @@ func _on_bird_timer() -> void:
 	play_event("bird")
 
 
-func play_event(event: String) -> void:
+func play_event(
+	event: String,
+	volume_offset_db := 0.0,
+	pitch_multiplier := 1.0
+) -> void:
 	var config: Dictionary = EVENTS.get(event, {})
 	var file := event
 	if config.has("variants"):
@@ -119,9 +123,14 @@ func play_event(event: String) -> void:
 	_next_player = (_next_player + 1) % POOL_SIZE
 	player.stream = stream
 	player.bus = config.get("bus", "SFX")
-	player.volume_db = float(config.get("volume_db", 0.0))
+	player.volume_db = (
+		float(config.get("volume_db", 0.0))
+		+ volume_offset_db
+	)
 	var pitch_var := float(config.get("pitch_var", 0.05))
-	player.pitch_scale = 1.0 + randf_range(-pitch_var, pitch_var)
+	player.pitch_scale = pitch_multiplier * (
+		1.0 + randf_range(-pitch_var, pitch_var)
+	)
 	player.play()
 
 

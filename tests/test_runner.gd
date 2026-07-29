@@ -15,6 +15,9 @@ const DebugWorldBuilderScript := preload(
 const InputDeviceServiceScript := preload(
 	"res://scripts/input/input_device_service.gd"
 )
+const GroundImpactEffectsScript := preload(
+	"res://scripts/visuals/ground_impact_effects.gd"
+)
 
 
 func _init() -> void:
@@ -49,6 +52,7 @@ func fresh_core(seed_value := 12345) -> GameCore:
 func _run() -> void:
 	_test_input_bindings()
 	_test_registries()
+	_test_ground_impact_surface_profiles()
 	_test_content_catalog_architecture()
 	_test_build_library_categories()
 	_test_content_assets()
@@ -84,6 +88,28 @@ func _run() -> void:
 	_test_current_save_policy()
 	_test_interrupted_reveal_recovery()
 	_test_player_defeat_safety()
+
+
+func _test_ground_impact_surface_profiles() -> void:
+	var core := fresh_core()
+	var expected := {
+		"tile_grass": "grass",
+		"tile_sand": "sand",
+		"tile_snowfield": "snow",
+		"tile_concrete_brutalist": "stone",
+		"tile_wooden_planks": "wood",
+		"tile_dirt": "earth",
+		"tile_mud": "mud",
+		"tile_open_water": "water",
+	}
+	for tile_id: String in expected:
+		check(
+			GroundImpactEffectsScript.surface_profile_for_definition(
+				core.registries.tile(tile_id)
+			) == expected[tile_id],
+			"%s resolves to its authored %s jump/landing effect"
+			% [tile_id, expected[tile_id]]
+		)
 
 
 func _test_maxed_debug_world_spawn() -> void:

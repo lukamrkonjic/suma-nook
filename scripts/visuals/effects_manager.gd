@@ -8,6 +8,7 @@ var _bobber: Node3D
 var _bobber_tween: Tween
 var _click_layer: CanvasLayer
 var water_interaction: WaterInteractionSystem
+var ground_impacts: GroundImpactEffects
 
 
 func setup(asset_library: AssetLibrary) -> void:
@@ -34,6 +35,24 @@ func bind_water_interaction(
 		assets.materials.material("water") as ShaderMaterial,
 		game_core,
 		player_controller
+	)
+
+
+func bind_ground_impacts(
+	game_core: GameCore,
+	player_controller: PlayerController,
+	game_audio: GameAudio
+) -> void:
+	if ground_impacts != null:
+		ground_impacts.queue_free()
+	ground_impacts = GroundImpactEffects.new()
+	ground_impacts.name = "GroundImpacts"
+	add_child(ground_impacts)
+	ground_impacts.setup(
+		game_core,
+		player_controller,
+		game_audio,
+		assets.materials.palette
 	)
 
 

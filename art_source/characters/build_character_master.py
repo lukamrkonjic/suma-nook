@@ -398,6 +398,88 @@ def build_hair(body: bpy.types.Object, material: bpy.types.Material) -> bpy.type
     return hair
 
 
+# ---------------------------------------------------------------- regions
+
+# Mirrors PlayerArmorRegions.REGION_IDS (scripts/player/player_armor_regions.gd).
+REGION_IDS = {
+    "head": 0, "neck": 1, "chest": 2, "abdomen": 3, "hips": 4,
+    "shoulder_l": 5, "upper_arm_l": 6, "forearm_l": 7, "hand_l": 8,
+    "shoulder_r": 9, "upper_arm_r": 10, "forearm_r": 11, "hand_r": 12,
+    "thigh_l": 13, "knee_l": 14, "shin_l": 15, "foot_l": 16,
+    "thigh_r": 17, "knee_r": 18, "shin_r": 19, "foot_r": 20,
+    "clavicle_l": 21, "shoulder_cap_l": 22, "armpit_l": 23,
+    "upper_chest_l": 24, "upper_arm_inner_l": 25,
+    "clavicle_r": 26, "shoulder_cap_r": 27, "armpit_r": 28,
+    "upper_chest_r": 29, "upper_arm_inner_r": 30,
+}
+
+
+def _region_for(center: Vector) -> str:
+    """Semantic body region for a triangle center, in model space (ground at
+    z=-0.435, +x = character left). Thresholds follow the measured skeleton
+    landmarks (EXPORT_BONES) and body slices."""
+    x, z = center.x, center.z
+    side = "l" if x >= 0.0 else "r"
+    ax = abs(x)
+    # Arm chain: shoulder 0.13, elbow 0.205, wrist 0.27 (bone landmarks).
+    # The arm band lives between z 0 and 0.15; the head's sides and ears sit
+    # above it and must never match the arm/shoulder rules.
+    if ax > 0.262 and z < 0.15:
+        return f"hand_{side}"
+    if ax > 0.205 and -0.02 < z < 0.15:
+        return f"forearm_{side}"
+    if ax > 0.135 and 0.0 < z < 0.15:
+        if z < 0.07:
+            return f"upper_arm_inner_{side}"
+        return f"upper_arm_{side}"
+    if ax > 0.105 and 0.03 < z < 0.085:
+        return f"armpit_{side}"
+    if ax > 0.10 and 0.085 <= z <= 0.15:
+        if z > 0.115:
+            return f"shoulder_cap_{side}"
+        return f"shoulder_{side}"
+    if z > 0.165:
+        return "head"
+    if z > 0.118:
+        return "neck"
+    if z > 0.085:
+        return f"clavicle_{side}"
+    if z > 0.04:
+        return f"upper_chest_{side}"
+    if z > -0.03:
+        return "chest"
+    if z > -0.085:
+        return "abdomen"
+    if z > -0.148:
+        return "hips"
+    if z > -0.225:
+        return f"thigh_{side}"
+    if z > -0.265:
+        return f"knee_{side}"
+    if z > -0.375:
+        return f"shin_{side}"
+    return f"foot_{side}"
+
+
+def bake_armor_regions(body: bpy.types.Object) -> dict:
+    """One semantic region id per triangle in UV2.x (TEXCOORD_1) — the
+    contract player_character.gdshader's hide_mask relies on. The voxel
+    remesh destroys any inherited attributes, so the bake must happen here,
+    after the body reaches final model space."""
+    mesh = body.data
+    while len(mesh.uv_layers) < 2:
+        mesh.uv_layers.new(name=f"UVMap{len(mesh.uv_layers)}")
+    layer = mesh.uv_layers[1]
+    counts: dict[str, int] = {}
+    for polygon in mesh.polygons:
+        region = _region_for(polygon.center)
+        counts[region] = counts.get(region, 0) + 1
+        region_id = float(REGION_IDS[region])
+        for loop_index in polygon.loop_indices:
+            layer.data[loop_index].uv = (region_id, 0.0)
+    return counts
+
+
 # ---------------------------------------------------------------- idle clip
 
 def _axis_local(pose_bone: bpy.types.PoseBone, world_axis: Vector) -> Vector:
@@ -789,6 +871,8 @@ def main() -> None:
     assign_material(body, materials["skin"])
     PIPE.apply_model_scale(body)
     PIPE.parent_with_weights(body, export_rig)
+    region_counts = bake_armor_regions(body)
+    print("ARMOR_REGIONS_BAKED", json.dumps(region_counts))
     move_to_collection(export_rig, "RIG")
     move_to_collection(body, "BODY_MALE")
 

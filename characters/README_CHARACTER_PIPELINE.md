@@ -51,6 +51,14 @@ The master `.blend` keeps collections: `RIG`, `BODY_MALE`, `DEFAULT_HAIR`,
 - **CharacterAppearancePreset** — a full appearance: body profile + one part
   per slot + colors. The player's default is
   `assets/characters/presets/default_male_appearance.tres`.
+- **Body regions** — the mannequin carries one semantic region id per
+  triangle in UV2.x (baked by `bake_armor_regions` in the master build,
+  matching `PlayerArmorRegions.REGION_IDS`); `player_character.gdshader`
+  discards fragments whose region bit is in the per-instance `hide_mask`.
+  Clothing lists covered regions in `hidden_regions`; the assembler unions
+  them and `PlayerVisual` merges that union with equipped-armor regions.
+  `tests/player_mixamo_probe.gd` asserts the bake exists — without it, all
+  region hiding silently no-ops.
 - **CharacterAssembler** — instantiates parts onto a body: builds
   `HeadAttachment` (BoneAttachment3D on `mixamorigHead`) → `FaceRoot` →
   face sockets, converts body-local socket data into head-local transforms at

@@ -3,17 +3,17 @@
   "source_sha256": "E78D2DF851B8A1F29FB59FB35969826434A1680D71B29FCB6879D0CA10353B33",
   "fit": {
     "scale": [
-      0.2952,
+      0.2802,
       0.2481,
       0.2546
     ],
     "offset_z": 0.0006,
-    "sleeve_lift": 0.0528,
+    "sleeve_lift": 0.0541,
     "torso_half_source": 0.4582
   },
   "material_faces": {
-    "body": 714,
-    "trim": 285,
+    "body": 701,
+    "trim": 298,
     "buttons": 1
   },
   "triangles": 1000,

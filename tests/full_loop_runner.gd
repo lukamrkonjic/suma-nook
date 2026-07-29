@@ -1346,6 +1346,24 @@ func _step_movement() -> void:
 		and jump_peak_y - jump_start_y < main.core.grid.block_depth * 2.0,
 		"raw jump apex sits between one and two elevation layers"
 	)
+	var impact_manifest: Dictionary = (
+		main.effects.ground_impacts.runtime_manifest()
+	)
+	check(
+		int(impact_manifest["takeoff_count"]) >= 1
+		and int(impact_manifest["landing_count"]) >= 1,
+		"a real jump emits both takeoff and landing feedback"
+	)
+	check(
+		impact_manifest["last_surface_profile"] == "wood",
+		"the dock jump selects wood effects over its supporting water tile"
+	)
+	check(
+		int(impact_manifest["particle_draw_call_budget"]) == 4
+		and int(impact_manifest["per_tile_nodes"]) == 0
+		and not bool(impact_manifest["world_size_dependent"]),
+		"jump effects keep a fixed four-draw-call budget at every world size"
+	)
 	await _step_jump_ledge_traversal()
 	# The traversal helper deliberately returns as soon as its spatial claim is
 	# proven. Let locomotion finish decelerating before measuring a fresh cycle.

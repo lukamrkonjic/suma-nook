@@ -16,11 +16,20 @@ signal entered_open_water(surface_position: Vector3, impact_speed: float)
 ## it separate lets the water render a quiet kick-off ripple without replaying
 ## the large splash crown.
 signal exited_open_water(surface_position: Vector3, kick_speed: float)
+## Solid-ground takeoff and landing events stay separate from water so the
+## presentation layer can select grass, sand, snow, stone, earth, or wood.
+signal ground_jump_started(surface_position: Vector3, coord: Vector2i)
+signal ground_landed(
+	surface_position: Vector3,
+	coord: Vector2i,
+	impact_speed: float
+)
 
 enum State { FREE, FISHING_CAST, FISHING_WAIT, FISHING_CATCH, WOODCUTTING, ATTACKING, DODGING, HIT, BUILDING, DISABLED, RESCUED, SWIMMING }
 
 const GROUND_MASK := 1
 const EDGE_WALL_MASK := WorldRenderer.EDGE_WALL_LAYER
+const MIN_GROUND_IMPACT_SPEED := 2.0
 
 var core: GameCore
 var camera_rig: CameraRig
@@ -83,7 +92,19 @@ func _physics_process(delta: float) -> void:
 			velocity.y -= core.registries.tunef("jump_gravity", 25.0) * delta
 		else:
 			velocity.y = maxf(velocity.y, 0.0)
+	var was_on_floor := is_on_floor()
+	var vertical_speed_before_slide := velocity.y
 	move_and_slide()
+	if (
+		not was_on_floor
+		and is_on_floor()
+		and vertical_speed_before_slide <= -MIN_GROUND_IMPACT_SPEED
+	):
+		ground_landed.emit(
+			global_position + Vector3.UP * 0.025,
+			current_cell(),
+			-vertical_speed_before_slide
+		)
 	# Landing in open water means floating, not sinking: swim mode.
 	if (
 		state in [State.FREE, State.BUILDING, State.DODGING, State.HIT]
@@ -233,6 +254,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				core.registries.tunef("jump_velocity", 5.4) * 0.9
 			)
 			set_state(State.FREE)
+		else:
+			ground_jump_started.emit(
+				global_position + Vector3.UP * 0.025,
+				current_cell()
+			)
 		velocity.y = core.registries.tunef("jump_velocity", 5.4) * (0.9 if swim_hop else 1.0)
 		floor_snap_length = 0.0
 		get_tree().create_timer(0.12).timeout.connect(func():

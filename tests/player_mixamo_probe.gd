@@ -54,6 +54,20 @@ func _initialize() -> void:
 	root.add_child(player)
 	var body := player.find_child("PlayerMaleBody", true, false) as MeshInstance3D
 	assert(body != null and body.skin != null, "Mannequin body must be skinned")
+	# The hide-region system depends on per-triangle region ids in UV2.x; the
+	# bake silently vanishing would turn all region hiding into a no-op.
+	var body_arrays := body.mesh.surface_get_arrays(0)
+	var body_uv2: Variant = body_arrays[Mesh.ARRAY_TEX_UV2]
+	assert(body_uv2 != null, "Mannequin body lost its armor-region UV2 bake")
+	var region_ids := {}
+	for value in body_uv2:
+		region_ids[int(round((value as Vector2).x))] = true
+	print("ARMOR_REGION_IDS=", region_ids.keys().size())
+	assert(
+		region_ids.keys().size() >= 25,
+		"Armor-region bake must cover the body (found %d regions)"
+		% region_ids.keys().size()
+	)
 	for node_name in LEGACY_MODULES:
 		assert(
 			player.find_child(node_name, true, false) == null,
