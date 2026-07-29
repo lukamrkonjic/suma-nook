@@ -31,6 +31,7 @@ var _invuln_timer := 0.0
 var _focus: Dictionary = {}
 var _focus_scan_accum := 0.0
 var _click_path: Array[Vector3] = []
+var _click_path_index := 0
 var _click_interaction: Dictionary = {}
 var _click_stop_radius := 0.12
 
@@ -428,6 +429,7 @@ func set_click_command(destination: Vector3, interaction := {}) -> bool:
 	if start != goal and route.is_empty():
 		return false
 	_click_path.clear()
+	_click_path_index = 0
 	for coord in route:
 		_click_path.append(core.grid.cell_to_world(coord))
 	if _click_path.is_empty():
@@ -445,6 +447,7 @@ func set_click_command(destination: Vector3, interaction := {}) -> bool:
 
 func cancel_click_command() -> void:
 	_click_path.clear()
+	_click_path_index = 0
 	_click_interaction.clear()
 
 
@@ -453,21 +456,24 @@ func has_click_command() -> bool:
 
 
 func _click_wish() -> Vector3:
-	if _click_path.is_empty():
+	if _click_path_index >= _click_path.size():
 		return Vector3.ZERO
-	if _click_path.size() == 1 and _click_interaction.has("node"):
+	var remaining := _click_path.size() - _click_path_index
+	if remaining == 1 and _click_interaction.has("node"):
 		var target_node := _click_interaction.get("node") as Node3D
 		if is_instance_valid(target_node):
-			_click_path[0] = target_node.global_position
+			_click_path[_click_path_index] = target_node.global_position
 		else:
 			cancel_click_command()
 			return Vector3.ZERO
-	var to_waypoint := _click_path[0] - global_position
+	var to_waypoint := _click_path[_click_path_index] - global_position
 	to_waypoint.y = 0.0
-	var stop_radius := _click_stop_radius if _click_path.size() == 1 else 0.16
+	var stop_radius := _click_stop_radius if remaining == 1 else 0.16
 	if to_waypoint.length() <= stop_radius:
-		_click_path.pop_front()
-		if _click_path.is_empty():
+		_click_path_index += 1
+		if _click_path_index >= _click_path.size():
+			_click_path.clear()
+			_click_path_index = 0
 			var interaction := _click_interaction
 			_click_interaction = {}
 			if not interaction.is_empty():
@@ -484,9 +490,11 @@ func _cell_route(start: Vector2i, goal: Vector2i) -> Array[Vector2i]:
 	if not core.grid.is_traversable(start):
 		start = core.grid.nearest_walkable(start)
 	var frontier: Array[Vector2i] = [start]
+	var frontier_index := 0
 	var came_from := {start: start}
-	while not frontier.is_empty():
-		var current: Vector2i = frontier.pop_front()
+	while frontier_index < frontier.size():
+		var current: Vector2i = frontier[frontier_index]
+		frontier_index += 1
 		if current == goal:
 			break
 		for offset: Vector2i in WorldGrid.NEIGHBORS:
@@ -499,8 +507,9 @@ func _cell_route(start: Vector2i, goal: Vector2i) -> Array[Vector2i]:
 		return result
 	var cursor := goal
 	while cursor != start:
-		result.push_front(cursor)
+		result.append(cursor)
 		cursor = came_from[cursor]
+	result.reverse()
 	return result
 
 
@@ -559,47 +568,55 @@ func _update_focus() -> void:
 				if core.skills.is_playable(anchor.skill_id) and not cell_state.anchor_resting:
 					best = {"kind": "anchor", "coord": coord, "anchor": anchor, "point": interaction_point}
 					best_distance = distance
-	for slot: Dictionary in core.grid.all_cell_slots():
-		var coord: Vector2i = slot["coord"]
-		if absi(coord.x - my_cell.x) > 1 or absi(coord.y - my_cell.y) > 1:
-			continue
-		var elevation := int(slot["elevation"])
-		var cell_state: WorldGrid.CellState = slot["state"]
-		var cell_origin := core.grid.cell_to_world(coord, elevation)
-		for structure: WorldGrid.StructureState in cell_state.structures:
-			var struct_def := core.registries.structure(structure.structure_id)
-			if struct_def == null:
-				continue
-			var struct_pos := (
-				cell_origin
-				+ core.grid.structure_local_transform(structure.instance_id).origin
-			)
-			var struct_distance := position.distance_to(struct_pos)
-			if (
-				struct_def.anchor_id != ""
-				and not structure.anchor_resting
-				and struct_distance < best_distance
-			):
-				var anchor := core.registries.anchor(struct_def.anchor_id)
-				if anchor != null and core.skills.is_playable(anchor.skill_id):
-					best = {
-						"kind": "anchor",
-						"coord": coord,
-						"elevation": elevation,
-						"instance_id": structure.instance_id,
-						"anchor": anchor,
-						"point": struct_pos,
-					}
-					best_distance = struct_distance
-			if struct_def.has_capability("storage_access") and struct_distance < best_distance:
-				best = {
-					"kind": "storage",
-					"coord": coord,
-					"elevation": elevation,
-					"instance_id": structure.instance_id,
-					"point": struct_pos,
-				}
-				best_distance = struct_distance
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			var coord := my_cell + Vector2i(dx, dy)
+			var top := core.grid.top_elevation(coord)
+			for elevation in range(0, top + 1):
+				var cell_state := core.grid.cell_at(coord, elevation)
+				if cell_state == null:
+					continue
+				var cell_origin := core.grid.cell_to_world(coord, elevation)
+				for structure: WorldGrid.StructureState in cell_state.structures:
+					var struct_def := core.registries.structure(structure.structure_id)
+					if struct_def == null:
+						continue
+					var struct_pos := (
+						cell_origin
+						+ core.grid.structure_local_transform_in_cell(
+							cell_state,
+							structure.instance_id
+						).origin
+					)
+					var struct_distance := position.distance_to(struct_pos)
+					if (
+						struct_def.anchor_id != ""
+						and not structure.anchor_resting
+						and struct_distance < best_distance
+					):
+						var anchor := core.registries.anchor(struct_def.anchor_id)
+						if anchor != null and core.skills.is_playable(anchor.skill_id):
+							best = {
+								"kind": "anchor",
+								"coord": coord,
+								"elevation": elevation,
+								"instance_id": structure.instance_id,
+								"anchor": anchor,
+								"point": struct_pos,
+							}
+							best_distance = struct_distance
+					if (
+						struct_def.has_capability("storage_access")
+						and struct_distance < best_distance
+					):
+						best = {
+							"kind": "storage",
+							"coord": coord,
+							"elevation": elevation,
+							"instance_id": structure.instance_id,
+							"point": struct_pos,
+						}
+						best_distance = struct_distance
 	for package in get_tree().get_nodes_in_group("delivery_packages"):
 		var package_node := package as Node3D
 		if not is_instance_valid(package_node) or not package_node.visible:

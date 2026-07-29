@@ -21,7 +21,7 @@ const PIXEL_SIZE_OPTIONS := [
 
 var fullscreen := false
 var vsync := true
-var anti_aliasing := AA_HIGH
+var anti_aliasing := AA_BALANCED
 var ssao := true
 var bloom := true
 var master_volume := 0.63
@@ -35,7 +35,7 @@ func from_dict(data: Dictionary) -> void:
 	fullscreen = bool(data.get("fullscreen", fullscreen))
 	vsync = bool(data.get("vsync", vsync))
 	var requested_aa := String(data.get("anti_aliasing", anti_aliasing))
-	anti_aliasing = requested_aa if requested_aa in [AA_OFF, AA_BALANCED, AA_HIGH] else AA_HIGH
+	anti_aliasing = requested_aa if requested_aa in [AA_OFF, AA_BALANCED, AA_HIGH] else AA_BALANCED
 	ssao = bool(data.get("ssao", ssao))
 	bloom = bool(data.get("bloom", bloom))
 	master_volume = clampf(float(data.get("master_volume", master_volume)), 0.0, 1.0)

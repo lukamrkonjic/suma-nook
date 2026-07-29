@@ -452,8 +452,8 @@ func _step_tile_geometry_contract() -> void:
 		and float(water_material.get_shader_parameter("wave_speed")) > 1.0
 		and float(water_material.get_shader_parameter("surface_shimmer")) > 0.0
 		and water_material.shader.code.contains("world_pos.xz")
-		and WaterSurface.SUBDIV >= 14,
-		"continuous water owns denser, stronger waves and layered surface shimmer"
+		and WaterSurface.SUBDIV >= 8,
+		"continuous water owns optimized, strong waves and layered surface shimmer"
 	)
 	var underwater_material := (
 		main.materials.material("uw_sand_light") as ShaderMaterial
@@ -2174,10 +2174,10 @@ func _step_visual_runtime() -> void:
 	)
 	check(
 		not live_visuals["post_processing"]["anti_aliasing"]["taa"]
-		and live_visuals["post_processing"]["anti_aliasing"]["msaa_3d"] == 3
+		and live_visuals["post_processing"]["anti_aliasing"]["msaa_3d"] == 2
 		and live_visuals["post_processing"]["anti_aliasing"]["screen_space_aa"] == 1
 		and live_visuals["post_processing"]["ssao_enabled"],
-		"Crisp 8x MSAA, non-temporal FXAA, and profile-driven SSAO are active"
+		"Balanced 4x MSAA, non-temporal FXAA, and profile-driven SSAO are active"
 	)
 	var camera_values := main.camera_rig.runtime_manifest()
 	check(

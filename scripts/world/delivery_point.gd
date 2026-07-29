@@ -14,6 +14,9 @@ var _materials: MaterialLibrary
 var _assets: AssetLibrary
 var _package_visual: Node3D
 var _grid: WorldGrid
+var _dock_instance_id := 0
+var _dock_coord := Vector2i.ZERO
+var _dock_elevation := 0
 
 
 func setup(
@@ -42,27 +45,67 @@ func setup(
 	_package_visual.add_to_group("delivery_packages")
 	add_child(_package_visual)
 	if _grid != null:
-		_grid.slot_changed.connect(func(_coord, _elevation): _sync_to_dock())
-		_grid.grid_changed.connect(_sync_to_dock)
+		_grid.slot_changed.connect(_on_slot_changed)
+		_sync_to_dock()
+
+
+func _on_slot_changed(coord: Vector2i, elevation: int) -> void:
+	if (
+		_dock_instance_id == 0
+		or (coord == _dock_coord and elevation == _dock_elevation)
+	):
 		_sync_to_dock()
 
 
 func _sync_to_dock() -> void:
 	if _grid == null:
 		return
+	if _dock_instance_id > 0:
+		var cached_state := _grid.cell_at(_dock_coord, _dock_elevation)
+		if cached_state != null:
+			for structure: WorldGrid.StructureState in cached_state.structures:
+				if structure.instance_id == _dock_instance_id:
+					_apply_dock_transform(
+						_dock_coord,
+						_dock_elevation,
+						cached_state,
+						structure
+					)
+					return
+		_dock_instance_id = 0
 	for slot: Dictionary in _grid.all_cell_slots():
 		var state: WorldGrid.CellState = slot["state"]
 		for structure: WorldGrid.StructureState in state.structures:
 			if structure.structure_id != "struct_dock":
 				continue
-			position = (
-				_grid.cell_to_world(slot["coord"], int(slot["elevation"]))
-				+ _grid.structure_local_transform(structure.instance_id).origin
+			_dock_instance_id = structure.instance_id
+			_dock_coord = slot["coord"]
+			_dock_elevation = int(slot["elevation"])
+			_apply_dock_transform(
+				_dock_coord,
+				_dock_elevation,
+				state,
+				structure
 			)
-			# Marker transforms were authored for the dock's default outward
-			# rotation (2). Preserve that alignment when the object is rotated.
-			rotation.y = (structure.rotation - 2) * PI * 0.5
 			return
+
+
+func _apply_dock_transform(
+	coord: Vector2i,
+	elevation: int,
+	state: WorldGrid.CellState,
+	structure: WorldGrid.StructureState
+) -> void:
+	position = (
+		_grid.cell_to_world(coord, elevation)
+		+ _grid.structure_local_transform_in_cell(
+			state,
+			structure.instance_id
+		).origin
+	)
+	# Marker transforms were authored for the dock's default outward rotation
+	# (2). Preserve that alignment when the object is rotated.
+	rotation.y = (structure.rotation - 2) * PI * 0.5
 
 
 func show_package(payload: LandParcelPayload) -> void:

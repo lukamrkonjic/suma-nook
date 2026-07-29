@@ -8,6 +8,7 @@ extends RefCounted
 signal world_grown(coord: Vector2i)
 signal notified(message: String, tone: String)   # lightweight toast channel
 signal before_save
+signal anchor_regenerated(coord: Vector2i, elevation: int, instance_id: int)
 
 const GameContentCatalogScript := preload("res://scripts/core/game_content_catalog.gd")
 const CampingModuleScript := preload(
@@ -46,6 +47,11 @@ var visual_state: Dictionary = {
 	"particle_quality": "high",
 }
 var _dirty := false
+var _anchor_tick_accum := 0.0
+var _resting_anchors: Dictionary = {}
+var _resting_anchor_slots: Dictionary = {}
+var _autosave_thread: Thread
+var _autosave_in_flight := false
 
 const FIRST_WATER_COORD := Vector2i(-1, -1)
 const STARTER_DOCK_COORD := Vector2i(0, -1)
@@ -95,6 +101,7 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 		if owner != null:
 			owner._dirty = true
 	)
+	grid.slot_changed.connect(_sync_resting_anchor_slot)
 	inventory.items_changed.connect(func():
 		var owner := owner_ref.get_ref() as GameCore
 		if owner != null:
@@ -170,6 +177,7 @@ func _compose_starting_world() -> void:
 	for coord: Vector2i in grid.cells:
 		for s in grid.cell(coord).structures:
 			collection.record("structures", s.structure_id, 0)
+	grid.rebuild_structure_index()
 
 
 # ------------------------------------------------------------------ flow hooks
@@ -204,6 +212,7 @@ func place_tile_from_stock(
 # ------------------------------------------------------------------ tick & persistence
 
 func tick(delta: float) -> void:
+	_poll_autosave()
 	play_seconds += delta
 	arrivals.tick(delta)
 	if registries.feature("combat_enabled", false):
@@ -213,33 +222,88 @@ func tick(delta: float) -> void:
 		return
 	autosave_timer += delta
 	if autosave_timer >= registries.tunef("autosave_interval", 40.0) and _dirty:
-		save()
+		_start_autosave()
 
 
 func _tick_anchors(delta: float) -> void:
-	for coord: Vector2i in grid.cells:
-		var state := grid.cell(coord)
-		if not state.anchor_resting:
+	_anchor_tick_accum += delta
+	if _anchor_tick_accum < 0.2:
+		return
+	var elapsed := _anchor_tick_accum
+	_anchor_tick_accum = 0.0
+	for object_id: int in _resting_anchors.keys():
+		var entry: Dictionary = _resting_anchors[object_id]
+		var runtime: RefCounted = entry["runtime"]
+		if runtime == null or not bool(runtime.get("anchor_resting")):
+			_resting_anchors.erase(object_id)
 			continue
-		state.anchor_regen_left -= delta
-		if state.anchor_regen_left <= 0.0:
-			state.anchor_resting = false
-			state.anchor_actions_done = 0
-			grid.slot_changed.emit(coord, 0)
+		runtime.set(
+			"anchor_regen_left",
+			float(runtime.get("anchor_regen_left")) - elapsed
+		)
+		if float(runtime.get("anchor_regen_left")) > 0.0:
+			continue
+		runtime.set("anchor_resting", false)
+		runtime.set("anchor_actions_done", 0)
+		var coord: Vector2i = entry["coord"]
+		var elevation := int(entry["elevation"])
+		var instance_id := int(entry["instance_id"])
+		grid.slot_changed.emit(coord, elevation)
+		if instance_id == 0:
 			grid.cell_changed.emit(coord)
-	for slot: Dictionary in grid.all_cell_slots():
-		var cell_state: WorldGrid.CellState = slot["state"]
-		for structure: WorldGrid.StructureState in cell_state.structures:
+		anchor_regenerated.emit(coord, elevation, instance_id)
+
+
+func track_resting_structure(instance_id: int) -> void:
+	var found := grid.find_structure(instance_id)
+	if not found.is_empty():
+		_sync_resting_anchor_slot(
+			found["coord"],
+			int(found["elevation"])
+		)
+
+
+func _sync_resting_anchor_slot(coord: Vector2i, elevation: int) -> void:
+	var slot_key := grid.slot_key(coord, elevation)
+	for object_id: int in _resting_anchor_slots.get(slot_key, []):
+		_resting_anchors.erase(object_id)
+	var active_ids: Array[int] = []
+	var state := grid.cell_at(coord, elevation)
+	if state != null:
+		if state.anchor_resting:
+			var state_id := int(state.get_instance_id())
+			active_ids.append(state_id)
+			_resting_anchors[state_id] = {
+				"runtime": state,
+				"coord": coord,
+				"elevation": elevation,
+				"instance_id": 0,
+			}
+		for structure: WorldGrid.StructureState in state.structures:
 			if not structure.anchor_resting:
 				continue
-			structure.anchor_regen_left -= delta
-			if structure.anchor_regen_left <= 0.0:
-				structure.anchor_resting = false
-				structure.anchor_actions_done = 0
-				grid.slot_changed.emit(
-					slot["coord"],
-					int(slot["elevation"])
-				)
+			var structure_id := int(structure.get_instance_id())
+			active_ids.append(structure_id)
+			_resting_anchors[structure_id] = {
+				"runtime": structure,
+				"coord": coord,
+				"elevation": elevation,
+				"instance_id": structure.instance_id,
+			}
+	if active_ids.is_empty():
+		_resting_anchor_slots.erase(slot_key)
+	else:
+		_resting_anchor_slots[slot_key] = active_ids
+
+
+func _rebuild_resting_anchors() -> void:
+	_resting_anchors.clear()
+	_resting_anchor_slots.clear()
+	for slot: Dictionary in grid.all_cell_slots():
+		_sync_resting_anchor_slot(
+			slot["coord"],
+			int(slot["elevation"])
+		)
 
 
 func autosave_soon() -> void:
@@ -248,9 +312,16 @@ func autosave_soon() -> void:
 
 
 func save() -> bool:
+	_finish_autosave()
 	before_save.emit()
 	autosave_timer = 0.0
-	var saved := save_manager.write({
+	var saved := save_manager.write(_save_payload())
+	_dirty = not saved
+	return saved
+
+
+func _save_payload() -> Dictionary:
+	return {
 		"rng": rng.to_save_dict(),
 		"profile": profile.to_save_dict(),
 		"grid": grid.to_save_dict(),
@@ -269,9 +340,49 @@ func save() -> bool:
 		"view": view_state.duplicate(true),
 		"visual": visual_state.duplicate(true),
 		"play_seconds": play_seconds,
-	})
-	_dirty = not saved
-	return saved
+	}
+
+
+func _start_autosave() -> void:
+	if _autosave_in_flight:
+		return
+	before_save.emit()
+	autosave_timer = 0.0
+	var payload := _save_payload()
+	# Changes made after this snapshot set _dirty again through the existing
+	# manager/grid signals and are picked up by the next autosave.
+	_dirty = false
+	_autosave_thread = Thread.new()
+	var error := _autosave_thread.start(
+		save_manager.write_background.bind(payload)
+	)
+	if error != OK:
+		_autosave_thread = null
+		_dirty = true
+		return
+	_autosave_in_flight = true
+
+
+func _poll_autosave() -> void:
+	if not _autosave_in_flight or _autosave_thread.is_alive():
+		return
+	var succeeded := bool(_autosave_thread.wait_to_finish())
+	_autosave_thread = null
+	_autosave_in_flight = false
+	save_manager.finish_background(succeeded)
+	if not succeeded:
+		_dirty = true
+
+
+func _finish_autosave() -> void:
+	if not _autosave_in_flight:
+		return
+	var succeeded := bool(_autosave_thread.wait_to_finish())
+	_autosave_thread = null
+	_autosave_in_flight = false
+	save_manager.finish_background(succeeded)
+	if not succeeded:
+		_dirty = true
 
 
 func load_game() -> bool:
@@ -288,6 +399,7 @@ func load_game() -> bool:
 	rng.from_save_dict(data.get("rng", {}))
 	profile.from_save_dict(data.get("profile", {}))
 	grid.from_save_dict(data.get("grid", {}))
+	_rebuild_resting_anchors()
 	inventory.from_save_dict(data.get("inventory", {}))
 	stock.from_save_dict(data.get("stock", {}))
 	camping.from_save_dict(

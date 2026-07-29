@@ -368,6 +368,14 @@ func _build_admin_page() -> void:
 			"Open viewer",
 			open_asset_viewer
 		)
+		_admin_action_row(
+			list,
+			"Performance HUD",
+			"Live FPS, milliseconds, draw calls, triangles, memory, chunks, and models. Shortcut: F3.",
+			"Toggle profiler",
+			func() -> void:
+				settings_bridge.toggle_performance_hud()
+		)
 		_admin_action_row(list, "Lighting tuner",
 			"ReShade-style overlay with every lighting slider, bottom-left over the game.",
 			"Toggle overlay", toggle_tuner)
@@ -397,10 +405,43 @@ func _build_admin_page() -> void:
 	var build_mock := func() -> void:
 		var placed: int = settings_bridge.debug_build_mock_world()
 		_admin_status("Mock world built — %d structures placed. Resume to explore." % placed)
+	var build_stress_world := func() -> void:
+		var report: Dictionary = settings_bridge.debug_build_performance_world()
+		_admin_status(
+			"Isolated 5K world built: %d tiles, %d models, %d tile types."
+			% [
+				int(report.get("tiles", 0)),
+				int(report.get("models", 0)),
+				int(report.get("tile_types", 0)),
+			]
+		)
+	var build_maxed_world := func() -> void:
+		var report: Dictionary = settings_bridge.debug_build_maxed_world()
+		_admin_status(
+			"Maxed world built: %d tiles and %d models — one model per tile."
+			% [
+				int(report.get("tiles", 0)),
+				int(report.get("models", 0)),
+			]
+		)
 	var reset_save := func() -> void:
 		settings_bridge.debug_reset_save()
 	list.add_child(kit.section_label("World and progression"))
 	_admin_action_row(list, "Mock world", "Rebuild the island as a showcase of every tile family and structure.", "Build", build_mock)
+	_admin_action_row(
+		list,
+		"5K Debug World",
+		"Build 5,000 mixed tiles and 1,250 models in an isolated, unsaved stress session.",
+		"Build stress test",
+		build_stress_world
+	)
+	_admin_action_row(
+		list,
+		"10K Maxed World",
+		"Extreme density: 10,000 mixed tiles with exactly one model on every tile.",
+		"Build maxed test",
+		build_maxed_world
+	)
 	_admin_action_row(list, "Reset save", "Deletes the save and its backup, then restarts the game fresh.", "Reset", reset_save)
 	_admin_action_row(list, "Ferry", "Bring the delivery ferry in right away.", "Trigger arrival", trigger_ferry)
 	_admin_action_row(list, "Fishing", "Add 100 XP toward the next fishing level.", "+100 XP", grant_fishing_xp)

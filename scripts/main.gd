@@ -8,6 +8,14 @@ extends Node
 const InteractionTargetResolverScript := preload(
 	"res://scripts/world/interaction_target_resolver.gd"
 )
+const DebugWorldBuilderScript := preload(
+	"res://scripts/debug/debug_world_builder.gd"
+)
+const DEBUG_WORLD_TILE_COUNT := 5000
+const DEBUG_WORLD_MODEL_COUNT := 1250
+const MAXED_WORLD_TILE_COUNT := 10000
+const MAXED_WORLD_MODEL_COUNT := 10000
+const DEBUG_WORLD_SEED := 8675309
 
 var palette: CozyPalette
 var materials: MaterialLibrary
@@ -30,8 +38,10 @@ var hud: Hud
 var pixel_look: PixelLook
 const LightingTunerScript := preload("res://scripts/ui/lighting_tuner.gd")
 const AssetViewerScript := preload("res://scripts/ui/asset_viewer.gd")
+const PerformanceHudScript := preload("res://scripts/ui/performance_hud.gd")
 var lighting_tuner: CanvasLayer
 var asset_viewer: AssetViewer
+var performance_hud
 var panels: GamePanels
 var pause_menu: PauseMenu
 var parcel_reveal: ParcelReveal
@@ -53,6 +63,12 @@ func _ready() -> void:
 
 	core = GameCore.new()
 	core.setup()
+	var debug_world_tiles := _requested_debug_world_tiles()
+	var debug_world_models := _requested_debug_world_models(
+		debug_world_tiles
+	)
+	if debug_world_tiles > 0:
+		_isolate_debug_save()
 	if save_path_override != "":
 		core.save_manager.save_path = save_path_override
 		core.save_manager.backup_path = save_path_override + ".backup"
@@ -61,10 +77,23 @@ func _ready() -> void:
 	_build_ui()
 	_connect_flows()
 
-	if core.save_manager.has_save() and core.load_game():
+	if debug_world_tiles > 0:
+		var debug_profile := PlayerProfile.new()
+		debug_profile.display_name = "Debug Keeper"
+		core.new_game(debug_profile)
+		debug_build_performance_world(
+			debug_world_tiles,
+			debug_world_models
+		)
+		player_visual.apply_profile(core.profile)
+		player_visual.apply_equipment(core.equipment)
+		_start_gameplay(true)
+	elif core.save_manager.has_save() and core.load_game():
 		_start_gameplay(false)
 	else:
 		_start_character_creation()
+	_apply_debug_visual_overrides()
+	_schedule_debug_capture()
 
 
 # ------------------------------------------------------------------ scene assembly
@@ -171,6 +200,13 @@ func _build_ui() -> void:
 	add_child(pause_menu)
 	pause_menu.setup(core, kit, self)
 
+	performance_hud = PerformanceHudScript.new()
+	performance_hud.name = "PerformanceHud"
+	add_child(performance_hud)
+	performance_hud.setup(core, renderer)
+	if "--perf-overlay" in OS.get_cmdline_user_args():
+		performance_hud.show_profiler()
+
 
 ## ReShade-style live lighting overlay (debug builds), toggled from the pause
 ## menu's Admin page. Built lazily so release sessions never carry it.
@@ -187,6 +223,12 @@ func toggle_lighting_tuner() -> bool:
 	if lighting_tuner.visible:
 		lighting_tuner.refresh()
 	return lighting_tuner.visible
+
+
+func toggle_performance_hud() -> bool:
+	if not OS.is_debug_build() or performance_hud == null:
+		return false
+	return performance_hud.toggle()
 
 
 ## Opens a production-material asset review room from the debug Admin page.
@@ -280,6 +322,125 @@ func debug_build_mock_world() -> int:
 	return placed
 
 
+func debug_build_performance_world(
+	tile_count: int = DEBUG_WORLD_TILE_COUNT,
+	model_count: int = DEBUG_WORLD_MODEL_COUNT,
+	seed_value: int = DEBUG_WORLD_SEED
+) -> Dictionary:
+	if not OS.is_debug_build():
+		return {}
+	_isolate_debug_save()
+	core.autosave_paused = true
+	if placement != null and placement.active:
+		placement.cancel_click()
+	var report: Dictionary = DebugWorldBuilderScript.populate(
+		core,
+		tile_count,
+		model_count,
+		seed_value
+	)
+	if report.is_empty():
+		return report
+	renderer.rebuild_all()
+	player.global_position = (
+		core.grid.cell_to_world(Vector2i.ZERO) + Vector3(0, 0.05, 0)
+	)
+	player.rotation.y = PI
+	core.profile.facing = PI
+	player.suspend_water_rescue()
+	player.cancel_click_command()
+	delivery_point._sync_to_dock()
+	hud._refresh_all()
+	hud.update_tutorial()
+	return report
+
+
+func debug_build_maxed_world() -> Dictionary:
+	return debug_build_performance_world(
+		MAXED_WORLD_TILE_COUNT,
+		MAXED_WORLD_MODEL_COUNT,
+		DEBUG_WORLD_SEED
+	)
+
+
+func _isolate_debug_save() -> void:
+	core.save_manager.save_path = "user://suma_nook_debug_world.json"
+	core.save_manager.backup_path = "user://suma_nook_debug_world.json.backup"
+
+
+func _requested_debug_world_tiles() -> int:
+	for arg: String in OS.get_cmdline_user_args():
+		if arg == "--maxed-world" or arg == "--debug-world=maxed":
+			return MAXED_WORLD_TILE_COUNT
+		if arg == "--debug-world":
+			return DEBUG_WORLD_TILE_COUNT
+		if arg.begins_with("--debug-world="):
+			return maxi(1, int(arg.trim_prefix("--debug-world=")))
+	return 0
+
+
+func _requested_debug_world_models(tile_count: int) -> int:
+	if tile_count <= 0:
+		return DEBUG_WORLD_MODEL_COUNT
+	if _maxed_world_requested():
+		return tile_count
+	for arg: String in OS.get_cmdline_user_args():
+		if arg.begins_with("--debug-models="):
+			return clampi(
+				int(arg.trim_prefix("--debug-models=")),
+				0,
+				tile_count
+			)
+	return mini(DEBUG_WORLD_MODEL_COUNT, tile_count)
+
+
+func _maxed_world_requested() -> bool:
+	for arg: String in OS.get_cmdline_user_args():
+		if arg == "--maxed-world" or arg == "--debug-world=maxed":
+			return true
+	return false
+
+
+func _apply_debug_visual_overrides() -> void:
+	if not OS.is_debug_build():
+		return
+	for arg: String in OS.get_cmdline_user_args():
+		if not arg.begins_with("--time-of-day="):
+			continue
+		var requested := arg.trim_prefix("--time-of-day=")
+		if requested in ["morning", "noon", "sunset", "night"]:
+			lighting.set_time_of_day(requested)
+		return
+
+
+func _schedule_debug_capture() -> void:
+	if not OS.is_debug_build():
+		return
+	for arg: String in OS.get_cmdline_user_args():
+		if arg.begins_with("--debug-shot="):
+			_capture_debug_shot.call_deferred(
+				arg.trim_prefix("--debug-shot=")
+			)
+			return
+
+
+func _capture_debug_shot(path: String) -> void:
+	# Let imported resources, shadows, the character rig, and the performance
+	# sampler all settle before capturing an evidence frame.
+	for _frame in 300:
+		await get_tree().process_frame
+	var image := get_viewport().get_texture().get_image()
+	var absolute_path := (
+		ProjectSettings.globalize_path(path)
+		if path.begins_with("res://") or path.begins_with("user://")
+		else path
+	)
+	var error := image.save_png(absolute_path)
+	print("DEBUG_SHOT ", absolute_path, " error=", error)
+	if "--quit-after-shot" in OS.get_cmdline_user_args():
+		get_tree().quit(0 if error == OK else 1)
+
+
 func _mock_socket(structure_id: String) -> int:
 	## Buildings occupy the tile's single structure socket (index 0); decor
 	## lives in the numbered decor sockets starting at 1.
@@ -337,6 +498,7 @@ func _connect_flows() -> void:
 	core.landmarks.landmark_reclaimed.connect(_on_landmark_reclaimed)
 	core.rewards.loot_granted.connect(_on_loot)
 	core.rewards.hobby_result_resolved.connect(_on_hobby_result)
+	core.anchor_regenerated.connect(_on_anchor_regenerated)
 	core.arrivals.arrival_requested.connect(_on_arrival_requested)
 	core.arrivals.delivery_ready.connect(_on_delivery_ready)
 	core.arrivals.delivery_resolved.connect(func(): delivery_point.hide_package())
@@ -409,7 +571,6 @@ func _process(delta: float) -> void:
 		return
 	core.tick(delta)
 	_tick_footsteps(delta)
-	_tick_anchor_visuals()
 
 
 func _tick_footsteps(delta: float) -> void:
@@ -424,30 +585,16 @@ func _tick_footsteps(delta: float) -> void:
 		audio.play_event("footstep_" + surface)
 
 
-var _anchor_watch: Dictionary = {}
-
-## Resource regrow pop: terrain anchors and object-owned anchors are watched
-## independently so a tree keeps its cycle when moved between ordinary tiles.
-func _tick_anchor_visuals() -> void:
-	for coord: Vector2i in core.grid.cells:
-		var state := core.grid.cell(coord)
-		var was_resting: bool = _anchor_watch.get(coord, false)
-		if was_resting and not state.anchor_resting:
-			renderer.refresh_anchor(coord)
-			audio.play_event("leaf_rustle")
-		_anchor_watch[coord] = state.anchor_resting
-	for slot: Dictionary in core.grid.all_cell_slots():
-		var state: WorldGrid.CellState = slot["state"]
-		for structure: WorldGrid.StructureState in state.structures:
-			var structure_def := core.registries.structure(structure.structure_id)
-			if structure_def == null or structure_def.anchor_id == "":
-				continue
-			var watch_key := "structure:%d" % structure.instance_id
-			var was_resting: bool = _anchor_watch.get(watch_key, false)
-			if was_resting and not structure.anchor_resting:
-				renderer.refresh_structure_anchor(structure.instance_id)
-				audio.play_event("leaf_rustle")
-			_anchor_watch[watch_key] = structure.anchor_resting
+func _on_anchor_regenerated(
+	coord: Vector2i,
+	_elevation: int,
+	instance_id: int
+) -> void:
+	if instance_id > 0:
+		renderer.refresh_structure_anchor(instance_id)
+	else:
+		renderer.refresh_anchor(coord)
+	audio.play_event("leaf_rustle")
 
 
 # ------------------------------------------------------------------ input routing
@@ -480,6 +627,16 @@ func _hovered_clickable_control() -> Control:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if (
+		OS.is_debug_build()
+		and event is InputEventKey
+		and event.pressed
+		and not event.echo
+		and (event as InputEventKey).physical_keycode == KEY_F3
+	):
+		performance_hud.toggle()
+		get_viewport().set_input_as_handled()
+		return
 	if not _gameplay_started:
 		return
 	if (
@@ -835,7 +992,7 @@ func _on_profile_applied(profile: VisualStyleProfile) -> void:
 	hud.apply_weather_contrast(profile.rain_enabled or lighting.is_dark_background())
 	for light in get_tree().get_nodes_in_group("warm_lights"):
 		var omni := light as OmniLight3D
-		omni.light_energy = lighting.local_light_energy(float(omni.get_meta("base_energy", 1.0)))
+		lighting.refresh_local_light(omni)
 
 
 func reload_from_save() -> void:

@@ -24,6 +24,24 @@ func has_save() -> bool:
 
 
 func write(payload: Dictionary) -> bool:
+	var succeeded := _write_payload(payload)
+	if succeeded:
+		saved.emit(save_path)
+	return succeeded
+
+
+## Worker-thread entry point used by autosave. It deliberately emits no signal;
+## GameCore reports completion back on the main thread.
+func write_background(payload: Dictionary) -> bool:
+	return _write_payload(payload)
+
+
+func finish_background(succeeded: bool) -> void:
+	if succeeded:
+		saved.emit(save_path)
+
+
+func _write_payload(payload: Dictionary) -> bool:
 	payload["format"] = CURRENT_FORMAT
 	payload["timestamp"] = Time.get_datetime_string_from_system()
 	var text := JSON.stringify(payload, "  ")
@@ -46,7 +64,6 @@ func write(payload: Dictionary) -> bool:
 	if err != OK:
 		push_error("SaveManager: rename failed (%s)" % err)
 		return false
-	saved.emit(save_path)
 	return true
 
 

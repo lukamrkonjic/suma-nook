@@ -192,6 +192,7 @@ func _chop_cycle(my_loop: int, instance_id: int) -> void:
 		structure.anchor_regen_left = anchor.regen_seconds * (
 			1.0 - 0.1 * structure.anchor_upgrade
 		)
+		core.track_resting_structure(instance_id)
 		action_feedback.emit("grove_rest", {"instance_id": instance_id})
 		core.autosave_soon()
 		await _wait(maxf(0.12, cycle_seconds - impact_seconds))

@@ -11,6 +11,7 @@ const AmbientMotionScript := preload("res://scripts/visuals/ambient_motion.gd")
 
 var assets: AssetLibrary
 var grid: WorldGrid
+var _batch_mesh_cache: Dictionary = {}
 
 
 func _init(asset_library: AssetLibrary, world_grid: WorldGrid) -> void:
@@ -36,6 +37,19 @@ func instantiate_visual(definition: Defs.StructureDefinition) -> Node3D:
 		visual.add_child(motion)
 		motion.configure(authored, definition.capability("ambient_motion"))
 	return visual
+
+
+func batch_mesh(definition: Defs.StructureDefinition) -> ArrayMesh:
+	if definition == null:
+		return null
+	if _batch_mesh_cache.has(definition.id):
+		return _batch_mesh_cache[definition.id]
+	var visual := instantiate_visual(definition)
+	var combined := assets.flatten_static_visual(visual, definition.id)
+	visual.free()
+	if combined != null:
+		_batch_mesh_cache[definition.id] = combined
+	return combined
 
 
 func _fit_authored_xz_to_tile(authored: Node3D) -> void:

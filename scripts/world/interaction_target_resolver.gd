@@ -89,90 +89,132 @@ func interaction_at(screen_position: Vector2) -> Dictionary:
 			best = candidate
 			best_distance = candidate["_distance"]
 
-	for coord: Vector2i in core.grid.cells:
-		var state := core.grid.cell(coord)
-		var tile_definition := core.grid.tile_def(coord)
-		var center := core.grid.cell_to_world(coord)
-		if (
-			tile_definition != null
-			and tile_definition.anchor_id != ""
-			and not state.anchor_resting
-		):
-			var anchor := core.registries.anchor(tile_definition.anchor_id)
-			if anchor != null and core.skills.is_playable(anchor.skill_id):
-				var interaction_point := center
-				if not tile_definition.walkable and tile_definition.water_cells.has("open_water"):
-					interaction_point += Vector3(0, 0, 1.25)
-				var candidate := _candidate(
-					screen_position, center + Vector3(0, 0.55, 0),
-					base_radius * 1.35,
-					{
-						"kind": "anchor", "coord": coord,
-						"anchor": anchor, "point": interaction_point,
-					}
-				)
-				if not candidate.is_empty() and candidate["_distance"] < best_distance:
-					best = candidate
-					best_distance = candidate["_distance"]
-
-	for slot: Dictionary in core.grid.all_cell_slots():
-		var coord: Vector2i = slot["coord"]
-		var elevation := int(slot["elevation"])
-		var state: WorldGrid.CellState = slot["state"]
-		var center := core.grid.cell_to_world(coord, elevation)
-		for structure: WorldGrid.StructureState in state.structures:
-			var definition := core.registries.structure(structure.structure_id)
-			if definition == null:
-				continue
-			var point := center + core.grid.structure_local_transform(
-				structure.instance_id
-			).origin
-			if definition.anchor_id != "" and not structure.anchor_resting:
-				var anchor := core.registries.anchor(definition.anchor_id)
+	# Screen-space targeting only needs cells near the projected pointer. The
+	# previous implementation rebuilt and sorted every slot in the world for
+	# each click, making interaction cost grow linearly with world size.
+	var projected: Variant = ground_point(screen_position)
+	var pointer_coord := (
+		core.grid.world_to_cell(projected)
+		if projected is Vector3
+		else core.grid.home_cell
+	)
+	for dy in range(-4, 5):
+		for dx in range(-4, 5):
+			var coord := pointer_coord + Vector2i(dx, dy)
+			var ground_state := core.grid.cell(coord)
+			var tile_definition := core.grid.tile_def(coord)
+			var ground_center := core.grid.cell_to_world(coord)
+			if (
+				ground_state != null
+				and tile_definition != null
+				and tile_definition.anchor_id != ""
+				and not ground_state.anchor_resting
+			):
+				var anchor := core.registries.anchor(tile_definition.anchor_id)
 				if anchor != null and core.skills.is_playable(anchor.skill_id):
+					var interaction_point := ground_center
+					if (
+						not tile_definition.walkable
+						and tile_definition.water_cells.has("open_water")
+					):
+						interaction_point += Vector3(0, 0, 1.25)
 					var candidate := _candidate(
-						screen_position, point + Vector3(0, 0.8, 0),
+						screen_position,
+						ground_center + Vector3(0, 0.55, 0),
 						base_radius * 1.35,
 						{
-							"kind": "anchor", "coord": coord,
-							"elevation": elevation,
-							"instance_id": structure.instance_id,
-							"anchor": anchor, "point": point,
+							"kind": "anchor",
+							"coord": coord,
+							"anchor": anchor,
+							"point": interaction_point,
 						}
 					)
 					if not candidate.is_empty() and candidate["_distance"] < best_distance:
 						best = candidate
 						best_distance = candidate["_distance"]
-			if definition.has_capability("storage_access"):
-				var candidate := _candidate(
-					screen_position, point + Vector3(0, 0.45, 0), base_radius,
-					{
-						"kind": "storage", "coord": coord,
-						"elevation": elevation,
-						"instance_id": structure.instance_id, "point": point,
-					}
-				)
-				if not candidate.is_empty() and candidate["_distance"] < best_distance:
-					best = candidate
-					best_distance = candidate["_distance"]
-			var feature_options: Array = core.camping.interactions.options_for(
-				"player", structure.instance_id
-			)
-			if not feature_options.is_empty():
-				var option = feature_options[0]
-				var candidate := _candidate(
-					screen_position, point + Vector3(0, 0.65, 0), base_radius,
-					{
-						"kind": "feature_interaction",
-						"feature": option.feature_id,
-						"option": option,
-						"instance_id": structure.instance_id,
-						"point": point,
-					}
-				)
-				if not candidate.is_empty() and candidate["_distance"] < best_distance:
-					best = candidate
-					best_distance = candidate["_distance"]
+
+			var top := core.grid.top_elevation(coord)
+			for elevation in range(0, top + 1):
+				var state := core.grid.cell_at(coord, elevation)
+				if state == null:
+					continue
+				var center := core.grid.cell_to_world(coord, elevation)
+				for structure: WorldGrid.StructureState in state.structures:
+					var definition := core.registries.structure(structure.structure_id)
+					if definition == null:
+						continue
+					var point := (
+						center
+						+ core.grid.structure_local_transform_in_cell(
+							state,
+							structure.instance_id
+						).origin
+					)
+					if definition.anchor_id != "" and not structure.anchor_resting:
+						var anchor := core.registries.anchor(definition.anchor_id)
+						if anchor != null and core.skills.is_playable(anchor.skill_id):
+							var candidate := _candidate(
+								screen_position,
+								point + Vector3(0, 0.8, 0),
+								base_radius * 1.35,
+								{
+									"kind": "anchor",
+									"coord": coord,
+									"elevation": elevation,
+									"instance_id": structure.instance_id,
+									"anchor": anchor,
+									"point": point,
+								}
+							)
+							if (
+								not candidate.is_empty()
+								and candidate["_distance"] < best_distance
+							):
+								best = candidate
+								best_distance = candidate["_distance"]
+					if definition.has_capability("storage_access"):
+						var candidate := _candidate(
+							screen_position,
+							point + Vector3(0, 0.45, 0),
+							base_radius,
+							{
+								"kind": "storage",
+								"coord": coord,
+								"elevation": elevation,
+								"instance_id": structure.instance_id,
+								"point": point,
+							}
+						)
+						if (
+							not candidate.is_empty()
+							and candidate["_distance"] < best_distance
+						):
+							best = candidate
+							best_distance = candidate["_distance"]
+					var feature_options: Array = core.camping.interactions.options_for(
+						"player",
+						structure.instance_id
+					)
+					if not feature_options.is_empty():
+						var option = feature_options[0]
+						var candidate := _candidate(
+							screen_position,
+							point + Vector3(0, 0.65, 0),
+							base_radius,
+							{
+								"kind": "feature_interaction",
+								"feature": option.feature_id,
+								"option": option,
+								"instance_id": structure.instance_id,
+								"point": point,
+							}
+						)
+						if (
+							not candidate.is_empty()
+							and candidate["_distance"] < best_distance
+						):
+							best = candidate
+							best_distance = candidate["_distance"]
 
 	best.erase("_distance")
 	return best

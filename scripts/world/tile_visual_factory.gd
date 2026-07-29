@@ -19,6 +19,7 @@ const STACK_SEAM_OVERLAP := 0.003
 
 var assets: AssetLibrary
 var grid: WorldGrid
+var _batch_mesh_cache: Dictionary = {}
 
 
 func _init(asset_library: AssetLibrary, world_grid: WorldGrid) -> void:
@@ -46,6 +47,28 @@ func instantiate_visual(def: Defs.TileDefinition, preview := false) -> Node3D:
 	if preview and def.render_profile == "continuous_water":
 		_add_preview_water_surface(visual)
 	return visual
+
+
+## Static scalable-world variant of instantiate_visual(). The complete
+## generated presentation is resolved once for each cover/seam state,
+## flattened by material, then reused by chunk MultiMeshes.
+func batch_mesh(
+	def: Defs.TileDefinition,
+	covered: bool,
+	stack_seam: bool
+) -> ArrayMesh:
+	var key := "%s|%d|%d" % [def.id, int(covered), int(stack_seam)]
+	if _batch_mesh_cache.has(key):
+		return _batch_mesh_cache[key]
+	var visual := instantiate_visual(def)
+	set_stack_seam_visible(visual, stack_seam)
+	if def.supports_tiles:
+		set_surface_covered(visual, covered, false)
+	var combined := assets.flatten_static_visual(visual, key)
+	visual.free()
+	if combined != null:
+		_batch_mesh_cache[key] = combined
+	return combined
 
 
 func _mark_authored_surface_details(authored_visual: Node3D) -> void:

@@ -12,6 +12,17 @@ const MIST_BG_SHADER: Shader = preload("res://assets/materials/mist_background.g
 const GG_BG_SHADER: Shader = preload("res://assets/materials/gg_screen_skybox.gdshader")
 const GG_GRADE_SHADER: Shader = preload("res://assets/materials/gg_color_grade.gdshader")
 
+# Night is intentionally authored as darkness with small pools of warm light,
+# rather than a blue-tinted version of daytime. These multipliers retain just
+# enough cool fill to read silhouettes while letting lanterns and fires carry
+# the scene.
+const NIGHT_AMBIENT_ENERGY_MULTIPLIER := 0.09
+const NIGHT_SUN_ENERGY_MULTIPLIER := 0.08
+const NIGHT_LOCAL_LIGHT_MULTIPLIER := 3.6
+const NIGHT_GLOW_INTENSITY := 0.34
+const NIGHT_AMBIENT_TINT := Color(0.34, 0.46, 0.72)
+const NIGHT_BACKGROUND_TINT := Color(0.24, 0.34, 0.55)
+
 @export var day_profile: VisualStyleProfile
 @export var mist_profile: VisualStyleProfile
 @export var rain_profile: VisualStyleProfile
@@ -171,6 +182,7 @@ func _ready() -> void:
 	if fallback_profile == null:
 		fallback_profile = load("res://assets/visual_profiles/suma_soft_daylight_fallback.tres")
 	apply_profile(day_profile)
+	get_tree().node_added.connect(_on_tree_node_added)
 
 
 func apply_profile(profile: VisualStyleProfile) -> void:
@@ -435,7 +447,7 @@ func _profile_for_weather(weather_id: String) -> VisualStyleProfile:
 
 
 func is_dark_background() -> bool:
-	return background_preset_id == "night" or (
+	return time_of_day_id == "night" or background_preset_id == "night" or (
 		background_preset_id == "profile"
 		and current_profile != null
 		and current_profile.rain_enabled
@@ -443,7 +455,7 @@ func is_dark_background() -> bool:
 
 
 ## Scales warm local lights (campfires, lanterns) so they whisper by day and
-## carry the scene by rain/dusk.
+## become the primary readable light sources at night.
 func local_light_energy(base_energy: float) -> float:
 	var profile_multiplier := current_profile.local_light_multiplier if current_profile else 1.0
 	var time_multiplier := 1.0
@@ -453,8 +465,28 @@ func local_light_energy(base_energy: float) -> float:
 		"sunset":
 			time_multiplier = 1.5
 		"night":
-			time_multiplier = 2.2
+			time_multiplier = NIGHT_LOCAL_LIGHT_MULTIPLIER
 	return base_energy * profile_multiplier * time_multiplier
+
+
+func refresh_local_light(light: OmniLight3D) -> void:
+	if light == null:
+		return
+	var base_energy := float(light.get_meta("base_energy", light.light_energy))
+	var scaled_energy := local_light_energy(base_energy)
+	# Flickering lights read this multiplier every pulse, so changing the
+	# time of day cannot be overwritten by their animation tween.
+	light.set_meta(
+		"time_energy_scale",
+		scaled_energy / base_energy if base_energy > 0.0 else 1.0
+	)
+	light.light_energy = scaled_energy
+
+
+func _on_tree_node_added(node: Node) -> void:
+	var light := node as OmniLight3D
+	if light != null and light.is_in_group("warm_lights"):
+		refresh_local_light(light)
 
 
 ## Complete live environment record for automated clean-room diagnostics.
@@ -824,19 +856,22 @@ func _gg_light_level() -> float:
 	return float(_gg_time_state()[1])
 
 
-## WorldTheme.Calculate, verbatim, over the exact serialized theme table:
-## dark mode multiplies the background by nightBgColor and the ambient set by
-## nightTint, while the sun lerps to the night color, min intensity, and
-## night pitch.
+## The serialized theme remains the hue source, but Suma's night art direction
+## deliberately goes far darker than the extracted reference values. Cool,
+## low-energy moon fill preserves silhouettes while warm local lights provide
+## the readable focal areas.
 func _apply_gg_time_of_day() -> void:
 	var profile := current_profile
 	var env := _environment.environment
 	var state := _gg_time_state()
 	var theme: Dictionary = GG_THEMES[state[0]]
 	var level := float(state[1])
-	var ambient_tint := (theme.night_tint as Color).lerp(Color.WHITE, level)
+	var ambient_tint := NIGHT_AMBIENT_TINT.lerp(Color.WHITE, level)
 	_sun.light_color = (theme.night_light as Color).lerp(theme.light, level)
-	_sun.light_energy = lerpf(theme.min_intensity, 1.0, level) * profile.sun_energy
+	_sun.light_energy = (
+		lerpf(NIGHT_SUN_ENERGY_MULTIPLIER, 1.0, level)
+		* profile.sun_energy
+	)
 	_sun.rotation_degrees = Vector3(
 		lerpf(profile.sun_pitch_night_deg, profile.sun_pitch_deg, level),
 		profile.sun_yaw_deg,
@@ -851,10 +886,20 @@ func _apply_gg_time_of_day() -> void:
 	_ambient_material.sky_horizon_color = ((theme.equator as Color) * ambient_tint).linear_to_srgb()
 	_ambient_material.ground_horizon_color = _ambient_material.sky_horizon_color
 	_ambient_material.ground_bottom_color = (profile.ambient_ground_color * ambient_tint).linear_to_srgb()
-	env.ambient_light_energy = profile.ambient_energy
+	env.ambient_light_energy = (
+		profile.ambient_energy
+		* lerpf(NIGHT_AMBIENT_ENERGY_MULTIPLIER, 1.0, level)
+	)
 	env.glow_enabled = profile.glow_enabled and _user_bloom_enabled
-	env.glow_intensity = profile.glow_intensity
-	var bg_tint := (theme.night_bg as Color).lerp(Color.WHITE, level)
+	env.glow_intensity = lerpf(
+		NIGHT_GLOW_INTENSITY,
+		profile.glow_intensity,
+		level
+	)
+	var bg_tint := (
+		(theme.night_bg as Color).lerp(Color.WHITE, level)
+		* NIGHT_BACKGROUND_TINT.lerp(Color.WHITE, level)
+	)
 	env.background_color = (theme.bg1 as Color) * bg_tint
 	if profile.background_gg_gradient and background_preset_id == "profile":
 		_set_gg_background(
@@ -892,11 +937,20 @@ func _apply_time_of_day() -> void:
 			env.glow_intensity = maxf(current_profile.glow_intensity, 0.28)
 		"night":
 			_sun.light_color = Color(0.42, 0.56, 0.9)
-			_sun.light_energy = current_profile.sun_energy * 0.2
+			_sun.light_energy = (
+				current_profile.sun_energy
+				* NIGHT_SUN_ENERGY_MULTIPLIER
+			)
 			_sun.rotation_degrees.x = -38.0
-			env.ambient_light_energy = maxf(0.12, current_profile.ambient_energy * 0.28)
+			env.ambient_light_energy = (
+				current_profile.ambient_energy
+				* NIGHT_AMBIENT_ENERGY_MULTIPLIER
+			)
 			env.glow_enabled = _user_bloom_enabled
-			env.glow_intensity = maxf(current_profile.glow_intensity, 0.42)
+			env.glow_intensity = maxf(
+				current_profile.glow_intensity,
+				NIGHT_GLOW_INTENSITY
+			)
 
 
 func _apply_background_preset() -> void:

@@ -16,6 +16,10 @@ const StructureVisualFactoryScript := preload(
 	"res://scripts/world/structure_visual_factory.gd"
 )
 const FoliageWindScript := preload("res://scripts/visuals/foliage_wind.gd")
+const ScalableWorldBackendScript := preload(
+	"res://scripts/world/scalable_world_backend.gd"
+)
+const SCALABLE_WORLD_THRESHOLD := 512
 
 var core: GameCore
 var assets: AssetLibrary
@@ -38,6 +42,8 @@ var _outline_viewport: SubViewport
 var _outline_camera: Camera3D
 var _outline_overlay: TextureRect
 var _outline_source_camera: Camera3D
+var _scalable_backend
+var _scalable_mode := false
 
 
 func setup(game_core: GameCore, asset_library: AssetLibrary) -> void:
@@ -46,6 +52,14 @@ func setup(game_core: GameCore, asset_library: AssetLibrary) -> void:
 	materials = asset_library.materials
 	_tile_visual_factory = TileVisualFactory.new(assets, core.grid)
 	_structure_visual_factory = StructureVisualFactoryScript.new(assets, core.grid)
+	_scalable_backend = ScalableWorldBackendScript.new()
+	_scalable_backend.setup(
+		self,
+		core,
+		assets,
+		_tile_visual_factory,
+		_structure_visual_factory
+	)
 	_edge_root = Node3D.new()
 	_edge_root.name = "EdgeBlockers"
 	add_child(_edge_root)
@@ -60,8 +74,7 @@ func setup(game_core: GameCore, asset_library: AssetLibrary) -> void:
 	add_child(_water_surface)
 
 	core.grid.slot_changed.connect(_on_slot_changed)
-	core.grid.grid_changed.connect(_rebuild_edges)
-	core.grid.grid_changed.connect(_rebuild_water_surface)
+	core.grid.grid_changed.connect(_on_grid_changed)
 	core.landmarks.opportunity_appeared.connect(func(_s): _sync_landmarks())
 	core.landmarks.landmark_revealed.connect(func(_s): _sync_landmarks())
 	core.landmarks.landmark_reclaimed.connect(func(_s): _sync_landmarks())
@@ -94,6 +107,26 @@ func _sync_outline_camera() -> void:
 
 func rebuild_all() -> void:
 	clear_structure_hover()
+	var wants_scalable := (
+		core.grid.total_tile_count() >= SCALABLE_WORLD_THRESHOLD
+	)
+	if wants_scalable:
+		for key in _tile_nodes.keys():
+			_tile_nodes[key].queue_free()
+		_tile_nodes.clear()
+		_structure_nodes.clear()
+		for child in _edge_root.get_children():
+			child.queue_free()
+		_water_surface.visible = false
+		_water_surface.mesh = null
+		_scalable_mode = true
+		_scalable_backend.rebuild_all()
+		_sync_landmarks()
+		return
+	if _scalable_mode:
+		_scalable_backend.clear()
+		_scalable_mode = false
+	_water_surface.visible = true
 	for key in _tile_nodes.keys():
 		_tile_nodes[key].queue_free()
 	_tile_nodes.clear()
@@ -106,6 +139,17 @@ func rebuild_all() -> void:
 
 
 func _on_slot_changed(coord: Vector2i, elevation: int) -> void:
+	var wants_scalable := (
+		core.grid.total_tile_count() >= SCALABLE_WORLD_THRESHOLD
+	)
+	if wants_scalable != _scalable_mode:
+		rebuild_all()
+		return
+	if _scalable_mode:
+		_scalable_backend.rebuild_around(coord)
+		if core.grid.has_cell_at(coord, elevation):
+			_scalable_backend.animate_tile(coord, elevation)
+		return
 	var key := core.grid.slot_key(coord, elevation)
 	if _tile_nodes.has(key):
 		_unregister_holder_structures(_tile_nodes[key])
@@ -123,6 +167,13 @@ func _on_slot_changed(coord: Vector2i, elevation: int) -> void:
 		# A moved dock can add or remove a traversable surface on water, so the
 		# perimeter opening must follow authoritative structure state.
 		_rebuild_water_surface()
+
+
+func _on_grid_changed() -> void:
+	if _scalable_mode:
+		return
+	_rebuild_edges()
+	_rebuild_water_surface()
 
 
 func _build_cell(coord: Vector2i, elevation: int, animate := false) -> void:
@@ -507,10 +558,30 @@ func _attach_ambient_motion(root: Node3D, seed_key: Vector2i) -> void:
 
 
 func _animate_local_light(light: OmniLight3D) -> void:
-	var base_energy := light.light_energy
+	var base_energy := float(light.get_meta("base_energy", light.light_energy))
 	var tween := light.create_tween().set_loops()
-	tween.tween_property(light, "light_energy", base_energy * 1.05, 0.33).set_trans(Tween.TRANS_SINE)
-	tween.tween_property(light, "light_energy", base_energy * 0.92, 0.33).set_trans(Tween.TRANS_SINE)
+	tween.tween_method(
+		func(multiplier: float):
+			light.light_energy = (
+				base_energy
+				* float(light.get_meta("time_energy_scale", 1.0))
+				* multiplier
+			),
+		1.0,
+		1.05,
+		0.33
+	).set_trans(Tween.TRANS_SINE)
+	tween.tween_method(
+		func(multiplier: float):
+			light.light_energy = (
+				base_energy
+				* float(light.get_meta("time_energy_scale", 1.0))
+				* multiplier
+			),
+		1.05,
+		0.92,
+		0.33
+	).set_trans(Tween.TRANS_SINE)
 
 
 ## Grove rest: vegetation gently shrinks and desaturates while regrowing —
@@ -533,6 +604,9 @@ func _apply_anchor_visual(holder: Node3D, state: WorldGrid.CellState, def: Defs.
 
 
 func refresh_anchor(coord: Vector2i) -> void:
+	if _scalable_mode:
+		_scalable_backend.rebuild_around(coord)
+		return
 	var key := core.grid.slot_key(coord, 0)
 	if not _tile_nodes.has(key):
 		return
@@ -544,6 +618,10 @@ func refresh_anchor(coord: Vector2i) -> void:
 
 func refresh_structure_anchor(instance_id: int, animate := true) -> void:
 	var found := core.grid.find_structure(instance_id)
+	if _scalable_mode:
+		if not found.is_empty():
+			_scalable_backend.rebuild_around(found["coord"])
+		return
 	var visual := structure_node(instance_id)
 	if found.is_empty() or visual == null:
 		return
@@ -566,6 +644,8 @@ func tile_node(coord: Vector2i, elevation: int = -1) -> Node3D:
 	var target_elevation := core.grid.top_elevation(coord) if elevation < 0 else elevation
 	if target_elevation < 0:
 		return null
+	if _scalable_mode:
+		return _scalable_backend.tile_node(coord, target_elevation)
 	return _tile_nodes.get(core.grid.slot_key(coord, target_elevation))
 
 
@@ -720,6 +800,13 @@ func pick_placeable_at_screen(camera: Camera3D, screen_position: Vector2) -> Dic
 	if camera == null or not is_inside_tree():
 		return {}
 	_outline_source_camera = camera
+	if _scalable_mode:
+		var structure_hit: Dictionary = _scalable_backend.structure_hit(
+			camera,
+			screen_position
+		)
+		if not structure_hit.is_empty():
+			return structure_hit
 	var origin := camera.project_ray_origin(screen_position)
 	var direction := camera.project_ray_normal(screen_position)
 	var query := PhysicsRayQueryParameters3D.create(
@@ -733,7 +820,13 @@ func pick_placeable_at_screen(camera: Camera3D, screen_position: Vector2) -> Dic
 	if hit.is_empty():
 		return {}
 	var collider := hit.get("collider") as CollisionObject3D
-	if collider == null or not collider.has_meta("placeable_kind"):
+	if collider == null:
+		return {}
+	if _scalable_mode and collider.has_meta("scalable_terrain"):
+		return _scalable_backend.terrain_hit(
+			hit.get("position", Vector3.ZERO)
+		)
+	if not collider.has_meta("placeable_kind"):
 		return {}
 	var result := {
 		"kind": String(collider.get_meta("placeable_kind")),
@@ -851,10 +944,46 @@ func structure_node(instance_id: int) -> Node3D:
 	return visual
 
 
+func debug_stats() -> Dictionary:
+	if _scalable_mode and _scalable_backend != null:
+		var stats: Dictionary = _scalable_backend.debug_stats()
+		stats["mode"] = "chunked"
+		return stats
+	var models := _structure_nodes.size()
+	return {
+		"mode": "exact",
+		"chunks": 1 if models > 0 else 0,
+		"batches": 0,
+		"models": models,
+		"instances": _tile_nodes.size() + models,
+		"water_chunks": (
+			1
+			if _water_surface != null and _water_surface.mesh != null
+			else 0
+		),
+		"collision_chunks": _tile_nodes.size(),
+		"warm_lights": get_tree().get_nodes_in_group("warm_lights").size(),
+	}
+
+
 func support_slot_world_transform(parent_instance_id: int, slot_id: String) -> Transform3D:
 	var found := core.grid.find_structure(parent_instance_id)
 	if found.is_empty():
 		return Transform3D.IDENTITY
+	if _scalable_mode:
+		return (
+			Transform3D(
+				Basis.IDENTITY,
+				core.grid.cell_to_world(
+					found["coord"],
+					int(found["elevation"])
+				)
+			)
+			* core.grid.support_slot_local_transform(
+				parent_instance_id,
+				slot_id
+			)
+		)
 	var holder := tile_node(found["coord"], int(found["elevation"]))
 	if holder == null:
 		return Transform3D.IDENTITY
@@ -865,6 +994,18 @@ func support_slot_world_transform(parent_instance_id: int, slot_id: String) -> T
 
 
 func structure_preview_position(instance_id: int) -> Vector3:
+	if _scalable_mode:
+		var found := core.grid.find_structure(instance_id)
+		if found.is_empty():
+			return Vector3.ZERO
+		return (
+			core.grid.cell_to_world(
+				found["coord"],
+				int(found["elevation"])
+			)
+			+ core.grid.structure_local_transform(instance_id).origin
+			+ Vector3.UP * 0.75
+		)
 	var visual := structure_node(instance_id)
 	if visual == null:
 		return Vector3.ZERO
@@ -887,6 +1028,8 @@ func structure_preview_position(instance_id: int) -> Vector3:
 
 
 func animate_structure_settle(instance_id: int) -> void:
+	if _scalable_mode:
+		return
 	var visual := structure_node(instance_id)
 	if visual == null:
 		return

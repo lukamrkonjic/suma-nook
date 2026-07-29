@@ -101,6 +101,7 @@ var cells: Dictionary = {}          # Vector2i -> CellState
 var stacked_cells: Dictionary = {}  # Vector3i(x, elevation, grid_y) -> CellState
 var next_instance_id: int = 1
 var home_cell := Vector2i.ZERO
+var _structure_locations: Dictionary = {}
 
 var tile_size: float:
 	get: return registries.tunef("tile_size", 1.35)
@@ -386,9 +387,11 @@ func structure_children(instance_id: int) -> Array[StructureState]:
 func structure_subtree(instance_id: int) -> Array[StructureState]:
 	var result: Array[StructureState] = []
 	var pending: Array[int] = [instance_id]
+	var pending_index := 0
 	var seen := {}
-	while not pending.is_empty():
-		var current: int = pending.pop_front()
+	while pending_index < pending.size():
+		var current: int = pending[pending_index]
+		pending_index += 1
 		if seen.has(current):
 			continue
 		seen[current] = true
@@ -600,6 +603,7 @@ func remove_tile_at(coord: Vector2i, elevation: int) -> CellState:
 	var state := cell_at(coord, elevation)
 	if state == null or top_elevation(coord) > elevation:
 		return null
+	_uncache_state_structures(state)
 	if elevation == 0:
 		cells.erase(coord)
 	else:
@@ -674,6 +678,7 @@ func detach_tile_stack(coord: Vector2i, base_elevation: int) -> Array[Dictionary
 		return stack
 	for index in range(stack.size() - 1, -1, -1):
 		var elevation := base_elevation + int(stack[index]["relative_elevation"])
+		_uncache_state_structures(stack[index]["state"])
 		if elevation == 0:
 			cells.erase(coord)
 		else:
@@ -700,16 +705,21 @@ func restore_tile_stack(
 			cells[coord] = state
 		else:
 			stacked_cells[slot_key(coord, elevation)] = state
+		_cache_state_structures(coord, elevation, state)
 		_emit_slot_changed(coord, elevation)
 	grid_changed.emit()
 	return true
 
 
 func restore_cell_at(coord: Vector2i, elevation: int, state: CellState) -> void:
+	var previous := cell_at(coord, elevation)
+	if previous != null and previous != state:
+		_uncache_state_structures(previous)
 	if elevation == 0:
 		cells[coord] = state
 	else:
 		stacked_cells[slot_key(coord, elevation)] = state
+	_cache_state_structures(coord, elevation, state)
 	_emit_slot_changed(coord, elevation)
 	grid_changed.emit()
 
@@ -750,6 +760,7 @@ func add_structure(
 	s.parent_instance_id = 0
 	s.support_slot_id = ""
 	state.structures.append(s)
+	_cache_structure(coord, elevation, state, s)
 	_emit_slot_changed(coord, elevation)
 	return s
 
@@ -787,6 +798,12 @@ func add_structure_on(
 	structure.support_slot_id = resolved_slot
 	var state: CellState = parent_found["state"]
 	state.structures.append(structure)
+	_cache_structure(
+		parent_found["coord"],
+		int(parent_found["elevation"]),
+		state,
+		structure
+	)
 	_emit_slot_changed(parent_found["coord"], int(parent_found["elevation"]))
 	return structure
 
@@ -807,6 +824,7 @@ func remove_structure(coord: Vector2i, instance_id: int, elevation: int = -1) ->
 		if state.structures[i].instance_id == instance_id:
 			var s := state.structures[i]
 			state.structures.remove_at(i)
+			_structure_locations.erase(instance_id)
 			_emit_slot_changed(coord, elevation)
 			return s
 	return null
@@ -827,6 +845,7 @@ func detach_structure_stack(instance_id: int) -> Array[StructureState]:
 			removed.append(structure)
 	for index in range(state.structures.size() - 1, -1, -1):
 		if ids.has(state.structures[index].instance_id):
+			_structure_locations.erase(state.structures[index].instance_id)
 			state.structures.remove_at(index)
 	_emit_slot_changed(found["coord"], int(found["elevation"]))
 	return removed
@@ -884,22 +903,86 @@ func restore_structure_stack(
 	for structure: StructureState in stack:
 		state.structures.append(structure)
 		next_instance_id = maxi(next_instance_id, structure.instance_id + 1)
+		_cache_structure(coord, elevation, state, structure)
 	_emit_slot_changed(coord, elevation)
 	return true
 
 
 func find_structure(instance_id: int) -> Dictionary:
-	for slot: Dictionary in all_cell_slots():
-		var state: CellState = slot["state"]
-		for s in state.structures:
+	if _structure_locations.has(instance_id):
+		var cached: Dictionary = _structure_locations[instance_id]
+		var cached_state := cell_at(
+			cached["coord"],
+			int(cached["elevation"])
+		)
+		if cached_state == cached["state"]:
+			for structure: StructureState in cached_state.structures:
+				if (
+					structure.instance_id == instance_id
+					and structure == cached["structure"]
+				):
+					return cached
+		_structure_locations.erase(instance_id)
+	for coord: Vector2i in cells:
+		var state: CellState = cells[coord]
+		for s: StructureState in state.structures:
 			if s.instance_id == instance_id:
-				return {
-					"coord": slot["coord"],
-					"elevation": slot["elevation"],
-					"state": state,
-					"structure": s,
-				}
+				_cache_structure(coord, 0, state, s)
+				return _structure_locations[instance_id]
+	for key: Vector3i in stacked_cells:
+		var state: CellState = stacked_cells[key]
+		for s: StructureState in state.structures:
+			if s.instance_id == instance_id:
+				_cache_structure(
+					Vector2i(key.x, key.z),
+					key.y,
+					state,
+					s
+				)
+				return _structure_locations[instance_id]
 	return {}
+
+
+func rebuild_structure_index() -> void:
+	_structure_locations.clear()
+	for coord: Vector2i in cells:
+		_cache_state_structures(coord, 0, cells[coord])
+	for key: Vector3i in stacked_cells:
+		_cache_state_structures(
+			Vector2i(key.x, key.z),
+			key.y,
+			stacked_cells[key]
+		)
+
+
+func _cache_state_structures(
+	coord: Vector2i,
+	elevation: int,
+	state: CellState
+) -> void:
+	for structure: StructureState in state.structures:
+		_cache_structure(coord, elevation, state, structure)
+
+
+func _cache_structure(
+	coord: Vector2i,
+	elevation: int,
+	state: CellState,
+	structure: StructureState
+) -> void:
+	_structure_locations[structure.instance_id] = {
+		"coord": coord,
+		"elevation": elevation,
+		"state": state,
+		"structure": structure,
+	}
+
+
+func _uncache_state_structures(state: CellState) -> void:
+	if state == null:
+		return
+	for structure: StructureState in state.structures:
+		_structure_locations.erase(structure.instance_id)
 
 
 func _emit_slot_changed(coord: Vector2i, elevation: int) -> void:
@@ -936,8 +1019,10 @@ func nearest_walkable(from: Vector2i, excluding := Vector2i(9999, 9999)) -> Vect
 		return from
 	var visited := {from: true}
 	var queue: Array[Vector2i] = [from]
-	while not queue.is_empty():
-		var current: Vector2i = queue.pop_front()
+	var queue_index := 0
+	while queue_index < queue.size():
+		var current: Vector2i = queue[queue_index]
+		queue_index += 1
 		for offset: Vector2i in NEIGHBORS:
 			var next: Vector2i = current + offset
 			if visited.has(next):
@@ -964,12 +1049,17 @@ func bounds() -> Rect2i:
 
 func to_save_dict() -> Dictionary:
 	var cell_list: Array = []
-	for slot: Dictionary in all_cell_slots():
-		var coord: Vector2i = slot["coord"]
-		var entry: Dictionary = (slot["state"] as CellState).to_dict()
+	for coord: Vector2i in cells:
+		var entry: Dictionary = (cells[coord] as CellState).to_dict()
 		entry["x"] = coord.x
 		entry["y"] = coord.y
-		entry["e"] = int(slot["elevation"])
+		entry["e"] = 0
+		cell_list.append(entry)
+	for key: Vector3i in stacked_cells:
+		var entry: Dictionary = (stacked_cells[key] as CellState).to_dict()
+		entry["x"] = key.x
+		entry["y"] = key.z
+		entry["e"] = key.y
 		cell_list.append(entry)
 	return {"cells": cell_list, "next_iid": next_instance_id, "home": [home_cell.x, home_cell.y]}
 
@@ -988,4 +1078,5 @@ func from_save_dict(data: Dictionary) -> void:
 	next_instance_id = int(data.get("next_iid", 1))
 	var home: Array = data.get("home", [0, 0])
 	home_cell = Vector2i(int(home[0]), int(home[1]))
+	rebuild_structure_index()
 	grid_changed.emit()

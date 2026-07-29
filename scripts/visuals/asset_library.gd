@@ -9,6 +9,7 @@ const SEARCH_PATHS := ["res://assets/3d/reworked/%s.glb", "res://assets/3d/final
 
 var materials: MaterialLibrary
 var _cache: Dictionary = {}
+var _batch_mesh_cache: Dictionary = {}
 
 
 func _init(material_library: MaterialLibrary) -> void:
@@ -36,6 +37,79 @@ func instantiate(asset_id: String) -> Node3D:
 	node.name = asset_id
 	materials.rebind_materials(node)
 	return node
+
+
+## Flattens a static GLB once and reuses the resulting material-preserving
+## ArrayMesh in chunk MultiMeshes. Dynamic/player assets keep the ordinary
+## instantiate path.
+func batch_mesh(asset_id: String) -> ArrayMesh:
+	if _batch_mesh_cache.has(asset_id):
+		return _batch_mesh_cache[asset_id]
+	var packed := _packed(asset_id)
+	if packed == null:
+		return null
+	var template := packed.instantiate() as Node3D
+	materials.rebind_materials(template)
+	var combined := flatten_static_visual(template, asset_id)
+	template.free()
+	if combined != null:
+		_batch_mesh_cache[asset_id] = combined
+	return combined
+
+
+## Combines every visible triangle mesh below `root`, retaining one surface
+## per active material. This also supports generated/layered tile visuals.
+func flatten_static_visual(root: Node3D, resource_name := "") -> ArrayMesh:
+	var by_material: Dictionary = {}
+	for child in root.find_children("*", "MeshInstance3D", true, false):
+		var mesh_instance := child as MeshInstance3D
+		if not _locally_visible(mesh_instance, root):
+			continue
+		var source_mesh := mesh_instance.mesh
+		if source_mesh == null:
+			continue
+		var relative := _transform_below_root(mesh_instance, root)
+		for surface in source_mesh.get_surface_count():
+			var active_material := mesh_instance.get_active_material(surface)
+			var material_key := (
+				"none"
+				if active_material == null
+				else str(active_material.get_instance_id())
+			)
+			if not by_material.has(material_key):
+				var tool := SurfaceTool.new()
+				tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+				tool.set_material(active_material)
+				by_material[material_key] = tool
+			(by_material[material_key] as SurfaceTool).append_from(
+				source_mesh,
+				surface,
+				relative
+			)
+	var combined := ArrayMesh.new()
+	combined.resource_name = resource_name
+	for surface_tool: SurfaceTool in by_material.values():
+		surface_tool.commit(combined)
+	return combined if combined.get_surface_count() > 0 else null
+
+
+func _locally_visible(node: Node3D, root: Node3D) -> bool:
+	var current: Node = node
+	while current != null and current != root:
+		if current is VisualInstance3D and not (current as VisualInstance3D).visible:
+			return false
+		current = current.get_parent()
+	return true
+
+
+func _transform_below_root(node: Node3D, root: Node3D) -> Transform3D:
+	var result := Transform3D.IDENTITY
+	var current: Node = node
+	while current != null and current != root:
+		if current is Node3D:
+			result = (current as Node3D).transform * result
+		current = current.get_parent()
+	return result
 
 
 func catalog_ids() -> Array[String]:

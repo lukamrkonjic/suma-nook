@@ -538,11 +538,11 @@ func _test_gg_render_contract() -> void:
 		"Soft-daylight uses a restrained pop grade and emissive-only bloom"
 	)
 	check(
-		ProjectSettings.get_setting("rendering/anti_aliasing/quality/msaa_3d") == 3
+		ProjectSettings.get_setting("rendering/anti_aliasing/quality/msaa_3d") == 2
 		and ProjectSettings.get_setting("rendering/anti_aliasing/quality/screen_space_aa") == 1
 		and not ProjectSettings.get_setting("rendering/anti_aliasing/quality/use_taa")
-		and ProjectSettings.get_setting("rendering/lights_and_shadows/directional_shadow/size") == 8192,
-		"Soft-daylight uses crisp 8x MSAA and a bounded shadow map"
+		and ProjectSettings.get_setting("rendering/lights_and_shadows/directional_shadow/size") == 4096,
+		"Soft-daylight uses balanced 4x MSAA and a bounded shadow map"
 	)
 
 
@@ -573,7 +573,7 @@ func _test_game_preferences() -> void:
 	check(not saved["tutorial_hints"], "tutorial visibility preference round-trips")
 	preferences.from_dict({"anti_aliasing": "not-a-quality", "master_volume": 4.0})
 	check(
-		preferences.anti_aliasing == GamePreferences.AA_HIGH
+		preferences.anti_aliasing == GamePreferences.AA_BALANCED
 		and preferences.master_volume == 1.0,
 		"invalid preference values fall back safely"
 	)
@@ -1201,6 +1201,7 @@ func _test_anchor_cycle_and_regen() -> void:
 	tree.anchor_actions_done = anchor.cycle_actions
 	tree.anchor_resting = true
 	tree.anchor_regen_left = 2.0
+	core.track_resting_structure(tree.instance_id)
 	core.tick(1.0)
 	check(tree.anchor_resting, "tree still resting mid-regen")
 	var restored_grid := WorldGrid.new(core.registries)
