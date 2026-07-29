@@ -6,7 +6,9 @@ extends MeshInstance3D
 
 const SUBDIV := 8
 const BLOCK_BOTTOM := -0.50
-const SKIRT_INSET := 0.006
+# Boundary walls meet exactly at corners. The old inset left a hairline through
+# which the background showed between two translucent skirt faces.
+const SKIRT_INSET := 0.0
 const DIRECTIONS: Array[Vector2i] = [
 	Vector2i.RIGHT,
 	Vector2i.LEFT,
@@ -63,7 +65,11 @@ func rebuild_with_topology(
 	var normals := PackedVector3Array()
 	var uvs := PackedVector2Array()
 	var uv2s := PackedVector2Array()
-	var indices := PackedInt32Array()
+	# Render every top triangle before every boundary skirt triangle. Mixing
+	# them cell-by-cell made transparent/depth ordering change at tile joins,
+	# exposing diagonal seams even though the geometry itself was connected.
+	var top_indices := PackedInt32Array()
+	var side_indices := PackedInt32Array()
 	var step := tile_size / float(SUBDIV)
 	for cell in cells:
 		var origin: Vector3 = cell_to_world.call(cell)
@@ -102,7 +108,7 @@ func rebuild_with_topology(
 				var b := a + 1
 				var c := a + SUBDIV + 1
 				var d := c + 1
-				indices.append_array([a, c, b, b, c, d])
+				top_indices.append_array([a, c, b, b, c, d])
 
 		# Translucent block walls only at the actual region boundary. The
 		# global lookup suppresses false skirts where another chunk continues.
@@ -129,7 +135,7 @@ func rebuild_with_topology(
 				var b := a + 1
 				var c := a + 2
 				var d := a + 3
-				indices.append_array([a, c, b, b, c, d])
+				side_indices.append_array([a, c, b, b, c, d])
 
 	var arrays := []
 	arrays.resize(Mesh.ARRAY_MAX)
@@ -137,15 +143,19 @@ func rebuild_with_topology(
 	arrays[Mesh.ARRAY_NORMAL] = normals
 	arrays[Mesh.ARRAY_TEX_UV] = uvs
 	arrays[Mesh.ARRAY_TEX_UV2] = uv2s
-	arrays[Mesh.ARRAY_INDEX] = indices
+	top_indices.append_array(side_indices)
+	arrays[Mesh.ARRAY_INDEX] = top_indices
 	var array_mesh := ArrayMesh.new()
 	array_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	mesh = array_mesh
 	material_override = water_material
 	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Entry impulses can lift a crest beyond the static mesh bounds. A small
+	# constant margin prevents edge ripples from being culled mid-splash.
+	extra_cull_margin = 0.22
 
 
-## Foam is only 0.13 m wide, so only an exposed edge of this cell can affect
+## Shore tint is only 0.045 m wide, so only an exposed edge can affect
 ## one of its vertices. This is constant work per vertex instead of comparing
 ## every vertex against every shoreline segment in the entire world.
 func _local_shore_distance(

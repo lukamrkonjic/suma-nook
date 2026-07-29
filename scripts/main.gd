@@ -175,6 +175,7 @@ func _build_world_scene() -> void:
 
 	renderer.setup(core, assets)
 	player.setup(core, camera_rig, player_visual)
+	effects.bind_water_interaction(core, player)
 	lighting.bind_fog_interactors(player, camera_rig)
 	skill_actions.setup(core, player, player_visual, effects)
 	player_visual.apply_profile(core.profile)

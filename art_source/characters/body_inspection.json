@@ -1,0 +1,359 @@
+{
+  "glb": "C:\\Dev\\suma-nook\\assets\\3d\\reworked\\player_male_rigged.glb",
+  "armature": "GameExportRig",
+  "body_object": "PlayerMaleBody",
+  "body_vertices": 10800,
+  "body_bounds_min": [
+    -0.17083,
+    -0.13758,
+    -0.00336
+  ],
+  "body_bounds_max": [
+    0.17079,
+    0.12886,
+    0.84337
+  ],
+  "neck_top_z": 0.165,
+  "head_bounds_min": [
+    -0.17083,
+    -0.13758,
+    0.165
+  ],
+  "head_bounds_max": [
+    0.17079,
+    0.12886,
+    0.84337
+  ],
+  "head_slices": [
+    {
+      "z_mid": 0.17805,
+      "front_y": -0.05969,
+      "front_y_center": -0.05394,
+      "back_y": 0.04466,
+      "half_width": 0.11242
+    },
+    {
+      "z_mid": 0.20414,
+      "front_y": -0.0646,
+      "front_y_center": -0.05734,
+      "back_y": 0.05589,
+      "half_width": 0.11364
+    },
+    {
+      "z_mid": 0.23023,
+      "front_y": -0.06336,
+      "front_y_center": -0.05635,
+      "back_y": 0.0646,
+      "half_width": 0.11425
+    },
+    {
+      "z_mid": 0.25632,
+      "front_y": -0.06318,
+      "front_y_center": -0.06318,
+      "back_y": 0.07861,
+      "half_width": 0.11413
+    },
+    {
+      "z_mid": 0.28241,
+      "front_y": -0.07853,
+      "front_y_center": -0.07853,
+      "back_y": 0.09195,
+      "half_width": 0.11378
+    },
+    {
+      "z_mid": 0.3085,
+      "front_y": -0.08655,
+      "front_y_center": -0.08655,
+      "back_y": 0.0942,
+      "half_width": 0.11238
+    },
+    {
+      "z_mid": 0.33459,
+      "front_y": -0.09097,
+      "front_y_center": -0.09097,
+      "back_y": 0.09325,
+      "half_width": 0.13567
+    },
+    {
+      "z_mid": 0.36069,
+      "front_y": -0.09073,
+      "front_y_center": -0.09073,
+      "back_y": 0.0894,
+      "half_width": 0.14593
+    },
+    {
+      "z_mid": 0.38678,
+      "front_y": -0.08894,
+      "front_y_center": -0.08894,
+      "back_y": 0.08129,
+      "half_width": 0.14395
+    },
+    {
+      "z_mid": 0.41287,
+      "front_y": -0.08603,
+      "front_y_center": -0.08603,
+      "back_y": 0.07485,
+      "half_width": 0.13448
+    },
+    {
+      "z_mid": 0.43896,
+      "front_y": -0.08009,
+      "front_y_center": -0.08009,
+      "back_y": 0.07297,
+      "half_width": 0.13777
+    },
+    {
+      "z_mid": 0.46505,
+      "front_y": -0.07033,
+      "front_y_center": -0.07033,
+      "back_y": 0.07199,
+      "half_width": 0.13849
+    },
+    {
+      "z_mid": 0.49114,
+      "front_y": -0.05726,
+      "front_y_center": -0.05726,
+      "back_y": 0.06963,
+      "half_width": 0.13989
+    },
+    {
+      "z_mid": 0.51723,
+      "front_y": -0.10411,
+      "front_y_center": -0.10411,
+      "back_y": 0.06251,
+      "half_width": 0.13651
+    },
+    {
+      "z_mid": 0.54332,
+      "front_y": -0.12556,
+      "front_y_center": -0.12556,
+      "back_y": 0.06431,
+      "half_width": 0.09687
+    },
+    {
+      "z_mid": 0.56941,
+      "front_y": -0.13542,
+      "front_y_center": -0.13542,
+      "back_y": 0.08667,
+      "half_width": 0.11592
+    },
+    {
+      "z_mid": 0.5955,
+      "front_y": -0.13758,
+      "front_y_center": -0.13758,
+      "back_y": 0.10653,
+      "half_width": 0.15324
+    },
+    {
+      "z_mid": 0.62159,
+      "front_y": -0.13686,
+      "front_y_center": -0.13686,
+      "back_y": 0.11864,
+      "half_width": 0.16889
+    },
+    {
+      "z_mid": 0.64769,
+      "front_y": -0.12797,
+      "front_y_center": -0.12797,
+      "back_y": 0.12463,
+      "half_width": 0.17083
+    },
+    {
+      "z_mid": 0.67378,
+      "front_y": -0.12176,
+      "front_y_center": -0.12176,
+      "back_y": 0.12874,
+      "half_width": 0.16774
+    },
+    {
+      "z_mid": 0.69987,
+      "front_y": -0.12198,
+      "front_y_center": -0.12198,
+      "back_y": 0.12886,
+      "half_width": 0.14526
+    },
+    {
+      "z_mid": 0.72596,
+      "front_y": -0.12421,
+      "front_y_center": -0.12421,
+      "back_y": 0.12824,
+      "half_width": 0.13157
+    },
+    {
+      "z_mid": 0.75205,
+      "front_y": -0.12389,
+      "front_y_center": -0.12389,
+      "back_y": 0.1232,
+      "half_width": 0.13073
+    },
+    {
+      "z_mid": 0.77814,
+      "front_y": -0.11941,
+      "front_y_center": -0.11941,
+      "back_y": 0.11312,
+      "half_width": 0.1263
+    },
+    {
+      "z_mid": 0.80423,
+      "front_y": -0.10647,
+      "front_y_center": -0.10647,
+      "back_y": 0.09705,
+      "half_width": 0.11337
+    },
+    {
+      "z_mid": 0.83032,
+      "front_y": -0.07899,
+      "front_y_center": -0.07899,
+      "back_y": 0.07132,
+      "half_width": 0.08725
+    }
+  ],
+  "modules": {
+    "EyeL": {
+      "min": [
+        0.03125,
+        -0.15147,
+        0.18315
+      ],
+      "max": [
+        0.07465,
+        -0.13063,
+        0.25085
+      ],
+      "triangles": 224
+    },
+    "EyeR": {
+      "min": [
+        -0.07465,
+        -0.15147,
+        0.18315
+      ],
+      "max": [
+        -0.03125,
+        -0.13063,
+        0.25085
+      ],
+      "triangles": 224
+    },
+    "Nose": {
+      "min": [
+        -0.03125,
+        -0.18445,
+        0.14105
+      ],
+      "max": [
+        0.03125,
+        -0.13671,
+        0.20181
+      ],
+      "triangles": 360
+    },
+    "Brows": {
+      "min": [
+        -0.08255,
+        -0.1597,
+        0.26163
+      ],
+      "max": [
+        0.08255,
+        -0.13605,
+        0.28668
+      ],
+      "triangles": 96
+    },
+    "Moustache": {
+      "min": [
+        -0.06699,
+        -0.1572,
+        0.11418
+      ],
+      "max": [
+        0.06699,
+        -0.13532,
+        0.15229
+      ],
+      "triangles": 448
+    },
+    "Mouth": {
+      "min": [
+        -0.01917,
+        -0.15537,
+        0.09783
+      ],
+      "max": [
+        0.01917,
+        -0.14118,
+        0.11196
+      ],
+      "triangles": 48
+    },
+    "Hair00": {
+      "min": [
+        -0.16709,
+        -0.15056,
+        0.17794
+      ],
+      "max": [
+        0.16709,
+        0.16275,
+        0.46754
+      ],
+      "triangles": 1392
+    },
+    "Hair01": {
+      "min": [
+        -0.16492,
+        -0.14322,
+        0.20398
+      ],
+      "max": [
+        0.16492,
+        0.16058,
+        0.45136
+      ],
+      "triangles": 584
+    },
+    "Hair02": {
+      "min": [
+        -0.16709,
+        -0.14539,
+        0.18879
+      ],
+      "max": [
+        0.16709,
+        0.1953,
+        0.44919
+      ],
+      "triangles": 720
+    },
+    "Hair03": {
+      "min": [
+        -0.16709,
+        -0.14539,
+        0.04123
+      ],
+      "max": [
+        0.16709,
+        0.16275,
+        0.44919
+      ],
+      "triangles": 720
+    },
+    "Icosphere": {
+      "min": [
+        -0.95106,
+        -1.0,
+        -1.0
+      ],
+      "max": [
+        0.95106,
+        1.0,
+        1.0
+      ],
+      "triangles": 80
+    }
+  },
+  "animations": [
+    "mixamo.com"
+  ]
+}

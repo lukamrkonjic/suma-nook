@@ -8,6 +8,14 @@ extends CharacterBody3D
 signal state_changed(new_state: State)
 signal interaction_focus_changed(focus: Dictionary)   # {} when none
 signal click_interaction_reached(interaction: Dictionary)
+## Emitted at the authoritative waterline before buoyancy removes the falling
+## velocity. Visual effects therefore receive the real landing force instead
+## of trying to infer it one render frame later.
+signal entered_open_water(surface_position: Vector3, impact_speed: float)
+## A swim hop is a much gentler disturbance than entering from a fall. Keeping
+## it separate lets the water render a quiet kick-off ripple without replaying
+## the large splash crown.
+signal exited_open_water(surface_position: Vector3, kick_speed: float)
 
 enum State { FREE, FISHING_CAST, FISHING_WAIT, FISHING_CATCH, WOODCUTTING, ATTACKING, DODGING, HIT, BUILDING, DISABLED, RESCUED, SWIMMING }
 
@@ -83,8 +91,14 @@ func _physics_process(delta: float) -> void:
 		and _over_open_water()
 		and position.y < core.registries.tunef("water_level_y", -0.14) - 0.05
 	):
+		var impact_speed := maxf(0.0, -velocity.y)
+		var water_level := core.registries.tunef("water_level_y", -0.14)
 		velocity.y = 0.0
 		set_state(State.SWIMMING)
+		entered_open_water.emit(
+			Vector3(global_position.x, water_level, global_position.z),
+			impact_speed
+		)
 	# Falling into the VOID — off the world entirely, no water beneath, Mario
 	# Kart style — is what summons the rescue hole. Skill loops, cutscenes,
 	# and scripted states are never hijacked.
@@ -213,6 +227,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		var swim_hop := state == State.SWIMMING
 		if swim_hop:
 			# Kick out of the water — enough to mount the shoreline lip.
+			var water_level := core.registries.tunef("water_level_y", -0.14)
+			exited_open_water.emit(
+				Vector3(global_position.x, water_level, global_position.z),
+				core.registries.tunef("jump_velocity", 5.4) * 0.9
+			)
 			set_state(State.FREE)
 		velocity.y = core.registries.tunef("jump_velocity", 5.4) * (0.9 if swim_hop else 1.0)
 		floor_snap_length = 0.0

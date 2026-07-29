@@ -26,13 +26,13 @@ const WATER_PARAMETERS := {
 	"depth_falloff": 0.5,
 	"shallow_alpha": 0.8,
 	"deep_alpha": 0.97,
-	"foam_width": 0.13,
+	"foam_width": 0.045,
 	"water_roughness": 0.42,
 	"water_specular": 0.18,
 	"scene_lighting_response": 1.0,
 	"fresnel_strength": 0.22,
 	"water_level": -0.14,
-	"side_opacity": 0.88,
+	"side_opacity": 1.0,
 }
 const UNDERWATER_PARAMETERS := {
 	"water_level": -0.14,

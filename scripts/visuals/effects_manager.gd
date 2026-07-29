@@ -7,6 +7,7 @@ var assets: AssetLibrary
 var _bobber: Node3D
 var _bobber_tween: Tween
 var _click_layer: CanvasLayer
+var water_interaction: WaterInteractionSystem
 
 
 func setup(asset_library: AssetLibrary) -> void:
@@ -18,6 +19,22 @@ func setup(asset_library: AssetLibrary) -> void:
 	_bobber = assets.instantiate("equip_bobber")
 	_bobber.visible = false
 	add_child(_bobber)
+
+
+func bind_water_interaction(
+	game_core: GameCore,
+	player_controller: PlayerController
+) -> void:
+	if water_interaction != null:
+		water_interaction.queue_free()
+	water_interaction = WaterInteractionSystem.new()
+	water_interaction.name = "WaterInteraction"
+	add_child(water_interaction)
+	water_interaction.setup(
+		assets.materials.material("water") as ShaderMaterial,
+		game_core,
+		player_controller
+	)
 
 
 func show_bobber(point: Vector3) -> void:

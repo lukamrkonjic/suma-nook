@@ -25,7 +25,7 @@ uniform float surface_shimmer = 0.16;
 uniform float depth_falloff = 0.5;      // meters of water for ~63% absorption
 uniform float shallow_alpha = 0.8;
 uniform float deep_alpha = 0.97;
-uniform float foam_width = 0.13;
+uniform float foam_width = 0.045;
 uniform float water_roughness = 0.42;
 uniform float water_specular = 0.18;
 // Kept as an art-review control: 1.0 is the shipping, scene-lit response;
@@ -36,7 +36,7 @@ uniform float water_level = -0.14;
 // Jello block sides (see the GG reference): pale translucent aqua walls.
 uniform vec4 side_top_color : source_color = vec4(0.51, 0.8, 0.81, 1.0);
 uniform vec4 side_bottom_color : source_color = vec4(0.275, 0.737, 0.8, 1.0);
-uniform float side_opacity = 0.88;
+uniform float side_opacity = 1.0;
 // Placement previews need to preserve the exact animated water silhouette.
 // A second static red mesh cannot follow this shader's displaced vertices, so
 // held water receives its invalid tint inside the water shader itself.
@@ -44,6 +44,17 @@ uniform vec4 placement_invalid_tint : source_color = vec4(1.0, 0.08, 0.045, 1.0)
 uniform float placement_invalid_strength : hint_range(0.0, 1.0) = 0.0;
 
 uniform sampler2D depth_tex : hint_depth_texture;
+
+// Fixed-budget, world-space player interaction. Every water chunk shares this
+// material, so the same six events cross chunk seams and world size never
+// creates more interaction state.
+const int INTERACTION_IMPULSE_COUNT = 6;
+uniform float interaction_time = 0.0;
+uniform vec4 interaction_impulses[INTERACTION_IMPULSE_COUNT];
+// xy = surface position, zw = normalized horizontal movement direction.
+uniform vec4 interaction_wake = vec4(0.0);
+// x = strength, y = trail length, z = body half-width.
+uniform vec4 interaction_wake_meta = vec4(0.0);
 
 varying vec3 world_pos;
 varying vec3 mesh_normal;
@@ -54,6 +65,112 @@ float wave_h(vec2 p, float t) {
 	h += sin(dot(normalize(vec2(-0.6, 0.8)), p) * 4.833 - t * 1.25 * wave_speed) * wave_height * 0.52;
 	h += sin(dot(normalize(vec2(0.26, -0.97)), p) * 7.15 + t * 1.58 * wave_speed) * wave_height * 0.22;
 	return h;
+}
+
+float interaction_impulse_height(vec2 point) {
+	float height = 0.0;
+	for (int index = 0; index < INTERACTION_IMPULSE_COUNT; index++) {
+		vec4 impulse = interaction_impulses[index];
+		float age = interaction_time - impulse.z;
+		if (impulse.w <= 0.001 || age < 0.0 || age > 2.2) {
+			continue;
+		}
+		float distance_from_center = distance(point, impulse.xy);
+		float front = distance_from_center - age * 1.32;
+		float front_envelope = exp(-abs(front) * 8.5);
+		float trailing_envelope = exp(-distance_from_center * 1.45)
+			* exp(-age * 1.35);
+		float leading_crest = sin(front * 12.0) * front_envelope;
+		float settling_wave = sin(
+			distance_from_center * 15.0 - age * 8.5
+		) * trailing_envelope;
+		height += (
+			leading_crest * 0.075
+			+ settling_wave * 0.022
+		) * impulse.w * exp(-age * 0.62);
+	}
+	return height;
+}
+
+float interaction_wake_height(vec2 point) {
+	float strength = interaction_wake_meta.x;
+	if (strength <= 0.001) {
+		return 0.0;
+	}
+	vec2 direction = normalize(interaction_wake.zw + vec2(0.00001, 0.0));
+	vec2 side = vec2(-direction.y, direction.x);
+	vec2 relative = point - interaction_wake.xy;
+	float forward = dot(relative, direction);
+	float behind = max(-forward, 0.0);
+	float lateral = abs(dot(relative, side));
+	float trail = smoothstep(0.02, 0.18, behind)
+		* (1.0 - smoothstep(interaction_wake_meta.y * 0.72,
+			interaction_wake_meta.y, behind));
+	float wing_center = interaction_wake_meta.z + behind * 0.30;
+	float wings = (
+		1.0 - smoothstep(0.035, 0.15, abs(lateral - wing_center))
+	) * trail;
+	float body = (
+		1.0 - smoothstep(0.12, 0.48, length(relative * vec2(0.72, 1.0)))
+	);
+	float bow = (
+		1.0 - smoothstep(0.04, 0.22, abs(forward - 0.22))
+	) * (1.0 - smoothstep(0.08, 0.48, lateral));
+	return strength * (
+		wings * sin(behind * 13.0) * 0.020
+		+ bow * 0.026
+		- body * 0.015
+	);
+}
+
+float interaction_foam(vec2 point) {
+	float result = 0.0;
+	for (int index = 0; index < INTERACTION_IMPULSE_COUNT; index++) {
+		vec4 impulse = interaction_impulses[index];
+		float age = interaction_time - impulse.z;
+		float life_seconds = mix(
+			0.72,
+			1.8,
+			clamp((impulse.w - 0.08) / 0.92, 0.0, 1.0)
+		);
+		if (impulse.w <= 0.001 || age < 0.0 || age > life_seconds) {
+			continue;
+		}
+		float phase = age / life_seconds;
+		float radius = age * 1.32;
+		float ring_distance = abs(distance(point, impulse.xy) - radius);
+		float ring = 1.0 - smoothstep(
+			mix(0.018, 0.032, phase),
+			mix(0.045, 0.085, phase),
+			ring_distance
+		);
+		result += ring * (1.0 - phase) * impulse.w * impulse.w;
+	}
+	return result;
+}
+
+float interaction_wake_foam(vec2 point) {
+	float strength = interaction_wake_meta.x;
+	if (strength <= 0.001) {
+		return 0.0;
+	}
+	vec2 direction = normalize(interaction_wake.zw + vec2(0.00001, 0.0));
+	vec2 side = vec2(-direction.y, direction.x);
+	vec2 relative = point - interaction_wake.xy;
+	float forward = dot(relative, direction);
+	float behind = max(-forward, 0.0);
+	float lateral = abs(dot(relative, side));
+	float trail = smoothstep(0.03, 0.2, behind)
+		* (1.0 - smoothstep(interaction_wake_meta.y * 0.68,
+			interaction_wake_meta.y, behind));
+	float wing_center = interaction_wake_meta.z + behind * 0.30;
+	float wings = (
+		1.0 - smoothstep(0.025, 0.105, abs(lateral - wing_center))
+	) * trail;
+	float bow = (
+		1.0 - smoothstep(0.035, 0.14, abs(forward - 0.24))
+	) * (1.0 - smoothstep(0.1, 0.42, lateral));
+	return (wings * 0.24 + bow * 0.34) * strength;
 }
 
 float caustic_layer(vec2 p, float t) {
@@ -69,7 +186,11 @@ void vertex() {
 	shore_dist = UV2.x < 0.5 ? 999.0 : UV2.x - 1.0;
 	// Waves fade out down the skirt so the block bottom stays planted.
 	float anchor = clamp(1.0 - (water_level - world_pos.y) * 3.0, 0.0, 1.0);
-	float h = wave_h(world_pos.xz, TIME) * anchor;
+	float h = (
+		wave_h(world_pos.xz, TIME)
+		+ interaction_impulse_height(world_pos.xz)
+		+ interaction_wake_height(world_pos.xz)
+	) * anchor;
 	VERTEX.y += h;
 	world_pos.y += h;
 }
@@ -77,13 +198,15 @@ void vertex() {
 void fragment() {
 	float t = TIME;
 
-	// ---- Jello block side faces: translucent aqua wall, subtle vertical
-	// gradient, thin bright lip at the waterline. No depth logic needed.
+	// ---- Jello block side faces: continuous aqua wall with a restrained
+	// bright lip at the waterline. No depth logic needed.
 	if (abs(mesh_normal.y) < 0.5) {
-		float down01 = clamp((water_level - world_pos.y) / 0.45, 0.0, 1.0);
-		vec3 jello = mix(side_top_color.rgb, side_bottom_color.rgb, down01);
-		float lip = smoothstep(0.05, 0.0, water_level - world_pos.y);
-		vec3 side_col = mix(jello, foam_color.rgb, lip * 0.35);
+		// A vertical color gradient exposed the individual triangles whenever
+		// their wavy top edge changed slope. One calm body color makes adjacent
+		// boundary segments read as a single continuous water wall.
+		vec3 jello = mix(side_top_color.rgb, side_bottom_color.rgb, 0.38);
+		float lip = smoothstep(0.026, 0.0, water_level - world_pos.y);
+		vec3 side_col = mix(jello, foam_color.rgb, lip * 0.08);
 		side_col = mix(
 			side_col,
 			placement_invalid_tint.rgb,
@@ -137,8 +260,17 @@ void fragment() {
 		+ sin((world_pos.x + world_pos.z) * 5.7 + t * 0.5);
 	float band = foam_width * (0.85 + 0.35 * foam_noise);
 	float foam_band = smoothstep(band, band * 0.2, shore_dist);
-	float foam = foam_band * clamp(0.35 + 0.4 * foam_noise, 0.0, 1.0);
-	col = mix(col, foam_color.rgb, clamp(foam, 0.0, 0.4));
+	// Keep the permanent shoreline almost invisible. Broad noisy white blobs
+	// made separate water blocks read like iced tiles; the player-generated
+	// contact foam below remains the readable, animated accent.
+	float foam = foam_band * clamp(0.12 + 0.16 * foam_noise, 0.0, 0.24);
+	float contact_foam = interaction_foam(world_pos.xz)
+		+ interaction_wake_foam(world_pos.xz);
+	col = mix(
+		col,
+		foam_color.rgb,
+		clamp(foam * 0.16 + contact_foam * 0.075, 0.0, 0.20)
+	);
 
 	// Gentle grazing reflection toward the environment tone. Never a mirror.
 	float fres = pow(1.0 - clamp(dot(n_world, normalize(-(INV_VIEW_MATRIX * vec4(0.0, 0.0, -1.0, 0.0)).xyz)), 0.0, 1.0), 5.0);

@@ -1,0 +1,107 @@
+{
+  "space": "model space, ground at z = -0.435, front = -Y, +X = character left",
+  "head": {
+    "bottom_z": 0.1,
+    "top_z": 0.408,
+    "skull_half_width": 0.131
+  },
+  "sockets_model_space": {
+    "FaceRoot": [
+      0.0,
+      0.0,
+      0.254
+    ],
+    "EyesSocket": [
+      0.0,
+      -0.118,
+      0.25
+    ],
+    "BrowsSocket": [
+      0.0,
+      -0.12,
+      0.287
+    ],
+    "NoseSocket": [
+      0.0,
+      -0.132,
+      0.217
+    ],
+    "MoustacheSocket": [
+      0.0,
+      -0.138,
+      0.186
+    ],
+    "MouthSocket": [
+      0.0,
+      -0.134,
+      0.15
+    ],
+    "HairSocket": [
+      0.0,
+      0.003,
+      0.36
+    ],
+    "HatSocket": [
+      0.0,
+      0.003,
+      0.41
+    ],
+    "BeardSocket": [
+      0.0,
+      -0.12,
+      0.12
+    ]
+  },
+  "idle": {
+    "name": "idle_relaxed",
+    "fps": 30,
+    "frames": 156,
+    "seconds": 5.2
+  },
+  "parts": {
+    "hair_swoop_brown": {
+      "glb": "assets\\characters\\parts\\hair_swoop_brown.glb",
+      "socket": "HairSocket",
+      "triangles": 3799,
+      "vertices": 1904
+    },
+    "eyes_oval_pair": {
+      "glb": "assets\\characters\\parts\\eyes_oval_pair.glb",
+      "socket": "EyesSocket",
+      "triangles": 880,
+      "vertices": 444
+    },
+    "brows_soft_pair": {
+      "glb": "assets\\characters\\parts\\brows_soft_pair.glb",
+      "socket": "BrowsSocket",
+      "triangles": 808,
+      "vertices": 456
+    },
+    "nose_round": {
+      "glb": "assets\\characters\\parts\\nose_round.glb",
+      "socket": "NoseSocket",
+      "triangles": 720,
+      "vertices": 362
+    },
+    "moustache_walrus": {
+      "glb": "assets\\characters\\parts\\moustache_walrus.glb",
+      "socket": "MoustacheSocket",
+      "triangles": 1068,
+      "vertices": 536
+    },
+    "mouth_smile": {
+      "glb": "assets\\characters\\parts\\mouth_smile.glb",
+      "socket": "MouthSocket",
+      "triangles": 404,
+      "vertices": 228
+    }
+  },
+  "mannequin": {
+    "glb": "assets\\3d\\reworked\\player_male_mannequin.glb",
+    "triangles": 21596,
+    "vertices": 10800,
+    "animations": [
+      "idle_relaxed"
+    ]
+  }
+}
