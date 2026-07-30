@@ -12,6 +12,26 @@ const WATER_SHADER: Shader = preload("res://assets/materials/reworked/gg_water.g
 const UNDERWATER_SHADER: Shader = preload("res://assets/materials/reworked/gg_underwater.gdshader")
 const FLORA_SHADER: Shader = preload("res://assets/materials/reworked/gg_uw_flora.gdshader")
 const SURFACE_SHADER: Shader = preload("res://assets/materials/reworked/gg_prop_surface.gdshader")
+const SOFT_TERRAIN_SHADER: Shader = preload(
+	"res://assets/materials/reworked/gg_soft_terrain.gdshader"
+)
+const SOFT_TERRAIN_IMPRINT_COUNT := 12
+const SOFT_TERRAIN_PARAMETERS := {
+	"sand_top": {
+		"profile": "sand",
+		"terrain_lifetime": 6.5,
+		"terrain_depth": 0.045,
+		"terrain_radius": 0.22,
+		"terrain_rim_height": 0.006,
+	},
+	"snow_top": {
+		"profile": "snow",
+		"terrain_lifetime": 13.5,
+		"terrain_depth": 0.062,
+		"terrain_radius": 0.225,
+		"terrain_rim_height": 0.012,
+	},
+}
 ## GG-style baked-shading emulation shared by every opaque surface material.
 const SURFACE_RAMP := {
 	"ramp_height": 1.35,
@@ -88,13 +108,23 @@ func material(key: String) -> Material:
 	if emission_energy <= 0.0 and alpha >= 1.0:
 		var surface := ShaderMaterial.new()
 		surface.resource_name = key
-		surface.shader = SURFACE_SHADER
+		surface.shader = (
+			SOFT_TERRAIN_SHADER
+			if SOFT_TERRAIN_PARAMETERS.has(key)
+			else SURFACE_SHADER
+		)
 		surface.set_shader_parameter("albedo", _styled_albedo(key, palette.color(key), style))
 		surface.set_shader_parameter("roughness_val", float(style["roughness"]))
 		surface.set_shader_parameter("metallic_val", float(style["metallic"]))
 		surface.set_shader_parameter("specular_val", float(style["specular"]))
 		for parameter in SURFACE_RAMP:
 			surface.set_shader_parameter(parameter, SURFACE_RAMP[parameter])
+		if SOFT_TERRAIN_PARAMETERS.has(key):
+			_configure_soft_terrain_material(
+				surface,
+				key,
+				SOFT_TERRAIN_PARAMETERS[key]
+			)
 		_materials[key] = surface
 		return surface
 	var m := StandardMaterial3D.new()
@@ -163,6 +193,29 @@ func material_parameter_manifest() -> Dictionary:
 
 func _shader_material_manifest(key: String, shader_material: ShaderMaterial) -> Dictionary:
 	var parameters := {}
+	if shader_material.shader == SOFT_TERRAIN_SHADER:
+		for parameter_name in [
+			"albedo", "roughness_val", "metallic_val", "specular_val",
+			"ramp_height", "ramp_top_lift", "ramp_bottom_drop",
+			"terrain_lifetime", "terrain_depth", "terrain_radius",
+			"terrain_rim_height", "terrain_floor_height",
+			"terrain_compressed_tint",
+			"terrain_rim_tint",
+		]:
+			parameters[parameter_name] = shader_material.get_shader_parameter(
+				parameter_name
+			)
+		parameters["roughness"] = parameters["roughness_val"]
+		parameters["metallic"] = parameters["metallic_val"]
+		parameters["specular"] = parameters["specular_val"]
+		return {
+			"family": "responsive_soft_terrain",
+			"material_class": "ShaderMaterial",
+			"shader_path": shader_material.shader.resource_path,
+			"soft_surface_profile": SOFT_TERRAIN_PARAMETERS[key]["profile"],
+			"imprint_capacity": SOFT_TERRAIN_IMPRINT_COUNT,
+			"parameters": parameters,
+		}
 	if shader_material.shader == SURFACE_SHADER:
 		for parameter_name in [
 			"albedo", "roughness_val", "metallic_val", "specular_val",
@@ -207,6 +260,43 @@ func _shader_material_manifest(key: String, shader_material: ShaderMaterial) -> 
 		"shader_path": shader_material.shader.resource_path,
 		"parameters": parameters,
 	}
+
+
+func _configure_soft_terrain_material(
+	surface: ShaderMaterial,
+	key: String,
+	profile: Dictionary
+) -> void:
+	for parameter_name in [
+		"terrain_lifetime",
+		"terrain_depth",
+		"terrain_radius",
+		"terrain_rim_height",
+	]:
+		surface.set_shader_parameter(parameter_name, profile[parameter_name])
+	var base_color := _styled_albedo(
+		key,
+		palette.color(key),
+		material_parameters(key)
+	)
+	if String(profile["profile"]) == "snow":
+		surface.set_shader_parameter(
+			"terrain_compressed_tint",
+			palette.color("snow_side").darkened(0.04)
+		)
+		surface.set_shader_parameter(
+			"terrain_rim_tint",
+			base_color.lightened(0.07)
+		)
+	else:
+		surface.set_shader_parameter(
+			"terrain_compressed_tint",
+			base_color.darkened(0.16)
+		)
+		surface.set_shader_parameter(
+			"terrain_rim_tint",
+			base_color.lightened(0.08)
+		)
 
 
 func _cache(key: String, m: Material) -> Material:

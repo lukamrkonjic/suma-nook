@@ -551,10 +551,20 @@ func add_collision(
 	match def.collision_profile:
 		"flat":
 			if def.walkable:
+				# Raised soft surfaces author real relief above the structural
+				# y=0 plane. Preserve the exact block bottom/stack seam while
+				# lifting only the walk plane to the measured median height.
+				var collision_height := (
+					grid.block_depth + def.walk_surface_height
+				)
 				_add_box(
 					holder,
-					Vector3(grid.tile_size, grid.block_depth, grid.tile_size),
-					Vector3(0.0, -grid.block_depth * 0.5, 0.0),
+					Vector3(grid.tile_size, collision_height, grid.tile_size),
+					Vector3(
+						0.0,
+						(def.walk_surface_height - grid.block_depth) * 0.5,
+						0.0
+					),
 					GROUND_LAYER
 				)
 		"pond_basin":

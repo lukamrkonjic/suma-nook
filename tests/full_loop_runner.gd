@@ -2660,6 +2660,22 @@ func _step_visual_runtime() -> void:
 		and material_manifest.has("water"),
 		"Every semantic palette material and the water shader have parameter records"
 	)
+	check(
+		material_manifest["sand_top"]["family"]
+			== "responsive_soft_terrain"
+		and material_manifest["snow_top"]["family"]
+			== "responsive_soft_terrain",
+		"Sand and snow keep their responsive deformation materials in the real scene"
+	)
+	var soft_terrain_manifest := main.effects.soft_terrain.runtime_manifest()
+	check(
+		soft_terrain_manifest["architecture"]
+			== "shared_material_fixed_imprint_field"
+		and soft_terrain_manifest["draw_calls"] == 0
+		and soft_terrain_manifest["material_count"] == 2
+		and soft_terrain_manifest["imprint_capacity_per_material"] == 12,
+		"Soft terrain runs as two bounded shared fields with no additional draw calls"
+	)
 	var animation_manifest := main.player_visual.animation_manifest()
 	check(
 		animation_manifest["states"].size() == 10

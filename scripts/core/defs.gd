@@ -290,6 +290,11 @@ class TileDefinition:
 	# It may rise above y=0, but is hidden (along with the authored top cap)
 	# whenever another tile covers this elevation.
 	var surface_detail_profile: String = ""       # ""|grass_speckles
+	# Soft raised terrain can opt into bounded world-space deformation and an
+	# authored walk plane. The latter aligns physics with the median visual
+	# surface; the shader then compresses the relief locally beneath each foot.
+	var soft_surface_profile: String = ""         # ""|sand|snow
+	var walk_surface_height: float = 0.0
 	# TileGeometryProfile contract (art_source/blender/tile_profiles.py):
 	# which shell silhouette this tile's authored mesh uses and how it meets
 	# its neighbours. Declared explicitly per tile, validated by test_runner.
@@ -352,6 +357,8 @@ class TileDefinition:
 			"pond_basin" if t.water_cells.has("pond") else ("flat" if t.walkable else "none")
 		)
 		t.surface_detail_profile = d.get("surface_detail_profile", "")
+		t.soft_surface_profile = d.get("soft_surface_profile", "")
+		t.walk_surface_height = float(d.get("walk_surface_height", 0.0))
 		return t
 
 	func uses_layered_visual() -> bool:

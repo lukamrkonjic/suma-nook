@@ -9,6 +9,7 @@ var _bobber_tween: Tween
 var _click_layer: CanvasLayer
 var water_interaction: WaterInteractionSystem
 var ground_impacts: GroundImpactEffects
+var soft_terrain: SoftTerrainDeformation
 
 
 func setup(asset_library: AssetLibrary) -> void:
@@ -53,6 +54,22 @@ func bind_ground_impacts(
 		player_controller,
 		game_audio,
 		assets.materials.palette
+	)
+
+
+func bind_soft_terrain(
+	game_core: GameCore,
+	player_controller: PlayerController
+) -> void:
+	if soft_terrain != null:
+		soft_terrain.queue_free()
+	soft_terrain = SoftTerrainDeformation.new()
+	soft_terrain.name = "SoftTerrainDeformation"
+	add_child(soft_terrain)
+	soft_terrain.setup(
+		assets.materials,
+		game_core,
+		player_controller
 	)
 
 

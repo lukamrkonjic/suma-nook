@@ -528,6 +528,31 @@ func _animated_ground_offset(bounds: AABB, preview_scale: float) -> float:
 	return -animated_mesh_min_y * preview_scale
 
 
+## Live animated sole anchors for terrain presentation. Gameplay remains
+## capsule-driven; soft ground consumes only these world-space X/Z positions
+## so swapping the temporary character asset never couples terrain to its rig.
+func foot_world_positions() -> Array[Vector3]:
+	var result: Array[Vector3] = []
+	if _skeleton != null and _asset_profile != null:
+		for bone_name in [
+			_asset_profile.left_toe_bone,
+			_asset_profile.right_toe_bone,
+		]:
+			var bone_index := _skeleton.find_bone(bone_name)
+			if bone_index >= 0:
+				result.append(_skeleton.to_global(
+					_skeleton.get_bone_global_pose(bone_index).origin
+				))
+	if result.size() == 2:
+		return result
+	# A future non-rigged preview still gets deterministic left/right contact
+	# points until its own asset profile provides sole anchors.
+	result.clear()
+	result.append(to_global(Vector3(-0.11, 0.0, 0.03)))
+	result.append(to_global(Vector3(0.11, 0.0, 0.03)))
+	return result
+
+
 func _apply_authored_materials() -> void:
 	if _asset_profile.material_shader == null:
 		return

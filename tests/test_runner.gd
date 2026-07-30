@@ -18,6 +18,9 @@ const InputDeviceServiceScript := preload(
 const GroundImpactEffectsScript := preload(
 	"res://scripts/visuals/ground_impact_effects.gd"
 )
+const SoftTerrainDeformationScript := preload(
+	"res://scripts/visuals/soft_terrain_deformation.gd"
+)
 
 
 func _init() -> void:
@@ -126,6 +129,7 @@ func _run() -> void:
 	_test_character_appearance_catalog()
 	_test_registries()
 	_test_ground_impact_surface_profiles()
+	_test_soft_terrain_contract()
 	_test_content_catalog_architecture()
 	_test_build_library_categories()
 	_test_content_assets()
@@ -711,6 +715,84 @@ func _test_ground_impact_surface_profiles() -> void:
 			"%s resolves to its authored %s jump/landing effect"
 			% [tile_id, expected[tile_id]]
 		)
+
+
+func _test_soft_terrain_contract() -> void:
+	var core := fresh_core()
+	var sand := core.registries.tile("tile_sand")
+	var snow := core.registries.tile("tile_snowfield")
+	check(
+		sand.soft_surface_profile == "sand"
+			and is_equal_approx(sand.walk_surface_height, 0.025),
+		"sand authors its responsive profile and measured walk plane"
+	)
+	check(
+		snow.soft_surface_profile == "snow"
+			and is_equal_approx(snow.walk_surface_height, 0.052),
+		"snow authors its responsive profile and measured walk plane"
+	)
+
+	var palette := load(
+		"res://assets/palettes/gg_material_palette.tres"
+	) as CozyPalette
+	var materials := MaterialLibrary.new(palette)
+	var material_manifest := materials.material_parameter_manifest()
+	for material_key in ["sand_top", "snow_top"]:
+		var record: Dictionary = material_manifest[material_key]
+		check(
+			record["family"] == "responsive_soft_terrain"
+				and record["imprint_capacity"] == 12
+				and String(record["shader_path"]).ends_with(
+					"gg_soft_terrain.gdshader"
+				),
+			"%s uses the bounded responsive terrain shader" % material_key
+		)
+	check(
+		material_manifest["grass"]["family"] == "gg_diorama_surface",
+		"ordinary opaque terrain stays on the cheaper diorama shader"
+	)
+
+	var assets := AssetLibrary.new(materials)
+	var factory := TileVisualFactory.new(assets, core.grid)
+	for definition: Defs.TileDefinition in [sand, snow]:
+		var holder := Node3D.new()
+		factory.add_collision(holder, definition, 0)
+		var collisions := holder.find_children(
+			"*", "CollisionShape3D", true, false
+		)
+		var collision := (
+			collisions[0] as CollisionShape3D
+			if not collisions.is_empty()
+			else null
+		)
+		var box := collision.shape as BoxShape3D if collision != null else null
+		check(
+			box != null
+				and is_equal_approx(
+					collision.position.y + box.size.y * 0.5,
+					definition.walk_surface_height
+				)
+				and is_equal_approx(
+					collision.position.y - box.size.y * 0.5,
+					-core.grid.block_depth
+				),
+			"%s raises only its walk plane and preserves the exact block bottom"
+			% definition.id
+		)
+		holder.free()
+
+	var deformation := SoftTerrainDeformationScript.new()
+	get_root().add_child(deformation)
+	var runtime := deformation.runtime_manifest()
+	check(
+		runtime["architecture"] == "shared_material_fixed_imprint_field"
+			and runtime["draw_calls"] == 0
+			and runtime["imprint_capacity_per_material"] == 12
+			and runtime["live_foot_slots"] == 2
+			and runtime["trail_slots"] == 10,
+		"soft terrain has fixed shared-material cost and no per-tile nodes"
+	)
+	deformation.free()
 
 
 func _test_maxed_debug_world_spawn() -> void:

@@ -7,6 +7,7 @@ const SURFACE_KINDS := ["flat", "stairs", "uneven", "water"]
 const RENDER_PROFILES := ["standard", "layered", "continuous_water"]
 const COLLISION_PROFILES := ["flat", "pond_basin", "none"]
 const DETAIL_PROFILES := ["", "grass_speckles"]
+const SOFT_SURFACE_PROFILES := ["", "sand", "snow"]
 const LAYER_ROLES := ["base", "surface", "detail", "edge"]
 const COVER_BEHAVIORS := ["persist", "hide"]
 const SCALE_MODES := ["tile_xz", "none"]
@@ -51,6 +52,28 @@ static func validate(snapshot, issues: Array) -> void:
 		_require_member(
 			issues, definition.surface_detail_profile, DETAIL_PROFILES,
 			"tile.surface_detail_profile.invalid", source, "surface_detail_profile"
+		)
+		_require_member(
+			issues, definition.soft_surface_profile, SOFT_SURFACE_PROFILES,
+			"tile.soft_surface_profile.invalid", source, "soft_surface_profile"
+		)
+		_require(
+			issues,
+			definition.walk_surface_height >= 0.0
+			and definition.walk_surface_height <= 0.15,
+			"tile.walk_surface_height.range", source, "walk_surface_height",
+			"walk surface height must be between 0 and 0.15 metres"
+		)
+		_require(
+			issues,
+			definition.soft_surface_profile == ""
+			or (
+				definition.walkable
+				and definition.collision_profile == "flat"
+				and definition.exposed_top == "raised"
+			),
+			"tile.soft_surface.contract", source, "soft_surface_profile",
+			"soft terrain requires a raised, walkable tile with flat collision"
 		)
 		_require(
 			issues, not definition.supports_tiles or definition.surface_kind == "flat",
