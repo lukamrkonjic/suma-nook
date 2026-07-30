@@ -35,7 +35,7 @@
   "ocean_fade_cells": 12,
   "ocean_stream_radius_cells": 36,
   "ocean_surface_subdivisions_per_cell": 2,
-  "ocean_bed_tile_inset": 0.006,
+  "ocean_bed_tile_inset": 0.0,
   "ocean_snap_cells": 8,
   "ocean_camera_inset_cells": 3,
   "ocean_hidden_generation_ring_cells": 12,

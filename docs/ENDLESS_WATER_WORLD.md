@@ -57,8 +57,8 @@ empty space.
 - Each open-water coordinate contributes a subdivided top tile to a combined
   `ArrayMesh`.
 - Each generated coordinate contributes an individual shallow-bed tile to a
-  second combined mesh. A tiny inset leaves a restrained grid seam so the sea
-  still reads as buildable cells.
+  second combined mesh. Their edges meet exactly so the transparent surface
+  cannot expose dark perspective-filtered cracks between cells.
 - Explicit authored water retains its normal per-tile bed.
 - Adjacent top tiles share one material and world-space wave phase. The merged
   appearance is the existing `connection_mode: merged_surface` behavior; it

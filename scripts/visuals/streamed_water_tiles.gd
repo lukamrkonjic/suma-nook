@@ -22,7 +22,7 @@ var _bed_material: Material
 var _stream_radius := 36
 var _snap_cells := 8
 var _subdivisions_per_cell := 2
-var _bed_inset := 0.006
+var _bed_inset := 0.0
 var _dirty := true
 var _window := Rect2i()
 var _water_cell_count := 0
@@ -58,7 +58,7 @@ func setup(
 		4
 	)
 	_bed_inset = clampf(
-		core.registries.tunef("ocean_bed_tile_inset", 0.006),
+		core.registries.tunef("ocean_bed_tile_inset", 0.0),
 		0.0,
 		core.grid.tile_size * 0.16
 	)
@@ -177,6 +177,10 @@ func _build_bed_mesh(cells: Array[Vector2i]) -> ArrayMesh:
 	var normals := PackedVector3Array()
 	var uvs := PackedVector2Array()
 	var indices := PackedInt32Array()
+	# The transparent surface exposes the bed at every zoom level. Bed tiles
+	# therefore meet exactly; even a tiny gap becomes a dark dashed grid after
+	# perspective filtering. Tile identity remains in the per-cell geometry
+	# and WorldWaterField, not in a visual crack.
 	var half := (core.grid.tile_size - _bed_inset) * 0.5
 	for coord: Vector2i in cells:
 		var center := core.grid.cell_to_world(coord)
@@ -266,6 +270,7 @@ func runtime_manifest() -> Dictionary:
 		"stream_radius_cells": _stream_radius,
 		"snap_cells": _snap_cells,
 		"surface_subdivisions_per_cell": _subdivisions_per_cell,
+		"bed_tile_inset": _bed_inset,
 		"water_cells_rendered": _water_cell_count,
 		"generated_beds_rendered": _generated_bed_count,
 		"surface_draw_calls": 1 if _surface.mesh != null else 0,

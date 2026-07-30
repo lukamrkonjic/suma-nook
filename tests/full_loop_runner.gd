@@ -809,9 +809,10 @@ func _step_tile_geometry_contract() -> void:
 	check(
 		streamed_water.get("renderer", "") == "streamed_real_water_tiles"
 		and int(streamed_water.get("surface_draw_calls", 0)) == 1
+		and is_zero_approx(float(streamed_water.get("bed_tile_inset", -1.0)))
 		and int(streamed_water.get("water_cells_rendered", 0))
 			> main.core.grid.cells.size(),
-		"addressable water tiles stream as one joined surface"
+		"addressable water tiles stream as one joined surface without bed cracks"
 	)
 	var water_preview := tile_factory.instantiate_visual(
 		main.core.registries.tile("tile_open_water"),
