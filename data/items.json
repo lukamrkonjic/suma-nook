@@ -15,13 +15,6 @@
     { "id": "old_metal", "name": "Old Metal", "category": "material", "rarity": "uncommon", "description": "Ruined fittings, still strong under the rust." },
     { "id": "carved_stone", "name": "Carved Stone", "category": "material", "rarity": "uncommon", "description": "Someone shaped this long ago." },
     { "id": "relic_fragment", "name": "Relic Fragment", "category": "material", "rarity": "rare", "description": "A piece of the watchpost's story." },
-    { "id": "pattern_dust", "name": "Pattern Dust", "category": "material", "rarity": "uncommon", "description": "Duplicate discoveries settle into this. Spend it to steer the next reveal." },
-
-    { "id": "parcel_wild", "name": "Wild Land Parcel", "category": "parcel", "rarity": "uncommon", "description": "An unclaimed piece of world. Open it to choose what it becomes." },
-    { "id": "parcel_meadow", "name": "Meadow Parcel", "category": "parcel", "rarity": "common", "description": "Warm open land, ready for paths and gardens." },
-    { "id": "parcel_grove", "name": "Grove Parcel", "category": "parcel", "rarity": "common", "description": "Land that arrives already dreaming of trees." },
-    { "id": "parcel_stone", "name": "Stone Parcel", "category": "parcel", "rarity": "uncommon", "description": "Old bones of the world, good for ruins and roads." },
-    { "id": "parcel_winter", "name": "Winter Parcel", "category": "parcel", "rarity": "uncommon", "description": "A cool piece of world carrying snow, frost, and quiet paths." },
 
     { "id": "tool_rod_basic", "name": "Willow Rod", "category": "tool", "slot": "tool", "tool_type": "rod", "tier": 1, "asset_id": "equip_fishing_rod", "stats": { "speed": 1.0 }, "description": "Your first rod. It has caught everything you own." },
     { "id": "tool_axe_basic", "name": "Keeper's Axe", "category": "tool", "slot": "tool", "tool_type": "axe", "tier": 1, "asset_id": "equip_axe_basic", "stats": { "speed": 1.0 }, "description": "Honest iron on honest wood." },

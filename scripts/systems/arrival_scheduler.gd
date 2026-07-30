@@ -45,7 +45,6 @@ func trigger_arrival() -> bool:
 	if state != IDLE or not registries.feature("ferry_arrivals_enabled", true):
 		return false
 	current_payload = LandParcelPayload.new()
-	current_payload.parcel_id = String(registries.arrival_config.get("parcel_id", "parcel_wild"))
 	current_payload.delivery_id = deliveries_created + 1
 	if not current_payload.is_valid(registries):
 		current_payload = null
@@ -67,10 +66,11 @@ func has_waiting_package() -> bool:
 	return state == WAITING and current_payload != null
 
 
-func open_waiting(parcels: ParcelManager) -> Array[String]:
-	if not has_waiting_package() or parcels.has_pending():
-		return []
-	var options := parcels.deliver(current_payload.parcel_id)
+## The ferry's gift is a full-catalog Vision that bypasses the well's bank.
+func open_waiting(progression: ProgressionModule) -> Array[Dictionary]:
+	if not has_waiting_package() or progression.visions.has_pending():
+		return [] as Array[Dictionary]
+	var options := progression.visions.begin_delivered()
 	if not options.is_empty():
 		state = OPENED
 	return options

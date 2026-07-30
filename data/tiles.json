@@ -268,11 +268,30 @@
       "name": "Grove Ground",
       "family": "living_grove",
       "asset_id": "tile_grove_mature",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_layer_base_standard",
+          "material": "earth_mid",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_layer_surface_flat",
+          "material": "moss_primary",
+          "cover_behavior": "hide"
+        }
+      ],
       "weight": 3.0,
+      "stackable": true,
+      "supports_tiles": true,
+      "surface_kind": "flat",
       "placement_sound": "grass",
       "special_trait": "A warm flat clearing for independently placed trees.",
       "geometry_profile": "micro_bevel_square",
-      "connection_mode": "full_flush"
+      "connection_mode": "full_flush",
+      "exposed_top": "flush"
     },
     {
       "id": "tile_grove_birch",

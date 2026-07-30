@@ -1,16 +1,24 @@
-# Suma Nook — cozy ferry-fed world builder
+# Suma Nook — cozy inspiration-fed world builder
 
-A cozy diorama builder where periodic ferry deliveries bring finished pieces
-of land. Walk freely, choose tiles from Land Parcels, place and decorate them,
-and enjoy optional catch-and-release Fishing and Woodland Tending for XP,
-journal discoveries, and rare direct world rewards.
+A cozy diorama builder where doing gentle activities fills a wishing well
+with Inspiration. Fishing releases Waterside wisps, tending trees releases
+Grove wisps; a full meter banks a Vision at the well, and claiming it offers
+three pieces — keep one, place it, and the world you build creates more to
+do. Unwanted duplicates refund into domain coins; the shrine visibly steers
+draws toward a focused piece. No XP, no levels — milestones from real play
+unlock recipes and rewards. (Progression v1 — XP levels and Land Parcels —
+is archived in `legacy/progression_v1/`.)
 
-You begin on a nine-cell island: six land cells and three connected water cells
-across its northern edge. A little ferry approaches the dock, unloads one
-Land Parcel, and leaves you three handcrafted tile choices. There is no
-material-loot grind, combat loop, survival pressure, or delivery FOMO.
+You begin by creating your keeper against an empty sky, choosing your first
+land, and arriving on a nine-cell island: six land cells in your chosen
+terrain and three connected water cells across the northern edge. A little
+ferry still visits with gift Visions. There is no material-loot grind,
+combat loop, survival pressure, or delivery FOMO.
 
 **"A small world arrives one beautiful piece at a time."**
+
+Design: `docs/PROGRESSION_DESIGN.md` · Onboarding:
+`docs/NEW_PLAYER_FLOW.md` · Rework plan: `docs/PROGRESSION_REWORK_PLAN.md`
 
 - Design pillars: `DESIGN_PILLARS.md` · Scope: `MVP_SCOPE.md` · Report:
   `MVP_REPORT.md` · Rework history: `REWORK_AUDIT.md`
@@ -76,10 +84,22 @@ generators · `legacy/` pre-rework prototype (unreferenced, safe to delete).
 Everything is data-first; the checklists below are complete — no engine code
 changes needed unless stated.
 
-**A hobby** — add to `data/skills.json` (stable id, XP curve, tool type,
-direct tile reward chance/pool, collection category/entries, milestones), an
-anchor in `anchors.json`, and host tiles in `tiles.json`. Ordinary hobby
-actions intentionally have no common material drop table.
+**An activity** — add to `data/skills.json` (stable id, tool type, action
+timing, `domain`, direct tile reward chance/pool, collection
+category/entries), list it back on its domain in
+`data/inspiration_domains.json`, add an anchor in `anchors.json`, and host
+tiles in `tiles.json`. Ordinary activity actions intentionally have no
+common material drop table — they pay Inspiration.
+
+**An inspiration domain** — entry in `data/inspiration_domains.json` (id,
+color, icon, tile_families, activities). Exactly one domain is the
+wildcard. Domain reward pools derive from tile families plus structures
+tagged `vision_reward` + the domain id.
+
+**A milestone** — entry in `data/milestones.json`: `practice`
+(activity + action_count) or `journal_page` (category + entries), with
+rewards (tile | structure | gear | note). Gate a recipe by setting its
+`unlock_milestone`.
 
 **A tile** — follow `docs/TILE_AUTHORING.md`. One logical tile composes a
 required reusable structural `base`, one replaceable `surface`, and optional
@@ -90,9 +110,6 @@ to `data/tiles.json`, and add its id to `data/tuning.json::active_tile_ids`
 when it is ready for players. Elevation remains data-driven: `stackable`
 allows an upper block, `supports_tiles` allows another block above it, and
 `supports_decor` allows objects on its surface.
-
-**A Land Parcel type** — add an item (`category: "parcel"`) in `items.json`
-plus an entry in `parcels.json` with family weights; optionally a recipe.
 
 **A structure** — GLB + entry in `structures.json` (socket_type decor |
 structure, blocks_movement, provides, visitor tags) + a recipe in

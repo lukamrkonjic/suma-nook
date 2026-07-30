@@ -1,0 +1,28 @@
+{
+  "source_file": "res://art_source/imported/clothing_lab/shoes_sneakers_source.glb",
+  "body_profile_id": "body_male",
+  "garment_class": "footwear",
+  "pair_center_position": [0.0, -0.015, -0.395],
+  "position": [0.0, 0.0, 0.0],
+  "rotation_degrees": [0.0, 0.0, 0.0],
+  "scale": [0.19, 0.13, 0.12],
+  "symmetric": true,
+  "torso_width": 1.0,
+  "torso_depth": 1.0,
+  "top_section_scale": 1.0,
+  "middle_section_scale": 1.0,
+  "bottom_section_scale": 1.0,
+  "sleeve_lift": 0.0,
+  "sleeve_length": 1.0,
+  "sleeve_room": 1.0,
+  "shoulder_lift": 0.0,
+  "cuff_radius": 1.0,
+  "cuff_forward": 0.0,
+  "surface_smoothing": 0.0,
+  "detail_erase_strokes": [],
+  "hidden_regions": [
+    "foot_l",
+    "foot_r"
+  ],
+  "landmarks": {}
+}

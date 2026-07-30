@@ -536,6 +536,33 @@ func _animate_placement_settle(holder: Node3D) -> void:
 	tween.tween_property(holder, "rotation_degrees:z", 0.0, 0.08).set_trans(Tween.TRANS_SINE)
 
 
+## The first island is not an ordinary build placement: its 3×3 land square,
+## water ring, and tree rise through the empty sky beneath the waiting keeper.
+func animate_arrival_island() -> void:
+	for slot: Dictionary in core.grid.all_cell_slots():
+		if int(slot["elevation"]) != 0:
+			continue
+		var coord: Vector2i = slot["coord"]
+		var holder := tile_node(coord, 0)
+		if holder == null:
+			continue
+		var target_position := core.grid.cell_to_world(coord, 0)
+		var delay := float(maxi(absi(coord.x), absi(coord.y))) * 0.035
+		holder.position = target_position + Vector3.DOWN * 1.55
+		holder.scale = Vector3.ONE * 0.68
+		holder.rotation_degrees.z = float(coord.x) * 1.2
+		var tween := holder.create_tween()
+		if delay > 0.0:
+			tween.tween_interval(delay)
+		tween.set_parallel(true)
+		tween.tween_property(holder, "position", target_position, 0.56) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tween.tween_property(holder, "scale", Vector3.ONE, 0.48) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tween.tween_property(holder, "rotation_degrees:z", 0.0, 0.5) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+
 func animation_manifest() -> Dictionary:
 	return {
 		"tile_placement": {

@@ -66,7 +66,7 @@ func _process(_delta: float) -> void:
 			_begin_next()
 		return
 	_render_frames += 1
-	if _render_frames < 2:
+	if _render_frames < 4:
 		return
 	var image := _viewport.get_texture().get_image()
 	var texture: ImageTexture
@@ -157,6 +157,8 @@ func _instantiate(kind: String, content_id: String) -> Node3D:
 		"tile":
 			var tile := core.registries.tile(content_id)
 			return _tile_factory.instantiate_visual(tile, true) if tile != null else null
+		"starter_island":
+			return _starter_island_visual(content_id)
 		"structure":
 			var structure := core.registries.structure(content_id)
 			return (
@@ -168,6 +170,34 @@ func _instantiate(kind: String, content_id: String) -> Node3D:
 			var landmark := core.registries.landmark(content_id)
 			return assets.instantiate(landmark.asset_id) if landmark != null else null
 	return null
+
+
+func _starter_island_visual(land_tile_id: String) -> Node3D:
+	var land := core.registries.tile(land_tile_id)
+	var water := core.registries.tile("tile_open_water")
+	var tree := core.registries.structure("struct_pine")
+	if land == null or water == null or tree == null:
+		return null
+	var island := Node3D.new()
+	var tile_size := core.grid.tile_size
+	for x in range(-2, 3):
+		for z in range(-2, 3):
+			var is_water_ring := absi(x) == 2 or absi(z) == 2
+			var definition := water if is_water_ring else land
+			var tile_visual := _tile_factory.instantiate_visual(definition, true)
+			if tile_visual == null:
+				continue
+			tile_visual.position = Vector3(
+				float(x) * tile_size,
+				0.0,
+				float(z) * tile_size
+			)
+			island.add_child(tile_visual)
+	var tree_visual := _structure_factory.instantiate_visual(tree)
+	if tree_visual != null:
+		tree_visual.position = Vector3(-tile_size, 0.0, -tile_size)
+		island.add_child(tree_visual)
+	return island
 
 
 func _frame_visual(visual: Node3D) -> void:

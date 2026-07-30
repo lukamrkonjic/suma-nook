@@ -440,17 +440,125 @@ func window(title: String, size: Vector2) -> Dictionary:
 	return {"root": root, "card": c, "content": content, "close": close}
 
 
+func surface_style(
+	background: Color,
+	radius := 16,
+	border := Color(0, 0, 0, 0),
+	border_width := 0
+) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = background
+	style.set_corner_radius_all(radius)
+	style.set_content_margin_all(14)
+	style.border_color = border
+	style.set_border_width_all(border_width)
+	style.anti_aliasing = true
+	return style
+
+
+func progression_panel_style(accent: Color, radius := 18) -> StyleBoxFlat:
+	var style := surface_style(
+		Color(0.975, 0.967, 0.92, 0.98),
+		radius,
+		accent.darkened(0.08),
+		2
+	)
+	style.content_margin_left = 18
+	style.content_margin_right = 18
+	style.content_margin_top = 16
+	style.content_margin_bottom = 16
+	style.shadow_color = Color(0.13, 0.12, 0.09, 0.14)
+	style.shadow_size = 9
+	style.shadow_offset = Vector2(0, 4)
+	return style
+
+
+func progression_card(minimum: Vector2, accent: Color) -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = minimum
+	panel.add_theme_stylebox_override("panel", progression_panel_style(accent))
+	return panel
+
+
+func eyebrow(text: String, accent: Color = Color(0.35, 0.42, 0.24)) -> Label:
+	var l := label(text.to_upper(), 12, false, true)
+	l.add_theme_color_override("font_color", accent.darkened(0.08))
+	l.add_theme_constant_override("letter_spacing", 1)
+	return l
+
+
+func muted_label(text: String, size := 14) -> Label:
+	var l := label(text, size)
+	l.add_theme_color_override("font_color", Color(0.45, 0.43, 0.37))
+	return l
+
+
+func pill(text: String, accent: Color) -> PanelContainer:
+	var panel := PanelContainer.new()
+	var style := surface_style(accent.lightened(0.56), 10, accent.lightened(0.22), 1)
+	style.content_margin_left = 9
+	style.content_margin_right = 9
+	style.content_margin_top = 4
+	style.content_margin_bottom = 4
+	panel.add_theme_stylebox_override("panel", style)
+	var l := label(text, 12, false, true)
+	l.add_theme_color_override("font_color", accent.darkened(0.22))
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	panel.add_child(l)
+	return panel
+
+
+func monogram(glyph: String, accent: Color, size := 42.0) -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(size, size)
+	var style := surface_style(accent, int(size * 0.5))
+	style.set_content_margin_all(0)
+	style.shadow_color = Color(0.08, 0.08, 0.06, 0.13)
+	style.shadow_size = 4
+	style.shadow_offset = Vector2(0, 2)
+	panel.add_theme_stylebox_override("panel", style)
+	var l := label(glyph, int(size * 0.46), true, true)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	panel.add_child(l)
+	return panel
+
+
+func divider(color := Color(0.3, 0.28, 0.22, 0.14)) -> ColorRect:
+	var line := ColorRect.new()
+	line.color = color
+	line.custom_minimum_size.y = 1
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return line
+
+
 func progress_bar(fraction: float, color_key := "ui_good", width := 120) -> Control:
+	return progress_bar_colored(fraction, palette.color(color_key), width)
+
+
+func progress_bar_colored(
+	fraction: float,
+	color: Color,
+	width := 120,
+	height := 10
+) -> Control:
 	var holder := PanelContainer.new()
-	holder.custom_minimum_size = Vector2(width, 10)
+	holder.custom_minimum_size = Vector2(width, height)
+	holder.clip_contents = true
 	var back := StyleBoxFlat.new()
-	back.bg_color = Color(0, 0, 0, 0.15)
-	back.set_corner_radius_all(5)
+	back.bg_color = Color(0.2, 0.18, 0.14, 0.13)
+	back.set_corner_radius_all(height / 2)
 	holder.add_theme_stylebox_override("panel", back)
-	var fill := ColorRect.new()
-	fill.color = palette.color(color_key)
-	fill.custom_minimum_size = Vector2(maxf(0.0, width * clampf(fraction, 0.0, 1.0)), 10)
+	var fill := PanelContainer.new()
+	fill.custom_minimum_size = Vector2(
+		maxf(0.0, width * clampf(fraction, 0.0, 1.0)),
+		height
+	)
 	fill.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	var fill_style := StyleBoxFlat.new()
+	fill_style.bg_color = color
+	fill_style.set_corner_radius_all(height / 2)
+	fill.add_theme_stylebox_override("panel", fill_style)
 	holder.add_child(fill)
 	return holder
 

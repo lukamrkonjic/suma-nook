@@ -19,6 +19,7 @@ var _pitch_node: Node3D
 var _rotating := false
 var _pan_offset := Vector3.ZERO
 var _middle_panning := false
+var _creator_focus := false
 
 
 func setup(game_core: GameCore, follow_target: Node3D) -> void:
@@ -87,6 +88,8 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _creator_focus:
+		return
 	var controller := target as PlayerController
 	if (
 		event is InputEventJoypadButton
@@ -193,13 +196,44 @@ func set_build_mode(enabled: bool) -> void:
 
 
 func zoom_for_creator() -> void:
-	# Creator framing intentionally sits inside the gameplay distance bounds.
-	_size_target = 24.0
+	# Character creation is a portrait view, not a gameplay establishing shot.
+	# Keep it independent of gameplay's minimum distance so the live model is
+	# large enough to judge the face, hair, and palette changes. The portrait
+	# offset centers the model in the open canvas to the right of the form.
+	_creator_focus = true
+	_pan_offset = Vector3.ZERO
+	_size_target = 8.0
+	if _pitch_node != null:
+		_pitch_node.rotation_degrees.x = -42.0
+	if camera != null:
+		camera.position = Vector3(-0.48, 0.42, _size_target)
+	zoom_changed.emit(_size_target)
+
+
+## A close, locked establishing frame for the portal rise and first-land
+## choice. It keeps the arrival legible without exposing normal camera input.
+func frame_for_arrival() -> void:
+	_creator_focus = true
+	_pan_offset = Vector3.ZERO
+	_size_target = 18.0
+	if _pitch_node != null:
+		_pitch_node.rotation_degrees.x = -38.0
+	if camera != null:
+		camera.position = Vector3(0.0, 0.15, _size_target)
 	zoom_changed.emit(_size_target)
 
 
 func restore_gameplay_zoom() -> void:
+	_creator_focus = false
 	_size_target = core.registries.tunef("camera_default_size", 32.0)
+	if _pitch_node != null:
+		_pitch_node.rotation_degrees.x = core.registries.tunef(
+			"camera_pitch_deg",
+			-34.0
+		)
+	if camera != null:
+		camera.position.x = 0.0
+		camera.position.y = 0.0
 	zoom_changed.emit(_size_target)
 
 
@@ -253,6 +287,15 @@ func runtime_manifest() -> Dictionary:
 
 
 func restore_state(data: Dictionary) -> void:
+	_creator_focus = false
+	if _pitch_node != null:
+		_pitch_node.rotation_degrees.x = core.registries.tunef(
+			"camera_pitch_deg",
+			-34.0
+		)
+	if camera != null:
+		camera.position.x = 0.0
+		camera.position.y = 0.0
 	_yaw_target = float(data.get("yaw", 45.0))
 	rotation_degrees.y = _yaw_target
 	var stored_distance := float(data.get("distance", data.get("size", core.registries.tunef("camera_default_size", 32.0))))

@@ -42,6 +42,9 @@ func interact_with(focus: Dictionary) -> void:
 		return
 	match focus.get("kind", ""):
 		"anchor":
+			if not core.progression.can_earn():
+				action_feedback.emit("inspiration_full", {"point": player.global_position})
+				return
 			var coord: Vector2i = focus.get("coord", Vector2i(9999, 9999))
 			var anchor: Defs.AnchorDefinition = focus["anchor"]
 			var instance_id := int(focus.get("instance_id", 0))
@@ -122,11 +125,20 @@ func _fishing_cycle(my_loop: int, coord: Vector2i) -> void:
 	if my_loop != _loop_id:
 		return
 	var result := core.rewards.resolve_hobby_action(skill)
-	core.skills.record_action("fishing")
-	core.skills.add_xp("fishing", result.xp_awarded)
-	action_feedback.emit("fish_catch", {"result": result.to_dict(), "point": player.global_position})
+	var inspiration := core.progression.on_activity_action("fishing")
+	action_feedback.emit("fish_catch", {
+		"result": result.to_dict(),
+		"inspiration": inspiration,
+		"point": player.global_position,
+	})
 	await _wait(core.registries.tunef("fishing_repeat_pause", 0.7))
 	if my_loop != _loop_id:
+		return
+	# The current action always completes; the NEXT one refuses while the
+	# well is full — the world's cue to walk back and claim.
+	if not core.progression.can_earn():
+		action_feedback.emit("inspiration_full", {"point": player.global_position})
+		player.set_state(PlayerController.State.FREE)
 		return
 	_fishing_cycle(my_loop, coord)   # auto-repeat until moved/cancelled
 
@@ -183,9 +195,12 @@ func _chop_cycle(my_loop: int, instance_id: int) -> void:
 	effects.burst("fx_wood_chip", impact_point, 6)
 	effects.shake_structure(instance_id)
 	var result := core.rewards.resolve_hobby_action(core.registries.skill("woodcutting"))
-	core.skills.record_action("woodcutting")
-	core.skills.add_xp("woodcutting", result.xp_awarded)
-	action_feedback.emit("chop_impact", {"result": result.to_dict(), "point": impact_point})
+	var inspiration := core.progression.on_activity_action("woodcutting")
+	action_feedback.emit("chop_impact", {
+		"result": result.to_dict(),
+		"inspiration": inspiration,
+		"point": impact_point,
+	})
 	structure.anchor_actions_done += 1
 	if structure.anchor_actions_done >= anchor.cycle_actions + structure.anchor_upgrade:
 		structure.anchor_resting = true
@@ -200,6 +215,10 @@ func _chop_cycle(my_loop: int, instance_id: int) -> void:
 		return
 	await _wait(maxf(0.12, cycle_seconds - impact_seconds))
 	if my_loop != _loop_id:
+		return
+	if not core.progression.can_earn():
+		action_feedback.emit("inspiration_full", {"point": impact_point})
+		player.set_state(PlayerController.State.FREE)
 		return
 	_chop_cycle(my_loop, instance_id)
 

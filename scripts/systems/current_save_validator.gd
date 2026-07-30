@@ -63,27 +63,7 @@ static func validate(data: Dictionary, registries: Registries) -> PackedStringAr
 	_validate_dictionary_ids(
 		errors, inventory.get("counts", {}), registries.items, "inventory.counts"
 	)
-	var skills: Dictionary = data.get("skills", {})
-	for field in ["xp", "levels", "actions"]:
-		_validate_dictionary_ids(
-			errors, skills.get(field, {}), registries.skills, "skills.%s" % field
-		)
-	var parcels: Dictionary = data.get("parcels", {})
-	_validate_optional_id(
-		errors, parcels.get("pending_parcel", ""), registries.parcels,
-		"parcels.pending_parcel"
-	)
-	_validate_array_ids(
-		errors, parcels.get("pending_options", []), registries.tiles,
-		"parcels.pending_options"
-	)
-	var arrivals: Dictionary = data.get("arrivals", {})
-	var payload: Dictionary = arrivals.get("payload", {})
-	if not payload.is_empty():
-		_validate_optional_id(
-			errors, payload.get("parcel_id", ""), registries.parcels,
-			"arrivals.payload.parcel_id", false
-		)
+	_validate_progression(errors, data.get("progression", {}), registries)
 	var equipment: Dictionary = data.get("equipment", {})
 	_validate_array_ids(
 		errors, equipment.get("owned", []), registries.items, "equipment.owned"
@@ -110,6 +90,67 @@ static func validate(data: Dictionary, registries: Registries) -> PackedStringAr
 			% [index, instance_id]
 		)
 	return errors
+
+
+## The archived_v1 blob is deliberately NOT validated: it preserves retired
+## v1 payloads verbatim for a possible levels revival and references nothing
+## the live catalog must still ship.
+static func _validate_progression(
+	errors: PackedStringArray,
+	raw: Variant,
+	registries: Registries
+) -> void:
+	if not raw is Dictionary:
+		errors.append("progression must be an object")
+		return
+	var data: Dictionary = raw
+	var inspiration: Dictionary = data.get("inspiration", {})
+	_validate_dictionary_ids(
+		errors, inspiration.get("meters", {}), registries.inspiration_domains,
+		"progression.inspiration.meters"
+	)
+	_validate_array_ids(
+		errors, inspiration.get("banked", []), registries.inspiration_domains,
+		"progression.inspiration.banked"
+	)
+	var visions: Dictionary = data.get("visions", {})
+	for index in (visions.get("pending", []) as Array).size():
+		var entry: Variant = visions["pending"][index]
+		if not entry is Dictionary:
+			errors.append("progression.visions.pending[%d] must be an object" % index)
+			continue
+		var kind := String(entry.get("kind", ""))
+		var content_id := String(entry.get("id", ""))
+		var known := (
+			(kind == "tile" and registries.tile(content_id) != null)
+			or (kind == "structure" and registries.structure(content_id) != null)
+		)
+		_require(
+			errors, known,
+			"progression.visions.pending[%d] references missing %s '%s'"
+			% [index, kind, content_id]
+		)
+	_validate_optional_id(
+		errors, visions.get("pending_domain", ""), registries.inspiration_domains,
+		"progression.visions.pending_domain"
+	)
+	var refunds: Dictionary = data.get("refunds", {})
+	_validate_dictionary_ids(
+		errors, refunds.get("meters", {}), registries.inspiration_domains,
+		"progression.refunds.meters"
+	)
+	_validate_dictionary_ids(
+		errors, refunds.get("coins", {}), registries.inspiration_domains,
+		"progression.refunds.coins"
+	)
+	_validate_array_ids(
+		errors, data.get("milestones", {}).get("claimed", []), registries.milestones,
+		"progression.milestones.claimed"
+	)
+	_validate_dictionary_ids(
+		errors, data.get("activity_actions", {}), registries.skills,
+		"progression.activity_actions"
+	)
 
 
 static func _validate_landmarks(

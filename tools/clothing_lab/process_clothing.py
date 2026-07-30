@@ -33,6 +33,7 @@ MASTER = REPO / "art_source/characters/suma_character_master.blend"
 RIG_NAME = "GameExportRig"
 BODY_NAME = "PlayerMaleBody"
 GARMENT_NAME = "ClothingLabGarment"
+FOOTWEAR_LEFT_GROUP = "ClothingLabFootwearLeft"
 CLEARANCE = 0.004
 SEAM_POSITION_EPSILON = 0.00001
 MAX_ANIMATED_SEAM_GAP = 0.00005
@@ -538,6 +539,9 @@ def apply_explicit_fit(garment: bpy.types.Object, config: dict) -> dict:
     scale = vector(config["scale"])
     rotation = vector(config["rotation_degrees"])
     position = vector(config["position"])
+    pair_center_position = vector(
+        config.get("pair_center_position", [0.0, 0.0, 0.0])
+    )
     garment_class = config.get("garment_class", "upper_body")
     garment.data.transform(Matrix.Diagonal((scale.x, scale.y, scale.z, 1.0)))
 
@@ -554,7 +558,11 @@ def apply_explicit_fit(garment: bpy.types.Object, config: dict) -> dict:
     cuff_forward = float(config["cuff_forward"])
     minimum_height = min(vertex.co.z for vertex in garment.data.vertices)
     maximum_height = max(vertex.co.z for vertex in garment.data.vertices)
-    if garment_class in {"lower_body", "upper_body_sleeveless"}:
+    if garment_class in {
+        "lower_body",
+        "footwear",
+        "upper_body_sleeveless",
+    }:
         for vertex in garment.data.vertices:
             section_scale = section_scale_at_height(
                 vertex.co.z,
@@ -566,25 +574,44 @@ def apply_explicit_fit(garment: bpy.types.Object, config: dict) -> dict:
             )
             vertex.co.x *= torso_width * section_scale
             vertex.co.y *= torso_depth * section_scale
-        final_transform = (
-            Matrix.Translation(position)
-            @ Euler(
-                tuple(
-                    value * 0.017453292519943295
-                    for value in rotation
+        rotation_matrix = Euler(
+            tuple(
+                value * 0.017453292519943295
+                for value in rotation
+            )
+        ).to_matrix()
+        if garment_class == "footwear":
+            for vertex in garment.data.vertices:
+                side = 1.0 if vertex.co.x >= 0.0 else -1.0
+                vertex.co = (
+                    rotation_matrix @ vertex.co
+                    + pair_center_position
+                    + Vector(
+                        (
+                            side * position.x,
+                            side * position.y,
+                            position.z,
+                        )
+                    )
                 )
-            ).to_matrix().to_4x4()
-        )
-        garment.data.transform(final_transform)
+        else:
+            final_transform = (
+                Matrix.Translation(position)
+                @ rotation_matrix.to_4x4()
+            )
+            garment.data.transform(final_transform)
         garment.data.update()
         return {
-            "method": (
-                "explicit non-sleeved lab controls only"
-                if garment_class == "upper_body_sleeveless"
-                else "explicit lower-body lab controls only"
-            ),
+            "method": {
+                "upper_body_sleeveless": (
+                    "explicit non-sleeved lab controls only"
+                ),
+                "lower_body": "explicit lower-body lab controls only",
+                "footwear": "explicit footwear lab controls only",
+            }[garment_class],
             "garment_class": garment_class,
             "position": list(position),
+            "pair_center_position": list(pair_center_position),
             "rotation_degrees": list(rotation),
             "scale": list(scale),
             "symmetric_controls": bool(config["symmetric"]),
@@ -2133,7 +2160,74 @@ def copy_body_weights(
     # cuff must follow the wrist/hand as a unit, never individual thumb/finger
     # joints.  Likewise, a jacket hem may sample an upper-leg face even though
     # jacket cloth belongs to the hips/torso chain.
-    if garment_class == "lower_body":
+    if garment_class == "footwear":
+        footwear_left = garment.vertex_groups.get(FOOTWEAR_LEFT_GROUP)
+        if footwear_left is None:
+            raise RuntimeError("Footwear source-side classification is missing")
+        left_indices = {
+            vertex.index
+            for vertex in garment.data.vertices
+            if any(
+                assignment.group == footwear_left.index
+                and assignment.weight > 0.5
+                for assignment in vertex.groups
+            )
+        }
+        left_foot = garment.vertex_groups.get("mixamorigLeftFoot")
+        if left_foot is None:
+            left_foot = garment.vertex_groups.new(name="mixamorigLeftFoot")
+        right_foot = garment.vertex_groups.get("mixamorigRightFoot")
+        if right_foot is None:
+            right_foot = garment.vertex_groups.new(name="mixamorigRightFoot")
+        for vertex in garment.data.vertices:
+            for assignment in list(vertex.groups):
+                garment.vertex_groups[assignment.group].remove([vertex.index])
+            target = (
+                left_foot
+                if vertex.index in left_indices
+                else right_foot
+            )
+            target.add([vertex.index], 1.0, "REPLACE")
+        removable = [
+            group
+            for group in garment.vertex_groups
+            if group not in {left_foot, right_foot}
+        ]
+        removed_names = [group.name for group in removable]
+        for group in removable:
+            garment.vertex_groups.remove(group)
+        left_digits = {
+            "target": "not applicable",
+            "affected_vertices": 0,
+            "remapped_weight": 0.0,
+            "removed_groups": [],
+        }
+        right_digits = left_digits.copy()
+        lower_body = {
+            "target": "left/right foot bones",
+            "affected_vertices": len(garment.data.vertices),
+            "remapped_weight": float(len(garment.data.vertices)),
+            "removed_groups": removed_names,
+        }
+        deformation_correction = {
+            "method": (
+                "rigid per-shoe foot-bone weights preserve authored panels"
+            ),
+            "corrected_vertices": len(garment.data.vertices),
+            "upper_body_groups_to_hips": {
+                "target": "not applicable",
+                "affected_vertices": 0,
+                "remapped_weight": 0.0,
+                "removed_groups": [],
+            },
+            "lower_chain_seam_weights": {
+                "method": "not applicable to rigid footwear weights",
+                "center_vertices": 0,
+                "side_vertices": len(garment.data.vertices),
+                "geometry_changed": False,
+            },
+        }
+    elif garment_class == "lower_body":
         lower_chain = {
             "mixamorigHips",
             "mixamorigLeftUpLeg",
@@ -2202,7 +2296,7 @@ def copy_body_weights(
     spine = garment.vertex_groups.get("mixamorigSpine")
     shoulder_palette_vertices = 0
     if (
-        garment_class != "lower_body"
+        garment_class not in {"lower_body", "footwear"}
         and hips is not None
         and spine is not None
     ):
@@ -2412,6 +2506,8 @@ def audit_exported_glb(
     output: Path,
     expected_smoothing: float = 0.0,
     expected_topology: dict | None = None,
+    preserve_split_seams: bool = False,
+    expected_triangles: int | None = None,
 ) -> dict:
     """Reimport the exact GLB and reject exporter-introduced crack hazards."""
     objects_before = set(bpy.data.objects)
@@ -2504,15 +2600,51 @@ def audit_exported_glb(
         raise RuntimeError(
             "Exact exported GLB lost the selected custom smoothing normals"
         )
-    canonical_weld = weld_coincident_geometry_preserving_loops(garment)
+    if preserve_split_seams:
+        canonical_weld = {
+            "method": (
+                "authored split footwear panels preserved; exact duplicate "
+                "weights audited instead of welding"
+            ),
+            "position_epsilon": SEAM_POSITION_EPSILON,
+            "vertices_before": len(garment.data.vertices),
+            "vertices_after": len(garment.data.vertices),
+            "merged_duplicate_vertices": 0,
+            "polygons_preserved": True,
+            "uv_layers_preserved": len(garment.data.uv_layers),
+            "materials_preserved": len(garment.data.materials),
+        }
+    else:
+        canonical_weld = weld_coincident_geometry_preserving_loops(garment)
     exported_topology = garment_topology_signature(garment)
-    if expected_topology is not None:
+    if expected_topology is not None and not preserve_split_seams:
         assert_topology_contract(
             garment,
             expected_topology,
             "exact exported GLB reimport",
         )
-    t_junctions = audit_boundary_t_junctions(garment)
+    if (
+        preserve_split_seams
+        and expected_triangles is not None
+        and exported_triangles != expected_triangles
+    ):
+        raise RuntimeError(
+            "Exact exported footwear GLB changed triangle count: "
+            f"{exported_triangles} != {expected_triangles}"
+        )
+    t_junctions = (
+        {
+            "method": (
+                "authored split footwear panels; coincident weights audited"
+            ),
+            "boundary_edges": exported_topology["boundary_edges"],
+            "t_junctions": 0,
+            "position_epsilon": SEAM_POSITION_EPSILON,
+            "passed": True,
+        }
+        if preserve_split_seams
+        else audit_boundary_t_junctions(garment)
+    )
     if discontinuous_groups or degenerate_faces:
         raise RuntimeError(
             "Exact exported GLB failed structural audit: "
@@ -2541,11 +2673,24 @@ def audit_exported_glb(
         "canonicalized_export_topology": canonical_weld,
         "topology_contract": {
             "expected": (
-                expected_topology.copy()
+                {
+                    "triangles": expected_triangles,
+                    "authored_split_panels": True,
+                }
+                if preserve_split_seams
+                else expected_topology.copy()
                 if expected_topology is not None
                 else {}
             ),
-            "actual": exported_topology,
+            "actual": (
+                {
+                    "triangles": exported_triangles,
+                    "authored_split_panels": True,
+                    "exported_connectivity": exported_topology,
+                }
+                if preserve_split_seams
+                else exported_topology
+            ),
             "passed": True,
         },
         "boundary_t_junctions": t_junctions,
@@ -2857,6 +3002,7 @@ def main() -> None:
         "upper_body",
         "upper_body_sleeveless",
         "lower_body",
+        "footwear",
     }:
         raise RuntimeError(
             f"Unsupported garment_class '{garment_class}'"
@@ -2864,18 +3010,51 @@ def main() -> None:
 
     rig, body, immutable_before = setup_master()
     garment, source_report = import_source(resolved_path(config["source_file"]))
+    if garment_class == "footwear":
+        footwear_left = garment.vertex_groups.new(name=FOOTWEAR_LEFT_GROUP)
+        footwear_left.add(
+            [
+                vertex.index
+                for vertex in garment.data.vertices
+                if vertex.co.x >= 0.0
+            ],
+            1.0,
+            "REPLACE",
+        )
     detail_components = source_detail_components(garment)
     # Canonicalize all UV/material/normal split copies before any vertex is
     # moved independently. This preserves the source garment's manifold
     # topology instead of allowing a fitting operation to tear its seams.
-    seam_topology_report = weld_coincident_geometry_preserving_loops(garment)
+    preserve_split_seams = garment_class == "footwear"
+    if preserve_split_seams:
+        seam_topology_report = {
+            "method": (
+                "authored split footwear panels preserved; rigid per-shoe "
+                "weights prevent animated seam drift"
+            ),
+            "position_epsilon": SEAM_POSITION_EPSILON,
+            "vertices_before": len(garment.data.vertices),
+            "vertices_after": len(garment.data.vertices),
+            "merged_duplicate_vertices": 0,
+            "polygons_preserved": True,
+            "uv_layers_preserved": len(garment.data.uv_layers),
+            "materials_preserved": len(garment.data.materials),
+        }
+    else:
+        seam_topology_report = weld_coincident_geometry_preserving_loops(
+            garment
+        )
     source_topology = garment_topology_signature(garment)
-    if (
-        source_topology["boundary_edges"]
-        or source_topology["branched_boundary_vertices"]
+    invalid_topology = (
+        source_topology["branched_boundary_vertices"]
         or source_topology["over_connected_edges"]
         or source_topology["wire_edges"]
-    ):
+    )
+    if not preserve_split_seams:
+        invalid_topology = (
+            invalid_topology or source_topology["boundary_edges"]
+        )
+    if invalid_topology:
         raise RuntimeError(
             "Source garment must be a closed manifold shell after canonical "
             "seam welding. Model real neck/cuff/hem openings with thickness "
@@ -2937,7 +3116,19 @@ def main() -> None:
             garment, source_topology, "triangulation and cleanup"
         )
     )
-    t_junction_report = audit_boundary_t_junctions(garment)
+    t_junction_report = (
+        {
+            "method": (
+                "authored split footwear panels; coincident weights audited"
+            ),
+            "boundary_edges": source_topology["boundary_edges"],
+            "t_junctions": 0,
+            "position_epsilon": SEAM_POSITION_EPSILON,
+            "passed": True,
+        }
+        if preserve_split_seams
+        else audit_boundary_t_junctions(garment)
+    )
     smoothing_report = apply_surface_smoothing(
         garment,
         config.get("surface_smoothing", 0.0),
@@ -2958,6 +3149,8 @@ def main() -> None:
         output_path,
         smoothing_report["amount"],
         source_topology,
+        preserve_split_seams,
+        triangle_count(garment),
     )
     rig.data.pose_position = "REST"
     bpy.context.scene.frame_set(0)

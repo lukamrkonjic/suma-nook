@@ -1,10 +1,10 @@
 class_name Hud
 extends CanvasLayer
-## Persistent interface: skill chips, health, context prompt, toasts, build
-## bar, tutorial hints. Modal panels live in GamePanels; the parcel reveal in
-## ParcelReveal. World stays visible — no giant menus.
+## Persistent interface: inspiration meters, health, context prompt, toasts,
+## build bar, tutorial hints. Modal panels live in GamePanels; the Vision
+## reveal in VisionReveal. World stays visible — no giant menus.
 
-signal open_parcel_requested
+signal open_parcel_requested   # "claim at the well" intent; name kept stable
 signal build_piece_selected(kind: String, id: String)
 signal build_world_browse_requested
 signal build_store_requested
@@ -18,10 +18,12 @@ var core: GameCore
 var kit: UiKit
 var placement: PlacementController
 
-var _skill_chips: Dictionary = {}    # skill_id -> {level_label, bar_holder, chip}
+var _domain_chips: Dictionary = {}   # domain_id -> {name, count, bar, chip}
+var _vision_bank_label: Label
 var _toast_box: VBoxContainer
 var _prompt_label: Label
 var _hint_label: Label
+var _hint_panel: PanelContainer
 var _health_box: HBoxContainer
 var _build_bar: PanelContainer
 var _build_bar_column: VBoxContainer
@@ -57,7 +59,7 @@ var _catalogue_pointer_active := false
 var _thumbnail_renderer: BuildThumbnailRenderer
 var _build_preview_targets: Dictionary = {}
 var _context_column: VBoxContainer
-var _parcel_button: Button
+var _well_button: Button
 var _bottom_buttons: HBoxContainer
 var _menu_button: Button
 var _build_button: Button
@@ -91,9 +93,12 @@ func setup(game_core: GameCore, ui_kit: UiKit, placement_controller: PlacementCo
 	kit = ui_kit
 	placement = placement_controller
 	_build_layout()
-	core.skills.xp_gained.connect(_on_xp_gained)
-	core.skills.level_up.connect(_on_level_up)
-	core.inventory.items_changed.connect(_refresh_parcel_button)
+	core.progression.inspiration.inspiration_changed.connect(_on_inspiration_changed)
+	core.progression.inspiration.vision_banked.connect(_on_vision_banked)
+	core.progression.inspiration.bank_changed.connect(func(_count, _cap): _refresh_well_button())
+	core.progression.visions.options_revealed.connect(func(_context, _options): _refresh_well_button())
+	core.progression.visions.vision_chosen.connect(func(_entry, _was_new): _refresh_well_button())
+	core.onboarding.stage_changed.connect(func(_stage): update_tutorial())
 	core.stock.stock_changed.connect(_refresh_build_strip)
 	if core.registries.feature("combat_enabled", false):
 		core.combat.health_changed.connect(_on_health_changed)
@@ -119,30 +124,100 @@ func _build_layout() -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
 
-	# Skill chips — top left.
+	# Inspiration journal — one composed instrument rather than floating XP
+	# bars. Domain color, exact progress, and well capacity are readable at a
+	# glance without suggesting character levels.
+	var inspiration_dock := kit.progression_card(
+		Vector2(252, 0),
+		kit.palette.color("ui_good")
+	)
+	inspiration_dock.name = "InspirationJournal"
+	inspiration_dock.position = Vector2(14, 14)
+	inspiration_dock.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(inspiration_dock)
+	var dock_col := VBoxContainer.new()
+	dock_col.add_theme_constant_override("separation", 8)
+	inspiration_dock.add_child(dock_col)
+	var dock_head := HBoxContainer.new()
+	dock_col.add_child(dock_head)
+	var dock_title := kit.eyebrow(
+		"Inspiration",
+		kit.palette.color("ui_good")
+	)
+	dock_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	dock_head.add_child(dock_title)
+	var bank_badge := PanelContainer.new()
+	var bank_style := kit.surface_style(
+		kit.palette.color("ui_good").lightened(0.55),
+		9,
+		kit.palette.color("ui_good").lightened(0.22),
+		1
+	)
+	bank_style.content_margin_left = 8
+	bank_style.content_margin_right = 8
+	bank_style.content_margin_top = 3
+	bank_style.content_margin_bottom = 3
+	bank_badge.add_theme_stylebox_override("panel", bank_style)
+	_vision_bank_label = kit.label("WELL 0/3", 11, false, true)
+	_vision_bank_label.add_theme_color_override(
+		"font_color",
+		kit.palette.color("ui_good").darkened(0.18)
+	)
+	bank_badge.add_child(_vision_bank_label)
+	dock_head.add_child(bank_badge)
+	dock_col.add_child(kit.divider())
+
 	var chips := VBoxContainer.new()
-	chips.position = Vector2(14, 14)
-	chips.add_theme_constant_override("separation", 6)
-	root.add_child(chips)
-	for skill_id: String in core.registries.skills:
-		var def := core.registries.skill(skill_id)
-		if def.future:
+	chips.add_theme_constant_override("separation", 7)
+	dock_col.add_child(chips)
+	# One meter chip per domain that a playable activity feeds today. Future
+	# domains appear the moment their activity ships — no HUD change needed.
+	for domain_id: String in core.registries.inspiration_domains:
+		var domain := core.registries.inspiration_domain(domain_id)
+		var has_playable_activity := false
+		for activity_id: String in domain.activities:
+			if core.progression.is_activity_playable(activity_id):
+				has_playable_activity = true
+		if not has_playable_activity:
 			continue
-		var chip := kit.card()
+		var chip := PanelContainer.new()
+		var chip_style := kit.surface_style(
+			domain.color.lightened(0.68),
+			12,
+			domain.color.lightened(0.36),
+			1
+		)
+		chip_style.content_margin_left = 10
+		chip_style.content_margin_right = 10
+		chip_style.content_margin_top = 8
+		chip_style.content_margin_bottom = 8
+		chip.add_theme_stylebox_override("panel", chip_style)
 		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 8)
+		row.add_theme_constant_override("separation", 9)
 		chip.add_child(row)
-		row.add_child(kit.label(def.icon_glyph, 20))
+		row.add_child(kit.monogram(domain.icon_glyph, domain.color, 36))
 		var col := VBoxContainer.new()
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		col.add_theme_constant_override("separation", 3)
 		row.add_child(col)
-		var level_label := kit.label("%s  %d" % [def.display_name, 1], 15)
-		col.add_child(level_label)
+		var label_row := HBoxContainer.new()
+		col.add_child(label_row)
+		var name_label := kit.label(domain.display_name, 14, false, true)
+		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label_row.add_child(name_label)
+		var count_label := kit.muted_label("0 / 0", 11)
+		label_row.add_child(count_label)
 		var bar_holder := Control.new()
-		bar_holder.custom_minimum_size = Vector2(120, 10)
+		bar_holder.custom_minimum_size = Vector2(166, 9)
 		col.add_child(bar_holder)
 		chips.add_child(chip)
-		_skill_chips[skill_id] = {"level": level_label, "bar": bar_holder, "chip": chip}
+		_domain_chips[domain_id] = {
+			"name": name_label,
+			"count": count_label,
+			"bar": bar_holder,
+			"chip": chip,
+		}
 
 	# Health hearts — top center, hidden while safe and full.
 	_health_box = HBoxContainer.new()
@@ -188,18 +263,26 @@ func _build_layout() -> void:
 	# Context prompt + tutorial hint — bottom center.
 	_context_column = VBoxContainer.new()
 	_context_column.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	_context_column.position.y = -86
+	_context_column.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_context_column.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_context_column.alignment = BoxContainer.ALIGNMENT_END
 	_context_column.add_theme_constant_override("separation", 8)
 	_context_column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_context_column)
-	_hint_label = kit.label("", 18)
+	_hint_panel = kit.card(Vector2(440, 0))
+	_hint_panel.visible = false
+	_hint_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_context_column.add_child(_hint_panel)
+	_hint_label = kit.label("", 17, true)
 	_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_hint_label.custom_minimum_size.x = 400
 	_hint_label.add_theme_color_override("font_color", Color(0.35, 0.31, 0.24))
-	_context_column.add_child(_hint_label)
+	_hint_panel.add_child(_hint_label)
 	_prompt_label = kit.label("", 20)
 	_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_context_column.add_child(_prompt_label)
+	_position_context_above_build_library.call_deferred()
 
 	# Bottom-left action buttons.
 	_bottom_buttons = HBoxContainer.new()
@@ -212,12 +295,12 @@ func _build_layout() -> void:
 	_menu_button.pressed.connect(func(): pause_requested.emit())
 	_bottom_buttons.add_child(_menu_button)
 	_build_button = kit.button("Shape Land", true)
-	_build_button.pressed.connect(func(): placement.toggle())
+	_build_button.pressed.connect(_on_build_button_pressed)
 	_bottom_buttons.add_child(_build_button)
-	_parcel_button = kit.button("Open Land Parcel ✨", true)
-	_parcel_button.visible = false
-	_parcel_button.pressed.connect(func(): open_parcel_requested.emit())
-	_bottom_buttons.add_child(_parcel_button)
+	_well_button = kit.button("Claim a Vision ✨", true)
+	_well_button.visible = false
+	_well_button.pressed.connect(func(): open_parcel_requested.emit())
+	_bottom_buttons.add_child(_well_button)
 
 	# Build Bag — a single floating icon at rest, expanding upward into the
 	# owned-piece browser only while the player is using it.
@@ -439,9 +522,9 @@ func _build_layout() -> void:
 # ------------------------------------------------------------------ refresh
 
 func _refresh_all() -> void:
-	for skill_id: String in _skill_chips:
-		_refresh_skill(skill_id)
-	_refresh_parcel_button()
+	for domain_id: String in _domain_chips:
+		_refresh_domain(domain_id)
+	_refresh_well_button()
 	_refresh_build_strip()
 	if core.registries.feature("combat_enabled", false):
 		_on_health_changed(core.combat.health, core.combat.max_health)
@@ -449,21 +532,55 @@ func _refresh_all() -> void:
 		_health_box.visible = false
 
 
-func _refresh_skill(skill_id: String) -> void:
-	var chip: Dictionary = _skill_chips[skill_id]
-	var def := core.registries.skill(skill_id)
-	chip["level"].text = "%s  %d" % [def.display_name, core.skills.level(skill_id)]
+func _refresh_domain(domain_id: String) -> void:
+	var chip: Dictionary = _domain_chips[domain_id]
+	var domain := core.registries.inspiration_domain(domain_id)
+	chip["name"].text = domain.display_name
 	var holder: Control = chip["bar"]
 	for child in holder.get_children():
 		child.queue_free()
-	var progress := core.skills.xp_progress(skill_id)
-	holder.add_child(kit.progress_bar(progress["fraction"]))
+	var progress := core.progression.inspiration.meter_progress(domain_id)
+	chip["count"].text = "%d / %d" % [
+		roundi(progress["current"]),
+		roundi(progress["cost"]),
+	]
+	holder.add_child(kit.progress_bar_colored(
+		progress["fraction"],
+		domain.color,
+		166,
+		9
+	))
 
 
-func _refresh_parcel_button() -> void:
-	_parcel_button.visible = core.parcels.has_pending()
-	if _parcel_button.visible:
-		_parcel_button.text = "Resume Land Parcel reveal ✨"
+## Claiming happens AT the well — the walk back is the ritual. The button
+## only resumes an interrupted reveal, or steps in as a deadlock guard when
+## visions wait but no placed well exists to claim them at.
+func _refresh_well_button() -> void:
+	var banked := core.progression.inspiration.banked.size()
+	if _vision_bank_label != null:
+		_vision_bank_label.text = "WELL %d/%d" % [
+			banked,
+			core.progression.inspiration.bank_cap(),
+		]
+	if core.progression.visions.has_pending():
+		_well_button.visible = true
+		_well_button.text = "Resume the Vision reveal ✨"
+	elif banked > 0 and not _any_well_placed():
+		_well_button.visible = true
+		_well_button.text = "Claim a Vision ✨ (%d waiting)" % banked
+	else:
+		_well_button.visible = false
+
+
+func _any_well_placed() -> bool:
+	for slot: Dictionary in core.grid.all_cell_slots():
+		var state: WorldGrid.CellState = slot["state"]
+		for structure: WorldGrid.StructureState in state.structures:
+			if core.registries.definition_has_capability(
+				"structures", structure.structure_id, "banks_visions"
+			):
+				return true
+	return false
 
 
 func _refresh_build_strip() -> void:
@@ -829,10 +946,17 @@ func _build_library_expanded_width() -> float:
 func _position_context_above_build_library() -> void:
 	if _context_column == null:
 		return
-	_context_column.position.y = (
-		-_build_bar.size.y - 28.0
+	var bottom_gap := (
+		_build_bar.size.y + 28.0
 		if _build_bar.visible
-		else -86.0
+		else 86.0
+	)
+	var viewport_size := get_viewport().get_visible_rect().size
+	var content_size := _context_column.get_combined_minimum_size()
+	_context_column.size = content_size
+	_context_column.position = Vector2(
+		(viewport_size.x - content_size.x) * 0.5,
+		viewport_size.y - bottom_gap - content_size.y
 	)
 
 
@@ -1255,21 +1379,20 @@ func _position_store_bubble() -> void:
 
 # ------------------------------------------------------------------ events
 
-func _on_xp_gained(skill_id: String, _amount: int, _total: int) -> void:
-	if _skill_chips.has(skill_id):
-		_refresh_skill(skill_id)
+func _on_inspiration_changed(domain_id: String, _current: float, _cost: float) -> void:
+	if _domain_chips.has(domain_id):
+		_refresh_domain(domain_id)
 
 
-func _on_level_up(skill_id: String, new_level: int, _unlocks: Array) -> void:
-	if not _skill_chips.has(skill_id):
+func _on_vision_banked(domain_id: String, _banked_count: int) -> void:
+	_refresh_well_button()
+	if not _domain_chips.has(domain_id):
 		return
-	_refresh_skill(skill_id)
-	var chip: PanelContainer = _skill_chips[skill_id]["chip"]
+	_refresh_domain(domain_id)
+	var chip: PanelContainer = _domain_chips[domain_id]["chip"]
 	var tween := chip.create_tween()
 	tween.tween_property(chip, "scale", Vector2(1.12, 1.12), 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(chip, "scale", Vector2.ONE, 0.2)
-	var def := core.registries.skill(skill_id)
-	toast("✨ %s level %d!" % [def.display_name if def != null else skill_id, new_level], "levelup")
 
 
 func _on_health_changed(current: int, maximum: int) -> void:
@@ -1280,6 +1403,18 @@ func _on_health_changed(current: int, maximum: int) -> void:
 		var heart := kit.label("♥", 22)
 		heart.add_theme_color_override("font_color", Color(0.78, 0.32, 0.28) if i < current else Color(0.4, 0.37, 0.33, 0.5))
 		_health_box.add_child(heart)
+
+
+func _on_build_button_pressed() -> void:
+	if not core.onboarding.requires_guided_placement():
+		placement.toggle()
+		return
+	if placement.active:
+		toast("Place this arrival piece before closing Shape Land.", "warn")
+		return
+	var guided := core.ensure_onboarding_guided_piece()
+	if not guided.is_empty():
+		placement.hold_new(String(guided["kind"]), String(guided["id"]))
 
 
 func _enemies_near() -> bool:
@@ -1343,10 +1478,13 @@ func _refresh_prompt() -> void:
 
 func set_hint(text: String) -> void:
 	_hint_label.text = text
+	_hint_panel.visible = text != "" and _hint_label.visible
+	_position_context_above_build_library.call_deferred()
 
 
 func set_tutorial_enabled(enabled: bool) -> void:
 	_hint_label.visible = enabled
+	_hint_panel.visible = enabled and _hint_label.text != ""
 
 
 func set_hover_tooltip(display_name: String, collection_name: String) -> void:
@@ -1370,16 +1508,39 @@ func apply_weather_contrast(rain_enabled: bool) -> void:
 
 
 func toast(message: String, tone := "common") -> void:
-	var card := kit.card()
-	var l := kit.label(message, 15)
+	var accent := Color(0.56, 0.53, 0.45)
+	var glyph := "◆"
+	var tag := "WORLD NOTE"
 	match tone:
-		"rare", "levelup":
-			l.add_theme_color_override("font_color", Color(0.62, 0.45, 0.1))
+		"rare":
+			accent = kit.palette.color("ui_rare")
+			glyph = "✦"
+			tag = "NEW DISCOVERY"
+		"levelup":
+			accent = kit.palette.color("ui_accent")
+			glyph = "✧"
+			tag = "TRAIL MARKER"
 		"warn":
-			l.add_theme_color_override("font_color", Color(0.62, 0.28, 0.22))
+			accent = Color(0.66, 0.31, 0.23)
+			glyph = "!"
+			tag = "TAKE CARE"
 		"good":
-			l.add_theme_color_override("font_color", Color(0.35, 0.42, 0.16))
-	card.add_child(l)
+			accent = kit.palette.color("ui_good")
+			glyph = "✓"
+			tag = "ALL SET"
+	var card := kit.progression_card(Vector2(320, 0), accent)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	card.add_child(row)
+	row.add_child(kit.monogram(glyph, accent, 36))
+	var copy := VBoxContainer.new()
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(copy)
+	copy.add_child(kit.eyebrow(tag, accent))
+	var l := kit.label(message, 14, false, true)
+	l.custom_minimum_size.x = 244
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	copy.add_child(l)
 	card.modulate.a = 0.0
 	_toast_box.add_child(card)
 	_toast_box.move_child(card, 0)
@@ -1394,21 +1555,75 @@ func toast(message: String, tone := "common") -> void:
 
 ## Derives the current opening hint straight from progression state.
 func update_tutorial() -> void:
+	match core.onboarding.stage:
+		OnboardingState.LAND_CHOICE:
+			set_hint("")
+			return
+		OnboardingState.PLACE_WATER:
+			set_hint(
+				"Extend the water ring with your Quiet Water shape. (%s)"
+				% InputDeviceService.shared().format_action(&"build_confirm", "place")
+			)
+			return
+		OnboardingState.PLACE_SECOND_LAND:
+			var starter := core.registries.tile(core.profile.starter_land_id)
+			var starter_name := (
+				starter.display_name
+				if starter != null
+				else "land"
+			)
+			set_hint(
+				"Add one more patch of %s beside your new shore. (%s)"
+				% [
+					starter_name,
+					InputDeviceService.shared().format_action(&"build_confirm", "place"),
+				]
+			)
+			return
+		OnboardingState.PLACE_WELL:
+			set_hint("Set the wishing well on an empty land tile.")
+			return
+		OnboardingState.PLACE_TREE:
+			set_hint("Plant the pine on your other empty land tile.")
+			return
+		OnboardingState.TEND_TREE:
+			set_hint(
+				"Tend the pine again — its green Inspiration is filling the well."
+				if core.progression.actions_done("woodcutting") > 0
+				else "Tend the pine; its green Inspiration will travel to the well."
+			)
+			return
+		OnboardingState.CLAIM_VISION:
+			set_hint("A Vision is ready; walk to the wishing well and claim it.")
+			return
+		OnboardingState.PLACE_VISION:
+			set_hint("Place the Vision you chose to grow your world.")
+			return
+		OnboardingState.TRY_FISHING:
+			set_hint("Something stirs in your water — try fishing there.")
+			return
 	if core.arrivals.has_waiting_package():
-		set_hint("A Land Parcel is waiting at the northern dock.")
-	elif core.skills.lifetime_actions.get("fishing", 0) == 0:
+		set_hint("A gift crate is waiting at the northern dock.")
+	elif core.progression.visions.has_pending():
+		set_hint("Choose one of the well's three offerings.")
+	elif not core.progression.inspiration.banked.is_empty():
+		set_hint("A vision waits in the wishing well — walk over and claim it.")
+	elif _stored_well_count() > 0:
+		set_hint(
+			"Place your wishing well somewhere you love. (%s)"
+			% InputDeviceService.shared().format_action(&"build_mode", "build mode")
+		)
+	elif core.progression.actions_done("fishing") == 0:
 		set_hint(
 			"Try catch-and-release fishing along the northern water. (%s)"
 			% InputDeviceService.shared().format_action(&"interact", "when close")
 		)
-	elif core.parcels.has_pending():
-		set_hint("Choose one finished tile from the Land Parcel.")
 	elif core.grid.placed_tile_count() == 0 and core.stock.total_tiles() > 0:
 		set_hint(
 			"Place your new land beside the world you have. (%s)"
 			% InputDeviceService.shared().format_action(&"build_mode", "build mode")
 		)
-	elif core.grid.placed_tile_count() > 0 and core.skills.lifetime_actions.get("woodcutting", 0) == 0:
+	elif core.grid.placed_tile_count() > 0 and core.progression.actions_done("woodcutting") == 0:
 		if _has_placed_tree():
 			set_hint("Tend your placed tree — it will rest, then regrow.")
 		elif _stored_tree_count() > 0:
@@ -1417,6 +1632,27 @@ func update_tutorial() -> void:
 			set_hint("")
 	else:
 		set_hint("")
+
+
+func _stored_well_count() -> int:
+	var count := 0
+	for structure_id: String in core.registries.structures:
+		if (
+			core.registries.definition_has_capability("structures", structure_id, "banks_visions")
+			and core.stock.structure_count(structure_id) > 0
+			and not _is_structure_placed(structure_id)
+		):
+			count += 1
+	return count
+
+
+func _is_structure_placed(structure_id: String) -> bool:
+	for slot: Dictionary in core.grid.all_cell_slots():
+		var state: WorldGrid.CellState = slot["state"]
+		for structure: WorldGrid.StructureState in state.structures:
+			if structure.structure_id == structure_id:
+				return true
+	return false
 
 
 func focus_build_library() -> void:

@@ -34,16 +34,7 @@ func _init() -> void:
 
 
 func _definition_count(registries) -> int:
-	return (
-		registries.skills.size()
-		+ registries.items.size()
-		+ registries.tiles.size()
-		+ registries.structures.size()
-		+ registries.recipes.size()
-		+ registries.loot_tables.size()
-		+ registries.parcels.size()
-		+ registries.anchors.size()
-		+ registries.capabilities.size()
-		+ registries.enemies.size()
-		+ registries.landmarks.size()
-	)
+	var total := 0
+	for kind: String in registries.definition_kinds():
+		total += registries.definitions(kind).size()
+	return total

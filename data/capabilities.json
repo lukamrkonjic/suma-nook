@@ -6,6 +6,8 @@
     { "id": "storage_access", "owner": "core", "description": "Opens the player's build storage." },
     { "id": "fishing_spot", "owner": "fishing", "description": "Provides access to a fishing interaction." },
     { "id": "fishing_luck", "owner": "fishing", "description": "Modifies fishing outcomes." },
+    { "id": "banks_visions", "owner": "progression", "description": "This structure is a wishing well: it banks Visions, shows refund carvings, and hosts claim/refund/coin interactions." },
+    { "id": "focus_shrine", "owner": "progression", "description": "This structure hosts the shrine focus: a set item visibly biases Vision draws toward itself and its family." },
     { "id": "shelter", "owner": "camping", "description": "Protects occupants from weather." },
     { "id": "sleep", "owner": "camping", "description": "Allows eligible actors to sleep." },
     { "id": "storage", "owner": "camping", "description": "Provides stateful shelter storage slots." },

@@ -34,9 +34,9 @@ var profile: PlayerProfile
 var inventory: InventoryManager
 var stock: StockManager
 var collection: CollectionManager
-var skills: SkillManager
+var progression: ProgressionModule
+var onboarding: OnboardingState
 var rewards: RewardManager
-var parcels: ParcelManager
 var arrivals: ArrivalScheduler
 var crafting: CraftingManager
 var equipment: EquipmentManager
@@ -90,12 +90,17 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 	)
 	interactions.register_provider("camping", camping.interactions)
 	collection = CollectionManager.new(registries)
-	skills = SkillManager.new(registries)
+	# (progression registers its provider below, once the module exists)
 	rewards = RewardManager.new(registries, rng, inventory, stock, collection)
-	parcels = ParcelManager.new(registries, rng, inventory, stock, collection, skills)
-	arrivals = ArrivalScheduler.new(registries, rng)
 	equipment = EquipmentManager.new(registries)
-	crafting = CraftingManager.new(registries, inventory, stock, skills, equipment, collection)
+	progression = ProgressionModule.new(registries, rng, grid, stock, collection, equipment)
+	onboarding = OnboardingState.new()
+	interactions.register_provider(
+		"progression",
+		ProgressionInteractions.new(registries, grid, progression)
+	)
+	arrivals = ArrivalScheduler.new(registries, rng)
+	crafting = CraftingManager.new(registries, inventory, stock, progression, equipment, collection)
 	landmarks = LandmarkManager.new(registries, rng, grid, stock, rewards, equipment, collection)
 	combat = CombatManager.new(registries, landmarks, rewards, equipment, collection)
 	save_manager = SaveManager.new(registries)
@@ -104,10 +109,10 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 	# must not retain the root, otherwise root -> manager -> callable -> root
 	# forms a permanent reference cycle each time a game session is rebuilt.
 	var owner_ref: WeakRef = weakref(self)
-	skills.level_up.connect(func(skill_id, new_level, unlocks):
+	progression.milestones.milestone_reached.connect(func(milestone_id, rewards_granted):
 		var owner := owner_ref.get_ref() as GameCore
 		if owner != null:
-			owner._on_level_up(skill_id, new_level, unlocks)
+			owner._on_milestone_reached(milestone_id, rewards_granted)
 	)
 	grid.grid_changed.connect(func():
 		var owner := owner_ref.get_ref() as GameCore
@@ -148,6 +153,7 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 func new_game(new_profile: PlayerProfile) -> void:
 	profile = new_profile
 	camping.reset()
+	onboarding.set_stage(OnboardingState.COMPLETE)
 	_compose_starting_world()
 	grid.home_cell = Vector2i.ZERO
 	profile.position = grid.cell_to_world(Vector2i.ZERO)
@@ -156,9 +162,10 @@ func new_game(new_profile: PlayerProfile) -> void:
 	equipment.acquire("tool_axe_basic")
 	equipment.equip("tool_rod_basic")
 	_ensure_default_body_item()
-	# Trees begin unplaced in the Build Library. The storage chest is the only
-	# progression utility deliberately authored into the opening world.
+	# Trees begin unplaced in the Build Library. The wishing well is the heart
+	# of progression and waits there too — guided placement is the opening beat.
 	stock.add_structure("struct_pine")
+	stock.add_structure("struct_wishing_well")
 	_ensure_showcase_placeables()
 	collection.record("gear", "tool_rod_basic")
 	collection.record("gear", "tool_axe_basic")
@@ -167,22 +174,201 @@ func new_game(new_profile: PlayerProfile) -> void:
 	save()
 
 
+## Authored first-session start. Unlike new_game(), this deliberately creates
+## no land yet: the keeper arrives into an empty world and chooses the first
+## tile during the portal sequence.
+func begin_onboarding_game(new_profile: PlayerProfile) -> void:
+	profile = new_profile
+	camping.reset()
+	grid.cells.clear()
+	grid.stacked_cells.clear()
+	grid.rebuild_structure_index()
+	grid.home_cell = Vector2i.ZERO
+	profile.position = grid.cell_to_world(Vector2i.ZERO)
+	equipment.acquire("tool_rod_basic")
+	equipment.acquire("tool_axe_basic")
+	equipment.equip("tool_rod_basic")
+	_ensure_default_body_item()
+	collection.record("gear", "tool_rod_basic")
+	collection.record("gear", "tool_axe_basic")
+	onboarding.begin()
+	save()
+
+
+func choose_onboarding_land(tile_id: String) -> bool:
+	if onboarding.stage != OnboardingState.LAND_CHOICE:
+		return false
+	var allowed: Array = registries.tune("starter_land_options", [])
+	if (
+		tile_id not in allowed
+		or registries.tile(tile_id) == null
+		or not registries.is_tile_active(tile_id)
+	):
+		return false
+	profile.starter_land_id = tile_id
+	grid.home_cell = Vector2i.ZERO
+	# A real starter island rises through the portal: nine chosen land blocks
+	# with a complete water ring, not a lone square floating in the sky.
+	for x in range(-2, 3):
+		for y in range(-2, 3):
+			var coord := Vector2i(x, y)
+			var is_water_ring := absi(x) == 2 or absi(y) == 2
+			grid.place_tile(
+				coord,
+				"tile_open_water" if is_water_ring else tile_id,
+				0,
+				coord == Vector2i.ZERO,
+				false
+			)
+	var starter_tree := grid.add_structure(
+		Vector2i(-1, -1),
+		"struct_pine",
+		1,
+		0
+	)
+	profile.position = grid.cell_to_world(Vector2i.ZERO)
+	collection.record("tiles", tile_id, 0)
+	collection.record("tiles", "tile_open_water", 0)
+	if starter_tree != null:
+		collection.record("structures", "struct_pine")
+		collection.record_placed("structures", "struct_pine")
+	onboarding.guide_piece(
+		OnboardingState.PLACE_WATER,
+		VisionSystem.KIND_TILE,
+		"tile_open_water"
+	)
+	_ensure_guided_stock(VisionSystem.KIND_TILE, "tile_open_water")
+	save()
+	return true
+
+
+## Called after a successful placement. It verifies the live world state
+## before advancing and returns the next guaranteed piece for presentation.
+func advance_onboarding_after_placement() -> Dictionary:
+	var next: Dictionary = {}
+	match onboarding.stage:
+		OnboardingState.PLACE_WATER:
+			# Sixteen water blocks form the authored ring; the seventeenth is
+			# the player's own first extension.
+			if _placed_tile_count("tile_open_water") < 17:
+				return {}
+			_ensure_guided_stock("structure", "struct_wishing_well")
+			onboarding.guide_piece(
+				OnboardingState.PLACE_WELL,
+				VisionSystem.KIND_STRUCTURE,
+				"struct_wishing_well"
+			)
+			next = {
+				"kind": VisionSystem.KIND_STRUCTURE,
+				"id": "struct_wishing_well",
+				"message": "There is room for the heart of your world: the wishing well.",
+			}
+		OnboardingState.PLACE_WELL:
+			if not _is_structure_placed("struct_wishing_well"):
+				return {}
+			onboarding.set_stage(OnboardingState.TEND_TREE)
+			next = {
+				"message": "The well is listening. Tend the pine already growing nearby.",
+			}
+		OnboardingState.PLACE_VISION:
+			onboarding.set_stage(OnboardingState.TRY_FISHING)
+			next = {
+				"message": "Something stirs in the water you placed.",
+			}
+		_:
+			return {}
+	save()
+	return next
+
+
+func onboarding_vision_banked() -> bool:
+	if onboarding.stage != OnboardingState.TEND_TREE:
+		return false
+	onboarding.set_stage(OnboardingState.CLAIM_VISION)
+	save()
+	return true
+
+
+func onboarding_vision_chosen(kind: String, content_id: String) -> bool:
+	if onboarding.stage != OnboardingState.CLAIM_VISION:
+		return false
+	onboarding.guide_piece(
+		OnboardingState.PLACE_VISION,
+		kind,
+		content_id
+	)
+	save()
+	return true
+
+
+func onboarding_fished() -> bool:
+	if onboarding.stage != OnboardingState.TRY_FISHING:
+		return false
+	onboarding.set_stage(OnboardingState.COMPLETE)
+	save()
+	return true
+
+
+## Repairs an interrupted guided placement after load without duplicating a
+## piece that is already stored or placed.
+func ensure_onboarding_guided_piece() -> Dictionary:
+	if not onboarding.requires_guided_placement():
+		return {}
+	var kind := onboarding.guided_kind
+	var content_id := onboarding.guided_id
+	if kind == "" or content_id == "":
+		return {}
+	_ensure_guided_stock(kind, content_id)
+	return {"kind": kind, "id": content_id}
+
+
+func _ensure_guided_stock(kind: String, content_id: String) -> void:
+	match kind:
+		VisionSystem.KIND_TILE:
+			if stock.tile_count(content_id) < 1:
+				stock.add_tile(content_id)
+		VisionSystem.KIND_STRUCTURE:
+			if stock.structure_count(content_id) < 1:
+				stock.add_structure(content_id)
+
+
+func _placed_tile_count(tile_id: String) -> int:
+	var count := 0
+	for slot: Dictionary in grid.all_cell_slots():
+		var state: WorldGrid.CellState = slot["state"]
+		if state.tile_id == tile_id:
+			count += 1
+	return count
+
+
+func _is_structure_placed(structure_id: String) -> bool:
+	for slot: Dictionary in grid.all_cell_slots():
+		var state: WorldGrid.CellState = slot["state"]
+		for structure: WorldGrid.StructureState in state.structures:
+			if structure.structure_id == structure_id:
+				return true
+	return false
+
+
 ## The composed opening zone: a continuous three-tile northern water edge and
-## two deliberately repeated forest/path/forest rows. Only the first water
+## six land cells in the player's chosen starter land. Only the first water
 ## block is movement-locked; every other opening tile uses the normal move flow.
 func _compose_starting_world() -> void:
 	grid.cells.clear()
 	grid.stacked_cells.clear()
+	var land_id := profile.starter_land_id
+	if registries.tile(land_id) == null or not registries.is_tile_active(land_id):
+		land_id = "tile_grass"
 	var layout := {
 		Vector2i(-1, -1): ["tile_open_water", 0],
 		Vector2i(0, -1): ["tile_open_water", 0],
 		Vector2i(1, -1): ["tile_open_water", 0],
-		Vector2i(-1, 0): ["tile_grass", 0],
-		Vector2i(0, 0): ["tile_grass", 0],
-		Vector2i(1, 0): ["tile_grass", 0],
-		Vector2i(-1, 1): ["tile_grass", 0],
-		Vector2i(0, 1): ["tile_grass", 0],
-		Vector2i(1, 1): ["tile_grass", 0],
+		Vector2i(-1, 0): [land_id, 0],
+		Vector2i(0, 0): [land_id, 0],
+		Vector2i(1, 0): [land_id, 0],
+		Vector2i(-1, 1): [land_id, 0],
+		Vector2i(0, 1): [land_id, 0],
+		Vector2i(1, 1): [land_id, 0],
 	}
 	for coord: Vector2i in layout:
 		grid.place_tile(
@@ -205,12 +391,13 @@ func _compose_starting_world() -> void:
 
 # ------------------------------------------------------------------ flow hooks
 
-func _on_level_up(skill_id: String, new_level: int, unlocks: Array) -> void:
-	var grants := rewards.on_level_unlocks(unlocks)
-	for unlock in unlocks:
-		var note := String(unlock.get("note", ""))
-		if note != "":
-			notified.emit("%s %d — %s" % [registries.skill(skill_id).display_name, new_level, note], "levelup")
+func _on_milestone_reached(milestone_id: String, rewards_granted: Array) -> void:
+	var definition := registries.milestone(milestone_id)
+	if definition != null:
+		for reward in rewards_granted:
+			var note := String(reward.get("note", ""))
+			if note != "":
+				notified.emit("%s — %s" % [definition.display_name, note], "levelup")
 	_dirty = true
 	autosave_soon()
 
@@ -351,8 +538,8 @@ func _save_payload() -> Dictionary:
 		"inventory": inventory.to_save_dict(),
 		"stock": stock.to_save_dict(),
 		"collection": collection.to_save_dict(),
-		"skills": skills.to_save_dict(),
-		"parcels": parcels.to_save_dict(),
+		"progression": progression.to_save_dict(),
+		"onboarding": onboarding.to_save_dict(),
 		"arrivals": arrivals.to_save_dict(),
 		"equipment": equipment.to_save_dict(),
 		"landmarks": landmarks.to_save_dict(),
@@ -363,6 +550,7 @@ func _save_payload() -> Dictionary:
 		"view": view_state.duplicate(true),
 		"visual": visual_state.duplicate(true),
 		"play_seconds": play_seconds,
+		"saved_at_unix": int(Time.get_unix_time_from_system()),
 	}
 
 
@@ -412,7 +600,10 @@ func load_game() -> bool:
 	var raw_data := save_manager.read()
 	if raw_data.is_empty():
 		return false
-	var data: Dictionary = raw_data
+	# Progression v1 payloads migrate BEFORE strict validation: retired shapes
+	# become v2 (preserved verbatim under progression.archived_v1), then the
+	# validator applies its normal no-aliases strictness to the result.
+	var data: Dictionary = ProgressionModule.migrate_save_payload(raw_data)
 	var save_errors := CurrentSaveValidatorScript.validate(data, registries)
 	if not save_errors.is_empty():
 		var reason := "development save references retired content: " + save_errors[0]
@@ -429,21 +620,57 @@ func load_game() -> bool:
 		(data.get("features", {}) as Dictionary).get("camping", {})
 	)
 	collection.from_save_dict(data.get("collection", {}))
-	skills.from_save_dict(data.get("skills", {}))
-	parcels.from_save_dict(data.get("parcels", {}))
+	progression.from_save_dict(data.get("progression", {}))
+	onboarding.from_save_dict(data.get("onboarding", {}))
 	arrivals.from_save_dict(data.get("arrivals", {}))
 	equipment.from_save_dict(data.get("equipment", {}))
 	landmarks.from_save_dict(data.get("landmarks", {}))
 	combat.from_save_dict(data.get("combat", {}))
 	var wardrobe_migrated := _ensure_default_body_item()
-	var showcase_placeables_migrated := _ensure_showcase_placeables()
+	var showcase_placeables_migrated := (
+		_ensure_showcase_placeables()
+		if not onboarding.is_active()
+		else false
+	)
 	view_state = data.get("view", view_state).duplicate(true)
 	visual_state = data.get("visual", visual_state).duplicate(true)
 	play_seconds = float(data.get("play_seconds", 0.0))
+	_apply_offline_recovery(int(data.get("saved_at_unix", 0)))
 	if not grid.is_traversable(grid.world_to_cell(profile.position)):
 		profile.position = grid.cell_to_world(grid.nearest_walkable(grid.world_to_cell(profile.position)))
 	_dirty = wardrobe_migrated or showcase_placeables_migrated
 	return true
+
+
+## Trees and other resting anchors recover in real time even while away:
+## a returning player walks into a rested grove, never a punishment.
+func _apply_offline_recovery(saved_at_unix: int) -> void:
+	if saved_at_unix <= 0:
+		return
+	var elapsed := float(int(Time.get_unix_time_from_system()) - saved_at_unix)
+	if elapsed <= 0.0:
+		return
+	for object_id: int in _resting_anchors.keys():
+		var entry: Dictionary = _resting_anchors[object_id]
+		var runtime: RefCounted = entry["runtime"]
+		if runtime == null or not bool(runtime.get("anchor_resting")):
+			continue
+		runtime.set(
+			"anchor_regen_left",
+			float(runtime.get("anchor_regen_left")) - elapsed
+		)
+		if float(runtime.get("anchor_regen_left")) > 0.0:
+			continue
+		runtime.set("anchor_resting", false)
+		runtime.set("anchor_actions_done", 0)
+		var coord: Vector2i = entry["coord"]
+		var elevation := int(entry["elevation"])
+		var instance_id := int(entry["instance_id"])
+		grid.slot_changed.emit(coord, elevation)
+		if instance_id == 0:
+			grid.cell_changed.emit(coord)
+		anchor_regenerated.emit(coord, elevation, instance_id)
+	_rebuild_resting_anchors()
 
 
 func _ensure_default_body_item() -> bool:

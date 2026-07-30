@@ -1,0 +1,38 @@
+{
+  "items": [
+    { "id": "fish_dawnfin", "name": "Dawnfin", "category": "material", "tags": ["fish"], "rarity": "common", "description": "A small warm-scaled pond fish." },
+    { "id": "fish_mosscarp", "name": "Mosscarp", "category": "material", "tags": ["fish"], "rarity": "common", "description": "Placid and green; naps between reeds." },
+    { "id": "fish_glimmer", "name": "Glimmerling", "category": "material", "tags": ["fish"], "rarity": "rare", "description": "It carries a fleck of sunset in its tail." },
+    { "id": "reeds", "name": "Reeds", "category": "material", "rarity": "common", "description": "Bendy, useful, everywhere near water." },
+    { "id": "driftwood", "name": "Driftwood", "category": "material", "rarity": "common", "description": "Water-smoothed timber." },
+    { "id": "shell", "name": "Shell", "category": "material", "rarity": "uncommon", "description": "A spiral home someone outgrew." },
+    { "id": "smooth_stone", "name": "Smooth Stone", "category": "material", "rarity": "common", "description": "Round as a promise." },
+    { "id": "land_fragment", "name": "Land Fragment", "category": "material", "rarity": "uncommon", "description": "A living mote of world. Enough of these become a place." },
+    { "id": "softwood", "name": "Softwood", "category": "material", "rarity": "common", "description": "Grove timber, light and kind to tools." },
+    { "id": "hardwood", "name": "Hardwood", "category": "material", "rarity": "uncommon", "description": "Dense heartwood from a well-tended grove." },
+    { "id": "resin", "name": "Resin", "category": "material", "rarity": "uncommon", "description": "Golden and slow, like the grove is thinking." },
+    { "id": "seedwood", "name": "Seedwood", "category": "material", "rarity": "rare", "description": "A branch that wants to be a forest." },
+    { "id": "old_metal", "name": "Old Metal", "category": "material", "rarity": "uncommon", "description": "Ruined fittings, still strong under the rust." },
+    { "id": "carved_stone", "name": "Carved Stone", "category": "material", "rarity": "uncommon", "description": "Someone shaped this long ago." },
+    { "id": "relic_fragment", "name": "Relic Fragment", "category": "material", "rarity": "rare", "description": "A piece of the watchpost's story." },
+    { "id": "pattern_dust", "name": "Pattern Dust", "category": "material", "rarity": "uncommon", "description": "Duplicate discoveries settle into this. Spend it to steer the next reveal." },
+
+    { "id": "parcel_wild", "name": "Wild Land Parcel", "category": "parcel", "rarity": "uncommon", "description": "An unclaimed piece of world. Open it to choose what it becomes." },
+    { "id": "parcel_meadow", "name": "Meadow Parcel", "category": "parcel", "rarity": "common", "description": "Warm open land, ready for paths and gardens." },
+    { "id": "parcel_grove", "name": "Grove Parcel", "category": "parcel", "rarity": "common", "description": "Land that arrives already dreaming of trees." },
+    { "id": "parcel_stone", "name": "Stone Parcel", "category": "parcel", "rarity": "uncommon", "description": "Old bones of the world, good for ruins and roads." },
+    { "id": "parcel_winter", "name": "Winter Parcel", "category": "parcel", "rarity": "uncommon", "description": "A cool piece of world carrying snow, frost, and quiet paths." },
+
+    { "id": "tool_rod_basic", "name": "Willow Rod", "category": "tool", "slot": "tool", "tool_type": "rod", "tier": 1, "asset_id": "equip_fishing_rod", "stats": { "speed": 1.0 }, "description": "Your first rod. It has caught everything you own." },
+    { "id": "tool_axe_basic", "name": "Keeper's Axe", "category": "tool", "slot": "tool", "tool_type": "axe", "tier": 1, "asset_id": "equip_axe_basic", "stats": { "speed": 1.0 }, "description": "Honest iron on honest wood." },
+    { "id": "tool_axe_fine", "name": "Fine Axe", "category": "tool", "slot": "tool", "tool_type": "axe", "tier": 2, "asset_id": "equip_axe_fine", "stats": { "speed": 1.25, "yield_bonus": 0.2 }, "rarity": "uncommon", "description": "Gold-edged and eager. Groves respect it." },
+
+    { "id": "weapon_thorn_sword", "name": "Thornsplitter", "category": "equipment", "slot": "weapon", "tool_type": "sword", "tier": 1, "asset_id": "equip_sword", "stats": { "damage": 1 }, "rarity": "uncommon", "description": "Short, bright, and enough." },
+    { "id": "armor_explorer_hood", "name": "Explorer's Hood", "category": "equipment", "slot": "head", "tier": 1, "asset_id": "equip_hood", "stats": { "defense": 1 }, "rarity": "uncommon", "description": "Smells faintly of pine and far away." },
+    { "id": "armor_explorer_tunic", "name": "Explorer's Tunic", "category": "equipment", "slot": "body", "tier": 1, "asset_id": "", "stats": { "defense": 1 }, "rarity": "uncommon", "description": "Reinforced for brambles and weather. (Recolors your tunic.)" },
+    { "id": "cosmetic_cowboy_vest", "name": "Cowboy Vest", "category": "equipment", "slot": "body", "tier": 1, "asset_id": "cowboy_vest", "hide_regions": [], "stats": {}, "rarity": "common", "description": "A fitted frontier vest. Skinned to the keeper's shared wardrobe rig." },
+    { "id": "cape_watchpost", "name": "Watchpost Cape", "category": "equipment", "slot": "back", "tier": 2, "asset_id": "equip_cape", "stats": { "defense": 1 }, "rarity": "rare", "description": "Woven from the ivy that held the tower together. The guardian's gift." },
+
+    { "id": "relic_watch_emblem", "name": "Watch Emblem", "category": "relic", "rarity": "rare", "stack": false, "description": "The old garrison's sigil, polished new." }
+  ]
+}

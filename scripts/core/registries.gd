@@ -32,7 +32,8 @@ var tiles: Dictionary = {}
 var structures: Dictionary = {}
 var recipes: Dictionary = {}
 var loot_tables: Dictionary = {}
-var parcels: Dictionary = {}
+var inspiration_domains: Dictionary = {}
+var milestones: Dictionary = {}
 var anchors: Dictionary = {}
 var capabilities: Dictionary = {}
 var enemies: Dictionary = {}
@@ -80,8 +81,13 @@ func load_all(base_path := "res://data", report_issues := true) -> bool:
 		candidate.loot_tables, Defs.LootTableDefinition.from_dict, issues
 	)
 	_load_list(
-		candidate, base_path + "/parcels.json", "parcels", "parcels",
-		candidate.parcels, Defs.ParcelDefinition.from_dict, issues
+		candidate, base_path + "/inspiration_domains.json", "inspiration_domains",
+		"inspiration_domains", candidate.inspiration_domains,
+		Defs.InspirationDomainDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/milestones.json", "milestones", "milestones",
+		candidate.milestones, Defs.MilestoneDefinition.from_dict, issues
 	)
 	_load_list(
 		candidate, base_path + "/anchors.json", "anchors", "anchors",
@@ -186,7 +192,8 @@ func tile(id: String) -> Defs.TileDefinition: return tiles.get(id)
 func structure(id: String) -> Defs.StructureDefinition: return structures.get(id)
 func recipe(id: String) -> Defs.RecipeDefinition: return recipes.get(id)
 func loot_table(id: String) -> Defs.LootTableDefinition: return loot_tables.get(id)
-func parcel(id: String) -> Defs.ParcelDefinition: return parcels.get(id)
+func inspiration_domain(id: String) -> Defs.InspirationDomainDefinition: return inspiration_domains.get(id)
+func milestone(id: String) -> Defs.MilestoneDefinition: return milestones.get(id)
 func anchor(id: String) -> Defs.AnchorDefinition: return anchors.get(id)
 func capability(id: String) -> Defs.CapabilityDefinition: return capabilities.get(id)
 func enemy(id: String) -> Defs.EnemyDefinition: return enemies.get(id)
@@ -234,6 +241,22 @@ func tiles_in_family(family: String) -> Array:
 		):
 			result.append(definition)
 	return result
+
+
+## Domain lookup by tile family. Wildcard domains never own a family.
+func domain_for_family(family: String) -> Defs.InspirationDomainDefinition:
+	for definition: Defs.InspirationDomainDefinition in inspiration_domains.values():
+		if definition.tile_families.has(family):
+			return definition
+	return null
+
+
+## Domain an activity feeds, resolved from the activity definition.
+func domain_for_activity(skill_id: String) -> Defs.InspirationDomainDefinition:
+	var definition := skill(skill_id)
+	if definition == null:
+		return null
+	return inspiration_domain(definition.domain_id)
 
 
 func _read_object(path: String, issues: Array) -> Dictionary:
@@ -320,7 +343,8 @@ func _adopt(candidate) -> void:
 	structures = candidate.structures
 	recipes = candidate.recipes
 	loot_tables = candidate.loot_tables
-	parcels = candidate.parcels
+	inspiration_domains = candidate.inspiration_domains
+	milestones = candidate.milestones
 	anchors = candidate.anchors
 	capabilities = candidate.capabilities
 	enemies = candidate.enemies

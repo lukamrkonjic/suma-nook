@@ -14,10 +14,9 @@
     {
       "id": "fishing_rare",
       "entries": [
-        { "item": "fish_glimmer", "weight": 5, "rare": true },
-        { "item": "land_fragment", "weight": 12 },
-        { "item": "parcel_wild", "weight": 3, "rare": true },
-        { "item": "pattern_dust", "weight": 6 }
+        { "item": "fish_glimmer", "weight": 6, "rare": true },
+        { "item": "land_fragment", "weight": 15 },
+        { "item": "shell", "weight": 5 }
       ]
     },
     {
@@ -32,10 +31,9 @@
     {
       "id": "woodcutting_rare",
       "entries": [
-        { "item": "seedwood", "weight": 5, "rare": true },
-        { "item": "land_fragment", "weight": 10 },
-        { "item": "parcel_wild", "weight": 3, "rare": true },
-        { "item": "pattern_dust", "weight": 6 }
+        { "item": "seedwood", "weight": 6, "rare": true },
+        { "item": "land_fragment", "weight": 13 },
+        { "item": "resin", "weight": 5 }
       ]
     },
     {
@@ -49,11 +47,10 @@
     {
       "id": "ruin_spoils",
       "entries": [
-        { "item": "old_metal", "weight": 30, "min": 1, "max": 2 },
-        { "item": "carved_stone", "weight": 30, "min": 1, "max": 2 },
-        { "item": "relic_fragment", "weight": 20 },
-        { "item": "pattern_dust", "weight": 12 },
-        { "item": "parcel_stone", "weight": 8, "rare": true }
+        { "item": "old_metal", "weight": 32, "min": 1, "max": 2 },
+        { "item": "carved_stone", "weight": 32, "min": 1, "max": 2 },
+        { "item": "relic_fragment", "weight": 22 },
+        { "item": "land_fragment", "weight": 14 }
       ]
     }
   ]

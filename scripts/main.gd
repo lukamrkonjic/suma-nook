@@ -52,7 +52,8 @@ var asset_viewer: AssetViewer
 var performance_hud
 var panels: GamePanels
 var pause_menu: PauseMenu
-var parcel_reveal: ParcelReveal
+var vision_reveal: VisionReveal
+var arrival_picker: ArrivalLandPicker
 var input_hints: InputHintOverlay
 var character_creator: CharacterCreator
 var audio: GameAudio
@@ -106,7 +107,11 @@ func _ready() -> void:
 		player_visual.apply_equipment(core.equipment)
 		_start_gameplay(true)
 	elif core.save_manager.has_save() and core.load_game():
-		_start_gameplay(false)
+		if core.onboarding.stage == OnboardingState.LAND_CHOICE:
+			_begin_first_arrival()
+		else:
+			_start_gameplay(false)
+			call_deferred("_resume_guided_onboarding")
 	else:
 		_start_character_creation()
 	_apply_debug_visual_overrides()
@@ -224,10 +229,15 @@ func _build_ui() -> void:
 	add_child(panels)
 	panels.setup(core, kit, self)
 
-	parcel_reveal = ParcelReveal.new()
-	parcel_reveal.name = "ParcelReveal"
-	add_child(parcel_reveal)
-	parcel_reveal.setup(core, kit)
+	vision_reveal = VisionReveal.new()
+	vision_reveal.name = "VisionReveal"
+	add_child(vision_reveal)
+	vision_reveal.setup(core, kit, assets)
+
+	arrival_picker = ArrivalLandPicker.new()
+	arrival_picker.name = "ArrivalLandPicker"
+	add_child(arrival_picker)
+	arrival_picker.setup(core, kit, assets)
 
 	pause_menu = PauseMenu.new()
 	pause_menu.name = "PauseMenu"
@@ -556,7 +566,7 @@ func debug_reset_save() -> void:
 func _connect_flows() -> void:
 	hud.open_parcel_requested.connect(func():
 		audio.play_event("parcel_open")
-		parcel_reveal.open_best_available())
+		vision_reveal.open_from_well())
 	hud.pause_requested.connect(func(): open_pause_menu())
 	hud.build_piece_selected.connect(func(kind, id):
 		audio.play_event("build_preview")
@@ -565,9 +575,21 @@ func _connect_flows() -> void:
 	hud.build_store_requested.connect(func():
 		placement.store_held()
 		audio.play_event("store"))
-	parcel_reveal.reveal_finished.connect(_on_tile_chosen)
-	parcel_reveal.reveal_started.connect(func(_options): _refresh_controller_hints())
-	core.parcels.options_revealed.connect(func(_p, _o): audio.play_event("parcel_reveal"))
+	arrival_picker.land_chosen.connect(_on_first_land_chosen)
+	vision_reveal.reveal_finished.connect(_on_vision_chosen)
+	vision_reveal.reveal_started.connect(func(_options): _refresh_controller_hints())
+	core.progression.visions.options_revealed.connect(func(_context, _options):
+		audio.play_event("parcel_reveal")
+		# Deferred so a direct open (well button, delivery) wins the race and
+		# claim-at-the-well still opens the ritual automatically.
+		vision_reveal.call_deferred("open_pending"))
+	core.progression.inspiration.vision_banked.connect(_on_vision_banked)
+	core.progression.inspiration.bank_changed.connect(func(_count, _cap): hud.update_tutorial())
+	core.progression.refunds.coin_minted.connect(func(domain_id, _coins):
+		var domain := core.registries.inspiration_domain(domain_id)
+		if domain != null:
+			hud.toast("The well mints a %s coin — a promised vision waits." % domain.display_name.to_lower(), "good")
+		audio.play_event("discovery"))
 	panels.landmark_resolution_chosen.connect(_on_landmark_resolution)
 	panels.panel_toggled.connect(func(_n, open):
 		audio.play_event("panel_open" if open else "panel_close")
@@ -587,9 +609,11 @@ func _connect_flows() -> void:
 	placement.held_changed.connect(func(_held): _refresh_controller_hints())
 	player.interaction_focus_changed.connect(_on_focus_changed)
 	player.click_interaction_reached.connect(_on_click_interaction_reached)
+	player.arrival_choice_ready.connect(_open_first_land_picker)
+	player.arrival_landed.connect(_on_first_arrival_landed)
 	core.fire.burning_changed.connect(_on_fire_burning_changed)
 
-	core.skills.level_up.connect(_on_skill_level_up)
+	core.progression.milestones.milestone_reached.connect(_on_milestone_reached)
 	core.equipment.equipment_changed.connect(func():
 		player_visual.apply_equipment(core.equipment)
 	)
@@ -631,15 +655,19 @@ func _start_character_creation() -> void:
 	character_creator.name = "Creator"
 	add_child(character_creator)
 	core.profile = character_creator.profile
-	character_creator.setup(kit, palette, func(profile):
-		player_visual.apply_profile(profile))
-	# A pleasant preview world sits behind the creator.
-	core._compose_starting_world()
-	renderer.rebuild_all()
-	player.position = core.grid.cell_to_world(Vector2i.ZERO)
-	# Present the actual front of the avatar while customization is open.
-	player.rotation.y = PI
+	character_creator.setup(
+		kit, palette,
+		func(profile): player_visual.apply_profile(profile)
+	)
+	# The world does not exist yet: creation is a dedicated scene — the
+	# character stands alone against the soft sky, no tiles behind and no
+	# gameplay HUD. The world materializes only when the player finishes.
+	hud.visible = false
+	player.position = Vector3.ZERO
 	camera_rig.zoom_for_creator()
+	# Face the portrait camera directly instead of presenting a gameplay
+	# three-quarter angle.
+	player.rotation.y = camera_rig.rotation.y + PI
 	player.set_state(PlayerController.State.DISABLED)
 	character_creator.creation_finished.connect(_on_creation_finished)
 	if InputDeviceService.shared().is_controller():
@@ -647,18 +675,70 @@ func _start_character_creation() -> void:
 	_refresh_controller_hints()
 
 
+## Curated arrival choices from tuning — small on purpose: exciting, not
+## overwhelming. The pick is the player's first act of world-making.
+func _starter_land_option_ids() -> Array:
+	var options: Array = []
+	for raw_tile_id in core.registries.tune("starter_land_options", []):
+		var tile := core.registries.tile(String(raw_tile_id))
+		if tile != null and core.registries.is_tile_active(tile.id):
+			options.append(tile.id)
+	return options
+
+
 func _on_creation_finished(profile: PlayerProfile) -> void:
 	character_creator = null
-	core.new_game(profile)
-	renderer.rebuild_all()
+	core.begin_onboarding_game(profile)
 	player_visual.apply_profile(profile)
 	player.position = profile.position
-	camera_rig.restore_gameplay_zoom()
-	_start_gameplay(true)
+	_begin_first_arrival()
 
 
-func _start_gameplay(fresh: bool) -> void:
+func _begin_first_arrival() -> void:
+	get_tree().paused = false
+	_gameplay_started = false
+	hud.visible = false
+	renderer.rebuild_all()
+	player_visual.apply_profile(core.profile)
+	player_visual.apply_equipment(core.equipment)
+	player.position = Vector3.ZERO
+	player.rotation.y = core.profile.facing
+	camera_rig.frame_for_arrival()
+	player.begin_portal_arrival()
+	_refresh_controller_hints()
+
+
+func _open_first_land_picker() -> void:
+	if core.onboarding.stage != OnboardingState.LAND_CHOICE:
+		return
+	arrival_picker.open(_starter_land_option_ids())
+	_refresh_controller_hints()
+	get_tree().paused = true
+
+
+func _on_first_land_chosen(tile_id: String) -> void:
+	get_tree().paused = false
+	if not core.choose_onboarding_land(tile_id):
+		arrival_picker.open(_starter_land_option_ids())
+		get_tree().paused = true
+		return
+	renderer.animate_arrival_island()
+	var definition := core.registries.tile(tile_id)
+	if definition != null:
+		audio.play_event("place_" + definition.placement_sound)
+	await get_tree().create_timer(0.72).timeout
+	player.finish_portal_arrival()
+
+
+func _on_first_arrival_landed() -> void:
+	_start_gameplay(true, false)
+	hud.toast("A quiet water shape followed you through.", "good")
+	call_deferred("_resume_guided_onboarding")
+
+
+func _start_gameplay(fresh: bool, show_welcome := true) -> void:
 	_gameplay_started = true
+	hud.visible = true
 	player.set_state(PlayerController.State.FREE)
 	player_visual.apply_equipment(core.equipment)
 	camera_rig.restore_state(core.view_state)
@@ -677,9 +757,40 @@ func _start_gameplay(fresh: bool) -> void:
 	if lighting.current_profile != null:
 		_on_profile_applied(lighting.current_profile)
 	hud.update_tutorial()
-	hud.toast("Welcome%s, %s." % ["" if fresh else " back", core.profile.display_name], "good")
+	if show_welcome:
+		hud.toast("Welcome%s, %s." % ["" if fresh else " back", core.profile.display_name], "good")
 	core.arrivals.announce_restored_delivery()
 	_refresh_controller_hints()
+
+
+func _resume_guided_onboarding() -> void:
+	var guided := core.ensure_onboarding_guided_piece()
+	if guided.is_empty():
+		hud.update_tutorial()
+		return
+	placement.hold_new(String(guided["kind"]), String(guided["id"]))
+	hud.update_tutorial()
+
+
+func _advance_guided_onboarding() -> void:
+	var next := core.advance_onboarding_after_placement()
+	if next.is_empty():
+		hud.update_tutorial()
+		return
+	var message := String(next.get("message", ""))
+	if message != "":
+		hud.toast(message, "good")
+	var kind := String(next.get("kind", ""))
+	var content_id := String(next.get("id", ""))
+	if kind != "" and content_id != "":
+		placement.hold_new(kind, content_id)
+	else:
+		placement.set_active(false)
+	hud.update_tutorial()
+
+
+func _guided_placement_locked() -> bool:
+	return core.onboarding.requires_guided_placement()
 
 
 func _apply_saved_visual_state() -> void:
@@ -745,7 +856,7 @@ func _input(event: InputEvent) -> void:
 		_gameplay_started
 		and not placement.active
 		and not panels.is_open()
-		and not parcel_reveal.is_open()
+		and not vision_reveal.is_open()
 		and not _interaction_at_screen(mouse.position).is_empty()
 	):
 		effects.click_marker(mouse.position, true)
@@ -775,7 +886,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if asset_viewer != null and asset_viewer.is_open():
 		return
-	if pause_menu.is_open() or parcel_reveal.is_open() or panels.is_open():
+	if pause_menu.is_open() or vision_reveal.is_open() or panels.is_open():
 		return
 	if _handle_hud_shortcut(event):
 		get_viewport().set_input_as_handled()
@@ -797,6 +908,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		_handle_controller_build_input(event)
 		return
 	if event.is_action_pressed("build_mode"):
+		if _guided_placement_locked():
+			hud.toast("Place this piece before leaving Shape Land.", "warn")
+			get_viewport().set_input_as_handled()
+			return
 		skill_actions.cancel_all()
 		placement.toggle()
 	elif event.is_action_pressed("rotate_piece") and placement.active:
@@ -843,7 +958,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		if panels.is_open():
 			panels.close()
-		elif parcel_reveal.is_open():
+		elif vision_reveal.is_open():
 			return
 		elif placement.active:
 			_cancel_build_or_open_library()
@@ -929,6 +1044,9 @@ func _handle_controller_build_input(event: InputEvent) -> void:
 func _cancel_build_or_open_library() -> void:
 	if not placement.active:
 		return
+	if _guided_placement_locked():
+		hud.toast("This piece is part of your arrival — place it first.", "warn")
+		return
 	if hud.build_library_collapsed():
 		if not placement.held.is_empty():
 			placement.cancel_click()
@@ -971,7 +1089,7 @@ func _is_controller_event(event: InputEvent) -> bool:
 
 
 func open_pause_menu(page := "menu") -> void:
-	if not _gameplay_started or parcel_reveal.is_open():
+	if not _gameplay_started or vision_reveal.is_open():
 		return
 	placement.prepare_for_save()
 	if panels.is_open():
@@ -983,12 +1101,14 @@ func _on_input_method_changed(method: int) -> void:
 	var using_controller := method == InputDeviceService.InputMethod.CONTROLLER
 	placement.set_controller_mode(using_controller)
 	if using_controller:
-		if pause_menu.is_open():
+		if arrival_picker != null and arrival_picker.is_open():
+			arrival_picker.focus_default()
+		elif pause_menu.is_open():
 			pause_menu.focus_default()
 		elif panels.is_open():
 			panels.focus_default()
-		elif parcel_reveal.is_open():
-			parcel_reveal.focus_default()
+		elif vision_reveal.is_open():
+			vision_reveal.focus_default()
 		elif (
 			character_creator != null
 			and is_instance_valid(character_creator)
@@ -1019,7 +1139,11 @@ func _refresh_controller_hints() -> void:
 	if input_hints == null:
 		return
 	var actions: Array[Dictionary] = []
-	if (
+	if arrival_picker != null and arrival_picker.is_open():
+		actions = [
+			{"action": &"ui_accept", "label": "Choose your first land"},
+		]
+	elif (
 		character_creator != null
 		and is_instance_valid(character_creator)
 	):
@@ -1037,7 +1161,7 @@ func _refresh_controller_hints() -> void:
 			{"action": &"ui_accept", "label": "Select"},
 			{"action": &"cancel", "label": "Back"},
 		]
-	elif parcel_reveal.is_open():
+	elif vision_reveal.is_open():
 		actions = [
 			{"action": &"ui_accept", "label": "Choose land"},
 		]
@@ -1088,7 +1212,7 @@ func _refresh_controller_hints() -> void:
 # ------------------------------------------------------------------ click commands
 
 func _handle_world_click(screen_position: Vector2) -> void:
-	if panels.is_open() or parcel_reveal.is_open():
+	if panels.is_open() or vision_reveal.is_open():
 		return
 	var interaction := _interaction_at_screen(screen_position)
 	if interaction.is_empty():
@@ -1116,6 +1240,12 @@ func _on_action_feedback(kind: String, data: Dictionary) -> void:
 			audio.play_event("fish_bite")
 		"fish_catch":
 			audio.play_event("fish_catch")
+			if core.onboarding_fished():
+				hud.toast(
+					"Your world can now grow by following what you enjoy.",
+					"good"
+				)
+				_celebration_pending = true
 			hud.update_tutorial()
 		"chop_windup":
 			audio.play_event("chop_windup")
@@ -1130,9 +1260,12 @@ func _on_action_feedback(kind: String, data: Dictionary) -> void:
 				renderer.refresh_anchor(data["coord"])
 		"tool_equip":
 			audio.play_event("tool_equip")
+		"inspiration_full":
+			audio.play_event("parcel_appear")
+			hud.toast("The well is full — three visions wait for you.", "good")
 
 
-func _on_skill_level_up(_skill_id: String, _level: int, _unlock: Variant) -> void:
+func _on_milestone_reached(_milestone_id: String, _rewards: Array) -> void:
 	audio.play_event("levelup")
 	hud.update_tutorial()
 	if player.state == PlayerController.State.FREE:
@@ -1141,6 +1274,19 @@ func _on_skill_level_up(_skill_id: String, _level: int, _unlock: Variant) -> voi
 		# Fishing and woodcutting own their full action clips. Queue the flourish
 		# rather than cutting a cast, hold, or chop loop in half.
 		_celebration_pending = true
+
+
+func _on_vision_banked(domain_id: String, banked_count: int) -> void:
+	audio.play_event("discovery")
+	core.onboarding_vision_banked()
+	hud.update_tutorial()
+	var domain := core.registries.inspiration_domain(domain_id)
+	if domain != null:
+		hud.toast(
+			"A %s vision settles into the well (%d waiting). You feel lighter on your feet."
+			% [domain.display_name.to_lower(), banked_count],
+			"good"
+		)
 
 
 func _on_player_state_changed(new_state: PlayerController.State) -> void:
@@ -1166,18 +1312,28 @@ func _on_loot(grants: Array) -> void:
 			hud.update_tutorial()
 
 
-func _on_tile_chosen(tile_id: String) -> void:
+func _on_vision_chosen(entry: Dictionary) -> void:
 	audio.play_event("parcel_select")
 	core.arrivals.resolve_delivery()
 	hud.update_tutorial()
-	hud.toast("%s added to your build storage." % core.registries.tile(tile_id).display_name, "good")
-	placement.hold_new("tile", tile_id)
+	var kind := String(entry.get("kind", ""))
+	var content_id := String(entry.get("id", ""))
+	core.onboarding_vision_chosen(kind, content_id)
+	var display_name := content_id
+	if kind == VisionSystem.KIND_TILE and core.registries.tile(content_id) != null:
+		display_name = core.registries.tile(content_id).display_name
+	elif kind == VisionSystem.KIND_STRUCTURE and core.registries.structure(content_id) != null:
+		display_name = core.registries.structure(content_id).display_name
+	hud.toast("%s added to your build storage." % display_name, "good")
+	placement.hold_new(kind, content_id)
 
 
 func _on_placement_result(ok: bool, _message: String, kind: String) -> void:
 	if kind.begins_with("place_"):
 		audio.play_event(kind if ok else "build_invalid")
 		hud.update_tutorial()
+		if ok and _guided_placement_locked():
+			call_deferred("_advance_guided_onboarding")
 	elif kind == "invalid":
 		audio.play_event("build_invalid")
 	elif kind in ["undo", "redo", "pickup"]:
@@ -1253,6 +1409,18 @@ func _execute_feature_interaction(interaction: Dictionary) -> void:
 				"The fire catches." if burning else "The fire dies down.",
 				"good"
 			)
+		"progression":
+			match String(option.id):
+				"claim_vision":
+					audio.play_event("parcel_open")
+				"offer_refund":
+					panels.show_refund_picker()
+				"release_coin_prompt":
+					panels.show_coin_picker()
+				"focus_shrine":
+					panels.show_shrine_picker()
+				"clear_shrine_focus":
+					hud.toast("The shrine's focus drifts away.", "good")
 	core.autosave_soon()
 
 
@@ -1277,12 +1445,12 @@ func _on_fire_burning_changed(instance_id: int, burning: bool) -> void:
 
 
 func _open_delivery_package() -> void:
-	var options := core.arrivals.open_waiting(core.parcels)
+	var options := core.arrivals.open_waiting(core.progression)
 	if options.is_empty():
 		return
 	delivery_point.hide_package()
 	audio.play_event("parcel_open")
-	parcel_reveal.open_best_available()
+	vision_reveal.open_pending()
 
 
 func _on_arrival_requested(payload: LandParcelPayload) -> void:
@@ -1301,7 +1469,7 @@ func _on_presentation_delivery_ready(payload: LandParcelPayload) -> void:
 func _on_delivery_ready(payload: LandParcelPayload) -> void:
 	delivery_point.show_package(payload)
 	audio.play_event("parcel_appear")
-	hud.toast("A Land Parcel is waiting at the northern dock.", "good")
+	hud.toast("A gift crate is waiting at the northern dock.", "good")
 
 
 func _on_hobby_result(result: HobbyActionResult) -> void:

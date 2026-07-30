@@ -29,7 +29,6 @@ func _init(
 func resolve_hobby_action(skill: Defs.SkillDefinition) -> HobbyActionResult:
 	var result := HobbyActionResult.new()
 	result.hobby_id = skill.id
-	result.xp_awarded = skill.action_xp
 
 	if collection != null and skill.collection_category != "" and not skill.collection_entries.is_empty():
 		var discovery_chance := (
@@ -69,26 +68,6 @@ func resolve_hobby_action(skill: Defs.SkillDefinition) -> HobbyActionResult:
 
 	hobby_result_resolved.emit(result)
 	return result
-
-
-## Data-driven hobby milestones grant finished placeable pieces directly.
-func on_level_unlocks(unlocks: Array) -> Array:
-	var grants: Array = []
-	for unlock in unlocks:
-		var kind := String(unlock.get("kind", ""))
-		var reward_id := String(unlock.get("id", ""))
-		if (
-			kind == "tile_reward"
-			and stock != null
-			and registries.tile(reward_id) != null
-			and registries.is_tile_active(reward_id)
-		):
-			stock.add_tile(reward_id)
-			grants.append({"tile_id": reward_id, "count": 1, "rare": true, "guaranteed": true})
-		elif kind == "structure_reward" and stock != null and registries.structure(reward_id) != null:
-			stock.add_structure(reward_id)
-			grants.append({"structure_id": reward_id, "count": 1, "rare": true, "guaranteed": true})
-	return grants
 
 
 func roll_table(table_id: String, stream := "loot_misc") -> Array:

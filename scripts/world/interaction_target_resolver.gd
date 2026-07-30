@@ -1,4 +1,4 @@
-class_name InteractionTargetResolver
+﻿class_name InteractionTargetResolver
 extends RefCounted
 ## Converts a screen position into the closest gameplay interaction. The scene
 ## owns nodes; this service owns targeting priority and capability discovery.
@@ -130,7 +130,7 @@ func interaction_at(screen_position: Vector2) -> Dictionary:
 				and not ground_state.anchor_resting
 			):
 				var anchor := core.registries.anchor(tile_definition.anchor_id)
-				if anchor != null and core.skills.is_playable(anchor.skill_id):
+				if anchor != null and core.progression.is_activity_playable(anchor.skill_id):
 					var interaction_point := ground_center
 					if (
 						not tile_definition.walkable
@@ -171,7 +171,7 @@ func interaction_at(screen_position: Vector2) -> Dictionary:
 					)
 					if definition.anchor_id != "" and not structure.anchor_resting:
 						var anchor := core.registries.anchor(definition.anchor_id)
-						if anchor != null and core.skills.is_playable(anchor.skill_id):
+						if anchor != null and core.progression.is_activity_playable(anchor.skill_id):
 							var candidate := _candidate(
 								screen_position,
 								point + Vector3(0, 0.8, 0),
@@ -272,7 +272,7 @@ func _structure_interaction(instance_id: int) -> Dictionary:
 		}
 	if definition.anchor_id != "" and not structure.anchor_resting:
 		var anchor := core.registries.anchor(definition.anchor_id)
-		if anchor != null and core.skills.is_playable(anchor.skill_id):
+		if anchor != null and core.progression.is_activity_playable(anchor.skill_id):
 			return {
 				"kind": "anchor",
 				"coord": coord,

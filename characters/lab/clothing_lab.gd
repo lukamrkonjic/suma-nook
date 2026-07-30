@@ -236,6 +236,7 @@ var _region_checks: Dictionary = {}
 var _vector_controls: Dictionary = {}
 var _fit_controls: Dictionary = {}
 var _numeric_controls: Dictionary = {}
+var _pair_center_controls_root: Control
 var _drag_handles: Dictionary = {}
 var _revert_buttons: Dictionary = {}
 var _field_baselines: Dictionary = {}
@@ -790,6 +791,23 @@ func _build_clothing_ui() -> void:
 	_build_marker_editor(right_content)
 
 	_separator(right_content, "Whole garment transform")
+	_pair_center_controls_root = VBoxContainer.new()
+	_pair_center_controls_root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right_content.add_child(_pair_center_controls_root)
+	_note(
+		_pair_center_controls_root,
+		"Paired footwear: Position X/Y move the shoes in opposite mirrored "
+		+ "directions; Z moves both vertically. Pair center moves both shoes "
+		+ "together.",
+	)
+	_add_vector_controls(
+		_pair_center_controls_root,
+		"Pair center (m)",
+		"pair_center",
+		-0.50,
+		0.50,
+		0.001,
+	)
 	_add_vector_controls(
 		right_content, "Position (m)", "position", -0.25, 0.25, 0.001
 	)
@@ -2557,6 +2575,7 @@ func _capture_fit_snapshot() -> Dictionary:
 	if _fit == null:
 		return {}
 	return {
+		"pair_center_position": _fit.pair_center_position,
 		"position": _fit.position,
 		"rotation_degrees": _fit.rotation_degrees,
 		"scale": _fit.scale,
@@ -2582,6 +2601,10 @@ func _apply_fit_snapshot(snapshot: Dictionary) -> void:
 	if _fit == null or snapshot.is_empty():
 		return
 	_history_restoring = true
+	_fit.pair_center_position = snapshot.get(
+		"pair_center_position",
+		Vector3.ZERO,
+	)
 	_fit.position = snapshot["position"]
 	_fit.rotation_degrees = snapshot["rotation_degrees"]
 	_fit.scale = snapshot["scale"]
@@ -2697,6 +2720,8 @@ func _numeric_field_value(field_key: String) -> float:
 	var parts := field_key.split(".", false, 1)
 	var vector := Vector3.ZERO
 	match parts[0]:
+		"pair_center":
+			vector = _fit.pair_center_position
 		"position":
 			vector = _fit.position
 		"rotation":
@@ -3029,17 +3054,27 @@ func _create_new_clothing() -> void:
 		if preset != null and preset.body_profile != null
 		else "body_male"
 	)
-	fit.garment_class = (
-		"lower_body"
-		if slot == CharacterSlots.BOTTOM or slot == CharacterSlots.SHOES
-		else "upper_body"
-	)
-	var default_regions := (
-		["hips", "thigh_l", "knee_l", "shin_l",
-			"thigh_r", "knee_r", "shin_r"]
-		if fit.garment_class == "lower_body"
-		else DEFAULT_JACKET_REGIONS
-	)
+	if slot == CharacterSlots.SHOES:
+		fit.garment_class = "footwear"
+	elif slot == CharacterSlots.BOTTOM:
+		fit.garment_class = "lower_body"
+	else:
+		fit.garment_class = "upper_body"
+	var default_regions: Array[String] = []
+	if fit.garment_class == "footwear":
+		default_regions.assign(["foot_l", "foot_r"])
+	elif fit.garment_class == "lower_body":
+		default_regions.assign([
+			"hips",
+			"thigh_l",
+			"knee_l",
+			"shin_l",
+			"thigh_r",
+			"knee_r",
+			"shin_r",
+		])
+	else:
+		default_regions.assign(DEFAULT_JACKET_REGIONS)
 	for region in default_regions:
 		fit.hidden_regions.append(region)
 	var part := CharacterPartDefinition.new()
@@ -3204,6 +3239,11 @@ func _refresh_ui_from_fit() -> void:
 		return
 	_source_path.text = _fit.source_file
 	_fit.symmetric = true
+	if _pair_center_controls_root != null:
+		_pair_center_controls_root.visible = (
+			_fit.garment_class == "footwear"
+		)
+	_set_vector_controls("pair_center", _fit.pair_center_position)
 	_set_vector_controls("position", _fit.position)
 	_set_vector_controls("rotation", _fit.rotation_degrees)
 	_set_vector_controls("scale", _fit.scale)
@@ -3263,6 +3303,8 @@ func _on_vector_changed(key: String, axis_index: int = -1) -> void:
 		(controls[2] as SpinBox).value,
 	)
 	match key:
+		"pair_center":
+			_fit.pair_center_position = value
 		"position":
 			_fit.position = value
 		"rotation":
@@ -4680,6 +4722,13 @@ func _update_raw_preview_mesh() -> void:
 				)
 				point.x *= _fit.torso_width * section_scale
 				point.z *= _fit.torso_depth * section_scale
+				if _fit.garment_class == "footwear":
+					var side := 1.0 if point.x >= 0.0 else -1.0
+					point += Vector3(
+						side * _fit.position.x,
+						_fit.position.z,
+						-side * _fit.position.y,
+					)
 				deformed[vertex_index] = point
 			direct_surfaces.append(deformed)
 		_commit_raw_preview_mesh(
@@ -4884,8 +4933,18 @@ func _update_raw_preview_mesh() -> void:
 		)
 		_raw_deformed_vertices.append(deformed)
 	_raw_preview.mesh = rebuilt
-	_raw_preview.position = Vector3(
-		_fit.position.x, _fit.position.z, -_fit.position.y
+	_raw_preview.position = (
+		Vector3(
+			_fit.pair_center_position.x,
+			_fit.pair_center_position.z,
+			-_fit.pair_center_position.y,
+		)
+		if _fit.garment_class == "footwear"
+		else Vector3(
+			_fit.position.x,
+			_fit.position.z,
+			-_fit.position.y,
+		)
 	)
 	_raw_preview.rotation_degrees = Vector3(
 		_fit.rotation_degrees.x,

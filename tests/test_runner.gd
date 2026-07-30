@@ -134,16 +134,20 @@ func _run() -> void:
 	_test_gg_render_contract()
 	_test_game_preferences()
 	_test_starting_world()
+	_test_authored_onboarding_flow()
 	_test_maxed_debug_world_spawn()
-	_test_xp_only_hobbies()
+	_test_inspiration_hobbies()
+	_test_vision_bank_cap_blocks_earning()
 	_test_hobby_journal_and_direct_rewards()
 	_test_out_of_scope_systems_disabled()
-	_test_arrival_and_parcel_loop()
+	_test_arrival_and_gift_loop()
 	_test_arrival_queue_invariants()
-	_test_xp_and_unlocks()
+	_test_practice_milestones()
+	_test_journal_milestones()
 	_test_deterministic_rng()
-	_test_parcels_choice_and_duplicates()
-	_test_new_tile_pity()
+	_test_vision_choice_and_honest_duplicates()
+	_test_refund_meter_and_coins()
+	_test_shrine_bias_and_land_insurance()
 	_test_tile_adjacency_overlap_rotation()
 	_test_elevation_stacking()
 	_test_connectivity_and_relocation()
@@ -161,6 +165,7 @@ func _run() -> void:
 	_test_rework_save_round_trip()
 	_test_current_save_policy()
 	_test_interrupted_reveal_recovery()
+	_test_progression_v1_migration()
 	_test_player_defeat_safety()
 
 
@@ -946,8 +951,8 @@ func _test_registries() -> void:
 	)
 	check(
 		regs.active_tile_ids() == [
-			"tile_grass", "tile_sand", "tile_concrete_brutalist",
-			"tile_snowfield"
+			"tile_grass", "tile_sand", "tile_grove_mature",
+			"tile_concrete_brutalist", "tile_snowfield"
 		]
 		and regs.tile("tile_grass").uses_layered_visual()
 		and regs.tile("tile_grass").visual_layers.size() == 2
@@ -969,7 +974,18 @@ func _test_registries() -> void:
 		"the dock opts into live-grid footprint fitting"
 	)
 	var fishing := regs.skill("fishing")
-	check(fishing.xp_to_next(1) > 0 and fishing.xp_to_next(2) > fishing.xp_to_next(1), "xp curve increases")
+	check(
+		fishing.domain_id == "domain_waterside"
+		and regs.inspiration_domain("domain_waterside") != null
+		and regs.domain_for_activity("fishing").id == "domain_waterside"
+		and regs.domain_for_family("living_grove").id == "domain_grove",
+		"activities and tile families resolve to their inspiration domains"
+	)
+	var wildcard_count := 0
+	for domain_id: String in regs.inspiration_domains:
+		if regs.inspiration_domain(domain_id).wildcard:
+			wildcard_count += 1
+	check(wildcard_count == 1, "exactly one wildcard (Drift) domain ships")
 
 
 func _test_content_catalog_architecture() -> void:
@@ -977,7 +993,8 @@ func _test_content_catalog_architecture() -> void:
 	check(regs.load_all(), "catalog snapshot loads before atomic reload test")
 	var expected_kinds := [
 		"skills", "items", "tiles", "structures", "recipes", "loot_tables",
-		"parcels", "anchors", "capabilities", "enemies", "landmarks",
+		"inspiration_domains", "milestones", "anchors", "capabilities",
+		"enemies", "landmarks",
 	]
 	check(
 		regs.definition_kinds() == expected_kinds,
@@ -1357,10 +1374,10 @@ func _test_catalog_expansion() -> void:
 			"%s participates in the global tile stacking contract" % tile_id
 		)
 	check(
-		regs.item("parcel_winter") != null
-		and regs.parcel("parcel_winter") != null
-		and regs.recipe("recipe_winter_parcel") != null,
-		"winter terrain is obtainable through a registered parcel and recipe"
+		regs.inspiration_domain("domain_winter") != null
+		and regs.inspiration_domain("domain_winter").tile_families.has("winter")
+		and not regs.tiles_in_family("winter").is_empty(),
+		"winter terrain is obtainable through its inspiration domain pool"
 	)
 	var watering_can := regs.structure("struct_watering_can")
 	check(
@@ -1511,8 +1528,25 @@ func _test_starting_world() -> void:
 			core.grid.tile_def(Vector2i(-1, y)).id == "tile_grass"
 			and core.grid.tile_def(Vector2i(0, y)).id == "tile_grass"
 			and core.grid.tile_def(Vector2i(1, y)).id == "tile_grass",
-			"opening land row %d uses only the retained standard green tile" % y
+			"opening land row %d uses the default starter land" % y
 		)
+	check(
+		core.stock.structure_count("struct_wishing_well") == 1,
+		"the wishing well waits in the build library for guided placement"
+	)
+	# The arrival pick personalizes the six land cells.
+	var picked := GameCore.new()
+	picked.setup("res://data", 999)
+	picked.save_manager.save_path = "user://test_save_pick.json"
+	picked.save_manager.backup_path = "user://test_save_pick.json.backup"
+	var picked_profile := PlayerProfile.new()
+	picked_profile.display_name = "Sandkeeper"
+	picked_profile.starter_land_id = "tile_sand"
+	picked.new_game(picked_profile)
+	check(
+		picked.grid.tile_def(Vector2i(0, 0)).id == "tile_sand",
+		"the chosen starter land shapes the opening island"
+	)
 	var locked: Array[Vector2i] = []
 	for coord: Vector2i in core.grid.cells:
 		if core.grid.cell(coord).movement_locked:
@@ -1569,21 +1603,154 @@ func _test_starting_world() -> void:
 	check(core.equipment.owns("tool_rod_basic"), "starter rod owned")
 
 
-func _test_xp_only_hobbies() -> void:
+func _test_authored_onboarding_flow() -> void:
+	var core := GameCore.new()
+	check(core.setup("res://data", 1717), "onboarding core loads")
+	core.save_manager.save_path = "user://test_onboarding_save.json"
+	core.save_manager.backup_path = "user://test_onboarding_save.json.backup"
+	var profile := PlayerProfile.new()
+	profile.display_name = "New Keeper"
+	core.begin_onboarding_game(profile)
+	check(
+		core.grid.placed_tile_count() == 0
+			and core.onboarding.stage == OnboardingState.LAND_CHOICE,
+		"onboarding begins in an empty world at the saved land choice"
+	)
+	check(
+		core.registries.tune("starter_land_options", []) == [
+			"tile_grove_mature", "tile_sand", "tile_snowfield"
+		],
+		"the first landing offers forest, sand, and snow"
+	)
+	check(
+		not core.choose_onboarding_land("tile_concrete_brutalist")
+			and core.grid.placed_tile_count() == 0,
+		"the arrival picker rejects land outside its curated three choices"
+	)
+	check(
+		core.choose_onboarding_land("tile_grove_mature"),
+		"a valid first land materializes"
+	)
+	check(
+		core.grid.tile_def(Vector2i.ZERO).id == "tile_grove_mature"
+			and core.grid.cells.size() == 25
+			and core._placed_tile_count("tile_grove_mature") == 9
+			and core._placed_tile_count("tile_open_water") == 16
+			and core._is_structure_placed("struct_pine")
+			and core.stock.tile_count("tile_open_water") == 1
+			and core.onboarding.stage == OnboardingState.PLACE_WATER,
+		"choosing land raises a 3x3 grove, complete water ring, one tree, and the guided water shape"
+	)
+
+	check(
+		core.place_tile_from_stock(Vector2i(3, 0), "tile_open_water", 0),
+		"guided water can extend the authored water ring"
+	)
+	var next := core.advance_onboarding_after_placement()
+	check(
+		core.onboarding.stage == OnboardingState.PLACE_WELL
+			and next.get("id") == "struct_wishing_well"
+			and core.stock.structure_count("struct_wishing_well") == 1,
+		"extending the water ring guarantees the wishing well"
+	)
+
+	var restored := OnboardingState.new()
+	restored.from_save_dict(core.onboarding.to_save_dict())
+	check(
+		restored.stage == OnboardingState.PLACE_WELL
+			and restored.guided_id == "struct_wishing_well",
+		"an interrupted guided step restores its exact required piece"
+	)
+	var well_token := core.stock.take_structure_token("struct_wishing_well")
+	var well := core.grid.add_structure(
+		Vector2i.ZERO,
+		"struct_wishing_well",
+		0
+	)
+	check(not well_token.is_empty() and well != null, "the guaranteed well places on the first land")
+	next = core.advance_onboarding_after_placement()
+	check(
+		core.onboarding.stage == OnboardingState.TEND_TREE,
+		"placing the well points to the tree that arrived with the island"
+	)
+	check(
+		core.onboarding_vision_banked()
+			and core.onboarding.stage == OnboardingState.CLAIM_VISION,
+		"the first banked Inspiration becomes a well-claim objective"
+	)
+	check(
+		core.onboarding_vision_chosen(VisionSystem.KIND_TILE, "tile_grass"),
+		"choosing a Vision records the exact placement reward"
+	)
+	var guided := core.ensure_onboarding_guided_piece()
+	check(
+		guided.get("id") == "tile_grass"
+			and core.stock.tile_count("tile_grass") == 1,
+		"an interrupted Vision placement repairs its selected reward"
+	)
+	check(
+		core.place_tile_from_stock(Vector2i(0, 3), "tile_grass", 0),
+		"the first claimed Vision can grow the authored world"
+	)
+	core.advance_onboarding_after_placement()
+	check(
+		core.onboarding.stage == OnboardingState.TRY_FISHING,
+		"placing the first Vision hands off to fishing on player-placed water"
+	)
+	check(
+		core.onboarding_fished()
+			and core.onboarding.stage == OnboardingState.COMPLETE,
+		"one fishing catch completes onboarding without leaving a progression gate"
+	)
+
+
+func _test_inspiration_hobbies() -> void:
 	var core := fresh_core(404)
 	var inventory_before := core.inventory.counts.duplicate()
 	for hobby_id in ["fishing", "woodcutting"]:
 		var skill := core.registries.skill(hobby_id)
+		var domain := core.registries.domain_for_activity(hobby_id)
 		var old_chance := skill.direct_tile_reward_chance
 		skill.direct_tile_reward_chance = 0.0
+		var meter_before: float = core.progression.inspiration.meter_progress(domain.id)["current"]
 		var result := core.rewards.resolve_hobby_action(skill)
-		core.skills.record_action(hobby_id)
-		core.skills.add_xp(hobby_id, result.xp_awarded)
-		check(result.xp_awarded == skill.action_xp, "%s action returns configured XP" % hobby_id)
-		check(core.skills.xp_progress(hobby_id)["current"] == skill.action_xp, "%s XP reaches hobby progression" % hobby_id)
+		var feedback := core.progression.on_activity_action(hobby_id)
+		check(String(feedback["domain_id"]) == domain.id, "%s pays into its own domain" % hobby_id)
+		check(bool(feedback["added"]), "%s action emits inspiration" % hobby_id)
+		var meter_after: float = core.progression.inspiration.meter_progress(domain.id)["current"]
+		check(
+			meter_after > meter_before or bool(feedback["banked"]),
+			"%s inspiration reaches the domain meter or banks a Vision" % hobby_id
+		)
+		check(core.progression.actions_done(hobby_id) == 1, "%s lifetime action recorded" % hobby_id)
 		check(not result.has_world_reward(), "ordinary %s action has no forced world reward" % hobby_id)
 		skill.direct_tile_reward_chance = old_chance
 	check(str(core.inventory.counts) == str(inventory_before), "Fishing and Woodland Tending add no common inventory items")
+
+
+func _test_vision_bank_cap_blocks_earning() -> void:
+	var core := fresh_core(405)
+	var inspiration := core.progression.inspiration
+	var cap := inspiration.bank_cap()
+	check(cap == 3, "the well banks at most three Visions")
+	var blocked_signals := [0]
+	inspiration.earning_blocked.connect(func(_domain): blocked_signals[0] += 1)
+	# Overfill: enough inspiration to bank far past the cap in one domain.
+	for i in 40:
+		inspiration.add("domain_grove", 240.0)
+		if not inspiration.can_earn():
+			break
+	check(inspiration.banked.size() == cap, "banked Visions stop exactly at the cap")
+	check(not inspiration.can_earn(), "earning refuses while the well is full")
+	var refused := inspiration.add("domain_grove", 12.0)
+	check(bool(refused["blocked"]) and blocked_signals[0] >= 1, "a full well refuses new inspiration with a signal")
+	check(
+		is_equal_approx(inspiration.speed_multiplier(), 1.0 + cap * core.registries.tunef("vision_speed_bonus_per_stack", 0.12)),
+		"each banked Vision stacks the walk-back speed bonus"
+	)
+	var claimed := inspiration.claim_next()
+	check(claimed == "domain_grove", "claiming pops the oldest banked Vision")
+	check(inspiration.can_earn(), "claiming reopens earning")
 
 
 func _test_hobby_journal_and_direct_rewards() -> void:
@@ -1614,7 +1781,7 @@ func _test_hobby_journal_and_direct_rewards() -> void:
 func _test_out_of_scope_systems_disabled() -> void:
 	var core := fresh_core()
 	check(core.crafting.available_recipes().is_empty(), "material crafting recipes are hidden")
-	check(not core.crafting.craft("recipe_meadow_parcel"), "material-to-land crafting is disabled")
+	check(not core.crafting.craft("recipe_bench"), "material crafting stays disabled")
 	for i in 20:
 		core.stock.add_tile("tile_grass")
 		var coord := Vector2i(2 + i, 0)
@@ -1624,7 +1791,7 @@ func _test_out_of_scope_systems_disabled() -> void:
 	check(not core.registries.feature("hostile_landmarks_enabled"), "hostile landmark flag remains disabled")
 
 
-func _test_arrival_and_parcel_loop() -> void:
+func _test_arrival_and_gift_loop() -> void:
 	var core := fresh_core(606)
 	var requested: Array = []
 	core.arrivals.arrival_requested.connect(func(payload): requested.append(payload))
@@ -1633,21 +1800,29 @@ func _test_arrival_and_parcel_loop() -> void:
 	check(requested.size() == 1, "arrival timer requests exactly one presentation")
 	check(core.arrivals.state == ArrivalScheduler.ARRIVING, "arrival enters presentation state")
 	var payload := requested[0] as LandParcelPayload
-	check(payload.parcel_id == "parcel_wild", "ferry payload is a Land Parcel")
+	check(payload.gift_kind == "vision", "ferry payload is a gift Vision")
 	core.arrivals.mark_delivery_ready(payload)
 	check(core.arrivals.has_waiting_package(), "ferry unloads one waiting package")
-	var options := core.arrivals.open_waiting(core.parcels)
-	check(options.size() == 3, "dock package reveals three tile choices")
-	check(core.arrivals.state == ArrivalScheduler.OPENED, "scheduler pauses while parcel choice is open")
-	var chosen := core.parcels.choose(0)
-	check(chosen == options[0], "selected parcel option is authoritative")
-	check(core.stock.tile_count(chosen) == 1, "selected tile enters the Tile Library")
-	for index in range(1, options.size()):
-		if options[index] != chosen:
-			check(core.stock.tile_count(options[index]) == 0, "unselected tile does not enter any inventory")
+	var options := core.arrivals.open_waiting(core.progression)
+	check(options.size() == 3, "dock gift reveals three choices")
+	check(core.arrivals.state == ArrivalScheduler.OPENED, "scheduler pauses while the gift choice is open")
+	var stock_before := _entry_stock_count(core, options[0])
+	var result := core.progression.visions.choose(0)
+	check(str(result["entry"]) == str(options[0]), "selected gift option is authoritative")
+	check(
+		_entry_stock_count(core, options[0]) == stock_before + 1,
+		"selected piece enters the build library"
+	)
 	core.arrivals.resolve_delivery()
 	check(core.arrivals.state == ArrivalScheduler.IDLE, "next timer begins after the choice is stored")
 	check(core.arrivals.time_until_next >= 300.0, "later arrival uses configured relaxed timing")
+
+
+func _entry_stock_count(core: GameCore, entry: Dictionary) -> int:
+	match String(entry.get("kind", "")):
+		"tile": return core.stock.tile_count(String(entry["id"]))
+		"structure": return core.stock.structure_count(String(entry["id"]))
+	return 0
 
 
 func _test_arrival_queue_invariants() -> void:
@@ -1666,20 +1841,44 @@ func _test_arrival_queue_invariants() -> void:
 	check(core.arrivals.deliveries_created == 0, "waiting never creates unattended delivery stacks")
 
 
-func _test_xp_and_unlocks() -> void:
+func _test_practice_milestones() -> void:
 	var core := fresh_core()
-	var levels: Array = []
-	core.skills.level_up.connect(func(_s, l, _u): levels.append(l))
-	var def := core.registries.skill("fishing")
-	core.skills.add_xp("fishing", def.xp_to_next(1))
-	check(core.skills.level("fishing") == 2, "xp reaching threshold levels up")
-	check(levels == [2], "level_up signal fired once")
-	check(core.stock.structure_count("struct_bench") == 0, "journal-only level does not create unrelated inventory")
-	core.skills.add_xp("fishing", def.xp_to_next(2))
-	check(core.stock.structure_count("struct_bench") == 1, "level 3 grants its data-defined bench reward")
-	# leveling far unlocks tile pool entries
-	core.skills.add_xp("fishing", 100000)
-	check(core.skills.level("fishing") == def.max_level, "xp clamps at max level")
+	var reached: Array = []
+	core.progression.milestones.milestone_reached.connect(func(id, _rewards): reached.append(id))
+	var fishing := core.registries.skill("fishing")
+	var old_chance := fishing.direct_tile_reward_chance
+	fishing.direct_tile_reward_chance = 0.0
+	for i in 5:
+		core.progression.on_activity_action("fishing")
+	check(reached.has("ms_fishing_first_casts"), "five casts reach the first practice milestone")
+	check(core.stock.structure_count("struct_bench") == 0, "a note-only milestone creates no inventory")
+	check(
+		not core.progression.is_recipe_unlocked(core.registries.recipe("recipe_bench")),
+		"the bench recipe stays locked before its milestone"
+	)
+	for i in 7:
+		core.progression.on_activity_action("fishing")
+	check(reached.has("ms_fishing_settled_in"), "twelve casts reach the bench milestone")
+	check(core.stock.structure_count("struct_bench") == 1, "the milestone grants its data-defined bench reward")
+	check(
+		core.progression.is_recipe_unlocked(core.registries.recipe("recipe_bench")),
+		"the bench recipe unlocks with its milestone"
+	)
+	var reached_before := reached.size()
+	core.progression.milestones.check_all(core.progression.activity_actions)
+	check(reached.size() == reached_before, "milestones grant exactly once")
+	fishing.direct_tile_reward_chance = old_chance
+
+
+func _test_journal_milestones() -> void:
+	var core := fresh_core()
+	var reached: Array = []
+	core.progression.milestones.milestone_reached.connect(func(id, _rewards): reached.append(id))
+	core.collection.record("fish", "sunny_minnow")
+	core.collection.record("fish", "pond_darter")
+	check(not reached.has("ms_journal_fish_page"), "an incomplete journal page stays unclaimed")
+	core.collection.record("fish", "silver_leaf_fish")
+	check(reached.has("ms_journal_fish_page"), "completing every entry claims the journal milestone")
 
 
 func _test_deterministic_rng() -> void:
@@ -1699,38 +1898,95 @@ func _test_deterministic_rng() -> void:
 	check(differs, "different seeds diverge")
 
 
-func _test_parcels_choice_and_duplicates() -> void:
+func _test_vision_choice_and_honest_duplicates() -> void:
 	var core := fresh_core()
-	core.inventory.grant("parcel_wild", 2, false, true)
-	var options := core.parcels.open("parcel_wild")
-	check(options.size() == 3, "parcel reveals three options")
-	var guaranteed: Array = core.registries.tune("guaranteed_first_parcel_options", [])
-	check(str(options) == str(guaranteed), "first-ever parcel offers the guaranteed active tile trio")
-	var chosen := core.parcels.choose(1)
-	check(chosen == options[1], "choose returns the picked tile")
-	check(core.stock.tile_count(chosen) == 1, "chosen tile lands in build stock")
-	check(core.collection.is_discovered("tiles", chosen), "choice recorded in collection")
-	# duplicate → pattern dust
-	var before_dust := core.inventory.count("pattern_dust")
-	core.parcels.open("parcel_wild")
-	core.parcels.pending_options = [chosen, chosen, chosen] as Array[String]
-	core.parcels.choose(0)
-	check(core.inventory.count("pattern_dust") > before_dust, "duplicate choice converts to Pattern Dust")
-	check(core.parcels.duplicate_streak == 1, "duplicate streak advanced")
+	var visions := core.progression.visions
+	core.progression.inspiration.banked.append("domain_grove")
+	var options := visions.claim_from_well(core.progression.inspiration)
+	check(options.size() == 3, "a claimed Vision reveals three options")
+	var first_trio: Array = core.registries.tune("first_vision_options", [])
+	var matches_trio := options.size() == first_trio.size()
+	for index in options.size():
+		if String(options[index]["id"]) != String(first_trio[index]):
+			matches_trio = false
+	check(matches_trio, "the first-ever Vision offers the guaranteed starter trio")
+	var result := visions.choose(1)
+	var chosen: Dictionary = result["entry"]
+	check(str(chosen) == str(options[1]), "choose returns the picked entry")
+	check(core.stock.tile_count(String(chosen["id"])) == 1, "chosen tile lands in build stock")
+	check(core.collection.is_discovered("tiles", String(chosen["id"])), "choice recorded in collection")
+	# Duplicates are honest outcomes: choosing an owned piece simply grants
+	# another copy — no dust, no hidden conversion.
+	visions.pending_options = [chosen.duplicate(), chosen.duplicate(), chosen.duplicate()] as Array[Dictionary]
+	visions.choose(0)
+	check(core.stock.tile_count(String(chosen["id"])) == 2, "a duplicate choice grants a real second copy")
+	check(core.inventory.counts.is_empty(), "duplicates convert into no currency")
 
 
-func _test_new_tile_pity() -> void:
+func _test_refund_meter_and_coins() -> void:
 	var core := fresh_core()
-	core.parcels.opened_count = 1   # skip tutorial guarantee
-	core.parcels.duplicate_streak = core.registries.tunei("new_tile_pity_max_duplicates", 4)
-	core.collection.record("tiles", "tile_grass")
-	core.inventory.grant("parcel_wild", 1, false, true)
-	var options := core.parcels.open("parcel_wild")
-	var has_fresh := false
-	for tile_id in options:
-		if not core.collection.is_discovered("tiles", tile_id):
-			has_fresh = true
-	check(has_fresh, "duplicate pity forces an undiscovered tile into the reveal")
+	var refunds := core.progression.refunds
+	var minted: Array = []
+	refunds.coin_minted.connect(func(domain_id, _coins): minted.append(domain_id))
+	core.stock.add_tile("tile_grass", 3)
+	check(refunds.can_refund("tile", "tile_grass"), "an owned meadow tile is refundable")
+	check(refunds.domain_of("tile", "tile_grass").id == "domain_meadow", "refund domain comes from the tile family")
+	for i in 3:
+		check(refunds.refund("tile", "tile_grass"), "refund %d consumes an owned copy" % (i + 1))
+	check(core.stock.tile_count("tile_grass") == 0, "the well keeps what it is given")
+	check(minted == ["domain_meadow"], "three refunds of a kind mint that domain's coin")
+	check(refunds.coin_count("domain_meadow") == 1, "the coin waits at the well")
+	check(refunds.meter("domain_meadow") == 0, "the carving meter resets after minting")
+	check(refunds.spend_coin("domain_meadow"), "a coin releases a promised Vision")
+	check(refunds.coin_count("domain_meadow") == 0, "the released coin is spent")
+	var options := core.progression.visions.pending_options
+	check(options.size() == 3, "the coin Vision offers three options")
+	for entry: Dictionary in options:
+		var tile := core.registries.tile(String(entry["id"]))
+		check(
+			String(entry["kind"]) == "tile" and tile != null and tile.family == "home_meadow",
+			"every coin option belongs to the promised domain"
+		)
+	core.progression.visions.choose(0)
+
+
+func _test_shrine_bias_and_land_insurance() -> void:
+	var core := fresh_core()
+	var visions := core.progression.visions
+	visions.claims_total = 1   # past the first-vision guarantee
+	# Land insurance: while the world is small, slot 0 is always plain land.
+	check(
+		visions.owned_tile_count() < core.registries.tunei("land_insurance_owned_tiles", 25),
+		"a fresh save is under the insurance threshold"
+	)
+	core.progression.inspiration.banked.append("domain_grove")
+	var options := visions.claim_from_well(core.progression.inspiration)
+	var insurance_pool: Array = core.registries.tune("land_insurance_pool", [])
+	check(
+		String(options[0]["kind"]) == "tile" and insurance_pool.has(String(options[0]["id"])),
+		"small worlds always see a plain land option in slot 0"
+	)
+	visions.choose(0)
+	# Shrine bias: the focused entry's draw weight is visibly multiplied.
+	core.collection.record("tiles", "tile_snowfield")
+	check(core.progression.shrine.set_focus("tile", "tile_snowfield"), "a discovered tile can be shrined")
+	var biased_weight := 0.0
+	var base_weight := 0.0
+	for entry: Dictionary in visions._full_pool():
+		if String(entry["id"]) == "tile_snowfield":
+			biased_weight = float(entry["weight"])
+	core.progression.shrine.clear_focus()
+	for entry: Dictionary in visions._full_pool():
+		if String(entry["id"]) == "tile_snowfield":
+			base_weight = float(entry["weight"])
+	check(
+		base_weight > 0.0
+		and is_equal_approx(
+			biased_weight,
+			base_weight * core.registries.tunef("shrine_bias_multiplier", 4.0)
+		),
+		"the shrined piece draws at the tuned bias multiplier"
+	)
 
 
 func _test_tile_adjacency_overlap_rotation() -> void:
@@ -2139,8 +2395,8 @@ func _test_anchor_cycle_and_regen() -> void:
 func _test_crafting_transactions() -> void:
 	var core := fresh_core()
 	core.registries.features["material_crafting_enabled"] = true
-	check(not core.crafting.craft("recipe_bench"), "crafting without skill/materials fails")
-	core.skills.add_xp("fishing", 1000)   # reach level for bench
+	check(not core.crafting.craft("recipe_bench"), "crafting without milestone/materials fails")
+	core.progression.milestones.claimed["ms_fishing_settled_in"] = true   # bench milestone
 	check(not core.crafting.craft("recipe_bench"), "crafting without materials fails")
 	var inv_before := core.inventory.count("softwood")
 	var benches_before := core.stock.structure_count("struct_bench")
@@ -2152,7 +2408,7 @@ func _test_crafting_transactions() -> void:
 	core.inventory.grant("hardwood", 2, false, true)
 	core.inventory.grant("old_metal", 2, false, true)
 	core.inventory.grant("resin", 1, false, true)
-	core.skills.add_xp("woodcutting", 2000)
+	core.progression.milestones.claimed["ms_wood_master_tender"] = true   # fine axe milestone
 	check(core.crafting.craft("recipe_axe_fine"), "tool recipe crafts")
 	check(core.equipment.owns("tool_axe_fine"), "crafted tool is owned equipment")
 	check(core.equipment.best_tool("axe").id == "tool_axe_fine", "best tool resolves to the higher tier")
@@ -2340,7 +2596,8 @@ func _test_deed_replacement() -> void:
 
 func _test_rework_save_round_trip() -> void:
 	var core := fresh_core(31415)
-	core.skills.add_xp("fishing", 55)
+	core.progression.inspiration.add("domain_waterside", 20.0)
+	core.progression.on_activity_action("fishing")
 	core.stock.add_tile("tile_grove_birch")
 	core.profile.position = Vector3(0.234, 0.0, 0.345)   # continuous, between tile centers
 	core.profile.facing = 1.11
@@ -2360,7 +2617,17 @@ func _test_rework_save_round_trip() -> void:
 	restored.save_manager.save_path = core.save_manager.save_path
 	restored.save_manager.backup_path = core.save_manager.backup_path
 	check(restored.load_game(), "save loads")
-	check(restored.skills.xp["fishing"] == core.skills.xp["fishing"], "xp round-trips")
+	check(
+		is_equal_approx(
+			restored.progression.inspiration.meter_progress("domain_waterside")["current"],
+			core.progression.inspiration.meter_progress("domain_waterside")["current"]
+		),
+		"inspiration meters round-trip"
+	)
+	check(
+		restored.progression.actions_done("fishing") == core.progression.actions_done("fishing"),
+		"lifetime activity actions round-trip"
+	)
 	check(restored.inventory.counts.is_empty(), "active material inventory stays empty")
 	check(restored.stock.tile_count("tile_grove_birch") == 1, "stock round-trips")
 	check(restored.grid.cells.size() == core.grid.cells.size(), "grid round-trips")
@@ -2368,8 +2635,8 @@ func _test_rework_save_round_trip() -> void:
 	check(absf(restored.profile.facing - 1.11) < 0.0001, "facing round-trips")
 	check(restored.view_state == core.view_state, "camera orbit and distance round-trip")
 	check(restored.visual_state == core.visual_state, "weather, time, background, and particle quality round-trip")
-	check(restored.arrivals.has_waiting_package(), "unopened ferry parcel survives restart")
-	check(restored.arrivals.current_payload.parcel_id == "parcel_wild", "delivery payload survives restart")
+	check(restored.arrivals.has_waiting_package(), "unopened ferry gift survives restart")
+	check(restored.arrivals.current_payload.gift_kind == "vision", "delivery payload survives restart")
 	# RNG stream continues identically after reload (probe stream was consumed once pre-save)
 	var loaded_next := restored.rng.randi_range("probe", 0, 999999)
 	var fresh_again := GameCore.new()
@@ -2574,14 +2841,21 @@ func _test_current_save_policy() -> void:
 	)
 	var retired_reference_cases := [
 		{
-			"label": "skill state",
+			"label": "inspiration state",
 			"mutate": func(save: Dictionary) -> void:
-				save["skills"]["xp"]["retired_skill"] = 1,
+				save["progression"]["inspiration"]["meters"]["retired_domain"] = 5,
 		},
 		{
-			"label": "parcel state",
+			"label": "vision state",
 			"mutate": func(save: Dictionary) -> void:
-				save["parcels"]["pending_parcel"] = "retired_parcel",
+				save["progression"]["visions"]["pending"] = [
+					{"kind": "tile", "id": "retired_tile"}
+				],
+		},
+		{
+			"label": "milestone state",
+			"mutate": func(save: Dictionary) -> void:
+				save["progression"]["milestones"]["claimed"] = ["retired_milestone"],
 		},
 		{
 			"label": "equipment state",
@@ -2629,19 +2903,54 @@ func _test_current_save_policy() -> void:
 
 func _test_interrupted_reveal_recovery() -> void:
 	var core := fresh_core()
-	core.inventory.grant("parcel_wild", 1, false, true)
-	core.parcels.open("parcel_wild")
-	check(core.parcels.has_pending(), "reveal pending")
+	core.progression.inspiration.banked.append("domain_grove")
+	core.progression.visions.claim_from_well(core.progression.inspiration)
+	check(core.progression.visions.has_pending(), "reveal pending")
 	core.save()   # player closes the game mid-reveal
 	var restored := GameCore.new()
 	restored.setup("res://data", 1)
 	restored.save_manager.save_path = core.save_manager.save_path
 	restored.save_manager.backup_path = core.save_manager.backup_path
 	restored.load_game()
-	check(restored.parcels.has_pending(), "pending reveal survives restart")
-	check(restored.parcels.pending_options.size() == 3, "all three options intact")
-	var chosen := restored.parcels.choose(1)
-	check(chosen != "" and restored.stock.tile_count(chosen) == 1, "resumed reveal completes; nothing lost or duplicated")
+	check(restored.progression.visions.has_pending(), "pending reveal survives restart")
+	check(restored.progression.visions.pending_options.size() == 3, "all three options intact")
+	var result := restored.progression.visions.choose(1)
+	var entry: Dictionary = result.get("entry", {})
+	check(
+		not entry.is_empty() and _entry_stock_count(restored, entry) == 1,
+		"resumed reveal completes; nothing lost or duplicated"
+	)
+
+
+func _test_progression_v1_migration() -> void:
+	var core := fresh_core()
+	var v1_save := {
+		"skills": {"xp": {"fishing": 55}, "levels": {"fishing": 3}, "actions": {"fishing": 20}},
+		"parcels": {"pending_parcel": "parcel_wild", "pending_options": ["tile_grass", "tile_sand", "tile_snowfield"], "opened": 4, "dup_streak": 1},
+		"inventory": {"counts": {"pattern_dust": 5, "parcel_wild": 1, "softwood": 2}},
+		"arrivals": {"state": "waiting", "payload": {"parcel_id": "parcel_wild", "delivery_id": 2}},
+	}
+	var migrated := ProgressionModule.migrate_save_payload(v1_save)
+	check(not migrated.has("skills") and not migrated.has("parcels"), "v1 keys are absorbed")
+	var progression: Dictionary = migrated["progression"]
+	var archived: Dictionary = progression["archived_v1"]
+	check(int(archived["skills"]["levels"]["fishing"]) == 3, "v1 levels are preserved verbatim for a future revival")
+	check(int(archived["inventory_counts"]["pattern_dust"]) == 5, "retired currencies are preserved in the archive")
+	check(
+		not migrated["inventory"]["counts"].has("pattern_dust")
+		and not migrated["inventory"]["counts"].has("parcel_wild")
+		and int(migrated["inventory"]["counts"]["softwood"]) == 2,
+		"retired items leave the live inventory; real materials stay"
+	)
+	var pending: Array = progression["visions"]["pending"]
+	check(pending.size() == 3 and String(pending[0]["kind"]) == "tile", "a pending v1 reveal becomes a pending Vision")
+	check(int(progression["activity_actions"]["fishing"]) == 20, "lifetime actions continue live")
+	check(String(migrated["arrivals"]["state"]) == "idle", "a mid-delivery ferry re-schedules cleanly")
+	var progression_errors := PackedStringArray()
+	CurrentSaveValidatorScript._validate_progression(progression_errors, progression, core.registries)
+	check(progression_errors.is_empty(), "migrated progression state passes strict validation: " + ", ".join(progression_errors))
+	# Idempotence: migrating an already-migrated payload changes nothing.
+	check(str(ProgressionModule.migrate_save_payload(migrated)) == str(migrated), "migration is idempotent")
 
 
 func _test_player_defeat_safety() -> void:

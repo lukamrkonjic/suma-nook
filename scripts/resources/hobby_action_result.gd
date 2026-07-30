@@ -4,7 +4,6 @@ extends RefCounted
 ## arrays intentionally do not exist in this contract.
 
 var hobby_id: String = ""
-var xp_awarded: int = 0
 var collection_discovery_id: String = ""
 var personal_record_data: Dictionary = {}
 var optional_tile_reward_id: String = ""
@@ -21,7 +20,6 @@ func has_world_reward() -> bool:
 func to_dict() -> Dictionary:
 	return {
 		"hobby_id": hobby_id,
-		"xp_awarded": xp_awarded,
 		"collection_discovery_id": collection_discovery_id,
 		"personal_record_data": personal_record_data.duplicate(true),
 		"optional_tile_reward_id": optional_tile_reward_id,

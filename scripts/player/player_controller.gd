@@ -1,4 +1,4 @@
-class_name PlayerController
+﻿class_name PlayerController
 extends CharacterBody3D
 ## Continuous free movement — the hard requirement. The physics transform is a
 ## float Vector3 driven by move_and_slide every tick; grid coordinates are only
@@ -24,8 +24,10 @@ signal ground_landed(
 	coord: Vector2i,
 	impact_speed: float
 )
+signal arrival_choice_ready
+signal arrival_landed
 
-enum State { FREE, FISHING_CAST, FISHING_WAIT, FISHING_CATCH, WOODCUTTING, ATTACKING, DODGING, HIT, BUILDING, DISABLED, RESCUED, SWIMMING }
+enum State { FREE, FISHING_CAST, FISHING_WAIT, FISHING_CATCH, WOODCUTTING, ATTACKING, DODGING, HIT, BUILDING, DISABLED, RESCUED, SWIMMING, ARRIVING }
 
 const GROUND_MASK := 1
 const EDGE_WALL_MASK := WorldRenderer.EDGE_WALL_LAYER
@@ -41,6 +43,8 @@ var move_locked := false
 ## to rebuild, and the brief floorless drop must not trigger the rescue.
 var _rescue_grace := 0.0
 var _rescue_tween: Tween
+var _arrival_tween: Tween
+var _arrival_hole: MeshInstance3D
 var _swim_phase := 0.0
 var _dodge_timer := 0.0
 var _dodge_dir := Vector3.ZERO
@@ -69,8 +73,8 @@ func setup(game_core: GameCore, rig: CameraRig, player_visual: PlayerVisual) -> 
 func _physics_process(delta: float) -> void:
 	if core == null:
 		return
-	if state == State.RESCUED:
-		# The rescue tween owns the transform; physics stays out of the way.
+	if state in [State.RESCUED, State.ARRIVING]:
+		# Scripted portal tweens own the transform; physics stays out of the way.
 		core.profile.position = position
 		return
 	_invuln_timer = maxf(0.0, _invuln_timer - delta)
@@ -158,7 +162,12 @@ func _free_move(delta: float) -> void:
 				wish = wish.normalized()
 		elif state == State.FREE and not _click_path.is_empty():
 			wish = _click_wish()
-	var walk_speed := core.registries.tunef("walk_speed", 2.2)
+	# Banked Visions inspire the keeper: each one stacks a small speed step,
+	# so the walk back to a full well is the fastest walk in the game.
+	var walk_speed := (
+		core.registries.tunef("walk_speed", 2.2)
+		* core.progression.speed_multiplier()
+	)
 	var speed := walk_speed
 	# Hold sprint to run: faster feet, faster clip, and a happy wobble.
 	var sprinting := (
@@ -285,9 +294,12 @@ func set_state(new_state: State) -> void:
 	if state == new_state:
 		return
 	var leaving_rescue := state == State.RESCUED
+	var leaving_arrival := state == State.ARRIVING
 	state = new_state
 	if leaving_rescue:
 		_abort_rescue()
+	if leaving_arrival:
+		_abort_arrival()
 	if new_state != State.FREE:
 		cancel_click_command()
 	if new_state == State.FREE:
@@ -309,6 +321,7 @@ func take_hit(damage: int) -> void:
 		or state == State.DODGING
 		or state == State.DISABLED
 		or state == State.RESCUED
+		or state == State.ARRIVING
 	):
 		return
 	_invuln_timer = core.registries.tunef("player_hit_invuln_seconds", 0.8)
@@ -336,6 +349,81 @@ func teleport_home() -> void:
 # ------------------------------------------------------------------ water rescue
 
 const RESCUE_HOLE_SHADER: Shader = preload("res://assets/materials/reworked/rescue_black_hole.gdshader")
+
+## The keeper appears before the world does. At the top of the portal rise the
+## sequence pauses so the first land choice can become literal.
+func begin_portal_arrival() -> void:
+	if state == State.ARRIVING:
+		return
+	set_state(State.ARRIVING)
+	cancel_click_command()
+	velocity = Vector3.ZERO
+	visual.set_walk(0.0, 0.016)
+	visual.play("idle")
+	visual.visible = false
+	visual.scale = Vector3.ONE
+	position = Vector3(0.0, -1.2, 0.0)
+	rotation.y = wrapf(rotation.y, -PI, PI)
+	_arrival_hole = _spawn_rescue_hole(Vector3(0.0, 0.1, 0.0))
+	_grow_hole(_arrival_hole)
+	var arrival := create_tween()
+	_arrival_tween = arrival
+	arrival.tween_interval(0.2)
+	arrival.tween_callback(func():
+		visual.visible = true
+		_squash(0.82, 1.2)
+	)
+	arrival.tween_property(self, "position:y", 1.3, 0.42) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	arrival.tween_callback(_squash.bind(1.0, 1.0))
+	arrival.tween_interval(0.08)
+	arrival.tween_callback(func():
+		_arrival_tween = null
+		arrival_choice_ready.emit()
+	)
+
+
+## Called after the chosen tile has risen into place beneath the suspended
+## keeper. The portal closes as they fall and bounce onto their new home.
+func finish_portal_arrival() -> void:
+	if state != State.ARRIVING or _arrival_tween != null:
+		return
+	var target := core.grid.cell_to_world(core.grid.home_cell)
+	var landing := create_tween()
+	_arrival_tween = landing
+	if is_instance_valid(_arrival_hole):
+		_close_hole(_arrival_hole, 0.18)
+	landing.tween_property(self, "position", target, 0.3) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	landing.tween_callback(_squash.bind(1.26, 0.7))
+	landing.tween_property(self, "position:y", target.y + 0.2, 0.12) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	landing.tween_callback(_squash.bind(0.9, 1.12))
+	landing.tween_property(self, "position:y", target.y, 0.12) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	landing.tween_callback(_squash.bind(1.0, 1.0))
+	landing.tween_callback(func():
+		velocity = Vector3.ZERO
+		core.profile.position = position
+		core.profile.facing = rotation.y
+		_arrival_tween = null
+		_arrival_hole = null
+		set_state(State.DISABLED)
+		arrival_landed.emit()
+	)
+
+
+func _abort_arrival() -> void:
+	if _arrival_tween != null and _arrival_tween.is_valid():
+		_arrival_tween.kill()
+	_arrival_tween = null
+	if is_instance_valid(_arrival_hole):
+		_arrival_hole.queue_free()
+	_arrival_hole = null
+	visual.scale = Vector3.ONE
+	visual.visible = true
+	velocity = Vector3.ZERO
+
 
 ## Overboard! The swimmer takes a proper long plunge, a flat matte hole
 ## (Donut County-style) opens on the water right under them, they drop
@@ -475,8 +563,15 @@ func _squash(width: float, height: float) -> void:
 func set_click_command(destination: Vector3, interaction := {}) -> bool:
 	if state != State.FREE or interaction.is_empty():
 		return false
+	# Positions can sit a hair past a cell edge (an object's decor socket near
+	# a border, or the player brushing an overhang). Both endpoints normalize
+	# to their owning/nearest real cell instead of failing on a missing one.
 	var start := current_cell()
+	if not core.grid.is_traversable(start):
+		start = core.grid.nearest_walkable(start)
 	var goal := core.grid.world_to_cell(destination)
+	if not core.grid.has_cell(goal) and interaction.get("coord") is Vector2i:
+		goal = interaction["coord"]
 	if not core.grid.has_cell(goal):
 		return false
 	var route := _cell_route(start, goal)
@@ -618,7 +713,7 @@ func _update_focus() -> void:
 			var distance := position.distance_to(interaction_point)
 			if def.anchor_id != "" and distance < best_distance:
 				var anchor := core.registries.anchor(def.anchor_id)
-				if core.skills.is_playable(anchor.skill_id) and not cell_state.anchor_resting:
+				if core.progression.is_activity_playable(anchor.skill_id) and not cell_state.anchor_resting:
 					best = {"kind": "anchor", "coord": coord, "anchor": anchor, "point": interaction_point}
 					best_distance = distance
 	for dy in range(-1, 2):
@@ -648,7 +743,7 @@ func _update_focus() -> void:
 						and struct_distance < best_distance
 					):
 						var anchor := core.registries.anchor(struct_def.anchor_id)
-						if anchor != null and core.skills.is_playable(anchor.skill_id):
+						if anchor != null and core.progression.is_activity_playable(anchor.skill_id):
 							best = {
 								"kind": "anchor",
 								"coord": coord,

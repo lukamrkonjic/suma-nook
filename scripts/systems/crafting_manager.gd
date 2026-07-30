@@ -1,25 +1,25 @@
-class_name CraftingManager
+﻿class_name CraftingManager
 extends RefCounted
 ## Converts materials into creative possibilities. Recipes unlock
-## deterministically from skill levels (never from rare drops), transactions
+## deterministically from milestones (never from rare drops), transactions
 ## are atomic, and outputs route to the right home: structures → stock,
-## parcels/items → inventory, tools → inventory + equipment ownership.
+## items → inventory, tools → inventory + equipment ownership.
 
 signal crafted(recipe_id: String, output_id: String)
 
 var registries: Registries
 var inventory: InventoryManager
 var stock: StockManager
-var skills: SkillManager
+var progression: ProgressionModule
 var equipment: EquipmentManager
 var collection: CollectionManager
 
 
-func _init(regs: Registries, inv: InventoryManager, stock_mgr: StockManager, skill_mgr: SkillManager, equip: EquipmentManager, coll: CollectionManager) -> void:
+func _init(regs: Registries, inv: InventoryManager, stock_mgr: StockManager, progression_module: ProgressionModule, equip: EquipmentManager, coll: CollectionManager) -> void:
 	registries = regs
 	inventory = inv
 	stock = stock_mgr
-	skills = skill_mgr
+	progression = progression_module
 	equipment = equip
 	collection = coll
 
@@ -29,7 +29,7 @@ func available_recipes() -> Array:
 	if not registries.feature("material_crafting_enabled", false):
 		return result
 	for recipe: Defs.RecipeDefinition in registries.recipes.values():
-		if skills.recipe_available(recipe):
+		if progression.is_recipe_unlocked(recipe):
 			result.append(recipe)
 	result.sort_custom(func(a, b): return a.category + a.display_name < b.category + b.display_name)
 	return result
@@ -39,14 +39,14 @@ func can_craft(recipe_id: String) -> bool:
 	if not registries.feature("material_crafting_enabled", false):
 		return false
 	var recipe := registries.recipe(recipe_id)
-	return recipe != null and skills.recipe_available(recipe) and inventory.has_all(recipe.inputs)
+	return recipe != null and progression.is_recipe_unlocked(recipe) and inventory.has_all(recipe.inputs)
 
 
 func craft(recipe_id: String, batches := 1) -> bool:
 	if not registries.feature("material_crafting_enabled", false):
 		return false
 	var recipe := registries.recipe(recipe_id)
-	if recipe == null or not skills.recipe_available(recipe):
+	if recipe == null or not progression.is_recipe_unlocked(recipe):
 		return false
 	batches = maxi(1, batches if recipe.batchable else 1)
 	for batch in batches:

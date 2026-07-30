@@ -7,18 +7,11 @@ const ValidationIssueScript := preload("res://scripts/core/content/validation_is
 
 
 static func validate(snapshot, issues: Array) -> void:
-	var known_families := {}
 	for definition: Defs.TileDefinition in snapshot.tiles.values():
-		known_families[definition.family] = true
 		_reference(
 			issues, snapshot, "tiles", definition.id, "anchor", definition.anchor_id,
 			"anchors", snapshot.anchors
 		)
-		for skill_id: String in definition.unlock_level:
-			_reference(
-				issues, snapshot, "tiles", definition.id,
-				"unlock_level.%s" % skill_id, skill_id, "skills", snapshot.skills
-			)
 	var active_tile_ids: Variant = snapshot.tuning.get("active_tile_ids", [])
 	if not active_tile_ids is Array or active_tile_ids.is_empty():
 		issues.append(ValidationIssueScript.new(
@@ -69,14 +62,6 @@ static func validate(snapshot, issues: Array) -> void:
 			"loot_tables", snapshot.loot_tables
 		)
 	for definition: Defs.SkillDefinition in snapshot.skills.values():
-		_reference(
-			issues, snapshot, "skills", definition.id, "loot_table", definition.loot_table,
-			"loot_tables", snapshot.loot_tables
-		)
-		_reference(
-			issues, snapshot, "skills", definition.id, "rare_table", definition.rare_table,
-			"loot_tables", snapshot.loot_tables
-		)
 		for index in definition.direct_tile_reward_pool.size():
 			var direct_tile_id := definition.direct_tile_reward_pool[index]
 			_reference(
@@ -97,44 +82,6 @@ static func validate(snapshot, issues: Array) -> void:
 					"direct reward tile '%s' is not in active_tile_ids"
 					% direct_tile_id
 				))
-		for index in definition.unlocks.size():
-			var unlock: Dictionary = definition.unlocks[index]
-			var kind := String(unlock.get("kind", ""))
-			var content_id := String(unlock.get("id", ""))
-			var target: Dictionary = {}
-			var target_kind := ""
-			match kind:
-				"tile", "tile_reward":
-					target = snapshot.tiles
-					target_kind = "tiles"
-				"structure_reward":
-					target = snapshot.structures
-					target_kind = "structures"
-				"recipe":
-					target = snapshot.recipes
-					target_kind = "recipes"
-				"anchor_upgrade":
-					target = snapshot.anchors
-					target_kind = "anchors"
-			if target_kind != "":
-				_reference(
-					issues, snapshot, "skills", definition.id,
-					"unlocks[%d].id" % index, content_id, target_kind, target, false
-				)
-			if (
-				kind == "tile_reward"
-				and active_tile_ids is Array
-				and snapshot.tiles.has(content_id)
-				and not active_tile_ids.has(content_id)
-			):
-				issues.append(ValidationIssueScript.new(
-					ValidationIssueScript.Severity.ERROR,
-					"skill.tile_reward.inactive",
-					snapshot.source("skills", definition.id),
-					"unlocks[%d].id" % index,
-					"milestone reward tile '%s' is not in active_tile_ids"
-					% content_id
-				))
 	for definition: Defs.LootTableDefinition in snapshot.loot_tables.values():
 		for index in definition.entries.size():
 			_reference(
@@ -151,7 +98,6 @@ static func validate(snapshot, issues: Array) -> void:
 		var output_known: bool = (
 			snapshot.items.has(definition.output_id)
 			or snapshot.structures.has(definition.output_id)
-			or definition.output_id == "reroll_charge"
 		)
 		if not output_known:
 			issues.append(ValidationIssueScript.new(
@@ -159,19 +105,6 @@ static func validate(snapshot, issues: Array) -> void:
 				snapshot.source("recipes", definition.id), "output",
 				"referenced output '%s' does not exist" % definition.output_id
 			))
-	for definition: Defs.ParcelDefinition in snapshot.parcels.values():
-		_reference(
-			issues, snapshot, "parcels", definition.id, "id", definition.id,
-			"items", snapshot.items, false
-		)
-		for family: String in definition.families:
-			if not known_families.has(family):
-				issues.append(ValidationIssueScript.new(
-					ValidationIssueScript.Severity.ERROR, "parcel.family.missing",
-					snapshot.source("parcels", definition.id),
-					"families.%s" % family,
-					"referenced tile family '%s' has no definitions" % family
-				))
 	for definition: Defs.LandmarkDefinition in snapshot.landmarks.values():
 		for index in definition.enemies.size():
 			_reference(
@@ -188,22 +121,6 @@ static func validate(snapshot, issues: Array) -> void:
 			issues, snapshot, "landmarks", definition.id,
 			"guardian_reward", definition.guardian_reward, "items", snapshot.items
 		)
-	for index in snapshot.tuning.get("guaranteed_first_parcel_options", []).size():
-		var tile_id := String(snapshot.tuning["guaranteed_first_parcel_options"][index])
-		if not snapshot.tiles.has(tile_id):
-			issues.append(ValidationIssueScript.new(
-				ValidationIssueScript.Severity.ERROR, "tuning.guaranteed_option.missing", null,
-				"%s/tuning.json guaranteed_first_parcel_options[%d]"
-				% [snapshot.base_path, index],
-				"referenced tile '%s' does not exist" % tile_id
-			))
-		elif active_tile_ids is Array and not active_tile_ids.has(tile_id):
-			issues.append(ValidationIssueScript.new(
-				ValidationIssueScript.Severity.ERROR, "tuning.guaranteed_option.inactive", null,
-				"%s/tuning.json guaranteed_first_parcel_options[%d]"
-				% [snapshot.base_path, index],
-				"guaranteed tile '%s' is not in active_tile_ids" % tile_id
-			))
 
 
 static func _reference(

@@ -11,9 +11,17 @@ extends Resource
 ## Selects deformation-zone and weight-cleanup rules in the Blender builder.
 ## Upper-body clothing keeps sleeve/arm-chain handling; lower-body clothing
 ## preserves the transferred hips, thigh, knee, shin, foot, and toe weights.
-@export_enum("upper_body", "upper_body_sleeveless", "lower_body") var garment_class := "upper_body"
+@export_enum(
+	"upper_body",
+	"upper_body_sleeveless",
+	"lower_body",
+	"footwear",
+) var garment_class := "upper_body"
 
 @export_group("Whole Garment")
+## Shared origin for a paired footwear asset. Footwear position.x/y are
+## mirrored per shoe around this point while position.z remains shared.
+@export var pair_center_position := Vector3.ZERO
 @export var position := Vector3.ZERO
 @export var rotation_degrees := Vector3.ZERO
 @export var scale := Vector3(0.528005, 0.597675, 0.504159)
@@ -45,6 +53,7 @@ extends Resource
 
 
 func reset_fit() -> void:
+	pair_center_position = Vector3.ZERO
 	position = Vector3.ZERO
 	rotation_degrees = Vector3.ZERO
 	scale = Vector3(0.528005, 0.597675, 0.504159)
@@ -111,6 +120,11 @@ func to_json_data() -> Dictionary:
 		"source_file": source_file,
 		"body_profile_id": body_profile_id,
 		"garment_class": garment_class,
+		"pair_center_position": [
+			pair_center_position.x,
+			pair_center_position.y,
+			pair_center_position.z,
+		],
 		"position": [position.x, position.y, position.z],
 		"rotation_degrees": [
 			rotation_degrees.x,

@@ -4,6 +4,24 @@ A master prompt for AI build sessions. Executes the redesign defined in
 `docs/PROGRESSION_DESIGN.md` (systems) and `docs/NEW_PLAYER_FLOW.md`
 (onboarding order). Work one phase per session; each phase ends green.
 
+> **v3 note:** `docs/PROGRESSION_DESIGN.md` is now the v3 whole-game
+> vision (Mastery Arc spine, Rest mode, Pattern Book, far-seeking
+> coins, anti-shrine). Its §26 "Build order from here" supersedes the
+> "Later" list below for what comes next; the phase history and
+> ground rules here remain accurate.
+
+## Status (2026-07-30)
+
+Phases 0–6 are IMPLEMENTED and green (content validation 181 definitions,
+core suite 1620 assertions, full acceptance loop 275 checks). The feature
+module lives in `scripts/features/progression/`. Phase 7 landed its core
+(offline tree recovery; ferry retained as the global heartbeat delivering
+gift Visions); water-edge crate spawn points and attractors remain future
+work. Phase 8's Keepsake batch, well visual evolution, and milestone
+garments await content (see `docs/ASSET_QUEUE.md` placeholders). The
+crafting review decision point is OPEN: recipes now unlock via milestones,
+but whether material crafting stays long-term is the user's call.
+
 ## Ground rules for every phase
 
 1. **Read first:** `docs/PROGRESSION_DESIGN.md`, `docs/NEW_PLAYER_FLOW.md`,

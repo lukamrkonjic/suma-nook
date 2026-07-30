@@ -1,0 +1,154 @@
+{
+  "milestones": [
+    {
+      "id": "ms_fishing_first_casts",
+      "name": "First Casts",
+      "kind": "practice",
+      "activity": "fishing",
+      "action_count": 5,
+      "rewards": [
+        { "kind": "note", "note": "A new journal page opens" }
+      ]
+    },
+    {
+      "id": "ms_fishing_settled_in",
+      "name": "Settled by the Water",
+      "kind": "practice",
+      "activity": "fishing",
+      "action_count": 12,
+      "rewards": [
+        { "kind": "structure", "id": "struct_bench", "note": "A waterside bench" }
+      ]
+    },
+    {
+      "id": "ms_fishing_shore_reader",
+      "name": "Shore Reader",
+      "kind": "practice",
+      "activity": "fishing",
+      "action_count": 30,
+      "rewards": [
+        { "kind": "tile", "id": "tile_sand", "note": "A guaranteed shore tile" }
+      ]
+    },
+    {
+      "id": "ms_fishing_old_hand",
+      "name": "Old Hand at the Water",
+      "kind": "practice",
+      "activity": "fishing",
+      "action_count": 80,
+      "rewards": [
+        { "kind": "note", "note": "Fishing marker craftable" }
+      ]
+    },
+    {
+      "id": "ms_wood_first_prunings",
+      "name": "First Prunings",
+      "kind": "practice",
+      "activity": "woodcutting",
+      "action_count": 5,
+      "rewards": [
+        { "kind": "note", "note": "A new woodland journal page" }
+      ]
+    },
+    {
+      "id": "ms_wood_grove_keeper",
+      "name": "Grove Keeper",
+      "kind": "practice",
+      "activity": "woodcutting",
+      "action_count": 12,
+      "rewards": [
+        { "kind": "structure", "id": "struct_fence", "note": "A woodland fence" }
+      ]
+    },
+    {
+      "id": "ms_wood_carpenter",
+      "name": "Comfortable Carpenter",
+      "kind": "practice",
+      "activity": "woodcutting",
+      "action_count": 20,
+      "rewards": [
+        { "kind": "note", "note": "Woodwork recipes unlocked" }
+      ]
+    },
+    {
+      "id": "ms_wood_meadow_heart",
+      "name": "Meadow Heart",
+      "kind": "practice",
+      "activity": "woodcutting",
+      "action_count": 30,
+      "rewards": [
+        { "kind": "tile", "id": "tile_grass", "note": "A guaranteed meadow tile" }
+      ]
+    },
+    {
+      "id": "ms_wood_master_tender",
+      "name": "Master Tender",
+      "kind": "practice",
+      "activity": "woodcutting",
+      "action_count": 45,
+      "rewards": [
+        { "kind": "note", "note": "Fine woodwork unlocked" }
+      ]
+    },
+    {
+      "id": "ms_wood_grove_architect",
+      "name": "Grove Architect",
+      "kind": "practice",
+      "activity": "woodcutting",
+      "action_count": 60,
+      "rewards": [
+        { "kind": "note", "note": "Grand builds unlocked" }
+      ]
+    },
+    {
+      "id": "ms_stone_first_cuts",
+      "name": "First Cuts",
+      "kind": "practice",
+      "activity": "mining",
+      "action_count": 12,
+      "rewards": [
+        { "kind": "note", "note": "Stonework recipes unlocked" }
+      ]
+    },
+    {
+      "id": "ms_stone_shaper",
+      "name": "Stone Shaper",
+      "kind": "practice",
+      "activity": "mining",
+      "action_count": 20,
+      "rewards": [
+        { "kind": "note", "note": "Fine stonework unlocked" }
+      ]
+    },
+    {
+      "id": "ms_stone_wellwright",
+      "name": "Wellwright",
+      "kind": "practice",
+      "activity": "mining",
+      "action_count": 30,
+      "rewards": [
+        { "kind": "note", "note": "The village well is craftable" }
+      ]
+    },
+    {
+      "id": "ms_journal_fish_page",
+      "name": "The Fish Page",
+      "kind": "journal_page",
+      "category": "fish",
+      "entries": ["sunny_minnow", "pond_darter", "silver_leaf_fish"],
+      "rewards": [
+        { "kind": "note", "note": "Every local fish, met and released" }
+      ]
+    },
+    {
+      "id": "ms_journal_woodland_page",
+      "name": "The Woodland Page",
+      "kind": "journal_page",
+      "category": "woodland",
+      "entries": ["first_pruning", "healthy_grove", "ancient_bough"],
+      "rewards": [
+        { "kind": "note", "note": "The grove knows your hands now" }
+      ]
+    }
+  ]
+}

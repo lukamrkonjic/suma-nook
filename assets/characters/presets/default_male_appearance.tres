@@ -10,6 +10,7 @@
 [ext_resource type="Resource" path="res://assets/characters/parts/defs/mouth_smile.tres" id="8_bkpas"]
 [ext_resource type="Resource" path="res://assets/characters/parts/defs/top_jacket_cozy.tres" id="9_xet7a"]
 [ext_resource type="Script" path="res://scripts/characters/character_appearance_preset.gd" id="10_0adgc"]
+[ext_resource type="Resource" path="res://assets/characters/parts/defs/shoes_sneakers.tres" id="11_shoes"]
 
 [sub_resource type="Resource" id="Resource_dklj4"]
 script = ExtResource("2_ipi2d")
@@ -72,4 +73,4 @@ clothing_landmarks = Dictionary[String, Vector3]({
 script = ExtResource("10_0adgc")
 preset_id = "default_male"
 body_profile = SubResource("Resource_dklj4")
-parts = Array[ExtResource("3_j85bp")]([ExtResource("4_y3juo"), ExtResource("5_dfuay"), ExtResource("6_4v1w5"), ExtResource("7_8bdw1"), ExtResource("8_bkpas"), ExtResource("9_xet7a")])
+parts = Array[ExtResource("3_j85bp")]([ExtResource("4_y3juo"), ExtResource("5_dfuay"), ExtResource("6_4v1w5"), ExtResource("7_8bdw1"), ExtResource("8_bkpas"), ExtResource("9_xet7a"), ExtResource("11_shoes")])

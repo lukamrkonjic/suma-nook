@@ -1,104 +1,105 @@
-# New-player flow — implementation prompt
+# New-player flow
 
-Directive spec for the onboarding and progression ramp. Each numbered
-item is a buildable instruction. Companion to
-`docs/PROGRESSION_DESIGN.md`.
+This is the authored first-session sequence. Its job is to make the player
+understand the whole world-building loop by doing it once:
 
-## Stage 1 — Character creation
+**choose land → place an activity surface → place the well → create
+Inspiration → claim a Vision → grow the world → discover a new activity**
 
-1. Make character creation a **full-screen dedicated scene**: neutral
-   backdrop, character centered, soft light, camera close. Do NOT
-   render the world or tiles behind it — the world doesn't exist yet.
-   (Replaces current behavior where the player stands on tiles during
-   creation.)
-2. Offer a small curated set: face, hair, skin, starter outfit. One
-   confirm button ends the scene. No stat choices, no text walls.
+Every step is saved. Reloading resumes the exact required step and restores
+its guaranteed piece if necessary.
 
-## Stage 2 — Arrival and first land
+## 1. Make a keeper
 
-3. Fade from creation into soft mist/emptiness. Present the
-   **land pick**: ~3 curated land styles + 1 water edge, shown as
-   little dioramas. On pick, tiles materialize under the character's
-   feet as the camera pulls back — the world visibly begins from their
-   choice.
-4. Grant the sapling and the wishing well. Prompt the player to place
-   each, free placement, no wrong answers, one-sentence hints max.
+- Character creation is a dedicated, full-screen portrait scene.
+- It changes identity only: name, body, face, hair, colors, and outfit.
+- The world and the starting biome are not shown here.
+- “Begin your world” starts the arrival; it does not silently create an
+  island.
 
-## Stage 3 — First loop (first 10 minutes)
+## 2. Arrive before the world
 
-5. Prompt one tree-tend action. Green wisps visibly fly from the action
-   into the well. No deposit UI exists anywhere.
-6. Fast-track the first meter. Well glows + chimes. On approach, show
-   the **Vision reveal**: three items presented, keep one. Rig it: all
-   three good, one is a Keepsake with a verb (ball, creature
-   attractor).
-7. The moment the reward is placed, spawn a fishing ripple **on the
-   player's own water tile**. Tiny callout: "Something stirs where you
-   built." This teaches the flywheel wordlessly.
+- The screen returns to open sky with no land.
+- A portal opens at the origin and the keeper rises out of it.
+- At the top of the rise, the game pauses with the keeper suspended.
+- A three-card picker offers:
+  - Grove Ground
+  - Pale Sand
+  - Fresh Snow
+- The cards use real tile renders, not abstract icons.
+- The choice cannot be cancelled. It decides only the beginning, not a
+  permanent class or mechanical bonus.
+- After selection, a complete starter island rises beneath the keeper:
+  nine chosen ground tiles in a 3×3 square, a sixteen-tile water ring,
+  and one mature pine already rooted on the land.
+- The portal closes and the keeper falls onto the center tile with the
+  familiar rescue bounce.
 
-## Stage 4 — Teach the rhythm (first hour)
+## 3. Make a shore
 
-8. Teach wisp colors by showing, never telling: fishing emits blue
-   wisps → reveals lean waterside; tending emits green → reveals lean
-   forest. Every reveal keeps one wildcard slot; ~1 in 8 Visions is
-   fully random. No tutorial popup explains this — color + contents do.
-9. Enable the **3-Vision bank**: each banked Vision adds a stacking
-   movement-speed buff + spirit trail. At 3, let the current action
-   finish, then wisps refuse to enter and nearby nodes gently gesture
-   toward the well. No blocking popups — the world communicates.
-10. Early insurance: while owned tiles are under ~25, every reveal
-    includes at least one plain land tile option. Taper this off as
-    the world grows.
+- Quiet Water is granted automatically and immediately held for placement.
+- The player uses it to extend the water ring by one tile.
+- This teaches shaping with a forgiving first placement while keeping the
+  authored island coherent and immediately fishable.
 
-## Stage 5 — Systems come online (first sessions)
+## 4. Build the progression heart
 
-11. Surface skill XP after the first few actions; levels unlock **new
-    actions and visible tools**, never flat percentages.
-12. Open the **journal** at the first discovery: silhouettes always
-    show the next few uncollected things.
-13. On the first duplicate, show a one-time hint: the well accepts
-    refunds. Refund meters are carvings on the well that visibly fill;
-    3 refunds of a category mint that category's coin, which waits at
-    the well and releases a guaranteed category draw.
-14. Trees enter a pretty resting state after tending (never a stump)
-    and regrow on a real-time timer, including while offline.
-15. First journal page completion pays a **garment**, with an
-    on-character reveal moment. Clothing only ever comes from
-    milestones.
+- The wishing well is granted only after the player extends the water.
+- The player places the well on any of the eight clear land tiles.
+- The already-planted pine then becomes the first activity objective.
 
-## Stage 6 — Mid game
+Shape Land cannot be closed while one of these required arrival pieces is
+held. The player may rotate and choose a valid position, but cannot lose or
+store away the item that makes progression possible.
 
-16. Unlock the **shrine** via an early milestone: place any owned item
-    on it and draws visibly lean toward it and its family. This is the
-    player's targeting and dupe-farming tool.
-17. Run world events on a **global heartbeat**: shore crates on
-    water-meets-land edges, creature visits near attractors. Placed
-    variety expands event kinds; density never raises frequency.
-18. Evolve the well's look at collection thresholds (moss, carvings,
-    glow) — the save's visible progress bar.
-19. Keep Keepsakes at ~1 in 10 Visions: weather toggles, attractors,
-    playable objects, gambling stations (every dud result is itself a
-    "Well Curiosities" journal collectible).
+## 5. Create the first Vision
 
-## Stage 7 — Deep game
+- The prompt asks the player to tend the pine.
+- Each completed tend sends green Inspiration toward the well.
+- The first meter uses its accelerated introductory cost, so three completed
+  tends bank the first Vision.
+- Once banked, the prompt moves the player back to the well to claim it.
+- The normal three-choice Vision ritual opens; the player keeps one.
+- The selected tile or structure is immediately held for placement.
 
-20. Ship **teleport tiles**: placeable, cooldown-based, for crossing a
-    grown world. Never an inventory item.
-21. Offer a **second well** as a major milestone: defines a new
-    district, keeps claim-walks short forever. Placement is a real
-    decision.
-22. Show **horizon landmarks** (island, mountain silhouette) from day
-    one, unreachable until deep-game investment — the long-term goal is
-    literally visible on the horizon from the first session. Each
-    landmark unlocks a new domain module: skill + tile family + anchor
-    + journal chapter + keepsake set.
+This teaches the permanent rhythm in the world itself: activities make
+Inspiration, the well remembers it, and Visions become new world pieces.
 
-## Sequencing principles
+## 6. Let placement create play
 
-- One system per moment; never introduce two at once.
-- No tutorial text over one sentence; prefer the world gesturing over
-  UI explaining.
-- Every unlock should be *encountered* (first dupe → refund hint),
-  never front-loaded.
-- The first session must contain: a personal choice, a rigged great
-  reveal, a self-built earning surface, and a visible horizon goal.
+- After the chosen Vision is placed, the water tile becomes the final
+  onboarding destination.
+- The prompt says that something stirs in the water the player placed.
+- The player catches and releases one fish there.
+- Onboarding completes after the catch. Normal contextual hints and the
+  wider progression systems take over.
+
+The closing lesson is causal: **the place I built created the thing I can
+do next**.
+
+## Presentation rules
+
+- One objective at a time.
+- One sentence per prompt.
+- Rewards appear only when their prerequisite is complete.
+- Use motion, particles, sound, and world state before explanatory copy.
+- Never leave the player without water, a well, a tree, or enough clear land
+  to shape freely.
+- The land picker and every guided placement are keyboard-, mouse-, and
+  controller-complete with deterministic focus.
+- Cancel/back may open menus later, but it never dismisses the first-land
+  decision or discards a required onboarding piece.
+
+## Saved stages
+
+1. `land_choice`
+2. `place_water`
+3. `place_well`
+4. `tend_tree`
+5. `claim_vision`
+6. `place_vision`
+7. `try_fishing`
+8. `complete`
+
+Saves from before this authored sequence load as `complete`; established
+worlds are never pulled backward into onboarding.

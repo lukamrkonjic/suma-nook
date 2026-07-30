@@ -1,0 +1,76 @@
+{
+  "skills": [
+    {
+      "id": "fishing",
+      "name": "Fishing",
+      "icon": "🎣",
+      "description": "Calm catch-and-release fishing. Each catch gives XP, may fill your journal, and very rarely reveals a finished shore tile.",
+      "max_level": 20,
+      "xp_curve": "gentle",
+      "tool_type": "rod",
+      "action_seconds": 2.6,
+      "action_xp": 12,
+      "loot_table": "",
+      "rare_table": "",
+      "direct_tile_reward_chance": 0.025,
+      "direct_tile_reward_pool": ["tile_sand"],
+      "collection_category": "fish",
+      "collection_entries": ["sunny_minnow", "pond_darter", "silver_leaf_fish"],
+      "parcel_families": ["home_meadow", "living_grove"],
+      "animation_tag": "fish",
+      "audio_tag": "fishing",
+      "unlocks": [
+        { "level": 2, "kind": "journal", "id": "fishing_page_one", "note": "A new journal page" },
+        { "level": 3, "kind": "structure_reward", "id": "struct_bench", "note": "A waterside bench" },
+        { "level": 5, "kind": "tile_reward", "id": "tile_sand", "note": "A guaranteed shore tile" },
+        { "level": 8, "kind": "recipe", "id": "recipe_fishing_marker", "note": "Fishing marker" }
+      ]
+    },
+    {
+      "id": "woodcutting",
+      "name": "Woodland Tending",
+      "icon": "🪓",
+      "description": "Prune and tend placeable living trees for XP. Each tree rests briefly, then recovers wherever you planted it.",
+      "max_level": 20,
+      "xp_curve": "gentle",
+      "tool_type": "axe",
+      "action_seconds": 1.9,
+      "action_xp": 14,
+      "loot_table": "",
+      "rare_table": "",
+      "direct_tile_reward_chance": 0.025,
+      "direct_tile_reward_pool": ["tile_grass"],
+      "collection_category": "woodland",
+      "collection_entries": ["first_pruning", "healthy_grove", "ancient_bough"],
+      "parcel_families": ["living_grove", "stonebound"],
+      "animation_tag": "chop",
+      "audio_tag": "woodcutting",
+      "unlocks": [
+        { "level": 2, "kind": "journal", "id": "woodland_page_one", "note": "A new woodland journal page" },
+        { "level": 3, "kind": "structure_reward", "id": "struct_fence", "note": "A woodland fence" },
+        { "level": 5, "kind": "tile_reward", "id": "tile_grass", "note": "A guaranteed meadow tile" },
+        { "level": 9, "kind": "anchor_upgrade", "id": "grove_anchor", "note": "Grove upgrade I" }
+      ]
+    },
+    {
+      "id": "mining",
+      "name": "Mining",
+      "icon": "⛏",
+      "description": "Stonebound land hums under the pick. (Coming with the mountain update — the hooks are already alive.)",
+      "future": true,
+      "max_level": 20,
+      "xp_curve": "gentle",
+      "tool_type": "pick",
+      "action_seconds": 2.2,
+      "action_xp": 13,
+      "loot_table": "mining_common",
+      "rare_table": "",
+      "parcel_families": ["stonebound"],
+      "animation_tag": "chop",
+      "audio_tag": "woodcutting",
+      "unlocks": [
+        { "level": 2, "kind": "recipe", "id": "recipe_stone_parcel", "note": "Craftable Stone Parcels" }
+      ]
+    }
+  ]
+}

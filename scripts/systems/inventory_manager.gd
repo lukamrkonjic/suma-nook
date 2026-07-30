@@ -10,7 +10,6 @@ signal item_gained(item_id: String, count: int, rare: bool)
 
 var registries: Registries
 var counts: Dictionary = {}          # item_id -> int
-var reroll_charges: int = 0
 
 
 func _init(regs: Registries) -> void:
@@ -23,10 +22,6 @@ func count(item_id: String) -> int:
 
 func grant(item_id: String, amount: int = 1, rare := false, silent := false) -> void:
 	if amount <= 0:
-		return
-	if item_id == "reroll_charge":
-		reroll_charges += amount
-		items_changed.emit()
 		return
 	if registries.item(item_id) == null:
 		push_warning("InventoryManager: grant for unknown item '%s' stored anyway" % item_id)
@@ -73,7 +68,7 @@ func items_in_category(category: String) -> Array:
 
 
 func to_save_dict() -> Dictionary:
-	return {"counts": counts.duplicate(), "reroll_charges": reroll_charges}
+	return {"counts": counts.duplicate()}
 
 
 func from_save_dict(data: Dictionary) -> void:
@@ -84,5 +79,4 @@ func from_save_dict(data: Dictionary) -> void:
 			push_warning("InventoryManager: dropping unknown saved item '%s'" % item_id)
 			continue
 		counts[item_id] = int(saved[item_id])
-	reroll_charges = int(data.get("reroll_charges", 0))
 	items_changed.emit()

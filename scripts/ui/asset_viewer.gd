@@ -1090,7 +1090,7 @@ func _hide_gameplay_presentation() -> void:
 		_main.placement,
 		_main.hud,
 		_main.panels,
-		_main.parcel_reveal,
+		_main.vision_reveal,
 		_main.pixel_look,
 	]:
 		if node is CanvasLayer:

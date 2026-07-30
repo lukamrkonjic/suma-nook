@@ -14,6 +14,7 @@ var eye_index := 0       # index into the eye catalog
 var mouth_index := 0     # index into the mouth catalog
 var nose_index := 0      # index into the nose catalog
 var outfit_index := 0
+var starter_land_id := "tile_grass"   # the arrival land pick; world begins here
 
 var position := Vector3.ZERO
 var facing := 0.0        # radians around Y
@@ -26,6 +27,7 @@ func to_save_dict() -> Dictionary:
 		"skin": skin_index, "hair_style": hair_style, "hair_color": hair_color_index,
 		"eyes": eye_index, "mouth": mouth_index, "nose": nose_index,
 		"outfit": outfit_index,
+		"starter_land": starter_land_id,
 		"px": position.x, "py": position.y, "pz": position.z, "facing": facing,
 	}
 
@@ -40,6 +42,7 @@ func from_save_dict(data: Dictionary) -> void:
 	mouth_index = int(data.get("mouth", 0))
 	nose_index = int(data.get("nose", 0))
 	outfit_index = int(data.get("outfit", 0))
+	starter_land_id = String(data.get("starter_land", "tile_grass"))
 	position = Vector3(float(data.get("px", 0)), float(data.get("py", 0)), float(data.get("pz", 0)))
 	facing = float(data.get("facing", 0.0))
 	profile_changed.emit()

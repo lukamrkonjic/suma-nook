@@ -50,27 +50,24 @@ class DefinitionTraits:
 
 class SkillDefinition:
 	extends Resource
+	## An activity the character can perform. Progression v2 is level-free:
+	## activities pay Inspiration into their domain and advance milestones
+	## through lifetime action counts; there is no XP anywhere.
 	var id: String
 	var display_name: String
 	var traits := DefinitionTraits.new()
 	var description: String
 	var icon_glyph: String
-	var max_level: int = 20
-	var xp_curve: String = "gentle"
 	var future: bool = false          # defined but not yet playable (Mining)
 	var tool_type: String = ""        # tool item tool_type required to perform
 	var action_seconds: float = 2.0   # one action cycle
-	var action_xp: int = 12
-	var loot_table: String = ""
-	var rare_table: String = ""
-	var parcel_families: Array[String] = []
+	var domain_id: String = ""        # inspiration domain this activity feeds
 	var direct_tile_reward_chance: float = -1.0
 	var direct_tile_reward_pool: Array[String] = []
 	var collection_category: String = ""
 	var collection_entries: Array[String] = []
 	var animation_tag: String = ""
 	var audio_tag: String = ""
-	var unlocks: Array = []           # [{level:int, kind:String, id:String, note:String}]
 
 	static func from_dict(d: Dictionary) -> SkillDefinition:
 		var s := SkillDefinition.new()
@@ -79,16 +76,10 @@ class SkillDefinition:
 		s.traits = DefinitionTraits.from_dict(d)
 		s.description = d.get("description", "")
 		s.icon_glyph = d.get("icon", "?")
-		s.max_level = int(d.get("max_level", 20))
-		s.xp_curve = d.get("xp_curve", "gentle")
 		s.future = bool(d.get("future", false))
 		s.tool_type = d.get("tool_type", "")
 		s.action_seconds = float(d.get("action_seconds", 2.0))
-		s.action_xp = int(d.get("action_xp", 12))
-		s.loot_table = d.get("loot_table", "")
-		s.rare_table = d.get("rare_table", "")
-		for family in d.get("parcel_families", []):
-			s.parcel_families.append(String(family))
+		s.domain_id = String(d.get("domain", ""))
 		s.direct_tile_reward_chance = float(d.get("direct_tile_reward_chance", -1.0))
 		for tile_id in d.get("direct_tile_reward_pool", []):
 			s.direct_tile_reward_pool.append(String(tile_id))
@@ -97,16 +88,76 @@ class SkillDefinition:
 			s.collection_entries.append(String(entry_id))
 		s.animation_tag = d.get("animation_tag", s.id)
 		s.audio_tag = d.get("audio_tag", s.id)
-		s.unlocks = d.get("unlocks", [])
 		return s
 
-	## Original curve (not any reference game's): cost to advance FROM level.
-	func xp_to_next(level: int) -> int:
-		match xp_curve:
-			"gentle":
-				return int(round((22 + 15 * level + 4.2 * level * level) / 5.0) * 5)
-			_:
-				return 50 * level
+
+class InspirationDomainDefinition:
+	extends Resource
+	## One color of Inspiration. Domains bind activities to reward pools:
+	## what you do steers what the well offers, majority-weight, never
+	## exclusively. A wildcard domain draws from the entire catalog.
+	var id: String
+	var display_name: String
+	var traits := DefinitionTraits.new()
+	var description: String
+	var icon_glyph: String
+	var color := Color(0.7, 0.7, 0.7)
+	var wildcard: bool = false
+	var tile_families: Array[String] = []
+	var activities: Array[String] = []
+	var meter_cost: float = 0.0       # 0 → tuning "vision_meter_cost"
+
+	static func from_dict(d: Dictionary) -> InspirationDomainDefinition:
+		var domain := InspirationDomainDefinition.new()
+		domain.id = d.get("id", "")
+		domain.display_name = d.get("name", domain.id.capitalize())
+		domain.traits = DefinitionTraits.from_dict(d)
+		domain.description = d.get("description", "")
+		domain.icon_glyph = d.get("icon", "✶")
+		domain.color = Color.from_string("#" + String(d.get("color", "b0b0b0")), domain.color)
+		domain.wildcard = bool(d.get("wildcard", false))
+		for family in d.get("tile_families", []):
+			domain.tile_families.append(String(family))
+		for activity_id in d.get("activities", []):
+			domain.activities.append(String(activity_id))
+		domain.meter_cost = float(d.get("meter_cost", 0.0))
+		return domain
+
+
+class MilestoneDefinition:
+	extends Resource
+	## A one-time reward moment. Practice milestones fire on lifetime action
+	## counts; journal milestones fire when a set of collection entries is
+	## complete. Rewards are granted exactly once and recorded in the save.
+	var id: String
+	var display_name: String
+	var traits := DefinitionTraits.new()
+	var kind: String = "practice"       # practice|journal_page
+	var activity_id: String = ""        # practice: which activity
+	var action_count: int = 0           # practice: lifetime actions required
+	var category: String = ""           # journal_page: collection category
+	var entries: Array[String] = []     # journal_page: required entry ids
+	var rewards: Array[Dictionary] = [] # [{kind: tile|structure|recipe|gear|note, id, note}]
+
+	static func from_dict(d: Dictionary) -> MilestoneDefinition:
+		var m := MilestoneDefinition.new()
+		m.id = d.get("id", "")
+		m.display_name = d.get("name", m.id.capitalize())
+		m.traits = DefinitionTraits.from_dict(d)
+		m.kind = String(d.get("kind", "practice"))
+		m.activity_id = String(d.get("activity", ""))
+		m.action_count = int(d.get("action_count", 0))
+		m.category = String(d.get("category", ""))
+		for entry_id in d.get("entries", []):
+			m.entries.append(String(entry_id))
+		for raw_reward in d.get("rewards", []):
+			if raw_reward is Dictionary:
+				m.rewards.append({
+					"kind": String(raw_reward.get("kind", "note")),
+					"id": String(raw_reward.get("id", "")),
+					"note": String(raw_reward.get("note", "")),
+				})
+		return m
 
 
 class ItemDefinition:
@@ -212,7 +263,6 @@ class TileDefinition:
 	var asset_id: String
 	var rarity: String = "common"
 	var weight: float = 1.0
-	var unlock_level: Dictionary = {}  # {skill_id: level}
 	var walkable := true
 	var water_cells: Array[String] = []  # feature tags e.g. ["pond"]
 	var anchor_id: String = ""         # resource anchor hosted by this tile
@@ -263,7 +313,6 @@ class TileDefinition:
 		t.asset_id = d.get("asset_id", "tile_grass")
 		t.rarity = d.get("rarity", "common")
 		t.weight = float(d.get("weight", 1.0))
-		t.unlock_level = d.get("unlock_level", {})
 		t.walkable = bool(d.get("walkable", true))
 		for w in d.get("water_cells", []):
 			t.water_cells.append(String(w))
@@ -466,9 +515,9 @@ class RecipeDefinition:
 	var category: String = "decorations"  # land|buildings|decorations|tools|equipment
 	var inputs: Dictionary = {}           # item_id -> count
 	var output_id: String
-	var output_kind: String = "structure" # structure|item|parcel
+	var output_kind: String = "structure" # structure|item
 	var output_count: int = 1
-	var unlock: Dictionary = {}           # {skill_id: level} — deterministic unlock
+	var unlock_milestone: String = ""     # milestone id; "" is always available
 	var batchable := false
 
 	static func from_dict(d: Dictionary) -> RecipeDefinition:
@@ -481,7 +530,7 @@ class RecipeDefinition:
 		r.output_id = d.get("output", "")
 		r.output_kind = d.get("output_kind", "structure")
 		r.output_count = int(d.get("output_count", 1))
-		r.unlock = d.get("unlock", {})
+		r.unlock_milestone = String(d.get("unlock_milestone", ""))
 		r.batchable = bool(d.get("batchable", false))
 		return r
 
@@ -505,24 +554,6 @@ class LootTableDefinition:
 				"rare": bool(raw.get("rare", false)),
 			})
 		return l
-
-
-class ParcelDefinition:
-	extends Resource
-	var id: String
-	var display_name: String
-	var traits := DefinitionTraits.new()
-	var families: Dictionary = {}      # family -> weight when rolling options
-	var option_count: int = 3
-
-	static func from_dict(d: Dictionary) -> ParcelDefinition:
-		var p := ParcelDefinition.new()
-		p.id = d.get("id", "")
-		p.display_name = d.get("name", p.id.capitalize())
-		p.traits = DefinitionTraits.from_dict(d)
-		p.families = d.get("families", {})
-		p.option_count = int(d.get("option_count", 3))
-		return p
 
 
 class EnemyDefinition:

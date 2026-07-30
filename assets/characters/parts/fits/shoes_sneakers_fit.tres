@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ClothingFitSettings" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/clothing_fit_settings.gd" id="1_fit"]
+
+[resource]
+script = ExtResource("1_fit")
+source_file = "res://art_source/imported/clothing_lab/shoes_sneakers_source.glb"
+garment_class = "footwear"
+pair_center_position = Vector3(0, -0.015, -0.395)
+position = Vector3(0, 0, 0)
+scale = Vector3(0.19, 0.13, 0.12)
+cuff_radius = 1.0
+hidden_regions = PackedStringArray("foot_l", "foot_r")

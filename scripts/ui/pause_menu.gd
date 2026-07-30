@@ -522,11 +522,11 @@ func _build_admin_page() -> void:
 		var ok := core.arrivals.trigger_arrival()
 		_admin_status("Ferry arrival triggered." if ok else "Ferry could not arrive right now.")
 	var grant_fishing_xp := func() -> void:
-		core.skills.add_xp("fishing", 100)
-		_admin_status("Granted 100 Fishing XP.")
+		core.progression.inspiration.add("domain_waterside", 100.0)
+		_admin_status("Granted 100 Waterside inspiration.")
 	var grant_woodland_xp := func() -> void:
-		core.skills.add_xp("woodcutting", 100)
-		_admin_status("Granted 100 Woodland Tending XP.")
+		core.progression.inspiration.add("domain_grove", 100.0)
+		_admin_status("Granted 100 Grove inspiration.")
 	var save_now := func() -> void:
 		_admin_status("Garden saved." if core.save() else "Could not save the garden.")
 	var build_mock := func() -> void:

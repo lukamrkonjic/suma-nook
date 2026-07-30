@@ -175,10 +175,100 @@ func _step_creation() -> void:
 	await shot("screenshot_character_customization")
 	creator._name_edit.text = "Loop Keeper"
 	creator._finish()
-	await wait(0.6)
-	check(main._gameplay_started, "gameplay starts after creation")
+	await wait(1.1)
+	check(
+		not main._gameplay_started
+			and main.player.state == PlayerController.State.ARRIVING,
+		"the keeper rises through a portal before gameplay begins"
+	)
+	check(
+		main.arrival_picker.is_open() and get_tree().paused,
+		"the first-land picker freezes the portal arrival at its apex"
+	)
+	await _tap_joy_button(JOY_BUTTON_LEFT_STICK)
+	await wait(0.05)
+	var land_focus := get_viewport().gui_get_focus_owner()
+	check(
+		land_focus != null
+			and main.arrival_picker._root.is_ancestor_of(land_focus),
+		"the paused land picker assigns deterministic controller focus"
+	)
+	check(
+		main.arrival_picker._root.find_children("*", "Button", true, false).size() == 3,
+		"the arrival offers exactly three rendered land choices"
+	)
+	await shot("screenshot_first_land_choice")
+	main.arrival_picker.select("tile_sand")
+	await wait(1.45)
+	check(main._gameplay_started, "gameplay starts after the chosen tile catches the keeper")
 	check(main.core.profile.display_name == "Loop Keeper", "chosen name applied")
-	check(main.core.grid.cells.size() == 9, "3x3 world present")
+	check(
+		main.core.grid.cells.size() == 25
+			and main.core._placed_tile_count("tile_sand") == 9
+			and main.core._placed_tile_count("tile_open_water") == 16
+			and main.core._is_structure_placed("struct_pine"),
+		"the chosen Pale Sand rises as a 3x3 island with a water ring and one tree"
+	)
+	check(
+		main.placement.active
+			and main.placement.held.get("id", "") == "tile_open_water",
+		"Quiet Water is granted and held immediately after landing"
+	)
+	check(
+		main.placement.try_place_at(Vector2i(3, 0)),
+		"the player can extend the required water beyond the starter ring"
+	)
+	await wait(0.12)
+	check(
+		main.placement.held.get("id", "") == "struct_wishing_well",
+		"extending the water ring grants the wishing well"
+	)
+	check(main.placement.try_place_at(Vector2i.ZERO), "the guided wishing well places")
+	await wait(0.12)
+	check(
+		main.core.onboarding.stage == OnboardingState.TEND_TREE
+			and not main.placement.active,
+		"placing the well releases build mode toward the tree already on the island"
+	)
+	for _action in 3:
+		main.core.progression.on_activity_action("woodcutting")
+	await wait(0.1)
+	check(
+		main.core.onboarding.stage == OnboardingState.CLAIM_VISION,
+		"three accelerated tree tends bank the first Vision"
+	)
+	main.vision_reveal.open_from_well()
+	await wait(1.0)
+	check(
+		main.vision_reveal.is_open()
+			and main.core.progression.visions.pending_options.size() == 3,
+		"the wishing well presents the normal keep-one-of-three Vision ritual"
+	)
+	main.vision_reveal._choose(0)
+	await wait(0.55)
+	check(
+		main.core.onboarding.stage == OnboardingState.PLACE_VISION
+			and not main.placement.held.is_empty(),
+		"the kept Vision is immediately held for placement"
+	)
+	check(
+		main.placement.try_place_at(Vector2i(0, 3)),
+		"the kept Vision grows the authored world"
+	)
+	await wait(0.12)
+	check(
+		main.core.onboarding.stage == OnboardingState.TRY_FISHING,
+		"placing the Vision points back to fishing on player-made water"
+	)
+
+	# The remaining acceptance suite predates the authored opening and exercises
+	# a broad 3x3 fixture. Recompose that fixture only after the real onboarding
+	# has reached its final fishing handoff.
+	main.core.new_game(main.core.profile)
+	main.renderer.rebuild_all()
+	main.player.position = main.core.profile.position
+	main.hud._refresh_all()
+	check(main.core.grid.cells.size() == 9, "3x3 acceptance fixture present")
 	var tool_mount := main.player_visual.find_child("ToolMount", true, false)
 	check(
 		tool_mount != null and tool_mount.get_child_count() == 0,
@@ -1779,19 +1869,26 @@ func _step_fishing() -> void:
 		"cast blends into the authored looping fishing hold"
 	)
 	await shot("screenshot_fishing")
-	var xp_before: int = main.core.skills.xp["fishing"]
+	var actions_before: int = main.core.progression.actions_done("fishing")
 	var deadline := Time.get_ticks_msec() + 9000
-	while main.core.skills.xp["fishing"] <= xp_before and Time.get_ticks_msec() < deadline:
+	while main.core.progression.actions_done("fishing") <= actions_before and Time.get_ticks_msec() < deadline:
 		await wait(0.2)
-	check(main.core.skills.xp["fishing"] > xp_before, "a catch resolves and grants XP without extra clicks")
+	check(
+		main.core.progression.actions_done("fishing") > actions_before,
+		"a catch resolves and emits inspiration without extra clicks"
+	)
 	check(_inventory_total() == items_before, "catch-and-release adds no fish item")
 	# auto-repeat: wait for a second catch with zero input
-	var after_first: int = main.core.skills.xp["fishing"]
+	var after_first: int = main.core.progression.actions_done("fishing")
 	deadline = Time.get_ticks_msec() + 9000
-	while main.core.skills.xp["fishing"] <= after_first and Time.get_ticks_msec() < deadline:
+	while main.core.progression.actions_done("fishing") <= after_first and Time.get_ticks_msec() < deadline:
 		await wait(0.2)
-	check(main.core.skills.xp["fishing"] > after_first, "fishing auto-repeats")
-	check(main.core.skills.xp["fishing"] > 0 or main.core.skills.level("fishing") > 1, "fishing xp granted")
+	check(main.core.progression.actions_done("fishing") > after_first, "fishing auto-repeats")
+	check(
+		main.core.progression.inspiration.meter_progress("domain_waterside")["current"] > 0.0
+		or not main.core.progression.inspiration.banked.is_empty(),
+		"fishing inspiration reaches the Waterside meter or banks a Vision"
+	)
 	# movement cancels gracefully
 	Input.action_press("move_left")
 	for i in 12:
@@ -1823,12 +1920,17 @@ func _step_parcel() -> void:
 	check(main.player.focus().get("kind") == "delivery_package", "dock package is the primary nearby interaction")
 	main.skill_actions.try_interact()
 	await wait(0.3)
-	check(main.parcel_reveal.is_open(), "reveal modal opens")
-	check(main.core.parcels.pending_options.size() == 3, "three tile options offered")
+	check(main.vision_reveal.is_open(), "reveal modal opens")
+	check(main.core.progression.visions.pending_options.size() == 3, "three gift options offered")
 	await shot("screenshot_land_parcel_reveal")
-	main.parcel_reveal._choose(1)
+	# Slot 0 is the land-insurance slot on a small world: always a plain tile,
+	# keeping the follow-up placement step deterministic.
+	var stock_total_before: int = main.core.stock.total_tiles()
+	var chosen_entry: Dictionary = main.core.progression.visions.pending_options[0]
+	check(String(chosen_entry.get("kind", "")) == "tile", "small-world gift keeps a guaranteed land slot")
+	main.vision_reveal._choose(0)
 	await wait(0.8)
-	check(main.core.stock.total_tiles() == 1, "chosen tile in stock")
+	check(main.core.stock.total_tiles() == stock_total_before + 1, "chosen tile in stock")
 	check(main.core.inventory.counts.is_empty(), "ferry reward bypasses material inventory")
 
 
@@ -1976,7 +2078,7 @@ func _step_woodcutting() -> void:
 	if main.player_visual.animation_started.is_connected(chop_started):
 		main.player_visual.animation_started.disconnect(chop_started)
 	check(_inventory_total() == inventory_before, "Woodland Tending adds no logs or materials")
-	check(main.core.skills.xp["woodcutting"] > 0, "woodcutting xp gained")
+	check(main.core.progression.actions_done("woodcutting") > 0, "woodcutting inspiration actions recorded")
 	# The tree regenerates without mutating its supporting terrain.
 	tree.anchor_regen_left = 0.4
 	await wait(1.0)
@@ -2194,7 +2296,7 @@ func _step_elevation_stacking() -> void:
 
 func _step_craft_and_build() -> void:
 	print("STEP craft & build")
-	main.core.skills.add_xp("fishing", 200)
+	main.core.progression.milestones.claimed["ms_fishing_settled_in"] = true   # bench milestone
 	main.core.rewards.grant_fixed({"softwood": 4, "reeds": 3})
 	check(main.core.crafting.craft("recipe_bench"), "bench crafts from gathered materials")
 	check(main.core.stock.structure_count("struct_bench") == 1, "bench in stock")
@@ -2316,7 +2418,7 @@ func _step_save_reload() -> void:
 	await get_tree().physics_frame
 	var expect_cells := main.core.grid.cells.size()
 	var expect_stacked := main.core.grid.stacked_cells.size()
-	var expect_xp: int = main.core.skills.xp["fishing"]
+	var expect_actions: int = main.core.progression.actions_done("fishing")
 	var expect_pos := main.player.position
 	check(main.core.save(), "save succeeds")
 	main.reload_from_save()
@@ -2337,7 +2439,7 @@ func _step_save_reload() -> void:
 		and restored_top["structure"].parent_instance_id == support_demo_middle_iid,
 		"the named object support graph survives reconciliation and reload"
 	)
-	check(main.core.skills.xp["fishing"] == expect_xp, "skills survive reload")
+	check(main.core.progression.actions_done("fishing") == expect_actions, "activity progress survives reload")
 	check(main.player.position.distance_to(expect_pos) < 0.05, "exact continuous player position survives reload (%.3f drift)" % main.player.position.distance_to(expect_pos))
 	check(main.core.arrivals.has_waiting_package(), "unopened delivery survives reload")
 	check(main.delivery_point.package_is_visible(), "restored delivery is interactable at the dock")
@@ -2538,13 +2640,19 @@ func _step_visual_runtime() -> void:
 		and camera_values["zoom_limits"]["maximum"] == 70.0,
 		"Camera manifest exposes measured lens, clipping, and extended close-up zoom limits"
 	)
+	# Deliberately STABLE, not zoom-adaptive: rescaling the shadow projection
+	# during smooth zoom causes visible texel snapping (docs/SHADOW_STABILITY.md).
 	check(
 		live_visuals["directional_light"]["shadow_enabled"]
-		and live_visuals["directional_light"]["shadow_max_distance"]
-			>= camera_values["distance"] + 15.0
-		and live_visuals["directional_light"]["shadow_max_distance"]
-			<= camera_values["distance"] + 25.0,
-		"Directional shadow map adapts tightly to the active gameplay zoom"
+		and is_equal_approx(
+			float(live_visuals["directional_light"]["shadow_max_distance"]),
+			90.0
+		),
+		"Directional shadow keeps its stable full-zoom envelope (shadow=%.1f camera=%.1f)"
+		% [
+			float(live_visuals["directional_light"]["shadow_max_distance"]),
+			float(camera_values["distance"]),
+		]
 	)
 	var material_manifest := main.materials.material_parameter_manifest()
 	check(

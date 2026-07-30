@@ -34,7 +34,7 @@ const CATALOG_COLOR_CHANNELS := {
 }
 
 ## Skinned clothing definitions are owned by the Clothing Lab pipeline; the
-## generator only makes sure the default jacket stays in the preset. An
+## generator only makes sure the default outfit stays in the preset. An
 ## existing def on disk (with its lab-authored fit and regions) is preserved.
 const CLOTHING_TABLE := {
 	"top_jacket_cozy": [
@@ -48,6 +48,11 @@ const CLOTHING_TABLE := {
 			"upper_arm_inner_l", "upper_arm_inner_r",
 			"forearm_l", "forearm_r",
 		],
+	],
+	"shoes_sneakers": [
+		"SHOES",
+		"Sneakers",
+		["foot_l", "foot_r"],
 	],
 }
 
@@ -117,6 +122,7 @@ func _initialize() -> void:
 		catalog.noses[0],
 		catalog.mouths[0],
 		defs["top_jacket_cozy"],
+		defs["shoes_sneakers"],
 	]
 	preset.parts = parts
 	var errors := preset.validation_errors()

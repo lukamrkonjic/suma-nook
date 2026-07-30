@@ -34,7 +34,6 @@
   "fishing_wait_min": 1.2,
   "fishing_wait_max": 3.2,
   "fishing_repeat_pause": 0.7,
-  "new_tile_pity_max_duplicates": 4,
   "grove_rest_visual_scale": 0.82,
   "default_direct_tile_reward_chance": 0.025,
   "fishing_collection_chance": 0.45,
@@ -46,16 +45,35 @@
   ],
   "landmark_connect_adjacent": true,
   "autosave_interval": 40.0,
-  "pattern_dust_per_duplicate": 1,
-  "reroll_dust_cost": 3,
+  "inspiration_per_action": 12.0,
+  "vision_meter_cost": 240.0,
+  "first_vision_meter_cost": 36.0,
+  "vision_bank_cap": 3,
+  "vision_speed_bonus_per_stack": 0.12,
+  "wild_vision_chance": 0.125,
+  "vision_structure_weight": 1.0,
+  "land_insurance_owned_tiles": 25,
+  "land_insurance_pool": [
+    "tile_grass",
+    "tile_sand"
+  ],
+  "refund_meter_size": 3,
+  "shrine_bias_multiplier": 4.0,
+  "shrine_family_bias_multiplier": 2.0,
   "active_tile_ids": [
     "tile_grass",
     "tile_sand",
+    "tile_grove_mature",
     "tile_concrete_brutalist",
     "tile_snowfield"
   ],
-  "guaranteed_first_parcel_options": [
+  "first_vision_options": [
     "tile_grass",
+    "tile_sand",
+    "tile_snowfield"
+  ],
+  "starter_land_options": [
+    "tile_grove_mature",
     "tile_sand",
     "tile_snowfield"
   ]
