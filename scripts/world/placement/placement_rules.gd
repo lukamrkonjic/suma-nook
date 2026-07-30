@@ -24,6 +24,16 @@ func validate(
 			if held["moving"] != null and held["moving"].has("stack"):
 				if player.current_cell() == cell and elevation > 0:
 					return false
+				if (
+					elevation == 0
+					and core.grid.can_restore_tile_stack(
+						cell,
+						elevation,
+						held["moving"]["stack"],
+						true
+					)
+				):
+					return true
 				return core.grid.can_restore_tile_stack(
 					cell, elevation, held["moving"]["stack"]
 				)
@@ -33,7 +43,15 @@ func validate(
 				return core.grid.can_place_tile_at(cell, elevation, held["id"])
 			if held["moving"] != null and int(held["moving"].get("elevation", 0)) == 0:
 				var from: Vector2i = held["moving"]["coord"]
-				return not core.grid.has_cell(cell) and _adjacent_excluding(cell, from)
+				return (
+					core.grid.can_replace_open_water(cell, held["id"])
+					or (
+						not core.grid.has_cell(cell)
+						and _adjacent_excluding(cell, from)
+					)
+				)
+			if core.grid.can_replace_open_water(cell, held["id"]):
+				return true
 			return core.grid.can_place_tile_at(cell, 0, held["id"])
 		"structure":
 			if support_instance_id > 0:
@@ -75,7 +93,26 @@ func validate(
 
 func target_socket(held: Dictionary, cell: Vector2i, elevation: int) -> int:
 	if not core.grid.has_cell_at(cell, elevation):
-		return -1
+		if elevation != 0 or not core.water_field.is_generated_water(cell):
+			return -1
+		var generated_tile: Defs.TileDefinition = (
+			core.water_field.tile_definition_at(cell)
+		)
+		var generated_structure := core.registries.structure(
+			held.get("id", "")
+		)
+		if (
+			generated_tile == null
+			or generated_structure == null
+			or not generated_tile.supports_decor
+			or not generated_structure.supports_surface(
+				generated_tile.surface_kind
+			)
+		):
+			return -1
+		if generated_structure.socket_type == "structure":
+			return 0 if generated_tile.structure_sockets > 0 else -1
+		return 1 if generated_tile.decor_sockets > 0 else -1
 	var definition := core.registries.structure(held.get("id", ""))
 	if (
 		definition == null

@@ -121,13 +121,17 @@ func interaction_at(screen_position: Vector2) -> Dictionary:
 		for dx in range(-4, 5):
 			var coord := pointer_coord + Vector2i(dx, dy)
 			var ground_state := core.grid.cell(coord)
-			var tile_definition := core.grid.tile_def(coord)
+			var tile_definition: Defs.TileDefinition = (
+				core.water_field.tile_definition_at(coord)
+			)
 			var ground_center := core.grid.cell_to_world(coord)
 			if (
-				ground_state != null
-				and tile_definition != null
+				tile_definition != null
 				and tile_definition.anchor_id != ""
-				and not ground_state.anchor_resting
+				and (
+					ground_state == null
+					or not ground_state.anchor_resting
+				)
 			):
 				var anchor := core.registries.anchor(tile_definition.anchor_id)
 				if anchor != null and core.progression.is_activity_playable(anchor.skill_id):

@@ -1,7 +1,7 @@
 # Water interaction system
 
 The playable water response is a fixed-budget extension of Suma Nook's joined
-water renderer. It deliberately avoids a per-tile fluid simulation: a
+and streamed water-tile renderer. It deliberately avoids a per-tile fluid simulation: a
 10,000-tile debugging world uses exactly the same interaction state and particle
 budget as a nine-tile pond.
 
@@ -39,10 +39,11 @@ drag the water effect vertically.
 | CPU mesh deformation | None |
 | Screen-texture samples | None |
 
-The water meshes already have eight subdivisions per tile. Their shared shader
-performs the slight deformation on the GPU, while the CPU uploads only the six
-impulses and current wake. Spatial water chunks continue to provide ordinary
-frustum culling in the large-world renderer.
+Authored fallback water meshes use eight subdivisions per tile; the endless
+field's bounded stream window uses the tuned lower subdivision count. Their
+shared shader performs deformation on the GPU, while the CPU uploads only the
+six impulses and current wake. Streaming changes which real water-tile
+coordinates own geometry, never the fixed interaction-state budget.
 
 ## Regression checks
 

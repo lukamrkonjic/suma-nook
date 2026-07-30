@@ -205,6 +205,7 @@ func _build_world_scene() -> void:
 	add_child(audio)
 
 	renderer.setup(core, assets)
+	renderer.bind_water_stream_anchor(camera_rig)
 	player.setup(core, camera_rig, player_visual)
 	effects.bind_water_interaction(core, player)
 	effects.bind_ground_impacts(core, player, audio)

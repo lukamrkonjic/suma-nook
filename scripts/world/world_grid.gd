@@ -320,6 +320,38 @@ func can_place_tile_at(coord: Vector2i, elevation: int, tile_id: String) -> bool
 	)
 
 
+## Authored open-water cells are mutable overrides within the generated water
+## tile field.
+## Ordinary land may cover them, but water itself remains bucket-owned and
+## objects/upper stacks must be cleared before replacement.
+func can_replace_open_water(coord: Vector2i, tile_id: String) -> bool:
+	var current := cell(coord)
+	var current_definition := tile_def(coord)
+	var incoming_definition := registries.tile(tile_id)
+	return (
+		current != null
+		and current_definition != null
+		and current_definition.water_cells.has("open_water")
+		and incoming_definition != null
+		and not incoming_definition.water_cells.has("open_water")
+		and top_elevation(coord) == 0
+		and current.landmark_id == ""
+		and current.structures.is_empty()
+	)
+
+
+func replace_open_water(
+	coord: Vector2i,
+	tile_id: String,
+	rotation: int = 0
+) -> CellState:
+	if not can_replace_open_water(coord, tile_id):
+		return null
+	var previous := cell(coord)
+	place_tile(coord, tile_id, rotation)
+	return previous
+
+
 func stack_target_elevation(coord: Vector2i, tile_id: String) -> int:
 	var elevation := top_elevation(coord) + 1
 	return elevation if elevation > 0 and can_place_tile_at(coord, elevation, tile_id) else -1
@@ -637,7 +669,8 @@ func move_tile_at(from: Vector2i, from_elevation: int, to: Vector2i, to_elevatio
 func can_restore_tile_stack(
 	coord: Vector2i,
 	base_elevation: int,
-	stack: Array
+	stack: Array,
+	allow_open_water_replacement := false
 ) -> bool:
 	if stack.is_empty() or base_elevation < 0:
 		return false
@@ -647,11 +680,17 @@ func can_restore_tile_stack(
 		var relative := int(entry.get("relative_elevation", -1))
 		var state: CellState = entry.get("state")
 		var elevation := base_elevation + relative
+		var replaces_water := (
+			allow_open_water_replacement
+			and relative == 0
+			and base_elevation == 0
+			and can_replace_open_water(coord, state.tile_id)
+		)
 		if (
 			state == null
 			or relative != expected_relative
 			or elevation > max_stack_elevation
-			or has_cell_at(coord, elevation)
+			or (has_cell_at(coord, elevation) and not replaces_water)
 		):
 			return false
 		var definition := registries.tile(state.tile_id)
@@ -659,7 +698,7 @@ func can_restore_tile_stack(
 			return false
 		if relative == 0:
 			if base_elevation == 0:
-				if not can_place_tile(coord):
+				if not replaces_water and not can_place_tile(coord):
 					return false
 			elif not can_place_tile_at(coord, base_elevation, state.tile_id):
 				return false
@@ -677,6 +716,21 @@ func can_restore_tile_stack(
 		previous_state = state
 		expected_relative += 1
 	return true
+
+
+func replace_open_water_with_stack(
+	coord: Vector2i,
+	stack: Array
+) -> CellState:
+	if not can_restore_tile_stack(coord, 0, stack, true):
+		return null
+	var previous := cell(coord)
+	_uncache_state_structures(previous)
+	cells.erase(coord)
+	if restore_tile_stack(coord, 0, stack, false):
+		return previous
+	restore_cell_at(coord, 0, previous)
+	return null
 
 
 func detach_tile_stack(coord: Vector2i, base_elevation: int) -> Array[Dictionary]:
@@ -1046,10 +1100,14 @@ func bounds() -> Rect2i:
 	if cells.is_empty():
 		return Rect2i()
 	var first: Vector2i = cells.keys()[0]
-	var rect := Rect2i(first, Vector2i.ONE)
+	var minimum := first
+	var maximum := first
 	for coord: Vector2i in cells:
-		rect = rect.expand(coord)
-	return rect
+		minimum.x = mini(minimum.x, coord.x)
+		minimum.y = mini(minimum.y, coord.y)
+		maximum.x = maxi(maximum.x, coord.x)
+		maximum.y = maxi(maximum.y, coord.y)
+	return Rect2i(minimum, maximum - minimum + Vector2i.ONE)
 
 
 # ------------------------------------------------------------------ persistence

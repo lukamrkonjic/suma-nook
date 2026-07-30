@@ -19,6 +19,9 @@ const FoliageWindScript := preload("res://scripts/visuals/foliage_wind.gd")
 const ScalableWorldBackendScript := preload(
 	"res://scripts/world/scalable_world_backend.gd"
 )
+const StreamedWaterTilesScript := preload(
+	"res://scripts/visuals/streamed_water_tiles.gd"
+)
 const SCALABLE_WORLD_THRESHOLD := 512
 
 var core: GameCore
@@ -33,6 +36,7 @@ var _landmark_nodes: Dictionary = {}    # landmark_id -> Node3D
 var _edge_root: Node3D
 var _silhouette_material: StandardMaterial3D
 var _water_surface: WaterSurface
+var _streamed_water_tiles
 var _tile_visual_factory: TileVisualFactory
 var _structure_visual_factory: RefCounted
 var _outlined_meshes: Array[MeshInstance3D] = []
@@ -72,6 +76,15 @@ func setup(game_core: GameCore, asset_library: AssetLibrary) -> void:
 	_water_surface = WaterSurface.new()
 	_water_surface.name = "ContinuousWaterSurface"
 	add_child(_water_surface)
+	if bool(core.registries.tune("ocean_enabled", true)):
+		_streamed_water_tiles = StreamedWaterTilesScript.new()
+		_streamed_water_tiles.name = "StreamedWaterTiles"
+		add_child(_streamed_water_tiles)
+		_streamed_water_tiles.setup(
+			core,
+			materials.material("water"),
+			materials.material("uw_sand_light")
+		)
 
 	core.grid.slot_changed.connect(_on_slot_changed)
 	core.grid.grid_changed.connect(_on_grid_changed)
@@ -80,6 +93,15 @@ func setup(game_core: GameCore, asset_library: AssetLibrary) -> void:
 	core.landmarks.landmark_reclaimed.connect(func(_s): _sync_landmarks())
 	core.landmarks.landmark_resolved.connect(func(_s, _r): _sync_landmarks())
 	rebuild_all()
+
+
+func bind_water_stream_anchor(anchor: Node3D) -> void:
+	if _streamed_water_tiles != null:
+		_streamed_water_tiles.set_anchor(anchor)
+
+
+func streamed_water_enabled() -> bool:
+	return _streamed_water_tiles != null
 
 
 func _process(_delta: float) -> void:
@@ -291,6 +313,11 @@ func _place_uw(root: Node3D, asset_id: String, pos: Vector3, rng: RandomNumberGe
 
 
 func _rebuild_water_surface() -> void:
+	if streamed_water_enabled():
+		_water_surface.mesh = null
+		_water_surface.visible = false
+		return
+	_water_surface.visible = true
 	var cells: Array = []
 	for coord: Vector2i in core.grid.cells:
 		var def := core.grid.tile_def(coord)
@@ -1026,6 +1053,11 @@ func debug_stats() -> Dictionary:
 	if _scalable_mode and _scalable_backend != null:
 		var stats: Dictionary = _scalable_backend.debug_stats()
 		stats["mode"] = "chunked"
+		stats["streamed_water_tiles"] = (
+			_streamed_water_tiles.runtime_manifest()
+			if _streamed_water_tiles != null
+			else {}
+		)
 		return stats
 	var models := _structure_nodes.size()
 	return {
@@ -1041,6 +1073,11 @@ func debug_stats() -> Dictionary:
 		),
 		"collision_chunks": _tile_nodes.size(),
 		"warm_lights": get_tree().get_nodes_in_group("warm_lights").size(),
+		"streamed_water_tiles": (
+			_streamed_water_tiles.runtime_manifest()
+			if _streamed_water_tiles != null
+			else {}
+		),
 	}
 
 

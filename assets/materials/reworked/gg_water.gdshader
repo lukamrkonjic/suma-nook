@@ -42,6 +42,12 @@ uniform float side_opacity = 1.0;
 // held water receives its invalid tint inside the water shader itself.
 uniform vec4 placement_invalid_tint : source_color = vec4(1.0, 0.08, 0.045, 1.0);
 uniform float placement_invalid_strength : hint_range(0.0, 1.0) = 0.0;
+// Streamed water-tile discovery envelope. The tile window extends beyond these bounds so
+// alpha can dissolve into the active backdrop before geometry ends.
+uniform float distance_haze_enabled : hint_range(0.0, 1.0) = 0.0;
+// min world X, min world Z, max world X, max world Z.
+uniform vec4 distance_haze_bounds = vec4(-64.0, -64.0, 64.0, 64.0);
+uniform float distance_haze_width = 10.0;
 
 uniform sampler2D depth_tex : hint_depth_texture;
 
@@ -179,6 +185,37 @@ float caustic_layer(vec2 p, float t) {
 	return pow(clamp(1.0 - abs(a + b * 0.72) * 0.34, 0.0, 1.0), 5.0);
 }
 
+float distance_haze_visibility(vec2 point) {
+	if (distance_haze_enabled < 0.5) {
+		return 1.0;
+	}
+	vec2 center = (
+		distance_haze_bounds.xy + distance_haze_bounds.zw
+	) * 0.5;
+	vec2 half_size = max(
+		(distance_haze_bounds.zw - distance_haze_bounds.xy) * 0.5,
+		vec2(0.001)
+	);
+	// A rounded discovery field reads as atmosphere around an island instead
+	// of a second square platform. The logical/camera bounds remain exact.
+	float corner_radius = min(half_size.x, half_size.y) * 0.42;
+	vec2 q = abs(point - center) - (half_size - vec2(corner_radius));
+	float signed_distance = (
+		length(max(q, vec2(0.0)))
+		+ min(max(q.x, q.y), 0.0)
+		- corner_radius
+	);
+	float width = max(distance_haze_width, 0.001);
+	float soft_noise = (
+		sin(point.x * 0.29 + point.y * 0.17)
+		+ sin(point.x * 0.11 - point.y * 0.37)
+	) * width * 0.055;
+	float edge_distance = -signed_distance + soft_noise;
+	// The streamed tile window extends past the logical envelope, allowing the
+	// dissolve to finish outside it instead of exposing a hard mesh boundary.
+	return smoothstep(-width * 0.42, width, edge_distance);
+}
+
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	mesh_normal = normalize((MODEL_NORMAL_MATRIX * NORMAL));
@@ -197,6 +234,7 @@ void vertex() {
 
 void fragment() {
 	float t = TIME;
+	float envelope_visibility = distance_haze_visibility(world_pos.xz);
 
 	// ---- Jello block side faces: continuous aqua wall with a restrained
 	// bright lip at the waterline. No depth logic needed.
@@ -212,13 +250,14 @@ void fragment() {
 			placement_invalid_tint.rgb,
 			placement_invalid_strength
 		);
+		side_col = mix(sky_color.rgb, side_col, envelope_visibility);
 		ALBEDO = vec3(0.02);
 		EMISSION = side_col;
 		ALPHA = mix(
 			side_opacity,
 			max(side_opacity, placement_invalid_tint.a),
 			placement_invalid_strength
-		);
+		) * envelope_visibility;
 		ROUGHNESS = 0.34;
 		SPECULAR = 0.25;
 		METALLIC = 0.0;
@@ -291,13 +330,14 @@ void fragment() {
 		placement_invalid_tint.rgb,
 		placement_invalid_strength
 	);
+	display_col = mix(sky_color.rgb, display_col, envelope_visibility);
 	ALBEDO = mix(vec3(0.02), display_col, scene_lighting_response);
 	EMISSION = display_col * (1.0 - scene_lighting_response);
 	ALPHA = mix(
 		opacity,
 		max(opacity, placement_invalid_tint.a),
 		placement_invalid_strength
-	);
+	) * envelope_visibility;
 	ROUGHNESS = water_roughness;
 	SPECULAR = water_specular;
 	METALLIC = 0.0;

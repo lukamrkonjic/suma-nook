@@ -66,6 +66,9 @@ func _run() -> void:
 	main.arrival_picker.select("tile_sand")
 	await wait(1.45)
 	await shot("03_arrival_chosen_sand")
+	main.camera_rig.set_zoom_immediate(70.0)
+	await wait(0.8)
+	await shot("03b_streamed_water_tiles_distance_fog")
 
 	# Recompose the broad showcase fixture after capturing the authored opening.
 	main.core.new_game(main.core.profile)

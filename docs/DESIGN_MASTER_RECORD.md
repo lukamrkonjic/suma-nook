@@ -407,3 +407,30 @@ loop-agnostic.
   feature-module pattern; save migration policy; controller-complete
   contract; performance benchmarks to 10K tiles; visual capture
   runner; full test suites.
+
+---
+
+# PART J — World substrate decision: endless water tiles
+
+**Decision:** the surrounding world is an endless field of the real
+`tile_open_water` tile, not void and not a cosmetic ocean plane.
+
+- Unbuilt coordinates resolve deterministically to Quiet Water.
+- The renderer streams only nearby water-tile coordinates and fades
+  them into distance haze; world size does not create an infinite mesh.
+- Explicit land replaces one water coordinate and pushes the derived
+  discovery/camera envelope outward.
+- Generated and authored water share fishing, swimming, controller
+  targeting, and the connected-water visual contract.
+- A generated water tile promotes to explicit state when it must own a
+  dock or other mutable content.
+- Normal build pickup cannot take water. A future bucket uses the
+  already-defined sparse remove/restore transaction; generated holes
+  persist as coordinate tombstones without saving the whole sea.
+- Future islands and rare blocks may be generated in the hidden ring
+  beyond the envelope, but progression rules for discovery are deferred.
+
+This substrate lets players build forests, deserts, snowfields, towns,
+ponds, rivers, and lakes as authored biomes within one coherent ocean
+world. Water remains a usable building material and skilling surface,
+not scenery outside the game.

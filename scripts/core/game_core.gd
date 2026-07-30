@@ -26,10 +26,18 @@ const FireInteractionsScript := preload(
 const CurrentSaveValidatorScript := preload(
 	"res://scripts/systems/current_save_validator.gd"
 )
+const WorldEnvelopeScript := preload(
+	"res://scripts/world/world_envelope.gd"
+)
+const WorldWaterFieldScript := preload(
+	"res://scripts/world/world_water_field.gd"
+)
 
 var registries: Registries
 var rng: RngService
 var grid: WorldGrid
+var world_envelope: WorldEnvelope
+var water_field
 var profile: PlayerProfile
 var inventory: InventoryManager
 var stock: StockManager
@@ -78,6 +86,12 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 	var ok := registries.load_all(data_path)
 	rng = RngService.new(seed_value)
 	grid = WorldGrid.new(registries)
+	world_envelope = WorldEnvelopeScript.new(registries, grid)
+	water_field = WorldWaterFieldScript.new(
+		registries,
+		grid,
+		world_envelope
+	)
 	profile = PlayerProfile.new()
 	inventory = InventoryManager.new(registries)
 	stock = StockManager.new(registries)
@@ -125,6 +139,11 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 			owner._dirty = true
 	)
 	grid.slot_changed.connect(_sync_resting_anchor_slot)
+	water_field.field_changed.connect(func(_coord):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._dirty = true
+	)
 	fire.burning_changed.connect(func(_instance_id, _burning):
 		var owner := owner_ref.get_ref() as GameCore
 		if owner != null:
@@ -153,6 +172,7 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 func new_game(new_profile: PlayerProfile) -> void:
 	profile = new_profile
 	camping.reset()
+	water_field.reset()
 	onboarding.set_stage(OnboardingState.COMPLETE)
 	_compose_starting_world()
 	grid.home_cell = Vector2i.ZERO
@@ -180,6 +200,7 @@ func new_game(new_profile: PlayerProfile) -> void:
 func begin_onboarding_game(new_profile: PlayerProfile) -> void:
 	profile = new_profile
 	camping.reset()
+	water_field.reset()
 	grid.cells.clear()
 	grid.stacked_cells.clear()
 	grid.rebuild_structure_index()
@@ -408,9 +429,28 @@ func place_tile_from_stock(
 	rotation: int,
 	elevation: int = 0
 ) -> bool:
-	if not grid.can_place_tile_at(coord, elevation, tile_id) or not stock.take_tile(tile_id):
+	var water_replacement: Dictionary = (
+		water_field.replacement_record(coord, tile_id)
+		if elevation == 0
+		else {}
+	)
+	var replaces_open_water: bool = not water_replacement.is_empty()
+	if (
+		not replaces_open_water
+		and not grid.can_place_tile_at(coord, elevation, tile_id)
+	):
 		return false
-	grid.place_tile_at(coord, elevation, tile_id, rotation)
+	if not stock.take_tile(tile_id):
+		return false
+	var placed := false
+	if water_replacement.get("source", "") == "explicit":
+		placed = grid.replace_open_water(coord, tile_id, rotation) != null
+	else:
+		grid.place_tile_at(coord, elevation, tile_id, rotation)
+		placed = true
+	if not placed:
+		stock.add_tile(tile_id)
+		return false
 	collection.record_placed("tiles", tile_id)
 	if elevation == 0 and registries.feature("hostile_landmarks_enabled", false):
 		landmarks.on_world_grown()
@@ -535,6 +575,7 @@ func _save_payload() -> Dictionary:
 		"rng": rng.to_save_dict(),
 		"profile": profile.to_save_dict(),
 		"grid": grid.to_save_dict(),
+		"water_field": water_field.to_save_dict(),
 		"inventory": inventory.to_save_dict(),
 		"stock": stock.to_save_dict(),
 		"collection": collection.to_save_dict(),
@@ -613,6 +654,7 @@ func load_game() -> bool:
 	rng.from_save_dict(data.get("rng", {}))
 	profile.from_save_dict(data.get("profile", {}))
 	grid.from_save_dict(data.get("grid", {}))
+	water_field.from_save_dict(data.get("water_field", {}))
 	_rebuild_resting_anchors()
 	inventory.from_save_dict(data.get("inventory", {}))
 	stock.from_save_dict(data.get("stock", {}))

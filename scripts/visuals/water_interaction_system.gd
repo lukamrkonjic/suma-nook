@@ -250,8 +250,7 @@ func _water_level() -> float:
 func _is_over_open_water() -> bool:
 	if _core == null or not is_instance_valid(_player):
 		return false
-	var definition := _core.grid.tile_def(_player.current_cell())
-	return definition != null and definition.water_cells.has("open_water")
+	return _core.water_field.is_open_water(_player.current_cell())
 
 
 func _build_entry_splash() -> void:

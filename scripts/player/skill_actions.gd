@@ -59,7 +59,10 @@ func interact_with(focus: Dictionary) -> void:
 					_start_chopping(instance_id)
 			elif anchor.skill_id == "fishing":
 				var state := core.grid.cell(coord)
-				if state == null or state.anchor_resting:
+				if (
+					not core.water_field.is_open_water(coord)
+					or (state != null and state.anchor_resting)
+				):
 					return
 				_start_fishing(coord)
 		"storage":
@@ -86,7 +89,7 @@ func _start_fishing(coord: Vector2i) -> void:
 
 
 func _fishing_cycle(my_loop: int, coord: Vector2i) -> void:
-	if my_loop != _loop_id or core.grid.cell(coord) == null:
+	if my_loop != _loop_id or not core.water_field.is_open_water(coord):
 		return
 	player.set_state(PlayerController.State.FISHING_CAST)
 	var cast_point := _pond_point(coord)
@@ -145,7 +148,11 @@ func _fishing_cycle(my_loop: int, coord: Vector2i) -> void:
 
 func _pond_point(coord: Vector2i) -> Vector3:
 	var state := core.grid.cell(coord)
-	var offset := Vector3(0.14, 0.0, 0.14).rotated(Vector3.UP, state.rotation * PI * 0.5)
+	var rotation := state.rotation if state != null else 0
+	var offset := Vector3(0.14, 0.0, 0.14).rotated(
+		Vector3.UP,
+		rotation * PI * 0.5
+	)
 	return core.grid.cell_to_world(coord) + offset + Vector3(0, -0.22, 0)
 
 

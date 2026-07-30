@@ -54,7 +54,10 @@ func setup(game_core: GameCore, follow_target: Node3D) -> void:
 
 func _process(delta: float) -> void:
 	if target != null:
-		var goal := target.global_position + _pan_offset
+		var goal := core.world_envelope.clamp_world_position(
+			target.global_position + _pan_offset,
+			core.world_envelope.camera_inset_cells()
+		)
 		global_position = global_position.lerp(goal, minf(1.0, core.registries.tunef("camera_follow_speed", 4.5) * delta))
 	var yaw_difference := absf(angle_difference(rotation.y, deg_to_rad(_yaw_target)))
 	if yaw_difference > deg_to_rad(0.25) and not _rotating:
@@ -157,6 +160,13 @@ func _pan_by_pixels(relative: Vector2) -> void:
 	_pan_offset.y = 0.0
 	if _pan_offset.length() > 30.0:
 		_pan_offset = _pan_offset.normalized() * 30.0
+	if target != null:
+		var clamped_focus := core.world_envelope.clamp_world_position(
+			target.global_position + _pan_offset,
+			core.world_envelope.camera_inset_cells()
+		)
+		_pan_offset = clamped_focus - target.global_position
+		_pan_offset.y = 0.0
 
 
 func _zoom_by(amount: float) -> void:
@@ -283,6 +293,7 @@ func runtime_manifest() -> Dictionary:
 			"orbit_step_degrees": 90.0,
 			"settle_epsilon_degrees": 0.25,
 		},
+		"world_envelope": core.world_envelope.runtime_manifest(),
 	}
 
 

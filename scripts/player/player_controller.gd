@@ -230,8 +230,7 @@ func _swim_move(delta: float) -> void:
 
 
 func _over_open_water() -> bool:
-	var def := core.grid.tile_def(current_cell())
-	return def != null and def.water_cells.has("open_water")
+	return core.water_field.is_open_water(current_cell())
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -701,19 +700,41 @@ func _update_focus() -> void:
 		for dx in range(-1, 2):
 			var coord := my_cell + Vector2i(dx, dy)
 			var cell_state := core.grid.cell(coord)
-			if cell_state == null:
-				continue
-			var def := core.grid.tile_def(coord)
+			var def: Defs.TileDefinition = (
+				core.water_field.tile_definition_at(coord)
+			)
 			if def == null:
 				continue
 			var center := core.grid.cell_to_world(coord)
 			var interaction_point := center
+			var interaction_bias := 0.0
 			if not def.walkable and def.water_cells.has("open_water"):
-				interaction_point += Vector3(0, 0, 1.25)
-			var distance := position.distance_to(interaction_point)
+				var toward_player := position - center
+				toward_player.y = 0.0
+				if not toward_player.is_zero_approx():
+					interaction_point += (
+						toward_player.normalized()
+						* core.grid.tile_size
+						* 0.48
+					)
+				# A whole water cell is a generous target. Give exact nearby
+				# objects priority while keeping shoreline fishing effortless.
+				interaction_bias = core.grid.tile_size * 0.35
+			var distance := (
+				position.distance_to(interaction_point)
+				+ interaction_bias
+			)
 			if def.anchor_id != "" and distance < best_distance:
 				var anchor := core.registries.anchor(def.anchor_id)
-				if core.progression.is_activity_playable(anchor.skill_id) and not cell_state.anchor_resting:
+				var resting := (
+					cell_state != null
+					and cell_state.anchor_resting
+				)
+				if (
+					anchor != null
+					and core.progression.is_activity_playable(anchor.skill_id)
+					and not resting
+				):
 					best = {"kind": "anchor", "coord": coord, "anchor": anchor, "point": interaction_point}
 					best_distance = distance
 	for dy in range(-1, 2):

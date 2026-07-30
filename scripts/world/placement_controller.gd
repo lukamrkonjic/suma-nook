@@ -139,7 +139,7 @@ func begin_controller_browse() -> void:
 	if not active or not _controller_mode:
 		return
 	_controller_cursor_active = true
-	if not core.grid.has_cell(_controller_cell):
+	if not core.world_envelope.contains_cell(_controller_cell):
 		_controller_cell = player.current_cell()
 
 
@@ -174,7 +174,9 @@ func move_controller_cursor(screen_direction: Vector2i) -> void:
 		screen_direction,
 		quarter_turn
 	)
-	_controller_cell += grid_direction
+	_controller_cell = core.world_envelope.clamp_cell(
+		_controller_cell + grid_direction
+	)
 
 
 static func controller_grid_direction(
@@ -525,10 +527,7 @@ func _sync_ghost_water_topology() -> void:
 
 
 func _is_water_cell(coord: Vector2i) -> bool:
-	if not core.grid.has_cell(coord):
-		return false
-	var def := core.grid.tile_def(coord)
-	return def != null and def.render_profile == "continuous_water"
+	return core.water_field.is_open_water(coord)
 
 
 ## Validity styling belongs to the model and remains readable throughout tall
@@ -578,6 +577,19 @@ func _update_controller_placeable_hover() -> void:
 	world_renderer.clear_structure_hover()
 	var elevation := core.grid.top_elevation(_controller_cell)
 	if elevation < 0:
+		if core.water_field.is_generated_water(_controller_cell):
+			var water: Defs.TileDefinition = core.water_field.tile_definition_at(
+				_controller_cell
+			)
+			_emit_hover_info(
+				"generated_water:%d:%d" % [
+					_controller_cell.x,
+					_controller_cell.y,
+				],
+				water.display_name if water != null else "Water",
+				"Waterside Tiles"
+			)
+			return
 		_emit_hover_info(
 			"empty:%d:%d" % [_controller_cell.x, _controller_cell.y],
 			"Empty ground",
@@ -697,8 +709,7 @@ func _update_hover_target() -> void:
 	var support_elevation := int(hit["elevation"])
 	match held.get("kind", ""):
 		"tile":
-			var tile_column_top := core.grid.top_elevation(_hover_cell)
-			_hover_elevation = tile_column_top + 1 if tile_column_top >= 0 else 0
+			_hover_elevation = _tile_target_elevation(_hover_cell)
 		"structure":
 			var structure_column_top := core.grid.top_elevation(_hover_cell)
 			_hover_elevation = (
@@ -715,12 +726,7 @@ func _update_controller_hover_target() -> void:
 	_hover_cell = _controller_cell
 	match held.get("kind", ""):
 		"tile":
-			var tile_column_top := core.grid.top_elevation(_hover_cell)
-			_hover_elevation = (
-				tile_column_top + 1
-				if tile_column_top >= 0
-				else 0
-			)
+			_hover_elevation = _tile_target_elevation(_hover_cell)
 		"structure":
 			_hover_elevation = maxi(0, core.grid.top_elevation(_hover_cell))
 			_resolve_highest_structure_target(
@@ -749,6 +755,16 @@ func _highest_structure_instance_at(coord: Vector2i, elevation: int) -> int:
 	return _target_resolver.highest_structure_instance_at(coord, elevation)
 
 
+func _tile_target_elevation(cell: Vector2i) -> int:
+	if core.grid.can_replace_open_water(
+		cell,
+		String(held.get("id", ""))
+	):
+		return 0
+	var tile_column_top := core.grid.top_elevation(cell)
+	return tile_column_top + 1 if tile_column_top >= 0 else 0
+
+
 func _validate(cell: Vector2i, elevation: int = 0) -> bool:
 	return _rules.validate(
 		held, cell, elevation,
@@ -770,7 +786,7 @@ func try_place_at(cell: Vector2i) -> bool:
 	_hover_cell = cell
 	match held.get("kind", ""):
 		"tile":
-			_hover_elevation = core.grid.top_elevation(cell) + 1 if core.grid.has_cell(cell) else 0
+			_hover_elevation = _tile_target_elevation(cell)
 		"structure":
 			_hover_elevation = maxi(0, core.grid.top_elevation(cell))
 			_resolve_highest_structure_target(cell, _hover_elevation)
@@ -937,7 +953,34 @@ func _place_tile() -> void:
 		var stack: Array = held["moving"]["stack"]
 		var from_rotation := int(held["moving"].get("base_rotation", rotation_q))
 		_rotate_tile_stack(stack, rotation_q - from_rotation)
-		if not core.grid.restore_tile_stack(_hover_cell, _hover_elevation, stack):
+		var moving_root: WorldGrid.CellState = stack[0]["state"]
+		var moved_water_replacement: Dictionary = (
+			core.water_field.replacement_record(
+				_hover_cell,
+				moving_root.tile_id
+			)
+			if _hover_elevation == 0
+			else {}
+		)
+		var restored := false
+		if (
+			_hover_elevation == 0
+			and moved_water_replacement.get("source", "") == "explicit"
+		):
+			var replaced_state := core.grid.replace_open_water_with_stack(
+				_hover_cell,
+				stack
+			)
+			restored = replaced_state != null
+			if restored:
+				moved_water_replacement["state"] = replaced_state
+		else:
+			restored = core.grid.restore_tile_stack(
+				_hover_cell,
+				_hover_elevation,
+				stack
+			)
+		if not restored:
 			_rotate_tile_stack(stack, from_rotation - rotation_q)
 			action_result.emit(false, "That land stack changed before it could settle.", "invalid")
 			return
@@ -951,6 +994,7 @@ func _place_tile() -> void:
 			"to_rotation": rotation_q,
 			"home_before": held["moving"].get("home_before", core.grid.home_cell),
 			"home_after": held["moving"].get("home_after", core.grid.home_cell),
+			"water_replacement": moved_water_replacement,
 		})
 		held = {}
 		held_changed.emit(held)
@@ -958,6 +1002,11 @@ func _place_tile() -> void:
 		core.autosave_paused = false
 		core.autosave_soon()
 	else:
+		var stock_water_replacement: Dictionary = (
+			core.water_field.replacement_record(_hover_cell, tile_id)
+			if _hover_elevation == 0
+			else {}
+		)
 		if not core.place_tile_from_stock(_hover_cell, tile_id, rotation_q, _hover_elevation):
 			action_result.emit(false, "That piece isn't in storage anymore.", "invalid")
 			return
@@ -967,6 +1016,7 @@ func _place_tile() -> void:
 			"elevation": _hover_elevation,
 			"tile_id": tile_id,
 			"rotation": rotation_q,
+			"water_replacement": stock_water_replacement,
 		})
 		var remaining := core.stock.tile_count(tile_id)
 		if remaining <= 0:
@@ -1006,6 +1056,22 @@ func _place_structure() -> void:
 		if _hover_support_instance_id > 0
 		else _target_socket(_hover_cell, _hover_elevation)
 	)
+	var promoted_generated_water := false
+	if (
+		_hover_elevation == 0
+		and _hover_support_instance_id == 0
+		and core.water_field.is_generated_water(_hover_cell)
+	):
+		promoted_generated_water = (
+			core.water_field.materialize(_hover_cell) != null
+		)
+		if not promoted_generated_water:
+			action_result.emit(
+				false,
+				"That water tile changed before the item could settle.",
+				"invalid"
+			)
+			return
 	var placed: WorldGrid.StructureState = null
 	if held["moving"] != null:
 		var moving: Dictionary = held["moving"]
@@ -1019,6 +1085,7 @@ func _place_structure() -> void:
 			socket,
 			int(held["rotation"])
 		):
+			_rollback_promoted_water(promoted_generated_water)
 			action_result.emit(false, "That support changed before the item could settle.", "invalid")
 			return
 		placed = stack[0]
@@ -1042,6 +1109,7 @@ func _place_structure() -> void:
 	else:
 		var stock_token := core.stock.take_structure_token(structure_id)
 		if stock_token.is_empty():
+			_rollback_promoted_water(promoted_generated_water)
 			action_result.emit(false, "That piece isn't in storage anymore.", "invalid")
 			return
 		var stored_state: Dictionary = stock_token.get("state", {})
@@ -1073,6 +1141,7 @@ func _place_structure() -> void:
 			)
 		if placed == null:
 			core.stock.return_structure_token(stock_token)
+			_rollback_promoted_water(promoted_generated_water)
 			action_result.emit(false, "That support changed before the item could settle.", "invalid")
 			return
 		core.collection.record_placed("structures", structure_id)
@@ -1111,6 +1180,20 @@ func _place_structure() -> void:
 	action_result.emit(true, "", "place_" + def.placement_sound)
 
 
+func _rollback_promoted_water(promoted: bool) -> void:
+	if not promoted:
+		return
+	var state := core.grid.cell(_hover_cell)
+	if (
+		state != null
+		and state.tile_id == core.water_field.ocean_tile_id()
+		and state.structures.is_empty()
+		and state.landmark_id == ""
+		and core.grid.top_elevation(_hover_cell) == 0
+	):
+		core.grid.remove_tile(_hover_cell)
+
+
 func _place_deed() -> void:
 	if core.landmarks.place_deed(held["id"], _hover_cell):
 		held = {}
@@ -1136,6 +1219,8 @@ func _try_pick_up() -> void:
 				controller_elevation,
 				controller_instance
 			)
+		elif core.water_field.is_generated_water(_controller_cell):
+			_water_requires_bucket()
 		return
 	var hit := world_renderer.pick_placeable_at_screen(
 		camera_rig.camera,
@@ -1157,6 +1242,16 @@ func _try_pick_up() -> void:
 	var elevation := int(slot_hit["elevation"])
 	if elevation >= 0:
 		_pick_up_from(slot_hit["coord"], elevation)
+	elif core.water_field.is_generated_water(slot_hit["coord"]):
+		_water_requires_bucket()
+
+
+func _water_requires_bucket() -> void:
+	action_result.emit(
+		false,
+		"Water stays in place until you have a bucket.",
+		"invalid"
+	)
 
 
 func _pick_up_from(cell: Vector2i, elevation: int, preferred_instance_id := -1) -> void:
@@ -1205,6 +1300,12 @@ func _pick_up_from(cell: Vector2i, elevation: int, preferred_instance_id := -1) 
 
 
 func _try_pick_up_tile(cell: Vector2i, elevation: int, state: WorldGrid.CellState) -> void:
+	if (
+		elevation == 0
+		and core.water_field.is_explicit_open_water(cell)
+	):
+		_water_requires_bucket()
+		return
 	if state.movement_locked:
 		action_result.emit(false, "This first water tile anchors the opening zone for now.", "invalid")
 		return
@@ -1377,11 +1478,29 @@ func _apply(entry: Dictionary, reverse: bool) -> bool:
 				var coord: Vector2i = entry["coord"]
 				if elevation == 0 and player.current_cell() == coord:
 					player.position = core.grid.cell_to_world(core.grid.nearest_walkable(coord, coord))
-				if elevation == 0 and not core.grid.connected_without(coord, core.grid.home_cell):
+				var water_replacement: Dictionary = entry.get(
+					"water_replacement",
+					{}
+				)
+				if (
+					elevation == 0
+					and water_replacement.is_empty()
+					and not core.grid.connected_without(
+						coord,
+						core.grid.home_cell
+					)
+				):
 					return false
 				var removed := core.grid.remove_tile_at(coord, elevation)
 				if removed != null:
 					core.stock.add_tile(removed.tile_id)
+					if water_replacement.get("source", "") == "explicit":
+						var previous := (
+							water_replacement.get("state")
+							as WorldGrid.CellState
+						)
+						if previous != null:
+							core.grid.restore_cell_at(coord, 0, previous)
 				return removed != null
 			return core.place_tile_from_stock(
 				entry["coord"],
@@ -1441,10 +1560,42 @@ func _apply(entry: Dictionary, reverse: bool) -> bool:
 				else entry.get("to_rotation", 0)
 			)
 			_rotate_tile_stack(moving_stack, destination_rotation - source_rotation)
-			if not core.grid.restore_tile_stack(to, to_elevation, moving_stack):
+			var water_replacement: Dictionary = entry.get(
+				"water_replacement",
+				{}
+			)
+			var moved_ok := false
+			if (
+				not reverse
+				and water_replacement.get("source", "") == "explicit"
+				and to_elevation == 0
+			):
+				moved_ok = (
+					core.grid.replace_open_water_with_stack(
+						to,
+						moving_stack
+					)
+					!= null
+				)
+			else:
+				moved_ok = core.grid.restore_tile_stack(
+					to,
+					to_elevation,
+					moving_stack
+				)
+			if not moved_ok:
 				_rotate_tile_stack(moving_stack, source_rotation - destination_rotation)
 				core.grid.restore_tile_stack(from, from_elevation, moving_stack, false)
 				return false
+			if (
+				reverse
+				and water_replacement.get("source", "") == "explicit"
+			):
+				var displaced_water := (
+					water_replacement.get("state") as WorldGrid.CellState
+				)
+				if displaced_water != null:
+					core.grid.restore_cell_at(from, 0, displaced_water)
 			core.grid.home_cell = (
 				entry.get("home_before", core.grid.home_cell)
 				if reverse

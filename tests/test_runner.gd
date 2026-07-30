@@ -134,6 +134,7 @@ func _run() -> void:
 	_test_gg_render_contract()
 	_test_game_preferences()
 	_test_starting_world()
+	_test_streamed_water_tile_world_contract()
 	_test_authored_onboarding_flow()
 	_test_maxed_debug_world_spawn()
 	_test_inspiration_hobbies()
@@ -1601,6 +1602,180 @@ func _test_starting_world() -> void:
 	check(core.grid.is_walkable(Vector2i.ZERO), "home cell walkable")
 	check(core.grid.world_to_cell(core.profile.position) == Vector2i.ZERO, "player spawns safely on central land")
 	check(core.equipment.owns("tool_rod_basic"), "starter rod owned")
+
+
+func _test_streamed_water_tile_world_contract() -> void:
+	var core := fresh_core(8080)
+	var envelope := core.world_envelope
+	var water_field = core.water_field
+	var initial_constructed := envelope.constructed_bounds()
+	var initial_envelope := envelope.bounds()
+	check(
+		initial_envelope == initial_constructed.grow(
+			core.registries.tunei("ocean_margin_cells", 20)
+		),
+		"world envelope is derived from sparse constructed bounds plus margin"
+	)
+	var generated_corner := initial_envelope.position
+	check(
+		water_field.is_generated_water(generated_corner)
+			and water_field.tile_id_at(generated_corner)
+				== "tile_open_water"
+			and water_field.tile_definition_at(generated_corner)
+				== core.registries.tile("tile_open_water")
+			and water_field.tile_definition_at(generated_corner).anchor_id
+				== "pond_anchor"
+			and not core.grid.has_cell(generated_corner),
+		"unconstructed coordinates resolve to the real fishable water tile"
+	)
+	var hidden_coord := initial_envelope.end + Vector2i.ONE
+	check(
+		water_field.tile_id_at(hidden_coord) == ""
+			and water_field.tile_id_at(hidden_coord, true)
+				== "tile_open_water",
+		"hidden coordinates retain deterministic water tiles without revealing them"
+	)
+	check(
+		core.grid.to_save_dict()["cells"].size()
+			== core.grid.total_tile_count(),
+		"generated water tiles never bloat sparse grid persistence"
+	)
+	var bucket_record: Dictionary = water_field.remove_water_tile(
+		generated_corner
+	)
+	check(
+		bucket_record.get("source", "") == "generated"
+			and water_field.tile_id_at(generated_corner) == ""
+			and water_field.to_save_dict()[
+				"removed_generated_cells"
+			].size() == 1,
+		"future bucket removal records one sparse generated-water tombstone"
+	)
+	check(
+		water_field.restore_water_tile(
+			generated_corner,
+			bucket_record
+		)
+			and water_field.is_generated_water(generated_corner),
+		"a moved generated water tile can be restored without materializing the ocean"
+	)
+	water_field.remove_water_tile(generated_corner)
+	var persisted_water: Dictionary = water_field.to_save_dict()
+	var restored_core := fresh_core(8083)
+	restored_core.water_field.from_save_dict(persisted_water)
+	check(
+		restored_core.water_field.source_at(generated_corner) == "removed"
+			and restored_core.water_field.tile_id_at(generated_corner) == "",
+		"generated-water bucket tombstones survive a save-data round trip"
+	)
+	restored_core.water_field.reset()
+	check(
+		restored_core.water_field.is_generated_water(generated_corner),
+		"a new-world reset clears prior generated-water mutations"
+	)
+
+	var dock_core := fresh_core(8082)
+	var generated_dock_coord := Vector2i(2, 0)
+	check(
+		dock_core.water_field.is_generated_water(generated_dock_coord),
+		"an unbuilt dock target begins as generated water"
+	)
+	var promoted: WorldGrid.CellState = dock_core.water_field.materialize(
+		generated_dock_coord
+	)
+	var generated_dock := dock_core.grid.add_structure(
+		generated_dock_coord,
+		"struct_dock",
+		0
+	)
+	check(
+		promoted != null
+			and promoted.tile_id == "tile_open_water"
+			and generated_dock != null,
+		"generated water promotes to the same mutable tile state when a dock needs it"
+	)
+
+	var clear_water := GameCore.FIRST_WATER_COORD
+	var water_stock_before := core.stock.tile_count("tile_open_water")
+	var tile_count_before := core.grid.total_tile_count()
+	core.stock.add_tile("tile_grass")
+	check(
+		core.grid.can_replace_open_water(clear_water, "tile_grass"),
+		"clear authored water accepts an ordinary replacement tile"
+	)
+	check(
+		core.place_tile_from_stock(clear_water, "tile_grass", 2),
+		"placing from stock atomically replaces authored water"
+	)
+	check(
+		core.grid.tile_def(clear_water).id == "tile_grass"
+			and core.grid.total_tile_count() == tile_count_before
+			and core.stock.tile_count("tile_open_water") == water_stock_before,
+		"water replacement keeps cell count stable and never refunds water"
+	)
+	check(
+		not core.grid.can_replace_open_water(
+			GameCore.STARTER_DOCK_COORD,
+			"tile_grass"
+		),
+		"water supporting a placed object must be cleared before replacement"
+	)
+
+	var bounds_before_growth := envelope.bounds()
+	var constructed := envelope.constructed_bounds()
+	var east_anchor := Vector2i(
+		constructed.end.x - 1,
+		constructed.position.y
+	)
+	while not core.grid.has_cell(east_anchor):
+		east_anchor.y += 1
+	var east_frontier := east_anchor + Vector2i.RIGHT
+	check(
+		water_field.replacement_record(
+			east_frontier,
+			"tile_sand"
+		).get("source", "") == "generated",
+		"edge land targets one generated water tile"
+	)
+	core.stock.add_tile("tile_sand")
+	check(
+		core.place_tile_from_stock(east_frontier, "tile_sand", 0),
+		"normal edge placement replaces a generated water tile"
+	)
+	check(
+		not water_field.is_open_water(east_frontier)
+			and core.grid.tile_def(east_frontier).id == "tile_sand",
+		"the explicit land override replaces water at that coordinate"
+	)
+	var bounds_after_growth := envelope.bounds()
+	check(
+		bounds_after_growth.end.x == bounds_before_growth.end.x + 1
+			and bounds_after_growth.position == bounds_before_growth.position,
+		"eastward construction pushes only the east distance limit outward"
+	)
+	var removed_land := core.grid.remove_tile(east_frontier)
+	check(
+		removed_land != null
+			and removed_land.tile_id == "tile_sand"
+			and water_field.is_generated_water(east_frontier),
+		"removing a land override reveals its generated water tile again"
+	)
+
+	var moving := fresh_core(8081)
+	var source := Vector2i(0, 1)
+	var target_water := GameCore.FIRST_WATER_COORD
+	var stack := moving.grid.detach_tile_stack(source, 0)
+	var displaced := moving.grid.replace_open_water_with_stack(
+		target_water,
+		stack
+	)
+	check(
+		displaced != null
+			and displaced.tile_id == "tile_open_water"
+			and moving.grid.tile_def(target_water).id == "tile_grass"
+			and not moving.grid.has_cell(source),
+		"moved tile stacks can atomically displace clear authored water"
+	)
 
 
 func _test_authored_onboarding_flow() -> void:

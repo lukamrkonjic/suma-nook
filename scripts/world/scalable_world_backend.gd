@@ -208,7 +208,7 @@ func rebuild_chunk(chunk_coord: Vector2i) -> void:
 	if pick_body != null:
 		pick_body.set_meta("scalable_terrain", true)
 
-	if not water_cells.is_empty():
+	if not water_cells.is_empty() and not owner.streamed_water_enabled():
 		var water := WaterSurface.new()
 		water.name = "ChunkWater"
 		chunk_root.add_child(water)

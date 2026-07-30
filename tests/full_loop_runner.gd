@@ -803,17 +803,15 @@ func _step_tile_geometry_contract() -> void:
 		)) >= 0.58,
 		"submerged surfaces receive the stronger world-space caustic treatment"
 	)
-	var settled_water := main.renderer._water_surface as WaterSurface
-	var expected_starting_water_indices := (
-		3 * WaterSurface.SUBDIV * WaterSurface.SUBDIV * 6
-		+ 8 * WaterSurface.SUBDIV * 6
+	var streamed_water: Dictionary = (
+		main.renderer._streamed_water_tiles.runtime_manifest()
 	)
 	check(
-		settled_water != null
-		and settled_water.mesh != null
-		and settled_water.mesh.surface_get_array_index_len(0)
-			== expected_starting_water_indices,
-		"edge-connected water is one joined mesh with no internal shoreline walls"
+		streamed_water.get("renderer", "") == "streamed_real_water_tiles"
+		and int(streamed_water.get("surface_draw_calls", 0)) == 1
+		and int(streamed_water.get("water_cells_rendered", 0))
+			> main.core.grid.cells.size(),
+		"addressable water tiles stream as one joined surface"
 	)
 	var water_preview := tile_factory.instantiate_visual(
 		main.core.registries.tile("tile_open_water"),
@@ -933,11 +931,10 @@ func _step_build_mode_selection_rules() -> void:
 	var movable_water := Vector2i(1, -1)
 	main.placement.pick_up_at(movable_water)
 	check(
-		main.placement.held.get("kind", "") == "tile",
-		"the other opening water tiles can be picked up"
+		main.placement.held.is_empty()
+			and main.core.grid.has_cell(movable_water),
+		"ordinary build mode preserves water tiles for the future bucket tool"
 	)
-	main.placement.cancel_click()
-	check(main.core.grid.has_cell(movable_water), "cancelling restores a moved opening water tile")
 
 	var dock_coord := GameCore.STARTER_DOCK_COORD
 	var dock_state: WorldGrid.StructureState = main.core.grid.cell(dock_coord).structures[0]
@@ -2023,13 +2020,12 @@ func _step_woodcutting() -> void:
 		main.core.grid.cell_to_world(grove)
 		+ main.core.grid.structure_local_transform(tree.instance_id).origin
 	)
-	# Keep the scripted interaction close to the exact tree. With the compact
-	# 1.35 m grid, the former offset could enter a neighboring cell's focus
-	# neighborhood even though the tree itself remained in range.
+	# Keep the scripted interaction close to the exact tree, clear of its
+	# collider, and inside the supporting land cell.
 	main.player.position = tree_point + Vector3(
-		main.core.grid.tile_size * 0.2,
 		0,
-		main.core.grid.tile_size * 0.08
+		0,
+		main.core.grid.tile_size * 0.4
 	)
 	main.player.set_state(PlayerController.State.FREE)
 	main.player._update_focus()
