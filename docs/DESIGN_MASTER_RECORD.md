@@ -4,10 +4,11 @@ Everything read, found, decided, built, and explored to date. One
 document to reload the whole context.
 
 Status: living record, last updated 2026-07-30.  
-Companions: `docs/PROGRESSION_DESIGN.md` (v3 vision),
+Current authority: `docs/DISCOVERY_PROGRESSION.md`.
+Companions: `docs/PROGRESSION_DESIGN.md` (retired Vision history),
 `docs/GG_RESEARCH_FINDINGS.md` (research deep-dive),
 `docs/NEW_PLAYER_FLOW.md` (authored first session),
-`docs/PROGRESSION_REWORK_PLAN.md` (implementation phases),
+`docs/PROGRESSION_REWORK_PLAN.md` (retired implementation history),
 `docs/GG_SPECIAL_ITEM_INSPIRATION.md` (clean-room item notes),
 `legacy/progression_v1/` (archived XP/parcel system).
 
@@ -15,25 +16,25 @@ Companions: `docs/PROGRESSION_DESIGN.md` (v3 vision),
 
 # PART A — Where the game stands
 
-**Shipped and green (progression v2):** typed Inspiration domains →
-wisps → well banks up to 3 Visions (speed stacks per banked Vision,
-earning pauses at cap) → claim at the well → 2+1 three-card reveal
-(~1/8 Wild) → place. Refund meter (3 dupes → domain coin → guaranteed
-domain draw). Shrine focus targeting. Level-free activities +
-milestones. Land insurance. Offline tree recovery. Authored portal
-onboarding with first-land choice. Full suites pass (content
-validation, 1,620-assertion core suite, 275-check acceptance loop).
+**Shipped (progression v3):** exposed land edges let the keeper fish
+the unknown for one broad random tile or model. The first catch is
+guaranteed real, placeable water. Ponds, trees, and future skill
+objects inspect their constructed local biome and draw from the
+strongest matching source pool. The built world is therefore both
+canvas and gacha steering. Three true spare copies of one exact item
+can be offered to the void for a different random item in the same
+Build Bag category; one keeper is always protected and partial offers
+persist. Ferry gifts use the same single-discovery contract.
 
-**Vision v3 (documented, partially pending):** Mastery Arc spine,
-anti-shrine, far-seeking coins, Pattern Book, Rest mode, reagent
-keepsakes, loss-proof effects, Currents/Atmospheres pages, public
-roadmap, QoL/accessibility commitments.
+**Retired:** Inspiration, wisps, the wishing well, banked Visions,
+three-card choices, refund meters/coins, focus shrine, hidden pity,
+XP/levels, and the infinite-ocean start. Their reasoning remains below
+as history, not as implementation authority.
 
-**The open question (from the alternatives exploration, Part G):**
-whether Suma's *core acquisition loop* stays Inspiration-meters (v2/v3)
-or is replaced/augmented by a GG-faithful **visitor → typed coin →
-pot** loop at fountain pace. Five candidate skins await Luka's verdict
-(Part H).
+**Open tuning questions:** cadence and pool weights after playtesting;
+how broad individual Build Bag categories should be as the catalog
+grows; the first mining object and its local biome pools; later
+player-facing explanation of why a local pool won.
 
 ---
 
@@ -407,3 +408,72 @@ loop-agnostic.
   feature-module pattern; save migration policy; controller-complete
   contract; performance benchmarks to 10K tiles; visual capture
   runner; full test suites.
+
+---
+
+# PART J — The discovery era (current authority)
+
+Luka's decisive synthesis was that **fishing the sky/unknown is the
+emotionally strongest acquisition fantasy**, while ordinary water,
+forests, and future mining must still make physical sense inside the
+world the player designs. The discarded infinite-ocean prototype
+proved that treating water as background weakened ownership: water
+must be the same finite tile the player can discover, place, move,
+fish, and eventually manipulate with tools.
+
+The answer is a two-layer acquisition grammar:
+
+1. **The unknown is broad.** Fish from any exposed land edge to receive
+   one surprising tile or model from across the game.
+2. **The built world is specific.** Use a skill on a pond, tree, or
+   future mineral node and its nearby biome shapes the reward pool.
+
+This preserves gacha excitement without another currency ritual. It
+also turns decorating into meaningful strategy without making players
+manage visitors, meters, machines, schedules, or maintenance chores.
+
+## Locked rules
+
+- New worlds begin as a 3×3 land island with exposed void edges.
+- The first void catch is guaranteed `tile_open_water`.
+- Water is always a real owned tile, never ambient ocean geometry.
+- A discovery is one item, immediately owned before presentation.
+- Void pools are deliberately broad; local pools are source- and
+  biome-specific with neutral fallbacks.
+- Context comes from a bounded neighborhood of tile family, tagged
+  biome models, and the skill object's own tags.
+- Coherent local biomes beat incidental stray tiles.
+- Fishing, woodcutting, and future mining share one generic discovery
+  contract rather than bespoke reward code.
+- Duplicates are expected.
+- Three true spare copies of one exact item may be offered to the
+  void. One copy is protected across placed and stored ownership.
+- At three, the void returns a different random item from the same
+  Build Bag category. Partial offerings persist. Impossible draws
+  return the offered copies.
+- Ferry gifts are a bonus use of the same discovery system.
+- Inspiration, the well, Visions, refund coins, and shrine behavior
+  are completely removed rather than hidden behind feature flags.
+
+## Current first-session proof
+
+Create keeper → choose land → arrive on nine matching land tiles →
+fish the unknown → reveal and place real water → tend the placed pine
+→ receive a biome-shaped discovery → place it → free play.
+
+The proof matters because it demonstrates the whole long-term game in
+minutes: wonder, ownership, construction, local steering, and renewed
+discovery.
+
+## Extensibility contract
+
+`data/discovery_pools.json` is the content surface. Adding mining,
+foraging, bug-catching, or another skill means supplying the physical
+skill object and data pools keyed by source plus context; reward
+ownership, progress, reveal recovery, category exchange, collection,
+and saving remain shared.
+
+Progression save version 3 archives both earlier generations, safely
+converts pending promised rewards, retires their currencies, replaces
+ritual structures with ordinary decorative counterparts, and rejects
+no valid player-built world.

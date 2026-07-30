@@ -1,4 +1,9 @@
-# Suma — vision & progression design (v3)
+# Suma — retired Vision progression design (historical)
+
+> **Superseded 2026-07-30.** Inspiration, the wishing well, Visions,
+> refund coins, and the shrine are no longer live systems. The current
+> authority is `docs/DISCOVERY_PROGRESSION.md`. This file is retained only
+> to preserve the reasoning and review history that led to the replacement.
 
 Status: v3 — the whole-game vision. Locks v2's shipped decisions,
 adopts the Mastery Arc as the progression spine, and integrates the

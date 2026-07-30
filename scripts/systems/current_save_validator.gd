@@ -92,9 +92,8 @@ static func validate(data: Dictionary, registries: Registries) -> PackedStringAr
 	return errors
 
 
-## The archived_v1 blob is deliberately NOT validated: it preserves retired
-## v1 payloads verbatim for a possible levels revival and references nothing
-## the live catalog must still ship.
+## Archived v1/v2 blobs are deliberately not validated: they preserve retired
+## payloads verbatim and reference nothing the live catalog must still ship.
 static func _validate_progression(
 	errors: PackedStringArray,
 	raw: Variant,
@@ -104,20 +103,19 @@ static func _validate_progression(
 		errors.append("progression must be an object")
 		return
 	var data: Dictionary = raw
-	var inspiration: Dictionary = data.get("inspiration", {})
+	_require(
+		errors, int(data.get("version", 0)) == 3,
+		"progression.version must be 3"
+	)
+	var discovery: Dictionary = data.get("discovery", {})
 	_validate_dictionary_ids(
-		errors, inspiration.get("meters", {}), registries.inspiration_domains,
-		"progression.inspiration.meters"
+		errors, discovery.get("progress", {}), registries.discovery_pools,
+		"progression.discovery.progress"
 	)
-	_validate_array_ids(
-		errors, inspiration.get("banked", []), registries.inspiration_domains,
-		"progression.inspiration.banked"
-	)
-	var visions: Dictionary = data.get("visions", {})
-	for index in (visions.get("pending", []) as Array).size():
-		var entry: Variant = visions["pending"][index]
+	for index in (discovery.get("pending", []) as Array).size():
+		var entry: Variant = discovery["pending"][index]
 		if not entry is Dictionary:
-			errors.append("progression.visions.pending[%d] must be an object" % index)
+			errors.append("progression.discovery.pending[%d] must be an object" % index)
 			continue
 		var kind := String(entry.get("kind", ""))
 		var content_id := String(entry.get("id", ""))
@@ -127,22 +125,29 @@ static func _validate_progression(
 		)
 		_require(
 			errors, known,
-			"progression.visions.pending[%d] references missing %s '%s'"
+			"progression.discovery.pending[%d] references missing %s '%s'"
 			% [index, kind, content_id]
 		)
-	_validate_optional_id(
-		errors, visions.get("pending_domain", ""), registries.inspiration_domains,
-		"progression.visions.pending_domain"
-	)
-	var refunds: Dictionary = data.get("refunds", {})
-	_validate_dictionary_ids(
-		errors, refunds.get("meters", {}), registries.inspiration_domains,
-		"progression.refunds.meters"
-	)
-	_validate_dictionary_ids(
-		errors, refunds.get("coins", {}), registries.inspiration_domains,
-		"progression.refunds.coins"
-	)
+	var exchange: Dictionary = data.get("void_exchange", {})
+	for key: String in exchange.get("offerings", {}):
+		var parts := key.split(":", false, 1)
+		var known := false
+		if parts.size() == 2:
+			known = (
+				parts[0] == "tile" and registries.tile(parts[1]) != null
+			) or (
+				parts[0] == "structure"
+				and registries.structure(parts[1]) != null
+			)
+		_require(
+			errors, known,
+			"progression.void_exchange.offerings references missing '%s'" % key
+		)
+		_require(
+			errors,
+			int(exchange["offerings"][key]) in [1, 2],
+			"progression.void_exchange.offerings '%s' must be 1 or 2" % key
+		)
 	_validate_array_ids(
 		errors, data.get("milestones", {}).get("claimed", []), registries.milestones,
 		"progression.milestones.claimed"

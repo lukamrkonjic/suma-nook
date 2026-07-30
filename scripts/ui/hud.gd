@@ -1,10 +1,9 @@
 class_name Hud
 extends CanvasLayer
-## Persistent interface: inspiration meters, health, context prompt, toasts,
-## build bar, tutorial hints. Modal panels live in GamePanels; the Vision
-## reveal in VisionReveal. World stays visible — no giant menus.
+## Persistent interface: health, context prompts, toasts, the Build Bag, and
+## tutorial hints. Discovery presentation and modal panels live elsewhere.
 
-signal open_parcel_requested   # "claim at the well" intent; name kept stable
+signal void_exchange_requested
 signal build_piece_selected(kind: String, id: String)
 signal build_world_browse_requested
 signal build_store_requested
@@ -18,8 +17,6 @@ var core: GameCore
 var kit: UiKit
 var placement: PlacementController
 
-var _domain_chips: Dictionary = {}   # domain_id -> {name, count, bar, chip}
-var _vision_bank_label: Label
 var _toast_box: VBoxContainer
 var _prompt_label: Label
 var _hint_label: Label
@@ -59,7 +56,7 @@ var _catalogue_pointer_active := false
 var _thumbnail_renderer: BuildThumbnailRenderer
 var _build_preview_targets: Dictionary = {}
 var _context_column: VBoxContainer
-var _well_button: Button
+var _void_exchange_button: Button
 var _bottom_buttons: HBoxContainer
 var _menu_button: Button
 var _build_button: Button
@@ -93,13 +90,14 @@ func setup(game_core: GameCore, ui_kit: UiKit, placement_controller: PlacementCo
 	kit = ui_kit
 	placement = placement_controller
 	_build_layout()
-	core.progression.inspiration.inspiration_changed.connect(_on_inspiration_changed)
-	core.progression.inspiration.vision_banked.connect(_on_vision_banked)
-	core.progression.inspiration.bank_changed.connect(func(_count, _cap): _refresh_well_button())
-	core.progression.visions.options_revealed.connect(func(_context, _options): _refresh_well_button())
-	core.progression.visions.vision_chosen.connect(func(_entry, _was_new): _refresh_well_button())
+	core.progression.void_exchange.offering_changed.connect(
+		func(_kind, _id, _count): _refresh_void_exchange_button()
+	)
 	core.onboarding.stage_changed.connect(func(_stage): update_tutorial())
-	core.stock.stock_changed.connect(_refresh_build_strip)
+	core.stock.stock_changed.connect(func():
+		_refresh_build_strip()
+		_refresh_void_exchange_button()
+	)
 	if core.registries.feature("combat_enabled", false):
 		core.combat.health_changed.connect(_on_health_changed)
 	core.notified.connect(func(message, tone): toast(message, tone))
@@ -123,101 +121,6 @@ func _build_layout() -> void:
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
-
-	# Inspiration journal — one composed instrument rather than floating XP
-	# bars. Domain color, exact progress, and well capacity are readable at a
-	# glance without suggesting character levels.
-	var inspiration_dock := kit.progression_card(
-		Vector2(252, 0),
-		kit.palette.color("ui_good")
-	)
-	inspiration_dock.name = "InspirationJournal"
-	inspiration_dock.position = Vector2(14, 14)
-	inspiration_dock.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(inspiration_dock)
-	var dock_col := VBoxContainer.new()
-	dock_col.add_theme_constant_override("separation", 8)
-	inspiration_dock.add_child(dock_col)
-	var dock_head := HBoxContainer.new()
-	dock_col.add_child(dock_head)
-	var dock_title := kit.eyebrow(
-		"Inspiration",
-		kit.palette.color("ui_good")
-	)
-	dock_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	dock_head.add_child(dock_title)
-	var bank_badge := PanelContainer.new()
-	var bank_style := kit.surface_style(
-		kit.palette.color("ui_good").lightened(0.55),
-		9,
-		kit.palette.color("ui_good").lightened(0.22),
-		1
-	)
-	bank_style.content_margin_left = 8
-	bank_style.content_margin_right = 8
-	bank_style.content_margin_top = 3
-	bank_style.content_margin_bottom = 3
-	bank_badge.add_theme_stylebox_override("panel", bank_style)
-	_vision_bank_label = kit.label("WELL 0/3", 11, false, true)
-	_vision_bank_label.add_theme_color_override(
-		"font_color",
-		kit.palette.color("ui_good").darkened(0.18)
-	)
-	bank_badge.add_child(_vision_bank_label)
-	dock_head.add_child(bank_badge)
-	dock_col.add_child(kit.divider())
-
-	var chips := VBoxContainer.new()
-	chips.add_theme_constant_override("separation", 7)
-	dock_col.add_child(chips)
-	# One meter chip per domain that a playable activity feeds today. Future
-	# domains appear the moment their activity ships — no HUD change needed.
-	for domain_id: String in core.registries.inspiration_domains:
-		var domain := core.registries.inspiration_domain(domain_id)
-		var has_playable_activity := false
-		for activity_id: String in domain.activities:
-			if core.progression.is_activity_playable(activity_id):
-				has_playable_activity = true
-		if not has_playable_activity:
-			continue
-		var chip := PanelContainer.new()
-		var chip_style := kit.surface_style(
-			domain.color.lightened(0.68),
-			12,
-			domain.color.lightened(0.36),
-			1
-		)
-		chip_style.content_margin_left = 10
-		chip_style.content_margin_right = 10
-		chip_style.content_margin_top = 8
-		chip_style.content_margin_bottom = 8
-		chip.add_theme_stylebox_override("panel", chip_style)
-		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 9)
-		chip.add_child(row)
-		row.add_child(kit.monogram(domain.icon_glyph, domain.color, 36))
-		var col := VBoxContainer.new()
-		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		col.add_theme_constant_override("separation", 3)
-		row.add_child(col)
-		var label_row := HBoxContainer.new()
-		col.add_child(label_row)
-		var name_label := kit.label(domain.display_name, 14, false, true)
-		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label_row.add_child(name_label)
-		var count_label := kit.muted_label("0 / 0", 11)
-		label_row.add_child(count_label)
-		var bar_holder := Control.new()
-		bar_holder.custom_minimum_size = Vector2(166, 9)
-		col.add_child(bar_holder)
-		chips.add_child(chip)
-		_domain_chips[domain_id] = {
-			"name": name_label,
-			"count": count_label,
-			"bar": bar_holder,
-			"chip": chip,
-		}
 
 	# Health hearts — top center, hidden while safe and full.
 	_health_box = HBoxContainer.new()
@@ -297,10 +200,11 @@ func _build_layout() -> void:
 	_build_button = kit.button("Shape Land", true)
 	_build_button.pressed.connect(_on_build_button_pressed)
 	_bottom_buttons.add_child(_build_button)
-	_well_button = kit.button("Claim a Vision ✨", true)
-	_well_button.visible = false
-	_well_button.pressed.connect(func(): open_parcel_requested.emit())
-	_bottom_buttons.add_child(_well_button)
+	_void_exchange_button = kit.button("Offer Duplicates")
+	_void_exchange_button.pressed.connect(
+		func(): void_exchange_requested.emit()
+	)
+	_bottom_buttons.add_child(_void_exchange_button)
 
 	# Build Bag — a single floating icon at rest, expanding upward into the
 	# owned-piece browser only while the player is using it.
@@ -522,9 +426,7 @@ func _build_layout() -> void:
 # ------------------------------------------------------------------ refresh
 
 func _refresh_all() -> void:
-	for domain_id: String in _domain_chips:
-		_refresh_domain(domain_id)
-	_refresh_well_button()
+	_refresh_void_exchange_button()
 	_refresh_build_strip()
 	if core.registries.feature("combat_enabled", false):
 		_on_health_changed(core.combat.health, core.combat.max_health)
@@ -532,55 +434,16 @@ func _refresh_all() -> void:
 		_health_box.visible = false
 
 
-func _refresh_domain(domain_id: String) -> void:
-	var chip: Dictionary = _domain_chips[domain_id]
-	var domain := core.registries.inspiration_domain(domain_id)
-	chip["name"].text = domain.display_name
-	var holder: Control = chip["bar"]
-	for child in holder.get_children():
-		child.queue_free()
-	var progress := core.progression.inspiration.meter_progress(domain_id)
-	chip["count"].text = "%d / %d" % [
-		roundi(progress["current"]),
-		roundi(progress["cost"]),
-	]
-	holder.add_child(kit.progress_bar_colored(
-		progress["fraction"],
-		domain.color,
-		166,
-		9
-	))
-
-
-## Claiming happens AT the well — the walk back is the ritual. The button
-## only resumes an interrupted reveal, or steps in as a deadlock guard when
-## visions wait but no placed well exists to claim them at.
-func _refresh_well_button() -> void:
-	var banked := core.progression.inspiration.banked.size()
-	if _vision_bank_label != null:
-		_vision_bank_label.text = "WELL %d/%d" % [
-			banked,
-			core.progression.inspiration.bank_cap(),
-		]
-	if core.progression.visions.has_pending():
-		_well_button.visible = true
-		_well_button.text = "Resume the Vision reveal ✨"
-	elif banked > 0 and not _any_well_placed():
-		_well_button.visible = true
-		_well_button.text = "Claim a Vision ✨ (%d waiting)" % banked
-	else:
-		_well_button.visible = false
-
-
-func _any_well_placed() -> bool:
-	for slot: Dictionary in core.grid.all_cell_slots():
-		var state: WorldGrid.CellState = slot["state"]
-		for structure: WorldGrid.StructureState in state.structures:
-			if core.registries.definition_has_capability(
-				"structures", structure.structure_id, "banks_visions"
-			):
-				return true
-	return false
+func _refresh_void_exchange_button() -> void:
+	if _void_exchange_button == null:
+		return
+	var available := core.progression.void_exchange.has_offerable_duplicates()
+	_void_exchange_button.disabled = not available
+	_void_exchange_button.tooltip_text = (
+		"Throw spare copies into the void."
+		if available
+		else "Keep one copy. Spare duplicates will appear here."
+	)
 
 
 func _refresh_build_strip() -> void:
@@ -826,30 +689,11 @@ func _select_build_category(category_id: String) -> void:
 
 
 static func category_for_tile(definition: Defs.TileDefinition) -> String:
-	match definition.family:
-		"living_grove":
-			return "woodland"
-		"stonebound":
-			return "stone"
-		"winter":
-			return "winter"
-		_:
-			return "ground"
+	return BuildCategoryResolver.category_for_tile(definition)
 
 
 static func category_for_structure(definition: Defs.StructureDefinition) -> String:
-	var tags := definition.placement_tags
-	if tags.has("tree") or tags.has("plant") or tags.has("nature"):
-		return "nature"
-	if tags.has("furniture"):
-		return "furniture"
-	if tags.has("barrier") or tags.has("sign"):
-		return "boundaries"
-	if tags.has("storage") or tags.has("container"):
-		return "storage"
-	if definition.kind == "building" or tags.has("building"):
-		return "buildings"
-	return "utilities"
+	return BuildCategoryResolver.category_for_structure(definition)
 
 
 func _build_category_label(category_id: String) -> String:
@@ -1379,22 +1223,6 @@ func _position_store_bubble() -> void:
 
 # ------------------------------------------------------------------ events
 
-func _on_inspiration_changed(domain_id: String, _current: float, _cost: float) -> void:
-	if _domain_chips.has(domain_id):
-		_refresh_domain(domain_id)
-
-
-func _on_vision_banked(domain_id: String, _banked_count: int) -> void:
-	_refresh_well_button()
-	if not _domain_chips.has(domain_id):
-		return
-	_refresh_domain(domain_id)
-	var chip: PanelContainer = _domain_chips[domain_id]["chip"]
-	var tween := chip.create_tween()
-	tween.tween_property(chip, "scale", Vector2(1.12, 1.12), 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_property(chip, "scale", Vector2.ONE, 0.2)
-
-
 func _on_health_changed(current: int, maximum: int) -> void:
 	for child in _health_box.get_children():
 		child.queue_free()
@@ -1553,69 +1381,43 @@ func toast(message: String, tone := "common") -> void:
 	tween.tween_callback(card.queue_free)
 
 
-## Derives the current opening hint straight from progression state.
+## Derives the current opening hint straight from discovery state.
 func update_tutorial() -> void:
 	match core.onboarding.stage:
 		OnboardingState.LAND_CHOICE:
 			set_hint("")
 			return
-		OnboardingState.PLACE_WATER:
+		OnboardingState.TRY_VOID_FISHING:
 			set_hint(
-				"Extend the water ring with your Quiet Water shape. (%s)"
-				% InputDeviceService.shared().format_action(&"build_confirm", "place")
+				"Walk to an exposed edge and fish into the unknown. (%s)"
+				% InputDeviceService.shared().format_action(
+					&"interact", "when close"
+				)
 			)
 			return
-		OnboardingState.PLACE_SECOND_LAND:
-			var starter := core.registries.tile(core.profile.starter_land_id)
-			var starter_name := (
-				starter.display_name
-				if starter != null
-				else "land"
-			)
+		OnboardingState.PLACE_DISCOVERY:
 			set_hint(
-				"Add one more patch of %s beside your new shore. (%s)"
-				% [
-					starter_name,
-					InputDeviceService.shared().format_action(&"build_confirm", "place"),
-				]
+				"Place the piece you pulled from the unknown. (%s)"
+				% InputDeviceService.shared().format_action(
+					&"build_confirm", "place"
+				)
 			)
-			return
-		OnboardingState.PLACE_WELL:
-			set_hint("Set the wishing well on an empty land tile.")
-			return
-		OnboardingState.PLACE_TREE:
-			set_hint("Plant the pine on your other empty land tile.")
 			return
 		OnboardingState.TEND_TREE:
 			set_hint(
-				"Tend the pine again — its green Inspiration is filling the well."
+				"Tend the pine again — its surroundings are shaping a discovery."
 				if core.progression.actions_done("woodcutting") > 0
-				else "Tend the pine; its green Inspiration will travel to the well."
+				else "Tend the pine. The biome around it decides what it can find."
 			)
 			return
-		OnboardingState.CLAIM_VISION:
-			set_hint("A Vision is ready; walk to the wishing well and claim it.")
-			return
-		OnboardingState.PLACE_VISION:
-			set_hint("Place the Vision you chose to grow your world.")
-			return
-		OnboardingState.TRY_FISHING:
-			set_hint("Something stirs in your water — try fishing there.")
+		OnboardingState.PLACE_BIOME_DISCOVERY:
+			set_hint("Place the biome-shaped piece your tree uncovered.")
 			return
 	if core.arrivals.has_waiting_package():
 		set_hint("A gift crate is waiting at the northern dock.")
-	elif core.progression.visions.has_pending():
-		set_hint("Choose one of the well's three offerings.")
-	elif not core.progression.inspiration.banked.is_empty():
-		set_hint("A vision waits in the wishing well — walk over and claim it.")
-	elif _stored_well_count() > 0:
-		set_hint(
-			"Place your wishing well somewhere you love. (%s)"
-			% InputDeviceService.shared().format_action(&"build_mode", "build mode")
-		)
 	elif core.progression.actions_done("fishing") == 0:
 		set_hint(
-			"Try catch-and-release fishing along the northern water. (%s)"
+			"Fish from an exposed edge for a broad discovery, or from a pond for themed finds. (%s)"
 			% InputDeviceService.shared().format_action(&"interact", "when close")
 		)
 	elif core.grid.placed_tile_count() == 0 and core.stock.total_tiles() > 0:
@@ -1632,18 +1434,6 @@ func update_tutorial() -> void:
 			set_hint("")
 	else:
 		set_hint("")
-
-
-func _stored_well_count() -> int:
-	var count := 0
-	for structure_id: String in core.registries.structures:
-		if (
-			core.registries.definition_has_capability("structures", structure_id, "banks_visions")
-			and core.stock.structure_count(structure_id) > 0
-			and not _is_structure_placed(structure_id)
-		):
-			count += 1
-	return count
 
 
 func _is_structure_placed(structure_id: String) -> bool:

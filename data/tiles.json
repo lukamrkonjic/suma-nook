@@ -4,6 +4,7 @@
       "id": "tile_open_water",
       "name": "Quiet Water",
       "family": "waterside",
+      "biome_tags": ["water"],
       "asset_id": "tile_open_water",
       "weight": 1.4,
       "walkable": false,
@@ -28,6 +29,7 @@
       "id": "tile_grass",
       "name": "Open Meadow",
       "family": "home_meadow",
+      "biome_tags": ["meadow"],
       "asset_id": "tile_grass",
       "render_profile": "layered",
       "layers": [
@@ -206,6 +208,7 @@
       "id": "tile_sand",
       "name": "Pale Sand",
       "family": "home_meadow",
+      "biome_tags": ["beach"],
       "asset_id": "tile_sand",
       "render_profile": "layered",
       "layers": [
@@ -269,6 +272,7 @@
       "id": "tile_grove_mature",
       "name": "Grove Ground",
       "family": "living_grove",
+      "biome_tags": ["forest"],
       "asset_id": "tile_grove_mature",
       "render_profile": "layered",
       "layers": [
@@ -453,6 +457,7 @@
       "id": "tile_concrete_brutalist",
       "name": "Brutalist Concrete",
       "family": "stonebound",
+      "biome_tags": ["stone"],
       "asset_id": "tile_layer_surface_concrete_brutalist",
       "render_profile": "layered",
       "layers": [
@@ -484,6 +489,7 @@
       "id": "tile_snowfield",
       "name": "Fresh Snow",
       "family": "winter",
+      "biome_tags": ["winter"],
       "asset_id": "tile_snowfield",
       "render_profile": "layered",
       "layers": [

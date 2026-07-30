@@ -1,32 +1,24 @@
 class_name OnboardingState
 extends RefCounted
-## Saved first-session state machine. It introduces one world-making verb at
-## a time and guarantees that the water, well, tree, first Vision, and fishing
-## routes can never be skipped or lost.
+## Saved first-session state machine for the discovery loop: choose a biome,
+## fish the void, place what answered, then learn that a local tree is shaped
+## by the world around it.
 
 signal stage_changed(stage: String)
 
 const LAND_CHOICE := "land_choice"
-const PLACE_WATER := "place_water"
-const PLACE_SECOND_LAND := "place_second_land"
-const PLACE_WELL := "place_well"
-const PLACE_TREE := "place_tree"
+const TRY_VOID_FISHING := "try_void_fishing"
+const PLACE_DISCOVERY := "place_discovery"
 const TEND_TREE := "tend_tree"
-const CLAIM_VISION := "claim_vision"
-const PLACE_VISION := "place_vision"
-const TRY_FISHING := "try_fishing"
+const PLACE_BIOME_DISCOVERY := "place_biome_discovery"
 const COMPLETE := "complete"
 
 const STAGES := [
 	LAND_CHOICE,
-	PLACE_WATER,
-	PLACE_SECOND_LAND,
-	PLACE_WELL,
-	PLACE_TREE,
+	TRY_VOID_FISHING,
+	PLACE_DISCOVERY,
 	TEND_TREE,
-	CLAIM_VISION,
-	PLACE_VISION,
-	TRY_FISHING,
+	PLACE_BIOME_DISCOVERY,
 	COMPLETE,
 ]
 
@@ -66,13 +58,7 @@ func is_active() -> bool:
 
 
 func requires_guided_placement() -> bool:
-	return stage in [
-		PLACE_WATER,
-		PLACE_SECOND_LAND,
-		PLACE_WELL,
-		PLACE_TREE,
-		PLACE_VISION,
-	]
+	return stage in [PLACE_DISCOVERY, PLACE_BIOME_DISCOVERY]
 
 
 func to_save_dict() -> Dictionary:
@@ -84,8 +70,6 @@ func to_save_dict() -> Dictionary:
 
 
 func from_save_dict(data: Dictionary) -> void:
-	# Saves created before the authored onboarding are established worlds and
-	# must never be pulled backward into the opening sequence.
 	var restored := String(data.get("stage", COMPLETE))
 	stage = restored if restored in STAGES else COMPLETE
 	guided_kind = String(data.get("guided_kind", ""))

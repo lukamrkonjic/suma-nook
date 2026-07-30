@@ -52,7 +52,7 @@ var asset_viewer: AssetViewer
 var performance_hud
 var panels: GamePanels
 var pause_menu: PauseMenu
-var vision_reveal: VisionReveal
+var discovery_reveal: DiscoveryReveal
 var arrival_picker: ArrivalLandPicker
 var input_hints: InputHintOverlay
 var character_creator: CharacterCreator
@@ -230,10 +230,10 @@ func _build_ui() -> void:
 	add_child(panels)
 	panels.setup(core, kit, self)
 
-	vision_reveal = VisionReveal.new()
-	vision_reveal.name = "VisionReveal"
-	add_child(vision_reveal)
-	vision_reveal.setup(core, kit, assets)
+	discovery_reveal = DiscoveryReveal.new()
+	discovery_reveal.name = "DiscoveryReveal"
+	add_child(discovery_reveal)
+	discovery_reveal.setup(core, kit, assets)
 
 	arrival_picker = ArrivalLandPicker.new()
 	arrival_picker.name = "ArrivalLandPicker"
@@ -565,10 +565,10 @@ func debug_reset_save() -> void:
 
 
 func _connect_flows() -> void:
-	hud.open_parcel_requested.connect(func():
-		audio.play_event("parcel_open")
-		vision_reveal.open_from_well())
 	hud.pause_requested.connect(func(): open_pause_menu())
+	hud.void_exchange_requested.connect(
+		panels.show_void_exchange_picker
+	)
 	hud.build_piece_selected.connect(func(kind, id):
 		audio.play_event("build_preview")
 		placement.hold_new(kind, id))
@@ -577,20 +577,15 @@ func _connect_flows() -> void:
 		placement.store_held()
 		audio.play_event("store"))
 	arrival_picker.land_chosen.connect(_on_first_land_chosen)
-	vision_reveal.reveal_finished.connect(_on_vision_chosen)
-	vision_reveal.reveal_started.connect(func(_options): _refresh_controller_hints())
-	core.progression.visions.options_revealed.connect(func(_context, _options):
+	discovery_reveal.reveal_finished.connect(_on_discovery_accepted)
+	discovery_reveal.reveal_started.connect(
+		func(_entry): _refresh_controller_hints()
+	)
+	core.progression.discovery.discovery_ready.connect(func(entry):
+		hud.update_tutorial()
 		audio.play_event("parcel_reveal")
-		# Deferred so a direct open (well button, delivery) wins the race and
-		# claim-at-the-well still opens the ritual automatically.
-		vision_reveal.call_deferred("open_pending"))
-	core.progression.inspiration.vision_banked.connect(_on_vision_banked)
-	core.progression.inspiration.bank_changed.connect(func(_count, _cap): hud.update_tutorial())
-	core.progression.refunds.coin_minted.connect(func(domain_id, _coins):
-		var domain := core.registries.inspiration_domain(domain_id)
-		if domain != null:
-			hud.toast("The well mints a %s coin — a promised vision waits." % domain.display_name.to_lower(), "good")
-		audio.play_event("discovery"))
+		call_deferred("_open_pending_discovery_when_ready")
+	)
 	panels.landmark_resolution_chosen.connect(_on_landmark_resolution)
 	panels.panel_toggled.connect(func(_n, open):
 		audio.play_event("panel_open" if open else "panel_close")
@@ -857,7 +852,7 @@ func _input(event: InputEvent) -> void:
 		_gameplay_started
 		and not placement.active
 		and not panels.is_open()
-		and not vision_reveal.is_open()
+		and not discovery_reveal.is_open()
 		and not _interaction_at_screen(mouse.position).is_empty()
 	):
 		effects.click_marker(mouse.position, true)
@@ -887,7 +882,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if asset_viewer != null and asset_viewer.is_open():
 		return
-	if pause_menu.is_open() or vision_reveal.is_open() or panels.is_open():
+	if pause_menu.is_open() or discovery_reveal.is_open() or panels.is_open():
 		return
 	if _handle_hud_shortcut(event):
 		get_viewport().set_input_as_handled()
@@ -959,7 +954,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		if panels.is_open():
 			panels.close()
-		elif vision_reveal.is_open():
+		elif discovery_reveal.is_open():
 			return
 		elif placement.active:
 			_cancel_build_or_open_library()
@@ -1090,7 +1085,7 @@ func _is_controller_event(event: InputEvent) -> bool:
 
 
 func open_pause_menu(page := "menu") -> void:
-	if not _gameplay_started or vision_reveal.is_open():
+	if not _gameplay_started or discovery_reveal.is_open():
 		return
 	placement.prepare_for_save()
 	if panels.is_open():
@@ -1108,8 +1103,8 @@ func _on_input_method_changed(method: int) -> void:
 			pause_menu.focus_default()
 		elif panels.is_open():
 			panels.focus_default()
-		elif vision_reveal.is_open():
-			vision_reveal.focus_default()
+		elif discovery_reveal.is_open():
+			discovery_reveal.focus_default()
 		elif (
 			character_creator != null
 			and is_instance_valid(character_creator)
@@ -1162,7 +1157,7 @@ func _refresh_controller_hints() -> void:
 			{"action": &"ui_accept", "label": "Select"},
 			{"action": &"cancel", "label": "Back"},
 		]
-	elif vision_reveal.is_open():
+	elif discovery_reveal.is_open():
 		actions = [
 			{"action": &"ui_accept", "label": "Choose land"},
 		]
@@ -1213,7 +1208,7 @@ func _refresh_controller_hints() -> void:
 # ------------------------------------------------------------------ click commands
 
 func _handle_world_click(screen_position: Vector2) -> void:
-	if panels.is_open() or vision_reveal.is_open():
+	if panels.is_open() or discovery_reveal.is_open():
 		return
 	var interaction := _interaction_at_screen(screen_position)
 	if interaction.is_empty():
@@ -1241,12 +1236,6 @@ func _on_action_feedback(kind: String, data: Dictionary) -> void:
 			audio.play_event("fish_bite")
 		"fish_catch":
 			audio.play_event("fish_catch")
-			if core.onboarding_fished():
-				hud.toast(
-					"Your world can now grow by following what you enjoy.",
-					"good"
-				)
-				_celebration_pending = true
 			hud.update_tutorial()
 		"chop_windup":
 			audio.play_event("chop_windup")
@@ -1261,9 +1250,6 @@ func _on_action_feedback(kind: String, data: Dictionary) -> void:
 				renderer.refresh_anchor(data["coord"])
 		"tool_equip":
 			audio.play_event("tool_equip")
-		"inspiration_full":
-			audio.play_event("parcel_appear")
-			hud.toast("The well is full — three visions wait for you.", "good")
 
 
 func _on_milestone_reached(_milestone_id: String, _rewards: Array) -> void:
@@ -1275,19 +1261,6 @@ func _on_milestone_reached(_milestone_id: String, _rewards: Array) -> void:
 		# Fishing and woodcutting own their full action clips. Queue the flourish
 		# rather than cutting a cast, hold, or chop loop in half.
 		_celebration_pending = true
-
-
-func _on_vision_banked(domain_id: String, banked_count: int) -> void:
-	audio.play_event("discovery")
-	core.onboarding_vision_banked()
-	hud.update_tutorial()
-	var domain := core.registries.inspiration_domain(domain_id)
-	if domain != null:
-		hud.toast(
-			"A %s vision settles into the well (%d waiting). You feel lighter on your feet."
-			% [domain.display_name.to_lower(), banked_count],
-			"good"
-		)
 
 
 func _on_player_state_changed(new_state: PlayerController.State) -> void:
@@ -1313,20 +1286,30 @@ func _on_loot(grants: Array) -> void:
 			hud.update_tutorial()
 
 
-func _on_vision_chosen(entry: Dictionary) -> void:
+func _on_discovery_accepted(entry: Dictionary) -> void:
 	audio.play_event("parcel_select")
-	core.arrivals.resolve_delivery()
+	if String(entry.get("source", "")) == "delivery":
+		core.arrivals.resolve_delivery()
 	hud.update_tutorial()
 	var kind := String(entry.get("kind", ""))
 	var content_id := String(entry.get("id", ""))
-	core.onboarding_vision_chosen(kind, content_id)
 	var display_name := content_id
-	if kind == VisionSystem.KIND_TILE and core.registries.tile(content_id) != null:
+	if kind == DiscoverySystem.KIND_TILE and core.registries.tile(content_id) != null:
 		display_name = core.registries.tile(content_id).display_name
-	elif kind == VisionSystem.KIND_STRUCTURE and core.registries.structure(content_id) != null:
+	elif kind == DiscoverySystem.KIND_STRUCTURE and core.registries.structure(content_id) != null:
 		display_name = core.registries.structure(content_id).display_name
-	hud.toast("%s added to your build storage." % display_name, "good")
+	hud.toast("%s added to your Build Bag." % display_name, "good")
 	placement.hold_new(kind, content_id)
+
+
+func _open_pending_discovery_when_ready() -> void:
+	if discovery_reveal.is_open() or not core.progression.discovery.has_pending():
+		return
+	if player.state != PlayerController.State.FREE:
+		await player.state_changed
+	if panels.is_open():
+		panels.close()
+	discovery_reveal.open_pending()
 
 
 func _on_placement_result(ok: bool, _message: String, kind: String) -> void:
@@ -1343,6 +1326,8 @@ func _on_placement_result(ok: bool, _message: String, kind: String) -> void:
 
 func _on_focus_changed(focus: Dictionary) -> void:
 	match focus.get("kind", ""):
+		"void_fishing":
+			hud.set_prompt(&"interact", "Fish into the unknown")
 		"anchor":
 			var anchor: Defs.AnchorDefinition = focus["anchor"]
 			var skill := core.registries.skill(anchor.skill_id)
@@ -1353,7 +1338,7 @@ func _on_focus_changed(focus: Dictionary) -> void:
 		"storage":
 			hud.set_prompt(&"interact", "Open Tile & Build Library")
 		"delivery_package":
-			hud.set_prompt(&"interact", "Open the ferry's Land Parcel")
+			hud.set_prompt(&"interact", "Open the ferry's discovery")
 		"enemy":
 			hud.set_prompt(
 				&"interact",
@@ -1410,18 +1395,6 @@ func _execute_feature_interaction(interaction: Dictionary) -> void:
 				"The fire catches." if burning else "The fire dies down.",
 				"good"
 			)
-		"progression":
-			match String(option.id):
-				"claim_vision":
-					audio.play_event("parcel_open")
-				"offer_refund":
-					panels.show_refund_picker()
-				"release_coin_prompt":
-					panels.show_coin_picker()
-				"focus_shrine":
-					panels.show_shrine_picker()
-				"clear_shrine_focus":
-					hud.toast("The shrine's focus drifts away.", "good")
 	core.autosave_soon()
 
 
@@ -1446,12 +1419,12 @@ func _on_fire_burning_changed(instance_id: int, burning: bool) -> void:
 
 
 func _open_delivery_package() -> void:
-	var options := core.arrivals.open_waiting(core.progression)
-	if options.is_empty():
+	var reward := core.arrivals.open_waiting(core.progression)
+	if reward.is_empty():
 		return
 	delivery_point.hide_package()
 	audio.play_event("parcel_open")
-	vision_reveal.open_pending()
+	call_deferred("_open_pending_discovery_when_ready")
 
 
 func _on_arrival_requested(payload: LandParcelPayload) -> void:

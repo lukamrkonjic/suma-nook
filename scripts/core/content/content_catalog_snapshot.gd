@@ -10,7 +10,7 @@ const DEFINITION_KINDS: Array[String] = [
 	"structures",
 	"recipes",
 	"loot_tables",
-	"inspiration_domains",
+	"discovery_pools",
 	"milestones",
 	"anchors",
 	"capabilities",
@@ -28,7 +28,7 @@ var tiles: Dictionary = {}
 var structures: Dictionary = {}
 var recipes: Dictionary = {}
 var loot_tables: Dictionary = {}
-var inspiration_domains: Dictionary = {}
+var discovery_pools: Dictionary = {}
 var milestones: Dictionary = {}
 var anchors: Dictionary = {}
 var capabilities: Dictionary = {}
@@ -49,7 +49,7 @@ func definitions(kind: String) -> Dictionary:
 		"structures": return structures
 		"recipes": return recipes
 		"loot_tables": return loot_tables
-		"inspiration_domains": return inspiration_domains
+		"discovery_pools": return discovery_pools
 		"milestones": return milestones
 		"anchors": return anchors
 		"capabilities": return capabilities

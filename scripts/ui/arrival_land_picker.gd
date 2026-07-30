@@ -119,8 +119,11 @@ func focus_default() -> void:
 
 
 func _land_card(definition: Defs.TileDefinition) -> Control:
-	var domain := core.registries.domain_for_family(definition.family)
-	var accent := domain.color if domain != null else kit.palette.color("ui_good")
+	var accent := kit.palette.color("ui_good")
+	if definition.biome_tags.has("beach"):
+		accent = Color(0.82, 0.62, 0.28)
+	elif definition.biome_tags.has("winter"):
+		accent = Color(0.56, 0.72, 0.80)
 	var card := kit.progression_card(Vector2(250, 340), accent)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 9)

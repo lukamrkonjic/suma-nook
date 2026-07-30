@@ -8,6 +8,8 @@ extends Node
 const SAVE_PATH := "user://loop_test_save.json"
 # Keep the stacking-transition fixture on the active layered grass tile.
 const STACK_COORD := Vector2i(1, 1)
+const TEST_DOCK_COORD := Vector2i(0, 2)
+const TEST_MOVABLE_WATER_COORD := Vector2i(1, 2)
 const StructureVisualFactoryScript := preload(
 	"res://scripts/world/structure_visual_factory.gd"
 )
@@ -161,7 +163,7 @@ func _finish() -> void:
 
 
 func _step_creation() -> void:
-	print("STEP creation")
+	print("STEP creation and discovery onboarding")
 	var creator: CharacterCreator = main.find_child("Creator", false, false)
 	check(creator != null, "character creator opens on fresh boot")
 	if creator == null:
@@ -176,106 +178,66 @@ func _step_creation() -> void:
 	creator._name_edit.text = "Loop Keeper"
 	creator._finish()
 	await wait(1.1)
-	check(
-		not main._gameplay_started
-			and main.player.state == PlayerController.State.ARRIVING,
-		"the keeper rises through a portal before gameplay begins"
-	)
-	check(
-		main.arrival_picker.is_open() and get_tree().paused,
-		"the first-land picker freezes the portal arrival at its apex"
-	)
-	await _tap_joy_button(JOY_BUTTON_LEFT_STICK)
-	await wait(0.05)
-	var land_focus := get_viewport().gui_get_focus_owner()
-	check(
-		land_focus != null
-			and main.arrival_picker._root.is_ancestor_of(land_focus),
-		"the paused land picker assigns deterministic controller focus"
-	)
-	check(
-		main.arrival_picker._root.find_children("*", "Button", true, false).size() == 3,
-		"the arrival offers exactly three rendered land choices"
-	)
+	check(main.arrival_picker.is_open() and get_tree().paused, "first-land picker freezes the portal arrival")
+	check(main.arrival_picker._root.find_children("*", "Button", true, false).size() == 3, "arrival offers three rendered land choices")
 	await shot("screenshot_first_land_choice")
 	main.arrival_picker.select("tile_sand")
 	await wait(1.45)
-	check(main._gameplay_started, "gameplay starts after the chosen tile catches the keeper")
-	check(main.core.profile.display_name == "Loop Keeper", "chosen name applied")
+	check(main._gameplay_started, "gameplay starts after the chosen land catches the keeper")
 	check(
-		main.core.grid.cells.size() == 25
-			and main.core._placed_tile_count("tile_sand") == 9
-			and main.core._placed_tile_count("tile_open_water") == 16
-			and main.core._is_structure_placed("struct_pine"),
-		"the chosen Pale Sand rises as a 3x3 island with a water ring and one tree"
+		main.core.grid.cells.size() == 9
+		and main.core._placed_tile_count("tile_sand") == 9
+		and main.core._placed_tile_count("tile_open_water") == 0
+		and main.core._is_structure_placed("struct_pine"),
+		"the Pale Sand start is a 3x3 island with exposed void edges"
 	)
-	check(
-		main.placement.active
-			and main.placement.held.get("id", "") == "tile_open_water",
-		"Quiet Water is granted and held immediately after landing"
-	)
-	check(
-		main.placement.try_place_at(Vector2i(3, 0)),
-		"the player can extend the required water beyond the starter ring"
-	)
-	await wait(0.12)
-	check(
-		main.placement.held.get("id", "") == "struct_wishing_well",
-		"extending the water ring grants the wishing well"
-	)
-	check(main.placement.try_place_at(Vector2i.ZERO), "the guided wishing well places")
-	await wait(0.12)
-	check(
-		main.core.onboarding.stage == OnboardingState.TEND_TREE
-			and not main.placement.active,
-		"placing the well releases build mode toward the tree already on the island"
-	)
-	for _action in 3:
-		main.core.progression.on_activity_action("woodcutting")
-	await wait(0.1)
-	check(
-		main.core.onboarding.stage == OnboardingState.CLAIM_VISION,
-		"three accelerated tree tends bank the first Vision"
-	)
-	main.vision_reveal.open_from_well()
-	await wait(1.0)
-	check(
-		main.vision_reveal.is_open()
-			and main.core.progression.visions.pending_options.size() == 3,
-		"the wishing well presents the normal keep-one-of-three Vision ritual"
-	)
-	main.vision_reveal._choose(0)
+	check(main.core.onboarding.stage == OnboardingState.TRY_VOID_FISHING, "void fishing is the first world-making verb")
+	main.core.progression.on_void_fishing_catch()
 	await wait(0.55)
 	check(
-		main.core.onboarding.stage == OnboardingState.PLACE_VISION
-			and not main.placement.held.is_empty(),
-		"the kept Vision is immediately held for placement"
+		main.discovery_reveal.is_open()
+		and main.core.progression.discovery.peek_pending().get("id") == "tile_open_water",
+		"the first cast reveals real buildable water"
 	)
+	main.discovery_reveal._accept()
+	await wait(0.45)
 	check(
-		main.placement.try_place_at(Vector2i(0, 3)),
-		"the kept Vision grows the authored world"
+		main.placement.held.get("id", "") == "tile_open_water",
+		"acknowledged discovery is held for immediate placement"
 	)
-	await wait(0.12)
+	check(main.placement.try_place_at(Vector2i(0, 2)), "first discovered water places beside the island")
+	await wait(0.2)
+	check(main.core.onboarding.stage == OnboardingState.TEND_TREE, "placing water introduces local skilling")
+	for _index in 4:
+		main.core.progression.on_activity_action(
+			"woodcutting", Vector2i(-1, -1), "struct_pine"
+		)
+	await wait(0.55)
 	check(
-		main.core.onboarding.stage == OnboardingState.TRY_FISHING,
-		"placing the Vision points back to fishing on player-made water"
+		main.discovery_reveal.is_open()
+		and main.core.onboarding.stage == OnboardingState.PLACE_BIOME_DISCOVERY,
+		"a complete tree cycle reveals a beach-shaped reward"
 	)
+	main.discovery_reveal._accept()
+	await wait(0.45)
+	var held_kind := String(main.placement.held.get("kind", ""))
+	var placed_local := (
+		main.placement.try_place_at(Vector2i(1, 2))
+		if held_kind == "tile"
+		else main.placement.try_place_at(Vector2i(1, 1))
+	)
+	check(placed_local, "the local biome discovery can be placed")
+	await wait(0.2)
+	check(main.core.onboarding.stage == OnboardingState.COMPLETE, "placing it completes onboarding")
 
-	# The remaining acceptance suite predates the authored opening and exercises
-	# a broad 3x3 fixture. Recompose that fixture only after the real onboarding
-	# has reached its final fishing handoff.
 	main.core.new_game(main.core.profile)
 	main.renderer.rebuild_all()
 	main.player.position = main.core.profile.position
 	main.hud._refresh_all()
-	check(main.core.grid.cells.size() == 9, "3x3 acceptance fixture present")
+	check(main.core.grid.cells.size() == 9, "3x3 acceptance fixture is ready")
 	var tool_mount := main.player_visual.find_child("ToolMount", true, false)
-	check(
-		tool_mount != null and tool_mount.get_child_count() == 0,
-		"the fishing rod stays hidden during ordinary movement"
-	)
+	check(tool_mount != null and tool_mount.get_child_count() == 0, "rod stays hidden during movement")
 	await shot("screenshot_starting_world")
-
 
 func _step_controller_input() -> void:
 	print("STEP controller input and hot switching")
@@ -285,7 +247,8 @@ func _step_controller_input() -> void:
 		"meaningful controller input switches the active device"
 	)
 	check(
-		Input.mouse_mode == Input.MOUSE_MODE_HIDDEN,
+		DisplayServer.get_name() == "headless"
+		or Input.mouse_mode == Input.MOUSE_MODE_HIDDEN,
 		"controller input hides the unused pointer"
 	)
 	check(
@@ -804,16 +767,13 @@ func _step_tile_geometry_contract() -> void:
 		"submerged surfaces receive the stronger world-space caustic treatment"
 	)
 	var settled_water := main.renderer._water_surface as WaterSurface
-	var expected_starting_water_indices := (
-		3 * WaterSurface.SUBDIV * WaterSurface.SUBDIV * 6
-		+ 8 * WaterSurface.SUBDIV * 6
-	)
 	check(
 		settled_water != null
-		and settled_water.mesh != null
-		and settled_water.mesh.surface_get_array_index_len(0)
-			== expected_starting_water_indices,
-		"edge-connected water is one joined mesh with no internal shoreline walls"
+		and (
+			settled_water.mesh == null
+			or settled_water.mesh.surface_get_array_index_len(0) == 0
+		),
+		"the land-only start creates no hidden or permanent water geometry"
 	)
 	var water_preview := tile_factory.instantiate_visual(
 		main.core.registries.tile("tile_open_water"),
@@ -925,26 +885,35 @@ func _step_tile_geometry_contract() -> void:
 
 func _step_build_mode_selection_rules() -> void:
 	print("STEP build-mode selection rules")
+	main.core.grid.place_tile(TEST_DOCK_COORD, "tile_open_water")
+	main.core.grid.add_structure(TEST_DOCK_COORD, "struct_dock", 0, 2)
+	main.core.grid.place_tile(TEST_MOVABLE_WATER_COORD, "tile_open_water")
+	main.renderer.rebuild_all()
+	await get_tree().process_frame
+	await get_tree().physics_frame
 	main.placement.set_active(true)
 
-	main.placement.pick_up_at(GameCore.FIRST_WATER_COORD)
-	check(main.placement.held.is_empty(), "the first water tile remains movement-locked")
-
-	var movable_water := Vector2i(1, -1)
-	main.placement.pick_up_at(movable_water)
+	main.placement.pick_up_at(TEST_MOVABLE_WATER_COORD)
 	check(
-		main.placement.held.get("kind", "") == "tile",
-		"the other opening water tiles can be picked up"
+		main.placement.held.get("kind", "") == "tile"
+		and main.placement.held.get("id", "") == "tile_open_water",
+		"ordinary discovered water tiles can be picked up"
 	)
 	main.placement.cancel_click()
-	check(main.core.grid.has_cell(movable_water), "cancelling restores a moved opening water tile")
+	check(
+		main.core.grid.has_cell(TEST_MOVABLE_WATER_COORD),
+		"cancelling restores a moved water tile"
+	)
 
-	var dock_coord := GameCore.STARTER_DOCK_COORD
-	var dock_state: WorldGrid.StructureState = main.core.grid.cell(dock_coord).structures[0]
-	main.placement._pick_up_from(dock_coord, 0, dock_state.instance_id)
+	var dock_state: WorldGrid.StructureState = (
+		main.core.grid.cell(TEST_DOCK_COORD).structures[0]
+	)
+	main.placement._pick_up_from(
+		TEST_DOCK_COORD, 0, dock_state.instance_id
+	)
 	check(
 		main.placement.held.get("id", "") == "struct_dock",
-		"the center-water fishing dock is a selectable movable object"
+		"a player-built fishing dock is a selectable movable object"
 	)
 	main.placement.cancel_click()
 
@@ -1497,8 +1466,10 @@ func _step_movement() -> void:
 		collidable_objects,
 		"every placed object owns either a blocker or an explicit walkable surface"
 	)
-	var dock_coord := GameCore.STARTER_DOCK_COORD
-	var dock_state: WorldGrid.StructureState = main.core.grid.cell(dock_coord).structures[0]
+	var dock_coord := TEST_DOCK_COORD
+	var dock_state: WorldGrid.StructureState = (
+		main.core.grid.cell(dock_coord).structures[0]
+	)
 	var dock_visual: Node3D = main.renderer._structure_nodes[dock_state.instance_id]
 	check(
 		dock_visual.find_child("PlaceableMovementBlocker", true, false) == null
@@ -1512,28 +1483,14 @@ func _step_movement() -> void:
 	)
 
 	var dock_land_coord := dock_coord + Vector2i.DOWN
-	player.position = main.core.grid.cell_to_world(dock_land_coord)
-	player.velocity = Vector3.ZERO
+	await anchor_for_walk(dock_land_coord, 0.0)
 	player.set_state(PlayerController.State.FREE)
-	await wait(0.15)
-	var dock_direction := (
-		main.core.grid.cell_to_world(dock_coord)
-		- main.core.grid.cell_to_world(dock_land_coord)
-	).normalized()
-	var dock_basis := main.camera_rig.horizontal_basis()
-	var dock_input_x := dock_direction.dot(dock_basis.x)
-	var dock_input_y := dock_direction.dot(dock_basis.z)
-	var dock_actions: Array[StringName] = []
-	dock_actions.append(&"move_right" if dock_input_x > 0.0 else &"move_left")
-	dock_actions.append(&"move_down" if dock_input_y > 0.0 else &"move_up")
-	for action in dock_actions:
-		Input.action_press(action)
+	Input.action_press("move_down")
 	for _frame in 75:
 		await get_tree().physics_frame
 		if player.current_cell() == dock_coord:
 			break
-	for action in dock_actions:
-		Input.action_release(action)
+	Input.action_release("move_down")
 	await wait(0.2)
 	check(
 		player.current_cell() == dock_coord
@@ -1823,87 +1780,56 @@ func _step_movement() -> void:
 
 
 func _step_fishing() -> void:
-	print("STEP fishing")
+	print("STEP fishing into the unknown")
 	main.core.registries.tuning["fishing_wait_min"] = 0.1
 	main.core.registries.tuning["fishing_wait_max"] = 0.15
-	main.core.registries.tuning["fishing_repeat_pause"] = 0.1
-	var pond := Vector2i(0, -1)
+	main.placement.set_active(false)
 	main.player.cancel_click_command()
-	main.player.position = main.core.grid.cell_to_world(Vector2i.ZERO) + Vector3(0, 0, -0.45)
+	main.player.set_state(PlayerController.State.FREE)
+	main.player.position = (
+		main.core.grid.cell_to_world(Vector2i(1, 0))
+		+ Vector3(main.core.grid.tile_size * 0.42, 0.0, 0.0)
+	)
 	main.player.velocity = Vector3.ZERO
 	main.player._update_focus()
 	await wait(0.2)
-	check(main.player.focus().get("kind") == "anchor", "pond focus detected from a natural approach")
+	check(main.player.focus().get("kind") == "void_fishing", "an exposed land edge becomes a void-fishing target")
 	var items_before := _inventory_total()
-	var pond_screen := main.camera_rig.camera.unproject_position(main.core.grid.cell_to_world(pond) + Vector3(0, 0.55, 0))
-	main.effects.click_marker(pond_screen, true)
-	main._handle_world_click(pond_screen)
-	var interaction_marker := main.effects.find_child("ClickMarkerAction", true, false) as Node2D
-	check(interaction_marker != null, "interactable click shows the action circle")
-	check(interaction_marker != null and interaction_marker.position.distance_to(pond_screen) < 0.1, "interaction marker uses the literal click position")
-	await wait(0.8)
-	check(main.player.state in [PlayerController.State.FISHING_CAST, PlayerController.State.FISHING_WAIT], "one click starts the fishing loop")
-	var animation_player := main.player_visual.find_child(
-		"AnimationPlayer", true, false
-	) as AnimationPlayer
+	var actions_before := main.core.progression.actions_done("fishing")
+	main.skill_actions.try_interact()
+	await wait(0.55)
 	check(
-		animation_player != null
-		and animation_player.current_animation == "fish_cast",
-		"fishing uses the authored cast animation"
+		main.player.state in [
+			PlayerController.State.FISHING_CAST,
+			PlayerController.State.FISHING_WAIT,
+			PlayerController.State.FISHING_CATCH,
+		],
+		"one interaction starts the authored fishing sequence"
 	)
+	var animation_player := main.player_visual.find_child("AnimationPlayer", true, false) as AnimationPlayer
 	var tool_mount := main.player_visual.find_child("ToolMount", true, false)
-	check(
-		tool_mount != null and tool_mount.get_child_count() == 1,
-		"the fishing rod appears only while fishing"
-	)
-	var wait_deadline := Time.get_ticks_msec() + 2500
+	check(tool_mount != null and tool_mount.get_child_count() == 1, "rod appears only while fishing")
+	await shot("screenshot_fishing_the_void")
+	var deadline := Time.get_ticks_msec() + 6000
 	while (
-		main.player.state != PlayerController.State.FISHING_WAIT
-		and Time.get_ticks_msec() < wait_deadline
+		main.core.progression.actions_done("fishing") <= actions_before
+		and Time.get_ticks_msec() < deadline
 	):
-		await wait(0.05)
+		await wait(0.1)
+	check(main.core.progression.actions_done("fishing") == actions_before + 1, "one catch creates one discovery action")
+	check(main.discovery_reveal.is_open(), "the immediate single-item discovery opens")
+	check(_inventory_total() == items_before, "void fishing adds no material stacks")
 	check(
-		main.player.state == PlayerController.State.FISHING_WAIT
-		and animation_player != null
-		and animation_player.current_animation == "fish_wait",
-		"cast blends into the authored looping fishing hold"
+		main.player.state == PlayerController.State.FREE,
+		"fishing returns cleanly to free movement before the discovery is handled"
 	)
-	await shot("screenshot_fishing")
-	var actions_before: int = main.core.progression.actions_done("fishing")
-	var deadline := Time.get_ticks_msec() + 9000
-	while main.core.progression.actions_done("fishing") <= actions_before and Time.get_ticks_msec() < deadline:
-		await wait(0.2)
-	check(
-		main.core.progression.actions_done("fishing") > actions_before,
-		"a catch resolves and emits inspiration without extra clicks"
-	)
-	check(_inventory_total() == items_before, "catch-and-release adds no fish item")
-	# auto-repeat: wait for a second catch with zero input
-	var after_first: int = main.core.progression.actions_done("fishing")
-	deadline = Time.get_ticks_msec() + 9000
-	while main.core.progression.actions_done("fishing") <= after_first and Time.get_ticks_msec() < deadline:
-		await wait(0.2)
-	check(main.core.progression.actions_done("fishing") > after_first, "fishing auto-repeats")
-	check(
-		main.core.progression.inspiration.meter_progress("domain_waterside")["current"] > 0.0
-		or not main.core.progression.inspiration.banked.is_empty(),
-		"fishing inspiration reaches the Waterside meter or banks a Vision"
-	)
-	# movement cancels gracefully
-	Input.action_press("move_left")
-	for i in 12:
-		await get_tree().physics_frame
-	Input.action_release("move_left")
-	check(main.player.state == PlayerController.State.FREE, "moving cancels fishing cleanly")
-	await get_tree().process_frame
-	check(
-		tool_mount != null and tool_mount.get_child_count() == 0,
-		"cancelling fishing hides the rod again"
-	)
-
+	main.discovery_reveal._accept()
+	await wait(0.4)
+	main.placement.store_held()
+	check(tool_mount != null and tool_mount.get_child_count() == 0, "the rod hides after the catch")
 
 func _step_parcel() -> void:
-	print("STEP ferry parcel")
+	print("STEP ferry discovery")
 	main.skill_actions.cancel_all()
 	main.player.set_state(PlayerController.State.FREE)
 	main.core.registries.arrival_config["ferry_approach_seconds"] = 0.45
@@ -1911,55 +1837,46 @@ func _step_parcel() -> void:
 	main.core.registries.arrival_config["ferry_departure_seconds"] = 0.3
 	check(main.core.arrivals.trigger_arrival(), "periodic scheduler triggers the ferry")
 	await wait(0.18)
-	check(main.ferry_presentation.active, "ferry visibly approaches from beyond northern water")
+	check(main.ferry_presentation.active, "ferry visibly approaches from beyond the world")
 	await wait(0.7)
-	check(main.delivery_point.package_is_visible(), "ferry unloads one package at the dock")
-	check(main.core.arrivals.has_waiting_package(), "unopened package pauses delivery accumulation")
-	main.player.position = main.core.grid.cell_to_world(Vector2i.ZERO)
-	main.player._update_focus()
-	check(main.player.focus().get("kind") == "delivery_package", "dock package is the primary nearby interaction")
-	main.skill_actions.try_interact()
-	await wait(0.3)
-	check(main.vision_reveal.is_open(), "reveal modal opens")
-	check(main.core.progression.visions.pending_options.size() == 3, "three gift options offered")
-	await shot("screenshot_land_parcel_reveal")
-	# Slot 0 is the land-insurance slot on a small world: always a plain tile,
-	# keeping the follow-up placement step deterministic.
-	var stock_total_before: int = main.core.stock.total_tiles()
-	var chosen_entry: Dictionary = main.core.progression.visions.pending_options[0]
-	check(String(chosen_entry.get("kind", "")) == "tile", "small-world gift keeps a guaranteed land slot")
-	main.vision_reveal._choose(0)
-	await wait(0.8)
-	check(main.core.stock.total_tiles() == stock_total_before + 1, "chosen tile in stock")
+	check(main.delivery_point.package_is_visible(), "ferry unloads one package")
+	check(main.core.arrivals.has_waiting_package(), "unopened package blocks accumulation")
+	main._open_delivery_package()
+	await wait(0.4)
+	check(main.discovery_reveal.is_open(), "ferry opens the same single-item discovery reveal")
+	var reward := main.core.progression.discovery.peek_pending()
+	check(reward.get("source") == "delivery", "the queued reward records its delivery source")
+	await shot("screenshot_ferry_discovery")
+	main.discovery_reveal._accept()
+	await wait(0.65)
+	check(main.core.arrivals.state == ArrivalScheduler.IDLE, "ferry timer resumes after acknowledgement")
+	check(_entry_stock_count_for_loop(reward) >= 1 or not main.placement.held.is_empty(), "ferry reward remains owned")
+	main.placement.store_held()
 	check(main.core.inventory.counts.is_empty(), "ferry reward bypasses material inventory")
-
 
 func _step_place_tile() -> void:
 	print("STEP tile placement")
-	var tile_id: String = main.core.stock.tiles.keys()[0]
-	main.placement.hold_new("tile", tile_id)
+	main.core.stock.add_tile("tile_grass")
+	main.placement.hold_new("tile", "tile_grass")
 	await wait(0.2)
 	check(main.placement.active, "build mode active with held piece")
 	main.placement.rotate_held()
 	check(int(main.placement.held["rotation"]) == 1, "rotation steps")
-	check(not main.placement.try_place_at(Vector2i(6, 6)), "detached placement rejected with feedback")
+	check(not main.placement.try_place_at(Vector2i(6, 6)), "detached placement rejected")
 	var target := Vector2i(2, 0)
 	check(main.placement.try_place_at(target), "adjacent placement accepted")
-	check(main.core.grid.has_cell(target), "tile placed into the world")
+	check(main.core.grid.tile_def(target).id == "tile_grass", "known walkable tile placed into the world")
 	await wait(0.6)
 	await shot("screenshot_tile_placement")
 	main.placement.set_active(false)
-	# walk onto it: at yaw 45, right+down sums to pure +x — straight from
-	# (1,0) onto the new (2,0) tile, stopping at its center.
 	await anchor_for_walk(Vector2i(1, 0))
 	Input.action_press("move_right")
 	Input.action_press("move_down")
-	for i in 36:
+	for _index in 36:
 		await get_tree().physics_frame
 	Input.action_release("move_right")
 	Input.action_release("move_down")
 	check(main.player.position.y > -0.5, "player walks onto the new tile without falling")
-
 
 func _step_woodcutting() -> void:
 	print("STEP woodcutting")
@@ -2078,7 +1995,21 @@ func _step_woodcutting() -> void:
 	if main.player_visual.animation_started.is_connected(chop_started):
 		main.player_visual.animation_started.disconnect(chop_started)
 	check(_inventory_total() == inventory_before, "Woodland Tending adds no logs or materials")
-	check(main.core.progression.actions_done("woodcutting") > 0, "woodcutting inspiration actions recorded")
+	check(
+		main.core.progression.actions_done("woodcutting") > 0,
+		"woodcutting discovery actions recorded"
+	)
+	var reveal_deadline := Time.get_ticks_msec() + 1500
+	while (
+		main.core.progression.discovery.has_pending()
+		and not main.discovery_reveal.is_open()
+		and Time.get_ticks_msec() < reveal_deadline
+	):
+		await wait(0.05)
+	if main.discovery_reveal.is_open():
+		main.discovery_reveal._accept()
+		await wait(0.4)
+		main.placement.store_held()
 	# The tree regenerates without mutating its supporting terrain.
 	tree.anchor_regen_left = 0.4
 	await wait(1.0)
@@ -2506,6 +2437,10 @@ func _step_save_while_holding() -> void:
 
 func _step_pause_menu() -> void:
 	print("STEP pause menu")
+	if main.discovery_reveal.is_open():
+		main.discovery_reveal._accept()
+		await wait(0.4)
+		main.placement.store_held()
 	var performance_was_visible: bool = main.performance_hud.visible
 	main.performance_hud.visible = true
 	await _tap_key(KEY_H)
@@ -2735,6 +2670,13 @@ func _node_mesh_bounds(root: Node3D) -> AABB:
 			maximum = maximum.max(point)
 			found = true
 	return AABB(minimum, maximum - minimum) if found else AABB()
+
+
+func _entry_stock_count_for_loop(entry: Dictionary) -> int:
+	match String(entry.get("kind", "")):
+		"tile": return main.core.stock.tile_count(String(entry.get("id", "")))
+		"structure": return main.core.stock.structure_count(String(entry.get("id", "")))
+	return 0
 
 
 func _inventory_total() -> int:

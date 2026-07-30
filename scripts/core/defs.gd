@@ -50,9 +50,8 @@ class DefinitionTraits:
 
 class SkillDefinition:
 	extends Resource
-	## An activity the character can perform. Progression v2 is level-free:
-	## activities pay Inspiration into their domain and advance milestones
-	## through lifetime action counts; there is no XP anywhere.
+	## An activity the character can perform. Activities advance lifetime
+	## milestones and may resolve a context-sensitive discovery pool.
 	var id: String
 	var display_name: String
 	var traits := DefinitionTraits.new()
@@ -61,9 +60,6 @@ class SkillDefinition:
 	var future: bool = false          # defined but not yet playable (Mining)
 	var tool_type: String = ""        # tool item tool_type required to perform
 	var action_seconds: float = 2.0   # one action cycle
-	var domain_id: String = ""        # inspiration domain this activity feeds
-	var direct_tile_reward_chance: float = -1.0
-	var direct_tile_reward_pool: Array[String] = []
 	var collection_category: String = ""
 	var collection_entries: Array[String] = []
 	var animation_tag: String = ""
@@ -79,10 +75,6 @@ class SkillDefinition:
 		s.future = bool(d.get("future", false))
 		s.tool_type = d.get("tool_type", "")
 		s.action_seconds = float(d.get("action_seconds", 2.0))
-		s.domain_id = String(d.get("domain", ""))
-		s.direct_tile_reward_chance = float(d.get("direct_tile_reward_chance", -1.0))
-		for tile_id in d.get("direct_tile_reward_pool", []):
-			s.direct_tile_reward_pool.append(String(tile_id))
 		s.collection_category = String(d.get("collection_category", ""))
 		for entry_id in d.get("collection_entries", []):
 			s.collection_entries.append(String(entry_id))
@@ -91,37 +83,47 @@ class SkillDefinition:
 		return s
 
 
-class InspirationDomainDefinition:
+class DiscoveryPoolDefinition:
 	extends Resource
-	## One color of Inspiration. Domains bind activities to reward pools:
-	## what you do steers what the well offers, majority-weight, never
-	## exclusively. A wildcard domain draws from the entire catalog.
+	## A data-authored gacha pool. The source separates broad void discoveries
+	## from local skills; context tags make player-built biomes meaningful.
 	var id: String
 	var display_name: String
 	var traits := DefinitionTraits.new()
 	var description: String
 	var icon_glyph: String
 	var color := Color(0.7, 0.7, 0.7)
-	var wildcard: bool = false
-	var tile_families: Array[String] = []
-	var activities: Array[String] = []
-	var meter_cost: float = 0.0       # 0 → tuning "vision_meter_cost"
+	var source: String = "local"      # void|local
+	var skill_id: String = ""
+	var context_tags: Array[String] = []
+	var priority: int = 0
+	var actions_per_reward: int = 1
+	var fallback: bool = false
+	var rewards: Array[Dictionary] = [] # [{kind: tile|structure, id, weight}]
 
-	static func from_dict(d: Dictionary) -> InspirationDomainDefinition:
-		var domain := InspirationDomainDefinition.new()
-		domain.id = d.get("id", "")
-		domain.display_name = d.get("name", domain.id.capitalize())
-		domain.traits = DefinitionTraits.from_dict(d)
-		domain.description = d.get("description", "")
-		domain.icon_glyph = d.get("icon", "✶")
-		domain.color = Color.from_string("#" + String(d.get("color", "b0b0b0")), domain.color)
-		domain.wildcard = bool(d.get("wildcard", false))
-		for family in d.get("tile_families", []):
-			domain.tile_families.append(String(family))
-		for activity_id in d.get("activities", []):
-			domain.activities.append(String(activity_id))
-		domain.meter_cost = float(d.get("meter_cost", 0.0))
-		return domain
+	static func from_dict(d: Dictionary) -> DiscoveryPoolDefinition:
+		var pool := DiscoveryPoolDefinition.new()
+		pool.id = d.get("id", "")
+		pool.display_name = d.get("name", pool.id.capitalize())
+		pool.traits = DefinitionTraits.from_dict(d)
+		pool.description = d.get("description", "")
+		pool.icon_glyph = d.get("icon", "✦")
+		pool.color = Color.from_string("#" + String(d.get("color", "b0b0b0")), pool.color)
+		pool.source = String(d.get("source", "local"))
+		pool.skill_id = String(d.get("skill", ""))
+		for tag in d.get("context_tags", []):
+			pool.context_tags.append(String(tag))
+		pool.priority = int(d.get("priority", 0))
+		pool.actions_per_reward = maxi(1, int(d.get("actions_per_reward", 1)))
+		pool.fallback = bool(d.get("fallback", false))
+		for raw_reward in d.get("rewards", []):
+			if raw_reward is Dictionary:
+				pool.rewards.append({
+					"kind": String(raw_reward.get("kind", "")),
+					"id": String(raw_reward.get("id", "")),
+					"weight": maxf(0.0, float(raw_reward.get("weight", 1.0))),
+				})
+		return pool
 
 
 class MilestoneDefinition:

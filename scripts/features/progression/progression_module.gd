@@ -1,23 +1,16 @@
 class_name ProgressionModule
 extends RefCounted
-## Composition root for progression v2: Inspiration domains, the well's
-## Vision bank, honest three-choice reveals, the refund meter, the shrine,
-## and milestone rewards. GameCore owns exactly one of these; scene-side
-## systems subscribe to the subsystems' signals and never own state.
-##
-## Progression v1 (XP levels, Land Parcels, Pattern Dust) is archived in
-## legacy/progression_v1/ and its save payloads are preserved verbatim under
-## `archived_v1` so a future levels revival loses nothing.
+## Composition root for progression v3: immediate discoveries shaped by local
+## biomes, the three-spare void exchange, lifetime practice, and milestones.
 
 var registries: Registries
-var inspiration: InspirationSystem
-var shrine: ShrineSystem
-var visions: VisionSystem
-var refunds: RefundSystem
+var discovery: DiscoverySystem
+var void_exchange: VoidExchangeSystem
 var milestones: MilestoneSystem
 
-var activity_actions: Dictionary = {}   # skill_id -> lifetime actions
-var archived_v1: Dictionary = {}        # untouched v1 save payloads
+var activity_actions: Dictionary = {}
+var archived_v1: Dictionary = {}
+var archived_v2: Dictionary = {}
 
 
 func _init(
@@ -29,42 +22,43 @@ func _init(
 	equipment: EquipmentManager
 ) -> void:
 	registries = regs
-	shrine = ShrineSystem.new(regs, collection)
-	inspiration = InspirationSystem.new(regs)
-	visions = VisionSystem.new(regs, rng, grid, stock, collection, shrine)
-	refunds = RefundSystem.new(regs, stock, visions)
+	discovery = DiscoverySystem.new(regs, rng, grid, stock, collection)
+	void_exchange = VoidExchangeSystem.new(regs, rng, grid, stock, discovery)
 	milestones = MilestoneSystem.new(regs, stock, equipment, collection)
-	# Journal discoveries can complete journal-page milestones on their own
-	# (e.g. a rare catch finishing a page outside any action flow).
 	collection.discovered.connect(func(_category: String, _id: String):
 		milestones.check_all(activity_actions)
 	)
 
 
-## One completed activity action: counts practice, pays Inspiration into the
-## activity's domain, and re-checks milestones. Returns presentation
-## feedback: {domain_id, amount, added, banked, blocked}.
-func on_activity_action(skill_id: String) -> Dictionary:
-	var domain := registries.domain_for_activity(skill_id)
-	if domain == null:
-		return {"domain_id": "", "amount": 0.0, "added": false, "banked": false, "blocked": false}
+func on_activity_action(
+	skill_id: String,
+	coord: Vector2i = Vector2i.ZERO,
+	source_structure_id: String = ""
+) -> Dictionary:
 	activity_actions[skill_id] = int(activity_actions.get(skill_id, 0)) + 1
-	var amount := registries.tunef("inspiration_per_action", 12.0)
-	var feedback := inspiration.add(domain.id, amount)
-	feedback["domain_id"] = domain.id
-	feedback["amount"] = amount
+	var feedback := discovery.record_local_action(
+		skill_id,
+		coord,
+		source_structure_id
+	)
 	milestones.check_all(activity_actions)
 	return feedback
 
 
+func on_void_fishing_catch() -> Dictionary:
+	activity_actions["fishing"] = int(activity_actions.get("fishing", 0)) + 1
+	var reward := discovery.discover_void()
+	milestones.check_all(activity_actions)
+	return {
+		"pool_id": "void",
+		"progress": 0,
+		"required": 1,
+		"reward": reward,
+	}
+
+
 func actions_done(skill_id: String) -> int:
 	return int(activity_actions.get(skill_id, 0))
-
-
-## Earning gate for activity loops: the current action always completes,
-## the next one refuses while the well is full.
-func can_earn() -> bool:
-	return inspiration.can_earn()
 
 
 func is_activity_playable(skill_id: String) -> bool:
@@ -76,81 +70,202 @@ func is_recipe_unlocked(recipe: Defs.RecipeDefinition) -> bool:
 	return milestones.is_recipe_unlocked(recipe)
 
 
-func speed_multiplier() -> float:
-	return inspiration.speed_multiplier()
-
-
 func to_save_dict() -> Dictionary:
 	return {
-		"inspiration": inspiration.to_save_dict(),
-		"visions": visions.to_save_dict(),
-		"refunds": refunds.to_save_dict(),
-		"shrine": shrine.to_save_dict(),
+		"version": 3,
+		"discovery": discovery.to_save_dict(),
+		"void_exchange": void_exchange.to_save_dict(),
 		"milestones": milestones.to_save_dict(),
 		"activity_actions": activity_actions.duplicate(),
 		"archived_v1": archived_v1.duplicate(true),
+		"archived_v2": archived_v2.duplicate(true),
 	}
 
 
 func from_save_dict(data: Dictionary) -> void:
-	inspiration.from_save_dict(data.get("inspiration", {}))
-	visions.from_save_dict(data.get("visions", {}))
-	refunds.from_save_dict(data.get("refunds", {}))
-	shrine.from_save_dict(data.get("shrine", {}))
+	discovery.from_save_dict(data.get("discovery", {}))
+	void_exchange.from_save_dict(data.get("void_exchange", {}))
 	milestones.from_save_dict(data.get("milestones", {}))
 	activity_actions.clear()
-	var saved_actions: Dictionary = data.get("activity_actions", {})
-	for skill_id: String in saved_actions:
+	for skill_id: String in data.get("activity_actions", {}):
 		if registries.skill(skill_id) != null:
-			activity_actions[skill_id] = int(saved_actions[skill_id])
+			activity_actions[skill_id] = int(data["activity_actions"][skill_id])
 	archived_v1 = data.get("archived_v1", {}).duplicate(true)
+	archived_v2 = data.get("archived_v2", {}).duplicate(true)
 
 
-## Pre-validation migration of a whole v1 save payload, called by GameCore
-## BEFORE CurrentSaveValidator sees the data. Transforms retired shapes into
-## v2 and preserves every v1 payload verbatim under progression.archived_v1.
-## The validator then applies its normal strictness to the migrated result.
+## Runs before strict validation. Both retired progression generations are
+## archived verbatim, pending old rewards become owned discoveries, and the
+## removed ritual structures become their ordinary decorative counterparts.
 static func migrate_save_payload(data: Dictionary) -> Dictionary:
-	if data.has("progression") or (not data.has("skills") and not data.has("parcels")):
-		return data
 	var migrated := data.duplicate(true)
-	var archived := {}
-	if migrated.has("skills"):
-		archived["skills"] = migrated["skills"]
-		migrated.erase("skills")
-	if migrated.has("parcels"):
-		archived["parcels"] = migrated["parcels"]
-		migrated.erase("parcels")
-	var progression := {"archived_v1": archived}
-	# A reveal pending at migration time is honored: its tile options become
-	# a pending Vision, so the promised choice is never lost.
-	var pending_options: Array = (archived.get("parcels", {}) as Dictionary).get("pending_options", [])
-	if not pending_options.is_empty():
-		var pending: Array = []
-		for raw_tile_id in pending_options:
-			pending.append({"kind": "tile", "id": String(raw_tile_id)})
-		progression["visions"] = {"pending": pending, "pending_domain": "", "pending_wild": false, "claims": 1}
-	# Lifetime action counts continue live (they still drive milestones).
-	var actions: Dictionary = (archived.get("skills", {}) as Dictionary).get("actions", {})
-	if not actions.is_empty():
-		progression["activity_actions"] = actions.duplicate()
-	migrated["progression"] = progression
-	# Retired currencies leave the inventory; their counts stay readable in
-	# the archived payload above via the original inventory snapshot below.
-	var inventory: Dictionary = migrated.get("inventory", {})
-	var counts: Dictionary = inventory.get("counts", {})
-	var retired_items := ["pattern_dust", "parcel_wild", "parcel_meadow", "parcel_grove", "parcel_stone", "parcel_winter"]
+	var old_progression: Dictionary = migrated.get("progression", {})
+	var is_v3 := int(old_progression.get("version", 0)) >= 3
+	if not is_v3:
+		var next_progression := {
+			"version": 3,
+			"activity_actions": {},
+			"discovery": {
+				"progress": {},
+				"pending": [],
+				"first_void_discovery_done": false,
+			},
+			"void_exchange": {"offerings": {}},
+			"milestones": old_progression.get("milestones", {}),
+			"archived_v1": old_progression.get("archived_v1", {}),
+			"archived_v2": old_progression.duplicate(true),
+		}
+		if not old_progression.is_empty():
+			next_progression["activity_actions"] = old_progression.get(
+				"activity_actions", {}
+			)
+			var old_pending: Array = (
+				old_progression.get("visions", {}) as Dictionary
+			).get("pending", [])
+			if not old_pending.is_empty():
+				var chosen: Dictionary = old_pending[0]
+				_grant_migrated_entry(migrated, chosen)
+				next_progression["discovery"]["pending"].append({
+					"kind": String(chosen.get("kind", "")),
+					"id": String(chosen.get("id", "")),
+					"pool_id": "legacy_vision",
+					"source": "migration",
+					"was_new": false,
+				})
+		elif migrated.has("skills") or migrated.has("parcels"):
+			var archived_v1 := {}
+			if migrated.has("skills"):
+				archived_v1["skills"] = migrated["skills"]
+				next_progression["activity_actions"] = (
+					migrated["skills"] as Dictionary
+				).get("actions", {})
+				migrated.erase("skills")
+			if migrated.has("parcels"):
+				archived_v1["parcels"] = migrated["parcels"]
+				var options: Array = (
+					migrated["parcels"] as Dictionary
+				).get("pending_options", [])
+				if not options.is_empty():
+					var entry := {"kind": "tile", "id": String(options[0])}
+					_grant_migrated_entry(migrated, entry)
+					entry.merge({
+						"pool_id": "legacy_parcel",
+						"source": "migration",
+						"was_new": false,
+					})
+					next_progression["discovery"]["pending"].append(entry)
+				migrated.erase("parcels")
+			next_progression["archived_v1"] = archived_v1
+		migrated["progression"] = next_progression
+	_retire_progression_structures(migrated)
+	_retire_old_onboarding(migrated)
+	_retire_old_inventory(migrated)
+	_retire_old_arrival_payload(migrated)
+	return migrated
+
+
+static func _grant_migrated_entry(data: Dictionary, entry: Dictionary) -> void:
+	var kind := String(entry.get("kind", ""))
+	var content_id := String(entry.get("id", ""))
+	if kind == "" or content_id == "":
+		return
+	if not data.has("stock"):
+		data["stock"] = {}
+	var stock: Dictionary = data["stock"]
+	var bucket_name := "tiles" if kind == "tile" else "structures"
+	var bucket: Dictionary = stock.get(bucket_name, {})
+	bucket[content_id] = int(bucket.get(content_id, 0)) + 1
+	stock[bucket_name] = bucket
+
+
+static func _retire_progression_structures(data: Dictionary) -> void:
+	var replacements := {
+		"struct_wishing_well": "struct_stone_well",
+		"struct_shrine": "struct_birdbath",
+	}
+	var world: Dictionary = data.get("grid", {})
+	for raw_cell in world.get("cells", []):
+		if raw_cell is Dictionary:
+			_replace_cell_structures(raw_cell, replacements)
+	var stock: Dictionary = data.get("stock", {})
+	var structures: Dictionary = stock.get("structures", {})
+	for old_id: String in replacements:
+		if structures.has(old_id):
+			var new_id: String = replacements[old_id]
+			structures[new_id] = int(structures.get(new_id, 0)) + int(structures[old_id])
+			structures.erase(old_id)
+	for raw_state in stock.get("structure_instances", []):
+		if raw_state is Dictionary and replacements.has(String(raw_state.get("id", ""))):
+			raw_state["id"] = replacements[String(raw_state["id"])]
+	var collection: Dictionary = data.get("collection", {})
+	var entries: Dictionary = collection.get("entries", {})
+	for old_id: String in replacements:
+		var old_key := "structures/%s" % old_id
+		if not entries.has(old_key):
+			continue
+		var new_key := "structures/%s" % replacements[old_id]
+		var old_entry: Dictionary = entries[old_key]
+		if entries.has(new_key):
+			var new_entry: Dictionary = entries[new_key]
+			new_entry["count"] = (
+				int(new_entry.get("count", 0))
+				+ int(old_entry.get("count", 0))
+			)
+			new_entry["placed"] = (
+				int(new_entry.get("placed", 0))
+				+ int(old_entry.get("placed", 0))
+			)
+		else:
+			entries[new_key] = old_entry
+		entries.erase(old_key)
+
+
+static func _replace_cell_structures(
+	raw_cell: Dictionary,
+	replacements: Dictionary
+) -> void:
+	for raw_structure in raw_cell.get("structs", []):
+		if raw_structure is Dictionary:
+			var structure_id := String(raw_structure.get("id", ""))
+			if replacements.has(structure_id):
+				raw_structure["id"] = replacements[structure_id]
+
+
+static func _retire_old_onboarding(data: Dictionary) -> void:
+	var onboarding: Dictionary = data.get("onboarding", {})
+	if not onboarding.is_empty() and String(onboarding.get("stage", "")) not in [
+		"land_choice", "try_void_fishing", "place_discovery",
+		"tend_tree", "place_biome_discovery", "complete",
+	]:
+		onboarding["stage"] = "complete"
+
+
+static func _retire_old_inventory(data: Dictionary) -> void:
+	var counts: Dictionary = (data.get("inventory", {}) as Dictionary).get("counts", {})
 	var removed := {}
-	for item_id: String in retired_items:
+	for item_id in [
+		"pattern_dust", "parcel_wild", "parcel_meadow",
+		"parcel_grove", "parcel_stone", "parcel_winter",
+	]:
 		if counts.has(item_id):
 			removed[item_id] = counts[item_id]
 			counts.erase(item_id)
 	if not removed.is_empty():
+		var progression: Dictionary = data.get("progression", {})
+		var archived: Dictionary = progression.get("archived_v1", {})
 		archived["inventory_counts"] = removed
-	# A ferry payload mid-delivery re-schedules cleanly as a fresh arrival.
-	var arrivals: Dictionary = migrated.get("arrivals", {})
-	if not (arrivals.get("payload", {}) as Dictionary).is_empty():
-		archived["arrival_payload"] = arrivals["payload"]
+		progression["archived_v1"] = archived
+
+
+static func _retire_old_arrival_payload(data: Dictionary) -> void:
+	var arrivals: Dictionary = data.get("arrivals", {})
+	var payload: Dictionary = arrivals.get("payload", {})
+	if String(payload.get("gift_kind", "")) == "vision":
+		payload["gift_kind"] = "discovery"
+	elif not payload.is_empty() and String(payload.get("gift_kind", "")) == "":
+		var progression: Dictionary = data.get("progression", {})
+		var archived: Dictionary = progression.get("archived_v1", {})
+		archived["arrival_payload"] = payload.duplicate(true)
+		progression["archived_v1"] = archived
 		arrivals["payload"] = {}
 		arrivals["state"] = "idle"
-	return migrated

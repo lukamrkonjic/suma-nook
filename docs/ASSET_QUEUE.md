@@ -34,13 +34,6 @@ REJECTED (with reason).
 | guardian_hero | LUKA-MODLY (proxy INTEGRATED) |
 | outfit/armor sets | LUKA-MODLY (proxy INTEGRATED) |
 
-## Progression rework placeholders (need real art)
-| asset | status |
-|---|---|
-| wishing_well_hero (struct_wishing_well — currently reuses prop_stone_well; wants: basin glow, domain-colored refund carvings, evolution stages) | AI-NOW (placeholder INTEGRATED) |
-| shrine_hero (struct_shrine — currently reuses prop_birdbath; wants: focus pedestal, hovering focused item) | AI-NOW (placeholder INTEGRATED) |
-| inspiration wisp VFX (domain-colored spirits flying to the well; speed-buff trail) | AI-NOW |
-
 ## Rejected
 | asset | reason |
 |---|---|

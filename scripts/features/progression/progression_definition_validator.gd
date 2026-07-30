@@ -1,90 +1,94 @@
 class_name ProgressionDefinitionValidator
 extends RefCounted
-## Feature-owned content contract for progression v2. Registered by
-## GameContentCatalog like every feature validator; a violated contract
-## blocks atomic publication, so a bad edit can never half-ship.
+## Content contract for discovery progression.
 
 const ValidationIssueScript := preload(
 	"res://scripts/core/content/validation_issue.gd"
 )
-
 const REWARD_KINDS := ["tile", "structure", "gear", "note"]
 const MILESTONE_KINDS := ["practice", "journal_page"]
 
 
 static func validate(snapshot, issues: Array) -> void:
-	_validate_domains(snapshot, issues)
-	_validate_activities(snapshot, issues)
+	_validate_discovery_pools(snapshot, issues)
 	_validate_milestones(snapshot, issues)
 	_validate_recipes(snapshot, issues)
-	_validate_tuning_pools(snapshot, issues)
+	_validate_tuning(snapshot, issues)
 
 
-static func _validate_domains(snapshot, issues: Array) -> void:
-	var known_families := {}
-	for tile in snapshot.tiles.values():
-		known_families[tile.family] = true
-	var wildcard_count := 0
-	var claimed_families := {}
-	for domain in snapshot.inspiration_domains.values():
-		var source = snapshot.source("inspiration_domains", domain.id)
-		if domain.wildcard:
-			wildcard_count += 1
-			if not domain.tile_families.is_empty():
-				_error(
-					issues, "domain.wildcard.families", source, "tile_families",
-					"wildcard domain '%s' must not claim tile families" % domain.id
-				)
-		elif domain.tile_families.is_empty():
+static func _validate_discovery_pools(snapshot, issues: Array) -> void:
+	var void_count := 0
+	var fallbacks := {}
+	for pool: Defs.DiscoveryPoolDefinition in snapshot.discovery_pools.values():
+		var source = snapshot.source("discovery_pools", pool.id)
+		if not ["void", "local"].has(pool.source):
 			_error(
-				issues, "domain.families.empty", source, "tile_families",
-				"domain '%s' claims no tile families and is not a wildcard" % domain.id
+				issues, "discovery.source.invalid", source, "source",
+				"pool '%s' has unknown source '%s'" % [pool.id, pool.source]
 			)
-		for family in domain.tile_families:
-			if not known_families.has(family):
+		if pool.source == "void":
+			void_count += 1
+			if pool.skill_id != "" or not pool.context_tags.is_empty():
 				_error(
-					issues, "domain.family.missing", source,
-					"tile_families", "referenced tile family '%s' has no definitions" % family
+					issues, "discovery.void.context", source, "skill",
+					"void pool '%s' cannot declare local context" % pool.id
 				)
-			if claimed_families.has(family):
-				_error(
-					issues, "domain.family.duplicate", source, "tile_families",
-					"tile family '%s' is claimed by two domains" % family
-				)
-			claimed_families[family] = true
-		for activity_id in domain.activities:
-			if not snapshot.skills.has(activity_id):
-				_error(
-					issues, "domain.activity.missing", source, "activities",
-					"referenced activity '%s' does not exist" % activity_id
-				)
-	if wildcard_count != 1 and not snapshot.inspiration_domains.is_empty():
-		_error(
-			issues, "domain.wildcard.count", null, "inspiration_domains",
-			"exactly one wildcard domain is required (found %d)" % wildcard_count
-		)
-
-
-static func _validate_activities(snapshot, issues: Array) -> void:
-	for skill in snapshot.skills.values():
-		var source = snapshot.source("skills", skill.id)
-		if skill.domain_id == "":
-			_error(
-				issues, "activity.domain.required", source, "domain",
-				"activity '%s' declares no inspiration domain" % skill.id
-			)
-		elif not snapshot.inspiration_domains.has(skill.domain_id):
-			_error(
-				issues, "activity.domain.missing", source, "domain",
-				"referenced domain '%s' does not exist" % skill.domain_id
-			)
 		else:
-			var domain = snapshot.inspiration_domains[skill.domain_id]
-			if not domain.activities.has(skill.id):
+			if not snapshot.skills.has(pool.skill_id):
 				_error(
-					issues, "activity.domain.unlisted", source, "domain",
-					"domain '%s' does not list activity '%s' back" % [skill.domain_id, skill.id]
+					issues, "discovery.skill.missing", source, "skill",
+					"pool '%s' references missing skill '%s'" % [pool.id, pool.skill_id]
 				)
+			if pool.fallback:
+				if fallbacks.has(pool.skill_id):
+					_error(
+						issues, "discovery.fallback.duplicate", source, "fallback",
+						"skill '%s' has more than one fallback pool" % pool.skill_id
+					)
+				fallbacks[pool.skill_id] = true
+		if pool.actions_per_reward <= 0:
+			_error(
+				issues, "discovery.actions.invalid", source, "actions_per_reward",
+				"pool '%s' must require at least one action" % pool.id
+			)
+		if pool.rewards.is_empty():
+			_error(
+				issues, "discovery.rewards.empty", source, "rewards",
+				"pool '%s' has no rewards" % pool.id
+			)
+		for index in pool.rewards.size():
+			var reward: Dictionary = pool.rewards[index]
+			var kind := String(reward.get("kind", ""))
+			var reward_id := String(reward.get("id", ""))
+			var known: bool = (
+				kind == "tile" and snapshot.tiles.has(reward_id)
+			) or (
+				kind == "structure" and snapshot.structures.has(reward_id)
+			)
+			if not known:
+				_error(
+					issues, "discovery.reward.missing", source,
+					"rewards[%d]" % index,
+					"unknown %s reward '%s'" % [kind, reward_id]
+				)
+			if float(reward.get("weight", 0.0)) <= 0.0:
+				_error(
+					issues, "discovery.reward.weight", source,
+					"rewards[%d].weight" % index,
+					"reward weight must be positive"
+				)
+	if void_count != 1:
+		_error(
+			issues, "discovery.void.count", null, "discovery_pools",
+			"exactly one broad void pool is required (found %d)" % void_count
+		)
+	for skill: Defs.SkillDefinition in snapshot.skills.values():
+		if not skill.future and not fallbacks.has(skill.id):
+			_error(
+				issues, "discovery.fallback.missing",
+				snapshot.source("skills", skill.id), "id",
+				"playable skill '%s' needs one local fallback pool" % skill.id
+			)
 
 
 static func _validate_milestones(snapshot, issues: Array) -> void:
@@ -107,12 +111,14 @@ static func _validate_milestones(snapshot, issues: Array) -> void:
 					issues, "milestone.actions.invalid", source, "action_count",
 					"practice milestone '%s' needs a positive action_count" % milestone.id
 				)
-		if milestone.kind == "journal_page":
-			if milestone.category == "" or milestone.entries.is_empty():
-				_error(
-					issues, "milestone.page.incomplete", source, "entries",
-					"journal milestone '%s' needs a category and entries" % milestone.id
-				)
+		if (
+			milestone.kind == "journal_page"
+			and (milestone.category == "" or milestone.entries.is_empty())
+		):
+			_error(
+				issues, "milestone.page.incomplete", source, "entries",
+				"journal milestone '%s' needs a category and entries" % milestone.id
+			)
 		for index in milestone.rewards.size():
 			var reward: Dictionary = milestone.rewards[index]
 			var kind := String(reward.get("kind", "note"))
@@ -120,7 +126,8 @@ static func _validate_milestones(snapshot, issues: Array) -> void:
 			if not REWARD_KINDS.has(kind):
 				_error(
 					issues, "milestone.reward.kind", source,
-					"rewards[%d].kind" % index, "unknown reward kind '%s'" % kind
+					"rewards[%d].kind" % index,
+					"unknown reward kind '%s'" % kind
 				)
 				continue
 			var known := true
@@ -134,26 +141,14 @@ static func _validate_milestones(snapshot, issues: Array) -> void:
 					"rewards[%d].id" % index,
 					"referenced %s '%s' does not exist" % [kind, reward_id]
 				)
-			var active_tile_ids: Variant = snapshot.tuning.get("active_tile_ids", [])
-			if (
-				kind == "tile"
-				and snapshot.tiles.has(reward_id)
-				and active_tile_ids is Array
-				and not active_tile_ids.is_empty()
-				and not active_tile_ids.has(reward_id)
-			):
-				_error(
-					issues, "milestone.reward.inactive", source,
-					"rewards[%d].id" % index,
-					"milestone reward tile '%s' is not in active_tile_ids" % reward_id
-				)
 
 
 static func _validate_recipes(snapshot, issues: Array) -> void:
 	for recipe in snapshot.recipes.values():
-		if recipe.unlock_milestone == "":
-			continue
-		if not snapshot.milestones.has(recipe.unlock_milestone):
+		if (
+			recipe.unlock_milestone != ""
+			and not snapshot.milestones.has(recipe.unlock_milestone)
+		):
 			_error(
 				issues, "recipe.milestone.missing",
 				snapshot.source("recipes", recipe.id), "unlock_milestone",
@@ -161,34 +156,32 @@ static func _validate_recipes(snapshot, issues: Array) -> void:
 			)
 
 
-static func _validate_tuning_pools(snapshot, issues: Array) -> void:
-	for tuning_key in ["first_vision_options", "land_insurance_pool", "starter_land_options"]:
-		var pool: Variant = snapshot.tuning.get(tuning_key, [])
-		if not pool is Array or pool.is_empty():
-			_error(
-				issues, "tuning.pool.missing", null,
-				"%s/tuning.json %s" % [snapshot.base_path, tuning_key],
-				"progression requires a non-empty '%s' tile list" % tuning_key
-			)
-			continue
-		var active_tile_ids: Variant = snapshot.tuning.get("active_tile_ids", [])
-		for index in pool.size():
-			var tile_id := String(pool[index])
-			if not snapshot.tiles.has(tile_id):
-				_error(
-					issues, "tuning.pool.tile.missing", null,
-					"%s/tuning.json %s[%d]" % [snapshot.base_path, tuning_key, index],
-					"referenced tile '%s' does not exist" % tile_id
-				)
-			elif active_tile_ids is Array and not active_tile_ids.has(tile_id):
-				_error(
-					issues, "tuning.pool.tile.inactive", null,
-					"%s/tuning.json %s[%d]" % [snapshot.base_path, tuning_key, index],
-					"tile '%s' is not in active_tile_ids" % tile_id
-				)
+static func _validate_tuning(snapshot, issues: Array) -> void:
+	var starter_pool: Variant = snapshot.tuning.get("starter_land_options", [])
+	if not starter_pool is Array or starter_pool.is_empty():
+		_error(
+			issues, "tuning.starter.missing", null, "starter_land_options",
+			"progression requires starter land options"
+		)
+	var first_void := String(snapshot.tuning.get("first_void_reward", ""))
+	if not snapshot.tiles.has(first_void):
+		_error(
+			issues, "tuning.first_void.missing", null, "first_void_reward",
+			"first void reward '%s' is not a tile" % first_void
+		)
 
 
-static func _error(issues: Array, code: String, source, field: String, message: String) -> void:
+static func _error(
+	issues: Array,
+	code: String,
+	source,
+	field: String,
+	message: String
+) -> void:
 	issues.append(ValidationIssueScript.new(
-		ValidationIssueScript.Severity.ERROR, code, source, field, message
+		ValidationIssueScript.Severity.ERROR,
+		code,
+		source,
+		field,
+		message
 	))

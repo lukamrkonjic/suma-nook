@@ -66,14 +66,14 @@ func has_waiting_package() -> bool:
 	return state == WAITING and current_payload != null
 
 
-## The ferry's gift is a full-catalog Vision that bypasses the well's bank.
-func open_waiting(progression: ProgressionModule) -> Array[Dictionary]:
-	if not has_waiting_package() or progression.visions.has_pending():
-		return [] as Array[Dictionary]
-	var options := progression.visions.begin_delivered()
-	if not options.is_empty():
+## The ferry carries one broad discovery from beyond the player's world.
+func open_waiting(progression: ProgressionModule) -> Dictionary:
+	if not has_waiting_package() or progression.discovery.has_pending():
+		return {}
+	var reward := progression.discovery.discover_delivery()
+	if not reward.is_empty():
 		state = OPENED
-	return options
+	return reward
 
 
 func resolve_delivery() -> void:

@@ -47,6 +47,7 @@ separate:
 ```text
 data/
   capabilities.json          # vocabulary understood by systems
+  discovery_pools.json       # source/context → weighted world pieces
   structures.json            # placeable definitions
   recipes.json               # content relationships
   tiles.json, items.json...  # other definition families
@@ -61,6 +62,8 @@ scripts/
   features/
     camping/                  # definitions, validation, systems,
                               # interactions, save and presentation adapters
+    progression/              # discovery, biome context, duplicate exchange,
+                              # milestones and versioned migration
   systems/                    # cross-feature runtime services
   world/
     placement/                # rules, target resolver, preview, history

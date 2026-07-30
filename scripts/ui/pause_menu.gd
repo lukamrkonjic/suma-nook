@@ -521,12 +521,17 @@ func _build_admin_page() -> void:
 	var trigger_ferry := func() -> void:
 		var ok := core.arrivals.trigger_arrival()
 		_admin_status("Ferry arrival triggered." if ok else "Ferry could not arrive right now.")
-	var grant_fishing_xp := func() -> void:
-		core.progression.inspiration.add("domain_waterside", 100.0)
-		_admin_status("Granted 100 Waterside inspiration.")
-	var grant_woodland_xp := func() -> void:
-		core.progression.inspiration.add("domain_grove", 100.0)
-		_admin_status("Granted 100 Grove inspiration.")
+	var grant_fishing_discovery := func() -> void:
+		core.progression.on_void_fishing_catch()
+		_admin_status("Pulled one broad discovery from the void.")
+	var grant_woodland_discovery := func() -> void:
+		for _index in 4:
+			core.progression.on_activity_action(
+				"woodcutting",
+				core.grid.home_cell,
+				"struct_pine"
+			)
+		_admin_status("Completed one biome-shaped tree discovery.")
 	var save_now := func() -> void:
 		_admin_status("Garden saved." if core.save() else "Could not save the garden.")
 	var build_mock := func() -> void:
@@ -571,8 +576,8 @@ func _build_admin_page() -> void:
 	)
 	_admin_action_row(list, "Reset save", "Deletes the save and its backup, then restarts the game fresh.", "Reset", reset_save)
 	_admin_action_row(list, "Ferry", "Bring the delivery ferry in right away.", "Trigger arrival", trigger_ferry)
-	_admin_action_row(list, "Fishing", "Add 100 XP toward the next fishing level.", "+100 XP", grant_fishing_xp)
-	_admin_action_row(list, "Woodland Tending", "Add 100 XP toward the next woodland level.", "+100 XP", grant_woodland_xp)
+	_admin_action_row(list, "Void Fishing", "Queue one broad random discovery.", "Discover", grant_fishing_discovery)
+	_admin_action_row(list, "Woodland Tending", "Complete one local biome-shaped tree discovery.", "Discover", grant_woodland_discovery)
 	_admin_action_row(list, "Save", "Write the garden to disk immediately.", "Save now", save_now)
 
 	_status_label = kit.label("", 15)

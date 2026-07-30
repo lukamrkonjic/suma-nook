@@ -64,8 +64,6 @@ var _resting_anchor_slots: Dictionary = {}
 var _autosave_thread: Thread
 var _autosave_in_flight := false
 
-const FIRST_WATER_COORD := Vector2i(-1, -1)
-const STARTER_DOCK_COORD := Vector2i(0, -1)
 const DEFAULT_BODY_ITEM_ID := "cosmetic_cowboy_vest"
 const SHOWCASE_STRUCTURE_IDS := [
 	"struct_stone_wall_polished",
@@ -90,15 +88,10 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 	)
 	interactions.register_provider("camping", camping.interactions)
 	collection = CollectionManager.new(registries)
-	# (progression registers its provider below, once the module exists)
 	rewards = RewardManager.new(registries, rng, inventory, stock, collection)
 	equipment = EquipmentManager.new(registries)
 	progression = ProgressionModule.new(registries, rng, grid, stock, collection, equipment)
 	onboarding = OnboardingState.new()
-	interactions.register_provider(
-		"progression",
-		ProgressionInteractions.new(registries, grid, progression)
-	)
 	arrivals = ArrivalScheduler.new(registries, rng)
 	crafting = CraftingManager.new(registries, inventory, stock, progression, equipment, collection)
 	landmarks = LandmarkManager.new(registries, rng, grid, stock, rewards, equipment, collection)
@@ -109,6 +102,11 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 	# must not retain the root, otherwise root -> manager -> callable -> root
 	# forms a permanent reference cycle each time a game session is rebuilt.
 	var owner_ref: WeakRef = weakref(self)
+	progression.discovery.discovery_ready.connect(func(entry: Dictionary):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner.onboarding_discovery_received(entry)
+	)
 	progression.milestones.milestone_reached.connect(func(milestone_id, rewards_granted):
 		var owner := owner_ref.get_ref() as GameCore
 		if owner != null:
@@ -162,10 +160,8 @@ func new_game(new_profile: PlayerProfile) -> void:
 	equipment.acquire("tool_axe_basic")
 	equipment.equip("tool_rod_basic")
 	_ensure_default_body_item()
-	# Trees begin unplaced in the Build Library. The wishing well is the heart
-	# of progression and waits there too — guided placement is the opening beat.
+	# Trees begin unplaced in the Build Bag for established/non-authored starts.
 	stock.add_structure("struct_pine")
-	stock.add_structure("struct_wishing_well")
 	_ensure_showcase_placeables()
 	collection.record("gear", "tool_rod_basic")
 	collection.record("gear", "tool_axe_basic")
@@ -207,15 +203,14 @@ func choose_onboarding_land(tile_id: String) -> bool:
 		return false
 	profile.starter_land_id = tile_id
 	grid.home_cell = Vector2i.ZERO
-	# A real starter island rises through the portal: nine chosen land blocks
-	# with a complete water ring, not a lone square floating in the sky.
-	for x in range(-2, 3):
-		for y in range(-2, 3):
+	# Nine chosen blocks rise through the portal. Their exposed edges are the
+	# player's first fishing place; water is a discovered building material.
+	for x in range(-1, 2):
+		for y in range(-1, 2):
 			var coord := Vector2i(x, y)
-			var is_water_ring := absi(x) == 2 or absi(y) == 2
 			grid.place_tile(
 				coord,
-				"tile_open_water" if is_water_ring else tile_id,
+				tile_id,
 				0,
 				coord == Vector2i.ZERO,
 				false
@@ -228,16 +223,10 @@ func choose_onboarding_land(tile_id: String) -> bool:
 	)
 	profile.position = grid.cell_to_world(Vector2i.ZERO)
 	collection.record("tiles", tile_id, 0)
-	collection.record("tiles", "tile_open_water", 0)
 	if starter_tree != null:
 		collection.record("structures", "struct_pine")
 		collection.record_placed("structures", "struct_pine")
-	onboarding.guide_piece(
-		OnboardingState.PLACE_WATER,
-		VisionSystem.KIND_TILE,
-		"tile_open_water"
-	)
-	_ensure_guided_stock(VisionSystem.KIND_TILE, "tile_open_water")
+	onboarding.set_stage(OnboardingState.TRY_VOID_FISHING)
 	save()
 	return true
 
@@ -247,33 +236,15 @@ func choose_onboarding_land(tile_id: String) -> bool:
 func advance_onboarding_after_placement() -> Dictionary:
 	var next: Dictionary = {}
 	match onboarding.stage:
-		OnboardingState.PLACE_WATER:
-			# Sixteen water blocks form the authored ring; the seventeenth is
-			# the player's own first extension.
-			if _placed_tile_count("tile_open_water") < 17:
-				return {}
-			_ensure_guided_stock("structure", "struct_wishing_well")
-			onboarding.guide_piece(
-				OnboardingState.PLACE_WELL,
-				VisionSystem.KIND_STRUCTURE,
-				"struct_wishing_well"
-			)
-			next = {
-				"kind": VisionSystem.KIND_STRUCTURE,
-				"id": "struct_wishing_well",
-				"message": "There is room for the heart of your world: the wishing well.",
-			}
-		OnboardingState.PLACE_WELL:
-			if not _is_structure_placed("struct_wishing_well"):
-				return {}
+		OnboardingState.PLACE_DISCOVERY:
 			onboarding.set_stage(OnboardingState.TEND_TREE)
 			next = {
-				"message": "The well is listening. Tend the pine already growing nearby.",
+				"message": "Now tend the pine. Its surroundings will shape what it finds.",
 			}
-		OnboardingState.PLACE_VISION:
-			onboarding.set_stage(OnboardingState.TRY_FISHING)
+		OnboardingState.PLACE_BIOME_DISCOVERY:
+			onboarding.set_stage(OnboardingState.COMPLETE)
 			next = {
-				"message": "Something stirs in the water you placed.",
+				"message": "Build the world you want. Every biome changes what its skills can uncover.",
 			}
 		_:
 			return {}
@@ -281,30 +252,26 @@ func advance_onboarding_after_placement() -> Dictionary:
 	return next
 
 
-func onboarding_vision_banked() -> bool:
-	if onboarding.stage != OnboardingState.TEND_TREE:
+func onboarding_discovery_received(entry: Dictionary) -> bool:
+	var kind := String(entry.get("kind", ""))
+	var content_id := String(entry.get("id", ""))
+	if kind not in ["tile", "structure"] or content_id == "":
 		return false
-	onboarding.set_stage(OnboardingState.CLAIM_VISION)
-	save()
-	return true
-
-
-func onboarding_vision_chosen(kind: String, content_id: String) -> bool:
-	if onboarding.stage != OnboardingState.CLAIM_VISION:
-		return false
-	onboarding.guide_piece(
-		OnboardingState.PLACE_VISION,
-		kind,
-		content_id
-	)
-	save()
-	return true
-
-
-func onboarding_fished() -> bool:
-	if onboarding.stage != OnboardingState.TRY_FISHING:
-		return false
-	onboarding.set_stage(OnboardingState.COMPLETE)
+	match onboarding.stage:
+		OnboardingState.TRY_VOID_FISHING:
+			if String(entry.get("source", "")) != "void":
+				return false
+			onboarding.guide_piece(
+				OnboardingState.PLACE_DISCOVERY, kind, content_id
+			)
+		OnboardingState.TEND_TREE:
+			if String(entry.get("source", "")) != "local":
+				return false
+			onboarding.guide_piece(
+				OnboardingState.PLACE_BIOME_DISCOVERY, kind, content_id
+			)
+		_:
+			return false
 	save()
 	return true
 
@@ -324,10 +291,10 @@ func ensure_onboarding_guided_piece() -> Dictionary:
 
 func _ensure_guided_stock(kind: String, content_id: String) -> void:
 	match kind:
-		VisionSystem.KIND_TILE:
+		DiscoverySystem.KIND_TILE:
 			if stock.tile_count(content_id) < 1:
 				stock.add_tile(content_id)
-		VisionSystem.KIND_STRUCTURE:
+		DiscoverySystem.KIND_STRUCTURE:
 			if stock.structure_count(content_id) < 1:
 				stock.add_structure(content_id)
 
@@ -350,9 +317,7 @@ func _is_structure_placed(structure_id: String) -> bool:
 	return false
 
 
-## The composed opening zone: a continuous three-tile northern water edge and
-## six land cells in the player's chosen starter land. Only the first water
-## block is movement-locked; every other opening tile uses the normal move flow.
+## Established/non-authored starts use the same floating 3x3 grammar.
 func _compose_starting_world() -> void:
 	grid.cells.clear()
 	grid.stacked_cells.clear()
@@ -360,9 +325,9 @@ func _compose_starting_world() -> void:
 	if registries.tile(land_id) == null or not registries.is_tile_active(land_id):
 		land_id = "tile_grass"
 	var layout := {
-		Vector2i(-1, -1): ["tile_open_water", 0],
-		Vector2i(0, -1): ["tile_open_water", 0],
-		Vector2i(1, -1): ["tile_open_water", 0],
+		Vector2i(-1, -1): [land_id, 0],
+		Vector2i(0, -1): [land_id, 0],
+		Vector2i(1, -1): [land_id, 0],
 		Vector2i(-1, 0): [land_id, 0],
 		Vector2i(0, 0): [land_id, 0],
 		Vector2i(1, 0): [land_id, 0],
@@ -376,13 +341,12 @@ func _compose_starting_world() -> void:
 			layout[coord][0],
 			layout[coord][1],
 			true,
-			coord == FIRST_WATER_COORD
+			false
 		)
 	# Opening furniture is independent from its terrain. Trees/vegetation do
 	# not spawn by default; the first tree waits in the Build Library.
 	grid.add_structure(Vector2i(-1, 1), "struct_bench", 2, 1)
 	grid.add_structure(Vector2i(1, 0), "struct_chest", 2, 0)
-	grid.add_structure(STARTER_DOCK_COORD, "struct_dock", 0, 2)
 	for coord: Vector2i in grid.cells:
 		for s in grid.cell(coord).structures:
 			collection.record("structures", s.structure_id, 0)

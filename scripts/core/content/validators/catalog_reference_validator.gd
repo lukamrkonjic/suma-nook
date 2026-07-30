@@ -61,27 +61,6 @@ static func validate(snapshot, issues: Array) -> void:
 			issues, snapshot, "anchors", definition.id, "loot_table", definition.loot_table,
 			"loot_tables", snapshot.loot_tables
 		)
-	for definition: Defs.SkillDefinition in snapshot.skills.values():
-		for index in definition.direct_tile_reward_pool.size():
-			var direct_tile_id := definition.direct_tile_reward_pool[index]
-			_reference(
-				issues, snapshot, "skills", definition.id,
-				"direct_tile_reward_pool[%d]" % index,
-				direct_tile_id, "tiles", snapshot.tiles, false
-			)
-			if (
-				active_tile_ids is Array
-				and snapshot.tiles.has(direct_tile_id)
-				and not active_tile_ids.has(direct_tile_id)
-			):
-				issues.append(ValidationIssueScript.new(
-					ValidationIssueScript.Severity.ERROR,
-					"skill.direct_tile_reward.inactive",
-					snapshot.source("skills", definition.id),
-					"direct_tile_reward_pool[%d]" % index,
-					"direct reward tile '%s' is not in active_tile_ids"
-					% direct_tile_id
-				))
 	for definition: Defs.LootTableDefinition in snapshot.loot_tables.values():
 		for index in definition.entries.size():
 			_reference(

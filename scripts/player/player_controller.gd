@@ -162,12 +162,7 @@ func _free_move(delta: float) -> void:
 				wish = wish.normalized()
 		elif state == State.FREE and not _click_path.is_empty():
 			wish = _click_wish()
-	# Banked Visions inspire the keeper: each one stacks a small speed step,
-	# so the walk back to a full well is the fastest walk in the game.
-	var walk_speed := (
-		core.registries.tunef("walk_speed", 2.2)
-		* core.progression.speed_multiplier()
-	)
+	var walk_speed := core.registries.tunef("walk_speed", 2.2)
 	var speed := walk_speed
 	# Hold sprint to run: faster feet, faster clip, and a happy wobble.
 	var sprinting := (
@@ -784,6 +779,27 @@ func _update_focus() -> void:
 							"point": struct_pos,
 						}
 						best_distance = struct_distance
+	# An exposed land edge is a real interaction target: the keeper casts past
+	# the constructed world into the unknown. Ordinary nearby objects win.
+	if core.grid.has_walkable_top_surface(my_cell):
+		var origin := core.grid.cell_to_world(
+			my_cell,
+			core.grid.top_elevation(my_cell)
+		)
+		for offset: Vector2i in WorldGrid.NEIGHBORS:
+			if core.grid.has_cell(my_cell + offset):
+				continue
+			var direction := Vector3(offset.x, 0.0, offset.y)
+			var edge_point := origin + direction * core.grid.tile_size * 0.48
+			var distance := position.distance_to(edge_point)
+			if distance < best_distance:
+				best = {
+					"kind": "void_fishing",
+					"coord": my_cell,
+					"point": edge_point,
+					"cast_point": origin + direction * core.grid.tile_size * 1.3,
+				}
+				best_distance = distance
 	for package in get_tree().get_nodes_in_group("delivery_packages"):
 		var package_node := package as Node3D
 		if not is_instance_valid(package_node) or not package_node.visible:

@@ -1,105 +1,67 @@
-# New-player flow
+# Suma — new-player flow
 
-This is the authored first-session sequence. Its job is to make the player
-understand the whole world-building loop by doing it once:
+Status: current, resumable, implemented.
 
-**choose land → place an activity surface → place the well → create
-Inspiration → claim a Vision → grow the world → discover a new activity**
+The first session teaches one complete idea:
 
-Every step is saved. Reloading resumes the exact required step and restores
-its guaranteed piece if necessary.
+> **The unknown gives broad surprises; the world you build shapes what local
+> skills discover.**
 
-## 1. Make a keeper
+## 1. Create the keeper
 
-- Character creation is a dedicated, full-screen portrait scene.
-- It changes identity only: name, body, face, hair, colors, and outfit.
-- The world and the starting biome are not shown here.
-- “Begin your world” starts the arrival; it does not silently create an
-  island.
+Character creation opens before gameplay. Confirming the keeper begins the
+authored arrival; ordinary HUD and world input stay hidden until it finishes.
 
-## 2. Arrive before the world
+## 2. Choose the first land
 
-- The screen returns to open sky with no land.
-- A portal opens at the origin and the keeper rises out of it.
-- At the top of the rise, the game pauses with the keeper suspended.
-- A three-card picker offers:
-  - Grove Ground
-  - Pale Sand
-  - Fresh Snow
-- The cards use real tile renders, not abstract icons.
-- The choice cannot be cancelled. It decides only the beginning, not a
-  permanent class or mechanical bonus.
-- After selection, a complete starter island rises beneath the keeper:
-  nine chosen ground tiles in a 3×3 square, a sixteen-tile water ring,
-  and one mature pine already rooted on the land.
-- The portal closes and the keeper falls onto the center tile with the
-  familiar rescue bounce.
+The keeper appears against empty sky and chooses one of three rendered land
+materials. The choice creates a 3×3 island made entirely from that material.
+A mature pine is placed on one corner. There is no starter ocean strip, dock,
+well, shrine, currency, or hidden tutorial inventory.
 
-## 3. Make a shore
+## 3. Fish the unknown
 
-- Quiet Water is granted automatically and immediately held for placement.
-- The player uses it to extend the water ring by one tile.
-- This teaches shaping with a forgiving first placement while keeping the
-  authored island coherent and immediately fishable.
+The exposed perimeter becomes an interaction target labelled **Fish into the
+unknown**. The cast travels past the island edge. The first successful catch
+uses the real discovery system and guarantees one `tile_open_water`.
 
-## 4. Build the progression heart
+The reveal is a single card. The tile is already safe in the Build Bag; the
+acknowledgement simply holds it for immediate placement.
 
-- The wishing well is granted only after the player extends the water.
-- The player places the well on any of the eight clear land tiles.
-- The already-planted pine then becomes the first activity objective.
+## 4. Place real water
 
-Shape Land cannot be closed while one of these required arrival pieces is
-held. The player may rotate and choose a valid position, but cannot lose or
-store away the item that makes progression possible.
+The player places the water beside the island. It is an ordinary owned tile,
+so it can form the beginning of a pond, stream, lake, or dock space and may be
+moved again in build mode.
 
-## 5. Create the first Vision
+This placement advances the tutorial to local skilling.
 
-- The prompt asks the player to tend the pine.
-- Each completed tend sends green Inspiration toward the well.
-- The first meter uses its accelerated introductory cost, so three completed
-  tends bank the first Vision.
-- Once banked, the prompt moves the player back to the well to claim it.
-- The normal three-choice Vision ritual opens; the player keeps one.
-- The selected tile or structure is immediately held for placement.
+## 5. Tend the tree
 
-This teaches the permanent rhythm in the world itself: activities make
-Inspiration, the well remembers it, and Visions become new world pieces.
+The player interacts with the actual placed pine. Four tending actions
+complete its first discovery cycle. The discovery resolver reads the local
+tiles and objects and chooses the strongest eligible woodcutting pool.
 
-## 6. Let placement create play
+The resulting tile or model is safely granted and shown through the same
+single-card reveal.
 
-- After the chosen Vision is placed, the water tile becomes the final
-  onboarding destination.
-- The prompt says that something stirs in the water the player placed.
-- The player catches and releases one fish there.
-- Onboarding completes after the catch. Normal contextual hints and the
-  wider progression systems take over.
+## 6. Place the biome-shaped discovery
 
-The closing lesson is causal: **the place I built created the thing I can
-do next**.
+Placing that piece completes onboarding. The final message explains that
+every biome changes what its skills can uncover. All normal UI and free play
+continue from the world the player just made.
 
-## Presentation rules
+## Persistence contract
 
-- One objective at a time.
-- One sentence per prompt.
-- Rewards appear only when their prerequisite is complete.
-- Use motion, particles, sound, and world state before explanatory copy.
-- Never leave the player without water, a well, a tree, or enough clear land
-  to shape freely.
-- The land picker and every guided placement are keyboard-, mouse-, and
-  controller-complete with deterministic focus.
-- Cancel/back may open menus later, but it never dismisses the first-land
-  decision or discards a required onboarding piece.
-
-## Saved stages
+Stages are:
 
 1. `land_choice`
-2. `place_water`
-3. `place_well`
+2. `try_void_fishing`
+3. `place_discovery`
 4. `tend_tree`
-5. `claim_vision`
-6. `place_vision`
-7. `try_fishing`
-8. `complete`
+5. `place_biome_discovery`
+6. `complete`
 
-Saves from before this authored sequence load as `complete`; established
-worlds are never pulled backward into onboarding.
+The guided piece's kind and stable ID persist. If the game closes after a
+reward is granted but before placement, load repairs stock only when needed;
+it never duplicates or loses the promised item.

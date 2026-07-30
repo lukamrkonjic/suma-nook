@@ -1,7 +1,7 @@
 class_name RewardManager
 extends RefCounted
-## Hobby reward resolver. Ordinary actions yield XP/collection metadata and
-## optional finished world pieces; they never yield common material stacks.
+## Side-journal resolver for hobbies. World pieces are owned exclusively by
+## DiscoverySystem so every build reward follows the same visible contract.
 
 signal loot_granted(grants: Array)   # [{item_id, count, rare}]
 signal hobby_result_resolved(result: HobbyActionResult)
@@ -43,28 +43,6 @@ func resolve_hobby_action(skill: Defs.SkillDefinition) -> HobbyActionResult:
 				skill.collection_category,
 				result.collection_discovery_id
 			)
-
-	var reward_chance := skill.direct_tile_reward_chance
-	if reward_chance < 0.0:
-		reward_chance = registries.tunef("default_direct_tile_reward_chance", 0.0)
-	var active_reward_pool: Array[String] = []
-	for tile_id: String in skill.direct_tile_reward_pool:
-		if registries.is_tile_active(tile_id):
-			active_reward_pool.append(tile_id)
-	if (
-		stock != null
-		and reward_chance > 0.0
-		and not active_reward_pool.is_empty()
-		and rng.chance("hobby_world_reward_" + skill.id, reward_chance)
-	):
-		var index := rng.randi_range(
-			"hobby_world_reward_" + skill.id,
-			0,
-			active_reward_pool.size() - 1
-		)
-		result.optional_tile_reward_id = active_reward_pool[index]
-		result.reward_rarity = "rare"
-		stock.add_tile(result.optional_tile_reward_id)
 
 	hobby_result_resolved.emit(result)
 	return result

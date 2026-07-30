@@ -1,4 +1,8 @@
-# Progression rework — phased implementation plan
+# Retired Inspiration rework — phased implementation plan
+
+> **Superseded 2026-07-30.** This plan describes the removed
+> Inspiration/Well/Vision implementation. The shipped replacement is
+> documented in `docs/DISCOVERY_PROGRESSION.md`.
 
 A master prompt for AI build sessions. Executes the redesign defined in
 `docs/PROGRESSION_DESIGN.md` (systems) and `docs/NEW_PLAYER_FLOW.md`

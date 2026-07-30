@@ -42,9 +42,6 @@ func interact_with(focus: Dictionary) -> void:
 		return
 	match focus.get("kind", ""):
 		"anchor":
-			if not core.progression.can_earn():
-				action_feedback.emit("inspiration_full", {"point": player.global_position})
-				return
 			var coord: Vector2i = focus.get("coord", Vector2i(9999, 9999))
 			var anchor: Defs.AnchorDefinition = focus["anchor"]
 			var instance_id := int(focus.get("instance_id", 0))
@@ -62,6 +59,10 @@ func interact_with(focus: Dictionary) -> void:
 				if state == null or state.anchor_resting:
 					return
 				_start_fishing(coord)
+		"void_fishing":
+			_start_void_fishing(
+				focus.get("cast_point", focus.get("point", player.global_position))
+			)
 		"storage":
 			storage_requested.emit()
 		"delivery_package":
@@ -82,15 +83,24 @@ func interact_with(focus: Dictionary) -> void:
 
 func _start_fishing(coord: Vector2i) -> void:
 	var my_loop := _prepare_action(coord, "rod")
-	_fishing_cycle(my_loop, coord)
+	_fishing_cycle(my_loop, coord, false, _pond_point(coord))
 
 
-func _fishing_cycle(my_loop: int, coord: Vector2i) -> void:
-	if my_loop != _loop_id or core.grid.cell(coord) == null:
+func _start_void_fishing(cast_point: Vector3) -> void:
+	var my_loop := _prepare_action_at(cast_point, "rod")
+	_fishing_cycle(my_loop, player.current_cell(), true, cast_point)
+
+
+func _fishing_cycle(
+	my_loop: int,
+	coord: Vector2i,
+	is_void: bool,
+	cast_point: Vector3
+) -> void:
+	if my_loop != _loop_id or (not is_void and core.grid.cell(coord) == null):
 		return
 	player.set_state(PlayerController.State.FISHING_CAST)
-	var cast_point := _pond_point(coord)
-	action_feedback.emit("fish_cast", {"point": cast_point})
+	action_feedback.emit("fish_cast", {"point": cast_point, "void": is_void})
 	var speed := core.equipment.tool_stat("rod", "speed", 1.0)
 	var cast_seconds := (
 		visual.authored_action_duration("fish_cast", 0.45) / speed
@@ -100,7 +110,8 @@ func _fishing_cycle(my_loop: int, coord: Vector2i) -> void:
 	if my_loop != _loop_id:
 		return
 	effects.show_bobber(cast_point)
-	effects.ripple(cast_point)
+	if not is_void:
+		effects.ripple(cast_point)
 	player.set_state(PlayerController.State.FISHING_WAIT)
 	visual.play("fish_wait")
 	var wait_seconds := core.rng.randf_range("fishing_wait", core.registries.tunef("fishing_wait_min", 1.2), core.registries.tunef("fishing_wait_max", 3.2)) / speed
@@ -110,7 +121,8 @@ func _fishing_cycle(my_loop: int, coord: Vector2i) -> void:
 		return
 	# Bite!
 	effects.bobber_dip()
-	effects.ripple(cast_point)
+	if not is_void:
+		effects.ripple(cast_point)
 	action_feedback.emit("fish_bite", {"point": cast_point})
 	await _wait(0.35)
 	if my_loop != _loop_id:
@@ -120,27 +132,33 @@ func _fishing_cycle(my_loop: int, coord: Vector2i) -> void:
 	visual.play("fish_catch")
 	effects.hide_bobber()
 	var skill := core.registries.skill("fishing")
-	# The catch is briefly visible, admired, and released automatically.
-	await effects.catch_and_release(cast_point, player.global_position + Vector3(0, 0.85, 0))
+	# Pond fish are released; a void catch arrives as an unknown mote.
+	if is_void:
+		effects.arc_reward(
+			cast_point,
+			player.global_position + Vector3(0, 0.85, 0)
+		)
+		await _wait(0.45)
+	else:
+		await effects.catch_and_release(
+			cast_point,
+			player.global_position + Vector3(0, 0.85, 0)
+		)
 	if my_loop != _loop_id:
 		return
 	var result := core.rewards.resolve_hobby_action(skill)
-	var inspiration := core.progression.on_activity_action("fishing")
+	var discovery_feedback := (
+		core.progression.on_void_fishing_catch()
+		if is_void
+		else core.progression.on_activity_action("fishing", coord)
+	)
 	action_feedback.emit("fish_catch", {
 		"result": result.to_dict(),
-		"inspiration": inspiration,
+		"discovery": discovery_feedback,
+		"void": is_void,
 		"point": player.global_position,
 	})
-	await _wait(core.registries.tunef("fishing_repeat_pause", 0.7))
-	if my_loop != _loop_id:
-		return
-	# The current action always completes; the NEXT one refuses while the
-	# well is full — the world's cue to walk back and claim.
-	if not core.progression.can_earn():
-		action_feedback.emit("inspiration_full", {"point": player.global_position})
-		player.set_state(PlayerController.State.FREE)
-		return
-	_fishing_cycle(my_loop, coord)   # auto-repeat until moved/cancelled
+	player.set_state(PlayerController.State.FREE)
 
 
 func _pond_point(coord: Vector2i) -> Vector3:
@@ -195,10 +213,14 @@ func _chop_cycle(my_loop: int, instance_id: int) -> void:
 	effects.burst("fx_wood_chip", impact_point, 6)
 	effects.shake_structure(instance_id)
 	var result := core.rewards.resolve_hobby_action(core.registries.skill("woodcutting"))
-	var inspiration := core.progression.on_activity_action("woodcutting")
+	var discovery_feedback := core.progression.on_activity_action(
+		"woodcutting",
+		found["coord"],
+		structure.structure_id
+	)
 	action_feedback.emit("chop_impact", {
 		"result": result.to_dict(),
-		"inspiration": inspiration,
+		"discovery": discovery_feedback,
 		"point": impact_point,
 	})
 	structure.anchor_actions_done += 1
@@ -215,10 +237,6 @@ func _chop_cycle(my_loop: int, instance_id: int) -> void:
 		return
 	await _wait(maxf(0.12, cycle_seconds - impact_seconds))
 	if my_loop != _loop_id:
-		return
-	if not core.progression.can_earn():
-		action_feedback.emit("inspiration_full", {"point": impact_point})
-		player.set_state(PlayerController.State.FREE)
 		return
 	_chop_cycle(my_loop, instance_id)
 
