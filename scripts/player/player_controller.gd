@@ -470,14 +470,14 @@ func _squash(width: float, height: float) -> void:
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 
-# ------------------------------------------------------------------ click movement
+# ------------------------------------------------------------------ click interactions
 
 func set_click_command(destination: Vector3, interaction := {}) -> bool:
-	if state != State.FREE:
+	if state != State.FREE or interaction.is_empty():
 		return false
 	var start := current_cell()
 	var goal := core.grid.world_to_cell(destination)
-	if not core.grid.is_traversable(goal):
+	if not core.grid.has_cell(goal):
 		return false
 	var route := _cell_route(start, goal)
 	if start != goal and route.is_empty():
@@ -491,10 +491,9 @@ func set_click_command(destination: Vector3, interaction := {}) -> bool:
 	else:
 		_click_path[_click_path.size() - 1] = destination
 	_click_interaction = interaction.duplicate()
-	_click_stop_radius = (
-		core.registries.tunef("click_interaction_stop_radius", 1.2)
-		if not _click_interaction.is_empty()
-		else core.registries.tunef("click_ground_stop_radius", 0.12)
+	_click_stop_radius = core.registries.tunef(
+		"click_interaction_stop_radius",
+		1.2
 	)
 	return true
 
@@ -568,10 +567,10 @@ func _cell_route(start: Vector2i, goal: Vector2i) -> Array[Vector2i]:
 
 
 func _click_route_cell_open(coord: Vector2i, goal: Vector2i) -> bool:
-	if not core.grid.is_traversable(coord):
-		return false
 	if coord == goal:
 		return true
+	if not core.grid.is_traversable(coord):
+		return false
 	var tile_def := core.grid.tile_def(coord)
 	# A pond tile can be approached as an interaction goal, but its blocked
 	# basin is never a safe shortcut to somewhere else.

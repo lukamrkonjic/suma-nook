@@ -152,7 +152,8 @@ func _build_review() -> void:
 		self,
 		_core,
 		_camera,
-		null
+		null,
+		_renderer
 	)
 
 
@@ -160,13 +161,14 @@ func _interaction_for(instance_id: int) -> Dictionary:
 	var found := _core.grid.find_structure(instance_id)
 	if found.is_empty():
 		return {}
-	var visual_point := (
-		_core.grid.cell_to_world(
-			found["coord"],
-			int(found["elevation"])
-		)
-		+ Vector3.UP * 0.65
-	)
+	var visual := _renderer.structure_node(instance_id)
+	if visual == null:
+		return {}
+	var meshes := visual.find_children("*", "MeshInstance3D", true, false)
+	if meshes.is_empty():
+		return {}
+	var mesh := meshes[0] as MeshInstance3D
+	var visual_point := mesh.global_transform * mesh.get_aabb().get_center()
 	return _resolver.interaction_at(
 		_camera.unproject_position(visual_point)
 	)

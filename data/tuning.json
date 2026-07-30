@@ -30,7 +30,6 @@
   "camera_pinch_zoom_speed": 14.0,
   "build_mode_size_bonus": 3.0,
   "click_target_screen_radius": 54.0,
-  "click_ground_stop_radius": 0.12,
   "click_interaction_stop_radius": 1.2,
   "fishing_wait_min": 1.2,
   "fishing_wait_max": 3.2,

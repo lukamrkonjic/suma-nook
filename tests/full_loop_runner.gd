@@ -1702,23 +1702,34 @@ func _step_movement() -> void:
 	)
 	main.camera_rig._size_target = default_zoom
 	await wait(0.2)
-	# Ground clicks create a dot and continuously walk to the selected point.
+	# Empty ground is intentionally inert: clicks are reserved for explicit
+	# gameplay targets.
 	main.player.cancel_click_command()
 	main.player.position = main.core.grid.cell_to_world(Vector2i(0, 1))
 	main.player.velocity = Vector3.ZERO
 	await get_tree().physics_frame
+	var position_before_ground_click := main.player.position
 	var click_destination := main.core.grid.cell_to_world(Vector2i.ZERO) + Vector3(0.4, 0, 0.35)
 	var click_screen := main.camera_rig.camera.unproject_position(click_destination)
-	main.effects.click_marker(click_screen, false)
 	main._handle_world_click(click_screen)
-	var ground_marker := main.effects.find_child("ClickMarkerDot", true, false) as Node2D
-	check(ground_marker != null, "ground click shows the click dot")
-	check(ground_marker != null and ground_marker.position.distance_to(click_screen) < 0.1, "ground marker uses the literal click position")
-	check(main.player.has_click_command(), "ground click starts click-to-move")
-	var click_deadline := Time.get_ticks_msec() + 5000
-	while main.player.has_click_command() and Time.get_ticks_msec() < click_deadline:
-		await wait(0.1)
-	check(main.player.position.distance_to(click_destination) < 0.3, "click-to-move reaches the selected ground point")
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	check(
+		not main.player.has_click_command(),
+		"empty ground clicks do not create movement commands"
+	)
+	check(
+		Vector2(
+			main.player.position.x,
+			main.player.position.z
+		).is_equal_approx(
+			Vector2(
+				position_before_ground_click.x,
+				position_before_ground_click.z
+			)
+		),
+		"empty ground clicks leave the keeper in place"
+	)
 
 
 func _step_fishing() -> void:
@@ -1935,7 +1946,16 @@ func _step_woodcutting() -> void:
 		"AnimationPlayer", true, false
 	) as AnimationPlayer
 	main.player_visual.animation_started.connect(chop_started)
-	main.skill_actions.try_interact()
+	var tree_screen := main.camera_rig.camera.unproject_position(
+		tree_point + Vector3.UP * 0.8
+	)
+	var tree_interaction := main._interaction_at_screen(tree_screen)
+	check(
+		tree_interaction.get("kind") == "anchor"
+		and int(tree_interaction.get("instance_id", 0)) == tree.instance_id,
+		"click targeting resolves the exact tree mesh"
+	)
+	main._handle_world_click(tree_screen)
 	await wait(0.9)
 	check(
 		action_player != null and action_player.current_animation == "chop",

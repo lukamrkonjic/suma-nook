@@ -7,18 +7,21 @@ var scene_root: Node
 var core: GameCore
 var camera: Camera3D
 var delivery_point: DeliveryPoint
+var renderer: WorldRenderer
 
 
 func _init(
 	root: Node,
 	game_core: GameCore,
 	game_camera: Camera3D,
-	delivery: DeliveryPoint
+	delivery: DeliveryPoint,
+	world_renderer: WorldRenderer
 ) -> void:
 	scene_root = root
 	core = game_core
 	camera = game_camera
 	delivery_point = delivery
+	renderer = world_renderer
 
 
 func ground_point(screen_position: Vector2) -> Variant:
@@ -38,6 +41,22 @@ func interaction_at(screen_position: Vector2) -> Dictionary:
 	var best: Dictionary = {}
 	var best_distance := INF
 	var base_radius := core.registries.tunef("click_target_screen_radius", 54.0)
+
+	# Structures already expose exact mesh pick targets for build mode. Reuse
+	# those shapes for gameplay so a click on a flame, chest, tree, or shelter
+	# resolves the object under the pointer instead of a nearby screen-space
+	# approximation.
+	if renderer != null:
+		var structure_hit := renderer.pick_structure_at_screen(
+			camera,
+			screen_position
+		)
+		if not structure_hit.is_empty():
+			var exact := _structure_interaction(
+				int(structure_hit.get("instance_id", 0))
+			)
+			if not exact.is_empty():
+				return exact
 
 	for enemy in scene_root.get_tree().get_nodes_in_group("enemies"):
 		if not core.registries.feature("combat_enabled", false):
@@ -218,6 +237,59 @@ func interaction_at(screen_position: Vector2) -> Dictionary:
 
 	best.erase("_distance")
 	return best
+
+
+func _structure_interaction(instance_id: int) -> Dictionary:
+	if instance_id <= 0:
+		return {}
+	var found := core.grid.find_structure(instance_id)
+	if found.is_empty():
+		return {}
+	var structure: WorldGrid.StructureState = found["structure"]
+	var definition := core.registries.structure(structure.structure_id)
+	if definition == null:
+		return {}
+	var coord: Vector2i = found["coord"]
+	var elevation := int(found["elevation"])
+	var point := (
+		core.grid.cell_to_world(coord, elevation)
+		+ core.grid.structure_local_transform(instance_id).origin
+	)
+	var feature_options: Array = core.interactions.options_for(
+		"player",
+		instance_id
+	)
+	if not feature_options.is_empty():
+		var option = feature_options[0]
+		return {
+			"kind": "feature_interaction",
+			"feature": option.feature_id,
+			"option": option,
+			"coord": coord,
+			"elevation": elevation,
+			"instance_id": instance_id,
+			"point": point,
+		}
+	if definition.anchor_id != "" and not structure.anchor_resting:
+		var anchor := core.registries.anchor(definition.anchor_id)
+		if anchor != null and core.skills.is_playable(anchor.skill_id):
+			return {
+				"kind": "anchor",
+				"coord": coord,
+				"elevation": elevation,
+				"instance_id": instance_id,
+				"anchor": anchor,
+				"point": point,
+			}
+	if definition.has_capability("storage_access"):
+		return {
+			"kind": "storage",
+			"coord": coord,
+			"elevation": elevation,
+			"instance_id": instance_id,
+			"point": point,
+		}
+	return {}
 
 
 func _candidate(

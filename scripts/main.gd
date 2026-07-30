@@ -179,7 +179,11 @@ func _build_world_scene() -> void:
 	)
 	camera_rig.zoom_changed.connect(clouds.set_camera_distance)
 	interaction_targets = InteractionTargetResolverScript.new(
-		self, core, camera_rig.camera, delivery_point
+		self,
+		core,
+		camera_rig.camera,
+		delivery_point,
+		renderer
 	)
 
 	placement = PlacementController.new()
@@ -735,16 +739,16 @@ func _input(event: InputEvent) -> void:
 	var mouse := event as InputEventMouseButton
 	if not mouse.pressed or mouse.button_index != MOUSE_BUTTON_LEFT:
 		return
-	var interactive := _hovered_clickable_control() != null
+	if _hovered_clickable_control() != null:
+		return
 	if (
-		not interactive
-		and _gameplay_started
+		_gameplay_started
 		and not placement.active
 		and not panels.is_open()
 		and not parcel_reveal.is_open()
+		and not _interaction_at_screen(mouse.position).is_empty()
 	):
-		interactive = not _interaction_at_screen(mouse.position).is_empty()
-	effects.click_marker(mouse.position, interactive)
+		effects.click_marker(mouse.position, true)
 
 
 func _hovered_clickable_control() -> Control:
@@ -1087,24 +1091,15 @@ func _handle_world_click(screen_position: Vector2) -> void:
 	if panels.is_open() or parcel_reveal.is_open():
 		return
 	var interaction := _interaction_at_screen(screen_position)
-	var destination: Variant
 	if interaction.is_empty():
-		destination = _ground_point_at_screen(screen_position)
-		if destination == null:
-			return
-		var cell := core.grid.world_to_cell(destination)
-		if not core.grid.is_traversable(cell):
-			return
-	else:
-		destination = interaction["point"]
+		return
+	var destination: Variant = interaction.get("point")
+	if not destination is Vector3:
+		return
 	skill_actions.cancel_all()
 	if player.state != PlayerController.State.FREE:
 		player.set_state(PlayerController.State.FREE)
 	player.set_click_command(destination, interaction)
-
-
-func _ground_point_at_screen(screen_position: Vector2) -> Variant:
-	return interaction_targets.ground_point(screen_position)
 
 
 func _interaction_at_screen(screen_position: Vector2) -> Dictionary:
