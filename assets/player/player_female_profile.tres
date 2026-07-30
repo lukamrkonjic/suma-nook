@@ -1,0 +1,88 @@
+[gd_resource type="Resource" script_class="PlayerAssetProfile" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/player/player_asset_profile.gd" id="1_profile"]
+[ext_resource type="Animation" path="res://assets/animations/player_walk.tres" id="2_walk"]
+[ext_resource type="Shader" path="res://assets/materials/player_character.gdshader" id="3_shader"]
+[ext_resource type="Animation" path="res://assets/animations/player_fish_cast.tres" id="4_fish_cast"]
+[ext_resource type="Animation" path="res://assets/animations/player_fish_wait.tres" id="5_fish_wait"]
+[ext_resource type="Animation" path="res://assets/animations/player_chop.tres" id="6_chop"]
+
+[resource]
+script = ExtResource("1_profile")
+profile_id = "suma_player_female"
+testing_only = false
+asset_id = "player_female_mannequin"
+model_resource_path = "res://assets/3d/reworked/player_female_mannequin.glb"
+walk_source_path = "res://art_source/animation_sources/player_walk.glb"
+target_height = 1.09
+model_yaw_degrees = 180.0
+idle_clip_name = "idle_relaxed"
+walk_clip_name = "walk"
+walk_animation = ExtResource("2_walk")
+locomotion_blend_seconds = 0.22
+walk_speed_scale_min = 0.8
+walk_speed_scale_max = 1.0
+animation_updates_in_physics = true
+action_source_paths = {
+"chop": "res://art_source/animation_sources/player_chop.glb",
+"fish_cast": "res://art_source/animation_sources/player_fish_cast.glb",
+"fish_wait": "res://art_source/animation_sources/player_fish_wait.glb"
+}
+action_animations = {
+"chop": ExtResource("6_chop"),
+"fish_cast": ExtResource("4_fish_cast"),
+"fish_wait": ExtResource("5_fish_wait")
+}
+looping_action_clips = PackedStringArray("chop", "fish_wait")
+action_blend_seconds = 0.18
+action_playback_seconds = {
+"fish_cast": 1.15
+}
+action_impact_ratios = {
+"chop": 0.47
+}
+hips_bone = "mixamorigHips"
+left_toe_bone = "mixamorigLeftToeBase"
+right_toe_bone = "mixamorigRightToeBase"
+tool_bone = "mixamorigRightHand"
+head_bone = "mixamorigHead"
+back_bone = "mixamorigSpine2"
+armor_region_bones = {
+"abdomen": "mixamorigSpine1",
+"armpit_l": "mixamorigLeftShoulder",
+"armpit_r": "mixamorigRightShoulder",
+"chest": "mixamorigSpine2",
+"clavicle_l": "mixamorigLeftShoulder",
+"clavicle_r": "mixamorigRightShoulder",
+"foot_l": "mixamorigLeftFoot",
+"foot_r": "mixamorigRightFoot",
+"forearm_l": "mixamorigLeftForeArm",
+"forearm_r": "mixamorigRightForeArm",
+"hand_l": "mixamorigLeftHand",
+"hand_r": "mixamorigRightHand",
+"head": "mixamorigHead",
+"hips": "mixamorigHips",
+"knee_l": "mixamorigLeftLeg",
+"knee_r": "mixamorigRightLeg",
+"neck": "mixamorigNeck",
+"shin_l": "mixamorigLeftLeg",
+"shin_r": "mixamorigRightLeg",
+"shoulder_l": "mixamorigLeftShoulder",
+"shoulder_r": "mixamorigRightShoulder",
+"shoulder_cap_l": "mixamorigLeftShoulder",
+"shoulder_cap_r": "mixamorigRightShoulder",
+"thigh_l": "mixamorigLeftUpLeg",
+"thigh_r": "mixamorigRightUpLeg",
+"upper_arm_l": "mixamorigLeftArm",
+"upper_arm_r": "mixamorigRightArm",
+"upper_arm_inner_l": "mixamorigLeftArm",
+"upper_arm_inner_r": "mixamorigRightArm",
+"upper_chest_l": "mixamorigSpine2",
+"upper_chest_r": "mixamorigSpine2"
+}
+material_shader = ExtResource("3_shader")
+material_saturation = 1.0
+material_value_scale = 1.0
+material_tint = Color(1, 1, 1, 1)
+material_roughness = 0.9
+material_specular = 0.14

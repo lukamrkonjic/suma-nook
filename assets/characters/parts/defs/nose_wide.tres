@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CharacterPartDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_part_fit.gd" id="1_rfgln"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/nose_wide.glb" id="2_o1fbn"]
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="3_rp1i2"]
+
+[sub_resource type="Resource" id="Resource_v5td8"]
+script = ExtResource("1_rfgln")
+body_profile_id = "body_male"
+notes = "Authored directly against body_male; identity fit."
+validated = true
+
+[resource]
+script = ExtResource("3_rp1i2")
+part_id = "nose_wide"
+display_name = "Wide Oval"
+slot = "NOSE"
+compatibility_tags = PackedStringArray()
+scene = ExtResource("2_o1fbn")
+socket = "NoseSocket"
+compatible_body_profiles = PackedStringArray()
+fits = Array[ExtResource("1_rfgln")]([SubResource("Resource_v5td8")])
+hidden_regions = PackedStringArray()
+hides_slots = PackedStringArray()
+color_channel = "skin"

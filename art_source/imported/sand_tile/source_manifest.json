@@ -7,5 +7,5 @@
     "sand_tile_source_v2.glb"
   ],
   "origin": "Luka's third generated low-poly sand-tile model",
-  "processing": "Sample the mesh's actual upper dune height field, discard its generated block, apply three light Taubin passes plus one local relaxation pass and restrained contour smoothing to remove hard low-poly transitions, compress the relief to a gentle 6 cm range while retaining the v3 dune silhouette, blend only the narrow perimeter to a shared tileable edge, apply smooth normals, color the cap and standard Suma body with the pale warm-beige sand_top swatch, and export the composite as tile_sand.glb."
+  "processing": "Sample the mesh's actual upper dune height field, discard its generated block, apply three light Taubin passes plus one local relaxation pass and restrained contour smoothing to remove hard low-poly geometry transitions, compress the relief to a gentle 6 cm range while retaining the v3 dune silhouette, blend only the narrow perimeter to a shared tileable edge, export flat per-face normals as Asset Studio's absolute 0% smoothing baseline, assign the pale warm-beige sand_top material, and export only tile_layer_surface_sand.glb."
 }

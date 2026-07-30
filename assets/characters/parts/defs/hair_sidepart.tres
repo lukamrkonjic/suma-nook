@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CharacterPartDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_part_fit.gd" id="1_awnbd"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/hair_sidepart.glb" id="2_w2cmo"]
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="3_re3uv"]
+
+[sub_resource type="Resource" id="Resource_mdh36"]
+script = ExtResource("1_awnbd")
+body_profile_id = "body_male"
+notes = "Authored directly against body_male; identity fit."
+validated = true
+
+[resource]
+script = ExtResource("3_re3uv")
+part_id = "hair_sidepart"
+display_name = "Side Part"
+slot = "HAIR"
+compatibility_tags = PackedStringArray()
+scene = ExtResource("2_w2cmo")
+socket = "HairSocket"
+compatible_body_profiles = PackedStringArray()
+fits = Array[ExtResource("1_awnbd")]([SubResource("Resource_mdh36")])
+hidden_regions = PackedStringArray()
+hides_slots = PackedStringArray()
+color_channel = "hair"

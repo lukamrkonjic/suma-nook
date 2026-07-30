@@ -6,14 +6,19 @@ extends RefCounted
 ## file replacements at the same id — zero code changes.
 
 const SEARCH_PATHS := ["res://assets/3d/reworked/%s.glb", "res://assets/3d/final/%s.glb", "res://assets/3d/proxies/%s.glb"]
+const AssetEditLibraryScript := preload(
+	"res://scripts/visuals/asset_edit_library.gd"
+)
 
 var materials: MaterialLibrary
+var edits: AssetEditLibrary
 var _cache: Dictionary = {}
 var _batch_mesh_cache: Dictionary = {}
 
 
 func _init(material_library: MaterialLibrary) -> void:
 	materials = material_library
+	edits = AssetEditLibraryScript.new()
 
 
 func exists(asset_id: String) -> bool:
@@ -35,8 +40,32 @@ func instantiate(asset_id: String) -> Node3D:
 		return _missing_marker(asset_id)
 	var node := packed.instantiate() as Node3D
 	node.name = asset_id
+	node.set_meta(AssetEditLibrary.SOURCE_ASSET_META, asset_id)
 	materials.rebind_materials(node)
+	edits.apply_to_instance(node, asset_id)
 	return node
+
+
+func save_asset_profile(asset_id: String, profile: Dictionary) -> Error:
+	var error := edits.save_profile(asset_id, profile)
+	if error == OK:
+		_batch_mesh_cache.erase(asset_id)
+	return error
+
+
+func clear_edit_caches() -> void:
+	## Presentation profiles can be consumed by more than the direct asset
+	## batch (layered tiles and structures flatten several assets together).
+	## WorldRenderer calls this before rebuilding its dependent caches.
+	_batch_mesh_cache.clear()
+
+
+func apply_asset_profile_to_tree(
+	root: Node,
+	asset_id: String,
+	profile: Dictionary
+) -> void:
+	edits.apply_to_tree(root, asset_id, profile)
 
 
 ## Flattens a static GLB once and reuses the resulting material-preserving
@@ -49,7 +78,9 @@ func batch_mesh(asset_id: String) -> ArrayMesh:
 	if packed == null:
 		return null
 	var template := packed.instantiate() as Node3D
+	template.set_meta(AssetEditLibrary.SOURCE_ASSET_META, asset_id)
 	materials.rebind_materials(template)
+	edits.apply_to_instance(template, asset_id)
 	var combined := flatten_static_visual(template, asset_id)
 	template.free()
 	if combined != null:

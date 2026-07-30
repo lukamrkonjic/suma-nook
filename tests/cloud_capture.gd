@@ -32,6 +32,10 @@ func _ready() -> void:
 	await _settle(18)
 	await _save_viewport("clouds_close_clear.png")
 
+	_main.camera_rig.set_zoom_immediate(52.0)
+	await _settle(24)
+	await _save_viewport("clouds_wide_gameplay.png")
+
 	_main.camera_rig.set_zoom_immediate(70.0)
 	await _settle(30)
 	_main.clouds.set_process(false)
@@ -42,8 +46,12 @@ func _ready() -> void:
 	await _save_viewport("clouds_far_shadows_off.png")
 
 	var manifest: Dictionary = _main.clouds.runtime_manifest()
-	if int(manifest["clouds"]) <= 0 or int(manifest["visible_puffs"]) <= 0:
-		push_error("Cloud review did not populate its fixed-budget puff batch.")
+	if (
+		int(manifest["clouds"]) <= 0
+		or int(manifest["visible_volumes"]) <= 0
+		or int(manifest["shadow_layers"]) <= 0
+	):
+		push_error("Cloud review did not populate its volume and shadow layer.")
 		get_tree().quit(1)
 		return
 	if bool(manifest["shadows_enabled"]):

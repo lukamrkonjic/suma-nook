@@ -1,10 +1,12 @@
 class_name AssetViewer
 extends CanvasLayer
-## Debug-only in-game asset review room.
+## Debug-only in-game asset authoring room.
 ##
 ## The viewer uses the production AssetLibrary, MaterialLibrary, LightingRig,
 ## weather profiles, and post-processing. Tiles are shown as a 3x3 patch so
 ## seams are visible; registered models are shown on the standard neutral tile.
+## Surface-normal and per-material edits are persisted through AssetLibrary and
+## are therefore consumed by the real game, not by a separate preview format.
 ## Closing the viewer restores the exact gameplay camera, lighting state, pause
 ## state, and visibility it found.
 
@@ -27,6 +29,162 @@ const LIGHT_PRESETS := [
 	["Sunset", "sunset"],
 	["Night", "night"],
 ]
+const DESIGN_PALETTE := [
+	{
+		"label": "Foundations & Neutrals",
+		"keys": [
+			"warm_white", "ivory_highlight", "plain_ground_gg", "smoke",
+			"warm_near_black",
+		],
+	},
+	{
+		"label": "Sand",
+		"keys": [
+			"sand_highlight", "sand_light", "sand_top", "sand_shadow",
+			"sand_deep",
+		],
+	},
+	{
+		"label": "Snow",
+		"keys": [
+			"snow_highlight", "snow_light", "snow_top", "snow_shadow",
+			"snow_deep", "snow_side",
+		],
+	},
+	{
+		"label": "Concrete",
+		"keys": [
+			"concrete_highlight", "concrete_light", "concrete_top",
+			"concrete_shadow", "concrete_deep", "concrete_side",
+		],
+	},
+	{
+		"label": "Stone",
+		"keys": [
+			"stone_light", "stone_mid_light", "stone_mid",
+			"stone_warm_shadow", "stone_shadow", "stone_deep_shadow",
+			"soft_sage_gray",
+		],
+	},
+	{
+		"label": "Grass",
+		"keys": [
+			"grass_highlight", "grass_sunlit", "grass_primary",
+			"grass_secondary", "grass_vivid_accent", "grass_shade",
+			"deep_grass",
+		],
+	},
+	{
+		"label": "Moss & Olive",
+		"keys": [
+			"moss_bright", "moss_primary", "olive_shadow", "earthy_olive",
+		],
+	},
+	{
+		"label": "Leaves",
+		"keys": [
+			"leaf_bright", "leaf_soft_sage", "leaf_medium", "leaf_olive",
+		],
+	},
+	{
+		"label": "Pine",
+		"keys": [
+			"pine_light", "pine_medium", "pine_shadow", "pine_deep",
+		],
+	},
+	{
+		"label": "Earth",
+		"keys": [
+			"earth_light", "earth_primary", "earth_mid", "earth_shadow",
+			"earth_deep",
+		],
+	},
+	{
+		"label": "Soil",
+		"keys": [
+			"soil_orange", "soil_red_shadow", "soil_deep", "soil_deepest",
+		],
+	},
+	{
+		"label": "Wood",
+		"keys": [
+			"wood_highlight", "wood_light", "wood_gold", "wood_primary",
+			"wood_warm_shadow", "wood_brown", "wood_deep", "wood_dark",
+		],
+	},
+	{
+		"label": "Terracotta",
+		"keys": [
+			"terracotta_light", "terracotta_primary", "terracotta_orange",
+			"terracotta_shadow",
+		],
+	},
+	{
+		"label": "Coral & Red",
+		"keys": [
+			"burnt_red", "coral", "soft_coral",
+		],
+	},
+	{
+		"label": "Gold & Warm Accents",
+		"keys": [
+			"gold_highlight", "gold_primary", "gold_deep", "warm_yellow",
+		],
+	},
+	{
+		"label": "Skin",
+		"keys": [
+			"skin_light", "skin_mid", "skin_shadow",
+		],
+	},
+	{
+		"label": "Hair",
+		"keys": [
+			"hair_light", "hair_primary", "hair_deep",
+		],
+	},
+	{
+		"label": "Fabric",
+		"keys": [
+			"cream_fabric", "mustard_fabric", "brown_fabric", "dark_fabric",
+		],
+	},
+	{
+		"label": "Water",
+		"keys": [
+			"water_foam", "water_shallow_highlight", "water_shallow",
+			"water_turquoise", "water_mid", "water_deep_mid", "water_deep",
+			"water_abyss",
+		],
+	},
+	{
+		"label": "Underwater Sand & Rock",
+		"keys": [
+			"uw_sand_light", "uw_sand_shadow", "uw_rock_light",
+			"uw_rock_mid", "uw_rock_shadow",
+		],
+	},
+	{
+		"label": "Underwater Flora",
+		"keys": [
+			"uw_flora_light", "uw_flora_mid", "uw_flora_dark",
+			"uw_flora_deep",
+		],
+	},
+	{
+		"label": "Light & Effects",
+		"keys": [
+			"fire_core", "fire_yellow", "fire_orange", "fire_red",
+			"water_caustic", "crystal", "magic",
+		],
+	},
+	{
+		"label": "Petals & Flowers",
+		"keys": [
+			"petal_white", "petal_pink", "petal_red", "flower_yellow",
+		],
+	},
+]
 
 var _main: Main
 var _kit: UiKit
@@ -46,6 +204,32 @@ var _tile_tab: Button
 var _model_tab: Button
 var _weather_buttons: Dictionary = {}
 var _light_buttons: Dictionary = {}
+var _edit_target: OptionButton
+var _material_slot: OptionButton
+var _smoothing_slider: HSlider
+var _smoothing_readout: Label
+var _model_scale_section: Label
+var _model_scale_heading: HBoxContainer
+var _model_scale_slider: HSlider
+var _model_scale_readout: Label
+var _color_picker: ColorPickerButton
+var _roughness_slider: HSlider
+var _roughness_readout: Label
+var _metallic_slider: HSlider
+var _metallic_readout: Label
+var _wind_slider: HSlider
+var _wind_readout: Label
+var _save_button: Button
+var _import_status: Label
+var _palette_status: Label
+var _palette_swatch_buttons: Dictionary = {}
+var _design_palette_colors: Dictionary = {}
+var _design_palette_families: Dictionary = {}
+var _palette_family_select: OptionButton
+var _palette_search: LineEdit
+var _palette_grid: GridContainer
+var _palette_count: Label
+var _selected_palette_token := ""
 
 var _preview_root: Node3D
 var _content_root: Node3D
@@ -59,7 +243,16 @@ var _dragging := false
 var _category := "tiles"
 var _selected_content_id := ""
 var _selected_asset_id := ""
+var _edit_asset_id := ""
 var _entries: Array[Dictionary] = []
+var _working_profile: Dictionary = {}
+var _material_defaults: Dictionary = {}
+var _selected_material_key := ""
+var _edit_dirty := false
+var _updating_edit_controls := false
+var _wind_strength := 0.0
+var _wind_elapsed := 0.0
+var _wind_bases: Dictionary = {}
 var _saved_visibility: Dictionary = {}
 var _saved_camera: Camera3D
 var _saved_lighting_state: Dictionary = {}
@@ -140,23 +333,24 @@ func close() -> void:
 
 
 func _process(delta: float) -> void:
-	if not visible or not _input_service.is_controller():
+	if not visible:
 		return
-	var look := Input.get_vector(
-		"look_left",
-		"look_right",
-		"look_up",
-		"look_down"
-	)
-	if look.length_squared() < 0.04:
-		return
-	_orbit_yaw -= look.x * delta * 1.8
-	_orbit_pitch = clampf(
-		_orbit_pitch - look.y * delta * 1.4,
-		deg_to_rad(8.0),
-		deg_to_rad(78.0)
-	)
-	_refresh_camera()
+	_animate_wind(delta)
+	if _input_service.is_controller():
+		var look := Input.get_vector(
+			"look_left",
+			"look_right",
+			"look_up",
+			"look_down"
+		)
+		if look.length_squared() >= 0.04:
+			_orbit_yaw -= look.x * delta * 1.8
+			_orbit_pitch = clampf(
+				_orbit_pitch - look.y * delta * 1.4,
+				deg_to_rad(8.0),
+				deg_to_rad(78.0)
+			)
+			_refresh_camera()
 
 
 func selected_asset_id() -> String:
@@ -267,6 +461,7 @@ func _build_ui() -> void:
 	_preview_input.name = "AssetViewerPreviewInput"
 	_preview_input.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_preview_input.offset_left = 326.0
+	_preview_input.offset_right = -377.0
 	_preview_input.offset_top = 76.0
 	_preview_input.offset_bottom = -118.0
 	_preview_input.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -284,7 +479,7 @@ func _build_ui() -> void:
 	var header_row := HBoxContainer.new()
 	header_row.add_theme_constant_override("separation", 12)
 	header.add_child(header_row)
-	var heading := _kit.label("ASSET VIEWER", 22, false, true)
+	var heading := _kit.label("ASSET STUDIO", 22, false, true)
 	header_row.add_child(heading)
 	_title = _kit.label("Choose a tile or model", 20, false, true)
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -342,27 +537,7 @@ func _build_ui() -> void:
 	_list.add_theme_constant_override("separation", 5)
 	scroll.add_child(_list)
 
-	var info := PanelContainer.new()
-	info.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	info.offset_left = -365.0
-	info.offset_top = 82.0
-	info.offset_right = -18.0
-	info.offset_bottom = 168.0
-	info.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	info.add_theme_stylebox_override("panel", _translucent_panel())
-	_root.add_child(info)
-	var info_column := VBoxContainer.new()
-	info_column.add_theme_constant_override("separation", 2)
-	info.add_child(info_column)
-	_subtitle = _kit.label("Production GLB", 14, false, true)
-	_subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	info_column.add_child(_subtitle)
-	_hint = _kit.label(
-		"Drag to orbit  ·  Wheel to zoom  ·  3×3 tile seam check",
-		13
-	)
-	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	info_column.add_child(_hint)
+	_build_inspector(_root)
 
 	var controls := PanelContainer.new()
 	controls.name = "AssetViewerBottomControls"
@@ -408,12 +583,499 @@ func _build_ui() -> void:
 	capture.pressed.connect(capture_png)
 	preset_row.add_child(capture)
 	_status = _kit.label(
-		"Select an asset, then compare it under production conditions.",
+		"Select an asset, edit the runtime presentation, then save to game.",
 		13
 	)
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	control_column.add_child(_status)
 	_rebuild_catalog()
+
+
+func _build_inspector(parent: Control) -> void:
+	var inspector := PanelContainer.new()
+	inspector.name = "AssetViewerInspector"
+	inspector.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
+	inspector.offset_left = -365.0
+	inspector.offset_top = 76.0
+	inspector.offset_right = -14.0
+	inspector.offset_bottom = -118.0
+	inspector.add_theme_stylebox_override("panel", _kit.panel_style(false, 18))
+	parent.add_child(inspector)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.follow_focus = true
+	inspector.add_child(scroll)
+	var column := VBoxContainer.new()
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.add_theme_constant_override("separation", 9)
+	scroll.add_child(column)
+
+	_subtitle = _kit.label("Production GLB", 14, false, true)
+	column.add_child(_subtitle)
+	_hint = _kit.label(
+		"Real AssetLibrary instance · authored values loaded",
+		12
+	)
+	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(_hint)
+	_import_status = _kit.label("Choose an asset to import its values.", 12)
+	_import_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_import_status.add_theme_color_override(
+		"font_color",
+		Color(0.34, 0.39, 0.34)
+	)
+	column.add_child(_import_status)
+
+	column.add_child(_editor_section("GAME ASSET"))
+	_edit_target = OptionButton.new()
+	_edit_target.name = "AssetStudioEditTarget"
+	_edit_target.custom_minimum_size.y = 40.0
+	_edit_target.tooltip_text = (
+		"Layered tiles expose their real base and surface GLBs separately."
+	)
+	_edit_target.item_selected.connect(_on_edit_target_selected)
+	column.add_child(_edit_target)
+
+	column.add_child(_editor_section("TOP / DETAIL SURFACE"))
+	var smoothing := _add_editor_slider(column, "Desired smoothing")
+	_smoothing_slider = smoothing["slider"]
+	_smoothing_readout = smoothing["readout"]
+	_smoothing_slider.name = "AssetStudioSmoothing"
+	_smoothing_slider.tooltip_text = (
+		"For tiles this is absolute: 0% is the authored relief with flat "
+		+ "per-face shading. Higher values relax and compress the exposed "
+		+ "surface; 100% is strongly smoothed and nearly flat. Only exposed "
+		+ "tops and fused details participate. The rectangular body, border, "
+		+ "perimeter, bevel, sides, UVs, topology, and collision stay rigid. "
+		+ "Models retain their source baseline and smooth their complete form."
+	)
+	_smoothing_slider.value_changed.connect(_on_smoothing_changed)
+
+	_model_scale_section = _editor_section("MODEL TRANSFORM")
+	column.add_child(_model_scale_section)
+	var model_scale := _add_editor_slider(column, "Uniform size")
+	_model_scale_heading = model_scale["heading"]
+	_model_scale_slider = model_scale["slider"]
+	_model_scale_readout = model_scale["readout"]
+	_model_scale_slider.name = "AssetStudioModelScale"
+	_model_scale_slider.min_value = AssetEditLibrary.MODEL_SCALE_MIN
+	_model_scale_slider.max_value = AssetEditLibrary.MODEL_SCALE_MAX
+	_model_scale_slider.step = 0.05
+	_model_scale_slider.tooltip_text = (
+		"Uniformly resize this model everywhere it appears in the game. "
+		+ "100% is the authored GLB size. Tiles remain dimension-locked."
+	)
+	_model_scale_slider.value_changed.connect(_on_model_scale_changed)
+
+	column.add_child(_editor_section("MATERIAL SLOT"))
+	_material_slot = OptionButton.new()
+	_material_slot.name = "AssetStudioMaterialSlot"
+	_material_slot.custom_minimum_size.y = 40.0
+	_material_slot.item_selected.connect(_on_material_slot_selected)
+	column.add_child(_material_slot)
+	_color_picker = ColorPickerButton.new()
+	_color_picker.name = "AssetStudioMaterialColor"
+	_color_picker.text = "Material color"
+	_color_picker.custom_minimum_size.y = 42.0
+	_color_picker.edit_alpha = false
+	_color_picker.edit_intensity = false
+	_color_picker.color_changed.connect(_on_material_color_changed)
+	column.add_child(_color_picker)
+	_configure_color_picker()
+	_build_design_palette(column)
+	var roughness := _add_editor_slider(column, "Roughness")
+	_roughness_slider = roughness["slider"]
+	_roughness_readout = roughness["readout"]
+	_roughness_slider.name = "AssetStudioRoughness"
+	_roughness_slider.value_changed.connect(_on_material_roughness_changed)
+	var metallic := _add_editor_slider(column, "Metallic")
+	_metallic_slider = metallic["slider"]
+	_metallic_readout = metallic["readout"]
+	_metallic_slider.name = "AssetStudioMetallic"
+	_metallic_slider.value_changed.connect(_on_material_metallic_changed)
+
+	column.add_child(_editor_section("SCENE TEST"))
+	var wind := _add_editor_slider(column, "Wind")
+	_wind_slider = wind["slider"]
+	_wind_readout = wind["readout"]
+	_wind_slider.name = "AssetStudioWind"
+	_wind_slider.tooltip_text = (
+		"Preview-only wind for foliage and flexible details. "
+		+ "Weather and light controls are below the viewport."
+	)
+	_wind_slider.value_changed.connect(_on_wind_changed)
+
+	column.add_child(_editor_section("PUBLISH"))
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 6)
+	column.add_child(actions)
+	var reimport := _compact_button("Reimport")
+	reimport.name = "AssetStudioReimport"
+	reimport.tooltip_text = (
+		"Discard unsaved edits and reload the game's saved profile."
+	)
+	reimport.pressed.connect(discard_asset_edits)
+	reimport.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions.add_child(reimport)
+	var authored := _compact_button("Authored")
+	authored.name = "AssetStudioAuthored"
+	authored.tooltip_text = (
+		"Return to the untouched GLB geometry, normals, and palette materials."
+	)
+	authored.pressed.connect(restore_authored_values)
+	authored.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions.add_child(authored)
+	_save_button = _kit.button("Save edits to game", true)
+	_save_button.name = "AssetStudioSave"
+	_save_button.custom_minimum_size.y = 44.0
+	_save_button.tooltip_text = (
+		"Writes data/asset_edits.json. AssetLibrary applies it to this asset id "
+		+ "everywhere in the game."
+	)
+	_save_button.pressed.connect(save_asset_edits)
+	column.add_child(_save_button)
+
+
+func _configure_color_picker() -> void:
+	var picker := _color_picker.get_picker()
+	picker.edit_alpha = false
+	picker.edit_intensity = false
+	picker.color_mode = ColorPicker.MODE_RGB
+	picker.color_modes_visible = false
+	picker.presets_visible = false
+	picker.hex_visible = true
+	picker.sliders_visible = true
+	var popup := _color_picker.get_popup()
+	popup.transparent_bg = false
+	var panel := StyleBoxFlat.new()
+	panel.bg_color = Color("f5f0e2")
+	panel.border_color = Color("766f60")
+	panel.set_border_width_all(2)
+	panel.set_corner_radius_all(12)
+	panel.set_content_margin_all(12.0)
+	popup.add_theme_stylebox_override("panel", panel)
+
+
+func _build_design_palette(parent: VBoxContainer) -> void:
+	parent.add_child(_editor_section("SUMA DESIGN PALETTE"))
+	var guidance := _kit.label(
+		"Browse cohesive shade families or search every named token.",
+		11
+	)
+	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	guidance.add_theme_color_override(
+		"font_color",
+		Color(0.37, 0.41, 0.35)
+	)
+	parent.add_child(guidance)
+	_palette_status = _kit.label("Choose a material slot first.", 11, false, true)
+	_palette_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	parent.add_child(_palette_status)
+	_design_palette_colors.clear()
+	_design_palette_families.clear()
+	var total_colors := 0
+	for raw_group: Variant in DESIGN_PALETTE:
+		var group: Dictionary = raw_group
+		var family_name := String(group.get("label", ""))
+		for raw_key: Variant in group.get("keys", []):
+			var key := String(raw_key)
+			if not _assets.materials.palette.colors.has(key):
+				continue
+			_design_palette_colors[key] = _design_palette_color(key)
+			_design_palette_families[key] = family_name
+			total_colors += 1
+
+	_palette_family_select = OptionButton.new()
+	_palette_family_select.name = "AssetStudioPaletteFamily"
+	_palette_family_select.custom_minimum_size.y = 38.0
+	for index in DESIGN_PALETTE.size():
+		var group: Dictionary = DESIGN_PALETTE[index]
+		var available := 0
+		for raw_key: Variant in group.get("keys", []):
+			if _design_palette_colors.has(String(raw_key)):
+				available += 1
+		_palette_family_select.add_item(
+			"%s · %d shades"
+			% [String(group.get("label", "")), available]
+		)
+		_palette_family_select.set_item_metadata(
+			_palette_family_select.item_count - 1,
+			index
+		)
+	_palette_family_select.add_item("All colors · %d tokens" % total_colors)
+	_palette_family_select.set_item_metadata(
+		_palette_family_select.item_count - 1,
+		-1
+	)
+	_palette_family_select.item_selected.connect(
+		_on_palette_family_selected
+	)
+	parent.add_child(_palette_family_select)
+
+	_palette_search = LineEdit.new()
+	_palette_search.name = "AssetStudioPaletteSearch"
+	_palette_search.placeholder_text = "Search color or token…"
+	_palette_search.clear_button_enabled = true
+	_palette_search.custom_minimum_size.y = 36.0
+	_palette_search.text_changed.connect(_on_palette_search_changed)
+	parent.add_child(_palette_search)
+
+	_palette_count = _kit.label("", 10, false, true)
+	_palette_count.add_theme_color_override(
+		"font_color",
+		Color(0.43, 0.46, 0.39)
+	)
+	parent.add_child(_palette_count)
+	_palette_grid = GridContainer.new()
+	_palette_grid.name = "AssetStudioPaletteGrid"
+	_palette_grid.columns = 3
+	_palette_grid.add_theme_constant_override("h_separation", 5)
+	_palette_grid.add_theme_constant_override("v_separation", 5)
+	parent.add_child(_palette_grid)
+	_rebuild_palette_swatches()
+
+
+func _on_palette_family_selected(_index: int) -> void:
+	if not _palette_search.text.is_empty():
+		_palette_search.set_block_signals(true)
+		_palette_search.text = ""
+		_palette_search.set_block_signals(false)
+	_rebuild_palette_swatches()
+	_refresh_palette_selection(
+		_color_picker.color,
+		not _selected_material_key.is_empty()
+	)
+
+
+func _on_palette_search_changed(_query: String) -> void:
+	_rebuild_palette_swatches()
+	_refresh_palette_selection(
+		_color_picker.color,
+		not _selected_material_key.is_empty()
+	)
+
+
+func _rebuild_palette_swatches() -> void:
+	if _palette_grid == null:
+		return
+	for child in _palette_grid.get_children():
+		child.free()
+	_palette_swatch_buttons.clear()
+	var query := _palette_search.text.strip_edges().to_lower()
+	var selected_group := int(
+		_palette_family_select.get_item_metadata(
+			_palette_family_select.selected
+		)
+	)
+	var visible_keys: Array[String] = []
+	for group_index in DESIGN_PALETTE.size():
+		var group: Dictionary = DESIGN_PALETTE[group_index]
+		var family_name := String(group.get("label", ""))
+		for raw_key: Variant in group.get("keys", []):
+			var key := String(raw_key)
+			if not _design_palette_colors.has(key):
+				continue
+			var matches_family := (
+				selected_group < 0 or selected_group == group_index
+			)
+			var haystack := "%s %s %s" % [
+				_palette_label(key),
+				key,
+				family_name,
+			]
+			if (
+				(not query.is_empty() and haystack.to_lower().contains(query))
+				or (query.is_empty() and matches_family)
+			):
+				visible_keys.append(key)
+	for key: String in visible_keys:
+		var color: Color = _design_palette_colors[key]
+		var swatch := Button.new()
+		swatch.name = "AssetStudioPalette_%s" % key
+		swatch.custom_minimum_size = Vector2(92.0, 38.0)
+		swatch.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		swatch.text = _palette_label(key)
+		swatch.tooltip_text = "%s\n%s · #%s" % [
+			String(_design_palette_families.get(key, "")),
+			key,
+			color.to_html(false).to_upper(),
+		]
+		swatch.set_meta("palette_key", key)
+		swatch.set_meta("palette_label", swatch.text)
+		swatch.pressed.connect(_on_palette_color_selected.bind(key))
+		_style_palette_swatch(
+			swatch,
+			color,
+			key == _selected_palette_token
+		)
+		swatch.disabled = _selected_material_key.is_empty()
+		_palette_grid.add_child(swatch)
+		_palette_swatch_buttons[key] = swatch
+	var scope := (
+		"search results"
+		if not query.is_empty()
+		else "all families"
+		if selected_group < 0
+		else String(DESIGN_PALETTE[selected_group].get("label", ""))
+	)
+	_palette_count.text = "%d colors · %s" % [visible_keys.size(), scope]
+	if visible_keys.is_empty():
+		var empty := _kit.label("No palette token matches that search.", 11)
+		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_palette_grid.add_child(empty)
+
+
+func _design_palette_color(key: String) -> Color:
+	var fallback := _assets.materials.palette.color(key, Color.WHITE)
+	var material := _assets.materials.material(key)
+	if material == null:
+		fallback.a = 1.0
+		return fallback
+	var values := _assets.edits.material_values(material)
+	var color := Color.from_string(
+		String(values.get("color", fallback.to_html(false))),
+		fallback
+	)
+	color.a = 1.0
+	return color
+
+
+func _palette_label(key: String) -> String:
+	var aliases := {
+		"warm_white": "Warm White",
+		"ivory_highlight": "Ivory",
+		"plain_ground_gg": "Plain Ground",
+		"sand_top": "Sand",
+		"sand_highlight": "Sand Highlight",
+		"sand_light": "Sand Light",
+		"sand_shadow": "Sand Shadow",
+		"sand_deep": "Sand Deep",
+		"snow_top": "Snow",
+		"snow_highlight": "Snow Highlight",
+		"snow_light": "Snow Light",
+		"snow_shadow": "Snow Shadow",
+		"snow_deep": "Snow Deep",
+		"snow_side": "Snow Side",
+		"concrete_highlight": "Concrete Highlight",
+		"concrete_light": "Concrete Light",
+		"concrete_top": "Concrete",
+		"concrete_shadow": "Concrete Shadow",
+		"concrete_deep": "Concrete Deep",
+		"concrete_side": "Concrete Side",
+		"stone_mid_light": "Stone Light 2",
+		"stone_mid": "Stone",
+		"stone_warm_shadow": "Warm Stone",
+		"stone_deep_shadow": "Deep Stone",
+		"soft_sage_gray": "Sage Gray",
+		"warm_near_black": "Near Black",
+		"grass_highlight": "Grass Light",
+		"grass_primary": "Grass",
+		"grass_vivid_accent": "Vivid Grass",
+		"moss_primary": "Moss",
+		"leaf_soft_sage": "Leaf Sage",
+		"pine_medium": "Pine",
+		"deep_grass": "Deep Grass",
+		"earth_light": "Earth Light",
+		"earth_primary": "Earth",
+		"soil_orange": "Soil",
+		"soil_red_shadow": "Red Soil",
+		"wood_light": "Wood Light",
+		"wood_primary": "Wood",
+		"wood_warm_shadow": "Warm Wood",
+		"wood_deep": "Wood Deep",
+		"terracotta_light": "Terra Light",
+		"terracotta_primary": "Terracotta",
+		"terracotta_orange": "Terra Orange",
+		"terracotta_shadow": "Terra Shadow",
+		"soft_coral": "Soft Coral",
+		"gold_highlight": "Gold Light",
+		"gold_primary": "Gold",
+		"warm_yellow": "Yellow",
+		"water_foam": "Foam",
+		"water_shallow_highlight": "Water Highlight",
+		"water_shallow": "Shallow",
+		"water_turquoise": "Turquoise",
+		"water_mid": "Water Mid",
+		"water_deep_mid": "Water Deep Mid",
+		"water_deep": "Deep Water",
+		"water_abyss": "Abyss",
+		"uw_sand_light": "UW Sand Light",
+		"uw_sand_shadow": "UW Sand Shadow",
+		"uw_rock_light": "UW Rock Light",
+		"uw_rock_mid": "UW Rock",
+		"uw_rock_shadow": "UW Rock Shadow",
+		"uw_flora_light": "UW Flora Light",
+		"uw_flora_mid": "UW Flora",
+		"uw_flora_dark": "UW Flora Dark",
+		"uw_flora_deep": "UW Flora Deep",
+	}
+	return String(
+		aliases.get(key, key.replace("_", " ").capitalize())
+	)
+
+
+func _style_palette_swatch(
+	button: Button,
+	color: Color,
+	selected: bool
+) -> void:
+	var border := Color("f4e7c8") if selected else Color(0.19, 0.18, 0.15, 0.42)
+	var width := 4 if selected else 1
+	for state in ["normal", "hover", "pressed", "focus"]:
+		var style := StyleBoxFlat.new()
+		style.bg_color = (
+			color.darkened(0.06)
+			if state == "pressed"
+			else color.lightened(0.045) if state == "hover" else color
+		)
+		style.border_color = (
+			Color("b27a61") if state in ["hover", "focus"] else border
+		)
+		style.set_border_width_all(3 if state in ["hover", "focus"] else width)
+		style.set_corner_radius_all(8)
+		style.set_content_margin_all(4.0)
+		button.add_theme_stylebox_override(state, style)
+	var luminance := color.get_luminance()
+	var text_color := Color("332b25") if luminance > 0.62 else Color("fff8e8")
+	button.add_theme_color_override("font_color", text_color)
+	button.add_theme_color_override("font_hover_color", text_color)
+	button.add_theme_color_override("font_pressed_color", text_color)
+	button.add_theme_color_override("font_focus_color", text_color)
+	button.add_theme_font_size_override("font_size", 10)
+
+
+func _editor_section(text: String) -> Label:
+	var label := _kit.label(text, 12, false, true)
+	label.add_theme_color_override("font_color", Color(0.40, 0.44, 0.38))
+	return label
+
+
+func _add_editor_slider(
+	parent: VBoxContainer,
+	label_text: String
+) -> Dictionary:
+	var heading := HBoxContainer.new()
+	parent.add_child(heading)
+	var label := _kit.label(label_text, 13)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	heading.add_child(label)
+	var readout := _kit.label("0%", 12, false, true)
+	readout.custom_minimum_size.x = 44.0
+	readout.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	heading.add_child(readout)
+	var slider := HSlider.new()
+	slider.min_value = 0.0
+	slider.max_value = 1.0
+	slider.step = 0.01
+	slider.custom_minimum_size.y = 24.0
+	parent.add_child(slider)
+	return {
+		"heading": heading,
+		"label": label,
+		"slider": slider,
+		"readout": readout,
+	}
 
 
 func _hide_gameplay_presentation() -> void:
@@ -480,6 +1142,7 @@ func _rebuild_catalog() -> void:
 				"content_id": content_id,
 				"asset_id": definition.asset_id,
 				"name": definition.display_name,
+				"group": definition.family.replace("_", " ").capitalize(),
 			})
 	else:
 		for content_id: String in _main.core.registries.structures:
@@ -488,11 +1151,18 @@ func _rebuild_catalog() -> void:
 				"content_id": content_id,
 				"asset_id": definition.asset_id,
 				"name": definition.display_name,
+				"group": definition.kind.capitalize(),
 			})
 	_entries.sort_custom(func(a: Dictionary, b: Dictionary):
+		var group_order := String(a["group"]).naturalnocasecmp_to(
+			String(b["group"])
+		)
+		if group_order != 0:
+			return group_order < 0
 		return String(a["name"]).naturalnocasecmp_to(String(b["name"])) < 0
 	)
 	var query := _search.text.strip_edges().to_lower()
+	var last_group := ""
 	for entry: Dictionary in _entries:
 		var haystack := (
 			"%s %s %s"
@@ -500,6 +1170,10 @@ func _rebuild_catalog() -> void:
 		).to_lower()
 		if not query.is_empty() and not haystack.contains(query):
 			continue
+		var group := String(entry["group"])
+		if group != last_group:
+			_list.add_child(_catalog_group_label(group))
+			last_group = group
 		var selected := String(entry["content_id"]) == _selected_content_id
 		var button := _catalog_button(entry, selected)
 		_list.add_child(button)
@@ -517,6 +1191,14 @@ func _catalog_button(entry: Dictionary, selected: bool) -> Button:
 	return button
 
 
+func _catalog_group_label(text: String) -> Label:
+	var label := _kit.label(text.to_upper(), 12, false, true)
+	label.custom_minimum_size.y = 28.0
+	label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	label.add_theme_color_override("font_color", Color(0.42, 0.46, 0.40))
+	return label
+
+
 func _first_visible_entry() -> Dictionary:
 	var query := _search.text.strip_edges().to_lower()
 	for entry: Dictionary in _entries:
@@ -530,6 +1212,7 @@ func _first_visible_entry() -> Dictionary:
 
 
 func _rebuild_preview() -> void:
+	_wind_bases.clear()
 	var selected_tile := _main.core.registries.tile(_selected_content_id)
 	var uses_layered_tile := (
 		_category == "tiles"
@@ -571,7 +1254,564 @@ func _rebuild_preview() -> void:
 		else "Drag to orbit  ·  Wheel to zoom  ·  shown on the default tile"
 	)
 	_status.text = "Viewing %s under live Suma lighting." % _selected_asset_id
+	_refresh_edit_targets(selected_tile)
+	_collect_wind_nodes()
 	_frame_preview()
+
+
+func _refresh_edit_targets(selected_tile: Defs.TileDefinition) -> void:
+	var target_ids: Array[String] = []
+	var target_roles := {}
+	if (
+		_category == "tiles"
+		and selected_tile != null
+		and selected_tile.uses_layered_visual()
+	):
+		for layer: Defs.TileVisualLayerDefinition in selected_tile.visual_layers:
+			if (
+				layer.role == "surface"
+				and not target_ids.has(layer.asset_id)
+			):
+				target_ids.append(layer.asset_id)
+				target_roles[layer.asset_id] = layer.role
+		for layer: Defs.TileVisualLayerDefinition in selected_tile.visual_layers:
+			if not target_ids.has(layer.asset_id):
+				target_ids.append(layer.asset_id)
+				target_roles[layer.asset_id] = layer.role
+	else:
+		target_ids.append(_selected_asset_id)
+		target_roles[_selected_asset_id] = (
+			"tile details" if _category == "tiles" else "model"
+		)
+	_updating_edit_controls = true
+	_edit_target.clear()
+	for asset_id: String in target_ids:
+		var role := String(target_roles.get(asset_id, "asset")).capitalize()
+		var label := "%s · %s" % [
+			role,
+			asset_id.replace("_", " ").capitalize(),
+		]
+		if not _asset_supports_smoothing(asset_id):
+			label += " (rigid)"
+		_edit_target.add_item(label)
+		_edit_target.set_item_metadata(_edit_target.item_count - 1, asset_id)
+	_edit_target.disabled = target_ids.size() <= 1
+	_updating_edit_controls = false
+	if target_ids.is_empty():
+		_edit_asset_id = ""
+		_clear_edit_controls()
+		return
+	_edit_asset_id = target_ids[0]
+	_edit_target.select(0)
+	_import_working_profile()
+
+
+func _on_edit_target_selected(index: int) -> void:
+	if _updating_edit_controls or index < 0:
+		return
+	_edit_asset_id = String(_edit_target.get_item_metadata(index))
+	_import_working_profile()
+
+
+func _import_working_profile() -> void:
+	if _edit_asset_id.is_empty():
+		_clear_edit_controls()
+		return
+	_working_profile = _assets.edits.profile(_edit_asset_id)
+	if _working_profile.is_empty():
+		_working_profile = {
+			"scale": 1.0,
+			"smoothing": 0.0,
+			"materials": {},
+		}
+	if not _asset_supports_scaling(_edit_asset_id):
+		_working_profile["scale"] = 1.0
+	if not _asset_supports_smoothing(_edit_asset_id):
+		## Structural base-layer profiles made before this protection are
+		## ignored and normalize to authored normals when next saved.
+		_working_profile["smoothing"] = 0.0
+	_material_defaults = _assets.edits.collect_material_defaults(
+		_content_root,
+		_edit_asset_id
+	)
+	_edit_dirty = false
+	_refresh_edit_controls()
+	var saved := _assets.edits.has_profile(_edit_asset_id)
+	var can_scale := _asset_supports_scaling(_edit_asset_id)
+	if not _asset_supports_smoothing(_edit_asset_id):
+		_import_status.text = (
+			"Structural tile layer · smoothing locked; materials remain editable."
+		)
+	elif saved and can_scale:
+		_import_status.text = (
+			"Imported saved game profile · %d%% size · %d%% smoothing"
+			% [
+				roundi(float(_working_profile.get("scale", 1.0)) * 100.0),
+				roundi(
+					float(_working_profile.get("smoothing", 0.0)) * 100.0
+				),
+			]
+		)
+	else:
+		_import_status.text = (
+			"Imported saved game profile · %d%% desired smoothing"
+			% roundi(float(_working_profile.get("smoothing", 0.0)) * 100.0)
+			if saved
+			else (
+				"Imported flat tile GLB · 0% desired smoothing"
+				if _category == "tiles"
+				else (
+					"Imported authored model GLB · 100% size · "
+					+ "0% source-relative smoothing"
+				)
+			)
+		)
+	var resolved := AssetLibrary.resolve_path(_edit_asset_id)
+	_hint.text = (
+		resolved.trim_prefix("res://")
+		if not resolved.is_empty()
+		else "Runtime-composed asset"
+	)
+
+
+func _refresh_edit_controls() -> void:
+	_updating_edit_controls = true
+	var smoothing := float(_working_profile.get("smoothing", 0.0))
+	var can_smooth := _asset_supports_smoothing(_edit_asset_id)
+	_smoothing_slider.set_value_no_signal(smoothing)
+	_smoothing_slider.editable = can_smooth
+	_smoothing_readout.text = (
+		"%d%%" % roundi(smoothing * 100.0) if can_smooth else "Rigid"
+	)
+	var can_scale := _asset_supports_scaling(_edit_asset_id)
+	var model_scale := float(_working_profile.get("scale", 1.0))
+	_model_scale_section.visible = can_scale
+	_model_scale_heading.visible = can_scale
+	_model_scale_slider.visible = can_scale
+	_model_scale_slider.editable = can_scale
+	_model_scale_slider.set_value_no_signal(model_scale)
+	_model_scale_readout.text = "%d%%" % roundi(model_scale * 100.0)
+	_material_slot.clear()
+	var keys: Array[String] = []
+	for key: String in _material_defaults:
+		keys.append(key)
+	var edits: Dictionary = _working_profile.get("materials", {})
+	for key: String in edits:
+		if not keys.has(key):
+			keys.append(key)
+	keys.sort()
+	for key: String in keys:
+		_material_slot.add_item(key.replace("_", " ").capitalize())
+		_material_slot.set_item_metadata(_material_slot.item_count - 1, key)
+	_material_slot.disabled = keys.is_empty()
+	_color_picker.disabled = keys.is_empty()
+	_roughness_slider.editable = not keys.is_empty()
+	_metallic_slider.editable = not keys.is_empty()
+	if keys.is_empty():
+		_selected_material_key = ""
+		_color_picker.color = Color.WHITE
+		_roughness_slider.set_value_no_signal(0.0)
+		_metallic_slider.set_value_no_signal(0.0)
+		_roughness_readout.text = "—"
+		_metallic_readout.text = "—"
+		_refresh_palette_selection(Color.WHITE, false)
+	else:
+		_selected_material_key = keys[0]
+		_material_slot.select(0)
+		_refresh_selected_material_controls()
+	_save_button.disabled = not _edit_dirty
+	_updating_edit_controls = false
+
+
+func _clear_edit_controls() -> void:
+	_working_profile = {}
+	_material_defaults = {}
+	_selected_material_key = ""
+	if _edit_target != null:
+		_edit_target.clear()
+	_edit_dirty = false
+	_refresh_edit_controls()
+
+
+func _on_material_slot_selected(index: int) -> void:
+	if _updating_edit_controls or index < 0:
+		return
+	_selected_material_key = String(_material_slot.get_item_metadata(index))
+	_updating_edit_controls = true
+	_refresh_selected_material_controls()
+	_updating_edit_controls = false
+
+
+func _refresh_selected_material_controls() -> void:
+	if _selected_material_key.is_empty():
+		return
+	var values := _material_values(_selected_material_key)
+	_color_picker.color = Color.from_string(
+		String(values.get("color", "ffffff")),
+		Color.WHITE
+	)
+	var roughness := float(values.get("roughness", 0.72))
+	var metallic := float(values.get("metallic", 0.0))
+	_roughness_slider.set_value_no_signal(roughness)
+	_metallic_slider.set_value_no_signal(metallic)
+	_roughness_readout.text = "%d%%" % roundi(roughness * 100.0)
+	_metallic_readout.text = "%d%%" % roundi(metallic * 100.0)
+	_focus_palette_family_for_color(_color_picker.color)
+	_refresh_palette_selection(_color_picker.color)
+
+
+func _material_values(key: String) -> Dictionary:
+	var edits: Dictionary = _working_profile.get("materials", {})
+	if edits.has(key):
+		return (edits[key] as Dictionary).duplicate(true)
+	if _material_defaults.has(key):
+		return (_material_defaults[key] as Dictionary).duplicate(true)
+	return {
+		"color": "ffffff",
+		"roughness": 0.72,
+		"metallic": 0.0,
+	}
+
+
+func _editable_material_values() -> Dictionary:
+	var edits: Dictionary = _working_profile.get("materials", {})
+	if not edits.has(_selected_material_key):
+		edits[_selected_material_key] = _material_values(
+			_selected_material_key
+		)
+		_working_profile["materials"] = edits
+	return edits[_selected_material_key]
+
+
+func _on_smoothing_changed(value: float) -> void:
+	if (
+		_updating_edit_controls
+		or not _asset_supports_smoothing(_edit_asset_id)
+	):
+		return
+	_working_profile["smoothing"] = value
+	_smoothing_readout.text = "%d%%" % roundi(value * 100.0)
+	_mark_edit_dirty()
+
+
+func _asset_supports_smoothing(asset_id: String) -> bool:
+	return (
+		not asset_id.is_empty()
+		and not asset_id.begins_with("tile_layer_base_")
+	)
+
+
+func _asset_supports_scaling(asset_id: String) -> bool:
+	return (
+		not asset_id.is_empty()
+		and not asset_id.begins_with("tile_")
+	)
+
+
+func _on_model_scale_changed(value: float) -> void:
+	if (
+		_updating_edit_controls
+		or not _asset_supports_scaling(_edit_asset_id)
+	):
+		return
+	_working_profile["scale"] = value
+	_model_scale_readout.text = "%d%%" % roundi(value * 100.0)
+	_mark_edit_dirty()
+
+
+func _on_material_color_changed(value: Color) -> void:
+	if _updating_edit_controls or _selected_material_key.is_empty():
+		return
+	_commit_material_color(value)
+
+
+func _on_palette_color_selected(key: String) -> void:
+	if (
+		_updating_edit_controls
+		or _selected_material_key.is_empty()
+		or not _design_palette_colors.has(key)
+	):
+		return
+	_commit_material_color(_design_palette_colors[key])
+
+
+func _commit_material_color(value: Color) -> void:
+	var opaque := Color(value.r, value.g, value.b, 1.0)
+	_color_picker.set_block_signals(true)
+	_color_picker.color = opaque
+	_color_picker.set_block_signals(false)
+	var values := _editable_material_values()
+	values["color"] = opaque.to_html(false)
+	_refresh_palette_selection(opaque)
+	_mark_edit_dirty()
+
+
+func _focus_palette_family_for_color(color: Color) -> void:
+	if (
+		_palette_family_select == null
+		or _palette_search == null
+		or not _palette_search.text.is_empty()
+	):
+		return
+	var exact_key := ""
+	for raw_key: Variant in _design_palette_colors:
+		var key := String(raw_key)
+		var palette_color: Color = _design_palette_colors[key]
+		if (
+			absf(color.r - palette_color.r) <= 0.001
+			and absf(color.g - palette_color.g) <= 0.001
+			and absf(color.b - palette_color.b) <= 0.001
+		):
+			exact_key = key
+			break
+	if exact_key.is_empty():
+		return
+	var family_name := String(
+		_design_palette_families.get(exact_key, "")
+	)
+	for index in DESIGN_PALETTE.size():
+		if String(DESIGN_PALETTE[index].get("label", "")) != family_name:
+			continue
+		if (
+			int(
+				_palette_family_select.get_item_metadata(
+					_palette_family_select.selected
+				)
+			) != index
+		):
+			_palette_family_select.select(index)
+			_rebuild_palette_swatches()
+		return
+
+
+func _refresh_palette_selection(
+	color: Color,
+	enabled := true
+) -> void:
+	if _palette_status == null:
+		return
+	var exact_key := ""
+	var nearest_key := ""
+	var nearest_distance := INF
+	for raw_key: Variant in _design_palette_colors:
+		var key := String(raw_key)
+		var palette_color: Color = _design_palette_colors[key]
+		var distance := (
+			(color.r - palette_color.r) * (color.r - palette_color.r)
+			+ (color.g - palette_color.g) * (color.g - palette_color.g)
+			+ (color.b - palette_color.b) * (color.b - palette_color.b)
+		)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest_key = key
+		if distance <= 0.000002:
+			exact_key = key
+	if exact_key != _selected_palette_token:
+		_selected_palette_token = exact_key
+		for raw_key: Variant in _palette_swatch_buttons:
+			var key := String(raw_key)
+			var button := _palette_swatch_buttons[key] as Button
+			_style_palette_swatch(
+				button,
+				_design_palette_colors[key],
+				enabled and key == exact_key
+			)
+	for button: Button in _palette_swatch_buttons.values():
+		button.disabled = not enabled
+	if not enabled:
+		_palette_status.text = "Choose a material slot first."
+	elif not exact_key.is_empty():
+		_palette_status.text = "Using %s · #%s" % [
+			_palette_label(exact_key),
+			color.to_html(false).to_upper(),
+		]
+	else:
+		_palette_status.text = "Custom #%s · nearest token: %s" % [
+			color.to_html(false).to_upper(),
+			_palette_label(nearest_key),
+		]
+
+
+func _on_material_roughness_changed(value: float) -> void:
+	if _updating_edit_controls or _selected_material_key.is_empty():
+		return
+	var values := _editable_material_values()
+	values["roughness"] = value
+	_roughness_readout.text = "%d%%" % roundi(value * 100.0)
+	_mark_edit_dirty()
+
+
+func _on_material_metallic_changed(value: float) -> void:
+	if _updating_edit_controls or _selected_material_key.is_empty():
+		return
+	var values := _editable_material_values()
+	values["metallic"] = value
+	_metallic_readout.text = "%d%%" % roundi(value * 100.0)
+	_mark_edit_dirty()
+
+
+func _on_wind_changed(value: float) -> void:
+	_wind_strength = value
+	_wind_readout.text = "%d%%" % roundi(value * 100.0)
+
+
+func _mark_edit_dirty() -> void:
+	_edit_dirty = true
+	_save_button.disabled = false
+	_import_status.text = "Unsaved live edit · Save writes the game profile."
+	_assets.apply_asset_profile_to_tree(
+		_content_root,
+		_edit_asset_id,
+		_working_profile
+	)
+	_collect_wind_nodes()
+
+
+func save_asset_edits() -> void:
+	if _edit_asset_id.is_empty():
+		return
+	var error := _assets.save_asset_profile(
+		_edit_asset_id,
+		_working_profile
+	)
+	if error != OK:
+		_status.text = (
+			"Could not save %s: %s"
+			% [_edit_asset_id, error_string(error)]
+		)
+		return
+	_main.renderer.refresh_asset_edits()
+	_assets.apply_asset_profile_to_tree(
+		_main,
+		_edit_asset_id,
+		_working_profile
+	)
+	_edit_dirty = false
+	_save_button.disabled = true
+	_import_status.text = (
+		"Saved to data/asset_edits.json · used by AssetLibrary in game."
+	)
+	_status.text = "Saved %s and rebuilt the running world." % _edit_asset_id
+
+
+func discard_asset_edits() -> void:
+	if _edit_asset_id.is_empty():
+		return
+	_import_working_profile()
+	_assets.apply_asset_profile_to_tree(
+		_content_root,
+		_edit_asset_id,
+		_working_profile
+	)
+
+
+func restore_authored_values() -> void:
+	if _edit_asset_id.is_empty():
+		return
+	_working_profile = {
+		"scale": 1.0,
+		"smoothing": 0.0,
+		"materials": {},
+	}
+	_edit_dirty = true
+	_refresh_edit_controls()
+	_save_button.disabled = false
+	_assets.apply_asset_profile_to_tree(
+		_content_root,
+		_edit_asset_id,
+		_working_profile
+	)
+	_import_status.text = (
+		(
+			"Authored tile relief and flat normals restored · Save to remove "
+			+ "the game override."
+			if _category == "tiles"
+			else "Authored model GLB restored · Save to remove the game override."
+		)
+	)
+
+
+func set_surface_smoothing(value: float) -> void:
+	if not _asset_supports_smoothing(_edit_asset_id):
+		return
+	_smoothing_slider.value = clampf(value, 0.0, 1.0)
+
+
+func working_surface_smoothing() -> float:
+	return float(_working_profile.get("smoothing", 0.0))
+
+
+func set_model_scale(value: float) -> void:
+	if not _asset_supports_scaling(_edit_asset_id):
+		return
+	_model_scale_slider.value = clampf(
+		value,
+		AssetEditLibrary.MODEL_SCALE_MIN,
+		AssetEditLibrary.MODEL_SCALE_MAX
+	)
+
+
+func working_model_scale() -> float:
+	return float(_working_profile.get("scale", 1.0))
+
+
+func has_unsaved_asset_edits() -> bool:
+	return _edit_dirty
+
+
+func _collect_wind_nodes() -> void:
+	for raw_node: Variant in _wind_bases:
+		if is_instance_valid(raw_node):
+			(raw_node as Node3D).rotation = _wind_bases[raw_node]
+	_wind_bases.clear()
+	var flexible_tokens := [
+		"grass", "leaf", "foliage", "flower", "bush", "pine", "reed",
+		"branch", "cloth", "banner", "canopy",
+	]
+	for descendant in _content_root.find_children(
+		"*",
+		"MeshInstance3D",
+		true,
+		false
+	):
+		var mesh_instance := descendant as MeshInstance3D
+		var source_id := _source_asset_id(mesh_instance)
+		var haystack := ("%s %s" % [source_id, mesh_instance.name]).to_lower()
+		var flexible := false
+		for token: String in flexible_tokens:
+			if haystack.contains(token):
+				flexible = true
+				break
+		if flexible:
+			_wind_bases[mesh_instance] = mesh_instance.rotation
+
+
+func _source_asset_id(node: Node) -> String:
+	var current: Node = node
+	while current != null:
+		if current.has_meta(AssetEditLibrary.SOURCE_ASSET_META):
+			return String(
+				current.get_meta(AssetEditLibrary.SOURCE_ASSET_META)
+			)
+		current = current.get_parent()
+	return ""
+
+
+func _animate_wind(delta: float) -> void:
+	_wind_elapsed += delta
+	for raw_node: Variant in _wind_bases.keys():
+		if not is_instance_valid(raw_node):
+			continue
+		var node := raw_node as Node3D
+		var base: Vector3 = _wind_bases[raw_node]
+		if _wind_strength <= 0.0001:
+			node.rotation = base
+			continue
+		var phase := float(node.get_instance_id() % 29) * 0.17
+		var sway := sin(
+			_wind_elapsed * lerpf(0.7, 3.4, _wind_strength) + phase
+		) * deg_to_rad(lerpf(0.4, 5.0, _wind_strength))
+		node.rotation = base + Vector3(sway * 0.28, 0.0, sway)
 
 
 func _frame_preview() -> void:
@@ -674,6 +1914,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.is_action_pressed("cancel"):
 		close()
+		get_viewport().set_input_as_handled()
+	elif (
+		event is InputEventKey
+		and event.pressed
+		and not event.echo
+		and (event as InputEventKey).ctrl_pressed
+		and (event as InputEventKey).physical_keycode == KEY_S
+	):
+		if _edit_dirty:
+			save_asset_edits()
 		get_viewport().set_input_as_handled()
 	elif (
 		event is InputEventKey

@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CharacterPartDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_part_fit.gd" id="1_vukyt"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/mouth_cat.glb" id="2_3t1uc"]
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="3_ufdhh"]
+
+[sub_resource type="Resource" id="Resource_vkkc3"]
+script = ExtResource("1_vukyt")
+body_profile_id = "body_male"
+notes = "Authored directly against body_male; identity fit."
+validated = true
+
+[resource]
+script = ExtResource("3_ufdhh")
+part_id = "mouth_cat"
+display_name = "Little W"
+slot = "MOUTH"
+compatibility_tags = PackedStringArray()
+scene = ExtResource("2_3t1uc")
+socket = "MouthSocket"
+compatible_body_profiles = PackedStringArray()
+fits = Array[ExtResource("1_vukyt")]([SubResource("Resource_vkkc3")])
+hidden_regions = PackedStringArray()
+hides_slots = PackedStringArray()
+color_channel = "mouth"

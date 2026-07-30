@@ -310,7 +310,9 @@ func _settle(frame_count: int) -> void:
 func _save_viewport(file_name: String) -> void:
 	await RenderingServer.frame_post_draw
 	var path := _output_dir.path_join(file_name)
-	var error := get_viewport().get_texture().get_image().save_png(path)
+	var image := get_viewport().get_texture().get_image()
+	GGCaptureEncode.encode_srgb(image)
+	var error := image.save_png(path)
 	if error != OK:
 		push_error("Could not save lighting capture %s (error %d)." % [path, error])
 	else:

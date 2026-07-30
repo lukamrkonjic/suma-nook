@@ -40,8 +40,20 @@ func shot(name: String) -> void:
 		):
 			return
 	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png("docs/" + name + ".png")
-	print("  [shot] docs/%s.png" % name)
+	var output_dir := "docs"
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--shot-dir="):
+			output_dir = argument.trim_prefix("--shot-dir=")
+			break
+	var absolute_dir := (
+		ProjectSettings.globalize_path(output_dir)
+		if output_dir.begins_with("res://") or output_dir.begins_with("user://")
+		else output_dir
+	)
+	DirAccess.make_dir_recursive_absolute(absolute_dir)
+	var output_path := absolute_dir.path_join(name + ".png")
+	get_viewport().get_texture().get_image().save_png(output_path)
+	print("  [shot] %s" % output_path)
 
 
 func wait(seconds: float) -> void:
@@ -283,6 +295,20 @@ func _step_build_library_ui() -> void:
 	await wait(0.15)
 
 	check(main.hud._build_bar.visible, "build mode opens the categorized library shelf")
+	check(
+		main.hud.build_library_collapsed()
+		and main.hud._build_bar.custom_minimum_size.x <= 72.0,
+		"build mode starts with only the minimal circular Bag control"
+	)
+	await shot("screenshot_build_bag_compact")
+	Input.warp_mouse(main.hud._build_bar.get_global_rect().get_center())
+	await get_tree().process_frame
+	main.hud._on_build_library_mouse_entered()
+	await wait(0.2)
+	check(
+		main.hud._build_library_expanded,
+		"hovering the Bag icon opens the upward-growing visual collection"
+	)
 	var populated_category_count := 0
 	var entries_by_category := main.hud._collect_build_entries()
 	for category: Dictionary in Hud.BUILD_CATEGORIES:
@@ -302,8 +328,53 @@ func _step_build_library_ui() -> void:
 		main.hud._build_strip.get_child_count() == 2,
 		"ground temporarily contains only the active meadow and sand tiles"
 	)
+	var first_visual_card := main.hud._build_strip.get_child(0)
+	check(
+		first_visual_card.find_child("Preview", true, false) is TextureRect,
+		"every owned piece is represented by a production-model preview card"
+	)
+	check(
+		(first_visual_card as Button).action_mode
+		== BaseButton.ACTION_MODE_BUTTON_PRESS,
+		"catalogue cards begin a placement gesture on press instead of release"
+	)
+	var first_ground_entry: Dictionary = (
+		entries_by_category["ground"] as Array
+	)[0]
+	main.hud._on_build_piece_pressed(first_ground_entry)
+	main.placement.begin_pointer_drag_for_held(Vector2(100.0, 100.0))
+	main.placement.pointer_motion(Vector2(120.0, 100.0))
+	check(
+		main.placement.pointer_dragging_catalogue_piece(),
+		"a held catalogue card continues as a world drag gesture"
+	)
+	main.placement.cancel_pointer_gesture()
+	check(
+		not main.placement.held.is_empty(),
+		"a catalogue click without a world drop still leaves the piece selected"
+	)
+	main.placement.cancel_click()
+	main.hud.set_build_library_expanded(false, false)
+	check(
+		main.hud.build_library_collapsed()
+		and is_zero_approx(main.hud._build_expanded_clip.custom_minimum_size.y),
+		"the visual collection compacts into its bottom build dock"
+	)
+	main.hud.request_build_library_open()
+	check(
+		main.hud._build_library_expanded,
+		"the compact dock can reopen without leaving build mode"
+	)
+	Input.warp_mouse(Vector2.ZERO)
+	main.hud._on_build_library_mouse_exited()
+	await get_tree().process_frame
+	check(
+		main.hud.build_library_collapsed(),
+		"leaving the expanded bag collapses it back to the compact dock"
+	)
+	main.hud.request_build_library_open()
 	main.hud._select_build_category("winter")
-	await wait(0.05)
+	await wait(0.15)
 	check(
 		main.hud._build_strip.get_child_count() == 1,
 		"winter temporarily contains only the active snow tile"
@@ -318,10 +389,10 @@ func _step_build_library_ui() -> void:
 	)
 	main.hud._select_build_category("nature")
 	await wait(0.05)
-	var horizontal_bar := main.hud._build_item_scroll.get_h_scroll_bar()
+	var vertical_bar := main.hud._build_item_scroll.get_v_scroll_bar()
 	check(
-		horizontal_bar.max_value > horizontal_bar.page,
-		"overflowing item categories expose a real horizontal scroll range"
+		vertical_bar.max_value > vertical_bar.page,
+		"overflowing item categories expose a real visual-grid scroll range"
 	)
 	var wheel := InputEventMouseButton.new()
 	wheel.button_index = MOUSE_BUTTON_WHEEL_DOWN
@@ -329,8 +400,8 @@ func _step_build_library_ui() -> void:
 	wheel.factor = 1.0
 	main.hud._on_library_scroll_input(wheel, main.hud._build_item_scroll)
 	check(
-		main.hud._build_item_scroll.scroll_horizontal > 0,
-		"vertical mouse wheel input browses the horizontal item shelf"
+		main.hud._build_item_scroll.scroll_vertical > 0,
+		"mouse wheel input browses the visual item grid"
 	)
 	check(
 		main.hud._build_previous_button.visible and main.hud._build_next_button.visible,
@@ -438,9 +509,24 @@ func _step_build_library_ui() -> void:
 		main.clouds
 	)
 	check(not main.pixel_look.visible, "returning pixel size to off hides the layer again")
+	var cloud_manifest: Dictionary = main.clouds.runtime_manifest()
 	check(
-		main.clouds.visible_cloud_count() > 0,
-		"the fixed-budget cloud field is populated"
+		main.clouds.visible_cloud_count() >= 20
+		and float(cloud_manifest["occupancy"]) <= 0.2,
+		"the expanded full-sky cloud field stays intentionally sparse"
+	)
+	check(
+		bool(cloud_manifest["shadow_proxies_camera_hidden"]),
+		"cloud shadow proxies are excluded from the gameplay camera"
+	)
+	check(
+		cloud_manifest["shadow_anchor_cell"] != null
+		and main.lighting.shadow_ray_direction().y < -0.2,
+		"an up-sun cloud cell is reserved to carry shadows across the focus"
+	)
+	check(
+		cloud_manifest["sky_anchor_cells"].size() == 2,
+		"two differently scaled mist clouds anchor the sparse visible sky"
 	)
 	main.pause_menu.preferences.cloud_shadows = false
 	main.pause_menu.preferences.apply(
@@ -2254,7 +2340,13 @@ func _step_save_while_holding() -> void:
 	check(not main.core.autosave_paused, "autosave resumes after tile restoration")
 	var tile_stock_before := main.core.stock.tile_count(tile_before.tile_id)
 	main.placement.pick_up_at(tile_coord)
-	main.placement.store_held()
+	main.placement._pointer_down = true
+	main.placement._pointer_dragging = true
+	main.placement._picked_on_pointer_press = true
+	check(
+		main.hud._store_dragged_world_piece(),
+		"releasing a dragged world tile over the bag commits the store action"
+	)
 	check(not main.core.grid.has_cell(tile_coord), "a moved tile can be stored deliberately")
 	check(
 		main.core.stock.tile_count(tile_before.tile_id) == tile_stock_before + 1,
@@ -2264,6 +2356,21 @@ func _step_save_while_holding() -> void:
 	check(main.core.grid.has_cell(tile_coord), "undo restores a stored tile to its original slot")
 	main.placement.redo()
 	check(not main.core.grid.has_cell(tile_coord), "redo stores the tile again")
+	main.placement.undo()
+	main.placement.pick_up_at(tile_coord)
+	check(
+		main.hud._store_bubble.visible,
+		"picking up a placed world piece pops up the local Store action"
+	)
+	check(
+		main.hud._store_current_world_piece(),
+		"the local Store action returns the held piece without a long UI drag"
+	)
+	check(
+		not main.core.grid.has_cell(tile_coord)
+		and not main.hud._store_bubble.visible,
+		"storing from the bubble commits the move and dismisses the action"
+	)
 	main.placement.undo()
 
 	var upper := main.core.grid.cell_at(STACK_COORD, 1)
@@ -2379,6 +2486,16 @@ func _step_visual_runtime() -> void:
 	check(main.lighting.background_preset_id == "night", "Runtime selects a night background")
 	check(main.lighting.is_dark_background(), "dark background enables high-contrast HUD text")
 	var live_visuals := main.lighting.runtime_manifest()
+	var prior_camera_distance: float = main.camera_rig.zoom_distance()
+	main.lighting.set_camera_shadow_distance(70.0)
+	var far_visuals := main.lighting.runtime_manifest()
+	check(
+		float(far_visuals["far_distance_fade"]["current_alpha"]) >= 0.11
+		and not bool(far_visuals["far_distance_fade"]["ui_affected"]),
+		"maximum zoom adds a subtle world-only atmospheric fade"
+	)
+	main.lighting.set_camera_shadow_distance(prior_camera_distance)
+	live_visuals = main.lighting.runtime_manifest()
 	check(
 		live_visuals["reflection_probe"]["size"] == Vector3(50.0, 15.0, 50.0)
 		and live_visuals["reflection_probe"]["update_mode"] == ReflectionProbe.UPDATE_ONCE

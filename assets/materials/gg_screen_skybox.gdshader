@@ -17,11 +17,70 @@ uniform float sparkle_intensity = 10.0;
 uniform float sparkle_threshold = 0.965;
 uniform float sparkle_softness = 0.01;
 uniform float sparkle_speed = 0.002;
+uniform float shooting_star_active = 0.0;
+uniform vec2 shooting_star_start = vec2(0.28, 0.18);
+uniform vec2 shooting_star_direction = vec2(0.24, 0.14);
+uniform float shooting_star_progress : hint_range(0.0, 1.0) = 0.0;
+uniform float shooting_star_length = 0.095;
+uniform float shooting_star_width = 0.0012;
+uniform float shooting_star_intensity = 0.6;
+uniform float shooting_star_aspect = 1.7778;
 
 float hash21(vec2 p) {
 	p = fract(p * vec2(234.34, 435.345));
 	p += dot(p, p + 34.23);
 	return fract(p.x * p.y);
+}
+
+vec3 shooting_star_radiance(vec2 uv) {
+	if (shooting_star_active < 0.5) {
+		return vec3(0.0);
+	}
+
+	vec2 head_uv = shooting_star_start
+		+ shooting_star_direction * shooting_star_progress;
+	vec2 direction = normalize(vec2(
+		shooting_star_direction.x * shooting_star_aspect,
+		shooting_star_direction.y
+	));
+	vec2 delta = vec2(
+		(uv.x - head_uv.x) * shooting_star_aspect,
+		uv.y - head_uv.y
+	);
+	float along = dot(delta, direction);
+	float side = abs(direction.x * delta.y - direction.y * delta.x);
+	float segment = smoothstep(
+		-shooting_star_length,
+		-shooting_star_length + shooting_star_width * 5.0,
+		along
+	) * (1.0 - smoothstep(-shooting_star_width, shooting_star_width, along));
+	float taper = clamp(1.0 + along / shooting_star_length, 0.0, 1.0);
+	float core = (
+		1.0 - smoothstep(
+			shooting_star_width * 0.18,
+			shooting_star_width,
+			side
+		)
+	) * segment * taper;
+	float glow = (
+		1.0 - smoothstep(
+			shooting_star_width,
+			shooting_star_width * 4.5,
+			side
+		)
+	) * segment * taper * 0.22;
+	float head = 1.0 - smoothstep(
+		0.0,
+		shooting_star_width * 3.2,
+		length(delta)
+	);
+	float event_fade = smoothstep(0.0, 0.14, shooting_star_progress)
+		* (1.0 - smoothstep(0.72, 1.0, shooting_star_progress));
+	vec3 cool_trail = vec3(0.82, 0.91, 1.0) * (core + glow);
+	vec3 warm_head = vec3(1.0, 0.93, 0.76) * head * 0.55;
+	return (cool_trail + warm_head)
+		* shooting_star_intensity
+		* event_fade;
 }
 
 void vertex() {
@@ -50,6 +109,7 @@ void fragment() {
 		float spot = 1.0 - smoothstep(0.0, 0.06 + sparkle_softness * 4.0, length(local));
 		color += vec3(1.0) * gate * twinkle * spot * sparkle_intensity * 0.02 * sparkle_amount;
 	}
+	color += shooting_star_radiance(SCREEN_UV);
 
 	ALBEDO = color;
 }

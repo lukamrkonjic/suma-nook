@@ -76,6 +76,13 @@ func tile_node(coord: Vector2i, elevation: int) -> Node3D:
 	return tile_holders.get(core.grid.slot_key(coord, elevation))
 
 
+func set_structure_burning(instance_id: int, _active: bool) -> void:
+	var found := core.grid.find_structure(instance_id)
+	if found.is_empty():
+		return
+	rebuild_chunk(chunk_of(found["coord"]))
+
+
 func rebuild_chunk(chunk_coord: Vector2i) -> void:
 	_erase_chunk_refs(chunk_coord)
 	chunk_model_counts.erase(chunk_coord)
@@ -92,6 +99,7 @@ func rebuild_chunk(chunk_coord: Vector2i) -> void:
 	var pick_faces := PackedVector3Array()
 	var water_cells: Array[Vector2i] = []
 	var warm_lights: Array[Dictionary] = []
+	var fire_effects: Array[Dictionary] = []
 	var has_content := false
 	var structure_count := 0
 	var base_coord := chunk_coord * CHUNK_SIZE
@@ -148,6 +156,7 @@ func rebuild_chunk(chunk_coord: Vector2i) -> void:
 							structure_surfaces,
 							ground_faces,
 							warm_lights,
+							fire_effects,
 							state,
 							world_position,
 							structure
@@ -167,6 +176,16 @@ func rebuild_chunk(chunk_coord: Vector2i) -> void:
 	for batch: Dictionary in batches.values():
 		_build_batch(chunk_root, batch)
 	_build_static_structure_geometry(chunk_root, structure_surfaces)
+	for fire_entry: Dictionary in fire_effects:
+		var fire := structure_factory.instantiate_fire_effect(
+			fire_entry["definition"]
+		)
+		fire.name = "BurningEffect_%d" % int(fire_entry["instance_id"])
+		fire.transform = fire_entry["transform"] * fire.transform
+		fire.set_meta("instance_id", int(fire_entry["instance_id"]))
+		if fire.has_method("set_burning"):
+			fire.set_burning(bool(fire_entry["burning"]))
+		chunk_root.add_child(fire)
 	chunk_model_counts[chunk_coord] = structure_count
 	_build_collision_body(
 		chunk_root,
@@ -207,6 +226,11 @@ func rebuild_chunk(chunk_coord: Vector2i) -> void:
 					and definition.render_profile == "continuous_water"
 				)
 		)
+	warm_lights.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return bool(a.get("burning", true)) and not bool(
+			b.get("burning", true)
+		)
+	)
 	for index in mini(4, warm_lights.size()):
 		_add_warm_light(chunk_root, warm_lights[index])
 
@@ -258,6 +282,7 @@ func _append_structure(
 	structure_surfaces: Dictionary,
 	collision_faces: PackedVector3Array,
 	warm_lights: Array[Dictionary],
+	fire_effects: Array[Dictionary],
 	state: WorldGrid.CellState,
 	world_position: Vector3,
 	structure: WorldGrid.StructureState
@@ -273,6 +298,7 @@ func _append_structure(
 		Transform3D(Basis.IDENTITY, world_position) * local_transform
 	)
 	var source_mesh := structure_factory.batch_mesh(definition)
+	var model_scale := assets.edits.model_scale_for(definition.asset_id)
 	if source_mesh != null:
 		for surface in source_mesh.get_surface_count():
 			var active_material := source_mesh.surface_get_material(surface)
@@ -295,30 +321,45 @@ func _append_structure(
 		"blocker":
 			_append_box_faces(
 				collision_faces,
-				world_transform.origin + Vector3.UP * 0.5,
-				Vector3(0.8, 1.0, 0.8)
+				world_transform.origin + Vector3.UP * (0.5 * model_scale),
+				Vector3(0.8, 1.0, 0.8) * model_scale
 			)
 		"walkable_surface":
 			_append_box_faces(
 				collision_faces,
-				world_transform.origin + Vector3(0.0, -0.08, 0.0),
+				world_transform.origin
+				+ Vector3(0.0, -0.08 * model_scale, 0.0),
 				Vector3(
 					core.grid.tile_size * 0.94,
 					0.10,
 					core.grid.tile_size * 0.94
-				)
+				) * model_scale
 			)
 	if definition.has_capability("light"):
+		var burning: bool = bool(
+			core.fire.is_burning(structure.instance_id)
+			if definition.has_capability("fire")
+			else true
+		)
 		warm_lights.append({
-			"position": world_transform.origin + Vector3.UP * definition.light_height,
+			"position": (
+				world_transform.origin
+				+ Vector3.UP * definition.light_height * model_scale
+			),
 			"energy": (
 				1.1
-				if definition.id in [
-					"struct_campfire",
-					"struct_firepit_polished",
-				]
+				if definition.has_capability("fire")
 				else 0.6
 			),
+			"burning": burning,
+			"instance_id": structure.instance_id,
+		})
+	if definition.has_capability("fire"):
+		fire_effects.append({
+			"definition": definition,
+			"transform": world_transform,
+			"instance_id": structure.instance_id,
+			"burning": core.fire.is_burning(structure.instance_id),
 		})
 	return true
 
@@ -350,6 +391,8 @@ func _add_warm_light(chunk_root: Node3D, data: Dictionary) -> void:
 	light.omni_range = 4.5
 	light.light_energy = float(data["energy"])
 	light.set_meta("base_energy", float(data["energy"]))
+	light.set_meta("instance_id", int(data.get("instance_id", 0)))
+	light.visible = bool(data.get("burning", true))
 	light.distance_fade_enabled = true
 	light.distance_fade_begin = 12.0
 	light.distance_fade_shadow = 10.0

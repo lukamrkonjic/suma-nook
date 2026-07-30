@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CharacterPartDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_part_fit.gd" id="1_4cc3e"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/hair_long_waves.glb" id="2_vx37w"]
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="3_1isnj"]
+
+[sub_resource type="Resource" id="Resource_la0ju"]
+script = ExtResource("1_4cc3e")
+body_profile_id = "body_male"
+notes = "Authored directly against body_male; identity fit."
+validated = true
+
+[resource]
+script = ExtResource("3_1isnj")
+part_id = "hair_long_waves"
+display_name = "Long Waves"
+slot = "HAIR"
+compatibility_tags = PackedStringArray()
+scene = ExtResource("2_vx37w")
+socket = "HairSocket"
+compatible_body_profiles = PackedStringArray()
+fits = Array[ExtResource("1_4cc3e")]([SubResource("Resource_la0ju")])
+hidden_regions = PackedStringArray()
+hides_slots = PackedStringArray()
+color_channel = "hair"

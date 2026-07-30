@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CharacterPartDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="1_definition"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/generated/top_tweed_vest.scn" id="2_scene"]
+[ext_resource type="Resource" path="res://assets/characters/parts/fits/top_tweed_vest_fit.tres" id="3_fit"]
+
+[resource]
+script = ExtResource("1_definition")
+part_id = "top_tweed_vest"
+display_name = "Tweed Vest"
+slot = "TOP_OUTER"
+compatibility_tags = PackedStringArray("male", "clothing", "vest")
+scene = ExtResource("2_scene")
+attachment_type = "skinned"
+compatible_body_profiles = PackedStringArray("body_male")
+clothing_fit = ExtResource("3_fit")
+hidden_regions = PackedStringArray()
+hides_slots = PackedStringArray()

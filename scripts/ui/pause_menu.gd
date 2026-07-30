@@ -352,7 +352,16 @@ func _build_controls_page() -> void:
 	var keeper_controls := [
 		["Move", ["W", "A", "S", "D"], "Walk freely across connected land."],
 		["Jump", ["Space"], "Clear objects and one raised land layer."],
-		["Interact", ["E"], "Use the focused pond, parcel, or tree."],
+		[
+			"Interact",
+			[
+				_input_service.prompt_for_action(
+					&"interact",
+					InputDeviceService.InputMethod.KEYBOARD_MOUSE
+				)
+			],
+			"Click a chest, fire, fishing spot, tree, or other usable object.",
+		],
 		["Shape land", ["B"], "Open build mode and your tile library."],
 		["Rotate piece", ["R"], "Turn the held tile or decoration."],
 		["Store piece", ["X"], "Return a held piece to its library."],
@@ -362,7 +371,11 @@ func _build_controls_page() -> void:
 		keeper_controls = [
 			["Move / sprint", ["Left Stick", "L3"], "Walk freely; press the stick to sprint."],
 			["Jump", [_input_service.prompt_for_action(&"jump")], "Clear objects and one raised land layer."],
-			["Interact", [_input_service.prompt_for_action(&"interact")], "Use the focused pond, parcel, or tree."],
+			[
+				"Interact",
+				[_input_service.prompt_for_action(&"interact")],
+				"Use a chest, fire, fishing spot, tree, or other usable object.",
+			],
 			["Shape land", [_input_service.prompt_for_action(&"build_mode")], "Open build mode and your tile library."],
 			["Place / pick up", [_input_service.prompt_for_action(&"build_confirm")], "Use the camera-relative grid cursor."],
 			["Rotate piece", [_input_service.prompt_for_action(&"rotate_piece")], "Turn the held tile or decoration."],
@@ -476,10 +489,11 @@ func _build_admin_page() -> void:
 			settings_bridge.call_deferred("open_asset_viewer")
 		_admin_action_row(
 			list,
-			"Asset Viewer",
-			"Inspect any tile or model under live light and weather. Shortcut: F8.",
-			"Open viewer",
-			open_asset_viewer
+			"Asset Studio",
+			"Edit real tile/model smoothing and materials under live weather. Shortcut: F8.",
+			"Open studio",
+			open_asset_viewer,
+			"AdminRowAssetViewer"
 		)
 		_admin_action_row(
 			list,
@@ -568,9 +582,20 @@ func _build_admin_page() -> void:
 	_content.add_child(_status_label)
 
 
-func _admin_action_row(list: VBoxContainer, title: String, description: String, button_text: String, action: Callable) -> void:
+func _admin_action_row(
+	list: VBoxContainer,
+	title: String,
+	description: String,
+	button_text: String,
+	action: Callable,
+	stable_name := ""
+) -> void:
 	var button := kit.button(button_text)
-	button.name = "AdminRow" + title.to_pascal_case()
+	button.name = (
+		stable_name
+		if not stable_name.is_empty()
+		else "AdminRow" + title.to_pascal_case()
+	)
 	button.pressed.connect(action)
 	list.add_child(_setting_row(title, description, button))
 

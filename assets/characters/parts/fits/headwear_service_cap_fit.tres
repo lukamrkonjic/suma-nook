@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="CharacterPartFit" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_part_fit.gd" id="1_fit"]
+
+[resource]
+script = ExtResource("1_fit")
+body_profile_id = "body_male"
+position = Vector3(0, -0.005, 0)
+uniform_scale = 0.3
+notes = "Rigid cap authored against body_male HatSocket; hides the hairstyle while equipped."
+validated = true

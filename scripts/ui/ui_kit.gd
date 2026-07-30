@@ -193,9 +193,103 @@ func library_item_button(display_name: String, count: int) -> Button:
 	return b
 
 
+func library_visual_item_button(
+	display_name: String,
+	count: int
+) -> Dictionary:
+	var button := Button.new()
+	button.custom_minimum_size = Vector2(132, 146)
+	button.clip_contents = true
+	button.add_theme_font_override("font", font_bold)
+	button.focus_mode = Control.FOCUS_ALL
+
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color(0.91, 0.91, 0.85, 0.94)
+	normal.set_corner_radius_all(18)
+	normal.set_content_margin_all(0)
+	normal.border_color = Color(0.43, 0.5, 0.34, 0.0)
+	normal.set_border_width_all(2)
+	var hover := normal.duplicate()
+	hover.bg_color = Color(0.96, 0.94, 0.85, 1.0)
+	hover.border_color = palette.color("ui_good").lightened(0.08)
+	hover.shadow_color = Color(0.16, 0.2, 0.12, 0.16)
+	hover.shadow_size = 7
+	hover.shadow_offset = Vector2(0, 3)
+	var pressed := hover.duplicate()
+	pressed.bg_color = palette.color("ui_accent").lightened(0.2)
+	var focus := hover.duplicate()
+	focus.border_color = palette.color("ui_accent").lightened(0.2)
+	focus.set_border_width_all(4)
+	button.add_theme_stylebox_override("normal", normal)
+	button.add_theme_stylebox_override("hover", hover)
+	button.add_theme_stylebox_override("pressed", pressed)
+	button.add_theme_stylebox_override("focus", focus)
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+
+	var content := VBoxContainer.new()
+	content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	content.offset_left = 8
+	content.offset_top = 7
+	content.offset_right = -8
+	content.offset_bottom = -7
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_theme_constant_override("separation", 1)
+	button.add_child(content)
+
+	var preview := TextureRect.new()
+	preview.name = "Preview"
+	preview.custom_minimum_size = Vector2(116, 105)
+	preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(preview)
+
+	var name_label := label(display_name, 13, false, true)
+	name_label.name = "Name"
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(name_label)
+
+	var badge: PanelContainer
+	if count > 1:
+		badge = PanelContainer.new()
+		badge.name = "CountBadge"
+		badge.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		badge.position = Vector2(-9, 9)
+		badge.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		var badge_style := StyleBoxFlat.new()
+		badge_style.bg_color = palette.color("ui_good").darkened(0.08)
+		badge_style.set_corner_radius_all(12)
+		badge_style.content_margin_left = 8
+		badge_style.content_margin_right = 8
+		badge_style.content_margin_top = 4
+		badge_style.content_margin_bottom = 4
+		badge_style.shadow_color = Color(0.08, 0.1, 0.06, 0.2)
+		badge_style.shadow_size = 3
+		badge_style.shadow_offset = Vector2(0, 2)
+		badge.add_theme_stylebox_override("panel", badge_style)
+		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var count_label := label("×%d" % count, 13, true, true)
+		count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		badge.add_child(count_label)
+		button.add_child(badge)
+
+	return {
+		"button": button,
+		"preview": preview,
+		"badge": badge,
+	}
+
+
 func style_library_scrollbar(scroll: ScrollContainer) -> void:
-	var bar := scroll.get_h_scroll_bar()
-	bar.custom_minimum_size.y = 6
+	var horizontal := scroll.get_h_scroll_bar()
+	var vertical := scroll.get_v_scroll_bar()
+	horizontal.custom_minimum_size.y = 6
+	vertical.custom_minimum_size.x = 7
 	var track := StyleBoxFlat.new()
 	track.bg_color = Color(0.72, 0.72, 0.66, 0.28)
 	track.set_corner_radius_all(3)
@@ -206,11 +300,12 @@ func style_library_scrollbar(scroll: ScrollContainer) -> void:
 	grabber_hover.bg_color = palette.color("ui_good").lightened(0.18)
 	var grabber_pressed := grabber.duplicate()
 	grabber_pressed.bg_color = palette.color("ui_good").darkened(0.05)
-	bar.add_theme_stylebox_override("scroll", track)
-	bar.add_theme_stylebox_override("scroll_focus", track)
-	bar.add_theme_stylebox_override("grabber", grabber)
-	bar.add_theme_stylebox_override("grabber_highlight", grabber_hover)
-	bar.add_theme_stylebox_override("grabber_pressed", grabber_pressed)
+	for bar: ScrollBar in [horizontal, vertical]:
+		bar.add_theme_stylebox_override("scroll", track)
+		bar.add_theme_stylebox_override("scroll_focus", track)
+		bar.add_theme_stylebox_override("grabber", grabber)
+		bar.add_theme_stylebox_override("grabber_highlight", grabber_hover)
+		bar.add_theme_stylebox_override("grabber_pressed", grabber_pressed)
 
 
 func library_arrow_button(text: String) -> Button:

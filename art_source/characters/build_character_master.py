@@ -48,10 +48,10 @@ SKULL_HALF_WIDTH = 0.131
 
 # Reference-derived facial layout (see docs in character_manifest.json).
 # ACNH-style eyes: big solid near-black vertical ovals, height ~2x width,
-# ~20% of head height, mid-face with a generous forehead.
+# ~20% of head height, mid-face with a generous forehead. The eye/mouth decal
+# geometry itself lives in face_catalog.py.
 EYE_Z = 0.246
 EYE_X = 0.048
-EYE_HALF = Vector((0.018, 0.011, 0.0315))
 BROW_Z = 0.292
 NOSE_Z = 0.217
 MOUSTACHE_Z = 0.186
@@ -69,14 +69,12 @@ SOCKETS = {
     "BeardSocket": (0.0, -0.120, 0.120),
 }
 
+# Master-built parts (the face catalog module exports its own parts on top).
 PART_EXPORTS = {
     # object name -> (glb file stem, socket name)
     "HairSwoop": ("hair_swoop_brown", "HairSocket"),
-    "EyesPair": ("eyes_oval_pair", "EyesSocket"),
     "BrowsPair": ("brows_soft_pair", "BrowsSocket"),
-    "NoseRound": ("nose_round", "NoseSocket"),
     "MoustacheWalrus": ("moustache_walrus", "MoustacheSocket"),
-    "MouthSmile": ("mouth_smile", "MouthSocket"),
 }
 
 IDLE_FPS = 30
@@ -100,7 +98,17 @@ def load_player_pipeline():
     return module
 
 
+def load_face_catalog():
+    spec = importlib.util.spec_from_file_location(
+        "face_catalog", CHAR_DIR / "face_catalog.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 PIPE = load_player_pipeline()
+FACES = load_face_catalog()
 
 
 def srgb_to_linear(color: tuple) -> tuple:
@@ -216,42 +224,26 @@ def mirrored(
 
 
 # ---------------------------------------------------------------- face parts
-
-def build_eyes(material: bpy.types.Material) -> bpy.types.Object:
-    halves = []
-    for sign in (1.0, -1.0):
-        bpy.ops.mesh.primitive_uv_sphere_add(
-            segments=20,
-            ring_count=12,
-            location=(sign * EYE_X, -0.118, EYE_Z),
-        )
-        eye = bpy.context.object
-        eye.name = "EyeHalf"
-        eye.scale = EYE_HALF
-        bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-        halves.append(eye)
-    eyes = join_objects("EyesPair", halves)
-    assign_material(eyes, material)
-    shade_smooth(eyes)
-    return eyes
-
+# Eyes, mouths, and noses are authored by face_catalog.py as flat ACNH-style
+# decals (eyes/mouths) and small 3D shapes (noses); only the brows, moustache,
+# and the default swoop hairstyle remain master-built.
 
 def build_brows(material: bpy.types.Material) -> bpy.types.Object:
-    """Two short, thick, soft bars with rounded ends and a gentle arch."""
+    """Two small, soft lines that support the eyes without dominating them."""
     halves = []
     for sign in (1.0, -1.0):
         curve = bpy.data.curves.new("BrowCurve", type="CURVE")
         curve.dimensions = "3D"
         curve.resolution_u = 8
-        curve.bevel_depth = 0.0105
+        curve.bevel_depth = 0.0048
         curve.bevel_resolution = 4
         curve.use_fill_caps = True
         spline = curve.splines.new("BEZIER")
         spline.bezier_points.add(2)
         points = [
-            (sign * 0.024, -0.1185, BROW_Z - 0.004),
-            (sign * 0.047, -0.1225, BROW_Z + 0.004),
-            (sign * 0.070, -0.1170, BROW_Z - 0.002),
+            (sign * 0.028, -0.1165, BROW_Z - 0.002),
+            (sign * 0.047, -0.1200, BROW_Z + 0.003),
+            (sign * 0.066, -0.1155, BROW_Z - 0.001),
         ]
         for point, coordinate in zip(spline.bezier_points, points):
             point.co = coordinate
@@ -270,19 +262,6 @@ def build_brows(material: bpy.types.Material) -> bpy.types.Object:
     return brows
 
 
-def build_nose(material: bpy.types.Material) -> bpy.types.Object:
-    bpy.ops.mesh.primitive_uv_sphere_add(
-        segments=24, ring_count=16, location=(0.0, -0.140, NOSE_Z - 0.006)
-    )
-    nose = bpy.context.object
-    nose.name = "NoseRound"
-    nose.scale = (0.021, 0.025, 0.020)
-    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-    assign_material(nose, material)
-    shade_smooth(nose)
-    return nose
-
-
 def build_moustache(material: bpy.types.Material) -> bpy.types.Object:
     """Two mirrored rounded lobes, small central meet, softly upturned tips."""
     lobe = [
@@ -295,39 +274,6 @@ def build_moustache(material: bpy.types.Material) -> bpy.types.Object:
     remesh_smooth(moustache, 0.006, 0.35, 3, 1100)
     assign_material(moustache, material)
     return moustache
-
-
-def build_mouth(material: bpy.types.Material) -> bpy.types.Object:
-    curve = bpy.data.curves.new("MouthCurve", type="CURVE")
-    curve.dimensions = "3D"
-    curve.resolution_u = 8
-    curve.bevel_depth = 0.004
-    curve.bevel_resolution = 4
-    curve.use_fill_caps = True
-    spline = curve.splines.new("BEZIER")
-    spline.bezier_points.add(2)
-    for point, coordinate in zip(
-        spline.bezier_points,
-        [
-            (-0.014, -0.1335, MOUTH_Z + 0.008),
-            (0.0, -0.137, MOUTH_Z + 0.003),
-            (0.014, -0.1335, MOUTH_Z + 0.008),
-        ],
-    ):
-        point.co = coordinate
-        point.handle_left_type = "AUTO"
-        point.handle_right_type = "AUTO"
-    obj = bpy.data.objects.new("MouthSmile", curve)
-    bpy.context.scene.collection.objects.link(obj)
-    bpy.context.view_layer.objects.active = obj
-    bpy.ops.object.select_all(action="DESELECT")
-    obj.select_set(True)
-    bpy.ops.object.convert(target="MESH")
-    mouth = bpy.context.object
-    mouth.name = "MouthSmile"
-    assign_material(mouth, material)
-    shade_smooth(mouth)
-    return mouth
 
 
 def hairline_z(face_center: Vector) -> float:
@@ -413,14 +359,23 @@ REGION_IDS = {
     "upper_chest_r": 29, "upper_arm_inner_r": 30,
 }
 
-
-def _region_for(center: Vector) -> str:
+def _region_for(center: Vector, dominant_group: str = "") -> str:
     """Semantic body region for a triangle center, in model space (ground at
     z=-0.435, +x = character left). Thresholds follow the measured skeleton
-    landmarks (EXPORT_BONES) and body slices."""
+    landmarks (EXPORT_BONES); head/neck/clavicle separation follows the
+    transferred deformation weights so facial triangles can never be hidden
+    by clothing coverage."""
     x, z = center.x, center.z
     side = "l" if x >= 0.0 else "r"
     ax = abs(x)
+    # The rounded head overlaps the neck/shoulder height bands in model space.
+    # Bone ownership is the stable anatomical boundary; height-only slicing
+    # classified the jaw as neck and clavicle, making clothing masks eat the
+    # lower face.
+    if dominant_group == "mixamorigHead":
+        return "head"
+    if dominant_group == "mixamorigNeck":
+        return "neck"
     # Arm chain: shoulder 0.13, elbow 0.205, wrist 0.27 (bone landmarks).
     # The arm band lives between z 0 and 0.15; the head's sides and ears sit
     # above it and must never match the arm/shoulder rules.
@@ -443,16 +398,20 @@ def _region_for(center: Vector) -> str:
         return f"shoulder_{side}"
     if z > 0.165:
         return "head"
-    # Preserve the visible upper neck, but classify the collar-enclosed lower
-    # band with the clavicles. Treating the whole 0.118-0.165 range as neck
-    # leaves pale, low-poly wedges poking through collared garments; hiding
-    # all of it makes the head float.
-    if z > 0.145:
-        return "neck"
-    if z > 0.118:
-        return f"clavicle_{side}"
+    if dominant_group in (
+        "mixamorigLeftShoulder",
+        "mixamorigRightShoulder",
+    ):
+        weighted_side = (
+            "l" if dominant_group == "mixamorigLeftShoulder" else "r"
+        )
+        if z > 0.120:
+            return f"shoulder_cap_{weighted_side}"
+        if z > 0.075:
+            return f"clavicle_{weighted_side}"
+        return f"upper_chest_{weighted_side}"
     if z > 0.085:
-        return f"clavicle_{side}"
+        return f"upper_chest_{side}"
     if z > 0.04:
         return f"upper_chest_{side}"
     if z > -0.03:
@@ -479,9 +438,23 @@ def bake_armor_regions(body: bpy.types.Object) -> dict:
     while len(mesh.uv_layers) < 2:
         mesh.uv_layers.new(name=f"UVMap{len(mesh.uv_layers)}")
     layer = mesh.uv_layers[1]
+    group_names = {group.index: group.name for group in body.vertex_groups}
     counts: dict[str, int] = {}
     for polygon in mesh.polygons:
-        region = _region_for(polygon.center)
+        group_weights: dict[str, float] = {}
+        for vertex_index in polygon.vertices:
+            for membership in mesh.vertices[vertex_index].groups:
+                group_name = group_names[membership.group]
+                group_weights[group_name] = (
+                    group_weights.get(group_name, 0.0)
+                    + membership.weight
+                )
+        dominant_group = (
+            max(group_weights, key=group_weights.get)
+            if group_weights
+            else ""
+        )
+        region = _region_for(polygon.center, dominant_group)
         counts[region] = counts.get(region, 0) + 1
         region_id = float(REGION_IDS[region])
         for loop_index in polygon.loop_indices:
@@ -785,6 +758,43 @@ def render_reviews(cameras: dict, armature: bpy.types.Object) -> None:
     armature.location.z += IDLE_HIPS_LIFT
 
 
+def render_catalog(
+    cameras: dict,
+    master_parts: dict,
+    catalog: dict,
+    armature: bpy.types.Object,
+) -> None:
+    """One head close-up per catalog option (hair also gets a three-quarter
+    view), each rendered with the default face around it so styles are judged
+    in context."""
+    out_dir = REVIEW_DIR / "catalog"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    armature.data.pose_position = "REST"
+    defaults = {
+        "HAIR": master_parts["HairSwoop"],
+        "BROWS": master_parts["BrowsPair"],
+        "EYES": catalog["eyes_oval_pair"]["object"],
+        "MOUTH": catalog["mouth_smile"]["object"],
+        "NOSE": catalog["nose_round"]["object"],
+    }
+    face_objects = set(defaults.values())
+    face_objects.update(entry["object"] for entry in catalog.values())
+    previous_state = {obj: obj.hide_render for obj in face_objects}
+    for stem, entry in catalog.items():
+        slot = entry["slot"]
+        visible = {defaults[s] for s in defaults if s != slot}
+        visible.add(entry["object"])
+        for obj in face_objects:
+            obj.hide_render = obj not in visible
+        render(cameras["front_head"], out_dir / f"{stem}.png")
+        if slot == "HAIR":
+            render(
+                cameras["three_quarter"], out_dir / f"{stem}_three_quarter.png"
+            )
+    for obj, state in previous_state.items():
+        obj.hide_render = state
+
+
 # ---------------------------------------------------------------- exporting
 
 def export_part(obj: bpy.types.Object, stem: str, socket_name: str) -> dict:
@@ -792,6 +802,10 @@ def export_part(obj: bpy.types.Object, stem: str, socket_name: str) -> dict:
     socket = Vector(SOCKETS[socket_name])
     duplicate = obj.copy()
     duplicate.data = obj.data.copy()
+    # Optional parts may be hidden in the authoring master, but exports must
+    # always contain their selected mesh.
+    duplicate.hide_render = False
+    duplicate.hide_viewport = False
     bpy.context.scene.collection.objects.link(duplicate)
     # Bake the full object transform into the mesh first (primitives and
     # joined objects keep non-zero object locations), then rebase the data so
@@ -855,6 +869,9 @@ def main() -> None:
     bpy.ops.wm.read_factory_settings(use_empty=True)
     REVIEW_DIR.mkdir(parents=True, exist_ok=True)
 
+    # Materials whose name contains "NoTint" are excluded from runtime color
+    # channels by CharacterAssembler (eye highlights stay white when the eye
+    # color changes).
     materials = {
         "skin": PIPE.make_material(
             "Suma_Skin", srgb_to_linear(PIPE.COLORS["skin"]), 0.68, 0.18
@@ -863,10 +880,40 @@ def main() -> None:
             "Suma_Hair", srgb_to_linear(PIPE.COLORS["hair"]), 0.72, 0.16
         ),
         "eyes": PIPE.make_material(
-            "Suma_Eyes", srgb_to_linear((0.141, 0.102, 0.078, 1.0)), 0.3, 0.3
+            "Suma_Eyes", srgb_to_linear((0.141, 0.102, 0.078, 1.0)), 0.55, 0.2
         ),
         "mouth": PIPE.make_material(
             "Suma_Mouth", srgb_to_linear((0.36, 0.215, 0.16, 1.0)), 0.48, 0.20
+        ),
+        "eye_white": PIPE.make_material(
+            "Suma_EyeWhite_NoTint",
+            srgb_to_linear((0.965, 0.957, 0.94, 1.0)),
+            0.55,
+            0.12,
+        ),
+        "highlight": PIPE.make_material(
+            "Suma_Highlight_NoTint",
+            srgb_to_linear((0.99, 0.985, 0.975, 1.0)),
+            0.45,
+            0.15,
+        ),
+        "mouth_inner": PIPE.make_material(
+            "Suma_MouthInner_NoTint",
+            srgb_to_linear((0.318, 0.153, 0.125, 1.0)),
+            0.55,
+            0.1,
+        ),
+        "tongue": PIPE.make_material(
+            "Suma_Tongue_NoTint",
+            srgb_to_linear((0.875, 0.478, 0.435, 1.0)),
+            0.5,
+            0.12,
+        ),
+        "tooth": PIPE.make_material(
+            "Suma_Tooth_NoTint",
+            srgb_to_linear((0.97, 0.965, 0.95, 1.0)),
+            0.5,
+            0.12,
         ),
     }
 
@@ -885,25 +932,58 @@ def main() -> None:
     move_to_collection(export_rig, "RIG")
     move_to_collection(body, "BODY_MALE")
 
-    # Rebuilt default parts, fitted to the measured head.
+    # Master-built parts plus the cozy life-sim face catalog. Face decals are
+    # authored in body rest space because their runtime sockets are measured
+    # in that same space. Projecting against the current pose puts the decals
+    # several centimeters inside the rest-pose head.
     parts = {
         "HairSwoop": build_hair(body, materials["hair"]),
-        "EyesPair": build_eyes(materials["eyes"]),
         "BrowsPair": build_brows(materials["hair"]),
-        "NoseRound": build_nose(materials["skin"]),
         "MoustacheWalrus": build_moustache(materials["hair"]),
-        "MouthSmile": build_mouth(materials["mouth"]),
     }
     part_collections = {
         "HairSwoop": "DEFAULT_HAIR",
-        "EyesPair": "DEFAULT_EYES",
         "BrowsPair": "DEFAULT_BROWS",
-        "NoseRound": "DEFAULT_NOSE",
         "MoustacheWalrus": "DEFAULT_MOUSTACHE",
-        "MouthSmile": "DEFAULT_MOUTH",
     }
     for name, obj in parts.items():
         move_to_collection(obj, part_collections[name])
+
+    export_rig.data.pose_position = "REST"
+    bpy.context.view_layer.update()
+    catalog = FACES.build_catalog(
+        {
+            "body": body,
+            "materials": materials,
+            "metaball_object": metaball_object,
+            "remesh_smooth": remesh_smooth,
+            "join_objects": join_objects,
+            "assign_material": assign_material,
+            "shade_smooth": shade_smooth,
+            "apply_modifier": apply_modifier,
+            "hairline_z": hairline_z,
+        }
+    )
+    export_rig.data.pose_position = "POSE"
+    bpy.context.view_layer.update()
+    default_catalog_stems = {"eyes_oval_pair", "mouth_smile", "nose_round"}
+    default_collections = {
+        "EYES": "DEFAULT_EYES",
+        "MOUTH": "DEFAULT_MOUTH",
+        "NOSE": "DEFAULT_NOSE",
+    }
+    for stem, entry in catalog.items():
+        if stem in default_catalog_stems:
+            move_to_collection(entry["object"], default_collections[entry["slot"]])
+        else:
+            move_to_collection(entry["object"], f"CATALOG_{entry['slot']}")
+            # Only the default face renders in the standard review set; the
+            # catalog render pass toggles these per style.
+            entry["object"].hide_render = True
+    # Facial hair remains a reusable authored part, but it is no longer part
+    # of the clean default face and must not cover the mouth catalog.
+    parts["MoustacheWalrus"].hide_render = True
+    parts["MoustacheWalrus"].hide_viewport = True
     collection("OPTIONAL_BEARD")
 
     author_idle(export_rig)
@@ -927,16 +1007,39 @@ def main() -> None:
             "seconds": IDLE_FRAMES / IDLE_FPS,
         },
         "parts": {},
+        # Player-facing option order per slot; the first entry is the default.
+        # tools/generate_character_resources.gd turns this into part
+        # definitions and the selectable part catalog.
+        "catalog": {},
     }
+
+    catalog_manifest: dict[str, list] = {
+        "HAIR": [{"stem": "hair_swoop_brown", "display": "Swoop"}]
+    }
+    for stem, entry in catalog.items():
+        catalog_manifest.setdefault(entry["slot"], []).append(
+            {"stem": stem, "display": entry["display"]}
+        )
+    manifest["catalog"] = catalog_manifest
 
     for obj_name, (stem, socket_name) in PART_EXPORTS.items():
         manifest["parts"][stem] = export_part(parts[obj_name], stem, socket_name)
+    for stem, entry in catalog.items():
+        manifest["parts"][stem] = export_part(
+            entry["object"], stem, entry["socket"]
+        )
     manifest["mannequin"] = export_mannequin(body, export_rig)
 
-    # Master file keeps everything, including reference and helpers.
+    # Master file keeps everything, including reference and helpers. Hide the
+    # non-default catalog styles in the viewport so opening the file shows the
+    # clean default face; the catalog render pass drives hide_render itself.
+    for stem, entry in catalog.items():
+        if stem not in default_catalog_stems:
+            entry["object"].hide_viewport = True
     bpy.ops.wm.save_as_mainfile(filepath=str(BLEND_OUT))
 
     render_reviews(cameras, export_rig)
+    render_catalog(cameras, parts, catalog, export_rig)
     MANIFEST_OUT.write_text(json.dumps(manifest, indent=2))
     print("CHARACTER_MASTER_BUILT", json.dumps(manifest["parts"], indent=2))
     print("MANNEQUIN", manifest["mannequin"])

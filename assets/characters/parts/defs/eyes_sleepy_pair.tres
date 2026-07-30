@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CharacterPartDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_part_fit.gd" id="1_v4uov"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/eyes_sleepy_pair.glb" id="2_77ncc"]
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="3_tsban"]
+
+[sub_resource type="Resource" id="Resource_ywupa"]
+script = ExtResource("1_v4uov")
+body_profile_id = "body_male"
+notes = "Authored directly against body_male; identity fit."
+validated = true
+
+[resource]
+script = ExtResource("3_tsban")
+part_id = "eyes_sleepy_pair"
+display_name = "Sleepy"
+slot = "EYES"
+compatibility_tags = PackedStringArray()
+scene = ExtResource("2_77ncc")
+socket = "EyesSocket"
+compatible_body_profiles = PackedStringArray()
+fits = Array[ExtResource("1_v4uov")]([SubResource("Resource_ywupa")])
+hidden_regions = PackedStringArray()
+hides_slots = PackedStringArray()
+color_channel = "eyes"

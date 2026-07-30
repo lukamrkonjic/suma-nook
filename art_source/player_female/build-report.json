@@ -1,0 +1,39 @@
+{
+  "source": "C:\\Users\\Luka\\Downloads\\player_female.glb",
+  "source_sha256": "936f873399c1efb109e30ab9d7efef5160793af22e30fc3e9c383f72dae8734c",
+  "normalization_scale": 2.0,
+  "smoothing": {
+    "modifier": "SMOOTH",
+    "factor": 0.38,
+    "iterations": 6,
+    "voxel_size_after_normalization": 0.022
+  },
+  "body": {
+    "name": "PlayerFemaleBody",
+    "vertices": 10298,
+    "triangles": 20592,
+    "bounds": {
+      "min": [
+        -0.185831,
+        -0.131936,
+        -0.052747
+      ],
+      "max": [
+        0.185107,
+        0.142358,
+        0.81429
+      ]
+    },
+    "weighted_groups": 34
+  },
+  "rig": {
+    "deform_bones": 34,
+    "rigify_bones": 222,
+    "contract_source": "C:\\Dev\\suma-nook\\assets\\3d\\reworked\\player_male_mannequin.glb",
+    "status": "initial_auto_weights_for_artist_tuning"
+  },
+  "outputs": {
+    "blend": "C:\\Dev\\suma-nook\\art_source\\player_female\\player_female_rigify.blend",
+    "glb": "C:\\Dev\\suma-nook\\assets\\3d\\reworked\\player_female_mannequin.glb"
+  }
+}

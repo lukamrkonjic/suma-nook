@@ -33,6 +33,8 @@ func _ready() -> void:
 	profile.hair_color_index = 5
 	profile.hair_style = 2
 	profile.eye_index = 2
+	profile.mouth_index = 2
+	profile.nose_index = 3
 	_visual.apply_profile(profile)
 	await _settle(6)
 	await _capture("player_palette_bun.png")
@@ -41,6 +43,8 @@ func _ready() -> void:
 	profile.hair_color_index = 0
 	profile.hair_style = 0
 	profile.eye_index = 0
+	profile.mouth_index = 0
+	profile.nose_index = 0
 	_visual.apply_profile(profile)
 	var core := GameCore.new()
 	if not core.setup():

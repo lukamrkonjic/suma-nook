@@ -15,6 +15,9 @@ const PLAYER_PROFILE: PlayerAssetProfile = preload(
 const APPEARANCE: CharacterAppearancePreset = preload(
 	"res://assets/characters/presets/default_male_appearance.tres"
 )
+const PART_CATALOG: CharacterPartCatalog = preload(
+	"res://assets/characters/parts/catalog_male.tres"
+)
 
 const LEGACY_MODULES := [
 	"EyeL", "EyeR", "Brows", "Moustache",
@@ -22,7 +25,7 @@ const LEGACY_MODULES := [
 ]
 const FACE_SLOTS := [
 	CharacterSlots.HAIR, CharacterSlots.EYES, CharacterSlots.EYEBROWS,
-	CharacterSlots.NOSE, CharacterSlots.MOUSTACHE, CharacterSlots.MOUTH,
+	CharacterSlots.NOSE, CharacterSlots.MOUTH,
 ]
 
 
@@ -208,6 +211,10 @@ func _initialize() -> void:
 			"Slot %s must bind under the head attachment" % slot
 		)
 	assert(
+		assembler.equipped_node(CharacterSlots.MOUSTACHE) == null,
+		"The clean default face must leave optional facial hair unequipped"
+	)
+	assert(
 		visual.find_child("Skeleton3D", true, false) == visual._skeleton,
 		"Assembly must not introduce a second Skeleton3D"
 	)
@@ -219,11 +226,32 @@ func _initialize() -> void:
 	var profile := PlayerProfile.new()
 	profile.hair_style = 2
 	profile.hair_color_index = 5
+	profile.eye_index = 6
+	profile.mouth_index = 2
+	profile.nose_index = 3
 	visual.apply_profile(profile)
+	await process_frame
 	assert(
 		assembler.equipped_node(CharacterSlots.HAIR).visible,
 		"Hair must stay visible after applying a profile"
 	)
+	for slot in [
+		CharacterSlots.HAIR,
+		CharacterSlots.EYES,
+		CharacterSlots.MOUTH,
+		CharacterSlots.NOSE,
+	]:
+		var selected_index := int({
+			CharacterSlots.HAIR: profile.hair_style,
+			CharacterSlots.EYES: profile.eye_index,
+			CharacterSlots.MOUTH: profile.mouth_index,
+			CharacterSlots.NOSE: profile.nose_index,
+		}[slot])
+		assert(
+			assembler.equipped_part(slot).part_id
+				== PART_CATALOG.part_for(slot, selected_index).part_id,
+			"Profile must swap the selected %s catalog part" % slot
+		)
 
 	var core := GameCore.new()
 	assert(core.setup(), "Equipment content must load for player socket probe")
@@ -239,7 +267,7 @@ func _initialize() -> void:
 	)
 	for slot in [
 		CharacterSlots.EYES, CharacterSlots.EYEBROWS, CharacterSlots.NOSE,
-		CharacterSlots.MOUSTACHE, CharacterSlots.MOUTH,
+		CharacterSlots.MOUTH,
 	]:
 		assert(
 			assembler.equipped_node(slot).visible,

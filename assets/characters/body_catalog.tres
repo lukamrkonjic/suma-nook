@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="CharacterBodyCatalog" load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_body_catalog.gd" id="1_catalog"]
+[ext_resource type="Script" path="res://scripts/characters/character_body_option.gd" id="2_option"]
+[ext_resource type="Resource" path="res://assets/characters/presets/default_male_appearance.tres" id="3_male_appearance"]
+[ext_resource type="Resource" path="res://assets/player/current_player_profile.tres" id="4_male_profile"]
+[ext_resource type="Resource" path="res://assets/characters/presets/default_female_appearance.tres" id="5_female_appearance"]
+[ext_resource type="Resource" path="res://assets/player/player_female_profile.tres" id="6_female_profile"]
+
+[sub_resource type="Resource" id="BodyOption_male"]
+script = ExtResource("2_option")
+option_id = "male"
+display_name = "Male"
+appearance = ExtResource("3_male_appearance")
+asset_profile = ExtResource("4_male_profile")
+
+[sub_resource type="Resource" id="BodyOption_female"]
+script = ExtResource("2_option")
+option_id = "female"
+display_name = "Female"
+appearance = ExtResource("5_female_appearance")
+asset_profile = ExtResource("6_female_profile")
+
+[resource]
+script = ExtResource("1_catalog")
+options = Array[ExtResource("2_option")]([SubResource("BodyOption_male"), SubResource("BodyOption_female")])

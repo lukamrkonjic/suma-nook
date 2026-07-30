@@ -23,10 +23,19 @@ const NIGHT_SUN_ENERGY_MULTIPLIER := 0.08
 const NIGHT_LOCAL_LIGHT_MULTIPLIER := 3.6
 const NIGHT_GLOW_INTENSITY := 0.34
 const NIGHT_AMBIENT_TINT := Color(0.34, 0.46, 0.72)
-const NIGHT_BACKGROUND_TINT := Color(0.24, 0.34, 0.55)
+const NIGHT_BACKGROUND_TINT := Color(0.94, 0.95, 0.98)
+# Shooting stars are scheduled on the CPU but rendered as one tiny
+# screen-space shader feature in the backdrop. Their cost is independent of
+# world size, and the long randomized gaps keep them feeling special.
+const SHOOTING_STAR_FIRST_WAIT_RANGE := Vector2(18.0, 40.0)
+const SHOOTING_STAR_WAIT_RANGE := Vector2(50.0, 120.0)
+const SHOOTING_STAR_DURATION_RANGE := Vector2(0.68, 0.92)
 # 70-unit authored camera maximum plus the existing 20-unit caster padding.
 # Keeping this constant prevents shadow projection rescaling during zoom.
 const FULL_ZOOM_SHADOW_ENVELOPE := 90.0
+const FAR_DISTANCE_FADE_START := 55.0
+const FAR_DISTANCE_FADE_END := 70.0
+const FAR_DISTANCE_FADE_MAX_ALPHA := 0.12
 
 @export var day_profile: VisualStyleProfile
 @export var mist_profile: VisualStyleProfile
@@ -59,6 +68,9 @@ var _gg_bg_quad: MeshInstance3D
 var _grade_layer: CanvasLayer
 var _grade_rect: ColorRect
 var _grade_material: ShaderMaterial
+var _distance_haze_layer: CanvasLayer
+var _distance_haze_rect: ColorRect
+var _distance_haze_color := Color(0.91, 0.92, 0.86)
 var _ground_fog: CozyGroundFog
 var _rain_surface: CozyRainSurface
 var time_of_day_id := "noon"
@@ -68,6 +80,12 @@ var _theme_tween: Tween
 var _camera_shadow_distance := 40.0
 var _user_ssao_enabled := true
 var _user_bloom_enabled := true
+var _shooting_star_rng := RandomNumberGenerator.new()
+var _shooting_star_night_session := false
+var _shooting_star_event_active := false
+var _shooting_star_wait_remaining := -1.0
+var _shooting_star_elapsed := 0.0
+var _shooting_star_duration := 0.8
 
 
 func _ready() -> void:
@@ -140,6 +158,9 @@ func _ready() -> void:
 	_gg_bg_quad.custom_aabb = AABB(Vector3(-50000, -50000, -50000), Vector3(100000, 100000, 100000))
 	_gg_bg_quad.visible = false
 	add_child(_gg_bg_quad)
+	_shooting_star_rng.randomize()
+	_set_shooting_star_parameter(&"shooting_star_active", 0.0)
+	_set_shooting_star_parameter(&"shooting_star_progress", 0.0)
 
 	# GG-exact grade pass (Unity PPv2 PP_MainCamera chain). Layer 0 sits above
 	# the 3D image and every negative background layer while staying below the
@@ -158,6 +179,22 @@ func _ready() -> void:
 	_grade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_grade_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_grade_layer.add_child(_grade_rect)
+
+	# A very light atmospheric wash appears only near the maximum camera
+	# distance. It fades the 3D scene and backdrop together while remaining
+	# below the HUD and menus, so the interface never loses contrast.
+	_distance_haze_layer = CanvasLayer.new()
+	_distance_haze_layer.name = "FarDistanceHaze"
+	_distance_haze_layer.layer = 0
+	add_child(_distance_haze_layer)
+	_distance_haze_rect = ColorRect.new()
+	_distance_haze_rect.name = "AtmosphericWash"
+	_distance_haze_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_distance_haze_rect.set_anchors_and_offsets_preset(
+		Control.PRESET_FULL_RECT
+	)
+	_distance_haze_layer.add_child(_distance_haze_rect)
+	_apply_far_distance_haze()
 
 	_rain = _build_rain()
 	add_child(_rain)
@@ -198,6 +235,42 @@ func _ready() -> void:
 		fallback_profile = load("res://assets/visual_profiles/suma_soft_daylight_fallback.tres")
 	apply_profile(day_profile)
 	get_tree().node_added.connect(_on_tree_node_added)
+
+
+func _process(delta: float) -> void:
+	var should_run := _shooting_stars_should_run()
+	if not should_run:
+		if _shooting_star_night_session or _shooting_star_event_active:
+			_reset_shooting_star_session()
+		return
+
+	if not _shooting_star_night_session:
+		_shooting_star_night_session = true
+		_shooting_star_wait_remaining = _shooting_star_rng.randf_range(
+			SHOOTING_STAR_FIRST_WAIT_RANGE.x,
+			SHOOTING_STAR_FIRST_WAIT_RANGE.y
+		)
+
+	if _shooting_star_event_active:
+		_shooting_star_elapsed += delta
+		var progress := clampf(
+			_shooting_star_elapsed / _shooting_star_duration,
+			0.0,
+			1.0
+		)
+		_set_shooting_star_parameter(&"shooting_star_progress", progress)
+		if progress >= 1.0:
+			_shooting_star_event_active = false
+			_set_shooting_star_parameter(&"shooting_star_active", 0.0)
+			_shooting_star_wait_remaining = _shooting_star_rng.randf_range(
+				SHOOTING_STAR_WAIT_RANGE.x,
+				SHOOTING_STAR_WAIT_RANGE.y
+			)
+		return
+
+	_shooting_star_wait_remaining -= delta
+	if _shooting_star_wait_remaining <= 0.0:
+		_begin_shooting_star()
 
 
 func apply_profile(profile: VisualStyleProfile) -> void:
@@ -278,6 +351,11 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	env.fog_enabled = false
 	env.fog_light_color = profile.fog_color
 	env.fog_density = 0.0
+	_distance_haze_color = profile.fog_color.lerp(
+		profile.background_color,
+		0.35
+	)
+	_apply_far_distance_haze()
 	env.fog_sky_affect = 0.0
 	env.volumetric_fog_enabled = false
 	env.volumetric_fog_density = 0.0
@@ -346,10 +424,41 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 ## changing their projection during smooth zoom causes visible texel snapping.
 func set_camera_shadow_distance(camera_distance: float) -> void:
 	_camera_shadow_distance = camera_distance
+	_apply_far_distance_haze()
 	if _ground_fog != null:
 		_ground_fog.set_camera_distance(camera_distance)
 	if _rain_surface != null:
 		_rain_surface.set_camera_distance(camera_distance)
+
+
+func shadow_ray_direction() -> Vector3:
+	if _sun == null:
+		return Vector3(-0.42, -0.82, -0.39).normalized()
+	return (-_sun.global_basis.z).normalized()
+
+
+func _apply_far_distance_haze() -> void:
+	if _distance_haze_rect == null:
+		return
+	var weight := clampf(
+		(
+			_camera_shadow_distance
+			- FAR_DISTANCE_FADE_START
+		) / (
+			FAR_DISTANCE_FADE_END
+			- FAR_DISTANCE_FADE_START
+		),
+		0.0,
+		1.0
+	)
+	var alpha := weight * FAR_DISTANCE_FADE_MAX_ALPHA
+	_distance_haze_rect.color = Color(
+		_distance_haze_color.r,
+		_distance_haze_color.g,
+		_distance_haze_color.b,
+		alpha
+	)
+	_distance_haze_layer.visible = alpha > 0.001
 
 
 func bind_fog_interactors(actor: Node3D, camera_focus: Node3D) -> void:
@@ -556,6 +665,24 @@ func runtime_manifest() -> Dictionary:
 			"contrast": _grade_material.get_shader_parameter("grade_contrast"),
 			"saturation": _grade_material.get_shader_parameter("grade_saturation"),
 			"tonemapper": _grade_material.get_shader_parameter("tonemapper"),
+		},
+		"far_distance_fade": {
+			"start": FAR_DISTANCE_FADE_START,
+			"end": FAR_DISTANCE_FADE_END,
+			"max_alpha": FAR_DISTANCE_FADE_MAX_ALPHA,
+			"current_alpha": _distance_haze_rect.color.a,
+			"ui_affected": false,
+		},
+		"shooting_stars": {
+			"night_only": true,
+			"active": _shooting_star_event_active,
+			"wait_remaining_seconds": maxf(
+				_shooting_star_wait_remaining,
+				0.0
+			),
+			"event_duration_seconds": _shooting_star_duration,
+			"render_path": "single_backdrop_shader",
+			"world_size_cost": "constant",
 		},
 		"directional_light": {
 			"color": _sun.light_color,
@@ -918,6 +1045,15 @@ func _gg_light_level() -> float:
 	return float(_gg_time_state()[1])
 
 
+func _gg_background_tint(theme: Dictionary, level: float) -> Color:
+	# Preserve the original warm Brown-theme night, with only a restrained
+	# darkening/cooling pass at the fully-night endpoint.
+	return (
+		(theme.night_bg as Color).lerp(Color.WHITE, level)
+		* NIGHT_BACKGROUND_TINT.lerp(Color.WHITE, level)
+	)
+
+
 ## The serialized theme remains the hue source, but Suma's night art direction
 ## deliberately goes far darker than the extracted reference values. Cool,
 ## low-energy moon fill preserves silhouettes while warm local lights provide
@@ -958,10 +1094,7 @@ func _apply_gg_time_of_day() -> void:
 		profile.glow_intensity,
 		level
 	)
-	var bg_tint := (
-		(theme.night_bg as Color).lerp(Color.WHITE, level)
-		* NIGHT_BACKGROUND_TINT.lerp(Color.WHITE, level)
-	)
+	var bg_tint := _gg_background_tint(theme, level)
 	env.background_color = (theme.bg1 as Color) * bg_tint
 	if profile.background_gg_gradient and background_preset_id == "profile":
 		_set_gg_background(
@@ -1046,7 +1179,10 @@ func _apply_background_preset() -> void:
 			if current_profile.background_gg_gradient:
 				var state := _gg_time_state()
 				var theme: Dictionary = GG_THEMES[state[0]]
-				var bg_tint := (theme.night_bg as Color).lerp(Color.WHITE, float(state[1]))
+				var bg_tint := _gg_background_tint(
+					theme,
+					float(state[1])
+				)
 				_set_gg_background(
 					(theme.bg0 as Color) * bg_tint,
 					(theme.bg1 as Color) * bg_tint,
@@ -1090,6 +1226,97 @@ func _set_gg_background(color0: Color, color1: Color, sparkles: bool) -> void:
 	_gg_bg_material.set_shader_parameter("color0", color0)
 	_gg_bg_material.set_shader_parameter("color1", color1)
 	_gg_bg_material.set_shader_parameter("sparkle_amount", 1.0 if sparkles else 0.0)
+
+
+func _shooting_stars_should_run() -> bool:
+	var night_backdrop := (
+		background_preset_id == "night"
+		or (
+			time_of_day_id == "night"
+			and background_preset_id == "profile"
+		)
+	)
+	var supported_backdrop_visible := (
+		_gg_bg_quad != null
+		and _gg_bg_quad.visible
+	) or (
+		_bg_layer != null
+		and _bg_layer.visible
+		and _bg_rect.material == _bg_material
+	)
+	return night_backdrop and supported_backdrop_visible
+
+
+func _reset_shooting_star_session() -> void:
+	_shooting_star_night_session = false
+	_shooting_star_event_active = false
+	_shooting_star_wait_remaining = -1.0
+	_shooting_star_elapsed = 0.0
+	_set_shooting_star_parameter(&"shooting_star_active", 0.0)
+	_set_shooting_star_parameter(&"shooting_star_progress", 0.0)
+
+
+func _begin_shooting_star() -> void:
+	var moves_right := _shooting_star_rng.randi_range(0, 1) == 1
+	var start_x := _shooting_star_rng.randf_range(
+		0.12 if moves_right else 0.42,
+		0.58 if moves_right else 0.88
+	)
+	var travel_x := _shooting_star_rng.randf_range(0.18, 0.29)
+	if not moves_right:
+		travel_x = -travel_x
+	var viewport_size := get_viewport().get_visible_rect().size
+	var aspect := (
+		viewport_size.x / viewport_size.y
+		if viewport_size.y > 0.0
+		else 16.0 / 9.0
+	)
+
+	_shooting_star_duration = _shooting_star_rng.randf_range(
+		SHOOTING_STAR_DURATION_RANGE.x,
+		SHOOTING_STAR_DURATION_RANGE.y
+	)
+	_shooting_star_elapsed = 0.0
+	_shooting_star_event_active = true
+	_set_shooting_star_parameter(
+		&"shooting_star_start",
+		Vector2(
+			start_x,
+			_shooting_star_rng.randf_range(0.08, 0.34)
+		)
+	)
+	_set_shooting_star_parameter(
+		&"shooting_star_direction",
+		Vector2(
+			travel_x,
+			_shooting_star_rng.randf_range(0.105, 0.175)
+		)
+	)
+	_set_shooting_star_parameter(
+		&"shooting_star_length",
+		_shooting_star_rng.randf_range(0.075, 0.12)
+	)
+	_set_shooting_star_parameter(
+		&"shooting_star_width",
+		_shooting_star_rng.randf_range(0.0009, 0.00145)
+	)
+	_set_shooting_star_parameter(
+		&"shooting_star_intensity",
+		_shooting_star_rng.randf_range(0.48, 0.72)
+	)
+	_set_shooting_star_parameter(&"shooting_star_aspect", aspect)
+	_set_shooting_star_parameter(&"shooting_star_progress", 0.0)
+	_set_shooting_star_parameter(&"shooting_star_active", 1.0)
+
+
+func _set_shooting_star_parameter(
+	parameter: StringName,
+	value: Variant
+) -> void:
+	if _bg_material != null:
+		_bg_material.set_shader_parameter(parameter, value)
+	if _gg_bg_material != null:
+		_gg_bg_material.set_shader_parameter(parameter, value)
 
 
 func _configure_grade_pass(profile: VisualStyleProfile) -> void:

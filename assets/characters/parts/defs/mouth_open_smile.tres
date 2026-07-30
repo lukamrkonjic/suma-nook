@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CharacterPartDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_part_fit.gd" id="1_ukg1m"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/mouth_open_smile.glb" id="2_js52h"]
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="3_4675d"]
+
+[sub_resource type="Resource" id="Resource_35c0a"]
+script = ExtResource("1_ukg1m")
+body_profile_id = "body_male"
+notes = "Authored directly against body_male; identity fit."
+validated = true
+
+[resource]
+script = ExtResource("3_4675d")
+part_id = "mouth_open_smile"
+display_name = "Open Smile"
+slot = "MOUTH"
+compatibility_tags = PackedStringArray()
+scene = ExtResource("2_js52h")
+socket = "MouthSocket"
+compatible_body_profiles = PackedStringArray()
+fits = Array[ExtResource("1_ukg1m")]([SubResource("Resource_35c0a")])
+hidden_regions = PackedStringArray()
+hides_slots = PackedStringArray()
+color_channel = "mouth"

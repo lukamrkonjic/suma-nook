@@ -2,6 +2,7 @@
   "capabilities": [
     { "id": "rest", "owner": "core", "description": "Offers a place to pause or recover." },
     { "id": "light", "owner": "core", "description": "Produces local scene lighting." },
+    { "id": "fire", "owner": "core", "description": "Attaches a reusable animated flame profile to the visual." },
     { "id": "storage_access", "owner": "core", "description": "Opens the player's build storage." },
     { "id": "fishing_spot", "owner": "fishing", "description": "Provides access to a fishing interaction." },
     { "id": "fishing_luck", "owner": "fishing", "description": "Modifies fishing outcomes." },

@@ -49,9 +49,81 @@ func fresh_core(seed_value := 12345) -> GameCore:
 	return core
 
 
+func _test_character_appearance_catalog() -> void:
+	var catalog := load(
+		"res://assets/characters/parts/catalog_male.tres"
+	) as CharacterPartCatalog
+	check(catalog != null, "character appearance catalog loads")
+	if catalog == null:
+		return
+	var minimum_counts := {
+		CharacterSlots.HAIR: 9,
+		CharacterSlots.EYES: 10,
+		CharacterSlots.MOUTH: 10,
+		CharacterSlots.NOSE: 5,
+	}
+	var all_ids: Dictionary = {}
+	for slot_value in minimum_counts:
+		var slot := String(slot_value)
+		var options := catalog.options_for(slot)
+		check(
+			options.size() >= int(minimum_counts[slot]),
+			"%s catalog exposes the expanded option set" % slot
+		)
+		if options.is_empty():
+			continue
+		for part in options:
+			var valid_part := (
+				part != null
+				and part.slot == slot
+				and part.scene != null
+				and not all_ids.has(part.part_id)
+			)
+			check(valid_part, "%s catalog entry is valid and unique" % slot)
+			if part != null:
+				all_ids[part.part_id] = true
+		check(
+			catalog.part_for(slot, -1) == options[0]
+				and catalog.part_for(slot, 9999) == options[0],
+			"%s invalid save indices fall back to its default" % slot
+		)
+
+	var profile := PlayerProfile.new()
+	profile.hair_style = catalog.hair.size() - 1
+	profile.eye_index = catalog.eyes.size() - 1
+	profile.mouth_index = catalog.mouths.size() - 1
+	profile.nose_index = catalog.noses.size() - 1
+	var restored := PlayerProfile.new()
+	restored.from_save_dict(profile.to_save_dict())
+	check(
+		restored.hair_style == profile.hair_style
+			and restored.eye_index == profile.eye_index
+			and restored.mouth_index == profile.mouth_index
+			and restored.nose_index == profile.nose_index,
+		"expanded appearance selections survive a save round trip"
+	)
+
+	var preset := load(
+		"res://assets/characters/presets/default_male_appearance.tres"
+	) as CharacterAppearancePreset
+	var assembler := CharacterAssembler.new()
+	var body := assembler.assemble(preset)
+	check(body != null, "appearance catalog preset assembles")
+	if body != null:
+		var replacement := catalog.eyes[catalog.eyes.size() - 1]
+		check(
+			assembler.replace_rigid_part(replacement, preset)
+				and assembler.equipped_part(CharacterSlots.EYES) == replacement,
+			"runtime can replace a face option without rebuilding the body"
+		)
+		body.free()
+
+
 func _run() -> void:
 	_test_input_bindings()
 	_test_clothing_lab_contract()
+	_test_imported_clothing_bundle()
+	_test_character_appearance_catalog()
 	_test_registries()
 	_test_ground_impact_surface_profiles()
 	_test_content_catalog_architecture()
@@ -78,6 +150,7 @@ func _run() -> void:
 	_test_sockets_and_overlap_prevention()
 	_test_object_support_graph()
 	_test_camping_feature_contract()
+	_test_fire_interaction_contract()
 	_test_anchor_cycle_and_regen()
 	_test_crafting_transactions()
 	_test_equipment()
@@ -89,6 +162,114 @@ func _run() -> void:
 	_test_current_save_policy()
 	_test_interrupted_reveal_recovery()
 	_test_player_defeat_safety()
+
+
+func _test_imported_clothing_bundle() -> void:
+	var definition_paths := {
+		CharacterSlots.TOP_INNER:
+			"res://assets/characters/parts/defs/top_yellow_shirt.tres",
+		CharacterSlots.TOP_OUTER:
+			"res://assets/characters/parts/defs/top_tweed_vest.tres",
+		CharacterSlots.BOTTOM:
+			"res://assets/characters/parts/defs/bottom_tweed_trousers.tres",
+		CharacterSlots.HEADWEAR:
+			"res://assets/characters/parts/defs/headwear_service_cap.tres",
+	}
+	var imported_parts: Array[CharacterPartDefinition] = []
+	for expected_slot in definition_paths:
+		var part := load(
+			String(definition_paths[expected_slot])
+		) as CharacterPartDefinition
+		check(
+			part != null
+				and part.slot == expected_slot
+				and part.scene != null
+				and part.validation_errors().is_empty(),
+			"imported %s clothing definition is runtime-ready"
+			% expected_slot,
+		)
+		if part != null:
+			imported_parts.append(part)
+
+	var shirt_fit := load(
+		"res://assets/characters/parts/fits/top_yellow_shirt_fit.tres"
+	) as ClothingFitSettings
+	var vest_fit := load(
+		"res://assets/characters/parts/fits/top_tweed_vest_fit.tres"
+	) as ClothingFitSettings
+	var trousers_fit := load(
+		"res://assets/characters/parts/fits/bottom_tweed_trousers_fit.tres"
+	) as ClothingFitSettings
+	check(
+		shirt_fit != null
+			and shirt_fit.garment_class == "upper_body"
+			and vest_fit != null
+			and vest_fit.garment_class == "upper_body_sleeveless"
+			and trousers_fit != null
+			and trousers_fit.garment_class == "lower_body",
+		"imported clothes retain the correct deformation class",
+	)
+
+	var base := load(
+		"res://assets/characters/presets/default_male_appearance.tres"
+	) as CharacterAppearancePreset
+	check(base != null, "base appearance loads for imported clothing test")
+	if base == null or imported_parts.size() != definition_paths.size():
+		return
+	var preset := CharacterAppearancePreset.new()
+	preset.preset_id = "test_imported_clothing_bundle"
+	preset.body_profile = base.body_profile
+	for existing in base.parts:
+		if (
+			existing != null
+			and existing.slot != CharacterSlots.TOP_INNER
+			and existing.slot != CharacterSlots.TOP_OUTER
+			and existing.slot != CharacterSlots.BOTTOM
+			and existing.slot != CharacterSlots.HEADWEAR
+		):
+			preset.parts.append(existing)
+	preset.parts.append_array(imported_parts)
+
+	var assembler := CharacterAssembler.new()
+	var body := assembler.assemble(preset)
+	check(body != null, "all four imported clothing items assemble together")
+	if body == null:
+		return
+	var skeletons := body.find_children("*", "Skeleton3D", true, false)
+	check(
+		skeletons.size() == 1,
+		"imported outfit keeps one shared runtime Skeleton3D",
+	)
+	if skeletons.size() == 1:
+		for slot in [
+			CharacterSlots.TOP_INNER,
+			CharacterSlots.TOP_OUTER,
+			CharacterSlots.BOTTOM,
+		]:
+			var garment := assembler.equipped_node(slot)
+			check(
+				garment is MeshInstance3D
+					and garment.get_parent() == skeletons[0],
+				"imported %s garment binds to the live body skeleton" % slot,
+			)
+			if garment is MeshInstance3D:
+				check(
+					(garment as MeshInstance3D).get_active_material(0) != null,
+					"imported %s garment preserves its authored material"
+					% slot,
+				)
+	var cap := assembler.equipped_node(CharacterSlots.HEADWEAR)
+	check(
+		cap != null
+			and cap.get_parent() != null
+			and cap.get_parent().name == "HatSocket",
+		"service cap follows the dedicated animated head socket",
+	)
+	check(
+		assembler.equipped_node(CharacterSlots.HAIR) == null,
+		"service cap suppresses hair while equipped",
+	)
+	body.free()
 
 
 func _test_clothing_lab_contract() -> void:
@@ -108,6 +289,20 @@ func _test_clothing_lab_contract() -> void:
 	round_trip.position = Vector3(0.012, -0.004, 0.008)
 	round_trip.sleeve_length = 1.075
 	round_trip.sleeve_room = 1.12
+	round_trip.top_section_scale = 0.93
+	round_trip.middle_section_scale = 1.08
+	round_trip.bottom_section_scale = 1.17
+	round_trip.surface_smoothing = 0.37
+	round_trip.detail_erase_strokes.append({
+		"version": 2,
+		"selection": "small_source_components",
+		"center": [0.0, 0.1, 0.02],
+		"normal": [0.0, 0.0, 1.0],
+		"radius": 0.04,
+		"strength": 1.0,
+		"target_offset": -0.01,
+		"sample_uv": [0.42, 0.58],
+	})
 	var round_trip_path := "user://clothing_lab_fit_round_trip.tres"
 	var save_error := ResourceSaver.save(round_trip, round_trip_path)
 	var loaded_round_trip := load(round_trip_path) as ClothingFitSettings
@@ -120,20 +315,128 @@ func _test_clothing_lab_contract() -> void:
 		)
 		and is_equal_approx(
 			loaded_round_trip.sleeve_room, round_trip.sleeve_room
-		),
+		)
+		and is_equal_approx(
+			loaded_round_trip.top_section_scale,
+			round_trip.top_section_scale
+		)
+		and is_equal_approx(
+			loaded_round_trip.middle_section_scale,
+			round_trip.middle_section_scale
+		)
+		and is_equal_approx(
+			loaded_round_trip.bottom_section_scale,
+			round_trip.bottom_section_scale
+		)
+		and is_equal_approx(
+			loaded_round_trip.surface_smoothing,
+			round_trip.surface_smoothing
+		)
+		and loaded_round_trip.detail_erase_strokes
+		== round_trip.detail_erase_strokes,
 		"Clothing Lab fit settings save/load without losing authored values"
 	)
 	DirAccess.remove_absolute(
 		ProjectSettings.globalize_path(round_trip_path)
 	)
+	var body_landmark_round_trip := CharacterBodyProfile.new()
+	body_landmark_round_trip.clothing_landmarks["left.shoulder"] = Vector3(
+		0.13, 0.10, -0.024
+	)
+	var body_landmark_path := "user://clothing_lab_body_landmarks.tres"
+	var body_landmark_save := ResourceSaver.save(
+		body_landmark_round_trip, body_landmark_path
+	)
+	var loaded_body_landmarks := load(
+		body_landmark_path
+	) as CharacterBodyProfile
 	check(
-		not fit.hidden_regions.has("hand_l")
-		and not fit.hidden_regions.has("hand_r")
-		and fit.hidden_regions.has("forearm_l")
-		and fit.hidden_regions.has("forearm_r")
-		and fit.hidden_regions.has("upper_arm_l")
-		and fit.hidden_regions.has("upper_arm_r"),
-		"jacket coverage hides covered arms and preserves neck/hands"
+		body_landmark_save == OK
+		and loaded_body_landmarks != null
+		and loaded_body_landmarks.clothing_landmarks.get(
+			"left.shoulder", Vector3.ZERO
+		) == body_landmark_round_trip.clothing_landmarks["left.shoulder"],
+		"Clothing Lab body-profile rig markers persist exactly"
+	)
+	DirAccess.remove_absolute(
+		ProjectSettings.globalize_path(body_landmark_path)
+	)
+	var male_body_profile := load(
+		"res://assets/characters/body_profiles/body_male.tres"
+	) as CharacterBodyProfile
+	var male_landmarks := (
+		male_body_profile.clothing_landmarks
+		if male_body_profile != null
+		else {}
+	)
+	var crown_marker: Vector3 = male_landmarks.get(
+		"center.crown", Vector3.ZERO
+	)
+	var face_marker: Vector3 = male_landmarks.get(
+		"center.face", Vector3.ZERO
+	)
+	var hip_marker: Vector3 = male_landmarks.get(
+		"center.hips", Vector3.ZERO
+	)
+	var ankle_marker: Vector3 = male_landmarks.get(
+		"left.ankle", Vector3.ZERO
+	)
+	check(
+		male_body_profile != null
+		and crown_marker.y > face_marker.y
+		and face_marker.y > hip_marker.y
+		and ankle_marker.y < hip_marker.y
+		and absf(crown_marker.z) < 0.08
+		and absf(face_marker.z) < 0.08,
+		"Clothing Lab body markers are persisted in Godot Y-up character space"
+	)
+	var landmark_lab := ClothingLab.new()
+	landmark_lab.set("_default_landmarks", {
+		"center": {
+			"crown": Vector3(0.0, 0.44, -0.003),
+			"face": Vector3(0.0, 0.25, -0.013),
+			"hips": Vector3(0.0, -0.15, -0.018),
+		},
+		"left": {},
+		"right": {},
+	})
+	var legacy_landmark_profile := CharacterBodyProfile.new()
+	legacy_landmark_profile.clothing_landmarks.assign({
+		"center.crown": Vector3(0.0, 0.003, 0.44),
+		"center.face": Vector3(0.0, 0.013, 0.25),
+		"center.hips": Vector3(0.0, 0.018, -0.15),
+	})
+	var detected_legacy_axes := bool(
+		landmark_lab.call(
+			"_profile_landmarks_use_blender_axes",
+			legacy_landmark_profile,
+		)
+	)
+	landmark_lab.call(
+		"_migrate_profile_landmarks_to_character_space",
+		legacy_landmark_profile,
+	)
+	check(
+		detected_legacy_axes
+		and legacy_landmark_profile.clothing_landmarks[
+			"center.crown"
+		].is_equal_approx(Vector3(0.0, 0.44, -0.003))
+		and legacy_landmark_profile.clothing_landmarks[
+			"center.face"
+		].is_equal_approx(Vector3(0.0, 0.25, -0.013))
+		and legacy_landmark_profile.clothing_landmarks[
+			"center.hips"
+		].is_equal_approx(Vector3(0.0, -0.15, -0.018)),
+		"Clothing Lab automatically migrates legacy Blender-axis marker profiles"
+	)
+	landmark_lab.free()
+	var fit_regions_are_known := not fit.hidden_regions.is_empty()
+	for hidden_region in fit.hidden_regions:
+		if not PlayerArmorRegions.names().has(hidden_region):
+			fit_regions_are_known = false
+	check(
+		fit_regions_are_known,
+		"jacket draft preserves the artist's explicit known body regions"
 	)
 	var part := load(
 		"res://assets/characters/parts/defs/top_jacket_cozy.tres"
@@ -141,8 +444,8 @@ func _test_clothing_lab_contract() -> void:
 	check(
 		part != null
 		and part.clothing_fit != null
-		and part.hidden_regions == fit.hidden_regions,
-		"saved CharacterPartDefinition references the fit and matching coverage"
+		and part.clothing_fit.resource_path == fit.resource_path,
+		"CharacterPartDefinition references the editable fit while draft coverage remains unpublished"
 	)
 	var preset := load(
 		"res://assets/characters/presets/default_male_appearance.tres"
@@ -167,6 +470,56 @@ func _test_clothing_lab_contract() -> void:
 			).is_empty(),
 			"runtime garment adds no AnimationPlayer"
 		)
+		var body_mesh := body.find_child(
+			"PlayerMaleBody", true, false
+		) as MeshInstance3D
+		var underlayer := body.find_child(
+			"ClothingUnderlayer_top_jacket_cozy", true, false
+		) as MeshInstance3D
+		var underlayer_is_skinned := (
+			underlayer != null
+			and body_mesh != null
+			and underlayer.get_parent() == skeletons[0]
+			and underlayer.skin == body_mesh.skin
+			and underlayer.mesh != null
+			and underlayer.mesh.get_surface_count() > 0
+		)
+		check(
+			underlayer_is_skinned,
+			"animated clothing generates a body-weighted fabric underlayer"
+		)
+		if underlayer_is_skinned:
+			var garment_material := (
+				garment as MeshInstance3D
+			).get_active_material(0)
+			var underlayer_material := underlayer.get_active_material(0)
+			var underlayer_arrays := underlayer.mesh.surface_get_arrays(0)
+			var underlayer_vertices: PackedVector3Array = (
+				underlayer_arrays[Mesh.ARRAY_VERTEX]
+			)
+			var underlayer_bones: PackedInt32Array = (
+				underlayer_arrays[Mesh.ARRAY_BONES]
+			)
+			var underlayer_weights: PackedFloat32Array = (
+				underlayer_arrays[Mesh.ARRAY_WEIGHTS]
+			)
+			var underlayer_uvs: PackedVector2Array = (
+				underlayer_arrays[Mesh.ARRAY_TEX_UV]
+			)
+			check(
+				underlayer_material == garment_material
+				and not underlayer_vertices.is_empty()
+				and underlayer_bones.size() == underlayer_vertices.size() * 4
+				and underlayer_weights.size() == underlayer_vertices.size() * 4
+				and underlayer_uvs.size() == underlayer_vertices.size(),
+				"fabric underlayer keeps garment visuals and body skin data"
+			)
+			assembler.set_slot_visible(CharacterSlots.TOP_OUTER, false)
+			check(
+				not garment.visible and not underlayer.visible,
+				"garment visibility also controls its generated underlayer"
+			)
+			assembler.set_slot_visible(CharacterSlots.TOP_OUTER, true)
 		body.free()
 	var processor := FileAccess.get_file_as_string(
 		"res://tools/clothing_lab/process_clothing.py"
@@ -175,10 +528,37 @@ func _test_clothing_lab_contract() -> void:
 		"POLYINTERP_NEAREST" in processor
 		and "LimitedBodyClearanceShrinkwrap" in processor
 		and "correct_arm_chain_weights(garment)" in processor
+		and "synchronize_coincident_vertex_weights" in processor
+		and "remove_degenerate_faces" in processor
+		and "audit_animated_deformation" in processor
+		and "MAX_ANIMATED_SEAM_GAP" in processor
+		and "MAX_ANIMATED_EDGE_STRETCH" in processor
 		and "surface_geometry_smoothed" in processor
+		and "def apply_surface_smoothing" in processor
+		and "def section_scale_at_height" in processor
+		and "top_section_scale" in processor
+		and "middle_section_scale" in processor
+		and "bottom_section_scale" in processor
+		and "def source_detail_components" in processor
+		and "def apply_detail_erase_strokes" in processor
+		and "small_source_components" in processor
+		and "anchored local surface smoothing" in processor
+		and "tangent_cap = radius * 0.15 * strength" in processor
+		and "\"protected_large_source_components\"" in processor
+		and "\"detail_erase_vertices_smoothed\"" in processor
+		and "\"inside_shell_protected\": True" in processor
+		and "\"topology_changed\": False" in processor
+		and "normals_split_custom_set" in processor
+		and "def garment_topology_signature" in processor
+		and "def assert_topology_contract" in processor
+		and "\"boundary_edges\"" in processor
+		and "\"euler_characteristic\"" in processor
+		and "Source garment must be a closed manifold shell" in processor
+		and "\"manifold_topology_contracts\"" in processor
+		and "\"geometry_changed\": False" in processor
 		and "export_animations=False" in processor
 		and "source_normals_smoothed\": False" in processor,
-		"Clothing Lab shrinkwraps clearance, copies/relaxes body weights, and preserves normals"
+		"Clothing Lab prevents open shells, repairs animated seams, audits deformation, and preserves source normals"
 	)
 	var lab_scene_text := FileAccess.get_file_as_string(
 		"res://characters/lab/clothing_lab.tscn"
@@ -191,14 +571,32 @@ func _test_clothing_lab_contract() -> void:
 		and "REST / T-POSE" in lab_script_text
 		and "GLTFDocument.new()" in lab_script_text
 		and "Auto Clear Body" in lab_script_text
-		and "Raw Fit" in lab_script_text
-		and "Final Output" in lab_script_text
-		and "FIT READY TO BIND" in lab_script_text
+		and "Editable Raw Fit" in lab_script_text
+		and "Bound / Animated Garment" in lab_script_text
+		and "Bound Final Output" in lab_script_text
+		and "Pose / animation" in lab_script_text
+		and "Animation speed" in lab_script_text
+		and "Live smooth shading" in lab_script_text
+		and "Surface detail eraser" in lab_script_text
+		and "_pick_raw_garment" in lab_script_text
+		and "_detail_source_component_data" in lab_script_text
+		and "small_source_components" in lab_script_text
+		and "var tangent_cap := radius * 0.15 * strength" in lab_script_text
+		and "_detail_erased_source_arrays" in lab_script_text
+		and "_calculate_preview_smoothing_normals" in lab_script_text
+		and "_ground_preview_character" in lab_script_text
+		and "Idle — relaxed" in lab_script_text
+		and "Walk — loop" in lab_script_text
+		and "_sync_final_output_pose" in lab_script_text
 		and "_final_output_revision" in lab_script_text
-		and "Accept Final Output + Save for In-game" in lab_script_text
+		and "1. Save Fit + Rig Draft" in lab_script_text
+		and "2. Build Final Output · Copy Weights + Bind" in lab_script_text
+		and "4. Publish Final Output to Game" in lab_script_text
 		and "_current_staging_output_path" in lab_script_text
-		and "Preview pose" not in lab_script_text,
-		"Clothing Lab separates editable Raw Fit from accepted exact Final Output"
+		and "_fit_diagnostic_warnings" in lab_script_text
+		and "ADVISORY ONLY — NEVER BLOCKING" in lab_script_text
+		and "\"BLOCKED" not in lab_script_text,
+		"Clothing Lab has non-blocking diagnostics, animation previews, and an ordered publish flow"
 	)
 	check(
 		"MOUSE_BUTTON_MIDDLE" in lab_script_text
@@ -218,6 +616,8 @@ func _test_clothing_lab_contract() -> void:
 	check(
 		"_numeric_drag_handle" in lab_script_text
 		and "_revert_numeric_field" in lab_script_text
+		and "Lock XYZ scale proportions" in lab_script_text
+		and "_proportional_scale_for_axis" in lab_script_text
 		and "event.is_action_pressed(\"undo\"" in lab_script_text
 		and "event.is_action_pressed(\"redo\"" in lab_script_text
 		and "_begin_history_batch" in lab_script_text
@@ -227,10 +627,38 @@ func _test_clothing_lab_contract() -> void:
 		"Clothing Lab exposes draggable fields, per-field revert, and grouped undo/redo"
 	)
 	check(
-		"sphere.radius = 0.013" in lab_script_text
+		"sphere.radius = 0.018" in lab_script_text
 		and "material.no_depth_test = true" in lab_script_text
 		and "material.render_priority = 127" in lab_script_text,
 		"Clothing Lab landmarks are large depth-independent overlays"
+	)
+	check(
+		"Edit rig markers" in lab_script_text
+		and "_pick_landmark_marker" in lab_script_text
+		and "_drag_marker" in lab_script_text
+		and "_store_landmarks_in_body_profile" in lab_script_text
+		and "_set_marker_clothing_isolation" in lab_script_text
+		and "Show equipped clothing" in lab_script_text
+		and "_apply_garment_preview_visibility" in lab_script_text
+		and "Full-body clothing rig markers" in lab_script_text
+		and "\"center.crown\"" in lab_script_text
+		and "\"center.hips\"" in lab_script_text
+		and "\"left.knee\"" in lab_script_text
+		and "\"right.toe\"" in lab_script_text
+		and "LANDMARK_BONES" in lab_script_text
+		and "Head pivot (base of skull)" in lab_script_text
+		and "Pelvis center (body root)" in lab_script_text
+		and "_axis_constrained_marker_position" in lab_script_text
+		and "Input.is_key_pressed(KEY_X)" in lab_script_text
+		and "Input.is_key_pressed(KEY_Y)" in lab_script_text
+		and "Input.is_key_pressed(KEY_Z)" in lab_script_text
+		and "_migrate_profile_landmarks_to_character_space" in lab_script_text
+		and "_profile_landmarks_use_blender_axes" in lab_script_text
+		and "processor_point.z" in lab_script_text,
+		(
+			"Clothing Lab provides explicit anatomical rig labels, persistent "
+			+ "Y-up global markers, XYZ-constrained dragging, and garment isolation"
+		)
 	)
 	check(
 		"ORBIT_MOUSE_SENSITIVITY := 0.004" in lab_script_text
@@ -249,10 +677,12 @@ func _test_clothing_lab_contract() -> void:
 		"res://art_source/characters/build_character_master.py"
 	)
 	check(
-		"if z > 0.145:" in character_builder
-		and "if ax > 0.245 and z < 0.15:" in character_builder
-		and "return f\"clavicle_{side}\"" in character_builder,
-		"body mask seams stay beneath collars/cuffs while neck and hands remain visible"
+		"dominant_group == \"mixamorigHead\"" in character_builder
+		and "dominant_group == \"mixamorigNeck\"" in character_builder
+		and "if z > 0.120:" in character_builder
+		and "if z > 0.075:" in character_builder
+		and "if ax > 0.245 and z < 0.15:" in character_builder,
+		"body masks follow head/neck anatomy and stay beneath collars/cuffs"
 	)
 
 
@@ -334,6 +764,11 @@ func _test_input_bindings() -> void:
 	check(_action_has_key("cancel", KEY_ESCAPE), "Escape opens and closes the pause flow")
 	check(_action_has_key("toggle_hud", KEY_H), "H hides and restores the HUD")
 	check(
+		not _action_has_key("interact", KEY_E)
+		and _action_has_mouse_button("interact", MOUSE_BUTTON_LEFT),
+		"world interaction is left-click driven with no E-key binding"
+	)
+	check(
 		not _action_has_key("return_home", KEY_H)
 		and _action_has_key("return_home", KEY_HOME),
 		"Home returns the player home without conflicting with the HUD shortcut"
@@ -380,6 +815,13 @@ func _test_input_bindings() -> void:
 			InputDeviceService.InputMethod.CONTROLLER
 		) == "X",
 		"controller prompts are resolved from InputMap"
+	)
+	check(
+		input_service.prompt_for_action(
+			&"interact",
+			InputDeviceService.InputMethod.KEYBOARD_MOUSE
+		) == "Left Click",
+		"keyboard and mouse interaction prompts advertise the click path"
 	)
 	check(
 		input_service.prompt_for_action(
@@ -432,6 +874,20 @@ func _action_has_key(action: StringName, physical_keycode: Key) -> bool:
 	for event in InputMap.action_get_events(action):
 		var key_event := event as InputEventKey
 		if key_event != null and key_event.physical_keycode == physical_keycode:
+			return true
+	return false
+
+
+func _action_has_mouse_button(
+	action: StringName,
+	button_index: MouseButton
+) -> bool:
+	for event in InputMap.action_get_events(action):
+		var mouse_event := event as InputEventMouseButton
+		if (
+			mouse_event != null
+			and mouse_event.button_index == button_index
+		):
 			return true
 	return false
 
@@ -965,7 +1421,8 @@ func _test_gg_render_contract() -> void:
 	check(regs.load_all(), "render-contract tuning registry loads")
 	check(
 		regs.tunef("camera_min_size", 40.0) <= 14.0
-		and regs.tunef("camera_default_size", 40.0) == 32.0,
+		and regs.tunef("camera_default_size", 40.0) == 32.0
+		and regs.tunef("camera_wheel_zoom_step", 1.0) == 5.0,
 		"camera supports a deep close-up with the closer default composition"
 	)
 	check(
@@ -1990,6 +2447,92 @@ func _test_camping_feature_contract() -> void:
 		check(
 			is_equal_approx(returned_state.durability, 82.5),
 			"store and re-place does not heal or replace the tent"
+		)
+
+
+func _test_fire_interaction_contract() -> void:
+	var core := fresh_core(907)
+	var coord := Vector2i(8, 8)
+	core.grid.place_tile(coord, "tile_grass")
+	var campfire := core.grid.add_structure(
+		coord,
+		"struct_campfire",
+		0
+	)
+	check(campfire != null, "campfire places through the generic structure API")
+	if campfire == null:
+		return
+	check(
+		not core.fire.is_burning(campfire.instance_id),
+		"new fire-enabled structures begin unlit"
+	)
+	var option = core.interactions.primary_for(
+		"keeper",
+		campfire.instance_id
+	)
+	check(
+		option != null
+		and option.feature_id == "fire"
+		and option.label == "Light fire",
+		"shared interaction registry discovers the unlit campfire"
+	)
+	var transitions: Array[bool] = []
+	core.fire.burning_changed.connect(func(_instance_id: int, active: bool):
+		transitions.append(active)
+	)
+	check(
+		core.interactions.execute(option, "keeper"),
+		"shared interaction execution lights the selected campfire"
+	)
+	check(
+		core.fire.is_burning(campfire.instance_id)
+		and transitions == [true],
+		"lighting commits state and emits one presentation event"
+	)
+	option = core.interactions.primary_for("keeper", campfire.instance_id)
+	check(
+		option != null and option.label == "Extinguish fire",
+		"the same interaction becomes Extinguish while burning"
+	)
+	check(
+		core.interactions.execute(option, "keeper")
+		and not core.fire.is_burning(campfire.instance_id)
+		and transitions == [true, false],
+		"clicking the burning fire toggles it off"
+	)
+	check(
+		core.fire.set_burning(campfire.instance_id, true),
+		"fire state can be restored explicitly"
+	)
+	var encoded := campfire.to_dict()
+	check(
+		bool((encoded.get("runtime", {}) as Dictionary).get("fire_lit", false)),
+		"burning state is stored on the stable structure instance"
+	)
+	check(core.save(), "burning structure state saves")
+	var restored := GameCore.new()
+	restored.setup("res://data", 1)
+	restored.save_manager.save_path = core.save_manager.save_path
+	restored.save_manager.backup_path = core.save_manager.backup_path
+	check(restored.load_game(), "burning structure state loads")
+	check(
+		restored.fire.is_burning(campfire.instance_id),
+		"campfire remains lit after a save round trip"
+	)
+	var tent := restored.grid.add_structure(
+		Vector2i(-1, 0),
+		"struct_high_tent",
+		0
+	)
+	if tent != null:
+		var camping_option = restored.interactions.primary_for(
+			"keeper",
+			tent.instance_id
+		)
+		check(
+			camping_option != null
+			and camping_option.feature_id == "camping",
+			"the shared registry also retains existing camping interactions"
 		)
 
 

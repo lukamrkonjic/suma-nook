@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CharacterPartDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="1_definition"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/headwear_service_cap.glb" id="2_scene"]
+[ext_resource type="Resource" path="res://assets/characters/parts/fits/headwear_service_cap_fit.tres" id="3_fit"]
+
+[resource]
+script = ExtResource("1_definition")
+part_id = "headwear_service_cap"
+display_name = "Service Cap"
+slot = "HEADWEAR"
+compatibility_tags = PackedStringArray("male", "headwear", "cap")
+scene = ExtResource("2_scene")
+attachment_type = "rigid"
+socket = "HatSocket"
+compatible_body_profiles = PackedStringArray("body_male")
+fits = Array[ExtResource("3_fit")]([ExtResource("3_fit")])
+hidden_regions = PackedStringArray()
+hides_slots = PackedStringArray("HAIR")

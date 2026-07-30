@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CharacterPartDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_part_fit.gd" id="1_cyg4v"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/mouth_grin.glb" id="2_0hvov"]
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="3_dojhu"]
+
+[sub_resource type="Resource" id="Resource_3tvin"]
+script = ExtResource("1_cyg4v")
+body_profile_id = "body_male"
+notes = "Authored directly against body_male; identity fit."
+validated = true
+
+[resource]
+script = ExtResource("3_dojhu")
+part_id = "mouth_grin"
+display_name = "Big Grin"
+slot = "MOUTH"
+compatibility_tags = PackedStringArray()
+scene = ExtResource("2_0hvov")
+socket = "MouthSocket"
+compatible_body_profiles = PackedStringArray()
+fits = Array[ExtResource("1_cyg4v")]([SubResource("Resource_3tvin")])
+hidden_regions = PackedStringArray()
+hides_slots = PackedStringArray()
+color_channel = "mouth"

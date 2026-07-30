@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ClothingFitSettings" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/clothing_fit_settings.gd" id="1_fit"]
+
+[resource]
+script = ExtResource("1_fit")
+source_file = "res://art_source/imported/clothing_lab/bottom_tweed_trousers_source.glb"
+garment_class = "lower_body"
+position = Vector3(0, 0.005, -0.25)
+scale = Vector3(0.42, 0.45, 0.24)
+cuff_radius = 1.0
+hidden_regions = PackedStringArray("hips", "thigh_l", "knee_l", "shin_l", "thigh_r", "knee_r", "shin_r")

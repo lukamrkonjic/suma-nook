@@ -135,6 +135,20 @@
       "specular": 0.1,
       "calm_cream_mix": 0.0
     },
+    "sand_highlight": {
+      "family": "earth",
+      "roughness": 0.88,
+      "metallic": 0.0,
+      "specular": 0.25,
+      "calm_cream_mix": 0.0
+    },
+    "sand_light": {
+      "family": "earth",
+      "roughness": 0.88,
+      "metallic": 0.0,
+      "specular": 0.25,
+      "calm_cream_mix": 0.0
+    },
     "sand_top": {
       "family": "earth",
       "roughness": 0.88,
@@ -142,7 +156,49 @@
       "specular": 0.25,
       "calm_cream_mix": 0.0
     },
+    "sand_shadow": {
+      "family": "earth",
+      "roughness": 0.88,
+      "metallic": 0.0,
+      "specular": 0.25,
+      "calm_cream_mix": 0.0
+    },
+    "sand_deep": {
+      "family": "earth",
+      "roughness": 0.88,
+      "metallic": 0.0,
+      "specular": 0.25,
+      "calm_cream_mix": 0.0
+    },
+    "concrete_highlight": {
+      "family": "stone",
+      "roughness": 0.91,
+      "metallic": 0.0,
+      "specular": 0.16,
+      "calm_cream_mix": 0.0
+    },
+    "concrete_light": {
+      "family": "stone",
+      "roughness": 0.91,
+      "metallic": 0.0,
+      "specular": 0.16,
+      "calm_cream_mix": 0.0
+    },
     "concrete_top": {
+      "family": "stone",
+      "roughness": 0.91,
+      "metallic": 0.0,
+      "specular": 0.16,
+      "calm_cream_mix": 0.0
+    },
+    "concrete_shadow": {
+      "family": "stone",
+      "roughness": 0.91,
+      "metallic": 0.0,
+      "specular": 0.16,
+      "calm_cream_mix": 0.0
+    },
+    "concrete_deep": {
       "family": "stone",
       "roughness": 0.91,
       "metallic": 0.0,
@@ -156,7 +212,35 @@
       "specular": 0.16,
       "calm_cream_mix": 0.0
     },
+    "snow_highlight": {
+      "family": "painted_matte",
+      "roughness": 0.94,
+      "metallic": 0.0,
+      "specular": 0.12,
+      "calm_cream_mix": 0.0
+    },
+    "snow_light": {
+      "family": "painted_matte",
+      "roughness": 0.94,
+      "metallic": 0.0,
+      "specular": 0.12,
+      "calm_cream_mix": 0.0
+    },
     "snow_top": {
+      "family": "painted_matte",
+      "roughness": 0.94,
+      "metallic": 0.0,
+      "specular": 0.12,
+      "calm_cream_mix": 0.0
+    },
+    "snow_shadow": {
+      "family": "painted_matte",
+      "roughness": 0.94,
+      "metallic": 0.0,
+      "specular": 0.12,
+      "calm_cream_mix": 0.0
+    },
+    "snow_deep": {
       "family": "painted_matte",
       "roughness": 0.94,
       "metallic": 0.0,

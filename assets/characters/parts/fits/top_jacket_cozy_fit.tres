@@ -5,9 +5,5 @@
 [resource]
 script = ExtResource("1_fit")
 source_file = "res://art_source/imported/jacket_default/jacket_source.glb"
-sleeve_lift = -0.023981314
-sleeve_length = 1.00000008
-sleeve_room = 1.195
-shoulder_lift = 0.0325
-cuff_forward = 0.002209081
-hidden_regions = PackedStringArray("chest", "abdomen", "upper_chest_l", "upper_chest_r", "clavicle_l", "clavicle_r", "shoulder_l", "shoulder_r", "shoulder_cap_l", "shoulder_cap_r", "armpit_l", "armpit_r", "upper_arm_l", "upper_arm_r", "upper_arm_inner_l", "upper_arm_inner_r", "forearm_l", "forearm_r")
+scale = Vector3(0.625, 0.70746833, 0.59677327)
+hidden_regions = PackedStringArray("shoulder_l", "shoulder_r", "armpit_r", "upper_arm_l", "upper_arm_r", "upper_arm_inner_l", "upper_arm_inner_r", "chest", "abdomen", "armpit_l")

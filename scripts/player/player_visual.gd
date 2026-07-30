@@ -11,6 +11,12 @@ const CURRENT_PLAYER_PROFILE: PlayerAssetProfile = preload(
 const DEFAULT_APPEARANCE: CharacterAppearancePreset = preload(
 	"res://assets/characters/presets/default_male_appearance.tres"
 )
+const PART_CATALOG: CharacterPartCatalog = preload(
+	"res://assets/characters/parts/catalog_male.tres"
+)
+const BODY_CATALOG: CharacterBodyCatalog = preload(
+	"res://assets/characters/body_catalog.tres"
+)
 
 signal animation_started(animation_name: String)
 signal animation_event(animation_name: String, event_name: String)
@@ -183,6 +189,9 @@ var _appearance_assembler := CharacterAssembler.new()
 var _animation_player: AnimationPlayer
 var _skeleton: Skeleton3D
 var _asset_profile: PlayerAssetProfile
+var _appearance_preset: CharacterAppearancePreset
+var _body_option: CharacterBodyOption
+var _active_body_index := -1
 var _uses_rigged_preview := false
 var _active_hair_style := 0
 var _hair_hidden_by_headwear := false
@@ -207,7 +216,27 @@ func build(asset_library: AssetLibrary, pal: CozyPalette) -> void:
 	assets = asset_library
 	materials = asset_library.materials
 	palette = pal
-	_asset_profile = CURRENT_PLAYER_PROFILE
+	_switch_body(0)
+
+
+func _switch_body(body_index: int) -> void:
+	var option := BODY_CATALOG.option_for(body_index)
+	assert(option != null, "Character body catalog has no default option")
+	var option_errors := option.validation_errors()
+	assert(
+		option_errors.is_empty(),
+		"Invalid character body option '%s': %s"
+		% [option.option_id, option_errors]
+	)
+	_teardown_body()
+	_body_option = option
+	_appearance_preset = option.appearance
+	_asset_profile = option.asset_profile
+	_active_body_index = (
+		body_index
+		if body_index >= 0 and body_index < BODY_CATALOG.options.size()
+		else 0
+	)
 	var profile_errors := _asset_profile.validation_errors()
 	assert(profile_errors.is_empty(), "Invalid current player profile: %s" % profile_errors)
 	assert(
@@ -225,6 +254,33 @@ func build(asset_library: AssetLibrary, pal: CozyPalette) -> void:
 			% _asset_profile.asset_id
 		)
 		_collect_parts()
+
+
+func _teardown_body() -> void:
+	if _action_tween != null and _action_tween.is_valid():
+		_action_tween.kill()
+	if _animation_player != null:
+		_animation_player.stop()
+	if is_instance_valid(_body):
+		_body.free()
+	_body = null
+	_arm_r = null
+	_arm_l = null
+	_head_group = null
+	_tool_mount = null
+	_back_mount = null
+	_head_mount = null
+	_animation_player = null
+	_skeleton = null
+	_uses_rigged_preview = false
+	_hair_nodes.clear()
+	_eye_nodes.clear()
+	_rigged_skin_nodes.clear()
+	_base_body_meshes.clear()
+	_body_garment_meshes.clear()
+	_armor_anchors.clear()
+	_body_region_mask = 0
+	_appearance_assembler = CharacterAssembler.new()
 
 
 func _setup_rigged_preview() -> void:
@@ -302,7 +358,7 @@ func _setup_rigged_preview() -> void:
 func _assemble_default_appearance() -> void:
 	if _skeleton == null:
 		return
-	if not _appearance_assembler.assemble_onto(_body, DEFAULT_APPEARANCE):
+	if not _appearance_assembler.assemble_onto(_body, _appearance_preset):
 		push_warning(
 			"PlayerVisual: default appearance failed to assemble: %s"
 			% ", ".join(_appearance_assembler.last_warnings)
@@ -492,8 +548,11 @@ func _apply_authored_material_to(mesh_instance: MeshInstance3D) -> void:
 			continue
 		var base := source as BaseMaterial3D
 		var styled := ShaderMaterial.new()
-		styled.resource_name = "%s_palette_surface_%d" % [
-			_asset_profile.profile_id, surface_index
+		# Preserve authored semantic markers such as "NoTint"; the character
+		# assembler uses them to keep eye highlights, teeth, and tongues from
+		# inheriting palette colors.
+		styled.resource_name = "%s_palette_surface_%d_%s" % [
+			_asset_profile.profile_id, surface_index, source.resource_name
 		]
 		styled.shader = _asset_profile.material_shader
 		styled.set_shader_parameter("albedo_texture", base.albedo_texture)
@@ -516,9 +575,7 @@ func _apply_authored_material_to(mesh_instance: MeshInstance3D) -> void:
 
 func _capture_base_body_meshes() -> void:
 	_base_body_meshes.clear()
-	var modular_body := _body.find_child(
-		"PlayerMaleBody", true, false
-	) as MeshInstance3D
+	var modular_body := _primary_body_mesh()
 	if modular_body != null:
 		_base_body_meshes.append(modular_body)
 		return
@@ -603,10 +660,7 @@ func _clear_body_garment() -> void:
 func _attach_skinned_body_bundle(asset_id: String) -> bool:
 	if _skeleton == null or asset_id == "" or not assets.exists(asset_id):
 		return false
-	if (
-		_body.find_child("PlayerMaleBody", true, false)
-		is MeshInstance3D
-	):
+	if _primary_body_mesh() != null:
 		# Existing body-slot bundles were fitted to the retired character and
 		# are deliberately ignored until wardrobe assets are authored for this
 		# production body.
@@ -750,7 +804,7 @@ func _collect_rigged_customization_parts() -> void:
 	_hair_nodes.clear()
 	_eye_nodes.clear()
 	_rigged_skin_nodes.clear()
-	var body_mesh := _find("PlayerMaleBody") as MeshInstance3D
+	var body_mesh := _primary_body_mesh()
 	if body_mesh != null:
 		_rigged_skin_nodes.append(body_mesh)
 	var hair_root := _appearance_assembler.equipped_node(CharacterSlots.HAIR)
@@ -760,6 +814,14 @@ func _collect_rigged_customization_parts() -> void:
 	if eyes_root != null:
 		_eye_nodes.append(eyes_root)
 	_update_hair_visibility()
+
+
+func _primary_body_mesh() -> MeshInstance3D:
+	for node_name in ["PlayerMaleBody", "PlayerFemaleBody"]:
+		var candidate := _find(node_name) as MeshInstance3D
+		if candidate != null:
+			return candidate
+	return null
 
 
 func _find(node_name: String) -> Node3D:
@@ -785,6 +847,8 @@ func _wrap_pivot(pivot_name: String, pivot_pos: Vector3, part_names: Array) -> N
 # ------------------------------------------------------------------ customization
 
 func apply_profile(profile: PlayerProfile) -> void:
+	if profile.body_index != _active_body_index:
+		_switch_body(profile.body_index)
 	if _uses_rigged_preview:
 		_apply_rigged_profile(profile)
 		return
@@ -817,15 +881,16 @@ func apply_profile(profile: PlayerProfile) -> void:
 
 
 func _apply_rigged_profile(profile: PlayerProfile) -> void:
+	_apply_catalog_parts(profile)
 	var skin := palette.skin_tones[
 		clampi(profile.skin_index, 0, palette.skin_tones.size() - 1)
 	]
 	var hair := palette.hair_colors[
 		clampi(profile.hair_color_index, 0, palette.hair_colors.size() - 1)
 	]
-	# Hair styles beyond the default become additional CharacterPartDefinitions;
-	# the index is retained so saves keep their selection when styles return.
-	_active_hair_style = clampi(profile.hair_style, 0, 3)
+	_active_hair_style = clampi(
+		profile.hair_style, 0, maxi(PART_CATALOG.hair.size() - 1, 0)
+	)
 	for skin_node in _rigged_skin_nodes:
 		_set_rigged_mesh_color(skin_node, skin)
 	_appearance_assembler.apply_color(CharacterSlots.NOSE, skin)
@@ -835,19 +900,46 @@ func _apply_rigged_profile(profile: PlayerProfile) -> void:
 	_appearance_assembler.apply_color(
 		CharacterSlots.EYES, palette.color("eyes")
 	)
-	# The mouth keeps its authored deep warm brown so the smile stays readable
-	# on every skin tone.
+	_appearance_assembler.apply_color(
+		CharacterSlots.MOUTH, _appearance_preset.mouth_color
+	)
 	_update_hair_visibility()
-	match profile.eye_index:
-		1:  # sleepy
-			for eye in _eye_nodes:
-				eye.scale = Vector3(1.0, 0.55, 1.0)
-		2:  # bright
-			for eye in _eye_nodes:
-				eye.scale = Vector3.ONE * 1.18
-		_:
-			for eye in _eye_nodes:
-				eye.scale = Vector3.ONE
+	for eye in _eye_nodes:
+		eye.scale = Vector3.ONE
+
+
+func _apply_catalog_parts(profile: PlayerProfile) -> void:
+	var requested := {
+		CharacterSlots.HAIR: profile.hair_style,
+		CharacterSlots.EYES: profile.eye_index,
+		CharacterSlots.MOUTH: profile.mouth_index,
+		CharacterSlots.NOSE: profile.nose_index,
+	}
+	var changed := false
+	for slot in requested:
+		var part := PART_CATALOG.part_for(slot, int(requested[slot]))
+		if part == null:
+			continue
+		var current := _appearance_assembler.equipped_part(slot)
+		if current != null and current.part_id == part.part_id:
+			continue
+		if _appearance_assembler.replace_rigid_part(
+			part, _appearance_preset
+		):
+			_style_assembled_part(slot)
+			changed = true
+	if changed:
+		_collect_rigged_customization_parts()
+
+
+func _style_assembled_part(slot: String) -> void:
+	var root := _appearance_assembler.equipped_node(slot)
+	if root == null:
+		return
+	if root is MeshInstance3D:
+		_apply_authored_material_to(root as MeshInstance3D)
+	for child in root.find_children("*", "MeshInstance3D", true, false):
+		_apply_authored_material_to(child as MeshInstance3D)
 
 
 func _set_rigged_mesh_color(mesh_instance: MeshInstance3D, color: Color) -> void:

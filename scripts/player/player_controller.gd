@@ -671,6 +671,25 @@ func _update_focus() -> void:
 							"point": struct_pos,
 						}
 						best_distance = struct_distance
+					var feature_options: Array = core.interactions.options_for(
+						"player",
+						structure.instance_id
+					)
+					if (
+						not feature_options.is_empty()
+						and struct_distance < best_distance
+					):
+						var option = feature_options[0]
+						best = {
+							"kind": "feature_interaction",
+							"feature": option.feature_id,
+							"option": option,
+							"coord": coord,
+							"elevation": elevation,
+							"instance_id": structure.instance_id,
+							"point": struct_pos,
+						}
+						best_distance = struct_distance
 	for package in get_tree().get_nodes_in_group("delivery_packages"):
 		var package_node := package as Node3D
 		if not is_instance_valid(package_node) or not package_node.visible:
@@ -701,6 +720,13 @@ func _update_focus() -> void:
 		or best.get("coord") != _focus.get("coord")
 		or best.get("instance_id") != _focus.get("instance_id")
 		or best.get("node") != _focus.get("node")
+		or best.get("feature") != _focus.get("feature")
+		or _focus_option_label(best) != _focus_option_label(_focus)
 	):
 		_focus = best
 		interaction_focus_changed.emit(best)
+
+
+func _focus_option_label(interaction: Dictionary) -> String:
+	var option = interaction.get("option")
+	return String(option.label) if option != null else ""

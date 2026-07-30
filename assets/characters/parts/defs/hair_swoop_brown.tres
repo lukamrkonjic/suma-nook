@@ -13,7 +13,7 @@ validated = true
 [resource]
 script = ExtResource("3_7c5nc")
 part_id = "hair_swoop_brown"
-display_name = "Brown Swoop"
+display_name = "Swoop"
 slot = "HAIR"
 compatibility_tags = PackedStringArray()
 scene = ExtResource("2_wjes2")

@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CharacterPartDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_part_fit.gd" id="1_fgvr2"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/mouth_neutral.glb" id="2_83pip"]
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="3_f6w73"]
+
+[sub_resource type="Resource" id="Resource_jt7jf"]
+script = ExtResource("1_fgvr2")
+body_profile_id = "body_male"
+notes = "Authored directly against body_male; identity fit."
+validated = true
+
+[resource]
+script = ExtResource("3_f6w73")
+part_id = "mouth_neutral"
+display_name = "Soft Line"
+slot = "MOUTH"
+compatibility_tags = PackedStringArray()
+scene = ExtResource("2_83pip")
+socket = "MouthSocket"
+compatible_body_profiles = PackedStringArray()
+fits = Array[ExtResource("1_fgvr2")]([SubResource("Resource_jt7jf")])
+hidden_regions = PackedStringArray()
+hides_slots = PackedStringArray()
+color_channel = "mouth"

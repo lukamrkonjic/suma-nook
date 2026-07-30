@@ -8,6 +8,7 @@ extends RefCounted
 
 const GRID_FIT_MARGIN := 0.02
 const AmbientMotionScript := preload("res://scripts/visuals/ambient_motion.gd")
+const BurningEffectScript := preload("res://scripts/visuals/burning_effect_3d.gd")
 
 var assets: AssetLibrary
 var grid: WorldGrid
@@ -19,7 +20,10 @@ func _init(asset_library: AssetLibrary, world_grid: WorldGrid) -> void:
 	grid = world_grid
 
 
-func instantiate_visual(definition: Defs.StructureDefinition) -> Node3D:
+func instantiate_visual(
+	definition: Defs.StructureDefinition,
+	include_effects := true
+) -> Node3D:
 	var visual := Node3D.new()
 	if definition == null:
 		push_warning("StructureVisualFactory received a missing structure definition.")
@@ -31,6 +35,10 @@ func instantiate_visual(definition: Defs.StructureDefinition) -> Node3D:
 	match definition.grid_fit_profile:
 		"tile_span":
 			_fit_authored_xz_to_tile(authored)
+	if definition.has_capability("fire"):
+		_hide_authored_fire(authored, definition.capability("fire"))
+		if include_effects:
+			visual.add_child(instantiate_fire_effect(definition, authored))
 	if definition.has_capability("ambient_motion"):
 		var motion := AmbientMotionScript.new()
 		motion.name = "AmbientMotion"
@@ -39,17 +47,50 @@ func instantiate_visual(definition: Defs.StructureDefinition) -> Node3D:
 	return visual
 
 
+func instantiate_fire_effect(
+	definition: Defs.StructureDefinition,
+	authored_visual: Node3D = null
+) -> Node3D:
+	if definition == null or not definition.has_capability("fire"):
+		return Node3D.new()
+	var profile := definition.capability("fire")
+	var owns_authored := authored_visual == null
+	if owns_authored:
+		authored_visual = assets.instantiate(definition.asset_id)
+		match definition.grid_fit_profile:
+			"tile_span":
+				_fit_authored_xz_to_tile(authored_visual)
+	var effect := BurningEffectScript.new()
+	effect.name = "BurningEffect"
+	effect.configure(assets.materials, profile, authored_visual)
+	if owns_authored:
+		authored_visual.free()
+	return effect
+
+
+func _hide_authored_fire(authored: Node3D, profile: Dictionary) -> void:
+	var hidden_nodes: Array = profile.get("hide_nodes", [])
+	for node_name in hidden_nodes:
+		var old_flame := authored.find_child(String(node_name), true, false)
+		if old_flame is Node3D:
+			(old_flame as Node3D).visible = false
+
+
 func batch_mesh(definition: Defs.StructureDefinition) -> ArrayMesh:
 	if definition == null:
 		return null
 	if _batch_mesh_cache.has(definition.id):
 		return _batch_mesh_cache[definition.id]
-	var visual := instantiate_visual(definition)
+	var visual := instantiate_visual(definition, false)
 	var combined := assets.flatten_static_visual(visual, definition.id)
 	visual.free()
 	if combined != null:
 		_batch_mesh_cache[definition.id] = combined
 	return combined
+
+
+func clear_asset_edit_cache() -> void:
+	_batch_mesh_cache.clear()
 
 
 func _fit_authored_xz_to_tile(authored: Node3D) -> void:

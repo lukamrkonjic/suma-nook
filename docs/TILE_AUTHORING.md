@@ -214,10 +214,10 @@ The current processors are concrete examples:
 
 - `process_sand_tile.py` ray-samples the useful source dune, regularizes it to
   a smooth height field, discards the generated block, and exports only
-  `tile_layer_surface_sand.glb`.
+  `tile_layer_surface_sand.glb` with flat normals as Asset Studio's 0% value.
 - `process_snow_tile.py` configures that extraction pipeline for stronger
-  low-frequency smoothing and exports only
-  `tile_layer_surface_snow.glb`.
+  low-frequency geometry smoothing and exports only
+  `tile_layer_surface_snow.glb`, also at the flat 0% normal baseline.
 - `process_concrete_tile.py` preserves the revised untextured four-panel
   control-joint topology and flat shading, applies no smoothing or remeshing,
   normalizes it to the 18 cm deep-constructed layer contract, and exports only

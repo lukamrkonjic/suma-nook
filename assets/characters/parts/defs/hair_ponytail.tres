@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CharacterPartDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_part_fit.gd" id="1_0fjpb"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/hair_ponytail.glb" id="2_hhxbh"]
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="3_mnlf7"]
+
+[sub_resource type="Resource" id="Resource_vkhrw"]
+script = ExtResource("1_0fjpb")
+body_profile_id = "body_male"
+notes = "Authored directly against body_male; identity fit."
+validated = true
+
+[resource]
+script = ExtResource("3_mnlf7")
+part_id = "hair_ponytail"
+display_name = "Ponytail"
+slot = "HAIR"
+compatibility_tags = PackedStringArray()
+scene = ExtResource("2_hhxbh")
+socket = "HairSocket"
+compatible_body_profiles = PackedStringArray()
+fits = Array[ExtResource("1_0fjpb")]([SubResource("Resource_vkhrw")])
+hidden_regions = PackedStringArray()
+hides_slots = PackedStringArray()
+color_channel = "hair"

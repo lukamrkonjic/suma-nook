@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="CharacterBodyProfile" format=3]
+
+[ext_resource type="PackedScene" path="res://assets/3d/reworked/player_female_mannequin.glb" id="1_body"]
+[ext_resource type="Script" path="res://scripts/characters/character_body_profile.gd" id="2_profile"]
+
+[resource]
+script = ExtResource("2_profile")
+profile_id = "body_female"
+asset_id = "player_female_mannequin"
+body_scene = ExtResource("1_body")
+compatibility_tags = PackedStringArray("female", "human")
+animation_profile_id = "mixamo_34"
+skeleton_node_name = "Skeleton3D"
+head_bone = "mixamorigHead"
+face_sockets = Dictionary[String, Vector3]({
+"BeardSocket": Vector3(0, 0.12, 0.12),
+"BrowsSocket": Vector3(0, 0.292, 0.12),
+"EyesSocket": Vector3(0, 0.246, 0.118),
+"FaceRoot": Vector3(0, 0.254, 0),
+"HairSocket": Vector3(0, 0.36, -0.003),
+"HatSocket": Vector3(0, 0.41, -0.003),
+"MoustacheSocket": Vector3(0, 0.186, 0.138),
+"MouthSocket": Vector3(0, 0.15, 0.134),
+"NoseSocket": Vector3(0, 0.217, 0.132)
+})
+bone_sockets = Dictionary[String, String]({
+"BackSocket": "mixamorigSpine2",
+"ChestSocket": "mixamorigSpine2",
+"HandSocket_L": "mixamorigLeftHand",
+"HandSocket_R": "mixamorigRightHand",
+"HipSocket_L": "mixamorigLeftUpLeg",
+"HipSocket_R": "mixamorigRightUpLeg"
+})
+supports_region_mask = false
+preview_camera_height = 0.55
+preview_camera_size = 1.35

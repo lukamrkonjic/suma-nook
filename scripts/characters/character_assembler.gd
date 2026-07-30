@@ -23,6 +23,7 @@ var _equipped_meshes: Dictionary = {}  # slot -> Array of skinned MeshInstance3D
 var _equipped_parts: Dictionary = {}   # slot -> CharacterPartDefinition
 var _suppressed_slots: Dictionary = {} # slot -> true
 var _head_attachment: BoneAttachment3D
+var _region_body_mesh: MeshInstance3D
 
 
 ## Convenience for tools and the character lab: instantiates the body scene
@@ -69,6 +70,7 @@ func assemble_onto(body_root: Node3D, preset: CharacterAppearancePreset) -> bool
 		)
 		return false
 	clear_parts()
+	_region_body_mesh = _locate_region_body_mesh()
 	_build_socket_tree()
 	if _sockets.is_empty():
 		return false
@@ -106,6 +108,7 @@ func clear_parts() -> void:
 		_head_attachment.queue_free()
 	_head_attachment = null
 	_sockets.clear()
+	_region_body_mesh = null
 
 
 func equipped_node(slot: String) -> Node3D:
@@ -176,12 +179,96 @@ func apply_color(slot: String, color: Color) -> void:
 		_tint_mesh(mesh_instance, color)
 
 
+## Replaces one rigid cosmetic without rebuilding the body, clothing, or
+## socket tree. Character creation calls this repeatedly while the player
+## browses face and hair options.
+func replace_rigid_part(
+	part: CharacterPartDefinition,
+	preset: CharacterAppearancePreset
+) -> bool:
+	if _body_root == null or _skeleton == null or _profile == null:
+		_warn("replace_rigid_part called before assembly")
+		return false
+	if part == null or preset == null:
+		_warn("replace_rigid_part called without a part/preset")
+		return false
+	if part.attachment_type != CharacterPartDefinition.ATTACHMENT_RIGID:
+		_warn("part '%s' is not a rigid cosmetic" % part.part_id)
+		return false
+	var errors := part.validation_errors()
+	if not errors.is_empty():
+		_warn("part '%s' is invalid: %s" % [part.part_id, errors])
+		return false
+	_remove_slot(part.slot)
+	_equip_part(part, preset)
+	_apply_suppressed_visibility()
+	return equipped_part(part.slot) == part
+
+
 # ------------------------------------------------------------------ internal
 
 func _locate_skeleton(body_root: Node3D) -> Skeleton3D:
 	return body_root.find_child(
 		_profile.skeleton_node_name, true, false
 	) as Skeleton3D
+
+
+func _remove_slot(slot: String) -> void:
+	var root := _equipped.get(slot) as Node3D
+	if is_instance_valid(root):
+		root.visible = false
+		# PlayerVisual may wrap imported surfaces in per-instance shader
+		# overrides. Release those while the mesh instance is still registered
+		# before deferring the old part's destruction.
+		for mesh_instance in _mesh_instances(root):
+			if mesh_instance.mesh == null:
+				continue
+			for surface_index in mesh_instance.mesh.get_surface_count():
+				mesh_instance.set_surface_override_material(
+					surface_index, null
+				)
+		root.queue_free()
+	for mesh in _equipped_meshes.get(slot, []):
+		if not is_instance_valid(mesh) or mesh == root:
+			continue
+		(mesh as MeshInstance3D).visible = false
+		(mesh as Node).queue_free()
+	_equipped.erase(slot)
+	_equipped_meshes.erase(slot)
+	_equipped_parts.erase(slot)
+
+
+## Finds the skinned body surface carrying semantic region ids in UV2. This is
+## intentionally data-driven: additional body profiles do not need to use the
+## PlayerMaleBody node name as long as their body mesh carries the same region
+## contract.
+func _locate_region_body_mesh() -> MeshInstance3D:
+	var preferred := _body_root.find_child(
+		"PlayerMaleBody", true, false
+	) as MeshInstance3D
+	if preferred != null and _mesh_has_region_data(preferred):
+		return preferred
+	for child in _skeleton.find_children(
+		"*", "MeshInstance3D", true, false
+	):
+		var candidate := child as MeshInstance3D
+		if _mesh_has_region_data(candidate):
+			return candidate
+	return null
+
+
+func _mesh_has_region_data(mesh_instance: MeshInstance3D) -> bool:
+	if mesh_instance == null or mesh_instance.mesh == null:
+		return false
+	for surface_index in mesh_instance.mesh.get_surface_count():
+		var arrays := mesh_instance.mesh.surface_get_arrays(surface_index)
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		if arrays[Mesh.ARRAY_TEX_UV2] == null:
+			continue
+		var uv2: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV2]
+		if not vertices.is_empty() and uv2.size() == vertices.size():
+			return true
+	return false
 
 
 func _build_socket_tree() -> void:
@@ -333,11 +420,50 @@ func _equip_skinned_part(
 		_skeleton.add_child(mesh_instance)
 		attached.append(mesh_instance)
 	bundle.free()
+	if not part.hidden_regions.is_empty():
+		if _region_body_mesh == null:
+			_warn(
+				"skinned part '%s' covers body regions but the body has no "
+				+ "UV2 region mesh; no fabric underlayer was generated"
+				% part.part_id
+			)
+		else:
+			var underlayer := ClothingUnderlayerBuilder.build(
+				_region_body_mesh,
+				_skeleton,
+				part.hidden_regions,
+				attached,
+				"ClothingUnderlayer_%s" % part.part_id,
+				_underlayer_inset_for_slot(part.slot),
+			)
+			if underlayer == null:
+				_warn(
+					"skinned part '%s' could not generate its fabric underlayer"
+					% part.part_id
+				)
+			else:
+				_skeleton.add_child(underlayer)
+				attached.append(underlayer)
 	_equipped[part.slot] = attached[0]
 	_equipped_meshes[part.slot] = attached
 	_equipped_parts[part.slot] = part
 	if not part.color_channel.is_empty():
 		apply_color(part.slot, preset.color_for_channel(part.color_channel))
+
+
+## If two animated garments cover the same body triangle, the outer garment's
+## matching shell sits closer to the surface. This prevents z-fighting while
+## preserving sensible layering for shirts beneath jackets.
+func _underlayer_inset_for_slot(slot: String) -> float:
+	match slot:
+		CharacterSlots.TOP_INNER:
+			return 0.0024
+		CharacterSlots.TOP_OUTER:
+			return 0.0012
+		CharacterSlots.GLOVES, CharacterSlots.SHOES:
+			return 0.0010
+		_:
+			return ClothingUnderlayerBuilder.DEFAULT_INSET_METERS
 
 
 func _apply_suppressed_visibility() -> void:
@@ -376,6 +502,8 @@ func _tint_mesh(mesh_instance: MeshInstance3D, color: Color) -> void:
 	if mesh_instance.mesh == null:
 		return
 	for surface_index in mesh_instance.mesh.get_surface_count():
+		if _surface_is_tint_exempt(mesh_instance, surface_index):
+			continue
 		var override := mesh_instance.get_surface_override_material(
 			surface_index
 		)
@@ -392,6 +520,25 @@ func _tint_mesh(mesh_instance: MeshInstance3D, color: Color) -> void:
 			var tinted := (active as BaseMaterial3D).duplicate() as BaseMaterial3D
 			tinted.albedo_color = color
 			mesh_instance.set_surface_override_material(surface_index, tinted)
+
+
+## Fixed-color surfaces (eye highlights, sclera whites, teeth, tongues) opt
+## out of channel tinting by carrying "NoTint" in their authored material
+## name. The palette-shader wrapper preserves that name in its own
+## resource_name, so the marker survives material styling.
+func _surface_is_tint_exempt(
+	mesh_instance: MeshInstance3D, surface_index: int
+) -> bool:
+	for material in [
+		mesh_instance.get_surface_override_material(surface_index),
+		mesh_instance.get_active_material(surface_index),
+	]:
+		if (
+			material != null
+			and material.resource_name.to_lower().contains("notint")
+		):
+			return true
+	return false
 
 
 func _warn(message: String) -> void:

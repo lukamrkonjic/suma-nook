@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CharacterPartDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_part_fit.gd" id="1_u1hac"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/nose_dot.glb" id="2_jlxc8"]
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="3_2ecna"]
+
+[sub_resource type="Resource" id="Resource_8jg3i"]
+script = ExtResource("1_u1hac")
+body_profile_id = "body_male"
+notes = "Authored directly against body_male; identity fit."
+validated = true
+
+[resource]
+script = ExtResource("3_2ecna")
+part_id = "nose_dot"
+display_name = "Little Dot"
+slot = "NOSE"
+compatibility_tags = PackedStringArray()
+scene = ExtResource("2_jlxc8")
+socket = "NoseSocket"
+compatible_body_profiles = PackedStringArray()
+fits = Array[ExtResource("1_u1hac")]([SubResource("Resource_8jg3i")])
+hidden_regions = PackedStringArray()
+hides_slots = PackedStringArray()
+color_channel = "skin"

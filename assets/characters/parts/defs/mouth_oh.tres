@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CharacterPartDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_part_fit.gd" id="1_yrmax"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/mouth_oh.glb" id="2_chkc6"]
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="3_3jfde"]
+
+[sub_resource type="Resource" id="Resource_fte1p"]
+script = ExtResource("1_yrmax")
+body_profile_id = "body_male"
+notes = "Authored directly against body_male; identity fit."
+validated = true
+
+[resource]
+script = ExtResource("3_3jfde")
+part_id = "mouth_oh"
+display_name = "Surprised"
+slot = "MOUTH"
+compatibility_tags = PackedStringArray()
+scene = ExtResource("2_chkc6")
+socket = "MouthSocket"
+compatible_body_profiles = PackedStringArray()
+fits = Array[ExtResource("1_yrmax")]([SubResource("Resource_fte1p")])
+hidden_regions = PackedStringArray()
+hides_slots = PackedStringArray()
+color_channel = "mouth"

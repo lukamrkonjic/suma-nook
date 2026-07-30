@@ -10,6 +10,7 @@ and irregular underside are discarded. This processor:
   contour-following filter that softens facets without erasing the dunes;
 * blends only the outer 16% to a shared zero-height edge so repeated tiles meet;
 * adds a short sand-colored cap skirt down to the standard body seam;
+* exports flat per-face normals as the absolute 0% smoothing baseline;
 * exports only that replaceable surface layer.
 
 The runtime mounts the resulting GLB on ``tile_layer_base_standard``. Keeping
@@ -41,7 +42,7 @@ EXPECTED_SOURCE_SHA256 = (
 ASSET_LABEL = "sand"
 MATERIAL_NAME = "sand_top"
 CAP_OBJECT_NAME = "sand_cap"
-CAP_MESH_NAME = "smoothed_source_dune_cap_mesh"
+CAP_MESH_NAME = "flat_baseline_polished_source_dune_cap_mesh"
 REPORT_PREFIX = "SAND_TILE_SURFACE_REPORT="
 
 TILE = 1.70
@@ -62,8 +63,6 @@ GAUSSIAN_PASSES = 1
 CONTOUR_SMOOTHING_PASSES = 3
 CONTOUR_SMOOTHING_BLEND = 0.60
 CONTOUR_SAMPLE_SPACING = 1.35
-SMOOTH_ANGLE_DEG = 60.0
-
 PALETTE = {
     "sand_top": "D1BD9E",
 }
@@ -413,16 +412,12 @@ def create_dune_cap(heights: list[list[float]]) -> bpy.types.Object:
                 vertex.y / CAP_SPAN + 0.5,
             )
 
-    bpy.ops.object.select_all(action="DESELECT")
-    cap.select_set(True)
-    bpy.context.view_layer.objects.active = cap
-    try:
-        bpy.ops.object.shade_smooth_by_angle(
-            angle=math.radians(SMOOTH_ANGLE_DEG),
-            keep_sharp_edges=True,
-        )
-    except Exception:
-        bpy.ops.object.shade_smooth()
+    # Asset Studio owns the complete smoothing value. The production GLB is
+    # deliberately exported at the absolute 0% baseline instead of arriving
+    # with hidden smooth normals that the editor can only add to.
+    for polygon in mesh.polygons:
+        polygon.use_smooth = False
+    mesh.update()
     return cap
 
 
@@ -534,6 +529,10 @@ def main() -> None:
                 "output_triangles": sum(
                     max(0, len(polygon.vertices) - 2)
                     for polygon in cap.data.polygons
+                ),
+                "normal_baseline": "flat_per_face_0_percent",
+                "output_smooth_polygons": sum(
+                    1 for polygon in cap.data.polygons if polygon.use_smooth
                 ),
                 "cap_bounds": {
                     "min": [round(value, 4) for value in cap_lower],

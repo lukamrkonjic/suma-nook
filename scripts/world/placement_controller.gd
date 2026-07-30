@@ -840,6 +840,18 @@ func pointer_press(screen_position: Vector2) -> void:
 		click()
 
 
+## Starts the same press-drag-release gesture for a piece chosen from the Build
+## Bag. GUI buttons consume their own press event, so the world input path
+## cannot initialize this state itself.
+func begin_pointer_drag_for_held(screen_position: Vector2) -> void:
+	if held.is_empty():
+		return
+	_pointer_down = true
+	_pointer_dragging = false
+	_pointer_press_position = screen_position
+	_picked_on_pointer_press = true
+
+
 func pointer_motion(screen_position: Vector2) -> void:
 	if (
 		_pointer_down
@@ -855,6 +867,38 @@ func pointer_release(_screen_position: Vector2) -> void:
 			click()
 		else:
 			action_result.emit(false, _invalid_message(), "invalid")
+	_pointer_down = false
+	_pointer_dragging = false
+	_picked_on_pointer_press = false
+
+
+func pointer_is_down() -> bool:
+	return _pointer_down
+
+
+func pointer_dragging_moved_piece() -> bool:
+	return (
+		_pointer_down
+		and _pointer_dragging
+		and _picked_on_pointer_press
+		and not held.is_empty()
+		and held.get("moving") != null
+	)
+
+
+func pointer_dragging_catalogue_piece() -> bool:
+	return (
+		_pointer_down
+		and _pointer_dragging
+		and _picked_on_pointer_press
+		and not held.is_empty()
+		and held.get("moving") == null
+	)
+
+
+## Ends a catalogue click that never became a world drag. The selected piece
+## remains held, preserving the original click-to-select workflow.
+func cancel_pointer_gesture() -> void:
 	_pointer_down = false
 	_pointer_dragging = false
 	_picked_on_pointer_press = false
@@ -1240,6 +1284,9 @@ func store_held() -> void:
 			return
 	held = {}
 	core.autosave_paused = false
+	_pointer_down = false
+	_pointer_dragging = false
+	_picked_on_pointer_press = false
 	held_changed.emit(held)
 	_build_ghost()
 	core.autosave_soon()

@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CharacterPartDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_part_fit.gd" id="1_d1bqb"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/eyes_happy_pair.glb" id="2_f7b7q"]
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="3_c7wps"]
+
+[sub_resource type="Resource" id="Resource_vp6ae"]
+script = ExtResource("1_d1bqb")
+body_profile_id = "body_male"
+notes = "Authored directly against body_male; identity fit."
+validated = true
+
+[resource]
+script = ExtResource("3_c7wps")
+part_id = "eyes_happy_pair"
+display_name = "Happy Arcs"
+slot = "EYES"
+compatibility_tags = PackedStringArray()
+scene = ExtResource("2_f7b7q")
+socket = "EyesSocket"
+compatible_body_profiles = PackedStringArray()
+fits = Array[ExtResource("1_d1bqb")]([SubResource("Resource_vp6ae")])
+hidden_regions = PackedStringArray()
+hides_slots = PackedStringArray()
+color_channel = "eyes"

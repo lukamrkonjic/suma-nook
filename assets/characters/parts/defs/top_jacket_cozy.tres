@@ -15,5 +15,5 @@ scene = ExtResource("3_oebue")
 attachment_type = "skinned"
 compatible_body_profiles = PackedStringArray("body_male")
 clothing_fit = ExtResource("4_fit")
-hidden_regions = PackedStringArray("chest", "abdomen", "upper_chest_l", "upper_chest_r", "clavicle_l", "clavicle_r", "shoulder_l", "shoulder_r", "shoulder_cap_l", "shoulder_cap_r", "armpit_l", "armpit_r", "upper_arm_l", "upper_arm_r", "upper_arm_inner_l", "upper_arm_inner_r", "forearm_l", "forearm_r")
+hidden_regions = PackedStringArray("shoulder_l", "shoulder_r", "armpit_r", "upper_arm_l", "upper_arm_r", "upper_arm_inner_l", "upper_arm_inner_r", "chest", "abdomen", "armpit_l")
 hides_slots = PackedStringArray()

@@ -7,7 +7,12 @@ extends CanvasLayer
 signal open_parcel_requested
 signal build_piece_selected(kind: String, id: String)
 signal build_world_browse_requested
+signal build_store_requested
 signal pause_requested
+
+const BuildThumbnailRendererScript := preload(
+	"res://scripts/ui/build_thumbnail_renderer.gd"
+)
 
 var core: GameCore
 var kit: UiKit
@@ -19,15 +24,38 @@ var _prompt_label: Label
 var _hint_label: Label
 var _health_box: HBoxContainer
 var _build_bar: PanelContainer
+var _build_bar_column: VBoxContainer
+var _build_compact_row: HBoxContainer
+var _build_expand_button: Button
+var _build_expanded_clip: Control
+var _build_expanded_content: VBoxContainer
 var _build_category_scroll: ScrollContainer
 var _build_category_strip: HBoxContainer
 var _build_item_scroll: ScrollContainer
-var _build_strip: HBoxContainer
+var _build_strip: GridContainer
 var _build_previous_button: Button
 var _build_next_button: Button
-var _build_browse_button: Button
 var _build_category_group: ButtonGroup
 var _selected_build_category := ""
+var _selected_build_entry: Dictionary = {}
+var _build_library_expanded := false
+var _build_hover_expand_armed := true
+var _build_mouse_exit_pending := false
+var _build_library_tween: Tween
+var _build_bag_button_tween: Tween
+var _build_bag_idle_tween: Tween
+var _build_bag_open_pending := false
+var _build_panel_expanded_style: StyleBoxFlat
+var _build_panel_collapsed_style: StyleBoxEmpty
+var _build_drop_overlay: PanelContainer
+var _build_drop_label: Label
+var _build_drop_active := false
+var _store_bubble: Button
+var _store_bubble_tween: Tween
+var _store_bubble_idle_tween: Tween
+var _catalogue_pointer_active := false
+var _thumbnail_renderer: BuildThumbnailRenderer
+var _build_preview_targets: Dictionary = {}
 var _context_column: VBoxContainer
 var _parcel_button: Button
 var _bottom_buttons: HBoxContainer
@@ -42,18 +70,20 @@ var _prompt_description := ""
 var _prompt_secondary: Array[Dictionary] = []
 
 const BUILD_CATEGORIES := [
-	{"id": "ground", "label": "Ground"},
-	{"id": "woodland", "label": "Woodland"},
-	{"id": "stone", "label": "Stone"},
-	{"id": "winter", "label": "Snow"},
-	{"id": "nature", "label": "Nature"},
-	{"id": "furniture", "label": "Furniture"},
-	{"id": "boundaries", "label": "Borders"},
-	{"id": "utilities", "label": "Utilities"},
-	{"id": "buildings", "label": "Buildings"},
-	{"id": "storage", "label": "Storage"},
-	{"id": "deeds", "label": "Deeds"},
+	{"id": "ground", "label": "Ground", "icon": "category_ground.svg"},
+	{"id": "woodland", "label": "Woodland", "icon": "category_woodland.svg"},
+	{"id": "stone", "label": "Stone", "icon": "category_stone.svg"},
+	{"id": "winter", "label": "Snow", "icon": "category_winter.svg"},
+	{"id": "nature", "label": "Nature", "icon": "category_nature.svg"},
+	{"id": "furniture", "label": "Furniture", "icon": "category_furniture.svg"},
+	{"id": "boundaries", "label": "Borders", "icon": "category_boundaries.svg"},
+	{"id": "utilities", "label": "Utilities", "icon": "category_utilities.svg"},
+	{"id": "buildings", "label": "Buildings", "icon": "category_buildings.svg"},
+	{"id": "storage", "label": "Storage", "icon": "category_storage.svg"},
+	{"id": "deeds", "label": "Deeds", "icon": "category_deeds.svg"},
 ]
+
+const BUILD_ICON_DIRECTORY := "res://assets/ui/icons/"
 
 
 func setup(game_core: GameCore, ui_kit: UiKit, placement_controller: PlacementController) -> void:
@@ -189,27 +219,89 @@ func _build_layout() -> void:
 	_parcel_button.pressed.connect(func(): open_parcel_requested.emit())
 	_bottom_buttons.add_child(_parcel_button)
 
-	# Build library — a compact category shelf inspired by a physical tray.
-	# Both rows use real scroll containers, so large collections remain usable
-	# with a mouse wheel, trackpad, scrollbar, keyboard focus, or arrow paging.
-	_build_bar = kit.card(Vector2(1060, 0))
+	# Build Bag — a single floating icon at rest, expanding upward into the
+	# owned-piece browser only while the player is using it.
+	_build_bar = PanelContainer.new()
 	_build_bar.name = "BuildLibrary"
 	_build_bar.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	_build_bar.position.y = -14
+	_build_bar.position.y = -18
 	_build_bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_build_bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_build_bar.custom_minimum_size = Vector2(70, 0)
+	_build_panel_collapsed_style = StyleBoxEmpty.new()
+	_build_panel_collapsed_style.set_content_margin_all(0)
+	_build_panel_expanded_style = kit.cloud_panel_style(28)
+	_build_panel_expanded_style.content_margin_left = 24
+	_build_panel_expanded_style.content_margin_right = 24
+	_build_panel_expanded_style.content_margin_top = 22
+	_build_panel_expanded_style.content_margin_bottom = 20
+	_build_bar.add_theme_stylebox_override("panel", _build_panel_collapsed_style)
 	_build_bar.visible = false
+	_build_bar.mouse_entered.connect(_on_build_library_mouse_entered)
+	_build_bar.mouse_exited.connect(_on_build_library_mouse_exited)
+	_build_bar.gui_input.connect(_on_build_library_input)
 	root.add_child(_build_bar)
-	var bar_col := VBoxContainer.new()
-	bar_col.add_theme_constant_override("separation", 8)
-	_build_bar.add_child(bar_col)
+	_build_bar_column = VBoxContainer.new()
+	_build_bar_column.add_theme_constant_override("separation", 7)
+	_build_bar.add_child(_build_bar_column)
 
-	var library_header := HBoxContainer.new()
-	bar_col.add_child(library_header)
+	_build_compact_row = HBoxContainer.new()
+	_build_compact_row.name = "CompactBuildDock"
+	_build_compact_row.custom_minimum_size = Vector2(70, 70)
+	_build_compact_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_build_bar_column.add_child(_build_compact_row)
+	_build_expand_button = Button.new()
+	_build_expand_button.name = "BuildExpandLibrary"
+	_build_expand_button.custom_minimum_size = Vector2(66, 66)
+	_build_expand_button.icon = load(BUILD_ICON_DIRECTORY + "build_bag.svg")
+	_build_expand_button.expand_icon = false
+	_build_expand_button.tooltip_text = "Build Bag"
+	_build_expand_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_build_expand_button.focus_mode = Control.FOCUS_ALL
+	var bag_normal := StyleBoxFlat.new()
+	bag_normal.bg_color = Color(1.0, 0.995, 0.965, 0.98)
+	bag_normal.border_color = Color(0.78, 0.8, 0.7, 0.82)
+	bag_normal.set_border_width_all(2)
+	bag_normal.set_corner_radius_all(33)
+	bag_normal.shadow_color = Color(0.12, 0.15, 0.09, 0.22)
+	bag_normal.shadow_size = 10
+	bag_normal.shadow_offset = Vector2(0, 5)
+	var bag_hover := bag_normal.duplicate()
+	bag_hover.bg_color = Color.WHITE
+	bag_hover.border_color = Color(0.56, 0.68, 0.38)
+	bag_hover.shadow_size = 14
+	bag_hover.shadow_offset = Vector2(0, 7)
+	var bag_pressed := bag_hover.duplicate()
+	bag_pressed.bg_color = Color(0.94, 0.96, 0.88)
+	bag_pressed.shadow_size = 5
+	bag_pressed.shadow_offset = Vector2(0, 2)
+	_build_expand_button.add_theme_stylebox_override("normal", bag_normal)
+	_build_expand_button.add_theme_stylebox_override("hover", bag_hover)
+	_build_expand_button.add_theme_stylebox_override("pressed", bag_pressed)
+	_build_expand_button.add_theme_stylebox_override("focus", bag_hover)
+	_build_expand_button.pressed.connect(
+		func(): set_build_library_expanded(true)
+	)
+	_build_compact_row.add_child(_build_expand_button)
+	call_deferred("_start_build_bag_idle")
+
+	# A clipped plain Control does not inherit its children's minimum height,
+	# allowing the shelf to animate rather than pop between layouts.
+	_build_expanded_clip = Control.new()
+	_build_expanded_clip.name = "BuildLibraryExpansion"
+	_build_expanded_clip.clip_contents = true
+	_build_expanded_clip.custom_minimum_size.y = 356
+	_build_bar_column.add_child(_build_expanded_clip)
+	_build_expanded_content = VBoxContainer.new()
+	_build_expanded_content.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_build_expanded_content.offset_bottom = 350
+	_build_expanded_content.add_theme_constant_override("separation", 8)
+	_build_expanded_clip.add_child(_build_expanded_content)
+
 	_build_category_scroll = ScrollContainer.new()
 	_build_category_scroll.name = "BuildCategories"
 	_build_category_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_build_category_scroll.custom_minimum_size.y = 44
+	_build_category_scroll.custom_minimum_size.y = 58
 	_build_category_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	_build_category_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_build_category_scroll.scroll_deadzone = 8
@@ -218,34 +310,29 @@ func _build_layout() -> void:
 		func(event): _on_library_scroll_input(event, _build_category_scroll)
 	)
 	kit.style_library_scrollbar(_build_category_scroll)
-	library_header.add_child(_build_category_scroll)
+	_build_expanded_content.add_child(_build_category_scroll)
 	_build_category_strip = HBoxContainer.new()
-	_build_category_strip.add_theme_constant_override("separation", 5)
+	_build_category_strip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_build_category_strip.alignment = BoxContainer.ALIGNMENT_CENTER
+	_build_category_strip.add_theme_constant_override("separation", 8)
 	_build_category_scroll.add_child(_build_category_strip)
 
 	var item_row := HBoxContainer.new()
 	item_row.add_theme_constant_override("separation", 7)
-	bar_col.add_child(item_row)
-	_build_browse_button = kit.library_arrow_button("◎")
-	_build_browse_button.name = "BuildBrowseWorld"
-	_build_browse_button.tooltip_text = (
-		"Move the grid cursor over an existing tile or object, then pick it up."
-	)
-	_build_browse_button.pressed.connect(
-		func(): build_world_browse_requested.emit()
-	)
-	item_row.add_child(_build_browse_button)
+	item_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_build_expanded_content.add_child(item_row)
 	_build_previous_button = kit.library_arrow_button("<")
 	_build_previous_button.name = "BuildPreviousPage"
-	_build_previous_button.tooltip_text = "Previous items"
+	_build_previous_button.tooltip_text = "Previous row"
 	_build_previous_button.pressed.connect(func(): _page_build_items(-1))
 	item_row.add_child(_build_previous_button)
 	_build_item_scroll = ScrollContainer.new()
 	_build_item_scroll.name = "BuildItems"
 	_build_item_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_build_item_scroll.custom_minimum_size.y = 62
-	_build_item_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	_build_item_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_build_item_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_build_item_scroll.custom_minimum_size.y = 232
+	_build_item_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_build_item_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	_build_item_scroll.scroll_deadzone = 8
 	_build_item_scroll.follow_focus = true
 	_build_item_scroll.gui_input.connect(
@@ -253,19 +340,98 @@ func _build_layout() -> void:
 	)
 	kit.style_library_scrollbar(_build_item_scroll)
 	item_row.add_child(_build_item_scroll)
-	_build_strip = HBoxContainer.new()
-	_build_strip.name = "BuildItemStrip"
-	_build_strip.add_theme_constant_override("separation", 6)
+	_build_strip = GridContainer.new()
+	_build_strip.name = "BuildItemGrid"
+	_build_strip.columns = 7
+	_build_strip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_build_strip.add_theme_constant_override("h_separation", 9)
+	_build_strip.add_theme_constant_override("v_separation", 9)
 	_build_item_scroll.add_child(_build_strip)
 	_build_next_button = kit.library_arrow_button(">")
 	_build_next_button.name = "BuildNextPage"
-	_build_next_button.tooltip_text = "More items"
+	_build_next_button.tooltip_text = "Next row"
 	_build_next_button.pressed.connect(func(): _page_build_items(1))
 	item_row.add_child(_build_next_button)
 	_build_hint_label = kit.label("", 12)
 	_build_hint_label.add_theme_color_override("font_color", Color(0.45, 0.4, 0.33))
-	bar_col.add_child(_build_hint_label)
+	_build_expanded_content.add_child(_build_hint_label)
+
+	_build_drop_overlay = PanelContainer.new()
+	_build_drop_overlay.name = "BuildLibraryStoreDrop"
+	_build_drop_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_build_drop_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	_build_drop_overlay.visible = false
+	_build_drop_overlay.gui_input.connect(_on_build_drop_overlay_input)
+	var drop_style := StyleBoxFlat.new()
+	drop_style.bg_color = Color(0.31, 0.43, 0.24, 0.94)
+	drop_style.border_color = Color(0.82, 0.91, 0.56)
+	drop_style.set_border_width_all(4)
+	drop_style.set_corner_radius_all(16)
+	drop_style.shadow_color = Color(0.08, 0.12, 0.06, 0.24)
+	drop_style.shadow_size = 10
+	_build_drop_overlay.add_theme_stylebox_override("panel", drop_style)
+	_build_drop_label = kit.label(
+		"Release to return this piece to your Build Bag",
+		20,
+		true,
+		true
+	)
+	_build_drop_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_build_drop_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_build_drop_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_build_drop_overlay.add_child(_build_drop_label)
+	_build_bar.add_child(_build_drop_overlay)
+
+	# Picking up an existing world piece exposes one small, local action
+	# instead of requiring a long drag into the full-width library.
+	_store_bubble = kit.button("↓  Store in Bag")
+	_store_bubble.name = "StoreHeldWorldPiece"
+	_store_bubble.custom_minimum_size = Vector2(190, 52)
+	_store_bubble.tooltip_text = "Return this placed piece to storage"
+	var store_normal := StyleBoxFlat.new()
+	store_normal.bg_color = Color(1.0, 0.995, 0.965, 0.98)
+	store_normal.border_color = Color(0.76, 0.79, 0.68, 0.9)
+	store_normal.set_border_width_all(2)
+	store_normal.set_corner_radius_all(24)
+	store_normal.content_margin_left = 22
+	store_normal.content_margin_right = 22
+	store_normal.content_margin_top = 13
+	store_normal.content_margin_bottom = 13
+	store_normal.shadow_color = Color(0.13, 0.16, 0.1, 0.2)
+	store_normal.shadow_size = 10
+	store_normal.shadow_offset = Vector2(0, 5)
+	var store_hover := store_normal.duplicate()
+	store_hover.bg_color = Color.WHITE
+	store_hover.border_color = Color(0.56, 0.67, 0.38)
+	store_hover.shadow_size = 13
+	var store_pressed := store_hover.duplicate()
+	store_pressed.bg_color = Color(0.94, 0.96, 0.88)
+	store_pressed.shadow_size = 5
+	store_pressed.shadow_offset = Vector2(0, 2)
+	_store_bubble.add_theme_stylebox_override("normal", store_normal)
+	_store_bubble.add_theme_stylebox_override("hover", store_hover)
+	_store_bubble.add_theme_stylebox_override("pressed", store_pressed)
+	_store_bubble.add_theme_stylebox_override("focus", store_hover)
+	_store_bubble.add_theme_color_override("font_color", Color(0.24, 0.27, 0.19))
+	_store_bubble.add_theme_color_override(
+		"font_hover_color", Color(0.18, 0.25, 0.12)
+	)
+	_store_bubble.add_theme_color_override(
+		"font_pressed_color", Color(0.18, 0.25, 0.12)
+	)
+	_store_bubble.add_theme_color_override(
+		"font_focus_color", Color(0.18, 0.25, 0.12)
+	)
+	_store_bubble.visible = false
+	_store_bubble.pressed.connect(_store_held_from_bubble)
+	_store_bubble.gui_input.connect(_on_store_bubble_input)
+	root.add_child(_store_bubble)
+
 	_build_category_group = ButtonGroup.new()
+	_thumbnail_renderer = BuildThumbnailRendererScript.new()
+	_thumbnail_renderer.name = "BuildThumbnailRenderer"
+	add_child(_thumbnail_renderer)
+	_thumbnail_renderer.setup(core, placement.assets)
 	get_viewport().size_changed.connect(_resize_build_library)
 	_resize_build_library()
 
@@ -305,7 +471,8 @@ func _refresh_build_strip() -> void:
 	var available_categories: Array[String] = []
 	for category: Dictionary in BUILD_CATEGORIES:
 		var category_id := String(category["id"])
-		if not (entries_by_category[category_id] as Array).is_empty():
+		var entries: Array = entries_by_category[category_id]
+		if not entries.is_empty():
 			available_categories.append(category_id)
 
 	if not available_categories.has(_selected_build_category):
@@ -318,15 +485,25 @@ func _refresh_build_strip() -> void:
 		if entries.is_empty():
 			continue
 		var category_button := kit.library_category_button(
-			"%s  %d" % [category["label"], entries.size()],
+			"",
 			category_id == _selected_build_category
 		)
 		category_button.name = "BuildCategory_%s" % category_id
+		category_button.custom_minimum_size = Vector2(54, 50)
+		category_button.icon = load(
+			BUILD_ICON_DIRECTORY + String(category["icon"])
+		)
+		category_button.expand_icon = false
+		category_button.tooltip_text = "%s · %d owned kinds" % [
+			category["label"],
+			entries.size(),
+		]
 		category_button.button_group = _build_category_group
 		category_button.pressed.connect(func(): _select_build_category(category_id))
 		_build_category_strip.add_child(category_button)
 
 	_refresh_build_items(entries_by_category)
+	_refresh_compact_build_dock()
 	call_deferred("_update_build_scroll_buttons")
 
 
@@ -395,14 +572,15 @@ func _collect_build_entries() -> Dictionary:
 
 
 func _refresh_build_items(entries_by_category: Dictionary) -> void:
+	_thumbnail_renderer.discard_pending()
 	for child in _build_strip.get_children():
 		_build_strip.remove_child(child)
 		child.queue_free()
-	_build_item_scroll.scroll_horizontal = 0
+	_build_item_scroll.scroll_vertical = 0
 
 	if _selected_build_category == "":
 		var empty_label := kit.label(
-			"Your library is empty — the next ferry will bring a Land Parcel.",
+			"Your Build Bag is empty — the next ferry will bring a Land Parcel.",
 			15
 		)
 		empty_label.add_theme_color_override("font_color", Color(0.45, 0.42, 0.36))
@@ -411,10 +589,12 @@ func _refresh_build_items(entries_by_category: Dictionary) -> void:
 
 	var entries: Array = entries_by_category[_selected_build_category]
 	for entry: Dictionary in entries:
-		var item_button := kit.library_item_button(
+		var card := kit.library_visual_item_button(
 			String(entry["name"]),
 			int(entry["count"])
 		)
+		var item_button: Button = card["button"]
+		var preview: TextureRect = card["preview"]
 		item_button.name = "BuildItem_%s" % entry["id"]
 		var tooltip := String(entry["tooltip"])
 		var place_prompt := InputDeviceService.shared().format_action(
@@ -428,10 +608,90 @@ func _refresh_build_items(entries_by_category: Dictionary) -> void:
 		)
 		var kind := String(entry["kind"])
 		var content_id := String(entry["id"])
+		# Activate on press so the same gesture can continue out of the card,
+		# across the world, and finish by releasing at the desired tile.
+		item_button.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
 		item_button.pressed.connect(
-			func(): build_piece_selected.emit(kind, content_id)
+			func(): _on_build_piece_pressed(entry)
 		)
 		_build_strip.add_child(item_button)
+		_thumbnail_renderer.request(
+			kind,
+			content_id,
+			Callable(self, "_apply_build_thumbnail").bind(
+				kind,
+				content_id,
+				preview.get_instance_id()
+			)
+		)
+
+
+func _on_build_piece_pressed(entry: Dictionary) -> void:
+	var starts_pointer_drag := (
+		not InputDeviceService.shared().is_controller()
+		and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	)
+	_selected_build_entry = entry.duplicate(true)
+	set_build_library_expanded(false)
+	_refresh_compact_build_dock()
+	build_piece_selected.emit(
+		String(entry["kind"]),
+		String(entry["id"])
+	)
+	if starts_pointer_drag and placement != null and not placement.held.is_empty():
+		_catalogue_pointer_active = true
+		placement.begin_pointer_drag_for_held(
+			get_viewport().get_mouse_position()
+		)
+
+
+func _apply_build_thumbnail(
+	texture: Texture2D,
+	kind: String,
+	content_id: String,
+	target_id: int
+) -> void:
+	var target := instance_from_id(target_id) as TextureRect
+	if target != null:
+		target.texture = texture
+
+
+func _refresh_compact_build_dock() -> void:
+	if _build_expand_button == null:
+		return
+	if _selected_build_entry.is_empty():
+		_build_expand_button.tooltip_text = "Build Bag"
+		return
+	var kind := String(_selected_build_entry.get("kind", ""))
+	var content_id := String(_selected_build_entry.get("id", ""))
+	var live_count := _owned_build_count(kind, content_id)
+	if live_count <= 0 and placement.held.is_empty():
+		_selected_build_entry = {}
+		_refresh_compact_build_dock()
+		return
+	_selected_build_entry["count"] = live_count
+	_build_expand_button.tooltip_text = (
+		"Store %s in Bag"
+		if not placement.held.is_empty()
+			and placement.held.get("moving") != null
+		else "Build Bag · %s ×%d"
+	) % (
+		[String(_selected_build_entry.get("name", content_id))]
+		if not placement.held.is_empty()
+			and placement.held.get("moving") != null
+		else [String(_selected_build_entry.get("name", content_id)), live_count]
+	)
+
+
+func _owned_build_count(kind: String, content_id: String) -> int:
+	match kind:
+		"tile":
+			return core.stock.tile_count(content_id)
+		"structure":
+			return core.stock.structure_count(content_id)
+		"deed":
+			return core.stock.landmark_deeds.count(content_id)
+	return 0
 
 
 func _select_build_category(category_id: String) -> void:
@@ -500,22 +760,32 @@ func _on_library_scroll_input(event: InputEvent, scroll: ScrollContainer) -> voi
 		delta = (event.delta.x + event.delta.y) * 72.0
 	if is_zero_approx(delta):
 		return
-	var bar := scroll.get_h_scroll_bar()
-	scroll.scroll_horizontal = clampi(
-		scroll.scroll_horizontal + int(round(delta)),
-		0,
-		maxi(0, int(ceil(bar.max_value - bar.page)))
-	)
+	if not _build_library_expanded:
+		set_build_library_expanded(true)
+	if scroll == _build_item_scroll:
+		var vertical_bar := scroll.get_v_scroll_bar()
+		scroll.scroll_vertical = clampi(
+			scroll.scroll_vertical + int(round(delta)),
+			0,
+			maxi(0, int(ceil(vertical_bar.max_value - vertical_bar.page)))
+		)
+	else:
+		var horizontal_bar := scroll.get_h_scroll_bar()
+		scroll.scroll_horizontal = clampi(
+			scroll.scroll_horizontal + int(round(delta)),
+			0,
+			maxi(0, int(ceil(horizontal_bar.max_value - horizontal_bar.page)))
+		)
 	scroll.accept_event()
 	if scroll == _build_item_scroll:
 		_update_build_scroll_buttons()
 
 
 func _page_build_items(direction: int) -> void:
-	var amount := maxi(180, int(_build_item_scroll.size.x * 0.72))
-	var bar := _build_item_scroll.get_h_scroll_bar()
-	_build_item_scroll.scroll_horizontal = clampi(
-		_build_item_scroll.scroll_horizontal + amount * direction,
+	var amount := maxi(150, int(_build_item_scroll.size.y * 0.78))
+	var bar := _build_item_scroll.get_v_scroll_bar()
+	_build_item_scroll.scroll_vertical = clampi(
+		_build_item_scroll.scroll_vertical + amount * direction,
 		0,
 		maxi(0, int(ceil(bar.max_value - bar.page)))
 	)
@@ -525,10 +795,10 @@ func _page_build_items(direction: int) -> void:
 func _update_build_scroll_buttons() -> void:
 	if _build_item_scroll == null or _build_previous_button == null:
 		return
-	var bar := _build_item_scroll.get_h_scroll_bar()
+	var bar := _build_item_scroll.get_v_scroll_bar()
 	var maximum := maxi(0, int(ceil(bar.max_value - bar.page)))
-	_build_previous_button.disabled = _build_item_scroll.scroll_horizontal <= 0
-	_build_next_button.disabled = _build_item_scroll.scroll_horizontal >= maximum
+	_build_previous_button.disabled = _build_item_scroll.scroll_vertical <= 0
+	_build_next_button.disabled = _build_item_scroll.scroll_vertical >= maximum
 	_build_previous_button.visible = maximum > 0
 	_build_next_button.visible = maximum > 0
 
@@ -536,10 +806,24 @@ func _update_build_scroll_buttons() -> void:
 func _resize_build_library() -> void:
 	if _build_bar == null:
 		return
-	var viewport_width := get_viewport().get_visible_rect().size.x
-	_build_bar.custom_minimum_size.x = clampf(viewport_width - 40.0, 620.0, 1060.0)
+	_build_bar.custom_minimum_size.x = (
+		_build_library_expanded_width()
+		if _build_library_expanded
+		else 70.0
+	)
+	if _build_strip != null:
+		_build_strip.columns = clampi(
+			int(floor((_build_library_expanded_width() - 128.0) / 141.0)),
+			3,
+			8
+		)
 	if _build_bar.visible:
 		call_deferred("_position_context_above_build_library")
+
+
+func _build_library_expanded_width() -> float:
+	var viewport_width := get_viewport().get_visible_rect().size.x
+	return clampf(viewport_width - 64.0, 560.0, 1180.0)
 
 
 func _position_context_above_build_library() -> void:
@@ -550,6 +834,423 @@ func _position_context_above_build_library() -> void:
 		if _build_bar.visible
 		else -86.0
 	)
+
+
+func set_build_library_expanded(expanded: bool, animate := true) -> void:
+	if _build_expanded_clip == null:
+		return
+	var target_height := 356.0 if expanded else 0.0
+	var target_width := _build_library_expanded_width() if expanded else 70.0
+	var already_settled := (
+		_build_library_expanded == expanded
+		and is_equal_approx(
+			_build_expanded_clip.custom_minimum_size.y,
+			target_height
+		)
+		and _build_expanded_content.visible == expanded
+	)
+	if already_settled:
+		if expanded and InputDeviceService.shared().is_controller():
+			call_deferred("focus_build_library")
+		return
+	_build_library_expanded = expanded
+	_build_bag_open_pending = false
+	if _build_bag_button_tween != null and _build_bag_button_tween.is_valid():
+		_build_bag_button_tween.kill()
+	if not expanded:
+		_build_hover_expand_armed = false
+		release_build_focus()
+	else:
+		if _build_bag_idle_tween != null and _build_bag_idle_tween.is_valid():
+			_build_bag_idle_tween.kill()
+		_build_expand_button.scale = Vector2.ONE
+		_build_compact_row.visible = false
+		_build_bar.add_theme_stylebox_override(
+			"panel",
+			_build_panel_expanded_style
+		)
+		# Mouse users open the Bag by hovering the icon. Controller users keep
+		# that same icon as a deterministic focus anchor when storage is empty.
+		_build_compact_row.visible = InputDeviceService.shared().is_controller()
+		_build_expanded_content.visible = true
+	_refresh_compact_build_dock()
+	if _build_library_tween != null and _build_library_tween.is_valid():
+		_build_library_tween.kill()
+	if not animate:
+		_build_expanded_clip.custom_minimum_size.y = target_height
+		_build_bar.custom_minimum_size.x = target_width
+		_build_expanded_content.visible = expanded
+		_build_compact_row.visible = (
+			not expanded
+			or InputDeviceService.shared().is_controller()
+		)
+		_build_bar.add_theme_stylebox_override(
+			"panel",
+			_build_panel_expanded_style
+			if expanded
+			else _build_panel_collapsed_style
+		)
+		if not expanded:
+			_start_build_bag_idle()
+		_position_context_above_build_library()
+	else:
+		_build_library_tween = create_tween()
+		_build_library_tween.set_parallel(true)
+		_build_library_tween.set_trans(Tween.TRANS_QUART)
+		_build_library_tween.set_ease(
+			Tween.EASE_OUT if expanded else Tween.EASE_IN_OUT
+		)
+		_build_library_tween.tween_property(
+			_build_expanded_clip,
+			"custom_minimum_size:y",
+			target_height,
+			0.24 if expanded else 0.18
+		)
+		_build_library_tween.tween_property(
+			_build_bar,
+			"custom_minimum_size:x",
+			target_width,
+			0.24 if expanded else 0.18
+		)
+		if not expanded:
+			_build_library_tween.chain().tween_callback(
+				_finish_build_bag_collapse
+			)
+	if expanded:
+		call_deferred("_update_build_scroll_buttons")
+		if InputDeviceService.shared().is_controller():
+			call_deferred("focus_build_library")
+
+
+func _finish_build_bag_collapse() -> void:
+	if _build_library_expanded:
+		return
+	_build_expanded_content.visible = false
+	_build_compact_row.visible = true
+	_build_bar.add_theme_stylebox_override(
+		"panel",
+		_build_panel_collapsed_style
+	)
+	_start_build_bag_idle()
+	_position_context_above_build_library()
+
+
+func _start_build_bag_idle() -> void:
+	if (
+		_build_expand_button == null
+		or not _build_bar.visible
+		or _build_library_expanded
+	):
+		return
+	if _build_bag_idle_tween != null and _build_bag_idle_tween.is_valid():
+		_build_bag_idle_tween.kill()
+	_build_expand_button.pivot_offset = (
+		_build_expand_button.size * 0.5
+		if _build_expand_button.size != Vector2.ZERO
+		else _build_expand_button.custom_minimum_size * 0.5
+	)
+	_build_expand_button.scale = Vector2.ONE
+	_build_bag_idle_tween = create_tween().set_loops()
+	_build_bag_idle_tween.set_trans(Tween.TRANS_SINE)
+	_build_bag_idle_tween.set_ease(Tween.EASE_IN_OUT)
+	_build_bag_idle_tween.tween_property(
+		_build_expand_button,
+		"scale",
+		Vector2(1.035, 1.035),
+		0.9
+	)
+	_build_bag_idle_tween.tween_property(
+		_build_expand_button,
+		"scale",
+		Vector2.ONE,
+		0.9
+	)
+
+
+func _animate_build_bag_open() -> void:
+	if (
+		_build_library_expanded
+		or _build_bag_open_pending
+		or not _build_hover_expand_armed
+	):
+		return
+	_build_bag_open_pending = true
+	if _build_bag_idle_tween != null and _build_bag_idle_tween.is_valid():
+		_build_bag_idle_tween.kill()
+	if _build_bag_button_tween != null and _build_bag_button_tween.is_valid():
+		_build_bag_button_tween.kill()
+	_build_expand_button.pivot_offset = _build_expand_button.size * 0.5
+	_build_bag_button_tween = create_tween()
+	_build_bag_button_tween.set_trans(Tween.TRANS_BACK)
+	_build_bag_button_tween.set_ease(Tween.EASE_OUT)
+	_build_bag_button_tween.tween_property(
+		_build_expand_button,
+		"scale",
+		Vector2(1.12, 1.12),
+		0.1
+	)
+	_build_bag_button_tween.tween_callback(
+		func():
+			_build_expand_button.scale = Vector2.ONE
+			set_build_library_expanded(true)
+	)
+
+
+func request_build_library_open() -> void:
+	if not placement.active:
+		return
+	set_build_library_expanded(true)
+
+
+func build_library_collapsed() -> bool:
+	return _build_bar != null and _build_bar.visible and not _build_library_expanded
+
+
+func _on_build_library_mouse_entered() -> void:
+	_build_mouse_exit_pending = false
+	if (
+		not _build_library_expanded
+		and _build_hover_expand_armed
+		and not placement.pointer_dragging_moved_piece()
+		and not placement.pointer_dragging_catalogue_piece()
+	):
+		_animate_build_bag_open()
+
+
+func _on_build_library_mouse_exited() -> void:
+	_build_hover_expand_armed = true
+	if not _build_library_expanded:
+		_build_bag_open_pending = false
+		if (
+			_build_bag_button_tween != null
+			and _build_bag_button_tween.is_valid()
+		):
+			_build_bag_button_tween.kill()
+		_build_expand_button.scale = Vector2.ONE
+		_start_build_bag_idle()
+		return
+	# Defer one frame because a child Control taking hover can briefly emit an
+	# exit from the parent on some platforms. Only collapse after confirming
+	# that the pointer actually left the whole bag.
+	_build_mouse_exit_pending = true
+	call_deferred("_collapse_build_library_after_mouse_exit")
+
+
+func _collapse_build_library_after_mouse_exit() -> void:
+	if not _build_mouse_exit_pending:
+		return
+	_build_mouse_exit_pending = false
+	if (
+		_build_bar == null
+		or not _build_bar.visible
+		or _build_bar.get_global_rect().has_point(get_viewport().get_mouse_position())
+	):
+		return
+	set_build_library_expanded(false)
+	# A genuine trip out of the dock arms the next hover to open it again.
+	_build_hover_expand_armed = true
+
+
+func _on_build_drop_overlay_input(event: InputEvent) -> void:
+	if (
+		event is InputEventMouseButton
+		and event.button_index == MOUSE_BUTTON_LEFT
+		and not event.pressed
+		and _store_dragged_world_piece()
+	):
+		_build_drop_overlay.accept_event()
+
+
+func _store_dragged_world_piece() -> bool:
+	if placement == null or not placement.pointer_dragging_moved_piece():
+		return false
+	return _store_current_world_piece()
+
+
+func _store_current_world_piece() -> bool:
+	if (
+		placement == null
+		or placement.held.is_empty()
+		or placement.held.get("moving") == null
+	):
+		return false
+	# The signal is synchronous: Main commits the detached tile/structure to
+	# stock before this method returns.
+	build_store_requested.emit()
+	_set_build_drop_active(false)
+	_set_store_bubble_visible(false)
+	_refresh_build_strip()
+	return true
+
+
+func _store_held_from_bubble() -> void:
+	_store_current_world_piece()
+
+
+func _on_store_bubble_input(event: InputEvent) -> void:
+	if (
+		event is InputEventMouseButton
+		and event.button_index == MOUSE_BUTTON_LEFT
+		and not event.pressed
+		and placement != null
+		and placement.pointer_dragging_moved_piece()
+		and _store_current_world_piece()
+	):
+		_store_bubble.accept_event()
+
+
+func _on_build_library_input(event: InputEvent) -> void:
+	if (
+		event is InputEventMouseButton
+		and event.button_index == MOUSE_BUTTON_LEFT
+		and not event.pressed
+		and _store_dragged_world_piece()
+	):
+		_build_bar.accept_event()
+	elif (
+		not _build_library_expanded
+		and (
+			event is InputEventPanGesture
+			or event is InputEventMouseButton
+			and event.pressed
+			and event.button_index in [
+				MOUSE_BUTTON_WHEEL_UP,
+				MOUSE_BUTTON_WHEEL_DOWN,
+				MOUSE_BUTTON_WHEEL_LEFT,
+				MOUSE_BUTTON_WHEEL_RIGHT,
+			]
+		)
+	):
+		set_build_library_expanded(true)
+		_build_bar.accept_event()
+	elif (
+		event is InputEventMouseButton
+		and event.pressed
+		and event.button_index == MOUSE_BUTTON_RIGHT
+	):
+		if not placement.held.is_empty():
+			placement.cancel_click()
+		set_build_library_expanded(true)
+		_build_bar.accept_event()
+
+
+func _process(_delta: float) -> void:
+	if _build_bar != null and _build_bar.visible:
+		_position_context_above_build_library()
+	if _store_bubble != null and _store_bubble.visible:
+		_position_store_bubble()
+	if placement == null or not placement.active:
+		_set_build_drop_active(false)
+		_set_store_bubble_visible(false)
+		_catalogue_pointer_active = false
+		return
+	if placement.pointer_is_down():
+		# GUI controls can consume mouse motion after a world drag reaches the
+		# dock, or after a catalogue card collapses beneath it. Polling the real
+		# pointer keeps both gestures continuous across those boundaries.
+		placement.pointer_motion(get_viewport().get_mouse_position())
+	var pointer := get_viewport().get_mouse_position()
+	var over_library := _build_bar.get_global_rect().has_point(pointer)
+	var over_store_bubble := (
+		_store_bubble != null
+		and _store_bubble.visible
+		and _store_bubble.get_global_rect().has_point(pointer)
+	)
+	if placement.pointer_dragging_moved_piece():
+		_set_build_drop_active(over_library)
+		if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+			if over_library or over_store_bubble:
+				_store_current_world_piece()
+			else:
+				placement.pointer_release(pointer)
+			_set_build_drop_active(false)
+		return
+	_set_build_drop_active(false)
+	if (
+		_catalogue_pointer_active
+		and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	):
+		if (
+			placement.pointer_dragging_catalogue_piece()
+			and not over_library
+		):
+			placement.pointer_release(pointer)
+		else:
+			placement.cancel_pointer_gesture()
+		_catalogue_pointer_active = false
+
+
+func _set_build_drop_active(active: bool) -> void:
+	if _build_drop_active == active or _build_drop_overlay == null:
+		return
+	_build_drop_active = active
+	_build_drop_overlay.visible = active
+
+
+func _set_store_bubble_visible(visible: bool, animate := true) -> void:
+	if _store_bubble == null or _store_bubble.visible == visible:
+		return
+	if _store_bubble_tween != null and _store_bubble_tween.is_valid():
+		_store_bubble_tween.kill()
+	if (
+		_store_bubble_idle_tween != null
+		and _store_bubble_idle_tween.is_valid()
+	):
+		_store_bubble_idle_tween.kill()
+	_store_bubble.visible = visible
+	if not visible:
+		return
+	_position_store_bubble()
+	_store_bubble.pivot_offset = _store_bubble.size * 0.5
+	_store_bubble.modulate.a = 0.0 if animate else 1.0
+	_store_bubble.scale = Vector2(0.82, 0.82) if animate else Vector2.ONE
+	if animate:
+		_store_bubble_tween = create_tween()
+		_store_bubble_tween.set_parallel(true)
+		_store_bubble_tween.set_trans(Tween.TRANS_BACK)
+		_store_bubble_tween.set_ease(Tween.EASE_OUT)
+		_store_bubble_tween.tween_property(
+			_store_bubble, "scale", Vector2.ONE, 0.18
+		)
+		_store_bubble_tween.tween_property(
+			_store_bubble, "modulate:a", 1.0, 0.12
+		)
+		_store_bubble_tween.chain().tween_callback(
+			_start_store_bubble_idle
+		)
+
+
+func _start_store_bubble_idle() -> void:
+	if _store_bubble == null or not _store_bubble.visible:
+		return
+	_store_bubble_idle_tween = create_tween().set_loops()
+	_store_bubble_idle_tween.set_trans(Tween.TRANS_SINE)
+	_store_bubble_idle_tween.set_ease(Tween.EASE_IN_OUT)
+	_store_bubble_idle_tween.tween_property(
+		_store_bubble, "scale", Vector2(1.025, 1.025), 0.7
+	)
+	_store_bubble_idle_tween.tween_property(
+		_store_bubble, "scale", Vector2.ONE, 0.7
+	)
+
+
+func _position_store_bubble() -> void:
+	if _store_bubble == null:
+		return
+	var viewport_size := get_viewport().get_visible_rect().size
+	var bubble_size := Vector2(
+		maxf(_store_bubble.size.x, _store_bubble.custom_minimum_size.x),
+		maxf(_store_bubble.size.y, _store_bubble.custom_minimum_size.y)
+	)
+	var bag_top := viewport_size.y - 18.0
+	if _build_bar != null and _build_bar.visible:
+		bag_top = _build_bar.get_global_rect().position.y
+	var target := Vector2(
+		(viewport_size.x - bubble_size.x) * 0.5,
+		bag_top - bubble_size.y - 18.0
+	)
+	target.y = maxf(14.0, target.y)
+	_store_bubble.position = target
 
 
 # ------------------------------------------------------------------ events
@@ -589,11 +1290,20 @@ func _on_build_mode(active: bool) -> void:
 	_build_bar.visible = active
 	_bottom_buttons.visible = not active
 	if active:
+		set_build_library_expanded(
+			InputDeviceService.shared().is_controller(),
+			false
+		)
+		_build_hover_expand_armed = true
 		_refresh_build_strip()
 		call_deferred("_position_context_above_build_library")
+		if not _build_library_expanded:
+			call_deferred("_start_build_bag_idle")
 		if InputDeviceService.shared().is_controller() and placement.held.is_empty():
 			focus_build_library()
 	else:
+		_set_store_bubble_visible(false)
+		_catalogue_pointer_active = false
 		release_build_focus()
 		_position_context_above_build_library()
 
@@ -712,6 +1422,9 @@ func update_tutorial() -> void:
 func focus_build_library() -> void:
 	if not InputDeviceService.shared().is_controller() or not _build_bar.visible:
 		return
+	if not _build_library_expanded:
+		InputDeviceService.shared().focus_first(_build_bar, _build_expand_button)
+		return
 	var preferred: Control
 	for child in _build_strip.get_children():
 		var button := child as BaseButton
@@ -719,7 +1432,13 @@ func focus_build_library() -> void:
 			preferred = button
 			break
 	if preferred == null:
-		preferred = _build_browse_button
+		for child in _build_category_strip.get_children():
+			var category_button := child as BaseButton
+			if category_button != null and not category_button.disabled:
+				preferred = category_button
+				break
+	if preferred == null:
+		preferred = _build_expand_button
 	InputDeviceService.shared().focus_first(_build_bar, preferred)
 
 
@@ -736,9 +1455,20 @@ func focus_default() -> void:
 
 
 func _on_held_changed(value: Dictionary) -> void:
+	_refresh_compact_build_dock()
+	var moving_world_piece := (
+		not value.is_empty()
+		and value.get("moving") != null
+		and not InputDeviceService.shared().is_controller()
+	)
+	_set_store_bubble_visible(moving_world_piece)
 	if not placement.active or not InputDeviceService.shared().is_controller():
 		return
-	if value.is_empty() and not placement.controller_cursor_active():
+	if (
+		value.is_empty()
+		and not placement.controller_cursor_active()
+		and _build_library_expanded
+	):
 		focus_build_library()
 	else:
 		release_build_focus()
@@ -755,17 +1485,32 @@ func _on_input_method_changed(_method: int) -> void:
 		&"build_mode",
 		"Shape Land"
 	)
-	_build_browse_button.visible = InputDeviceService.shared().is_controller()
 	_build_hint_label.text = (
-		"Choose a piece or browse the world  ·  D-pad moves  ·  A places  ·  B backs out"
+		"%s  ·  %s  ·  %s  ·  %s"
+		% [
+			InputDeviceService.shared().format_action(&"ui_accept", "choose"),
+			InputDeviceService.shared().format_action(&"build_mode", "browse world"),
+			InputDeviceService.shared().format_action(&"rotate_piece", "rotate"),
+			InputDeviceService.shared().format_action(&"cancel", "back"),
+		]
 		if InputDeviceService.shared().is_controller()
-		else "Click to place  ·  wheel or arrows browse  ·  R rotates  ·  X stores  ·  Esc closes"
+		else "%s  ·  wheel scrolls  ·  %s  ·  drag moved pieces here to store"
+		% [
+			InputDeviceService.shared().format_action(&"interact", "choose"),
+			InputDeviceService.shared().format_action(&"rotate_piece", "rotate"),
+		]
 	)
 	_refresh_prompt()
 	update_tutorial()
 	if placement.active:
+		if _build_library_expanded:
+			_build_compact_row.visible = InputDeviceService.shared().is_controller()
 		_refresh_build_strip()
-		if InputDeviceService.shared().is_controller() and placement.held.is_empty():
+		if (
+			InputDeviceService.shared().is_controller()
+			and placement.held.is_empty()
+			and _build_library_expanded
+		):
 			focus_build_library()
 		elif not InputDeviceService.shared().is_controller():
 			release_build_focus()

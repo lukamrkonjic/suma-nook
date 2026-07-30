@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="ClothingFitSettings" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/clothing_fit_settings.gd" id="1_fit"]
+
+[resource]
+script = ExtResource("1_fit")
+source_file = "res://art_source/imported/clothing_lab/top_yellow_shirt_source.glb"
+garment_class = "upper_body"
+scale = Vector3(0.625, 0.743, 0.464)
+hidden_regions = PackedStringArray("chest", "abdomen", "upper_chest_l", "upper_chest_r", "clavicle_l", "clavicle_r", "shoulder_l", "shoulder_r", "shoulder_cap_l", "shoulder_cap_r", "armpit_l", "armpit_r", "upper_arm_l", "upper_arm_r", "upper_arm_inner_l", "upper_arm_inner_r")

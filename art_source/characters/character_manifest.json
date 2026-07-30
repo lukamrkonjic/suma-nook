@@ -65,23 +65,11 @@
       "triangles": 3799,
       "vertices": 1904
     },
-    "eyes_oval_pair": {
-      "glb": "assets\\characters\\parts\\eyes_oval_pair.glb",
-      "socket": "EyesSocket",
-      "triangles": 880,
-      "vertices": 444
-    },
     "brows_soft_pair": {
       "glb": "assets\\characters\\parts\\brows_soft_pair.glb",
       "socket": "BrowsSocket",
       "triangles": 808,
       "vertices": 456
-    },
-    "nose_round": {
-      "glb": "assets\\characters\\parts\\nose_round.glb",
-      "socket": "NoseSocket",
-      "triangles": 720,
-      "vertices": 362
     },
     "moustache_walrus": {
       "glb": "assets\\characters\\parts\\moustache_walrus.glb",
@@ -89,12 +77,350 @@
       "triangles": 1068,
       "vertices": 536
     },
+    "eyes_oval_pair": {
+      "glb": "assets\\characters\\parts\\eyes_oval_pair.glb",
+      "socket": "EyesSocket",
+      "triangles": 3136,
+      "vertices": 1990
+    },
+    "eyes_dot_pair": {
+      "glb": "assets\\characters\\parts\\eyes_dot_pair.glb",
+      "socket": "EyesSocket",
+      "triangles": 1664,
+      "vertices": 1060
+    },
+    "eyes_sleepy_pair": {
+      "glb": "assets\\characters\\parts\\eyes_sleepy_pair.glb",
+      "socket": "EyesSocket",
+      "triangles": 2304,
+      "vertices": 1460
+    },
+    "eyes_happy_pair": {
+      "glb": "assets\\characters\\parts\\eyes_happy_pair.glb",
+      "socket": "EyesSocket",
+      "triangles": 2048,
+      "vertices": 1290
+    },
+    "eyes_lash_pair": {
+      "glb": "assets\\characters\\parts\\eyes_lash_pair.glb",
+      "socket": "EyesSocket",
+      "triangles": 4032,
+      "vertices": 2570
+    },
+    "eyes_glance_pair": {
+      "glb": "assets\\characters\\parts\\eyes_glance_pair.glb",
+      "socket": "EyesSocket",
+      "triangles": 3776,
+      "vertices": 2390
+    },
+    "eyes_sparkle_pair": {
+      "glb": "assets\\characters\\parts\\eyes_sparkle_pair.glb",
+      "socket": "EyesSocket",
+      "triangles": 3136,
+      "vertices": 1990
+    },
+    "eyes_almond_pair": {
+      "glb": "assets\\characters\\parts\\eyes_almond_pair.glb",
+      "socket": "EyesSocket",
+      "triangles": 2304,
+      "vertices": 1460
+    },
+    "eyes_droop_pair": {
+      "glb": "assets\\characters\\parts\\eyes_droop_pair.glb",
+      "socket": "EyesSocket",
+      "triangles": 2304,
+      "vertices": 1460
+    },
+    "eyes_wide_pair": {
+      "glb": "assets\\characters\\parts\\eyes_wide_pair.glb",
+      "socket": "EyesSocket",
+      "triangles": 3776,
+      "vertices": 2390
+    },
     "mouth_smile": {
       "glb": "assets\\characters\\parts\\mouth_smile.glb",
       "socket": "MouthSocket",
-      "triangles": 404,
-      "vertices": 228
+      "triangles": 1024,
+      "vertices": 645
+    },
+    "mouth_grin": {
+      "glb": "assets\\characters\\parts\\mouth_grin.glb",
+      "socket": "MouthSocket",
+      "triangles": 1024,
+      "vertices": 645
+    },
+    "mouth_open_smile": {
+      "glb": "assets\\characters\\parts\\mouth_open_smile.glb",
+      "socket": "MouthSocket",
+      "triangles": 1472,
+      "vertices": 930
+    },
+    "mouth_neutral": {
+      "glb": "assets\\characters\\parts\\mouth_neutral.glb",
+      "socket": "MouthSocket",
+      "triangles": 1024,
+      "vertices": 645
+    },
+    "mouth_cat": {
+      "glb": "assets\\characters\\parts\\mouth_cat.glb",
+      "socket": "MouthSocket",
+      "triangles": 1792,
+      "vertices": 1125
+    },
+    "mouth_pout": {
+      "glb": "assets\\characters\\parts\\mouth_pout.glb",
+      "socket": "MouthSocket",
+      "triangles": 1024,
+      "vertices": 645
+    },
+    "mouth_oh": {
+      "glb": "assets\\characters\\parts\\mouth_oh.glb",
+      "socket": "MouthSocket",
+      "triangles": 736,
+      "vertices": 465
+    },
+    "mouth_smirk": {
+      "glb": "assets\\characters\\parts\\mouth_smirk.glb",
+      "socket": "MouthSocket",
+      "triangles": 1024,
+      "vertices": 645
+    },
+    "mouth_tooth": {
+      "glb": "assets\\characters\\parts\\mouth_tooth.glb",
+      "socket": "MouthSocket",
+      "triangles": 1472,
+      "vertices": 930
+    },
+    "mouth_shy": {
+      "glb": "assets\\characters\\parts\\mouth_shy.glb",
+      "socket": "MouthSocket",
+      "triangles": 1024,
+      "vertices": 645
+    },
+    "nose_round": {
+      "glb": "assets\\characters\\parts\\nose_round.glb",
+      "socket": "NoseSocket",
+      "triangles": 720,
+      "vertices": 362
+    },
+    "nose_button": {
+      "glb": "assets\\characters\\parts\\nose_button.glb",
+      "socket": "NoseSocket",
+      "triangles": 720,
+      "vertices": 362
+    },
+    "nose_triangle": {
+      "glb": "assets\\characters\\parts\\nose_triangle.glb",
+      "socket": "NoseSocket",
+      "triangles": 216,
+      "vertices": 112
+    },
+    "nose_wide": {
+      "glb": "assets\\characters\\parts\\nose_wide.glb",
+      "socket": "NoseSocket",
+      "triangles": 720,
+      "vertices": 362
+    },
+    "nose_dot": {
+      "glb": "assets\\characters\\parts\\nose_dot.glb",
+      "socket": "NoseSocket",
+      "triangles": 720,
+      "vertices": 362
+    },
+    "hair_crop": {
+      "glb": "assets\\characters\\parts\\hair_crop.glb",
+      "socket": "HairSocket",
+      "triangles": 3200,
+      "vertices": 1602
+    },
+    "hair_spiky": {
+      "glb": "assets\\characters\\parts\\hair_spiky.glb",
+      "socket": "HairSocket",
+      "triangles": 3600,
+      "vertices": 1794
+    },
+    "hair_bun": {
+      "glb": "assets\\characters\\parts\\hair_bun.glb",
+      "socket": "HairSocket",
+      "triangles": 3200,
+      "vertices": 1602
+    },
+    "hair_bob": {
+      "glb": "assets\\characters\\parts\\hair_bob.glb",
+      "socket": "HairSocket",
+      "triangles": 4200,
+      "vertices": 2102
+    },
+    "hair_sidepart": {
+      "glb": "assets\\characters\\parts\\hair_sidepart.glb",
+      "socket": "HairSocket",
+      "triangles": 3598,
+      "vertices": 1801
+    },
+    "hair_ponytail": {
+      "glb": "assets\\characters\\parts\\hair_ponytail.glb",
+      "socket": "HairSocket",
+      "triangles": 4000,
+      "vertices": 2002
+    },
+    "hair_twin_puffs": {
+      "glb": "assets\\characters\\parts\\hair_twin_puffs.glb",
+      "socket": "HairSocket",
+      "triangles": 4200,
+      "vertices": 2102
+    },
+    "hair_long_waves": {
+      "glb": "assets\\characters\\parts\\hair_long_waves.glb",
+      "socket": "HairSocket",
+      "triangles": 5200,
+      "vertices": 2600
     }
+  },
+  "catalog": {
+    "HAIR": [
+      {
+        "stem": "hair_swoop_brown",
+        "display": "Swoop"
+      },
+      {
+        "stem": "hair_crop",
+        "display": "Neat Crop"
+      },
+      {
+        "stem": "hair_spiky",
+        "display": "Spiky"
+      },
+      {
+        "stem": "hair_bun",
+        "display": "Top Bun"
+      },
+      {
+        "stem": "hair_bob",
+        "display": "Cozy Bob"
+      },
+      {
+        "stem": "hair_sidepart",
+        "display": "Side Part"
+      },
+      {
+        "stem": "hair_ponytail",
+        "display": "Ponytail"
+      },
+      {
+        "stem": "hair_twin_puffs",
+        "display": "Twin Puffs"
+      },
+      {
+        "stem": "hair_long_waves",
+        "display": "Long Waves"
+      }
+    ],
+    "EYES": [
+      {
+        "stem": "eyes_oval_pair",
+        "display": "Warm Ovals"
+      },
+      {
+        "stem": "eyes_dot_pair",
+        "display": "Friendly Dots"
+      },
+      {
+        "stem": "eyes_sleepy_pair",
+        "display": "Sleepy"
+      },
+      {
+        "stem": "eyes_happy_pair",
+        "display": "Happy Arcs"
+      },
+      {
+        "stem": "eyes_lash_pair",
+        "display": "Long Lashes"
+      },
+      {
+        "stem": "eyes_glance_pair",
+        "display": "Side Glance"
+      },
+      {
+        "stem": "eyes_sparkle_pair",
+        "display": "Sparkles"
+      },
+      {
+        "stem": "eyes_almond_pair",
+        "display": "Almond"
+      },
+      {
+        "stem": "eyes_droop_pair",
+        "display": "Gentle Droop"
+      },
+      {
+        "stem": "eyes_wide_pair",
+        "display": "Wide Awake"
+      }
+    ],
+    "MOUTH": [
+      {
+        "stem": "mouth_smile",
+        "display": "Gentle Smile"
+      },
+      {
+        "stem": "mouth_grin",
+        "display": "Big Grin"
+      },
+      {
+        "stem": "mouth_open_smile",
+        "display": "Open Smile"
+      },
+      {
+        "stem": "mouth_neutral",
+        "display": "Soft Line"
+      },
+      {
+        "stem": "mouth_cat",
+        "display": "Little W"
+      },
+      {
+        "stem": "mouth_pout",
+        "display": "Pout"
+      },
+      {
+        "stem": "mouth_oh",
+        "display": "Surprised"
+      },
+      {
+        "stem": "mouth_smirk",
+        "display": "Smirk"
+      },
+      {
+        "stem": "mouth_tooth",
+        "display": "Cheeky Grin"
+      },
+      {
+        "stem": "mouth_shy",
+        "display": "Shy Smile"
+      }
+    ],
+    "NOSE": [
+      {
+        "stem": "nose_round",
+        "display": "Round Nose"
+      },
+      {
+        "stem": "nose_button",
+        "display": "Tiny Button"
+      },
+      {
+        "stem": "nose_triangle",
+        "display": "Soft Triangle"
+      },
+      {
+        "stem": "nose_wide",
+        "display": "Wide Oval"
+      },
+      {
+        "stem": "nose_dot",
+        "display": "Little Dot"
+      }
+    ]
   },
   "mannequin": {
     "glb": "assets\\3d\\reworked\\player_male_mannequin.glb",

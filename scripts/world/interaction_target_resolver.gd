@@ -191,7 +191,7 @@ func interaction_at(screen_position: Vector2) -> Dictionary:
 						):
 							best = candidate
 							best_distance = candidate["_distance"]
-					var feature_options: Array = core.camping.interactions.options_for(
+					var feature_options: Array = core.interactions.options_for(
 						"player",
 						structure.instance_id
 					)

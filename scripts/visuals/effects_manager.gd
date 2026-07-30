@@ -176,6 +176,79 @@ func burst(fx_asset: String, point: Vector3, count: int, up_bias := 2.4) -> void
 		tween.chain().tween_callback(chip.queue_free)
 
 
+func fire_ignition(point: Vector3, fire_width := 0.56) -> void:
+	var count := maxi(8, roundi(14.0 * fire_width / 0.56))
+	burst("fx_spark", point + Vector3.UP * 0.08, count, 3.2)
+
+
+func fire_extinguish(point: Vector3, fire_width := 0.56) -> void:
+	var smoke_material := StandardMaterial3D.new()
+	smoke_material.albedo_color = Color(0.48, 0.46, 0.42, 0.5)
+	smoke_material.transparency = (
+		BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS
+	)
+	smoke_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	smoke_material.roughness = 1.0
+	var puff_mesh := SphereMesh.new()
+	puff_mesh.radius = 0.5
+	puff_mesh.height = 1.0
+	puff_mesh.radial_segments = 7
+	puff_mesh.rings = 4
+	var puff_count := maxi(5, roundi(8.0 * fire_width / 0.56))
+	for index in puff_count:
+		var angle := TAU * float(index) / float(puff_count)
+		var puff := MeshInstance3D.new()
+		puff.name = "ExtinguishSmoke"
+		puff.mesh = puff_mesh
+		puff.material_override = smoke_material
+		puff.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		puff.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+		var radius := fire_width * randf_range(0.02, 0.18)
+		puff.position = point + Vector3(
+			cos(angle) * radius,
+			randf_range(0.02, 0.1),
+			sin(angle) * radius
+		)
+		puff.scale = Vector3.ONE * fire_width * randf_range(0.08, 0.13)
+		puff.transparency = 0.22
+		add_child(puff)
+		var delay := float(index) * 0.025
+		var rise := fire_width * randf_range(0.62, 0.95)
+		var spread := Vector3(
+			randf_range(-0.18, 0.18) * fire_width,
+			rise,
+			randf_range(-0.18, 0.18) * fire_width
+		)
+		var target_scale := Vector3(
+			randf_range(0.3, 0.42),
+			randf_range(0.22, 0.34),
+			randf_range(0.28, 0.4)
+		) * fire_width
+		var motion := puff.create_tween()
+		motion.tween_interval(delay)
+		motion.tween_property(
+			puff,
+			"position",
+			puff.position + spread,
+			0.78
+		).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		motion.parallel().tween_property(
+			puff,
+			"scale",
+			target_scale,
+			0.72
+		).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		var fade := puff.create_tween()
+		fade.tween_interval(delay + 0.16)
+		fade.tween_property(
+			puff,
+			"transparency",
+			1.0,
+			0.58
+		).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+		fade.tween_callback(puff.queue_free)
+
+
 func shake_vegetation(coord: Vector2i) -> void:
 	var renderer := get_parent().find_child("WorldRenderer", false, false) as WorldRenderer
 	if renderer == null:

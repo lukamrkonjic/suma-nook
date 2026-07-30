@@ -1,0 +1,680 @@
+{
+  "processor": "Clothing Lab rest-pose garment fit v2",
+  "source": {
+    "path": "C:\\Dev\\suma-nook\\art_source\\imported\\clothing_lab\\bottom_tweed_trousers_source.glb",
+    "sha256": "34F9B5EB866036FED21AD16F085E2F341CC0BCFAE084B66AA7939C104F0E466E",
+    "vertices": 870,
+    "triangles": 1000,
+    "uv_layer": "UVMap",
+    "materials": [
+      "Material_0.001"
+    ],
+    "normals_preserved": true,
+    "topology_preserved": true
+  },
+  "stage_1_rest_and_transforms": {
+    "rig_pose": "REST/T-pose",
+    "garment_transforms_applied": true,
+    "common_origin": true,
+    "common_scale": true,
+    "immutable_mannequin": {
+      "body_and_rig_unchanged": true,
+      "bone_count": 34,
+      "rest_t_pose": true
+    }
+  },
+  "stage_2_fit_only_garment": {
+    "controls": {
+      "method": "explicit lower-body lab controls only",
+      "garment_class": "lower_body",
+      "position": [
+        0.0,
+        0.004999999888241291,
+        -0.25
+      ],
+      "rotation_degrees": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        0.41999998688697815,
+        0.44999998807907104,
+        0.23999999463558197
+      ],
+      "symmetric_controls": true,
+      "torso_width": 1.0,
+      "torso_depth": 1.0,
+      "landmark_targets": {},
+      "source_normals_smoothed": false,
+      "source_geometry_subdivided_or_decimated": false
+    },
+    "detail_eraser": {
+      "method": "anchored local surface smoothing and fabric UV sampling",
+      "strokes": 0,
+      "affected_vertices": 0,
+      "affected_uv_loops": 0,
+      "maximum_displacement": 0.0,
+      "topology_changed": false
+    },
+    "mirror": {
+      "method": "not applicable to non-sleeved clothing",
+      "matched_pairs": 0,
+      "topology_unchanged": true
+    },
+    "limited_shrinkwrap": {
+      "method": "non-sleeved source fit preserved; no jacket-specific shrinkwrap mask applied",
+      "target_clearance": 0.004,
+      "unsafe_vertices": 0,
+      "safe_vertices_pulled_inward": false,
+      "feature_preservation_masks": {}
+    },
+    "preserved_features": [
+      "collar",
+      "hem",
+      "pockets",
+      "buttons",
+      "cuff openings"
+    ]
+  },
+  "stage_3_cuffs": {},
+  "stage_4_deformation_geometry": {
+    "strategy": "authored non-sleeved topology preserved; animation audit validates the bound garment after weight transfer",
+    "selected_unique_edges": 0,
+    "zone_edges_before": {},
+    "zone_vertex_counts_before": {},
+    "zone_vertex_counts_after": {},
+    "minimum_required_per_zone": 0,
+    "single_stretched_deformation_polygon": false,
+    "triangles_before": 1000,
+    "triangles_after": 1000,
+    "topology_modified": false,
+    "smoothing_applied": false,
+    "uv_welding_applied": false,
+    "geometric_seams": {
+      "method": "coincident geometric seam weld with per-corner UV preservation",
+      "position_epsilon": 1e-05,
+      "vertices_before": 870,
+      "vertices_after": 502,
+      "merged_duplicate_vertices": 368,
+      "polygons_preserved": true,
+      "uv_layers_preserved": 1,
+      "materials_preserved": 1
+    },
+    "export_triangulation": {
+      "method": "explicit pre-export bmesh triangulation",
+      "polygons_before": 1000,
+      "triangles_before": 1000,
+      "triangles_after": 1000,
+      "non_triangles_after": 0,
+      "glTF_triangulation_deferred": false,
+      "uvs_normals_materials_preserved": true
+    },
+    "degenerate_cleanup": {
+      "removed_zero_area_faces": 0,
+      "removed_zero_or_sliver_faces": 0,
+      "remaining_zero_area_faces": 0,
+      "area_epsilon": 1e-08,
+      "sliver_quality_limit": 0.0001
+    },
+    "boundary_t_junctions": {
+      "method": "boundary vertex-on-unsplit-edge audit",
+      "boundary_edges": 0,
+      "t_junctions": 0,
+      "position_epsilon": 1e-05,
+      "passed": true
+    },
+    "manifold_topology_contracts": [
+      {
+        "stage": "canonical source",
+        "expected": {
+          "boundary_components": 0,
+          "boundary_edges": 0,
+          "branched_boundary_vertices": 0,
+          "over_connected_edges": 0,
+          "wire_edges": 0,
+          "connected_components": 1,
+          "euler_characteristic": 2
+        },
+        "actual": {
+          "boundary_components": 0,
+          "boundary_edges": 0,
+          "branched_boundary_vertices": 0,
+          "over_connected_edges": 0,
+          "wire_edges": 0,
+          "connected_components": 1,
+          "euler_characteristic": 2
+        },
+        "passed": true
+      },
+      {
+        "stage": "surface detail erasing",
+        "expected": {
+          "boundary_components": 0,
+          "boundary_edges": 0,
+          "branched_boundary_vertices": 0,
+          "over_connected_edges": 0,
+          "wire_edges": 0,
+          "connected_components": 1,
+          "euler_characteristic": 2
+        },
+        "actual": {
+          "boundary_components": 0,
+          "boundary_edges": 0,
+          "branched_boundary_vertices": 0,
+          "over_connected_edges": 0,
+          "wire_edges": 0,
+          "connected_components": 1,
+          "euler_characteristic": 2
+        },
+        "passed": true
+      },
+      {
+        "stage": "explicit garment fitting",
+        "expected": {
+          "boundary_components": 0,
+          "boundary_edges": 0,
+          "branched_boundary_vertices": 0,
+          "over_connected_edges": 0,
+          "wire_edges": 0,
+          "connected_components": 1,
+          "euler_characteristic": 2
+        },
+        "actual": {
+          "boundary_components": 0,
+          "boundary_edges": 0,
+          "branched_boundary_vertices": 0,
+          "over_connected_edges": 0,
+          "wire_edges": 0,
+          "connected_components": 1,
+          "euler_characteristic": 2
+        },
+        "passed": true
+      },
+      {
+        "stage": "bilateral sleeve alignment",
+        "expected": {
+          "boundary_components": 0,
+          "boundary_edges": 0,
+          "branched_boundary_vertices": 0,
+          "over_connected_edges": 0,
+          "wire_edges": 0,
+          "connected_components": 1,
+          "euler_characteristic": 2
+        },
+        "actual": {
+          "boundary_components": 0,
+          "boundary_edges": 0,
+          "branched_boundary_vertices": 0,
+          "over_connected_edges": 0,
+          "wire_edges": 0,
+          "connected_components": 1,
+          "euler_characteristic": 2
+        },
+        "passed": true
+      },
+      {
+        "stage": "support geometry",
+        "expected": {
+          "boundary_components": 0,
+          "boundary_edges": 0,
+          "branched_boundary_vertices": 0,
+          "over_connected_edges": 0,
+          "wire_edges": 0,
+          "connected_components": 1,
+          "euler_characteristic": 2
+        },
+        "actual": {
+          "boundary_components": 0,
+          "boundary_edges": 0,
+          "branched_boundary_vertices": 0,
+          "over_connected_edges": 0,
+          "wire_edges": 0,
+          "connected_components": 1,
+          "euler_characteristic": 2
+        },
+        "passed": true
+      },
+      {
+        "stage": "limited shrinkwrap",
+        "expected": {
+          "boundary_components": 0,
+          "boundary_edges": 0,
+          "branched_boundary_vertices": 0,
+          "over_connected_edges": 0,
+          "wire_edges": 0,
+          "connected_components": 1,
+          "euler_characteristic": 2
+        },
+        "actual": {
+          "boundary_components": 0,
+          "boundary_edges": 0,
+          "branched_boundary_vertices": 0,
+          "over_connected_edges": 0,
+          "wire_edges": 0,
+          "connected_components": 1,
+          "euler_characteristic": 2
+        },
+        "passed": true
+      },
+      {
+        "stage": "triangulation and cleanup",
+        "expected": {
+          "boundary_components": 0,
+          "boundary_edges": 0,
+          "branched_boundary_vertices": 0,
+          "over_connected_edges": 0,
+          "wire_edges": 0,
+          "connected_components": 1,
+          "euler_characteristic": 2
+        },
+        "actual": {
+          "boundary_components": 0,
+          "boundary_edges": 0,
+          "branched_boundary_vertices": 0,
+          "over_connected_edges": 0,
+          "wire_edges": 0,
+          "connected_components": 1,
+          "euler_characteristic": 2
+        },
+        "passed": true
+      }
+    ],
+    "surface_smoothing": {
+      "amount": 0.0,
+      "method": "authored normals unchanged",
+      "custom_corner_normals": false,
+      "geometry_changed": false
+    }
+  },
+  "stage_5_single_armature": {
+    "armature": "GameExportRig",
+    "modifier_count": 1,
+    "independent_rig": false,
+    "bone_attachment": false
+  },
+  "stage_6_weights": {
+    "source": "PlayerMaleBody",
+    "garment_class": "lower_body",
+    "mapping": "POLYINTERP_NEAREST",
+    "automatic_weights_used": false,
+    "deterministic_cleanup": {
+      "left_fingers_to_hand": {
+        "target": "not applicable",
+        "affected_vertices": 0,
+        "remapped_weight": 0.0,
+        "removed_groups": []
+      },
+      "right_fingers_to_hand": {
+        "target": "not applicable",
+        "affected_vertices": 0,
+        "remapped_weight": 0.0,
+        "removed_groups": []
+      },
+      "lower_body_to_hips": {
+        "target": "preserved lower-body chain",
+        "affected_vertices": 0,
+        "remapped_weight": 0.0,
+        "removed_groups": []
+      },
+      "shoulder_armpit_elbow_weights": {
+        "method": "not applicable to lower-body clothing",
+        "corrected_vertices": 0,
+        "upper_body_groups_to_hips": {
+          "target": "mixamorigHips",
+          "affected_vertices": 100,
+          "remapped_weight": 6.110921,
+          "removed_groups": [
+            "mixamorigSpine",
+            "mixamorigSpine1",
+            "mixamorigSpine2",
+            "mixamorigRightShoulder",
+            "mixamorigRightArm",
+            "mixamorigRightForeArm",
+            "mixamorigRightHand",
+            "mixamorigRightHandThumb1",
+            "mixamorigRightHandThumb2",
+            "mixamorigRightHandThumb3",
+            "mixamorigRightHandIndex1",
+            "mixamorigRightHandIndex2",
+            "mixamorigRightHandIndex3",
+            "mixamorigNeck",
+            "mixamorigHead",
+            "mixamorigLeftShoulder",
+            "mixamorigLeftArm",
+            "mixamorigLeftForeArm",
+            "mixamorigLeftHand",
+            "mixamorigLeftHandThumb1",
+            "mixamorigLeftHandThumb2",
+            "mixamorigLeftHandThumb3",
+            "mixamorigLeftHandIndex1",
+            "mixamorigLeftHandIndex2",
+            "mixamorigLeftHandIndex3"
+          ]
+        },
+        "lower_chain_seam_weights": {
+          "method": "bilateral center-seam leg weights with side-specific chain mirroring; geometry unchanged",
+          "centerline_half_width": 0.012,
+          "center_vertices": 36,
+          "side_vertices": 466,
+          "geometry_changed": false
+        }
+      },
+      "upper_sidewall_hips_to_spine_vertices": 0,
+      "pose_corrected_cuffs": {},
+      "collapsed_sliver_weights": {
+        "method": "connected sliver-triangle weight synchronization without geometry changes",
+        "quality_limit": 0.0001,
+        "sliver_faces": 0,
+        "sliver_components": 0,
+        "synchronized_vertices": 0,
+        "maximum_weight_delta_before": 0.0,
+        "maximum_weight_delta_after": 0.0,
+        "geometry_changed": false,
+        "uvs_normals_materials_preserved": true
+      },
+      "coincident_seam_weights": {
+        "method": "weight synchronization without geometry/UV welding",
+        "position_epsilon": 1e-05,
+        "coincident_seam_groups": 0,
+        "corrected_seam_groups": 0,
+        "synchronized_vertices": 0,
+        "maximum_weight_delta_before": 0.0,
+        "maximum_weight_delta_after": 0.0,
+        "geometry_welded": false,
+        "uvs_preserved": true,
+        "materials_preserved": true
+      }
+    },
+    "clean_threshold": 0.0001,
+    "maximum_influences": 4,
+    "minimum_weight_total": 1.0,
+    "maximum_weight_total": 1.0,
+    "armature_modifier_target": "GameExportRig",
+    "independent_armature_created": false
+  },
+  "stage_7_pose_validation": {
+    "deformation_audit": {
+      "method": "evaluated skinned-mesh pose audit",
+      "coincident_seam_pairs": 0,
+      "collapsed_sliver_faces": 0,
+      "maximum_allowed_seam_gap": 5e-05,
+      "maximum_allowed_edge_stretch_ratio": 4.0,
+      "maximum_allowed_sliver_opening_ratio": 0.002,
+      "worst_seam_gap": 0.0,
+      "worst_edge_stretch_ratio": 2.882504,
+      "worst_sliver_opening_ratio": 0.0,
+      "poses": {
+        "idle": {
+          "maximum_seam_gap": 0.0,
+          "maximum_edge_stretch_ratio": 1.0,
+          "maximum_sliver_opening_ratio": 0.0
+        },
+        "walk": {
+          "maximum_seam_gap": 0.0,
+          "maximum_edge_stretch_ratio": 2.882504,
+          "maximum_sliver_opening_ratio": 0.0
+        },
+        "elbows_bent": {
+          "maximum_seam_gap": 0.0,
+          "maximum_edge_stretch_ratio": 1.0,
+          "maximum_sliver_opening_ratio": 0.0
+        },
+        "arms_raised": {
+          "maximum_seam_gap": 0.0,
+          "maximum_edge_stretch_ratio": 1.0,
+          "maximum_sliver_opening_ratio": 0.0
+        }
+      },
+      "passed": true
+    },
+    "exported_glb_audit": {
+      "method": "exact exported GLB reimport audit",
+      "vertices": 3000,
+      "triangles": 1000,
+      "coincident_export_seam_groups": 502,
+      "discontinuous_weight_groups": 0,
+      "maximum_weight_delta": 0.0,
+      "degenerate_or_sliver_faces": 0,
+      "corner_normals": 3000,
+      "invalid_corner_normals": 0,
+      "custom_normals_preserved": true,
+      "expected_surface_smoothing": 0.0,
+      "canonicalized_export_topology": {
+        "method": "coincident geometric seam weld with per-corner UV preservation",
+        "position_epsilon": 1e-05,
+        "vertices_before": 3000,
+        "vertices_after": 502,
+        "merged_duplicate_vertices": 2498,
+        "polygons_preserved": true,
+        "uv_layers_preserved": 1,
+        "materials_preserved": 1
+      },
+      "topology_contract": {
+        "expected": {
+          "boundary_components": 0,
+          "boundary_edges": 0,
+          "branched_boundary_vertices": 0,
+          "over_connected_edges": 0,
+          "wire_edges": 0,
+          "connected_components": 1,
+          "euler_characteristic": 2
+        },
+        "actual": {
+          "boundary_components": 0,
+          "boundary_edges": 0,
+          "branched_boundary_vertices": 0,
+          "over_connected_edges": 0,
+          "wire_edges": 0,
+          "connected_components": 1,
+          "euler_characteristic": 2
+        },
+        "passed": true
+      },
+      "boundary_t_junctions": {
+        "method": "boundary vertex-on-unsplit-edge audit",
+        "boundary_edges": 0,
+        "t_junctions": 0,
+        "position_epsilon": 1e-05,
+        "passed": true
+      },
+      "passed": true
+    },
+    "captures": [
+      {
+        "pose": "rest",
+        "camera": "CAM_FRONT_ORTHO",
+        "file": "C:\\Dev\\suma-nook\\art_source\\characters\\review\\bottom_tweed_trousers_tpose_front.png"
+      },
+      {
+        "pose": "rest",
+        "camera": "CAM_THREE_QUARTER",
+        "file": "C:\\Dev\\suma-nook\\art_source\\characters\\review\\bottom_tweed_trousers_tpose_three_quarter.png"
+      },
+      {
+        "pose": "rest",
+        "camera": "CAM_SIDE_ORTHO",
+        "file": "C:\\Dev\\suma-nook\\art_source\\characters\\review\\bottom_tweed_trousers_tpose_side.png"
+      },
+      {
+        "pose": "idle",
+        "camera": "CAM_FRONT_ORTHO",
+        "file": "C:\\Dev\\suma-nook\\art_source\\characters\\review\\bottom_tweed_trousers_idle_front.png"
+      },
+      {
+        "pose": "walk",
+        "camera": "CAM_FRONT_ORTHO",
+        "file": "C:\\Dev\\suma-nook\\art_source\\characters\\review\\bottom_tweed_trousers_walk_front.png"
+      },
+      {
+        "pose": "elbows_bent",
+        "camera": "CAM_THREE_QUARTER",
+        "file": "C:\\Dev\\suma-nook\\art_source\\characters\\review\\bottom_tweed_trousers_bent_elbows.png"
+      },
+      {
+        "pose": "arms_raised",
+        "camera": "CAM_FRONT_ORTHO",
+        "file": "C:\\Dev\\suma-nook\\art_source\\characters\\review\\bottom_tweed_trousers_arms_raised.png"
+      },
+      {
+        "pose": "walk",
+        "camera": "CAM_GAME_APPROX",
+        "file": "C:\\Dev\\suma-nook\\art_source\\characters\\review\\bottom_tweed_trousers_game.png"
+      }
+    ]
+  },
+  "stage_8_body_mask_contract": {
+    "hide": [
+      "hips",
+      "thigh_l",
+      "knee_l",
+      "shin_l",
+      "thigh_r",
+      "knee_r",
+      "shin_r"
+    ],
+    "never_hide": [
+      "hand_l",
+      "hand_r"
+    ]
+  },
+  "stage_9_godot_contract": {
+    "live_skeleton": "existing Skeleton3D via CharacterAssembler rebind",
+    "bone_names_and_rest": "canonical GameExportRig, 34 bones",
+    "garment_animation_player": false
+  },
+  "weights_and_bind": {
+    "source": "PlayerMaleBody",
+    "garment_class": "lower_body",
+    "mapping": "POLYINTERP_NEAREST",
+    "automatic_weights_used": false,
+    "deterministic_cleanup": {
+      "left_fingers_to_hand": {
+        "target": "not applicable",
+        "affected_vertices": 0,
+        "remapped_weight": 0.0,
+        "removed_groups": []
+      },
+      "right_fingers_to_hand": {
+        "target": "not applicable",
+        "affected_vertices": 0,
+        "remapped_weight": 0.0,
+        "removed_groups": []
+      },
+      "lower_body_to_hips": {
+        "target": "preserved lower-body chain",
+        "affected_vertices": 0,
+        "remapped_weight": 0.0,
+        "removed_groups": []
+      },
+      "shoulder_armpit_elbow_weights": {
+        "method": "not applicable to lower-body clothing",
+        "corrected_vertices": 0,
+        "upper_body_groups_to_hips": {
+          "target": "mixamorigHips",
+          "affected_vertices": 100,
+          "remapped_weight": 6.110921,
+          "removed_groups": [
+            "mixamorigSpine",
+            "mixamorigSpine1",
+            "mixamorigSpine2",
+            "mixamorigRightShoulder",
+            "mixamorigRightArm",
+            "mixamorigRightForeArm",
+            "mixamorigRightHand",
+            "mixamorigRightHandThumb1",
+            "mixamorigRightHandThumb2",
+            "mixamorigRightHandThumb3",
+            "mixamorigRightHandIndex1",
+            "mixamorigRightHandIndex2",
+            "mixamorigRightHandIndex3",
+            "mixamorigNeck",
+            "mixamorigHead",
+            "mixamorigLeftShoulder",
+            "mixamorigLeftArm",
+            "mixamorigLeftForeArm",
+            "mixamorigLeftHand",
+            "mixamorigLeftHandThumb1",
+            "mixamorigLeftHandThumb2",
+            "mixamorigLeftHandThumb3",
+            "mixamorigLeftHandIndex1",
+            "mixamorigLeftHandIndex2",
+            "mixamorigLeftHandIndex3"
+          ]
+        },
+        "lower_chain_seam_weights": {
+          "method": "bilateral center-seam leg weights with side-specific chain mirroring; geometry unchanged",
+          "centerline_half_width": 0.012,
+          "center_vertices": 36,
+          "side_vertices": 466,
+          "geometry_changed": false
+        }
+      },
+      "upper_sidewall_hips_to_spine_vertices": 0,
+      "pose_corrected_cuffs": {},
+      "collapsed_sliver_weights": {
+        "method": "connected sliver-triangle weight synchronization without geometry changes",
+        "quality_limit": 0.0001,
+        "sliver_faces": 0,
+        "sliver_components": 0,
+        "synchronized_vertices": 0,
+        "maximum_weight_delta_before": 0.0,
+        "maximum_weight_delta_after": 0.0,
+        "geometry_changed": false,
+        "uvs_normals_materials_preserved": true
+      },
+      "coincident_seam_weights": {
+        "method": "weight synchronization without geometry/UV welding",
+        "position_epsilon": 1e-05,
+        "coincident_seam_groups": 0,
+        "corrected_seam_groups": 0,
+        "synchronized_vertices": 0,
+        "maximum_weight_delta_before": 0.0,
+        "maximum_weight_delta_after": 0.0,
+        "geometry_welded": false,
+        "uvs_preserved": true,
+        "materials_preserved": true
+      }
+    },
+    "clean_threshold": 0.0001,
+    "maximum_influences": 4,
+    "minimum_weight_total": 1.0,
+    "maximum_weight_total": 1.0,
+    "armature_modifier_target": "GameExportRig",
+    "independent_armature_created": false
+  },
+  "immutable_contract": {
+    "body_and_rig_unchanged": true,
+    "bone_count": 34,
+    "rest_t_pose": true
+  },
+  "hidden_regions": [
+    "hips",
+    "thigh_l",
+    "knee_l",
+    "shin_l",
+    "thigh_r",
+    "knee_r",
+    "shin_r"
+  ],
+  "hands_hidden": false,
+  "output": "C:\\Dev\\suma-nook\\assets\\characters\\parts\\bottom_tweed_trousers.glb",
+  "review_blend": "C:\\Dev\\suma-nook\\art_source\\characters\\review\\bottom_tweed_trousers_clothing_lab.blend",
+  "garment_triangles": 1000,
+  "garment_vertices": 502,
+  "animations_exported": false,
+  "surface_smoothing": {
+    "amount": 0.0,
+    "method": "authored normals unchanged",
+    "custom_corner_normals": false,
+    "geometry_changed": false
+  },
+  "detail_eraser": {
+    "method": "anchored local surface smoothing and fabric UV sampling",
+    "strokes": 0,
+    "affected_vertices": 0,
+    "affected_uv_loops": 0,
+    "maximum_displacement": 0.0,
+    "topology_changed": false
+  }
+}

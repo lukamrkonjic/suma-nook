@@ -31,6 +31,15 @@ extends Resource
 ## HipSocket_R.
 @export var bone_sockets: Dictionary[String, String] = {}
 
+@export_group("Clothing Fit Landmarks")
+## Global rest-pose clothing anchors used by Clothing Lab for every garment
+## category, from hats to shoes. Keys use "<side>.<joint>" (for example
+## "center.crown", "left.shoulder", or "right.ankle") and values are in the
+## body scene's local space. An empty dictionary falls back to measured bone
+## rests and face sockets. This is fitting metadata only: editing it never
+## moves the Skeleton3D.
+@export var clothing_landmarks: Dictionary[String, Vector3] = {}
+
 @export_group("Body Regions")
 ## Region hiding is implemented by the body's shader mask (see
 ## PlayerArmorRegions); clothing lists region names from that set.

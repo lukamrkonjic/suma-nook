@@ -76,6 +76,10 @@ func batch_mesh(
 	return combined
 
 
+func clear_asset_edit_cache() -> void:
+	_batch_mesh_cache.clear()
+
+
 func _instantiate_layered_visual(def: Defs.TileDefinition) -> Node3D:
 	var root := Node3D.new()
 	root.name = "LayeredTileVisual"
@@ -98,6 +102,14 @@ func _instantiate_layered_visual(def: Defs.TileDefinition) -> Node3D:
 				mesh.material_override = assets.materials.material(layer.material_key)
 			if layer.role == "detail":
 				mesh.set_meta(SURFACE_DETAIL_META, true)
+		## Layer materials are assigned after AssetLibrary instantiation. Apply
+		## the asset profile once more so a saved/live color override wins over
+		## this composition-level material_override and is visible in-game.
+		assets.apply_asset_profile_to_tree(
+			layer_visual,
+			layer.asset_id,
+			assets.edits.profile(layer.asset_id)
+		)
 	return root
 
 

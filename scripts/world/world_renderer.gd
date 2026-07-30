@@ -138,6 +138,16 @@ func rebuild_all() -> void:
 	_sync_landmarks()
 
 
+func refresh_asset_edits() -> void:
+	## Asset Studio edits must invalidate the composed tile/structure meshes as
+	## well as direct AssetLibrary batches. Rebuilding here makes Save visible
+	## in the already-running world, including scalable MultiMesh chunks.
+	assets.clear_edit_caches()
+	_tile_visual_factory.clear_asset_edit_cache()
+	_structure_visual_factory.clear_asset_edit_cache()
+	rebuild_all()
+
+
 func _on_slot_changed(coord: Vector2i, elevation: int) -> void:
 	var wants_scalable := (
 		core.grid.total_tile_count() >= SCALABLE_WORLD_THRESHOLD
@@ -321,16 +331,20 @@ func _build_structure(holder: Node3D, s: WorldGrid.StructureState) -> void:
 			_add_structure_blocker(visual)
 		"walkable_surface":
 			_add_walkable_structure_surface(visual)
-	var is_firepit := def.id in ["struct_campfire", "struct_firepit_polished"]
+	var is_firepit := def.has_capability("fire")
 	if def.has_capability("light"):
+		var model_scale := assets.edits.model_scale_for(def.asset_id)
 		_add_warm_light(
 			visual,
 			1.1 if is_firepit else 0.6,
-			def.light_height,
+			def.light_height * model_scale,
 			def.light_flicker
 		)
 	if is_firepit:
-		_animate_flame(visual)
+		_apply_burning_state(
+			visual,
+			core.fire.is_burning(s.instance_id)
+		)
 	if "tree" in def.placement_tags:
 		_attach_tree_wind(visual, s.instance_id)
 	else:
@@ -443,7 +457,7 @@ func _add_warm_light(
 	energy: float,
 	height: float,
 	flicker: bool
-) -> void:
+) -> OmniLight3D:
 	var light := OmniLight3D.new()
 	light.light_color = Color(1.0, 0.72, 0.4)
 	light.omni_range = 4.5
@@ -454,17 +468,54 @@ func _add_warm_light(
 	parent.add_child(light)
 	if flicker:
 		_animate_local_light(light)
+	return light
 
 
-func _animate_flame(campfire: Node3D) -> void:
-	for flame_name in ["FlameOuter", "FlameCore"]:
-		var flame := campfire.find_child(flame_name, true, false) as Node3D
-		if flame == null:
-			continue
-		var tween := flame.create_tween().set_loops()
-		var base := flame.scale
-		tween.tween_property(flame, "scale", base * Vector3(0.88, 1.14, 0.88), 0.24).set_trans(Tween.TRANS_SINE)
-		tween.tween_property(flame, "scale", base, 0.31).set_trans(Tween.TRANS_SINE)
+func _apply_burning_state(visual: Node3D, active: bool) -> void:
+	var effect := visual.find_child("BurningEffect", true, false)
+	if effect != null and effect.has_method("set_burning"):
+		effect.set_burning(active)
+	for child in visual.find_children("*", "OmniLight3D", true, false):
+		(child as OmniLight3D).visible = active
+
+
+func set_structure_burning(instance_id: int, active: bool) -> void:
+	if _scalable_mode:
+		_scalable_backend.set_structure_burning(instance_id, active)
+		return
+	var visual := structure_node(instance_id)
+	if visual != null:
+		_apply_burning_state(visual, active)
+
+
+func structure_fire_world_position(instance_id: int) -> Vector3:
+	var found := core.grid.find_structure(instance_id)
+	if found.is_empty():
+		return Vector3.ZERO
+	var structure: WorldGrid.StructureState = found["structure"]
+	var definition := core.registries.structure(structure.structure_id)
+	var offset := Vector3.ZERO
+	if definition != null and definition.has_capability("fire"):
+		var offset_data: Array = (
+			definition.capability("fire").get("offset", [])
+		)
+		if offset_data.size() >= 3:
+			offset = Vector3(
+				float(offset_data[0]),
+				float(offset_data[1]),
+				float(offset_data[2])
+			)
+	var world_transform := (
+		Transform3D(
+			Basis.IDENTITY,
+			core.grid.cell_to_world(
+				found["coord"],
+				int(found["elevation"])
+			)
+		)
+		* core.grid.structure_local_transform(instance_id)
+	)
+	return world_transform * offset
 
 
 ## State has already committed before this presentation starts. The measured

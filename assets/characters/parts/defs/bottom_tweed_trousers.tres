@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CharacterPartDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="1_definition"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/generated/bottom_tweed_trousers.scn" id="2_scene"]
+[ext_resource type="Resource" path="res://assets/characters/parts/fits/bottom_tweed_trousers_fit.tres" id="3_fit"]
+
+[resource]
+script = ExtResource("1_definition")
+part_id = "bottom_tweed_trousers"
+display_name = "Tweed Trousers"
+slot = "BOTTOM"
+compatibility_tags = PackedStringArray("male", "clothing", "trousers")
+scene = ExtResource("2_scene")
+attachment_type = "skinned"
+compatible_body_profiles = PackedStringArray("body_male")
+clothing_fit = ExtResource("3_fit")
+hidden_regions = PackedStringArray("hips", "thigh_l", "knee_l", "shin_l", "thigh_r", "knee_r", "shin_r")
+hides_slots = PackedStringArray()

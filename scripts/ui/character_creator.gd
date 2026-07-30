@@ -6,6 +6,13 @@ extends CanvasLayer
 
 signal creation_finished(profile: PlayerProfile)
 
+const PART_CATALOG: CharacterPartCatalog = preload(
+	"res://assets/characters/parts/catalog_male.tres"
+)
+const BODY_CATALOG: CharacterBodyCatalog = preload(
+	"res://assets/characters/body_catalog.tres"
+)
+
 var kit: UiKit
 var palette: CozyPalette
 var _input_service: InputDeviceService
@@ -31,7 +38,7 @@ func _build() -> void:
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.theme = kit.theme
 	add_child(_root)
-	var card := kit.card(Vector2(340, 0))
+	var card := kit.card(Vector2(390, 0))
 	card.set_anchors_preset(Control.PRESET_CENTER_LEFT)
 	card.position.x = 40
 	card.grow_horizontal = Control.GROW_DIRECTION_END
@@ -51,10 +58,38 @@ func _build() -> void:
 	_name_edit.add_theme_font_override("font", kit.font)
 	col.add_child(_name_edit)
 
+	col.add_child(_choice_dropdown(
+		"Body",
+		BODY_CATALOG.display_names(),
+		profile.body_index,
+		func(i): profile.body_index = i
+	))
 	col.add_child(_swatch_row("Skin", palette.skin_tones, func(i): profile.skin_index = i))
-	col.add_child(_choice_row("Hair style", ["Quiff", "Crop", "Bun", "Long"], func(i): profile.hair_style = i))
+	col.add_child(_choice_dropdown(
+		"Hair style",
+		PART_CATALOG.display_names(CharacterSlots.HAIR),
+		profile.hair_style,
+		func(i): profile.hair_style = i
+	))
 	col.add_child(_swatch_row("Hair color", palette.hair_colors, func(i): profile.hair_color_index = i))
-	col.add_child(_choice_row("Eyes", ["Wide", "Sleepy", "Bright"], func(i): profile.eye_index = i))
+	col.add_child(_choice_dropdown(
+		"Eyes",
+		PART_CATALOG.display_names(CharacterSlots.EYES),
+		profile.eye_index,
+		func(i): profile.eye_index = i
+	))
+	col.add_child(_choice_dropdown(
+		"Mouth",
+		PART_CATALOG.display_names(CharacterSlots.MOUTH),
+		profile.mouth_index,
+		func(i): profile.mouth_index = i
+	))
+	col.add_child(_choice_dropdown(
+		"Nose",
+		PART_CATALOG.display_names(CharacterSlots.NOSE),
+		profile.nose_index,
+		func(i): profile.nose_index = i
+	))
 	col.add_child(_swatch_row("Outfit", palette.outfit_colors, func(i): profile.outfit_index = i))
 
 	var begin := kit.button("Begin", true)
@@ -104,20 +139,27 @@ func _swatch_row(label_text: String, colors: PackedColorArray, setter: Callable)
 	return col
 
 
-func _choice_row(label_text: String, names: Array, setter: Callable) -> Control:
+func _choice_dropdown(
+	label_text: String,
+	names: PackedStringArray,
+	selected_index: int,
+	setter: Callable
+) -> Control:
 	var col := VBoxContainer.new()
 	col.add_child(kit.label(label_text, 15))
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	col.add_child(row)
-	for i in names.size():
-		var b := kit.button(names[i])
-		b.tooltip_text = "%s: %s" % [label_text, names[i]]
-		var index := i
-		b.pressed.connect(func():
-			setter.call(index)
-			_preview())
-		row.add_child(b)
+	var selector := OptionButton.new()
+	selector.custom_minimum_size = Vector2(250, 44)
+	selector.tooltip_text = "Choose %s" % label_text.to_lower()
+	for option_name in names:
+		selector.add_item(option_name)
+	if not names.is_empty():
+		selector.select(clampi(selected_index, 0, names.size() - 1))
+	selector.item_selected.connect(func(index: int):
+		setter.call(index)
+		_preview())
+	col.add_child(selector)
+	if _first_choice == null:
+		_first_choice = selector
 	return col
 
 

@@ -1,0 +1,12 @@
+{
+	"version": 2,
+	"profiles": {
+		"prop_firepit_polished": {
+			"scale": 0.6,
+			"smoothing": 0.0,
+			"materials": {
+
+			}
+		}
+	}
+}

@@ -14,6 +14,15 @@ const GameContentCatalogScript := preload("res://scripts/core/game_content_catal
 const CampingModuleScript := preload(
 	"res://scripts/features/camping/camping_module.gd"
 )
+const InteractionRegistryScript := preload(
+	"res://scripts/core/interaction_registry.gd"
+)
+const FireSystemScript := preload(
+	"res://scripts/features/fire/fire_system.gd"
+)
+const FireInteractionsScript := preload(
+	"res://scripts/features/fire/fire_interactions.gd"
+)
 const CurrentSaveValidatorScript := preload(
 	"res://scripts/systems/current_save_validator.gd"
 )
@@ -35,6 +44,8 @@ var landmarks: LandmarkManager
 var combat: CombatManager
 var save_manager: SaveManager
 var camping
+var fire
+var interactions
 
 var autosave_timer := 0.0
 var autosave_paused := false
@@ -71,6 +82,13 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 	inventory = InventoryManager.new(registries)
 	stock = StockManager.new(registries)
 	camping = CampingModuleScript.new(registries, grid, stock)
+	fire = FireSystemScript.new(registries, grid)
+	interactions = InteractionRegistryScript.new()
+	interactions.register_provider(
+		"fire",
+		FireInteractionsScript.new(fire)
+	)
+	interactions.register_provider("camping", camping.interactions)
 	collection = CollectionManager.new(registries)
 	skills = SkillManager.new(registries)
 	rewards = RewardManager.new(registries, rng, inventory, stock, collection)
@@ -102,6 +120,11 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 			owner._dirty = true
 	)
 	grid.slot_changed.connect(_sync_resting_anchor_slot)
+	fire.burning_changed.connect(func(_instance_id, _burning):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._dirty = true
+	)
 	inventory.items_changed.connect(func():
 		var owner := owner_ref.get_ref() as GameCore
 		if owner != null:

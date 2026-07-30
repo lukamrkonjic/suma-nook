@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CharacterPartDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_part_fit.gd" id="1_hcxkm"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/eyes_dot_pair.glb" id="2_8p5hb"]
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="3_sdktf"]
+
+[sub_resource type="Resource" id="Resource_g20p4"]
+script = ExtResource("1_hcxkm")
+body_profile_id = "body_male"
+notes = "Authored directly against body_male; identity fit."
+validated = true
+
+[resource]
+script = ExtResource("3_sdktf")
+part_id = "eyes_dot_pair"
+display_name = "Friendly Dots"
+slot = "EYES"
+compatibility_tags = PackedStringArray()
+scene = ExtResource("2_8p5hb")
+socket = "EyesSocket"
+compatible_body_profiles = PackedStringArray()
+fits = Array[ExtResource("1_hcxkm")]([SubResource("Resource_g20p4")])
+hidden_regions = PackedStringArray()
+hides_slots = PackedStringArray()
+color_channel = "eyes"

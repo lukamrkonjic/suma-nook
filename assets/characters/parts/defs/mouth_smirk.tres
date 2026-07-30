@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CharacterPartDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_part_fit.gd" id="1_psuif"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/mouth_smirk.glb" id="2_ci1qa"]
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="3_p3iko"]
+
+[sub_resource type="Resource" id="Resource_ir4yb"]
+script = ExtResource("1_psuif")
+body_profile_id = "body_male"
+notes = "Authored directly against body_male; identity fit."
+validated = true
+
+[resource]
+script = ExtResource("3_p3iko")
+part_id = "mouth_smirk"
+display_name = "Smirk"
+slot = "MOUTH"
+compatibility_tags = PackedStringArray()
+scene = ExtResource("2_ci1qa")
+socket = "MouthSocket"
+compatible_body_profiles = PackedStringArray()
+fits = Array[ExtResource("1_psuif")]([SubResource("Resource_ir4yb")])
+hidden_regions = PackedStringArray()
+hides_slots = PackedStringArray()
+color_channel = "mouth"

@@ -25,6 +25,9 @@ class StructureState:
 	var anchor_resting := false
 	var anchor_regen_left: float = 0.0
 	var anchor_upgrade: int = 0
+	# Capability-owned instance state. Kept generic so future clickable
+	# structures do not require another placeable-state schema migration.
+	var runtime_state: Dictionary = {}
 
 	func to_dict() -> Dictionary:
 		return {
@@ -38,6 +41,7 @@ class StructureState:
 			"a_rest": anchor_resting,
 			"a_regen": anchor_regen_left,
 			"a_up": anchor_upgrade,
+			"runtime": runtime_state.duplicate(true),
 		}
 
 	static func from_dict(d: Dictionary) -> StructureState:
@@ -52,6 +56,9 @@ class StructureState:
 		s.anchor_resting = bool(d.get("a_rest", false))
 		s.anchor_regen_left = float(d.get("a_regen", 0.0))
 		s.anchor_upgrade = int(d.get("a_up", 0))
+		s.runtime_state = (
+			d.get("runtime", {}) as Dictionary
+		).duplicate(true)
 		return s
 
 

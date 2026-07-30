@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CharacterPartDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_part_fit.gd" id="1_7r8mp"]
+[ext_resource type="PackedScene" path="res://assets/characters/parts/nose_triangle.glb" id="2_tosgr"]
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="3_c1fpn"]
+
+[sub_resource type="Resource" id="Resource_by5r3"]
+script = ExtResource("1_7r8mp")
+body_profile_id = "body_male"
+notes = "Authored directly against body_male; identity fit."
+validated = true
+
+[resource]
+script = ExtResource("3_c1fpn")
+part_id = "nose_triangle"
+display_name = "Soft Triangle"
+slot = "NOSE"
+compatibility_tags = PackedStringArray()
+scene = ExtResource("2_tosgr")
+socket = "NoseSocket"
+compatible_body_profiles = PackedStringArray()
+fits = Array[ExtResource("1_7r8mp")]([SubResource("Resource_by5r3")])
+hidden_regions = PackedStringArray()
+hides_slots = PackedStringArray()
+color_channel = "skin"

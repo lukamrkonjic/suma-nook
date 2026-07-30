@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CharacterAppearancePreset" load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/character_appearance_preset.gd" id="1_preset"]
+[ext_resource type="Resource" path="res://assets/characters/body_profiles/body_female.tres" id="2_body"]
+[ext_resource type="Script" path="res://scripts/characters/character_part_definition.gd" id="3_part"]
+[ext_resource type="Resource" path="res://assets/characters/parts/defs/hair_swoop_brown.tres" id="4_hair"]
+[ext_resource type="Resource" path="res://assets/characters/parts/defs/eyes_oval_pair.tres" id="5_eyes"]
+[ext_resource type="Resource" path="res://assets/characters/parts/defs/brows_soft_pair.tres" id="6_brows"]
+[ext_resource type="Resource" path="res://assets/characters/parts/defs/nose_round.tres" id="7_nose"]
+[ext_resource type="Resource" path="res://assets/characters/parts/defs/mouth_smile.tres" id="8_mouth"]
+
+[resource]
+script = ExtResource("1_preset")
+preset_id = "default_female"
+body_profile = ExtResource("2_body")
+parts = Array[ExtResource("3_part")]([ExtResource("4_hair"), ExtResource("5_eyes"), ExtResource("6_brows"), ExtResource("7_nose"), ExtResource("8_mouth")])

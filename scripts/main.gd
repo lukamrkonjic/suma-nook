@@ -172,7 +172,11 @@ func _build_world_scene() -> void:
 	clouds = CozyCloudLayerScript.new()
 	clouds.name = "CloudLayer"
 	world_root.add_child(clouds)
-	clouds.setup(camera_rig, camera_rig.zoom_distance())
+	clouds.setup(
+		camera_rig,
+		camera_rig.zoom_distance(),
+		lighting.shadow_ray_direction()
+	)
 	camera_rig.zoom_changed.connect(clouds.set_camera_distance)
 	interaction_targets = InteractionTargetResolverScript.new(
 		self, core, camera_rig.camera, delivery_point
@@ -554,6 +558,9 @@ func _connect_flows() -> void:
 		audio.play_event("build_preview")
 		placement.hold_new(kind, id))
 	hud.build_world_browse_requested.connect(_begin_controller_world_browse)
+	hud.build_store_requested.connect(func():
+		placement.store_held()
+		audio.play_event("store"))
 	parcel_reveal.reveal_finished.connect(_on_tile_chosen)
 	parcel_reveal.reveal_started.connect(func(_options): _refresh_controller_hints())
 	core.parcels.options_revealed.connect(func(_p, _o): audio.play_event("parcel_reveal"))
@@ -576,6 +583,7 @@ func _connect_flows() -> void:
 	placement.held_changed.connect(func(_held): _refresh_controller_hints())
 	player.interaction_focus_changed.connect(_on_focus_changed)
 	player.click_interaction_reached.connect(_on_click_interaction_reached)
+	core.fire.burning_changed.connect(_on_fire_burning_changed)
 
 	core.skills.level_up.connect(_on_skill_level_up)
 	core.equipment.equipment_changed.connect(func():
@@ -812,12 +820,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		panels.toggle("map")
 	elif event.is_action_pressed("return_home"):
 		_return_home()
-	elif event.is_action_pressed("interact"):
+	elif (
+		event.is_action_pressed("interact")
+		and _is_controller_event(event)
+	):
 		if placement.active:
 			placement.click()
 		else:
 			player.cancel_click_command()
-			skill_actions.try_interact()
+			_perform_interaction(player.focus())
 	elif event.is_action_pressed("cancel"):
 		if (
 			_is_controller_event(event)
@@ -831,7 +842,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif parcel_reveal.is_open():
 			return
 		elif placement.active:
-			placement.cancel_click()
+			_cancel_build_or_open_library()
 		else:
 			skill_actions.cancel_all()
 			player.cancel_click_command()
@@ -849,7 +860,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				_handle_world_click(mouse.position)
 		elif mouse.button_index == MOUSE_BUTTON_RIGHT and mouse.pressed:
 			if placement.active:
-				placement.cancel_click()
+				_cancel_build_or_open_library()
 	elif event is InputEventMouseMotion and placement.active:
 		placement.pointer_motion((event as InputEventMouseMotion).position)
 	elif event.is_action_pressed("store_piece") and placement.active:
@@ -862,6 +873,7 @@ func _handle_controller_build_input(event: InputEvent) -> void:
 		if placement.held.is_empty():
 			if placement.controller_cursor_active():
 				placement.show_controller_library()
+				hud.request_build_library_open()
 				hud.focus_build_library()
 			else:
 				_begin_controller_world_browse()
@@ -869,7 +881,7 @@ func _handle_controller_build_input(event: InputEvent) -> void:
 		_refresh_controller_hints()
 		return
 	if event.is_action_pressed("cancel"):
-		placement.cancel_click()
+		_cancel_build_or_open_library()
 		get_viewport().set_input_as_handled()
 		_refresh_controller_hints()
 		return
@@ -910,6 +922,17 @@ func _handle_controller_build_input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 
 
+func _cancel_build_or_open_library() -> void:
+	if not placement.active:
+		return
+	if hud.build_library_collapsed():
+		if not placement.held.is_empty():
+			placement.cancel_click()
+		hud.request_build_library_open()
+		return
+	placement.cancel_click()
+
+
 func _handle_hud_shortcut(event: InputEvent) -> bool:
 	if not event.is_action("toggle_hud"):
 		return false
@@ -934,6 +957,7 @@ func _handle_hud_shortcut(event: InputEvent) -> bool:
 
 func _begin_controller_world_browse() -> void:
 	placement.begin_controller_browse()
+	hud.set_build_library_expanded(false)
 	hud.release_build_focus()
 	_refresh_controller_hints()
 
@@ -1189,12 +1213,22 @@ func _on_focus_changed(focus: Dictionary) -> void:
 			)
 		"landmark_prompt":
 			hud.set_prompt(&"interact", "Claim the watchpost")
+		"feature_interaction":
+			var option = focus.get("option")
+			hud.set_prompt(
+				&"interact",
+				String(option.label) if option != null else "Interact"
+			)
 		_:
 			hud.set_prompt(&"", "")
 	_refresh_controller_hints()
 
 
 func _on_click_interaction_reached(interaction: Dictionary) -> void:
+	_perform_interaction(interaction)
+
+
+func _perform_interaction(interaction: Dictionary) -> void:
 	match interaction.get("kind", ""):
 		"delivery_package":
 			_open_delivery_package()
@@ -1211,14 +1245,40 @@ func _execute_feature_interaction(interaction: Dictionary) -> void:
 	if not option.enabled:
 		hud.toast(option.disabled_reason, "warn")
 		return
-	if (
-		option.feature_id == "camping"
-		and core.camping.interactions.execute(
-			option.id, "player", int(interaction.get("instance_id", 0))
-		)
-	):
-		hud.toast("You settle into the shelter.", "good")
-		core.autosave_soon()
+	if not core.interactions.execute(option, "player"):
+		return
+	match String(option.feature_id):
+		"camping":
+			hud.toast("You settle into the shelter.", "good")
+		"fire":
+			var burning: bool = bool(
+				core.fire.is_burning(option.target_instance_id)
+			)
+			hud.toast(
+				"The fire catches." if burning else "The fire dies down.",
+				"good"
+			)
+	core.autosave_soon()
+
+
+func _on_fire_burning_changed(instance_id: int, burning: bool) -> void:
+	var point: Vector3 = renderer.structure_fire_world_position(instance_id)
+	var width: float = 0.56
+	var found: Dictionary = core.grid.find_structure(instance_id)
+	if not found.is_empty():
+		var state: WorldGrid.StructureState = found["structure"]
+		var definition := core.registries.structure(state.structure_id)
+		if definition != null and definition.has_capability("fire"):
+			width = float(
+				definition.capability("fire").get("width", width)
+			)
+	renderer.set_structure_burning(instance_id, burning)
+	if burning:
+		effects.fire_ignition(point, width)
+		audio.play_event("fire_crackle", -2.0, 1.08)
+	else:
+		effects.fire_extinguish(point, width)
+		audio.play_event("leaf_rustle", -7.0, 0.72)
 
 
 func _open_delivery_package() -> void:

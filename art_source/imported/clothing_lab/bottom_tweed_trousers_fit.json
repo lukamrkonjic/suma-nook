@@ -1,0 +1,29 @@
+{
+  "source_file": "res://art_source/imported/clothing_lab/bottom_tweed_trousers_source.glb",
+  "body_profile_id": "body_male",
+  "garment_class": "lower_body",
+  "position": [0.0, 0.005, -0.25],
+  "rotation_degrees": [0.0, 0.0, 0.0],
+  "scale": [0.42, 0.45, 0.24],
+  "symmetric": true,
+  "torso_width": 1.0,
+  "torso_depth": 1.0,
+  "sleeve_lift": 0.0,
+  "sleeve_length": 1.0,
+  "sleeve_room": 1.0,
+  "shoulder_lift": 0.0,
+  "cuff_radius": 1.0,
+  "cuff_forward": 0.0,
+  "surface_smoothing": 0.0,
+  "detail_erase_strokes": [],
+  "hidden_regions": [
+    "hips",
+    "thigh_l",
+    "knee_l",
+    "shin_l",
+    "thigh_r",
+    "knee_r",
+    "shin_r"
+  ],
+  "landmarks": {}
+}

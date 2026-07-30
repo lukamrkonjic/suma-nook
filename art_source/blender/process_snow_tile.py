@@ -2,8 +2,9 @@
 
 The shared surface-extraction pipeline samples the original upper snow shape,
 regularizes it into a tileable height field, applies a deliberately strong
-low-frequency polish, compresses the relief, and exports a replaceable surface
-that the runtime mounts on the shared structural tile base.
+low-frequency geometry polish, compresses the relief, and exports a replaceable
+surface with flat per-face normals as Asset Studio's absolute 0% baseline.
+The runtime mounts that surface on the shared structural tile base.
 
 Run from the repository root with Blender 5.x:
 
@@ -40,7 +41,7 @@ processor.EXPECTED_SOURCE_SHA256 = (
 processor.ASSET_LABEL = "snow"
 processor.MATERIAL_NAME = "snow_top"
 processor.CAP_OBJECT_NAME = "snow_cap"
-processor.CAP_MESH_NAME = "heavily_smoothed_source_snow_cap_mesh"
+processor.CAP_MESH_NAME = "flat_baseline_polished_source_snow_cap_mesh"
 processor.REPORT_PREFIX = "SNOW_TILE_SURFACE_REPORT="
 processor.PALETTE = {
     "snow_top": "F1ECE2",
@@ -56,7 +57,6 @@ processor.GAUSSIAN_PASSES = 3
 processor.CONTOUR_SMOOTHING_PASSES = 5
 processor.CONTOUR_SMOOTHING_BLEND = 0.72
 processor.CONTOUR_SAMPLE_SPACING = 1.50
-processor.SMOOTH_ANGLE_DEG = 60.0
 
 
 if __name__ == "__main__":
