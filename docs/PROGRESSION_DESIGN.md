@@ -345,8 +345,8 @@ socially legible the day world-visiting ships.
 The authored first session teaches the whole loop by doing it once:
 create the keeper (full-screen, world unseen) → arrive through the
 portal before the world exists → choose the first land, which rises to
-catch you → shape the shore → place the well → tend the pine → claim
-the accelerated first Vision → place it → fish the water you placed.
+catch you → place the well → tend the pine → claim the accelerated first
+Vision → place it → fish in the surrounding ocean.
 Closing lesson, in-world and wordless where possible: **what I build
 creates what I can do.** Saved as a resumable state machine; required
 pieces can never be lost.

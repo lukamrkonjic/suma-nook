@@ -1,13 +1,13 @@
 class_name OnboardingState
 extends RefCounted
 ## Saved first-session state machine. It introduces one world-making verb at
-## a time and guarantees that the water, well, tree, first Vision, and fishing
+## a time and guarantees that the well, tree, first Vision, and fishing
 ## routes can never be skipped or lost.
 
 signal stage_changed(stage: String)
 
 const LAND_CHOICE := "land_choice"
-const PLACE_WATER := "place_water"
+const LEGACY_PLACE_WATER := "place_water"
 const PLACE_SECOND_LAND := "place_second_land"
 const PLACE_WELL := "place_well"
 const PLACE_TREE := "place_tree"
@@ -19,7 +19,6 @@ const COMPLETE := "complete"
 
 const STAGES := [
 	LAND_CHOICE,
-	PLACE_WATER,
 	PLACE_SECOND_LAND,
 	PLACE_WELL,
 	PLACE_TREE,
@@ -67,7 +66,6 @@ func is_active() -> bool:
 
 func requires_guided_placement() -> bool:
 	return stage in [
-		PLACE_WATER,
 		PLACE_SECOND_LAND,
 		PLACE_WELL,
 		PLACE_TREE,
@@ -87,6 +85,12 @@ func from_save_dict(data: Dictionary) -> void:
 	# Saves created before the authored onboarding are established worlds and
 	# must never be pulled backward into the opening sequence.
 	var restored := String(data.get("stage", COMPLETE))
+	if restored == LEGACY_PLACE_WATER:
+		stage = PLACE_WELL
+		guided_kind = "structure"
+		guided_id = "struct_wishing_well"
+		stage_changed.emit(stage)
+		return
 	stage = restored if restored in STAGES else COMPLETE
 	guided_kind = String(data.get("guided_kind", ""))
 	guided_id = String(data.get("guided_id", ""))

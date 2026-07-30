@@ -1559,12 +1559,6 @@ func update_tutorial() -> void:
 		OnboardingState.LAND_CHOICE:
 			set_hint("")
 			return
-		OnboardingState.PLACE_WATER:
-			set_hint(
-				"Extend the water ring with your Quiet Water shape. (%s)"
-				% InputDeviceService.shared().format_action(&"build_confirm", "place")
-			)
-			return
 		OnboardingState.PLACE_SECOND_LAND:
 			var starter := core.registries.tile(core.profile.starter_land_id)
 			var starter_name := (

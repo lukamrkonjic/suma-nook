@@ -1812,21 +1812,10 @@ func _test_authored_onboarding_flow() -> void:
 			and core._placed_tile_count("tile_grove_mature") == 9
 			and core._placed_tile_count("tile_open_water") == 16
 			and core._is_structure_placed("struct_pine")
-			and core.stock.tile_count("tile_open_water") == 1
-			and core.onboarding.stage == OnboardingState.PLACE_WATER,
-		"choosing land raises a 3x3 grove, complete water ring, one tree, and the guided water shape"
-	)
-
-	check(
-		core.place_tile_from_stock(Vector2i(3, 0), "tile_open_water", 0),
-		"guided water can extend the authored water ring"
-	)
-	var next := core.advance_onboarding_after_placement()
-	check(
-		core.onboarding.stage == OnboardingState.PLACE_WELL
-			and next.get("id") == "struct_wishing_well"
+			and core.stock.tile_count("tile_open_water") == 0
+			and core.onboarding.stage == OnboardingState.PLACE_WELL
 			and core.stock.structure_count("struct_wishing_well") == 1,
-		"extending the water ring guarantees the wishing well"
+		"choosing land grants the well directly without granting an ocean tile"
 	)
 
 	var restored := OnboardingState.new()
@@ -1836,6 +1825,43 @@ func _test_authored_onboarding_flow() -> void:
 			and restored.guided_id == "struct_wishing_well",
 		"an interrupted guided step restores its exact required piece"
 	)
+	var migrated := OnboardingState.new()
+	migrated.from_save_dict({
+		"stage": OnboardingState.LEGACY_PLACE_WATER,
+		"guided_kind": VisionSystem.KIND_TILE,
+		"guided_id": "tile_open_water",
+	})
+	check(
+		migrated.stage == OnboardingState.PLACE_WELL
+			and migrated.guided_kind == VisionSystem.KIND_STRUCTURE
+			and migrated.guided_id == "struct_wishing_well",
+		"retired water-placement saves migrate directly to the guided well"
+	)
+	var legacy_payload: Dictionary = core._save_payload()
+	legacy_payload["onboarding"] = {
+		"stage": OnboardingState.LEGACY_PLACE_WATER,
+		"guided_kind": VisionSystem.KIND_TILE,
+		"guided_id": "tile_open_water",
+	}
+	legacy_payload["stock"]["tiles"]["tile_open_water"] = 1
+	legacy_payload["stock"]["structures"].erase("struct_wishing_well")
+	var legacy_save := SaveManager.new(core.registries)
+	legacy_save.save_path = "user://test_legacy_water_intro.json"
+	legacy_save.backup_path = legacy_save.save_path + ".backup"
+	legacy_save.delete_save()
+	check(legacy_save.write(legacy_payload), "legacy water-intro fixture saves")
+	var migrated_core := GameCore.new()
+	check(migrated_core.setup("res://data", 1718), "legacy migration core loads")
+	migrated_core.save_manager.save_path = legacy_save.save_path
+	migrated_core.save_manager.backup_path = legacy_save.backup_path
+	check(
+		migrated_core.load_game()
+			and migrated_core.onboarding.stage == OnboardingState.PLACE_WELL
+			and migrated_core.stock.tile_count("tile_open_water") == 0
+			and migrated_core.stock.structure_count("struct_wishing_well") == 1,
+		"legacy save removes the guided ocean tile and grants the well"
+	)
+	legacy_save.delete_save()
 	var well_token := core.stock.take_structure_token("struct_wishing_well")
 	var well := core.grid.add_structure(
 		Vector2i.ZERO,
@@ -1843,7 +1869,7 @@ func _test_authored_onboarding_flow() -> void:
 		0
 	)
 	check(not well_token.is_empty() and well != null, "the guaranteed well places on the first land")
-	next = core.advance_onboarding_after_placement()
+	var next := core.advance_onboarding_after_placement()
 	check(
 		core.onboarding.stage == OnboardingState.TEND_TREE,
 		"placing the well points to the tree that arrived with the island"
@@ -1870,7 +1896,7 @@ func _test_authored_onboarding_flow() -> void:
 	core.advance_onboarding_after_placement()
 	check(
 		core.onboarding.stage == OnboardingState.TRY_FISHING,
-		"placing the first Vision hands off to fishing on player-placed water"
+		"placing the first Vision hands off to fishing in the surrounding ocean"
 	)
 	check(
 		core.onboarding_fished()

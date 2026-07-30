@@ -62,7 +62,7 @@ func _run() -> void:
 	await wait(1.1)
 	await shot("02_first_land_choice")
 
-	# 3 — the chosen land catches the keeper and Quiet Water is handed over.
+	# 3 — the chosen land catches the keeper and the wishing well is handed over.
 	main.arrival_picker.select("tile_sand")
 	await wait(1.45)
 	await shot("03_arrival_chosen_sand")

@@ -254,11 +254,14 @@ func choose_onboarding_land(tile_id: String) -> bool:
 		collection.record("structures", "struct_pine")
 		collection.record_placed("structures", "struct_pine")
 	onboarding.guide_piece(
-		OnboardingState.PLACE_WATER,
-		VisionSystem.KIND_TILE,
-		"tile_open_water"
+		OnboardingState.PLACE_WELL,
+		VisionSystem.KIND_STRUCTURE,
+		"struct_wishing_well"
 	)
-	_ensure_guided_stock(VisionSystem.KIND_TILE, "tile_open_water")
+	_ensure_guided_stock(
+		VisionSystem.KIND_STRUCTURE,
+		"struct_wishing_well"
+	)
 	save()
 	return true
 
@@ -268,22 +271,6 @@ func choose_onboarding_land(tile_id: String) -> bool:
 func advance_onboarding_after_placement() -> Dictionary:
 	var next: Dictionary = {}
 	match onboarding.stage:
-		OnboardingState.PLACE_WATER:
-			# Sixteen water blocks form the authored ring; the seventeenth is
-			# the player's own first extension.
-			if _placed_tile_count("tile_open_water") < 17:
-				return {}
-			_ensure_guided_stock("structure", "struct_wishing_well")
-			onboarding.guide_piece(
-				OnboardingState.PLACE_WELL,
-				VisionSystem.KIND_STRUCTURE,
-				"struct_wishing_well"
-			)
-			next = {
-				"kind": VisionSystem.KIND_STRUCTURE,
-				"id": "struct_wishing_well",
-				"message": "There is room for the heart of your world: the wishing well.",
-			}
 		OnboardingState.PLACE_WELL:
 			if not _is_structure_placed("struct_wishing_well"):
 				return {}
@@ -294,7 +281,7 @@ func advance_onboarding_after_placement() -> Dictionary:
 		OnboardingState.PLACE_VISION:
 			onboarding.set_stage(OnboardingState.TRY_FISHING)
 			next = {
-				"message": "Something stirs in the water you placed.",
+				"message": "Something stirs in the ocean beyond your shore.",
 			}
 		_:
 			return {}
@@ -663,7 +650,20 @@ func load_game() -> bool:
 	)
 	collection.from_save_dict(data.get("collection", {}))
 	progression.from_save_dict(data.get("progression", {}))
-	onboarding.from_save_dict(data.get("onboarding", {}))
+	var onboarding_data: Dictionary = data.get("onboarding", {})
+	var onboarding_water_step_migrated := (
+		String(onboarding_data.get("stage", ""))
+			== OnboardingState.LEGACY_PLACE_WATER
+	)
+	onboarding.from_save_dict(onboarding_data)
+	if onboarding_water_step_migrated:
+		# The retired guided water piece was restored to stock before saving.
+		# Remove exactly that one grant, then repair the replacement well step.
+		stock.take_tile("tile_open_water")
+		_ensure_guided_stock(
+			VisionSystem.KIND_STRUCTURE,
+			"struct_wishing_well"
+		)
 	arrivals.from_save_dict(data.get("arrivals", {}))
 	equipment.from_save_dict(data.get("equipment", {}))
 	landmarks.from_save_dict(data.get("landmarks", {}))
@@ -680,7 +680,11 @@ func load_game() -> bool:
 	_apply_offline_recovery(int(data.get("saved_at_unix", 0)))
 	if not grid.is_traversable(grid.world_to_cell(profile.position)):
 		profile.position = grid.cell_to_world(grid.nearest_walkable(grid.world_to_cell(profile.position)))
-	_dirty = wardrobe_migrated or showcase_placeables_migrated
+	_dirty = (
+		wardrobe_migrated
+		or showcase_placeables_migrated
+		or onboarding_water_step_migrated
+	)
 	return true
 
 

@@ -733,7 +733,7 @@ func _on_first_land_chosen(tile_id: String) -> void:
 
 func _on_first_arrival_landed() -> void:
 	_start_gameplay(true, false)
-	hud.toast("A quiet water shape followed you through.", "good")
+	hud.toast("The heart of your world followed you through.", "good")
 	call_deferred("_resume_guided_onboarding")
 
 

@@ -207,21 +207,13 @@ func _step_creation() -> void:
 			and main.core._placed_tile_count("tile_sand") == 9
 			and main.core._placed_tile_count("tile_open_water") == 16
 			and main.core._is_structure_placed("struct_pine"),
-		"the chosen Pale Sand rises as a 3x3 island with a water ring and one tree"
+		"the chosen Pale Sand rises as a 3x3 island surrounded by real water tiles"
 	)
 	check(
 		main.placement.active
-			and main.placement.held.get("id", "") == "tile_open_water",
-		"Quiet Water is granted and held immediately after landing"
-	)
-	check(
-		main.placement.try_place_at(Vector2i(3, 0)),
-		"the player can extend the required water beyond the starter ring"
-	)
-	await wait(0.12)
-	check(
-		main.placement.held.get("id", "") == "struct_wishing_well",
-		"extending the water ring grants the wishing well"
+			and main.placement.held.get("id", "") == "struct_wishing_well"
+			and main.core.stock.tile_count("tile_open_water") == 0,
+		"the wishing well is held immediately without granting an ocean tile"
 	)
 	check(main.placement.try_place_at(Vector2i.ZERO), "the guided wishing well places")
 	await wait(0.12)
