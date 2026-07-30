@@ -360,7 +360,7 @@ func _build_controls_page() -> void:
 					InputDeviceService.InputMethod.KEYBOARD_MOUSE
 				)
 			],
-			"Click a chest, fire, fishing spot, tree, or other usable object.",
+			"Use the focused chest, fire, fishing spot, tree, or other usable object.",
 		],
 		["Shape land", ["B"], "Open build mode and your tile library."],
 		["Rotate piece", ["R"], "Turn the held tile or decoration."],

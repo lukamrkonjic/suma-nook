@@ -117,6 +117,7 @@ func _run() -> void:
 	await _step_tile_geometry_contract()
 	await _step_build_mode_selection_rules()
 	await _step_object_support_graph()
+	await _step_universal_interaction()
 	await _step_movement()
 	await _step_fishing()
 	await _step_parcel()
@@ -1337,6 +1338,78 @@ func _step_object_support_graph() -> void:
 	main.placement.set_active(false)
 
 
+func _step_universal_interaction() -> void:
+	print("STEP universal F interaction")
+	var storage_found := main.core.grid.find_structure(support_demo_middle_iid)
+	var storage_point := (
+		main.core.grid.cell_to_world(storage_found["coord"])
+		+ main.core.grid.structure_local_transform(
+			support_demo_middle_iid
+		).origin
+	)
+	main.player.position = storage_point + Vector3(
+		main.core.grid.tile_size * 0.2,
+		0.0,
+		main.core.grid.tile_size * 0.08
+	)
+	main.player.velocity = Vector3.ZERO
+	main.player.set_state(PlayerController.State.FREE)
+	main.player._update_focus()
+	check(
+		main.player.focus().get("kind") == "storage",
+		"proximity focus resolves storage for universal interaction"
+	)
+	await _tap_key(KEY_F)
+	await wait(0.1)
+	check(
+		main.panels.is_open() and main.panels._open_name == "inventory",
+		"F opens focused storage through the shared dispatcher"
+	)
+	main.panels.close()
+	await wait(0.1)
+
+	var fire_coord := Vector2i(5, 1)
+	main.core.grid.place_tile(fire_coord, "tile_grass")
+	var fire := main.core.grid.add_structure(
+		fire_coord,
+		"struct_firepit_polished",
+		0
+	)
+	await get_tree().process_frame
+	var fire_point := (
+		main.core.grid.cell_to_world(fire_coord)
+		+ main.core.grid.structure_local_transform(fire.instance_id).origin
+	)
+	main.player.position = fire_point + Vector3(
+		main.core.grid.tile_size * 0.2,
+		0.0,
+		main.core.grid.tile_size * 0.08
+	)
+	main.player.velocity = Vector3.ZERO
+	main.player.set_state(PlayerController.State.FREE)
+	main.player._update_focus()
+	check(
+		main.player.focus().get("kind") == "feature_interaction"
+		and String(main.player.focus().get("feature", "")) == "fire",
+		"proximity focus resolves registered feature interactions"
+	)
+	await _tap_key(KEY_F)
+	await wait(0.1)
+	check(
+		main.core.fire.is_burning(fire.instance_id),
+		"F lights a focused fire through the same shared dispatcher"
+	)
+	await _tap_key(KEY_F)
+	await wait(0.1)
+	check(
+		not main.core.fire.is_burning(fire.instance_id),
+		"F also executes the fire's updated Extinguish interaction"
+	)
+	main.core.grid.remove_structure(fire_coord, fire.instance_id)
+	main.core.grid.remove_tile(fire_coord)
+	await get_tree().process_frame
+
+
 func _exercise_tile_ledge_jump(
 	rise_layers: int,
 	start_coord: Vector2i
@@ -1781,8 +1854,10 @@ func _step_movement() -> void:
 
 func _step_fishing() -> void:
 	print("STEP fishing into the unknown")
-	main.core.registries.tuning["fishing_wait_min"] = 0.1
-	main.core.registries.tuning["fishing_wait_max"] = 0.15
+	# Let the cast and plain rescue-style hole finish arriving before the
+	# accelerated test bite begins.
+	main.core.registries.tuning["fishing_wait_min"] = 0.7
+	main.core.registries.tuning["fishing_wait_max"] = 0.75
 	main.placement.set_active(false)
 	main.player.cancel_click_command()
 	main.player.set_state(PlayerController.State.FREE)
@@ -1794,9 +1869,13 @@ func _step_fishing() -> void:
 	main.player._update_focus()
 	await wait(0.2)
 	check(main.player.focus().get("kind") == "void_fishing", "an exposed land edge becomes a void-fishing target")
+	var cast_surface: Vector3 = main.player.focus().get(
+		"cast_point",
+		main.player.global_position
+	)
 	var items_before := _inventory_total()
 	var actions_before := main.core.progression.actions_done("fishing")
-	main.skill_actions.try_interact()
+	await _tap_key(KEY_F)
 	await wait(0.55)
 	check(
 		main.player.state in [
@@ -1809,14 +1888,81 @@ func _step_fishing() -> void:
 	var animation_player := main.player_visual.find_child("AnimationPlayer", true, false) as AnimationPlayer
 	var tool_mount := main.player_visual.find_child("ToolMount", true, false)
 	check(tool_mount != null and tool_mount.get_child_count() == 1, "rod appears only while fishing")
+	var rift_deadline := Time.get_ticks_msec() + 2000
+	while (
+		not main.effects.void_fishing.has_visible_rift()
+		and Time.get_ticks_msec() < rift_deadline
+	):
+		await wait(0.05)
+	check(
+		main.effects.void_fishing.has_visible_line(),
+		"the cast keeps a visible line from the rod into the unknown"
+	)
+	check(
+		main.effects.void_fishing.has_visible_rift(),
+		"the line opens the same mysterious rift used by the keeper's rescue"
+	)
+	var fishing_rift := main.effects.void_fishing.find_child(
+		"UnknownFishingRift",
+		false,
+		false
+	) as MeshInstance3D
+	var rift_material := (
+		fishing_rift.material_override as ShaderMaterial
+		if fishing_rift != null
+		else null
+	)
+	var rift_mesh := (
+		fishing_rift.mesh as QuadMesh
+		if fishing_rift != null
+		else null
+	)
+	check(
+		main.effects.void_fishing.rift_world_position().is_equal_approx(
+			cast_surface + Vector3.DOWN * 1.15
+		),
+		"the fishing portal uses the rescue faller's exact lower portal plane"
+	)
+	check(
+		fishing_rift != null
+		and rift_material != null
+		and rift_material.shader == load(
+			"res://assets/materials/reworked/rescue_black_hole.gdshader"
+		)
+		and rift_mesh != null
+		and rift_mesh.size.is_equal_approx(Vector2(0.81, 0.81))
+		and main.effects.void_fishing.find_child(
+			"UnknownFishingRiftGlow",
+			true,
+			false
+		) == null
+		and main.effects.void_fishing.find_children(
+			"UnknownMote*",
+			"MeshInstance3D",
+			true,
+			false
+		).is_empty(),
+		"void fishing uses only the plain rescue black hole with no magic adornments"
+	)
 	await shot("screenshot_fishing_the_void")
 	var deadline := Time.get_ticks_msec() + 6000
 	while (
-		main.core.progression.actions_done("fishing") <= actions_before
+		not main.effects.void_fishing.has_carried_reward()
 		and Time.get_ticks_msec() < deadline
 	):
 		await wait(0.1)
 	check(main.core.progression.actions_done("fishing") == actions_before + 1, "one catch creates one discovery action")
+	check(
+		main.effects.void_fishing.has_carried_reward(),
+		"the rolled build piece rises from the rift and reaches the keeper's hands"
+	)
+	var pending_reward := main.core.progression.discovery.peek_pending()
+	check(
+		main.effects.void_fishing.carried_reward_id()
+			== String(pending_reward.get("id", "")),
+		"the visible retrieved piece is the exact item granted by discovery"
+	)
+	await wait(0.2)
 	check(main.discovery_reveal.is_open(), "the immediate single-item discovery opens")
 	check(_inventory_total() == items_before, "void fishing adds no material stacks")
 	check(
@@ -1825,6 +1971,15 @@ func _step_fishing() -> void:
 	)
 	main.discovery_reveal._accept()
 	await wait(0.4)
+	check(
+		not main.effects.void_fishing.has_carried_reward(),
+		"accepting the discovery hands the miniature into placement"
+	)
+	check(
+		String(main.placement.held.get("id", ""))
+			== String(pending_reward.get("id", "")),
+		"the physically retrieved item becomes the held placement piece"
+	)
 	main.placement.store_held()
 	check(tool_mount != null and tool_mount.get_child_count() == 0, "the rod hides after the catch")
 
@@ -1974,7 +2129,7 @@ func _step_woodcutting() -> void:
 		and int(tree_interaction.get("instance_id", 0)) == tree.instance_id,
 		"click targeting resolves the exact tree mesh"
 	)
-	main._handle_world_click(tree_screen)
+	await _tap_key(KEY_F)
 	await wait(0.9)
 	check(
 		action_player != null and action_player.current_animation == "chop",

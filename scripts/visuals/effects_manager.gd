@@ -10,6 +10,7 @@ var _click_layer: CanvasLayer
 var water_interaction: WaterInteractionSystem
 var ground_impacts: GroundImpactEffects
 var soft_terrain: SoftTerrainDeformation
+var void_fishing: VoidFishingPresentation
 
 
 func setup(asset_library: AssetLibrary) -> void:
@@ -71,6 +72,49 @@ func bind_soft_terrain(
 		game_core,
 		player_controller
 	)
+
+
+func bind_void_fishing(
+	game_core: GameCore,
+	player_controller: PlayerController,
+	player_visual: PlayerVisual
+) -> void:
+	if void_fishing != null:
+		void_fishing.queue_free()
+	void_fishing = VoidFishingPresentation.new()
+	void_fishing.name = "VoidFishingPresentation"
+	add_child(void_fishing)
+	void_fishing.setup(
+		game_core,
+		assets,
+		player_controller,
+		player_visual
+	)
+
+
+func show_void_cast(point: Vector3) -> void:
+	if void_fishing != null:
+		void_fishing.begin_cast(point)
+
+
+func void_bite() -> void:
+	if void_fishing != null:
+		void_fishing.bite()
+
+
+func retrieve_void_reward(entry: Dictionary) -> void:
+	if void_fishing != null:
+		await void_fishing.retrieve_reward(entry)
+
+
+func consume_carried_void_reward() -> void:
+	if void_fishing != null:
+		void_fishing.consume_carried_reward()
+
+
+func cancel_void_fishing(keep_carried := false) -> void:
+	if void_fishing != null:
+		void_fishing.cancel(keep_carried)
 
 
 func show_bobber(point: Vector3) -> void:

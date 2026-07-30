@@ -19,7 +19,7 @@ const PIXEL_SIZE_OPTIONS := [
 	"Chunkiest",
 ]
 
-var fullscreen := false
+var fullscreen := true
 var vsync := true
 var anti_aliasing := AA_BALANCED
 var ssao := true
@@ -71,9 +71,25 @@ func apply(
 	clouds: Node = null
 ) -> void:
 	if DisplayServer.get_name() != "headless":
+		var command_line := OS.get_cmdline_args()
+		var user_command_line := OS.get_cmdline_user_args()
+		var force_windowed := (
+			"--windowed" in command_line
+			or "--force-windowed" in user_command_line
+		)
+		var force_fullscreen := "--fullscreen" in command_line
+		var use_fullscreen := fullscreen
+		if force_windowed:
+			use_fullscreen = false
+		elif force_fullscreen:
+			use_fullscreen = true
 		DisplayServer.window_set_mode(
-			DisplayServer.WINDOW_MODE_FULLSCREEN if fullscreen
+			DisplayServer.WINDOW_MODE_FULLSCREEN if use_fullscreen
 			else DisplayServer.WINDOW_MODE_WINDOWED
+		)
+		DisplayServer.window_set_flag(
+			DisplayServer.WINDOW_FLAG_BORDERLESS,
+			use_fullscreen
 		)
 		DisplayServer.window_set_vsync_mode(
 			DisplayServer.VSYNC_ENABLED if vsync else DisplayServer.VSYNC_DISABLED

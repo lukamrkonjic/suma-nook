@@ -209,6 +209,7 @@ func _build_world_scene() -> void:
 	effects.bind_water_interaction(core, player)
 	effects.bind_ground_impacts(core, player, audio)
 	effects.bind_soft_terrain(core, player)
+	effects.bind_void_fishing(core, player, player_visual)
 	lighting.bind_fog_interactors(player, camera_rig)
 	skill_actions.setup(core, player, player_visual, effects)
 	player_visual.apply_profile(core.profile)
@@ -937,11 +938,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		_return_home()
 	elif (
 		event.is_action_pressed("interact")
-		and _is_controller_event(event)
+		and not event is InputEventMouseButton
 	):
 		if placement.active:
 			placement.click()
-		else:
+		elif player.state == PlayerController.State.FREE:
 			player.cancel_click_command()
 			_perform_interaction(player.focus())
 	elif event.is_action_pressed("cancel"):
@@ -1290,6 +1291,8 @@ func _on_discovery_accepted(entry: Dictionary) -> void:
 	audio.play_event("parcel_select")
 	if String(entry.get("source", "")) == "delivery":
 		core.arrivals.resolve_delivery()
+	elif String(entry.get("source", "")) == "void":
+		effects.consume_carried_void_reward()
 	hud.update_tutorial()
 	var kind := String(entry.get("kind", ""))
 	var content_id := String(entry.get("id", ""))

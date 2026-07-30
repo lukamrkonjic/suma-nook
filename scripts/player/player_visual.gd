@@ -1053,6 +1053,38 @@ func apply_equipment(equipment: EquipmentManager, held_tool_type := "") -> void:
 		_set_body_region_mask(body_item.hide_regions)
 
 
+# ------------------------------------------------------------------ presentation sockets
+
+## A stable live endpoint for the procedural fishing line. The authored rod
+## remains free to change; the line follows the active hand mount and extends
+## toward the cast instead of depending on a particular mesh or bone name.
+func fishing_line_origin(cast_point: Vector3) -> Vector3:
+	var hand := (
+		_tool_mount.global_position
+		if is_instance_valid(_tool_mount)
+		else global_position + Vector3.UP * 0.78
+	)
+	var toward := cast_point - hand
+	toward.y = 0.0
+	if toward.length_squared() <= 0.0001:
+		toward = -global_basis.z
+	else:
+		toward = toward.normalized()
+	return hand + toward * 0.58 + Vector3.UP * 0.2
+
+
+## Where a newly retrieved miniature build piece rests while its discovery
+## card is open. This intentionally uses a character-level contract instead
+## of exposing the procedural/rigged body hierarchy to world effects.
+func reward_hold_world_position() -> Vector3:
+	return (
+		global_position
+		+ Vector3.UP * 0.86
+		- global_basis.z * 0.28
+		- global_basis.x * 0.16
+	)
+
+
 # ------------------------------------------------------------------ animation
 
 func set_walk(amount: float, delta: float) -> void:

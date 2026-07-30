@@ -50,7 +50,7 @@ var interactions
 var autosave_timer := 0.0
 var autosave_paused := false
 var play_seconds := 0.0
-var view_state: Dictionary = {"yaw": 45.0, "distance": 32.0, "pan": [0.0, 0.0]}
+var view_state: Dictionary = {"yaw": 45.0, "distance": 37.0, "pan": [0.0, 0.0]}
 var visual_state: Dictionary = {
 	"weather": "day",
 	"time_of_day": "noon",

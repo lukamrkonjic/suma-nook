@@ -14,7 +14,7 @@ var camera: Camera3D
 
 var _yaw := 45.0
 var _yaw_target := 45.0
-var _size_target := 32.0
+var _size_target := 37.0
 var _pitch_node: Node3D
 var _rotating := false
 var _pan_offset := Vector3.ZERO
@@ -31,7 +31,7 @@ func setup(game_core: GameCore, follow_target: Node3D) -> void:
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	_yaw = core.registries.tunef("camera_default_yaw_deg", 45.0)
 	_yaw_target = _yaw
-	_size_target = core.registries.tunef("camera_default_size", 32.0)
+	_size_target = core.registries.tunef("camera_default_size", 37.0)
 	rotation_degrees.y = _yaw
 
 	_pitch_node = Node3D.new()
@@ -190,7 +190,7 @@ func horizontal_basis() -> Basis:
 
 
 func set_build_mode(enabled: bool) -> void:
-	var base := core.registries.tunef("camera_default_size", 32.0)
+	var base := core.registries.tunef("camera_default_size", 37.0)
 	_size_target = base + (core.registries.tunef("build_mode_size_bonus", 3.0) if enabled else 0.0)
 	zoom_changed.emit(_size_target)
 
@@ -225,7 +225,7 @@ func frame_for_arrival() -> void:
 
 func restore_gameplay_zoom() -> void:
 	_creator_focus = false
-	_size_target = core.registries.tunef("camera_default_size", 32.0)
+	_size_target = core.registries.tunef("camera_default_size", 37.0)
 	if _pitch_node != null:
 		_pitch_node.rotation_degrees.x = core.registries.tunef(
 			"camera_pitch_deg",
@@ -298,7 +298,13 @@ func restore_state(data: Dictionary) -> void:
 		camera.position.y = 0.0
 	_yaw_target = float(data.get("yaw", 45.0))
 	rotation_degrees.y = _yaw_target
-	var stored_distance := float(data.get("distance", data.get("size", core.registries.tunef("camera_default_size", 32.0))))
+	var stored_distance := float(data.get(
+		"distance",
+		data.get(
+			"size",
+			core.registries.tunef("camera_default_size", 37.0)
+		)
+	))
 	# Migrate experimental saves that stored an orthographic-equivalent span.
 	if not data.has("distance") and stored_distance < 25.0:
 		stored_distance /= 2.0 * tan(deg_to_rad(core.registries.tunef("camera_fov_deg", 15.0) * 0.5))

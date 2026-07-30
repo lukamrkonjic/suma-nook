@@ -851,9 +851,10 @@ func _test_input_bindings() -> void:
 	check(_action_has_key("cancel", KEY_ESCAPE), "Escape opens and closes the pause flow")
 	check(_action_has_key("toggle_hud", KEY_H), "H hides and restores the HUD")
 	check(
-		not _action_has_key("interact", KEY_E)
+		_action_has_key("interact", KEY_F)
+		and not _action_has_key("interact", KEY_E)
 		and _action_has_mouse_button("interact", MOUSE_BUTTON_LEFT),
-		"world interaction is left-click driven with no E-key binding"
+		"F is universal world interact while left-click remains available"
 	)
 	check(
 		not _action_has_key("return_home", KEY_H)
@@ -907,8 +908,8 @@ func _test_input_bindings() -> void:
 		input_service.prompt_for_action(
 			&"interact",
 			InputDeviceService.InputMethod.KEYBOARD_MOUSE
-		) == "Left Click",
-		"keyboard and mouse interaction prompts advertise the click path"
+		) == "F",
+		"keyboard and mouse interaction prompts advertise universal F interact"
 	)
 	check(
 		input_service.prompt_for_action(
@@ -1503,9 +1504,9 @@ func _test_gg_render_contract() -> void:
 	check(regs.load_all(), "render-contract tuning registry loads")
 	check(
 		regs.tunef("camera_min_size", 40.0) <= 14.0
-		and regs.tunef("camera_default_size", 40.0) == 32.0
+		and regs.tunef("camera_default_size", 40.0) == 37.0
 		and regs.tunef("camera_wheel_zoom_step", 1.0) == 5.0,
-		"camera supports a deep close-up with the closer default composition"
+		"camera supports a deep close-up with a one-step wider default composition"
 	)
 	check(
 		profile.shadow_max_distance >= 75.0,
@@ -1541,6 +1542,14 @@ func _test_gg_render_contract() -> void:
 
 func _test_game_preferences() -> void:
 	var preferences := GamePreferences.new()
+	check(
+		preferences.fullscreen
+		and int(ProjectSettings.get_setting("display/window/size/mode")) == 3
+		and bool(ProjectSettings.get_setting(
+			"display/window/size/borderless"
+		)),
+		"fresh installs default to borderless fullscreen"
+	)
 	preferences.from_dict({
 		"fullscreen": true,
 		"vsync": false,

@@ -109,8 +109,10 @@ func _fishing_cycle(
 	await _wait(cast_seconds)
 	if my_loop != _loop_id:
 		return
-	effects.show_bobber(cast_point)
-	if not is_void:
+	if is_void:
+		effects.show_void_cast(cast_point)
+	else:
+		effects.show_bobber(cast_point)
 		effects.ripple(cast_point)
 	player.set_state(PlayerController.State.FISHING_WAIT)
 	visual.play("fish_wait")
@@ -120,8 +122,10 @@ func _fishing_cycle(
 		effects.hide_bobber()
 		return
 	# Bite!
-	effects.bobber_dip()
-	if not is_void:
+	if is_void:
+		effects.void_bite()
+	else:
+		effects.bobber_dip()
 		effects.ripple(cast_point)
 	action_feedback.emit("fish_bite", {"point": cast_point})
 	await _wait(0.35)
@@ -132,26 +136,28 @@ func _fishing_cycle(
 	visual.play("fish_catch")
 	effects.hide_bobber()
 	var skill := core.registries.skill("fishing")
-	# Pond fish are released; a void catch arrives as an unknown mote.
+	var result
+	var discovery_feedback: Dictionary
+	# Pond fish are released; a void catch physically hauls its rolled build
+	# piece through the rift before the discovery card may open.
 	if is_void:
-		effects.arc_reward(
-			cast_point,
-			player.global_position + Vector3(0, 0.85, 0)
+		result = core.rewards.resolve_hobby_action(skill)
+		discovery_feedback = core.progression.on_void_fishing_catch()
+		await effects.retrieve_void_reward(
+			discovery_feedback.get("reward", {})
 		)
-		await _wait(0.45)
 	else:
 		await effects.catch_and_release(
 			cast_point,
 			player.global_position + Vector3(0, 0.85, 0)
 		)
+		result = core.rewards.resolve_hobby_action(skill)
+		discovery_feedback = core.progression.on_activity_action(
+			"fishing",
+			coord
+		)
 	if my_loop != _loop_id:
 		return
-	var result := core.rewards.resolve_hobby_action(skill)
-	var discovery_feedback := (
-		core.progression.on_void_fishing_catch()
-		if is_void
-		else core.progression.on_activity_action("fishing", coord)
-	)
 	action_feedback.emit("fish_catch", {
 		"result": result.to_dict(),
 		"discovery": discovery_feedback,
@@ -294,3 +300,4 @@ func _wait(seconds: float) -> void:
 func cancel_all() -> void:
 	_loop_id += 1
 	effects.hide_bobber()
+	effects.cancel_void_fishing()
