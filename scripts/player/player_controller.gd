@@ -55,6 +55,7 @@ var _click_path: Array[Vector3] = []
 var _click_path_index := 0
 var _click_interaction: Dictionary = {}
 var _click_stop_radius := 0.12
+var _presentation_locked := false
 
 
 func setup(game_core: GameCore, rig: CameraRig, player_visual: PlayerVisual) -> void:
@@ -76,6 +77,29 @@ func _physics_process(delta: float) -> void:
 	if state in [State.RESCUED, State.ARRIVING]:
 		# Scripted portal tweens own the transform; physics stays out of the way.
 		core.profile.position = position
+		return
+	if _presentation_locked:
+		velocity = Vector3.ZERO
+		var cancel_input := Input.get_vector(
+			"move_left",
+			"move_right",
+			"move_up",
+			"move_down"
+		)
+		if (
+			cancel_input.length_squared() > 0.04
+			and state in [
+				State.FISHING_CAST,
+				State.FISHING_WAIT,
+				State.FISHING_CATCH,
+			]
+		):
+			set_state(State.FREE)
+		core.profile.position = position
+		core.profile.facing = rotation.y
+		return
+		core.profile.position = position
+		core.profile.facing = rotation.y
 		return
 	_invuln_timer = maxf(0.0, _invuln_timer - delta)
 	_rescue_grace = maxf(0.0, _rescue_grace - delta)
@@ -297,7 +321,7 @@ func set_state(new_state: State) -> void:
 		_abort_arrival()
 	if new_state != State.FREE:
 		cancel_click_command()
-	if new_state == State.FREE:
+	if new_state == State.FREE and not _presentation_locked:
 		visual.play("idle")
 	state_changed.emit(new_state)
 
@@ -307,6 +331,23 @@ func face_toward(target: Vector3) -> void:
 	to_target.y = 0.0
 	if to_target.length_squared() > 0.01:
 		rotation.y = atan2(-to_target.x, -to_target.z)
+
+
+func begin_presentation_lock() -> void:
+	_presentation_locked = true
+	move_locked = true
+	velocity = Vector3.ZERO
+	cancel_click_command()
+
+
+func end_presentation_lock() -> void:
+	_presentation_locked = false
+	move_locked = false
+	velocity = Vector3.ZERO
+
+
+func presentation_locked() -> bool:
+	return _presentation_locked
 
 
 func take_hit(damage: int) -> void:
@@ -779,27 +820,65 @@ func _update_focus() -> void:
 							"point": struct_pos,
 						}
 						best_distance = struct_distance
-	# An exposed land edge is a real interaction target: the keeper casts past
-	# the constructed world into the unknown. Ordinary nearby objects win.
-	if core.grid.has_walkable_top_surface(my_cell):
+	# Any exposed walkable edge is a fishing target, including a player-built
+	# dock surface. Ordinary nearby objects still win the focus contest.
+	if (
+		core.grid.has_walkable_top_surface(my_cell)
+		or core.grid.has_walkable_structure_surface(my_cell)
+	):
 		var origin := core.grid.cell_to_world(
 			my_cell,
 			core.grid.top_elevation(my_cell)
 		)
+		var forward := -global_basis.z
+		forward.y = 0.0
+		forward = (
+			forward.normalized()
+			if forward.length_squared() > 0.001
+			else Vector3.FORWARD
+		)
+		var best_edge := {}
+		var best_edge_alignment := -INF
+		var best_edge_distance := INF
+		var closest_edge_distance := INF
 		for offset: Vector2i in WorldGrid.NEIGHBORS:
 			if core.grid.has_cell(my_cell + offset):
 				continue
 			var direction := Vector3(offset.x, 0.0, offset.y)
 			var edge_point := origin + direction * core.grid.tile_size * 0.48
-			var distance := position.distance_to(edge_point)
-			if distance < best_distance:
-				best = {
+			var alignment := forward.dot(direction)
+			var edge_distance := position.distance_to(edge_point)
+			closest_edge_distance = minf(
+				closest_edge_distance,
+				edge_distance
+			)
+			# The keeper fishes where they are looking: among the cell's void
+			# edges, the one most aligned with their free 360° facing wins,
+			# and distance only breaks near-ties. A corner must never steal
+			# the cast sideways.
+			if (
+				alignment > best_edge_alignment + 0.05
+				or (
+					absf(alignment - best_edge_alignment) <= 0.05
+					and edge_distance < best_edge_distance
+				)
+			):
+				best_edge_alignment = alignment
+				best_edge_distance = edge_distance
+				best_edge = {
 					"kind": "void_fishing",
 					"coord": my_cell,
 					"point": edge_point,
-					"cast_point": origin + direction * core.grid.tile_size * 1.3,
+					# Barely past the ledge face: the line drops straight down
+					# at the fishing spot instead of casting out on a diagonal.
+					"cast_point": origin + direction * core.grid.tile_size * 0.72,
 				}
-				best_distance = distance
+		# The focus contest against other nearby interactions keeps the same
+		# strength as before (the nearest edge), so choosing an aligned edge
+		# can never hand the F key to an unrelated object.
+		if not best_edge.is_empty() and closest_edge_distance < best_distance:
+			best = best_edge
+			best_distance = closest_edge_distance
 	for package in get_tree().get_nodes_in_group("delivery_packages"):
 		var package_node := package as Node3D
 		if not is_instance_valid(package_node) or not package_node.visible:

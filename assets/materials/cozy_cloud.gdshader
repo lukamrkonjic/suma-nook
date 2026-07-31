@@ -1,7 +1,6 @@
 shader_type spatial;
 render_mode unshaded, blend_mix, cull_back, depth_draw_never;
 
-uniform sampler3D cloud_noise : repeat_enable, filter_linear;
 uniform float visibility_fade : hint_range(0.0, 1.0) = 1.0;
 uniform vec3 sun_direction = vec3(-0.42, 0.82, -0.39);
 uniform vec3 crown_color : source_color = vec3(1.0, 0.995, 0.98);
@@ -14,8 +13,42 @@ varying flat vec3 local_sun;
 varying flat vec3 cloud_seed;
 
 
-vec3 mirror_tile(vec3 coordinate) {
-	return abs(fract(coordinate * 0.5) * 2.0 - 1.0);
+float hash31(vec3 point) {
+	point = fract(point * 0.1031);
+	point += dot(point, point.yzx + 33.33);
+	return fract((point.x + point.y) * point.z);
+}
+
+
+float value_noise_3d(vec3 point) {
+	vec3 cell = floor(point);
+	vec3 local = fract(point);
+	local = local * local * (3.0 - 2.0 * local);
+	float lower_x = mix(
+		hash31(cell + vec3(0.0, 0.0, 0.0)),
+		hash31(cell + vec3(1.0, 0.0, 0.0)),
+		local.x
+	);
+	float lower_z = mix(
+		hash31(cell + vec3(0.0, 0.0, 1.0)),
+		hash31(cell + vec3(1.0, 0.0, 1.0)),
+		local.x
+	);
+	float upper_x = mix(
+		hash31(cell + vec3(0.0, 1.0, 0.0)),
+		hash31(cell + vec3(1.0, 1.0, 0.0)),
+		local.x
+	);
+	float upper_z = mix(
+		hash31(cell + vec3(0.0, 1.0, 1.0)),
+		hash31(cell + vec3(1.0, 1.0, 1.0)),
+		local.x
+	);
+	return mix(
+		mix(lower_x, lower_z, local.z),
+		mix(upper_x, upper_z, local.z),
+		local.y
+	);
 }
 
 
@@ -199,16 +232,10 @@ float cloud_density(vec3 position) {
 		position * vec3(2.15, 2.45, 2.15)
 		+ cloud_seed * vec3(4.7, 3.1, 5.3)
 	);
-	float broad_noise = texture(
-		cloud_noise,
-		mirror_tile(noise_coordinate)
-	).r;
-	float fine_noise = texture(
-		cloud_noise,
-		mirror_tile(
-			noise_coordinate * 2.35 + vec3(0.37, 0.61, 0.19)
-		)
-	).r;
+	float broad_noise = value_noise_3d(noise_coordinate);
+	float fine_noise = value_noise_3d(
+		noise_coordinate * 2.35 + vec3(0.37, 0.61, 0.19)
+	);
 	float erosion = (
 		(broad_noise - 0.5) * 0.050
 		+ (fine_noise - 0.5) * 0.008
@@ -267,7 +294,7 @@ void fragment() {
 		discard;
 	}
 
-	const int VIEW_STEPS = 18;
+	const int VIEW_STEPS = 16;
 	float ray_length = hit.y - hit.x;
 	float step_length = ray_length / float(VIEW_STEPS);
 	float distance_along_ray = (

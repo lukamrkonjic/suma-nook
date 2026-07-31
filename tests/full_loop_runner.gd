@@ -626,7 +626,7 @@ func _step_tile_geometry_contract() -> void:
 	var all_structural_shells_end_at_surface := true
 	var all_surface_detail_is_low_relief := true
 	var active_tiles_have_base_and_surface := true
-	var grass_is_clean_and_flat := false
+	var grass_has_sculpted_tufts := false
 	var all_are_free_of_baked_decor := true
 	var grove_mesh_counts_ok := true
 	var tile_factory := TileVisualFactory.new(main.assets, main.core.grid)
@@ -688,9 +688,12 @@ func _step_tile_geometry_contract() -> void:
 				and int(roles.get("surface", 0)) >= 1
 			)
 		if tile_def.id == "tile_grass":
-			grass_is_clean_and_flat = (
+			# The adopted Open Meadow surface is a sculpted raised tuft field:
+			# real relief well above a flat plate, inside the raised budget.
+			grass_has_sculpted_tufts = (
 				int(roles.get("detail", 0)) == 0
-				and grass_surface_top <= 0.005
+				and grass_surface_top > 0.05
+				and grass_surface_top <= 0.35
 			)
 		if tile_def.id.begins_with("tile_grove_"):
 			var grove_mesh_count := visual.find_children(
@@ -715,8 +718,8 @@ func _step_tile_geometry_contract() -> void:
 		"every active tile assembles explicit structural base and surface layers"
 	)
 	check(
-		grass_is_clean_and_flat,
-		"Open Meadow is the retained clean green block without baked foliage"
+		grass_has_sculpted_tufts,
+		"Open Meadow carries its sculpted tuft surface within the raised budget"
 	)
 	check(all_are_free_of_baked_decor, "tile GLBs contain no baked trees or raised decor")
 	check(grove_mesh_counts_ok, "former grove tiles are flat body-and-cap variants")
@@ -1854,13 +1857,23 @@ func _step_movement() -> void:
 
 func _step_fishing() -> void:
 	print("STEP fishing into the unknown")
-	# Let the cast and plain rescue-style hole finish arriving before the
-	# accelerated test bite begins.
+	# Let the live keeper settle in place before the accelerated test bite.
 	main.core.registries.tuning["fishing_wait_min"] = 0.7
 	main.core.registries.tuning["fishing_wait_max"] = 0.75
+	main.core.registries.tuning["void_fishing_wait_min"] = 0.7
+	main.core.registries.tuning["void_fishing_wait_max"] = 0.75
 	main.placement.set_active(false)
 	main.player.cancel_click_command()
 	main.player.set_state(PlayerController.State.FREE)
+	main.player.position = main.core.grid.cell_to_world(TEST_DOCK_COORD)
+	main.player.velocity = Vector3.ZERO
+	await get_tree().physics_frame
+	main.player._update_focus()
+	check(
+		main.core.grid.has_walkable_structure_surface(TEST_DOCK_COORD)
+		and main.player.focus().get("kind") == "void_fishing",
+		"a player-built dock exposes the same edge-fishing interaction as terrain"
+	)
 	main.player.position = (
 		main.core.grid.cell_to_world(Vector2i(1, 0))
 		+ Vector3(main.core.grid.tile_size * 0.42, 0.0, 0.0)
@@ -1873,6 +1886,24 @@ func _step_fishing() -> void:
 		"cast_point",
 		main.player.global_position
 	)
+	var fishing_origin := main.player.global_position
+	# The cast snaps the keeper's free 360° facing to the chosen edge's exact
+	# cardinal: expected yaw derives from the cell origin, not the keeper's
+	# off-center position inside the cell.
+	var fishing_cell: Vector2i = main.player.focus().get(
+		"coord",
+		main.player.current_cell()
+	)
+	var fishing_cell_origin := main.core.grid.cell_to_world(
+		fishing_cell,
+		main.core.grid.top_elevation(fishing_cell)
+	)
+	var to_cast := cast_surface - fishing_cell_origin
+	to_cast.y = 0.0
+	var expected_fishing_yaw := atan2(-to_cast.x, -to_cast.z)
+	var camera_yaw := main.camera_rig._yaw_target
+	var camera_zoom := main.camera_rig.zoom_distance()
+	var camera_pan := main.camera_rig._pan_offset
 	var items_before := _inventory_total()
 	var actions_before := main.core.progression.actions_done("fishing")
 	await _tap_key(KEY_F)
@@ -1885,64 +1916,90 @@ func _step_fishing() -> void:
 		],
 		"one interaction starts the authored fishing sequence"
 	)
-	var animation_player := main.player_visual.find_child("AnimationPlayer", true, false) as AnimationPlayer
 	var tool_mount := main.player_visual.find_child("ToolMount", true, false)
-	check(tool_mount != null and tool_mount.get_child_count() == 1, "rod appears only while fishing")
-	var rift_deadline := Time.get_ticks_msec() + 2000
+	var shard_deadline := Time.get_ticks_msec() + 3500
 	while (
-		not main.effects.void_fishing.has_visible_rift()
-		and Time.get_ticks_msec() < rift_deadline
+		not main.effects.void_fishing.has_visible_shard()
+		and Time.get_ticks_msec() < shard_deadline
 	):
 		await wait(0.05)
 	check(
+		tool_mount != null and tool_mount.get_child_count() == 1,
+		"the compact rod appears after the keeper is seated"
+	)
+	var live_rod := (
+		tool_mount.get_child(0) as FishingRod
+		if tool_mount != null and tool_mount.get_child_count() == 1
+		else null
+	)
+	check(
+		live_rod != null and live_rod.bump_animation_enabled(),
+		"the waiting rod schedules subtle randomized lure bumps"
+	)
+	check(
 		main.effects.void_fishing.has_visible_line(),
-		"the cast keeps a visible line from the rod into the unknown"
+		"the cast keeps a luminous line connected to the rod tip"
 	)
 	check(
-		main.effects.void_fishing.has_visible_rift(),
-		"the line opens the same mysterious rift used by the keeper's rescue"
+		main.effects.void_fishing.has_visible_shard(),
+		"the line terminates beneath a visible faceted mint shard"
 	)
-	var fishing_rift := main.effects.void_fishing.find_child(
+	check(
+		main.effects.void_fishing.has_shard_crackle_layer(),
+		"the shard owns a subtle procedural crackle layer"
+	)
+	var obsolete_rift := main.effects.void_fishing.find_child(
 		"UnknownFishingRift",
-		false,
+		true,
 		false
-	) as MeshInstance3D
-	var rift_material := (
-		fishing_rift.material_override as ShaderMaterial
-		if fishing_rift != null
-		else null
 	)
-	var rift_mesh := (
-		fishing_rift.mesh as QuadMesh
-		if fishing_rift != null
-		else null
+	var rift := main.effects.void_fishing.rift_world_position()
+	var rift_offset := rift - cast_surface
+	check(
+		absf(rift.y - (minf(cast_surface.y, 0.0) - 1.15)) < 0.001
+		and Vector2(rift_offset.x, rift_offset.z).length() < 0.8
+		and Vector3(rift_offset.x, 0.0, rift_offset.z).dot(
+			to_cast.normalized()
+		) >= -0.001,
+		"the rift hangs under the rod tip, past the ledge, at abyss depth"
 	)
 	check(
-		main.effects.void_fishing.rift_world_position().is_equal_approx(
-			cast_surface + Vector3.DOWN * 1.15
-		),
-		"the fishing portal uses the rescue faller's exact lower portal plane"
-	)
-	check(
-		fishing_rift != null
-		and rift_material != null
-		and rift_material.shader == load(
-			"res://assets/materials/reworked/rescue_black_hole.gdshader"
-		)
-		and rift_mesh != null
-		and rift_mesh.size.is_equal_approx(Vector2(0.81, 0.81))
+		obsolete_rift == null
 		and main.effects.void_fishing.find_child(
-			"UnknownFishingRiftGlow",
+			"MagicalShardEndpoint",
+			true,
+			false
+		) != null
+		and main.effects.void_fishing.find_child(
+			"FishingLineCore",
+			true,
+			false
+		) != null
+		and main.effects.void_fishing.find_child(
+			"FishingLineHalo",
+			true,
+			false
+		) != null,
+		"void fishing uses the layered line and shard with no obsolete black target"
+	)
+	check(
+		not main.effects.void_fishing.dock_is_visible()
+		and main.effects.void_fishing.find_child(
+			"FishingDockStage",
 			true,
 			false
 		) == null
-		and main.effects.void_fishing.find_children(
-			"UnknownMote*",
-			"MeshInstance3D",
-			true,
-			false
-		).is_empty(),
-		"void fishing uses only the plain rescue black hole with no magic adornments"
+		and main.player.presentation_locked()
+		and main.player_visual._fishing_pose_modifier.influence >= 0.9
+		and main.player.global_position.distance_to(fishing_origin) < 0.01
+		and absf(angle_difference(
+			main.player.rotation.y,
+			expected_fishing_yaw
+		)) < 0.001
+		and absf(main.camera_rig._yaw_target - camera_yaw) < 0.001
+		and absf(main.camera_rig.zoom_distance() - camera_zoom) < 0.001
+		and main.camera_rig._pan_offset.is_equal_approx(camera_pan),
+		"fishing seats the keeper in place facing the cast, camera untouched"
 	)
 	await shot("screenshot_fishing_the_void")
 	var deadline := Time.get_ticks_msec() + 6000
@@ -1968,6 +2025,14 @@ func _step_fishing() -> void:
 	check(
 		main.player.state == PlayerController.State.FREE,
 		"fishing returns cleanly to free movement before the discovery is handled"
+	)
+	check(
+		not main.effects.void_fishing.dock_is_visible()
+		and not main.player.presentation_locked()
+		and absf(main.camera_rig._yaw_target - camera_yaw) < 0.001
+		and absf(main.camera_rig.zoom_distance() - camera_zoom) < 0.001
+		and main.camera_rig._pan_offset.is_equal_approx(camera_pan),
+		"the seated lock releases without changing the gameplay camera"
 	)
 	main.discovery_reveal._accept()
 	await wait(0.4)
@@ -2702,9 +2767,15 @@ func _step_visual_runtime() -> void:
 	main.lighting.set_camera_shadow_distance(70.0)
 	var far_visuals := main.lighting.runtime_manifest()
 	check(
-		float(far_visuals["far_distance_fade"]["current_alpha"]) >= 0.11
+		is_zero_approx(
+			float(
+				far_visuals[
+					"far_distance_fade"
+				]["current_alpha"]
+			)
+		)
 		and not bool(far_visuals["far_distance_fade"]["ui_affected"]),
-		"maximum zoom adds a subtle world-only atmospheric fade"
+		"maximum zoom keeps the camera wash disabled so the island and keeper retain contrast"
 	)
 	main.lighting.set_camera_shadow_distance(prior_camera_distance)
 	live_visuals = main.lighting.runtime_manifest()

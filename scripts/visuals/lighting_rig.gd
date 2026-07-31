@@ -35,7 +35,9 @@ const SHOOTING_STAR_DURATION_RANGE := Vector2(0.68, 0.92)
 const FULL_ZOOM_SHADOW_ENVELOPE := 90.0
 const FAR_DISTANCE_FADE_START := 55.0
 const FAR_DISTANCE_FADE_END := 70.0
-const FAR_DISTANCE_FADE_MAX_ALPHA := 0.12
+# Atmospheric depth belongs behind the island. A screen wash here also fades
+# the player and every prop, so the camera-distance overlay stays disabled.
+const FAR_DISTANCE_FADE_MAX_ALPHA := 0.0
 
 @export var day_profile: VisualStyleProfile
 @export var mist_profile: VisualStyleProfile
@@ -440,25 +442,13 @@ func shadow_ray_direction() -> Vector3:
 func _apply_far_distance_haze() -> void:
 	if _distance_haze_rect == null:
 		return
-	var weight := clampf(
-		(
-			_camera_shadow_distance
-			- FAR_DISTANCE_FADE_START
-		) / (
-			FAR_DISTANCE_FADE_END
-			- FAR_DISTANCE_FADE_START
-		),
-		0.0,
-		1.0
-	)
-	var alpha := weight * FAR_DISTANCE_FADE_MAX_ALPHA
 	_distance_haze_rect.color = Color(
 		_distance_haze_color.r,
 		_distance_haze_color.g,
 		_distance_haze_color.b,
-		alpha
+		0.0
 	)
-	_distance_haze_layer.visible = alpha > 0.001
+	_distance_haze_layer.visible = false
 
 
 func bind_fog_interactors(actor: Node3D, camera_focus: Node3D) -> void:
@@ -976,7 +966,7 @@ func _apply_particle_quality() -> void:
 ## the dark-mode multipliers/targets used by WorldTheme.Calculate.
 const GG_THEMES := {
 	"default": {
-		"bg0": Color(0.906, 0.87623, 0.78265), "bg1": Color(0.90588, 0.87059, 0.81569),
+		"bg0": Color(0.985, 0.835, 0.64), "bg1": Color(0.94, 0.735, 0.53),
 		"night_bg": Color(0.913, 0.80487, 0.70666),
 		"sky": Color(0.8, 0.74118, 0.76863), "equator": Color(0.65098, 0.41961, 0.37255),
 		"night_tint": Color(1.0, 0.90825, 0.78931),

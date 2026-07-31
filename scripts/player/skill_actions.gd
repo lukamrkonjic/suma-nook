@@ -87,15 +87,53 @@ func _start_fishing(coord: Vector2i) -> void:
 
 
 func _start_void_fishing(cast_point: Vector3) -> void:
-	var my_loop := _prepare_action_at(cast_point, "rod")
-	_fishing_cycle(my_loop, player.current_cell(), true, cast_point)
+	_loop_id += 1
+	var my_loop := _loop_id
+	# The keeper moves in free 360° directions, but the world has four grid
+	# directions: the cast snaps their facing to the chosen edge's exact
+	# cardinal, so body, rod, and line all point straight over that edge.
+	var cell := player.current_cell()
+	var origin := core.grid.cell_to_world(
+		cell,
+		core.grid.top_elevation(cell)
+	)
+	var direction := cast_point - origin
+	direction.y = 0.0
+	if direction.length_squared() > 0.0001:
+		direction = direction.normalized()
+		player.rotation.y = atan2(-direction.x, -direction.z)
+	else:
+		player.face_toward(cast_point)
+	player.set_state(PlayerController.State.FISHING_CAST)
+	_stage_void_fishing(my_loop, cast_point)
+
+
+func _stage_void_fishing(
+	my_loop: int,
+	cast_point: Vector3
+) -> void:
+	var staged := await effects.prepare_void_fishing(cast_point)
+	if not staged or my_loop != _loop_id:
+		effects.cancel_void_fishing()
+		if player.state != PlayerController.State.FREE:
+			player.set_state(PlayerController.State.FREE)
+		return
+	action_feedback.emit("tool_equip", {})
+	_fishing_cycle(
+		my_loop,
+		player.current_cell(),
+		true,
+		cast_point,
+		true
+	)
 
 
 func _fishing_cycle(
 	my_loop: int,
 	coord: Vector2i,
 	is_void: bool,
-	cast_point: Vector3
+	cast_point: Vector3,
+	presentation_staged := false
 ) -> void:
 	if my_loop != _loop_id or (not is_void and core.grid.cell(coord) == null):
 		return
@@ -105,9 +143,17 @@ func _fishing_cycle(
 	var cast_seconds := (
 		visual.authored_action_duration("fish_cast", 0.45) / speed
 	)
-	visual.play("fish_cast", cast_seconds)
+	if presentation_staged:
+		# The seated keeper needs only a short settle beat before the line
+		# drops — the full authored standing cast would read as hesitation.
+		visual.play("fish_wait")
+		cast_seconds = minf(cast_seconds, 0.3 / speed)
+	else:
+		visual.play("fish_cast", cast_seconds)
 	await _wait(cast_seconds)
 	if my_loop != _loop_id:
+		if is_void:
+			effects.cancel_void_fishing()
 		return
 	if is_void:
 		effects.show_void_cast(cast_point)
@@ -116,10 +162,26 @@ func _fishing_cycle(
 		effects.ripple(cast_point)
 	player.set_state(PlayerController.State.FISHING_WAIT)
 	visual.play("fish_wait")
-	var wait_seconds := core.rng.randf_range("fishing_wait", core.registries.tunef("fishing_wait_min", 1.2), core.registries.tunef("fishing_wait_max", 3.2)) / speed
+	# Void fishing is the game's core activity: its wait is a savored,
+	# deliberately longer stretch than a quick pond catch.
+	var wait_seconds: float
+	if is_void:
+		wait_seconds = core.rng.randf_range(
+			"fishing_wait",
+			core.registries.tunef("void_fishing_wait_min", 3.4),
+			core.registries.tunef("void_fishing_wait_max", 6.8)
+		) / speed
+	else:
+		wait_seconds = core.rng.randf_range(
+			"fishing_wait",
+			core.registries.tunef("fishing_wait_min", 1.2),
+			core.registries.tunef("fishing_wait_max", 3.2)
+		) / speed
 	await _wait(wait_seconds)
 	if my_loop != _loop_id:
 		effects.hide_bobber()
+		if is_void:
+			effects.cancel_void_fishing()
 		return
 	# Bite!
 	if is_void:
@@ -128,9 +190,12 @@ func _fishing_cycle(
 		effects.bobber_dip()
 		effects.ripple(cast_point)
 	action_feedback.emit("fish_bite", {"point": cast_point})
-	await _wait(0.35)
+	# A void bite earns a longer anticipation beat before the haul begins.
+	await _wait(0.55 if is_void else 0.35)
 	if my_loop != _loop_id:
 		effects.hide_bobber()
+		if is_void:
+			effects.cancel_void_fishing()
 		return
 	player.set_state(PlayerController.State.FISHING_CATCH)
 	visual.play("fish_catch")

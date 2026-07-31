@@ -33,6 +33,8 @@
   "click_interaction_stop_radius": 1.2,
   "fishing_wait_min": 1.2,
   "fishing_wait_max": 3.2,
+  "void_fishing_wait_min": 3.4,
+  "void_fishing_wait_max": 6.8,
   "fishing_repeat_pause": 0.7,
   "grove_rest_visual_scale": 0.82,
   "fishing_collection_chance": 0.45,

@@ -17,6 +17,12 @@ const PART_CATALOG: CharacterPartCatalog = preload(
 const BODY_CATALOG: CharacterBodyCatalog = preload(
 	"res://assets/characters/body_catalog.tres"
 )
+const FishingRodScript := preload(
+	"res://scripts/visuals/fishing_rod.gd"
+)
+const FishingPoseModifierScript := preload(
+	"res://scripts/player/fishing_pose_modifier.gd"
+)
 
 signal animation_started(animation_name: String)
 signal animation_event(animation_name: String, event_name: String)
@@ -204,6 +210,9 @@ var _body_base_rotation := Vector3.ZERO
 var _locomotion_clip := ""
 var _locomotion_walking := false
 var _locomotion_transition_count := 0
+var _fishing_rod: FishingRod
+var _fishing_pose_modifier: FishingPoseModifier
+var _seated_fishing_active := false
 
 var _walk_amount := 0.0
 var _walk_phase := 0.0
@@ -272,6 +281,9 @@ func _teardown_body() -> void:
 	_head_mount = null
 	_animation_player = null
 	_skeleton = null
+	_fishing_rod = null
+	_fishing_pose_modifier = null
+	_seated_fishing_active = false
 	_uses_rigged_preview = false
 	_hair_nodes.clear()
 	_eye_nodes.clear()
@@ -342,6 +354,11 @@ func _setup_rigged_preview() -> void:
 		"BackMount", _asset_profile.back_bone, preview_scale
 	)
 	_install_armor_anchors(preview_scale)
+	_fishing_pose_modifier = FishingPoseModifierScript.new()
+	_fishing_pose_modifier.name = "FishingSeatedPose"
+	_fishing_pose_modifier.active = false
+	_fishing_pose_modifier.influence = 0.0
+	_skeleton.add_child(_fishing_pose_modifier)
 	_install_walk_animation()
 	_install_action_animations()
 	_locomotion_clip = _asset_profile.idle_clip_name
@@ -1004,6 +1021,7 @@ func _tint_parts(part_names: Array, mat: Material) -> void:
 
 ## Equipment: rigid items use bone mounts; body garments share the live skeleton.
 func apply_equipment(equipment: EquipmentManager, held_tool_type := "") -> void:
+	_fishing_rod = null
 	for mount in [_tool_mount, _back_mount, _head_mount]:
 		if mount == null:
 			continue
@@ -1018,7 +1036,18 @@ func apply_equipment(equipment: EquipmentManager, held_tool_type := "") -> void:
 				if held_tool_type == "weapon"
 				else equipment.equipped_in("tool")
 			)
-	if held != null and held.asset_id != "":
+	if held_tool_type == "rod" and _tool_mount != null:
+		_fishing_rod = FishingRodScript.new()
+		_fishing_rod.name = "FishingRod"
+		_fishing_rod.position = Vector3(0.015, 0.018, -0.02)
+		_fishing_rod.rotation_degrees = (
+			Vector3(-8.0, -4.0, -18.0)
+			if _uses_rigged_preview
+			else Vector3(-4.0, 2.0, -5.0)
+		)
+		_tool_mount.add_child(_fishing_rod)
+		_fishing_rod.set_idle_active(_seated_fishing_active)
+	elif held != null and held.asset_id != "":
 		var tool_visual := assets.instantiate(held.asset_id)
 		tool_visual.rotation_degrees = (
 			Vector3(0, 0, -70) if _uses_rigged_preview else Vector3(-52, 0, 0)
@@ -1059,6 +1088,10 @@ func apply_equipment(equipment: EquipmentManager, held_tool_type := "") -> void:
 ## remains free to change; the line follows the active hand mount and extends
 ## toward the cast instead of depending on a particular mesh or bone name.
 func fishing_line_origin(cast_point: Vector3) -> Vector3:
+	if is_instance_valid(_fishing_rod):
+		var marker := _fishing_rod.line_origin()
+		if is_instance_valid(marker):
+			return marker.global_position
 	var hand := (
 		_tool_mount.global_position
 		if is_instance_valid(_tool_mount)
@@ -1071,6 +1104,55 @@ func fishing_line_origin(cast_point: Vector3) -> Vector3:
 	else:
 		toward = toward.normalized()
 	return hand + toward * 0.58 + Vector3.UP * 0.2
+
+
+## Pins the held rod's world yaw to the given heading. The hand mount keeps
+## positioning the rod, but its orientation is world-exact: the shaft always
+## points straight over the cast edge no matter how the hands animate.
+func align_fishing_rod(yaw: float) -> void:
+	if is_instance_valid(_fishing_rod):
+		_fishing_rod.global_rotation = Vector3(0.0, yaw, 0.0)
+
+
+## Relays the cast to the held rod: a wrist flick that visibly throws the
+## line out in the direction the keeper faces.
+func cast_fishing_rod() -> void:
+	if is_instance_valid(_fishing_rod):
+		_fishing_rod.cast_flick()
+
+
+## Relays a bite to the held rod so its tip visibly dips the moment the
+## luminous line reacts, keeping rod and line in the same beat.
+func bite_fishing_rod() -> void:
+	if is_instance_valid(_fishing_rod):
+		_fishing_rod.bite_dip()
+
+
+## Blends the authored fishing hand/head motion into a relaxed seated lower
+## body without swapping out the current production character.
+func set_seated_fishing(active: bool, blend_seconds := 0.42) -> void:
+	_seated_fishing_active = active
+	if is_instance_valid(_fishing_rod):
+		_fishing_rod.set_idle_active(active)
+	if _fishing_pose_modifier == null:
+		return
+	_fishing_pose_modifier.active = true
+	var target := 1.0 if active else 0.0
+	var tween := create_tween()
+	tween.tween_property(
+		_fishing_pose_modifier,
+		"influence",
+		target,
+		maxf(0.01, blend_seconds)
+	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	if not active:
+		tween.tween_callback(func():
+			if (
+				is_instance_valid(_fishing_pose_modifier)
+				and not _seated_fishing_active
+			):
+				_fishing_pose_modifier.active = false
+		)
 
 
 ## Where a newly retrieved miniature build piece rests while its discovery
@@ -1217,7 +1299,9 @@ func _play_rigged_preview(anim: String, cycle_duration: float) -> void:
 	if _asset_profile.action_animations.has(anim):
 		_play_authored_action(anim, cycle_duration)
 		return
-	if anim != "idle":
+	if anim != "idle" and not (
+		_seated_fishing_active and anim == "fish_catch"
+	):
 		_set_locomotion(false, 0.16)
 	_action_tween = create_tween()
 	match anim:
@@ -1249,13 +1333,34 @@ func _play_rigged_preview(anim: String, cycle_duration: float) -> void:
 			).set_trans(Tween.TRANS_SINE)
 			_action_tween.set_loops()
 		"fish_catch":
-			_rigged_timed_action(
-				anim,
-				0.14,
-				0.69,
-				_body_base_rotation + Vector3(-0.14, 0.0, 0.0),
-				"impact"
-			)
+			if _seated_fishing_active:
+				_action_tween.tween_property(
+					_body,
+					"rotation",
+					_body_base_rotation + Vector3(-0.13, 0.0, 0.0),
+					0.14
+				).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+				_action_tween.tween_callback(
+					func(): animation_event.emit(anim, "impact")
+				)
+				_action_tween.tween_property(
+					_body,
+					"rotation",
+					_body_base_rotation,
+					0.55
+				).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+				_action_tween.tween_callback(func():
+					_current_anim = "fish_wait"
+					animation_finished.emit(anim)
+				)
+			else:
+				_rigged_timed_action(
+					anim,
+					0.14,
+					0.69,
+					_body_base_rotation + Vector3(-0.14, 0.0, 0.0),
+					"impact"
+				)
 		"chop":
 			_rigged_timed_action(
 				anim,

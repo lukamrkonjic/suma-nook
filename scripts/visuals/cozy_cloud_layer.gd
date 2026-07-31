@@ -7,10 +7,6 @@ extends Node3D
 const CLOUD_VOLUME_SHADER: Shader = preload(
 	"res://assets/materials/cozy_cloud.gdshader"
 )
-const CLOUD_SHAPE_NOISE: Texture3D = preload(
-	"res://assets/textures/clouds/cloud_shape_noise.png"
-)
-
 const CLOUD_ALTITUDE := 22.5
 const CLOUD_CELL_SIZE := 9.0
 const CLOUD_GRID_RADIUS := 6
@@ -21,7 +17,6 @@ const WIND_METERS_PER_SECOND := Vector2(0.11, 0.045)
 const SHADOW_PUFFS_PER_CLOUD := 7
 const SHADOW_PROXY_LAYER_NUMBER := 19
 const SHADOW_REVEAL_THRESHOLD := 0.42
-const NOISE_SIZE := 64
 
 const SHADOW_LAYOUT := [
 	Vector3(0.00, -0.12, 0.00),
@@ -108,10 +103,6 @@ func _build_volume_batch() -> void:
 	box.size = Vector3.ONE
 	_volume_material = ShaderMaterial.new()
 	_volume_material.shader = CLOUD_VOLUME_SHADER
-	_volume_material.set_shader_parameter(
-		"cloud_noise",
-		CLOUD_SHAPE_NOISE
-	)
 	box.material = _volume_material
 
 	var batch := MultiMesh.new()
@@ -469,9 +460,10 @@ func runtime_manifest() -> Dictionary:
 			if _shadow_puffs != null and _shadow_puffs.multimesh != null
 			else 0
 		),
-		"raymarch_steps": 18,
-		"noise_texture_size": NOISE_SIZE,
-		"noise_textures": 1,
+		"raymarch_steps": 16,
+		"noise_texture_size": 0,
+		"noise_textures": 0,
+		"noise_source": "procedural_value_noise_3d",
 		"cloud_altitude": CLOUD_ALTITUDE,
 		"camera_distance": _camera_distance,
 		"visibility_fade": _visibility,

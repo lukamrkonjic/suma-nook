@@ -97,6 +97,12 @@ func show_void_cast(point: Vector3) -> void:
 		void_fishing.begin_cast(point)
 
 
+func prepare_void_fishing(point: Vector3) -> bool:
+	if void_fishing == null:
+		return false
+	return await void_fishing.prepare_cast(point)
+
+
 func void_bite() -> void:
 	if void_fishing != null:
 		void_fishing.bite()
