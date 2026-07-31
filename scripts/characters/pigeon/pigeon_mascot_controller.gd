@@ -364,11 +364,7 @@ func _apply_flight_flap(amplitude: float, shoulder_tuck := 0.0) -> void:
 	var angle := sin(_wing_phase) * amplitude
 	var mid_angle := -angle * 0.36
 	var tip_angle := -angle * 0.22
-	_apply_bone_offset(
-		_wing_root_bones,
-		Quaternion(Vector3.BACK, shoulder_tuck)
-			* Quaternion(Vector3.RIGHT, angle)
-	)
+	_apply_shoulder_pose(shoulder_tuck, angle)
 	_apply_bone_rotation(_wing_mid_bones, Vector3.RIGHT, mid_angle)
 	_apply_bone_rotation(_wing_tip_bones, Vector3.RIGHT, tip_angle)
 
@@ -377,9 +373,24 @@ func _apply_ground_wing_tuck(shoulder_tuck: float) -> void:
 	# A bird folds at the shoulder and sweeps the entire wing chain rearward.
 	# The elbow and tip retain the authored Rigify pose instead of behaving like
 	# hands hinged at the body.
-	_apply_bone_rotation(_wing_root_bones, Vector3.BACK, shoulder_tuck)
+	_apply_shoulder_pose(shoulder_tuck, 0.0)
 	_apply_bone_rotation(_wing_mid_bones, Vector3.RIGHT, 0.0)
 	_apply_bone_rotation(_wing_tip_bones, Vector3.RIGHT, 0.0)
+
+
+func _apply_shoulder_pose(shoulder_tuck: float, flap_angle: float) -> void:
+	# Rigify mirrors the local Z axis across the body, so the rearward tuck must
+	# use opposite signs while the local-X flap keeps the same sign.
+	for side_index in _wing_root_bones.size():
+		var bone_index := _wing_root_bones[side_index]
+		if bone_index < 0:
+			continue
+		var mirrored_tuck := shoulder_tuck if side_index == 0 else -shoulder_tuck
+		_apply_bone_index_offset(
+			bone_index,
+			Quaternion(Vector3.BACK, mirrored_tuck)
+				* Quaternion(Vector3.RIGHT, flap_angle)
+		)
 
 
 func _apply_bone_rotation(bones: Array[int], axis: Vector3, angle: float) -> void:
@@ -389,11 +400,15 @@ func _apply_bone_rotation(bones: Array[int], axis: Vector3, angle: float) -> voi
 func _apply_bone_offset(bones: Array[int], offset: Quaternion) -> void:
 	for bone_index in bones:
 		if bone_index >= 0:
-			var base: Quaternion = _base_bone_rotations.get(
-				bone_index,
-				Quaternion.IDENTITY
-			)
-			skeleton.set_bone_pose_rotation(bone_index, base * offset)
+			_apply_bone_index_offset(bone_index, offset)
+
+
+func _apply_bone_index_offset(bone_index: int, offset: Quaternion) -> void:
+	var base: Quaternion = _base_bone_rotations.get(
+		bone_index,
+		Quaternion.IDENTITY
+	)
+	skeleton.set_bone_pose_rotation(bone_index, base * offset)
 
 
 func _cache_bones() -> void:

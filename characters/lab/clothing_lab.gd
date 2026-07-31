@@ -23,6 +23,12 @@ const REPORT_PATH := (
 const REVIEW_BLEND_PATH := (
 	"res://art_source/characters/review/clothing_lab_review.blend"
 )
+const PIGEON_RIG_SCENE := preload(
+	"res://characters/mascots/pigeon_mascot.tscn"
+)
+const PIGEON_BLEND_PATH := (
+	"res://art_source/characters/pigeon/pigeon_rigify_source.blend"
+)
 const PROCESSOR_PATH := "res://tools/clothing_lab/process_clothing.py"
 const BLENDER_PATH := "C:\\Software\\Blender\\blender.exe"
 const PLAYER_PROFILE_PATH := "res://assets/player/current_player_profile.tres"
@@ -242,6 +248,17 @@ var _revert_buttons: Dictionary = {}
 var _field_baselines: Dictionary = {}
 var _clothing_list: ItemList
 var _body_option: OptionButton
+var _rig_subject_option: OptionButton
+var _pigeon_rig_tools: VBoxContainer
+var _pigeon_bone_option: OptionButton
+var _pigeon_rotation_controls: Array[SpinBox] = []
+var _pigeon_show_bones: CheckBox
+var _pigeon_skeleton: Skeleton3D
+var _pigeon_rig_overlay: MeshInstance3D
+var _pigeon_base_rotations: Dictionary = {}
+var _pigeon_bone_offsets: Dictionary = {}
+var _pigeon_control_sync := false
+var _pigeon_mode := false
 var _source_path: LineEdit
 var _status: RichTextLabel
 var _file_dialog: FileDialog
@@ -568,6 +585,13 @@ func _build_clothing_ui() -> void:
 		left_content,
 		"Full character preview · source-preserving fit · same live skeleton",
 	)
+	_rig_subject_option = _option_row(left_content, "Rig subject")
+	_rig_subject_option.add_item("Human clothing rig")
+	_rig_subject_option.set_item_metadata(0, "human")
+	_rig_subject_option.add_item("Surma pigeon · Rigify bird")
+	_rig_subject_option.set_item_metadata(1, "pigeon")
+	_rig_subject_option.item_selected.connect(_on_rig_subject_selected)
+	_build_pigeon_rig_tools(left_content)
 	_body_option = _option_row(left_content, "Body profile")
 	for body_profile in _body_profiles:
 		_body_option.add_item(body_profile.profile_id)
@@ -1031,6 +1055,339 @@ func _build_clothing_ui() -> void:
 	)
 	_ui_root.add_child(_file_dialog)
 	_build_new_clothing_dialog()
+
+
+func _build_pigeon_rig_tools(parent: Control) -> void:
+	_pigeon_rig_tools = VBoxContainer.new()
+	_pigeon_rig_tools.visible = false
+	_pigeon_rig_tools.add_theme_constant_override("separation", 6)
+	parent.add_child(_pigeon_rig_tools)
+	_separator(_pigeon_rig_tools, "Pigeon bird rig")
+	_note(
+		_pigeon_rig_tools,
+		"Live Rigify deformation skeleton. Select a DEF bone, pose it here, "
+		+ "or open the editable Blender source for structural rig work.",
+	)
+	_pigeon_bone_option = _option_row(_pigeon_rig_tools, "Active bone")
+	_pigeon_bone_option.item_selected.connect(_on_pigeon_bone_selected)
+	for axis_name in ["X rotation", "Y rotation", "Z rotation"]:
+		var row := HBoxContainer.new()
+		_pigeon_rig_tools.add_child(row)
+		var label := Label.new()
+		label.text = axis_name
+		label.custom_minimum_size.x = 112
+		row.add_child(label)
+		var control := SpinBox.new()
+		control.min_value = -180.0
+		control.max_value = 180.0
+		control.step = 1.0
+		control.suffix = "°"
+		control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		control.value_changed.connect(_on_pigeon_rotation_changed)
+		row.add_child(control)
+		_pigeon_rotation_controls.append(control)
+	_pigeon_show_bones = CheckBox.new()
+	_pigeon_show_bones.text = "Show live bone overlay"
+	_pigeon_show_bones.button_pressed = true
+	_pigeon_show_bones.toggled.connect(
+		func(visible: bool) -> void:
+			if _pigeon_rig_overlay != null:
+				_pigeon_rig_overlay.visible = visible
+	)
+	_pigeon_rig_tools.add_child(_pigeon_show_bones)
+	var reset_row := HBoxContainer.new()
+	_pigeon_rig_tools.add_child(reset_row)
+	var reset_bone := _button("Reset bone", _reset_selected_pigeon_bone)
+	reset_bone.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	reset_row.add_child(reset_bone)
+	var reset_pose := _button("Reset all", _reset_all_pigeon_bones)
+	reset_pose.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	reset_row.add_child(reset_pose)
+	var open_blender := _button(
+		"Open Pigeon Rigify Source in Blender",
+		_open_pigeon_rig_in_blender,
+	)
+	open_blender.tooltip_text = (
+		"Open the editable bird rig source. Export the finished GLB back to "
+		+ "assets/characters/pigeon/pigeon.glb."
+	)
+	_pigeon_rig_tools.add_child(open_blender)
+
+
+func _on_rig_subject_selected(index: int) -> void:
+	var subject := String(_rig_subject_option.get_item_metadata(index))
+	if subject == "pigeon":
+		_show_pigeon_rig_subject()
+	else:
+		_restore_human_rig_subject()
+
+
+func _show_pigeon_rig_subject() -> void:
+	_pigeon_mode = true
+	_clear_pigeon_rig_state()
+	if _character != null:
+		remove_child(_character)
+		_character.queue_free()
+		_character = null
+	_character = PIGEON_RIG_SCENE.instantiate() as Node3D
+	_character.name = "PigeonRigSubject"
+	add_child(_character)
+	_character.visible = true
+	var controller := _character.get_node_or_null("MascotController") as Node
+	if controller != null:
+		controller.set_process(false)
+		controller.set_physics_process(false)
+	_pigeon_skeleton = _character.find_child(
+		"Skeleton3D", true, false
+	) as Skeleton3D
+	if _pigeon_skeleton == null:
+		_set_status("error", "Pigeon Rigify skeleton could not be loaded.")
+		return
+	_character.position = Vector3.ZERO
+	# Clothing Lab's front camera looks along the humanoid +Z convention; the
+	# bird asset is authored facing -Z. Rotate only this preview root.
+	_character.rotation.y = PI
+	var bounds := _visual_bounds(_character)
+	_character.position.y = -bounds.position.y
+	_cache_preview_ground_bounds()
+	_cache_pigeon_bone_pose()
+	_populate_pigeon_bone_option()
+	_build_pigeon_bone_overlay()
+	_set_human_lab_controls_enabled(false)
+	_pigeon_rig_tools.visible = true
+	_focus_character()
+	_set_status(
+		"ok",
+		"Surma pigeon loaded with %d Rigify bones. Select a DEF bone or open the Blender source."
+		% _pigeon_skeleton.get_bone_count(),
+	)
+
+
+func _restore_human_rig_subject() -> void:
+	if not _pigeon_mode:
+		return
+	_pigeon_mode = false
+	_clear_pigeon_rig_state()
+	_pigeon_rig_tools.visible = false
+	_set_human_lab_controls_enabled(true)
+	# The previous assembler still owns weak references to the human parts that
+	# were removed when the pigeon became the subject. Start a clean assembly
+	# when returning instead of asking it to clear already-freed nodes.
+	assembler = CharacterAssembler.new()
+	super._rebuild()
+	_force_rest_pose()
+	_cache_preview_ground_bounds()
+	_apply_body_mask()
+	_refresh_landmark_markers()
+	_restore_preview_pose()
+	_set_status("ok", "Human clothing rig restored.")
+
+
+func _set_human_lab_controls_enabled(enabled: bool) -> void:
+	if _body_option != null:
+		_body_option.disabled = not enabled
+	for option in _slot_options.values():
+		(option as OptionButton).disabled = not enabled
+	if _clothing_list != null:
+		_clothing_list.mouse_filter = (
+			Control.MOUSE_FILTER_STOP if enabled else Control.MOUSE_FILTER_IGNORE
+		)
+		_clothing_list.modulate.a = 1.0 if enabled else 0.45
+	if _source_path != null:
+		_source_path.editable = enabled
+	for control in [
+		_preview_pose_option,
+		_preview_speed_slider,
+		_save_draft_button,
+		_bind_button,
+		_open_review_button,
+		_publish_button,
+	]:
+		if control is BaseButton:
+			(control as BaseButton).disabled = not enabled
+		elif control is Slider:
+			(control as Slider).editable = enabled
+	if not enabled and _preview_pose_option != null:
+		_preview_pose_option.select(0)
+
+
+func _cache_pigeon_bone_pose() -> void:
+	_pigeon_base_rotations.clear()
+	_pigeon_bone_offsets.clear()
+	for bone_index in _pigeon_skeleton.get_bone_count():
+		_pigeon_base_rotations[bone_index] = (
+			_pigeon_skeleton.get_bone_pose_rotation(bone_index)
+		)
+		_pigeon_bone_offsets[bone_index] = Vector3.ZERO
+
+
+func _populate_pigeon_bone_option() -> void:
+	_pigeon_bone_option.clear()
+	for bone_index in _pigeon_skeleton.get_bone_count():
+		var bone_name := _pigeon_skeleton.get_bone_name(bone_index)
+		if not bone_name.begins_with("DEF-"):
+			continue
+		_pigeon_bone_option.add_item(bone_name.trim_prefix("DEF-"))
+		_pigeon_bone_option.set_item_metadata(
+			_pigeon_bone_option.item_count - 1,
+			bone_index,
+		)
+	if _pigeon_bone_option.item_count > 0:
+		var initial_option := 0
+		var left_wing_index := _pigeon_skeleton.find_bone("DEF-Wing.L")
+		for option_index in _pigeon_bone_option.item_count:
+			if int(
+				_pigeon_bone_option.get_item_metadata(option_index)
+			) == left_wing_index:
+				initial_option = option_index
+				break
+		_pigeon_bone_option.select(initial_option)
+		_on_pigeon_bone_selected(initial_option)
+
+
+func _selected_pigeon_bone_index() -> int:
+	if _pigeon_bone_option == null or _pigeon_bone_option.selected < 0:
+		return -1
+	return int(
+		_pigeon_bone_option.get_item_metadata(_pigeon_bone_option.selected)
+	)
+
+
+func _on_pigeon_bone_selected(_index: int) -> void:
+	var bone_index := _selected_pigeon_bone_index()
+	if bone_index < 0:
+		return
+	var degrees: Vector3 = _pigeon_bone_offsets.get(
+		bone_index,
+		Vector3.ZERO,
+	)
+	_pigeon_control_sync = true
+	for axis in mini(3, _pigeon_rotation_controls.size()):
+		_pigeon_rotation_controls[axis].value = degrees[axis]
+	_pigeon_control_sync = false
+	_refresh_pigeon_bone_overlay()
+
+
+func _on_pigeon_rotation_changed(_value: float) -> void:
+	if _pigeon_control_sync or _pigeon_skeleton == null:
+		return
+	var bone_index := _selected_pigeon_bone_index()
+	if bone_index < 0:
+		return
+	var degrees := Vector3(
+		_pigeon_rotation_controls[0].value,
+		_pigeon_rotation_controls[1].value,
+		_pigeon_rotation_controls[2].value,
+	)
+	_pigeon_bone_offsets[bone_index] = degrees
+	var radians := Vector3(
+		deg_to_rad(degrees.x),
+		deg_to_rad(degrees.y),
+		deg_to_rad(degrees.z),
+	)
+	var base: Quaternion = _pigeon_base_rotations.get(
+		bone_index,
+		Quaternion.IDENTITY,
+	)
+	_pigeon_skeleton.set_bone_pose_rotation(
+		bone_index,
+		base * Quaternion.from_euler(radians),
+	)
+	_refresh_pigeon_bone_overlay()
+
+
+func _reset_selected_pigeon_bone() -> void:
+	var bone_index := _selected_pigeon_bone_index()
+	if bone_index < 0 or _pigeon_skeleton == null:
+		return
+	_pigeon_bone_offsets[bone_index] = Vector3.ZERO
+	_pigeon_skeleton.set_bone_pose_rotation(
+		bone_index,
+		_pigeon_base_rotations.get(bone_index, Quaternion.IDENTITY),
+	)
+	_on_pigeon_bone_selected(_pigeon_bone_option.selected)
+
+
+func _reset_all_pigeon_bones() -> void:
+	if _pigeon_skeleton == null:
+		return
+	for bone_index in _pigeon_base_rotations:
+		_pigeon_skeleton.set_bone_pose_rotation(
+			bone_index,
+			_pigeon_base_rotations[bone_index],
+		)
+		_pigeon_bone_offsets[bone_index] = Vector3.ZERO
+	_on_pigeon_bone_selected(_pigeon_bone_option.selected)
+
+
+func _build_pigeon_bone_overlay() -> void:
+	if _pigeon_skeleton == null:
+		return
+	_pigeon_rig_overlay = MeshInstance3D.new()
+	_pigeon_rig_overlay.name = "PigeonRigBoneOverlay"
+	_pigeon_rig_overlay.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_pigeon_rig_overlay.extra_cull_margin = 2.0
+	_pigeon_skeleton.add_child(_pigeon_rig_overlay)
+	_refresh_pigeon_bone_overlay()
+
+
+func _refresh_pigeon_bone_overlay() -> void:
+	if _pigeon_skeleton == null or _pigeon_rig_overlay == null:
+		return
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = Color("#ff5b9d")
+	material.no_depth_test = true
+	var lines := ImmediateMesh.new()
+	lines.surface_begin(Mesh.PRIMITIVE_LINES, material)
+	for bone_index in _pigeon_skeleton.get_bone_count():
+		var parent_index := _pigeon_skeleton.get_bone_parent(bone_index)
+		if parent_index < 0:
+			continue
+		lines.surface_add_vertex(
+			_pigeon_skeleton.get_bone_global_pose(parent_index).origin
+		)
+		lines.surface_add_vertex(
+			_pigeon_skeleton.get_bone_global_pose(bone_index).origin
+		)
+	lines.surface_end()
+	_pigeon_rig_overlay.mesh = lines
+	_pigeon_rig_overlay.visible = (
+		_pigeon_show_bones == null or _pigeon_show_bones.button_pressed
+	)
+
+
+func _clear_pigeon_rig_state() -> void:
+	if _pigeon_rig_overlay != null and is_instance_valid(_pigeon_rig_overlay):
+		_pigeon_rig_overlay.queue_free()
+	_pigeon_rig_overlay = null
+	_pigeon_skeleton = null
+	_pigeon_base_rotations.clear()
+	_pigeon_bone_offsets.clear()
+	if _pigeon_bone_option != null:
+		_pigeon_bone_option.clear()
+
+
+func _open_pigeon_rig_in_blender() -> void:
+	var blend_path := ProjectSettings.globalize_path(PIGEON_BLEND_PATH)
+	if not FileAccess.file_exists(blend_path):
+		_set_status("error", "Pigeon Rigify .blend source is missing.")
+		return
+	if not FileAccess.file_exists(BLENDER_PATH):
+		_set_status("error", "Blender was not found at %s." % BLENDER_PATH)
+		return
+	var process_id := OS.create_process(
+		BLENDER_PATH,
+		PackedStringArray([blend_path]),
+		true,
+	)
+	if process_id <= 0:
+		_set_status("error", "Could not open the pigeon Rigify source.")
+	else:
+		_set_status(
+			"ok",
+			"Opened pigeon Rigify source in Blender (process %d)." % process_id,
+		)
 
 
 func _panel(top_left: Vector2, bottom_right: Vector2, anchor_right: bool) -> PanelContainer:

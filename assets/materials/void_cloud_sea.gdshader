@@ -51,6 +51,8 @@ uniform float erosion_strength = 0.52;
 uniform float coverage_world_scale = 70.0;
 uniform float coverage_bias = 0.56;
 uniform float horizon_openness = 0.85;
+uniform float tone_world_scale = 110.0;
+uniform float tone_spread : hint_range(0.0, 0.5) = 0.20;
 
 uniform vec2 wind_direction = vec2(0.82, 0.57);
 uniform float wind_time = 0.0;
@@ -145,6 +147,22 @@ float coverage_at(vec2 xz) {
 	coverage *= 1.0
 		- smoothstep(44.0, 72.0, length(xz)) * horizon_openness;
 	return coverage;
+}
+
+// Tonal layering: a huge slow field assigns each cloud mass its own
+// brightness, so some banks read sunlit-white while others sit in a
+// gentle warm shadow, exactly like the layered masses of the reference.
+// It drifts with the same wind term as coverage, so a mass keeps its
+// tone while it lives.
+float mass_tone_at(vec2 xz) {
+	vec2 sample_uv = (
+		xz + wind_direction * (wind_time * wind_base_speed * 0.33)
+	) / tone_world_scale;
+	float field = texture(
+		base_perlin_noise,
+		vec3(mirrored2(sample_uv + vec2(31.7, 8.9)), 0.71)
+	).r;
+	return mix(1.0 - tone_spread, 1.0 + tone_spread * 0.55, field);
 }
 
 float sample_density(vec3 point, float coverage, bool full_detail) {
@@ -367,7 +385,8 @@ void fragment() {
 		vec3 sun_term = light_color
 			* (sun_energy * beer * powder_term * phase);
 		vec3 rim_term = rim_color * (silver * beer);
-		vec3 scattered = ambient + sun_term + rim_term;
+		vec3 scattered = (ambient + sun_term + rim_term)
+			* mass_tone_at(point.xz);
 
 		float step_extinction = density * extinction * full_step;
 		float step_transmittance = exp(-step_extinction);
