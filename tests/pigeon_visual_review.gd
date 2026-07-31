@@ -41,9 +41,8 @@ func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(output_dir)
 	await _capture(output_dir.path_join("pigeon_rest.png"))
 	var controller := mascot.get_node("MascotController") as PigeonMascotController
-	var root_bones: Array[int] = controller.get("_wing_root_bones")
 	controller.call("_reset_visual_pose")
-	controller.call("_apply_bone_rotation", root_bones, Vector3.BACK, 0.82)
+	controller.call("_apply_ground_wing_tuck", 0.82)
 	await _capture(output_dir.path_join("pigeon_bird_tuck.png"))
 	controller.call("_reset_visual_pose")
 	controller.set("_wing_phase", PI * 0.5)

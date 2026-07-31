@@ -21,7 +21,7 @@ const CLOUD_SHADER: Shader = preload(
 
 const SLAB_HALF_EXTENT := 84.0
 const SLAB_THICKNESS := 11.5
-const ISLAND_CLEARANCE := 11.5
+const ISLAND_CLEARANCE := 13.0
 const PALETTE_BLEND_TAU := 1.8
 const BASE_NOISE_SIZE := 96
 const WORLEY_NOISE_SIZE := 80
@@ -413,6 +413,12 @@ func _refresh_palette_targets() -> void:
 		1.0,
 		clampf(brightness, 0.0, 1.0)
 	)
+	if _material != null:
+		# Sunlit crest highlights belong to the light hours only.
+		_material.set_shader_parameter(
+			"crest_highlight_energy",
+			0.6 * pow(clampf(brightness, 0.0, 1.0), 1.4)
+		)
 	if (
 		_rig != null
 		and _rig.has_method("shadow_ray_direction")

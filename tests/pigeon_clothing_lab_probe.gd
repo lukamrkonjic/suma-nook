@@ -32,15 +32,23 @@ func _ready() -> void:
 		lab._pigeon_bone_markers.size() >= 28,
 		"meaningful bird joints receive fitting dots",
 	)
+	_check(
+		lab._pigeon_right_panel.visible and not lab._human_right_panel.visible,
+		"right panel changes to pigeon-specific controls",
+	)
+	_check(
+		lab._pigeon_animation_option.item_count == 5,
+		"rest, idle, walk, fly, and fishing previews are offered",
+	)
+	lab._pigeon_show_bones.set_pressed_no_signal(false)
+	lab._update_pigeon_marker_visibility()
+	_check(not lab._pigeon_marker_root.visible, "bird markers can be hidden")
+	lab._pigeon_show_bones.set_pressed_no_signal(true)
+	lab._update_pigeon_marker_visibility()
+	_check(lab._pigeon_marker_root.visible, "bird markers can be restored")
 	if "--capture" in OS.get_cmdline_user_args():
-		await get_tree().create_timer(0.4).timeout
-		await RenderingServer.frame_post_draw
-		var output_dir := "C:/Dev/suma-nook/artifacts/pigeon_review"
-		DirAccess.make_dir_recursive_absolute(output_dir)
-		var image := get_viewport().get_texture().get_image()
-		GGCaptureEncode.encode_srgb(image)
 		_check(
-			image.save_png(output_dir.path_join("pigeon_clothing_lab.png")) == OK,
+			await _capture_review("pigeon_clothing_lab.png"),
 			"Clothing Lab review capture writes",
 		)
 	var wing_index := lab._pigeon_skeleton.find_bone("DEF-Wing.L")
@@ -83,10 +91,119 @@ func _ready() -> void:
 			lab._pigeon_skeleton.get_bone_pose_rotation(wing_index).is_equal_approx(base),
 			"bone reset restores the authored pose",
 		)
+	var head_index := lab._pigeon_skeleton.find_bone("DEF-head")
+	var wing_mid_index := lab._pigeon_skeleton.find_bone("DEF-Wing.001.L")
+	var thigh_index := lab._pigeon_skeleton.find_bone("DEF-thigh.L")
+	var idle_index := _pigeon_animation_index(lab, "idle")
+	var walk_index := _pigeon_animation_index(lab, "walk")
+	var fly_index := _pigeon_animation_index(lab, "fly")
+	var fishing_index := _pigeon_animation_index(lab, "fishing")
+	_check(
+		idle_index >= 0 and walk_index >= 0 and fly_index >= 0 and fishing_index >= 0,
+		"all requested pigeon animations are selectable",
+	)
+	if idle_index >= 0:
+		lab._pigeon_animation_option.select(idle_index)
+		lab._on_pigeon_animation_selected(idle_index)
+		lab._pigeon_animation_time = 0.7
+		lab._update_pigeon_animation_preview(0.0)
+		_check(
+			not lab._pigeon_skeleton.get_bone_pose_rotation(head_index).is_equal_approx(
+				lab._pigeon_base_rotations[head_index]
+			),
+			"idle preview animates the bird's curious head movement",
+		)
+		_check(
+			not lab._pigeon_skeleton.get_bone_pose_rotation(wing_mid_index).is_equal_approx(
+				lab._pigeon_base_rotations[wing_mid_index]
+			),
+			"idle preview folds the complete wing chain backward",
+		)
+		_check(
+			not lab._pigeon_marker_root.visible,
+			"motion previews hide rig markers like the human preview",
+		)
+		if "--capture" in OS.get_cmdline_user_args():
+			_check(
+				await _capture_review("pigeon_clothing_lab_idle.png"),
+				"idle preview capture writes",
+			)
+	if walk_index >= 0:
+		lab._pigeon_animation_option.select(walk_index)
+		lab._on_pigeon_animation_selected(walk_index)
+		lab._pigeon_animation_time = 0.65
+		lab._update_pigeon_animation_preview(0.0)
+		_check(
+			absf(lab._character.position.x - lab._pigeon_preview_origin.x) > 0.1,
+			"walk preview moves between two stage positions",
+		)
+		_check(
+			not lab._pigeon_skeleton.get_bone_pose_rotation(thigh_index).is_equal_approx(
+				lab._pigeon_base_rotations[thigh_index]
+			),
+			"walk preview alternates the bird's legs",
+		)
+		if "--capture" in OS.get_cmdline_user_args():
+			_check(
+				await _capture_review("pigeon_clothing_lab_walk.png"),
+				"walk preview capture writes",
+			)
+	if fly_index >= 0:
+		lab._pigeon_animation_option.select(fly_index)
+		lab._on_pigeon_animation_selected(fly_index)
+		lab._pigeon_animation_time = ClothingLab.PIGEON_FLIGHT_PREVIEW_SECONDS * 0.5
+		lab._update_pigeon_animation_preview(0.0)
+		_check(
+			lab._character.position.y > lab._pigeon_preview_origin.y + 0.18,
+			"flight preview follows a takeoff-to-landing arc",
+		)
+		_check(
+			not lab._pigeon_skeleton.get_bone_pose_rotation(wing_index).is_equal_approx(
+				lab._pigeon_base_rotations[wing_index]
+			),
+			"flight preview flaps the Rigify wings",
+		)
+		if "--capture" in OS.get_cmdline_user_args():
+			_check(
+				await _capture_review("pigeon_clothing_lab_fly.png"),
+				"flight preview capture writes",
+			)
+	if fishing_index >= 0:
+		lab._pigeon_animation_option.select(fishing_index)
+		lab._on_pigeon_animation_selected(fishing_index)
+		lab._pigeon_animation_time = 0.36
+		lab._update_pigeon_animation_preview(0.0)
+		_check(
+			not lab._pigeon_skeleton.get_bone_pose_rotation(head_index).is_equal_approx(
+				lab._pigeon_base_rotations[head_index]
+			),
+			"fishing preview leans toward the bobber",
+		)
+		_check(
+			not lab._pigeon_skeleton.get_bone_pose_rotation(wing_index).is_equal_approx(
+				lab._pigeon_base_rotations[wing_index]
+			),
+			"fishing preview includes a casting wing motion",
+		)
+		if "--capture" in OS.get_cmdline_user_args():
+			_check(
+				await _capture_review("pigeon_clothing_lab_fishing.png"),
+				"fishing preview capture writes",
+			)
+	lab._pigeon_animation_option.select(0)
+	lab._on_pigeon_animation_selected(0)
+	_check(
+		lab._pigeon_marker_root.visible and not lab._pigeon_bone_option.disabled,
+		"rest mode restores rig markers and manual bone controls",
+	)
 	lab._rig_subject_option.select(0)
 	lab._on_rig_subject_selected(0)
 	await get_tree().process_frame
 	_check(not lab._pigeon_mode, "human subject can be restored")
+	_check(
+		lab._human_right_panel.visible and not lab._pigeon_right_panel.visible,
+		"human Fit & Bind panel is restored",
+	)
 	print("PIGEON_CLOTHING_LAB failures=", _failures)
 	lab.free()
 	await get_tree().process_frame
@@ -99,3 +216,22 @@ func _check(condition: bool, label: String) -> void:
 	else:
 		_failures += 1
 		push_error("PIGEON_CLOTHING_LAB: " + label)
+
+
+func _pigeon_animation_index(lab: ClothingLab, animation_name: String) -> int:
+	for index in lab._pigeon_animation_option.item_count:
+		if String(
+			lab._pigeon_animation_option.get_item_metadata(index)
+		) == animation_name:
+			return index
+	return -1
+
+
+func _capture_review(file_name: String) -> bool:
+	await get_tree().create_timer(0.2).timeout
+	await RenderingServer.frame_post_draw
+	var output_dir := "C:/Dev/suma-nook/artifacts/pigeon_review"
+	DirAccess.make_dir_recursive_absolute(output_dir)
+	var image := get_viewport().get_texture().get_image()
+	GGCaptureEncode.encode_srgb(image)
+	return image.save_png(output_dir.path_join(file_name)) == OK

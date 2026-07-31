@@ -69,13 +69,17 @@ uniform vec3 atmosphere_color : source_color = vec3(0.935, 0.90, 0.815);
 uniform float mist_opacity : hint_range(0.0, 1.0) = 0.97;
 uniform float sun_energy = 2.1;
 uniform float ambient_energy = 1.12;
+// Sun-kissed cloud tops: bright soft highlights where a crest has open
+// sky above it. The controller scales this with the sky's brightness so
+// highlights live in the light hours and vanish at night.
+uniform float crest_highlight_energy : hint_range(0.0, 1.5) = 0.5;
 uniform float powder_strength = 0.58;
 uniform float silver_intensity = 0.50;
 uniform float forward_scattering = 0.32;
 // World-radial fade measured from the island centre, NOT from the camera:
 // zooming may never dissolve the sea, only true distance may.
-uniform float fade_start = 40.0;
-uniform float fade_end = 62.0;
+uniform float fade_start = 30.0;
+uniform float fade_end = 48.0;
 
 varying vec3 world_position;
 
@@ -145,7 +149,7 @@ float coverage_at(vec2 xz) {
 		1.0
 	);
 	coverage *= 1.0
-		- smoothstep(40.0, 64.0, length(xz)) * horizon_openness;
+		- smoothstep(30.0, 50.0, length(xz)) * horizon_openness;
 	return coverage;
 }
 
@@ -385,7 +389,18 @@ void fragment() {
 		vec3 sun_term = light_color
 			* (sun_energy * beer * powder_term * phase);
 		vec3 rim_term = rim_color * (silver * beer);
-		vec3 scattered = (ambient + sun_term + rim_term)
+		// Crest highlight: where little material sits above the sample,
+		// this is a sunlit top and it catches a soft bright kiss.
+		float above_density = sample_density(
+			point + vec3(0.0, 1.15, 0.0),
+			coverage,
+			false
+		);
+		float crest = clamp(1.0 - above_density * 2.2, 0.0, 1.0)
+			* smoothstep(0.40, 0.80, height);
+		vec3 highlight_term = light_color
+			* (crest * crest_highlight_energy * (0.35 + 0.65 * beer));
+		vec3 scattered = (ambient + sun_term + rim_term + highlight_term)
 			* mass_tone_at(point.xz);
 
 		float step_extinction = density * extinction * full_step;

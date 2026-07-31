@@ -63,6 +63,36 @@ const PIGEON_RIG_MARKERS := [
 	{"bone": "DEF-foot.R", "color": "#66c7c1", "position": Vector3(-0.075, -0.98, 0.0)},
 	{"bone": "DEF-toe.R", "color": "#ed8bad", "position": Vector3(-0.10, -1.07, 0.02)},
 ]
+const PIGEON_PREVIEW_ANIMATIONS := [
+	{
+		"label": "Rest / rig pose",
+		"animation": "rest",
+		"description": "Front-facing rest pose for selecting and adjusting DEF bones.",
+	},
+	{
+		"label": "Idle · curious",
+		"animation": "idle",
+		"description": "Soft breathing, balance sway, curious head and tail motion, blinking, and wandering eyes.",
+	},
+	{
+		"label": "Walk · A to B",
+		"animation": "walk",
+		"description": "Grounded two-way walk with alternating legs, head bob, tail balance, and tucked wings.",
+	},
+	{
+		"label": "Fly · A to B",
+		"animation": "fly",
+		"description": "Takeoff-to-landing arc with a full wing flap, tucked feet, body pitch, and tail control.",
+	},
+	{
+		"label": "Fishing · cast & watch",
+		"animation": "fishing",
+		"description": "A small cast, then a patient forward lean while the pigeon watches the bobber.",
+	},
+]
+const PIGEON_WALK_PREVIEW_SECONDS := 2.6
+const PIGEON_FLIGHT_PREVIEW_SECONDS := 3.2
+const PIGEON_PREVIEW_HALF_DISTANCE := 0.56
 const PROCESSOR_PATH := "res://tools/clothing_lab/process_clothing.py"
 const BLENDER_PATH := "C:\\Software\\Blender\\blender.exe"
 const PLAYER_PROFILE_PATH := "res://assets/player/current_player_profile.tres"
@@ -294,6 +324,15 @@ var _pigeon_base_rotations: Dictionary = {}
 var _pigeon_bone_offsets: Dictionary = {}
 var _pigeon_control_sync := false
 var _pigeon_mode := false
+var _pigeon_controller: PigeonMascotController
+var _human_right_panel: VBoxContainer
+var _pigeon_right_panel: VBoxContainer
+var _pigeon_animation_option: OptionButton
+var _pigeon_animation_speed: HSlider
+var _pigeon_animation_speed_label: Label
+var _pigeon_animation_description: Label
+var _pigeon_animation_time := 0.0
+var _pigeon_preview_origin := Vector3.ZERO
 var _source_path: LineEdit
 var _status: RichTextLabel
 var _file_dialog: FileDialog
@@ -411,9 +450,12 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	super._process(delta)
-	if not _selected_preview_clip().is_empty():
-		_ground_preview_character()
-	_sync_final_output_pose()
+	if _pigeon_mode:
+		_update_pigeon_animation_preview(delta)
+	else:
+		if not _selected_preview_clip().is_empty():
+			_ground_preview_character()
+		_sync_final_output_pose()
 	if _character == null or _orbit_camera == null:
 		return
 	var orbit_input := Vector2(
@@ -710,6 +752,7 @@ func _build_clothing_ui() -> void:
 	var right := _panel(Vector2(-406, 12), Vector2(-12, -12), true)
 	_ui_root.add_child(right)
 	var right_shell := VBoxContainer.new()
+	_human_right_panel = right_shell
 	right_shell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	right_shell.add_theme_constant_override("separation", 8)
@@ -1075,6 +1118,7 @@ func _build_clothing_ui() -> void:
 	_status.bbcode_enabled = true
 	_status.scroll_active = true
 	sticky.add_child(_status)
+	_build_pigeon_preview_panel(right)
 
 	var footer := Label.new()
 	footer.text = (
@@ -1099,6 +1143,115 @@ func _build_clothing_ui() -> void:
 	)
 	_ui_root.add_child(_file_dialog)
 	_build_new_clothing_dialog()
+
+
+func _build_pigeon_preview_panel(parent: Control) -> void:
+	_pigeon_right_panel = VBoxContainer.new()
+	_pigeon_right_panel.visible = false
+	_pigeon_right_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_pigeon_right_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_pigeon_right_panel.add_theme_constant_override("separation", 10)
+	parent.add_child(_pigeon_right_panel)
+	_title(_pigeon_right_panel, "PIGEON ANIMATION LAB")
+	var subtitle := Label.new()
+	subtitle.text = "RIGIFY BIRD  ·  MOTION PREVIEW"
+	subtitle.add_theme_color_override("font_color", Color("#b8df91"))
+	_pigeon_right_panel.add_child(subtitle)
+	_note(
+		_pigeon_right_panel,
+		"Preview the mascot's reusable in-world motion without changing the "
+		+ "editable rest rig.",
+	)
+	_pigeon_animation_option = _option_row(
+		_pigeon_right_panel,
+		"Animation",
+	)
+	for preview in PIGEON_PREVIEW_ANIMATIONS:
+		_pigeon_animation_option.add_item(String(preview["label"]))
+		_pigeon_animation_option.set_item_metadata(
+			_pigeon_animation_option.item_count - 1,
+			String(preview["animation"]),
+		)
+	_pigeon_animation_option.tooltip_text = (
+		"Rest keeps the bird editable. Motion previews temporarily drive the "
+		+ "same procedural bones used by the world mascot."
+	)
+	_pigeon_animation_option.item_selected.connect(
+		_on_pigeon_animation_selected
+	)
+	var speed_row := HBoxContainer.new()
+	_pigeon_right_panel.add_child(speed_row)
+	var speed_title := Label.new()
+	speed_title.text = "Animation speed"
+	speed_title.custom_minimum_size.x = 112
+	speed_row.add_child(speed_title)
+	_pigeon_animation_speed = HSlider.new()
+	_pigeon_animation_speed.min_value = 0.25
+	_pigeon_animation_speed.max_value = 2.0
+	_pigeon_animation_speed.step = 0.05
+	_pigeon_animation_speed.value = 1.0
+	_pigeon_animation_speed.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_pigeon_animation_speed.tooltip_text = (
+		"Changes only this preview timeline."
+	)
+	_pigeon_animation_speed.value_changed.connect(
+		func(value: float) -> void:
+			_pigeon_animation_speed_label.text = "%.2f×" % value
+	)
+	speed_row.add_child(_pigeon_animation_speed)
+	_pigeon_animation_speed_label = Label.new()
+	_pigeon_animation_speed_label.text = "1.00×"
+	_pigeon_animation_speed_label.custom_minimum_size.x = 52
+	_pigeon_animation_speed_label.horizontal_alignment = (
+		HORIZONTAL_ALIGNMENT_RIGHT
+	)
+	speed_row.add_child(_pigeon_animation_speed_label)
+	_separator(_pigeon_right_panel, "Rig display")
+	_pigeon_show_bones = CheckBox.new()
+	_pigeon_show_bones.text = "Show bird rig markers"
+	_pigeon_show_bones.button_pressed = true
+	_pigeon_show_bones.tooltip_text = (
+		"Show the color-coded selectable bird joints in Rest mode. Motion "
+		+ "previews hide them automatically, like the human animation preview."
+	)
+	_pigeon_show_bones.toggled.connect(
+		func(_visible: bool) -> void:
+			_update_pigeon_marker_visibility()
+	)
+	_pigeon_right_panel.add_child(_pigeon_show_bones)
+	_note(
+		_pigeon_right_panel,
+		"Click a marker to select its DEF bone. Markers are intentionally hidden "
+		+ "during moving previews.",
+	)
+	_separator(_pigeon_right_panel, "Motion preview")
+	_pigeon_animation_description = Label.new()
+	_pigeon_animation_description.autowrap_mode = (
+		TextServer.AUTOWRAP_WORD_SMART
+	)
+	_pigeon_animation_description.modulate = Color(0.84, 0.88, 0.80)
+	_pigeon_right_panel.add_child(_pigeon_animation_description)
+	var restart := _button(
+		"Restart selected animation",
+		_restart_pigeon_animation,
+	)
+	restart.tooltip_text = "Restart the selected bird motion at its first frame."
+	_pigeon_right_panel.add_child(restart)
+	_separator(_pigeon_right_panel, "Included bird motion")
+	_note(
+		_pigeon_right_panel,
+		"IDLE  · breathing + head/eye curiosity\n"
+		+ "WALK  · alternating feet + head bob\n"
+		+ "FLY  · takeoff arc + flap + landing\n"
+		+ "FISH  · cast + forward bobber watch",
+	)
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_pigeon_right_panel.add_child(spacer)
+	_note(
+		_pigeon_right_panel,
+		"Rest mode returns the mascot to the exact manual rig pose."
+	)
 
 
 func _build_pigeon_rig_tools(parent: Control) -> void:
@@ -1130,15 +1283,6 @@ func _build_pigeon_rig_tools(parent: Control) -> void:
 		control.value_changed.connect(_on_pigeon_rotation_changed)
 		row.add_child(control)
 		_pigeon_rotation_controls.append(control)
-	_pigeon_show_bones = CheckBox.new()
-	_pigeon_show_bones.text = "Show bird joint dots"
-	_pigeon_show_bones.button_pressed = true
-	_pigeon_show_bones.toggled.connect(
-		func(visible: bool) -> void:
-			if _pigeon_marker_root != null:
-				_pigeon_marker_root.visible = visible
-	)
-	_pigeon_rig_tools.add_child(_pigeon_show_bones)
 	var reset_row := HBoxContainer.new()
 	_pigeon_rig_tools.add_child(reset_row)
 	var reset_bone := _button("Reset bone", _reset_selected_pigeon_bone)
@@ -1179,10 +1323,12 @@ func _show_pigeon_rig_subject() -> void:
 	_character.name = "PigeonRigSubject"
 	add_child(_character)
 	_character.visible = true
-	var controller := _character.get_node_or_null("MascotController") as Node
-	if controller != null:
-		controller.set_process(false)
-		controller.set_physics_process(false)
+	_pigeon_controller = _character.get_node_or_null(
+		"MascotController"
+	) as PigeonMascotController
+	if _pigeon_controller != null:
+		_pigeon_controller.set_process(false)
+		_pigeon_controller.set_physics_process(false)
 	_pigeon_skeleton = _character.find_child(
 		"Skeleton3D", true, false
 	) as Skeleton3D
@@ -1195,12 +1341,17 @@ func _show_pigeon_rig_subject() -> void:
 	_character.rotation.y = PI
 	var bounds := _visual_bounds(_character)
 	_character.position.y = -bounds.position.y
+	_pigeon_preview_origin = _character.position
 	_cache_preview_ground_bounds()
 	_cache_pigeon_bone_pose()
 	_populate_pigeon_bone_option()
 	_build_pigeon_joint_markers()
 	_set_human_lab_controls_enabled(false)
 	_pigeon_rig_tools.visible = true
+	_human_right_panel.visible = false
+	_pigeon_right_panel.visible = true
+	_pigeon_animation_option.select(0)
+	_on_pigeon_animation_selected(0)
 	_focus_character()
 	_set_status(
 		"ok",
@@ -1212,9 +1363,13 @@ func _show_pigeon_rig_subject() -> void:
 func _restore_human_rig_subject() -> void:
 	if not _pigeon_mode:
 		return
+	if _pigeon_controller != null:
+		_pigeon_controller.set_lab_preview_animation("rest")
 	_pigeon_mode = false
 	_clear_pigeon_rig_state()
 	_pigeon_rig_tools.visible = false
+	_pigeon_right_panel.visible = false
+	_human_right_panel.visible = true
 	_set_human_lab_controls_enabled(true)
 	# The previous assembler still owns weak references to the human parts that
 	# were removed when the pigeon became the subject. Start a clean assembly
@@ -1259,6 +1414,152 @@ func _set_human_lab_controls_enabled(enabled: bool) -> void:
 			(control as Slider).editable = enabled
 	if not enabled and _preview_pose_option != null:
 		_preview_pose_option.select(0)
+
+
+func _selected_pigeon_animation() -> String:
+	if (
+		_pigeon_animation_option == null
+		or _pigeon_animation_option.selected < 0
+	):
+		return "rest"
+	return String(
+		_pigeon_animation_option.get_item_metadata(
+			_pigeon_animation_option.selected
+		)
+	)
+
+
+func _on_pigeon_animation_selected(index: int) -> void:
+	if (
+		_pigeon_animation_option == null
+		or index < 0
+		or index >= _pigeon_animation_option.item_count
+	):
+		return
+	_pigeon_animation_time = 0.0
+	var animation_name := _selected_pigeon_animation()
+	if _pigeon_controller != null:
+		_pigeon_controller.set_lab_preview_animation(animation_name)
+	if animation_name == "rest":
+		_apply_pigeon_manual_pose()
+	_set_pigeon_pose_controls_enabled(animation_name == "rest")
+	if _pigeon_animation_description != null:
+		_pigeon_animation_description.text = String(
+			PIGEON_PREVIEW_ANIMATIONS[index]["description"]
+		)
+	_update_pigeon_marker_visibility()
+	_update_pigeon_animation_preview(0.0)
+
+
+func _restart_pigeon_animation() -> void:
+	_on_pigeon_animation_selected(_pigeon_animation_option.selected)
+
+
+func _set_pigeon_pose_controls_enabled(enabled: bool) -> void:
+	if _pigeon_bone_option != null:
+		_pigeon_bone_option.disabled = not enabled
+	for control in _pigeon_rotation_controls:
+		control.editable = enabled
+	if _pigeon_show_bones != null:
+		_pigeon_show_bones.disabled = not enabled
+
+
+func _apply_pigeon_manual_pose() -> void:
+	if _pigeon_skeleton == null:
+		return
+	for bone_index_variant in _pigeon_bone_offsets:
+		var bone_index := int(bone_index_variant)
+		var degrees: Vector3 = _pigeon_bone_offsets[bone_index]
+		var radians := Vector3(
+			deg_to_rad(degrees.x),
+			deg_to_rad(degrees.y),
+			deg_to_rad(degrees.z),
+		)
+		var base: Quaternion = _pigeon_base_rotations.get(
+			bone_index,
+			Quaternion.IDENTITY,
+		)
+		_pigeon_skeleton.set_bone_pose_rotation(
+			bone_index,
+			base * Quaternion.from_euler(radians),
+		)
+	_refresh_pigeon_joint_markers()
+
+
+func _update_pigeon_animation_preview(delta: float) -> void:
+	if not _pigeon_mode or _character == null:
+		return
+	var speed := (
+		_pigeon_animation_speed.value
+		if _pigeon_animation_speed != null
+		else 1.0
+	)
+	var scaled_delta := delta * speed
+	_pigeon_animation_time += scaled_delta
+	var animation_name := _selected_pigeon_animation()
+	match animation_name:
+		"walk":
+			_apply_pigeon_path_preview(
+				PIGEON_WALK_PREVIEW_SECONDS,
+				0.0,
+			)
+		"fly":
+			_apply_pigeon_path_preview(
+				PIGEON_FLIGHT_PREVIEW_SECONDS,
+				0.22,
+			)
+		_:
+			_character.position = _pigeon_preview_origin
+			_character.rotation.y = PI
+	if _pigeon_controller != null:
+		_pigeon_controller.apply_lab_preview_animation(
+			_pigeon_animation_time,
+			scaled_delta,
+		)
+
+
+func _apply_pigeon_path_preview(
+	one_way_seconds: float,
+	arc_height: float,
+) -> void:
+	var cycle := fmod(
+		_pigeon_animation_time,
+		one_way_seconds * 2.0,
+	)
+	var moving_right := cycle < one_way_seconds
+	var progress := (
+		cycle / one_way_seconds
+		if moving_right
+		else (cycle - one_way_seconds) / one_way_seconds
+	)
+	var start_x := (
+		-PIGEON_PREVIEW_HALF_DISTANCE
+		if moving_right
+		else PIGEON_PREVIEW_HALF_DISTANCE
+	)
+	var end_x := -start_x
+	_character.position = (
+		_pigeon_preview_origin
+		+ Vector3(
+			lerpf(start_x, end_x, progress),
+			sin(progress * PI) * arc_height,
+			0.0,
+		)
+	)
+	_character.rotation.y = -PI * 0.5 if moving_right else PI * 0.5
+
+
+func _update_pigeon_marker_visibility() -> void:
+	if _pigeon_marker_root == null:
+		return
+	_pigeon_marker_root.visible = (
+		_pigeon_mode
+		and _selected_pigeon_animation() == "rest"
+		and (
+			_pigeon_show_bones == null
+			or _pigeon_show_bones.button_pressed
+		)
+	)
 
 
 func _cache_pigeon_bone_pose() -> void:
@@ -1436,9 +1737,7 @@ func _refresh_pigeon_joint_markers() -> void:
 			base_color.lightened(0.22) if selected else base_color
 		)
 		material.emission = material.albedo_color
-	_pigeon_marker_root.visible = (
-		_pigeon_show_bones == null or _pigeon_show_bones.button_pressed
-	)
+	_update_pigeon_marker_visibility()
 
 
 func _select_pigeon_bone_marker(screen_position: Vector2) -> bool:
@@ -1490,6 +1789,7 @@ func _clear_pigeon_rig_state() -> void:
 		_pigeon_marker_root.queue_free()
 	_pigeon_marker_root = null
 	_pigeon_bone_markers.clear()
+	_pigeon_controller = null
 	_pigeon_skeleton = null
 	_pigeon_base_rotations.clear()
 	_pigeon_bone_offsets.clear()

@@ -57,7 +57,15 @@ var _model_rest_position := Vector3.ZERO
 var _wing_root_bones: Array[int] = []
 var _wing_mid_bones: Array[int] = []
 var _wing_tip_bones: Array[int] = []
+var _thigh_bones: Array[int] = []
+var _shin_bones: Array[int] = []
+var _foot_bones: Array[int] = []
+var _neck_bones: Array[int] = []
+var _head_bones: Array[int] = []
+var _tail_bones: Array[int] = []
+var _animated_bones: Array[int] = []
 var _base_bone_rotations: Dictionary = {}
+var _lab_preview_animation := ""
 
 
 func _ready() -> void:
@@ -116,6 +124,62 @@ func is_flying() -> bool:
 		MovementState.FLYING,
 		MovementState.LANDING,
 	]
+
+
+## Drives the same procedural poses used in the world from a deterministic
+## editor timeline. Root translation belongs to the preview host so this API
+## can be reused by the Clothing Lab without a WorldGrid or player.
+func set_lab_preview_animation(animation_name: String) -> void:
+	_lab_preview_animation = animation_name
+	_reset_visual_pose()
+	face.set_talking(false)
+	match animation_name:
+		"fly":
+			face.set_expression(PigeonFaceRig.EyeExpression.HAPPY)
+		"fishing":
+			face.set_expression(PigeonFaceRig.EyeExpression.NEUTRAL)
+			face.set_pupil_direction(Vector2(0.0, -0.72))
+		_:
+			face.set_expression(PigeonFaceRig.EyeExpression.NEUTRAL)
+
+
+func apply_lab_preview_animation(time_seconds: float, _delta: float) -> void:
+	match _lab_preview_animation:
+		"idle":
+			_apply_ground_wing_tuck(0.82)
+			_apply_idle_body_pose(time_seconds)
+			model.position = (
+				_model_rest_position
+				+ Vector3.UP * sin(time_seconds * 2.2) * 0.004
+			)
+			model.rotation.x = sin(time_seconds * 0.8) * 0.008
+			model.rotation.z = sin(time_seconds * 1.35) * 0.008
+		"walk":
+			var phase := time_seconds * 8.5
+			_apply_ground_wing_tuck(0.82 + sin(phase) * 0.018)
+			_apply_walk_cycle(phase)
+			model.position = (
+				_model_rest_position
+				+ Vector3.UP * absf(sin(phase)) * 0.026
+			)
+			model.rotation.x = 0.0
+			model.rotation.z = sin(phase) * 0.035
+		"fly":
+			var phase := time_seconds * 11.5
+			_wing_phase = phase
+			_apply_flight_flap(0.52)
+			_apply_flight_body_pose(phase)
+			model.position = (
+				_model_rest_position
+				+ Vector3.UP * sin(phase) * 0.018
+			)
+			model.rotation.x = -0.14
+			model.rotation.z = sin(time_seconds * 1.6) * 0.045
+		"fishing":
+			_apply_fishing_pose(time_seconds)
+		_:
+			# Rest mode deliberately leaves the lab's manual DEF-bone edits alone.
+			pass
 
 
 func _physics_process(delta: float) -> void:
@@ -336,10 +400,12 @@ func _update_visual_pose(delta: float) -> void:
 			bob = absf(sin(_walk_phase)) * 0.026
 			roll = sin(_walk_phase) * 0.035
 			_apply_ground_wing_tuck(0.82 + sin(_walk_phase) * 0.018)
+			_apply_walk_cycle(_walk_phase)
 		MovementState.IDLE:
 			bob = sin(_pose_time * 2.2) * 0.004
 			roll = sin(_pose_time * 1.35) * 0.008
 			_apply_ground_wing_tuck(0.82)
+			_apply_idle_body_pose(_pose_time)
 		MovementState.TAKING_OFF:
 			_wing_phase += delta * 18.0
 			var remaining_tuck := clampf(_state_seconds / 0.72, 0.0, 1.0) * 0.82
@@ -348,12 +414,14 @@ func _update_visual_pose(delta: float) -> void:
 		MovementState.FLYING:
 			_wing_phase += delta * 11.5
 			_apply_flight_flap(0.52)
+			_apply_flight_body_pose(_wing_phase)
 			bob = sin(_wing_phase) * 0.018
 			roll = sin(_orbit_phase) * 0.075 * _orbit_direction
 			pitch = -0.14
 		MovementState.LANDING:
 			_wing_phase += delta * 15.0
 			_apply_flight_flap(0.46)
+			_apply_landing_body_pose()
 			pitch = 0.08
 	model.position = _model_rest_position + Vector3.UP * bob
 	model.rotation.x = lerpf(model.rotation.x, pitch, minf(1.0, delta * 8.0))
@@ -362,20 +430,142 @@ func _update_visual_pose(delta: float) -> void:
 
 func _apply_flight_flap(amplitude: float, shoulder_tuck := 0.0) -> void:
 	var angle := sin(_wing_phase) * amplitude
-	var mid_angle := -angle * 0.36
-	var tip_angle := -angle * 0.22
-	_apply_shoulder_pose(shoulder_tuck, angle)
+	var fold_weight := clampf(shoulder_tuck / 0.82, 0.0, 1.0)
+	var mid_angle := -angle * 0.36 + fold_weight
+	var tip_angle := -angle * 0.22 + fold_weight * 0.55
+	_apply_shoulder_pose(fold_weight * 1.35, angle)
 	_apply_bone_rotation(_wing_mid_bones, Vector3.RIGHT, mid_angle)
 	_apply_bone_rotation(_wing_tip_bones, Vector3.RIGHT, tip_angle)
 
 
+func _apply_walk_cycle(phase: float) -> void:
+	for side_index in _thigh_bones.size():
+		var direction := 1.0 if side_index == 0 else -1.0
+		var swing := sin(phase) * 0.30 * direction
+		_apply_bone_index_angle(
+			_thigh_bones[side_index], Vector3.RIGHT, swing
+		)
+		_apply_bone_index_angle(
+			_shin_bones[side_index],
+			Vector3.RIGHT,
+			-maxf(0.0, -sin(phase) * direction) * 0.34,
+		)
+		_apply_bone_index_angle(
+			_foot_bones[side_index], Vector3.RIGHT, -swing * 0.42
+		)
+	_apply_bone_rotation(
+		_head_bones,
+		Vector3.RIGHT,
+		-sin(phase) * 0.055,
+	)
+	_apply_bone_rotation(
+		_tail_bones,
+		Vector3.RIGHT,
+		sin(phase) * 0.045,
+	)
+
+
+func _apply_idle_body_pose(time_seconds: float) -> void:
+	_reset_bone_group(_thigh_bones)
+	_reset_bone_group(_shin_bones)
+	_reset_bone_group(_foot_bones)
+	_apply_bone_rotation(
+		_head_bones,
+		Vector3.RIGHT,
+		sin(time_seconds * 1.4) * 0.025,
+	)
+	_apply_bone_rotation(
+		_tail_bones,
+		Vector3.RIGHT,
+		sin(time_seconds * 1.1) * 0.018,
+	)
+
+
+func _apply_flight_body_pose(phase: float) -> void:
+	for bone_index in _thigh_bones:
+		_apply_bone_index_angle(bone_index, Vector3.RIGHT, -0.18)
+	for bone_index in _shin_bones:
+		_apply_bone_index_angle(bone_index, Vector3.RIGHT, 0.30)
+	for bone_index in _foot_bones:
+		_apply_bone_index_angle(bone_index, Vector3.RIGHT, -0.16)
+	_apply_bone_rotation(
+		_tail_bones,
+		Vector3.RIGHT,
+		0.10 + sin(phase * 0.5) * 0.035,
+	)
+	_apply_bone_rotation(_head_bones, Vector3.RIGHT, -0.055)
+
+
+func _apply_landing_body_pose() -> void:
+	_reset_bone_group(_thigh_bones)
+	_reset_bone_group(_shin_bones)
+	_reset_bone_group(_foot_bones)
+	_apply_bone_rotation(_tail_bones, Vector3.RIGHT, 0.14)
+	_apply_bone_rotation(_head_bones, Vector3.RIGHT, 0.05)
+
+
+func _apply_fishing_pose(time_seconds: float) -> void:
+	var cycle := fmod(time_seconds, 4.8)
+	var cast_amount := 0.0
+	if cycle < 0.72:
+		cast_amount = sin(cycle / 0.72 * PI) * 0.46
+	var cast_open := cast_amount / 0.46
+	var fold_weight := 1.0 - cast_open * 0.70
+	_apply_shoulder_pose(1.35 * fold_weight, -cast_amount)
+	_apply_bone_rotation(
+		_wing_mid_bones,
+		Vector3.RIGHT,
+		fold_weight + cast_amount * 0.24,
+	)
+	_apply_bone_rotation(
+		_wing_tip_bones,
+		Vector3.RIGHT,
+		fold_weight * 0.55 + cast_amount * 0.16,
+	)
+	_reset_bone_group(_thigh_bones)
+	_reset_bone_group(_shin_bones)
+	_reset_bone_group(_foot_bones)
+	var watch_bobber := sin(time_seconds * 2.1) * 0.025
+	_apply_bone_rotation(
+		_neck_bones,
+		Vector3.RIGHT,
+		0.10 + watch_bobber,
+	)
+	_apply_bone_rotation(
+		_head_bones,
+		Vector3.RIGHT,
+		0.19 + watch_bobber,
+	)
+	_apply_bone_rotation(
+		_tail_bones,
+		Vector3.RIGHT,
+		-0.04 + sin(time_seconds * 1.3) * 0.025,
+	)
+	model.position = (
+		_model_rest_position
+		+ Vector3.UP * sin(time_seconds * 2.1) * 0.004
+	)
+	model.rotation.x = 0.07 + cast_amount * 0.08
+	model.rotation.z = sin(time_seconds * 0.9) * 0.008
+	face.set_pupil_direction(Vector2(0.0, -0.72))
+
+
 func _apply_ground_wing_tuck(shoulder_tuck: float) -> void:
-	# A bird folds at the shoulder and sweeps the entire wing chain rearward.
-	# The elbow and tip retain the authored Rigify pose instead of behaving like
-	# hands hinged at the body.
-	_apply_shoulder_pose(shoulder_tuck, 0.0)
-	_apply_bone_rotation(_wing_mid_bones, Vector3.RIGHT, 0.0)
-	_apply_bone_rotation(_wing_tip_bones, Vector3.RIGHT, 0.0)
+	# The imported rest pose is fully spread. A convincing ground silhouette
+	# therefore needs all three bird joints: sweep the shoulder rearward, fold
+	# sharply at the elbow, then lay the tip over the flank toward the tail.
+	var fold_weight := clampf(shoulder_tuck / 0.82, 0.0, 1.08)
+	_apply_shoulder_pose(1.35 * fold_weight, 0.0)
+	_apply_bone_rotation(
+		_wing_mid_bones,
+		Vector3.RIGHT,
+		fold_weight,
+	)
+	_apply_bone_rotation(
+		_wing_tip_bones,
+		Vector3.RIGHT,
+		0.55 * fold_weight,
+	)
 
 
 func _apply_shoulder_pose(shoulder_tuck: float, flap_angle: float) -> void:
@@ -395,6 +585,27 @@ func _apply_shoulder_pose(shoulder_tuck: float, flap_angle: float) -> void:
 
 func _apply_bone_rotation(bones: Array[int], axis: Vector3, angle: float) -> void:
 	_apply_bone_offset(bones, Quaternion(axis, angle))
+
+
+func _apply_bone_index_angle(
+	bone_index: int,
+	axis: Vector3,
+	angle: float,
+) -> void:
+	if bone_index >= 0:
+		_apply_bone_index_offset(bone_index, Quaternion(axis, angle))
+
+
+func _reset_bone_group(bones: Array[int]) -> void:
+	for bone_index in bones:
+		if bone_index >= 0:
+			skeleton.set_bone_pose_rotation(
+				bone_index,
+				_base_bone_rotations.get(
+					bone_index,
+					Quaternion.IDENTITY,
+				),
+			)
 
 
 func _apply_bone_offset(bones: Array[int], offset: Quaternion) -> void:
@@ -424,7 +635,40 @@ func _cache_bones() -> void:
 		skeleton.find_bone("DEF-Wing.002.L"),
 		skeleton.find_bone("DEF-Wing.002.R"),
 	]
-	for bone_index in _wing_root_bones + _wing_mid_bones + _wing_tip_bones:
+	_thigh_bones = [
+		skeleton.find_bone("DEF-thigh.L"),
+		skeleton.find_bone("DEF-thigh.R"),
+	]
+	_shin_bones = [
+		skeleton.find_bone("DEF-shin.L"),
+		skeleton.find_bone("DEF-shin.R"),
+	]
+	_foot_bones = [
+		skeleton.find_bone("DEF-foot.L"),
+		skeleton.find_bone("DEF-foot.R"),
+	]
+	_neck_bones = [
+		skeleton.find_bone("DEF-neck.001"),
+		skeleton.find_bone("DEF-neck.002"),
+	]
+	_head_bones = [skeleton.find_bone("DEF-head")]
+	_tail_bones = [
+		skeleton.find_bone("DEF-spine"),
+		skeleton.find_bone("DEF-spine.001"),
+		skeleton.find_bone("DEF-spine.002"),
+	]
+	_animated_bones = (
+		_wing_root_bones
+		+ _wing_mid_bones
+		+ _wing_tip_bones
+		+ _thigh_bones
+		+ _shin_bones
+		+ _foot_bones
+		+ _neck_bones
+		+ _head_bones
+		+ _tail_bones
+	)
+	for bone_index in _animated_bones:
 		if bone_index >= 0:
 			_base_bone_rotations[bone_index] = skeleton.get_bone_pose_rotation(
 				bone_index
@@ -435,7 +679,7 @@ func _reset_visual_pose() -> void:
 	model.position = _model_rest_position
 	model.rotation.x = 0.0
 	model.rotation.z = 0.0
-	for bone_index in _wing_root_bones + _wing_mid_bones + _wing_tip_bones:
+	for bone_index in _animated_bones:
 		if bone_index >= 0:
 			skeleton.set_bone_pose_rotation(
 				bone_index,
