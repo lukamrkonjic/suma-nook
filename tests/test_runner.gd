@@ -1556,7 +1556,6 @@ func _test_game_preferences() -> void:
 		"anti_aliasing": GamePreferences.AA_BALANCED,
 		"ssao": false,
 		"bloom": false,
-		"cloud_shadows": false,
 		"master_volume": 0.35,
 		"music_volume": 0.2,
 		"tutorial_hints": false,
@@ -1569,7 +1568,7 @@ func _test_game_preferences() -> void:
 	)
 	check(
 		not saved["ssao"] and not saved["bloom"]
-		and not saved["cloud_shadows"]
+		and not saved.has("cloud_shadows")
 		and is_equal_approx(saved["master_volume"], 0.35)
 		and is_equal_approx(saved["music_volume"], 0.2),
 		"post-processing and audio preferences round-trip"

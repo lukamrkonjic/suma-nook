@@ -1,0 +1,33 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/characters/pigeon/pigeon.glb" id="1_model"]
+[ext_resource type="Script" path="res://scripts/characters/pigeon/pigeon_face_rig.gd" id="2_face"]
+[ext_resource type="Script" path="res://scripts/characters/pigeon/pigeon_mascot_controller.gd" id="3_controller"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape_pigeon"]
+radius = 0.15
+height = 0.64
+
+[node name="PigeonMascot" type="CharacterBody3D"]
+collision_layer = 0
+collision_mask = 0
+
+[node name="Model" parent="." instance=ExtResource("1_model")]
+position = Vector3(0, 0.333477, 0)
+
+[node name="FaceAttachment" type="BoneAttachment3D" parent="."]
+use_external_skeleton = true
+external_skeleton = NodePath("../Model/PigeonRig/Skeleton3D")
+bone_name = "DEF-head"
+
+[node name="FaceAnchor" type="Node3D" parent="FaceAttachment"]
+transform = Transform3D(-1, -0.00000001, -0.00000001, -0.00000001, 0.529879, -0.848073, 0.00000001, -0.848073, -0.52988, 0, -0.019955, 0.089514)
+script = ExtResource("2_face")
+head_width = 0.2
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.32, 0)
+shape = SubResource("CapsuleShape_pigeon")
+
+[node name="MascotController" type="Node" parent="."]
+script = ExtResource("3_controller")

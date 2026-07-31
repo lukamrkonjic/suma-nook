@@ -86,7 +86,8 @@ extends Resource
 @export_group("Localized ground fog")
 ## These drive the full-resolution world-space mist layers. fog_density above
 ## is retained only for old profile compatibility; traditional full-screen
-## and volumetric froxel fog both stay disabled.
+## fog stays disabled, while volumetric froxel fog is owned entirely by the
+## void-cloud system's localized FogVolume (zero global density).
 @export var ground_fog_density := 0.0
 @export var ground_fog_height := 1.65
 @export var ground_fog_noise_scale := 0.11

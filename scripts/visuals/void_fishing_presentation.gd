@@ -11,7 +11,7 @@ const StructureVisualFactoryScript := preload(
 	"res://scripts/world/structure_visual_factory.gd"
 )
 
-const RIFT_DEPTH := 1.15
+const RIFT_DEPTH := 3.5
 const REWARD_MAX_SPAN := 0.52
 const REWARD_MAX_HEIGHT := 0.62
 const TOP_COLOR := Color("#FFF4D8")
@@ -461,12 +461,26 @@ func _update_line() -> void:
 		1.0
 	)
 	_endpoint.global_position = endpoint_visible
+	# The stardrop ignites only after it has sunk well below the ledge:
+	# during the drop it stays dark, then grows and lights up through the
+	# lower half of its descent — its glow can never flash the cliff face
+	# or the terrain beside the keeper.
+	var descent := clampf(
+		(_surface_point.y - endpoint_visible.y - 1.4) / 1.8,
+		0.0,
+		1.0
+	)
 	var shard_breathe := (
 		1.0
 		+ sin(_phase * 1.41) * 0.018
 		+ sin(_phase * 2.73 + 0.4) * 0.009
 	)
-	_endpoint.scale = Vector3.ONE * shard_breathe * _bite_pulse
+	_endpoint.scale = (
+		Vector3.ONE
+		* shard_breathe
+		* _bite_pulse
+		* (0.55 + 0.45 * descent)
+	)
 	_shard_body.rotation.y += get_process_delta_time() * 0.55
 	_shard_body.rotation.z = (
 		sin(_phase * 0.78) * 0.05
@@ -478,20 +492,20 @@ func _update_line() -> void:
 		+ sin(_phase * 2.07 + 2.2) * 0.025
 	)
 	_endpoint_bloom.transparency = clampf(
-		1.0 - endpoint_flimmer * 0.5,
+		1.0 - endpoint_flimmer * 0.5 * descent,
 		0.0,
 		1.0
 	)
 	_endpoint_inner_bloom.transparency = clampf(
-		1.0 - endpoint_flimmer * 0.85,
+		1.0 - endpoint_flimmer * 0.85 * descent,
 		0.0,
 		1.0
 	)
 	_endpoint_light.light_energy = (
 		0.9 + sin(_phase * 1.31 + 0.4) * 0.18
-	) * _bite_pulse
+	) * _bite_pulse * descent
 	_endpoint.visible = (
-		_cast_progress > 0.74 and not _pulling_reward
+		descent > 0.001 and not _pulling_reward
 	)
 	_animate_sparkles()
 	_animate_crackle()
@@ -860,7 +874,10 @@ func _set_effect_visible(visible_now: bool) -> void:
 	if _tip_glow != null:
 		_tip_glow.visible = visible_now
 	if _endpoint != null:
-		_endpoint.visible = visible_now
+		# Never pre-shown: the stardrop (and its light) only ignites via the
+		# descent gate in _update_line, so a fresh cast can never flash the
+		# shard at its stale previous position for a frame.
+		_endpoint.visible = false
 	if _traveller != null:
 		_traveller.visible = false
 	if not visible_now:

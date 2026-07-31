@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tests/void_cloud_visual_capture.gd" id="1"]
+
+[node name="VoidCloudVisualCapture" type="Node"]
+script = ExtResource("1")

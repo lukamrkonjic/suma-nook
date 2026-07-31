@@ -24,7 +24,6 @@ var vsync := true
 var anti_aliasing := AA_BALANCED
 var ssao := true
 var bloom := true
-var cloud_shadows := true
 var master_volume := 0.63
 var music_volume := 0.4
 var tutorial_hints := true
@@ -39,7 +38,6 @@ func from_dict(data: Dictionary) -> void:
 	anti_aliasing = requested_aa if requested_aa in [AA_OFF, AA_BALANCED, AA_HIGH] else AA_BALANCED
 	ssao = bool(data.get("ssao", ssao))
 	bloom = bool(data.get("bloom", bloom))
-	cloud_shadows = bool(data.get("cloud_shadows", cloud_shadows))
 	master_volume = clampf(float(data.get("master_volume", master_volume)), 0.0, 1.0)
 	music_volume = clampf(float(data.get("music_volume", music_volume)), 0.0, 1.0)
 	tutorial_hints = bool(data.get("tutorial_hints", tutorial_hints))
@@ -54,7 +52,6 @@ func to_dict() -> Dictionary:
 		"anti_aliasing": anti_aliasing,
 		"ssao": ssao,
 		"bloom": bloom,
-		"cloud_shadows": cloud_shadows,
 		"master_volume": master_volume,
 		"music_volume": music_volume,
 		"tutorial_hints": tutorial_hints,
@@ -67,8 +64,7 @@ func apply(
 	viewport: Viewport,
 	lighting: LightingRig,
 	hud: Hud,
-	pixel_look: PixelLook = null,
-	clouds: Node = null
+	pixel_look: PixelLook = null
 ) -> void:
 	if DisplayServer.get_name() != "headless":
 		var command_line := OS.get_cmdline_args()
@@ -119,8 +115,6 @@ func apply(
 		hud.set_tutorial_enabled(tutorial_hints)
 	if pixel_look != null:
 		pixel_look.apply(pixel_size, pixel_cel)
-	if clouds != null:
-		clouds.set_shadows_enabled(cloud_shadows)
 
 
 func _set_bus_volume(bus_name: String, value: float) -> void:

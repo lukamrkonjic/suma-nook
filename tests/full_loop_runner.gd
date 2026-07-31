@@ -550,8 +550,7 @@ func _step_build_library_ui() -> void:
 		main.get_viewport(),
 		main.lighting,
 		main.hud,
-		main.pixel_look,
-		main.clouds
+		main.pixel_look
 	)
 	check(main.pixel_look.visible, "choosing a pixel size enables the retro presentation layer")
 	main.pause_menu.preferences.pixel_size = 0
@@ -559,52 +558,48 @@ func _step_build_library_ui() -> void:
 		main.get_viewport(),
 		main.lighting,
 		main.hud,
-		main.pixel_look,
-		main.clouds
+		main.pixel_look
 	)
 	check(not main.pixel_look.visible, "returning pixel size to off hides the layer again")
-	var cloud_manifest: Dictionary = main.clouds.runtime_manifest()
-	check(
-		main.clouds.visible_cloud_count() >= 20
-		and float(cloud_manifest["occupancy"]) <= 0.2,
-		"the expanded full-sky cloud field stays intentionally sparse"
+	# A single fixed world-space slab with Horizon-style ray-marched
+	# density, never sprites, image cards, global fog, or screen-space
+	# corner puffs. Zoom cannot recompose it.
+	var cloud_manifest: Dictionary = (
+		main.lighting.void_clouds.runtime_manifest()
 	)
 	check(
-		bool(cloud_manifest["shadow_proxies_camera_hidden"]),
-		"cloud shadow proxies are excluded from the gameplay camera"
+		bool(cloud_manifest["enabled"])
+		and bool(cloud_manifest["world_space"])
+		and bool(cloud_manifest["zoom_stable"])
+		and int(cloud_manifest["screen_space_layers"]) == 0
+		and int(cloud_manifest["sprites"]) == 0
+		and int(cloud_manifest["cloud_image_textures"]) == 0,
+		"void clouds are a world-space volumetric field with no image assets"
 	)
 	check(
-		cloud_manifest["shadow_anchor_cell"] != null
-		and main.lighting.shadow_ray_direction().y < -0.2,
-		"an up-sun cloud cell is reserved to carry shadows across the focus"
+		main.lighting.void_clouds.find_child(
+			"HorizonCloudSea",
+			true,
+			false
+		) is MeshInstance3D,
+		"the cloudscape renders as one world-anchored raymarched slab"
 	)
 	check(
-		cloud_manifest["sky_anchor_cells"].size() == 2,
-		"two differently scaled mist clouds anchor the sparse visible sky"
-	)
-	main.pause_menu.preferences.cloud_shadows = false
-	main.pause_menu.preferences.apply(
-		main.get_viewport(),
-		main.lighting,
-		main.hud,
-		main.pixel_look,
-		main.clouds
+		float(cloud_manifest["cloud_top_y"])
+			<= float(cloud_manifest["underside_y"]) - 5.0
+		and float(cloud_manifest["cloud_bottom_y"])
+			< float(cloud_manifest["cloud_top_y"]),
+		"the cloud crests stay well below the island underside"
 	)
 	check(
-		not main.clouds.shadows_enabled(),
-		"the saved visual preference disables only the cloud shadow pass"
-	)
-	main.pause_menu.preferences.cloud_shadows = true
-	main.pause_menu.preferences.apply(
-		main.get_viewport(),
-		main.lighting,
-		main.hud,
-		main.pixel_look,
-		main.clouds
+		not bool(cloud_manifest["volumetric_fog_used"]),
+		"the broken volumetric-fog path stays entirely off"
 	)
 	check(
-		main.clouds.shadows_enabled(),
-		"cloud shadows can be restored without rebuilding the cloud field"
+		main.find_child("CloudLayer", true, false) == null
+		and main.find_child("RaymarchedCottonClouds", true, false) == null
+		and main.find_child("CloudShadowCasters", true, false) == null,
+		"the retired impostor cloud layer is fully removed"
 	)
 
 	main.core.stock.tiles = original_tiles
@@ -1956,12 +1951,12 @@ func _step_fishing() -> void:
 	var rift := main.effects.void_fishing.rift_world_position()
 	var rift_offset := rift - cast_surface
 	check(
-		absf(rift.y - (minf(cast_surface.y, 0.0) - 1.15)) < 0.001
+		absf(rift.y - (minf(cast_surface.y, 0.0) - 3.5)) < 0.001
 		and Vector2(rift_offset.x, rift_offset.z).length() < 0.8
 		and Vector3(rift_offset.x, 0.0, rift_offset.z).dot(
 			to_cast.normalized()
 		) >= -0.001,
-		"the rift hangs under the rod tip, past the ledge, at abyss depth"
+		"the rift hangs under the rod tip, deep in the abyss"
 	)
 	check(
 		obsolete_rift == null
@@ -2711,8 +2706,8 @@ func _step_pause_menu() -> void:
 	var back_button := main.pause_menu.find_child("PauseBackButton", true, false) as Button
 	check(back_button != null, "settings page exposes a working back control")
 	check(
-		main.pause_menu.find_child("CloudShadowsCheck", true, false) != null,
-		"settings page exposes the save-backed cloud shadow toggle"
+		main.pause_menu.find_child("CloudShadowsCheck", true, false) == null,
+		"the retired cloud-shadow toggle no longer appears in settings"
 	)
 	back_button.pressed.emit()
 	await wait(0.1)

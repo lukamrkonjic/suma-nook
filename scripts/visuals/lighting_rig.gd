@@ -13,6 +13,9 @@ const GG_BG_SHADER: Shader = preload("res://assets/materials/gg_screen_skybox.gd
 const GG_GRADE_SHADER: Shader = preload("res://assets/materials/gg_color_grade.gdshader")
 const CozyGroundFogScript := preload("res://scripts/visuals/cozy_ground_fog.gd")
 const CozyRainSurfaceScript := preload("res://scripts/visuals/cozy_rain_surface.gd")
+const VoidCloudControllerScript := preload(
+	"res://scripts/visuals/void_cloud_controller.gd"
+)
 
 # Night is intentionally authored as darkness with small pools of warm light,
 # rather than a blue-tinted version of daytime. These multipliers retain just
@@ -75,6 +78,7 @@ var _distance_haze_rect: ColorRect
 var _distance_haze_color := Color(0.91, 0.92, 0.86)
 var _ground_fog: CozyGroundFog
 var _rain_surface: CozyRainSurface
+var void_clouds: VoidCloudController
 var time_of_day_id := "noon"
 var background_preset_id := "profile"
 var particle_quality_id := "high"
@@ -116,6 +120,13 @@ func _ready() -> void:
 	_ground_fog = CozyGroundFogScript.new()
 	_ground_fog.name = "CozyGroundFog"
 	add_child(_ground_fog)
+
+	# The volumetric void-cloud ocean beneath the island. It owns every
+	# volumetric fog environment setting; apply_profile delegates to it.
+	void_clouds = VoidCloudControllerScript.new()
+	void_clouds.name = "VoidCloudSystem"
+	add_child(void_clouds)
+	void_clouds.setup(_environment.environment, self)
 
 	# Confirmed reference probe envelope: realtime, 128 px, one bounce,
 	# approximately 50 × 15 × 50 units with box projection disabled.
@@ -346,10 +357,10 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 		if profile.gg_pipeline_enabled
 		else Environment.GLOW_BLEND_MODE_SOFTLIGHT
 	)
-	# Traditional fog was the old full-screen distance wash, while Godot's
-	# volumetric froxel grid shimmered whenever this isometric camera scrolled.
-	# Keep both render paths off. CozyGroundFog is a full-resolution,
-	# world-anchored layer renderer with no screen-relative reconstruction.
+	# Traditional distance fog stays off — it is a full-screen wash that
+	# would also fade the island. Volumetric froxel fog is owned by the
+	# void-cloud system: zero global density, one localized world-space
+	# FogVolume, temporal reprojection for camera-scroll stability.
 	env.fog_enabled = false
 	env.fog_light_color = profile.fog_color
 	env.fog_density = 0.0
@@ -359,15 +370,8 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	)
 	_apply_far_distance_haze()
 	env.fog_sky_affect = 0.0
-	env.volumetric_fog_enabled = false
-	env.volumetric_fog_density = 0.0
-	env.volumetric_fog_albedo = Color.WHITE
-	env.volumetric_fog_emission = Color.BLACK
-	env.volumetric_fog_emission_energy = 0.0
-	env.volumetric_fog_ambient_inject = 0.0
-	env.volumetric_fog_gi_inject = 0.0
-	env.volumetric_fog_sky_affect = 0.0
-	env.volumetric_fog_temporal_reprojection_enabled = false
+	if void_clouds != null:
+		void_clouds.configure_environment()
 	_ground_fog.configure(profile)
 
 	_bg_layer.visible = uses_canvas_bg
@@ -427,6 +431,8 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 func set_camera_shadow_distance(camera_distance: float) -> void:
 	_camera_shadow_distance = camera_distance
 	_apply_far_distance_haze()
+	if void_clouds != null:
+		void_clouds.set_camera_distance(camera_distance)
 	if _ground_fog != null:
 		_ground_fog.set_camera_distance(camera_distance)
 	if _rain_surface != null:
@@ -538,6 +544,15 @@ func set_particle_quality(quality_id: String) -> void:
 		return
 	particle_quality_id = quality_id
 	_apply_particle_quality()
+	if void_clouds != null:
+		void_clouds.apply_quality(quality_id)
+
+
+## World knowledge for the cloud ocean: the lowest structural underside and
+## the node the sampling window follows.
+func set_void_cloud_world(underside_y: float, focus: Node3D) -> void:
+	if void_clouds != null:
+		void_clouds.set_world_reference(underside_y, focus)
 
 
 func set_user_post_effects(ssao_enabled: bool, bloom_enabled: bool) -> void:
@@ -721,8 +736,13 @@ func runtime_manifest() -> Dictionary:
 				"gi_inject": env.volumetric_fog_gi_inject,
 				"sky_affect": env.volumetric_fog_sky_affect,
 				"temporal_reprojection": env.volumetric_fog_temporal_reprojection_enabled,
-				"reason_disabled": "camera-scroll-stable world-space mist renderer",
+				"owner": "void_cloud_system_localized_fog_volume",
 			},
+			"void_clouds": (
+				void_clouds.runtime_manifest()
+				if void_clouds != null
+				else {}
+			),
 			"localized_ground": _ground_fog.runtime_manifest(),
 		},
 		"rain_surface": _rain_surface.runtime_manifest(),
@@ -966,7 +986,13 @@ func _apply_particle_quality() -> void:
 ## the dark-mode multipliers/targets used by WorldTheme.Calculate.
 const GG_THEMES := {
 	"default": {
-		"bg0": Color(0.985, 0.835, 0.64), "bg1": Color(0.94, 0.735, 0.53),
+		# Art-directed to the fishing reference's pale cream-peach
+		# atmosphere: deeper warmth high up, luminous cream low. Authored
+		# PRE-tonemap: the grading chain compresses ~15% and crushes blue
+		# ~27%, so these overshoot toward blue-white to land on the
+		# measured reference values (0.945,0.878,0.752)/(0.965,0.925,0.832)
+		# in the final frame.
+		"bg0": Color(1.108, 1.015, 0.917), "bg1": Color(1.082, 1.036, 0.932),
 		"night_bg": Color(0.913, 0.80487, 0.70666),
 		"sky": Color(0.8, 0.74118, 0.76863), "equator": Color(0.65098, 0.41961, 0.37255),
 		"night_tint": Color(1.0, 0.90825, 0.78931),

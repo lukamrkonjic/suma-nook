@@ -14,8 +14,8 @@ const DebugWorldBuilderScript := preload(
 const InputHintOverlayScript := preload(
 	"res://scripts/ui/input_hint_overlay.gd"
 )
-const CozyCloudLayerScript := preload(
-	"res://scripts/visuals/cozy_cloud_layer.gd"
+const PIGEON_MASCOT_SCENE := preload(
+	"res://characters/mascots/pigeon_mascot.tscn"
 )
 const DEBUG_WORLD_TILE_COUNT := 5000
 const DEBUG_WORLD_MODEL_COUNT := 1250
@@ -38,8 +38,9 @@ var delivery_point: DeliveryPoint
 var ferry_presentation: FerryArrivalPresentation
 var player: PlayerController
 var player_visual: PlayerVisual
+var pigeon_mascot: CharacterBody3D
+var pigeon_controller: PigeonMascotController
 var camera_rig: CameraRig
-var clouds
 var placement: PlacementController
 var skill_actions: SkillActions
 var hud: Hud
@@ -174,15 +175,9 @@ func _build_world_scene() -> void:
 	camera_rig.zoom_changed.connect(lighting.set_camera_shadow_distance)
 	lighting.set_camera_shadow_distance(camera_rig.zoom_distance())
 
-	clouds = CozyCloudLayerScript.new()
-	clouds.name = "CloudLayer"
-	world_root.add_child(clouds)
-	clouds.setup(
-		camera_rig,
-		camera_rig.zoom_distance(),
-		lighting.shadow_ray_direction()
-	)
-	camera_rig.zoom_changed.connect(clouds.set_camera_distance)
+	# The volumetric void-cloud ocean lives inside the lighting rig; it only
+	# needs the world's lowest structural underside and a focus to follow.
+	lighting.set_void_cloud_world(-core.grid.block_depth, camera_rig)
 	interaction_targets = InteractionTargetResolverScript.new(
 		self,
 		core,
@@ -206,6 +201,11 @@ func _build_world_scene() -> void:
 
 	renderer.setup(core, assets)
 	player.setup(core, camera_rig, player_visual)
+	pigeon_mascot = PIGEON_MASCOT_SCENE.instantiate() as CharacterBody3D
+	pigeon_mascot.name = "PigeonMascot"
+	world_root.add_child(pigeon_mascot)
+	pigeon_controller = pigeon_mascot.get_node("MascotController") as PigeonMascotController
+	pigeon_controller.setup(player, core.grid)
 	effects.bind_water_interaction(core, player)
 	effects.bind_ground_impacts(core, player, audio)
 	effects.bind_soft_terrain(core, player)
@@ -758,6 +758,8 @@ func _start_gameplay(fresh: bool, show_welcome := true) -> void:
 		hud.toast("Welcome%s, %s." % ["" if fresh else " back", core.profile.display_name], "good")
 	core.arrivals.announce_restored_delivery()
 	_refresh_controller_hints()
+	if is_instance_valid(pigeon_controller):
+		pigeon_controller.spawn_near_player()
 
 
 func _resume_guided_onboarding() -> void:
@@ -1559,6 +1561,8 @@ func reload_from_save() -> void:
 		core.arrivals.announce_restored_delivery()
 		hud._refresh_all()
 		hud.toast("Save reloaded.", "good")
+		if is_instance_valid(pigeon_controller):
+			pigeon_controller.spawn_near_player()
 
 
 func reset_world() -> void:
