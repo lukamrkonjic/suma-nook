@@ -871,6 +871,8 @@ func _capture_visual_state() -> Dictionary:
 		"gg_bg_visible": _gg_bg_quad.visible,
 		"gg_bg0": _gg_bg_material.get_shader_parameter("color0") if _gg_bg_quad.visible else fallback,
 		"gg_bg1": _gg_bg_material.get_shader_parameter("color1") if _gg_bg_quad.visible else fallback,
+		"gg_zenith": _gg_bg_material.get_shader_parameter("zenith_color") if _gg_bg_quad.visible else fallback,
+		"gg_accent": _gg_bg_material.get_shader_parameter("horizon_accent_color") if _gg_bg_quad.visible else fallback,
 	}
 
 
@@ -951,10 +953,26 @@ func _blend_visual_state(from: Dictionary, target: Dictionary, weight: float) ->
 		var from1 := from.get("gg_bg1", from["background"]) as Color
 		var target0 := target.get("gg_bg0", target["background"]) as Color
 		var target1 := target.get("gg_bg1", target["background"]) as Color
+		var from_zenith := from.get("gg_zenith", from0.darkened(0.10)) as Color
+		var target_zenith := target.get(
+			"gg_zenith",
+			target0.darkened(0.10)
+		) as Color
+		var from_accent := from.get("gg_accent", from1.lightened(0.14)) as Color
+		var target_accent := target.get(
+			"gg_accent",
+			target1.lightened(0.14)
+		) as Color
 		var sparkles := 0.0
 		if _gg_bg_material.get_shader_parameter("sparkle_amount") != null:
 			sparkles = float(_gg_bg_material.get_shader_parameter("sparkle_amount"))
-		_set_gg_background(from0.lerp(target0, weight), from1.lerp(target1, weight), sparkles > 0.5)
+		_set_gg_background(
+			from0.lerp(target0, weight),
+			from1.lerp(target1, weight),
+			sparkles > 0.5,
+			from_zenith.lerp(target_zenith, weight),
+			from_accent.lerp(target_accent, weight)
+		)
 		return
 	var from_top := from["gradient_top"] as Color
 	var from_mid := from["gradient_mid"] as Color
@@ -993,6 +1011,8 @@ const GG_THEMES := {
 		# measured reference values (0.945,0.878,0.752)/(0.965,0.925,0.832)
 		# in the final frame.
 		"bg0": Color(1.108, 1.015, 0.917), "bg1": Color(1.082, 1.036, 0.932),
+		"bg_zenith": Color(1.062, 0.962, 0.851),
+		"bg_accent": Color(1.120, 1.052, 0.948),
 		"night_bg": Color(0.913, 0.80487, 0.70666),
 		"sky": Color(0.8, 0.74118, 0.76863), "equator": Color(0.65098, 0.41961, 0.37255),
 		"night_tint": Color(1.0, 0.90825, 0.78931),
@@ -1017,6 +1037,8 @@ const GG_THEMES := {
 	},
 	"brown": {
 		"bg0": Color(0.241, 0.216, 0.21184), "bg1": Color(0.276, 0.24892, 0.23902),
+		"bg_zenith": Color(0.200, 0.200, 0.335),
+		"bg_accent": Color(0.335, 0.282, 0.256),
 		"night_bg": Color(0.76821, 0.78708, 0.80189),
 		"sky": Color(0.61569, 0.48235, 0.35294), "equator": Color(0.65098, 0.50588, 0.46667),
 		"night_tint": Color(0.721, 0.62799, 0.47298),
@@ -1024,7 +1046,12 @@ const GG_THEMES := {
 		"min_intensity": 0.6,
 	},
 	"orange": {
-		"bg0": Color(0.95294, 0.78039, 0.53725), "bg1": Color(0.96078, 0.61252, 0.45882),
+		# Deep burnt-orange sunset: one orange family from a dark sienna
+		# crown down to a muted amber horizon - darker and quieter than a
+		# postcard sunset. Authored pre-tonemap like the others.
+		"bg0": Color(0.830, 0.520, 0.390), "bg1": Color(0.930, 0.610, 0.415),
+		"bg_zenith": Color(0.520, 0.335, 0.250),
+		"bg_accent": Color(1.000, 0.720, 0.470),
 		"night_bg": Color(0.55189, 0.61503, 0.67059),
 		"sky": Color(0.8, 0.74118, 0.76863), "equator": Color(0.65098, 0.41961, 0.37255),
 		"night_tint": Color(0.72642, 0.68393, 0.51854),
@@ -1033,6 +1060,8 @@ const GG_THEMES := {
 	},
 	"pink": {
 		"bg0": Color(0.90588, 0.67524, 0.67216), "bg1": Color(0.95686, 0.83735, 0.8),
+		"bg_zenith": Color(0.906, 0.648, 0.700),
+		"bg_accent": Color(1.040, 0.930, 0.848),
 		"night_bg": Color(0.31765, 0.26275, 0.29295),
 		"sky": Color(0.87843, 0.75294, 0.76966), "equator": Color(0.70196, 0.61569, 0.62745),
 		"night_tint": Color(0.5451, 0.60691, 0.67059),
@@ -1113,10 +1142,14 @@ func _apply_gg_time_of_day() -> void:
 	var bg_tint := _gg_background_tint(theme, level)
 	env.background_color = (theme.bg1 as Color) * bg_tint
 	if profile.background_gg_gradient and background_preset_id == "profile":
+		# Zenith/accent are authored as final on-screen intents per theme,
+		# so they skip the night tint the anchors carry.
 		_set_gg_background(
 			(theme.bg0 as Color) * bg_tint,
 			(theme.bg1 as Color) * bg_tint,
-			profile.bg_sparkles_enabled
+			profile.bg_sparkles_enabled,
+			theme.get("bg_zenith", Color(0.0, 0.0, 0.0, 0.0)),
+			theme.get("bg_accent", Color(0.0, 0.0, 0.0, 0.0))
 		)
 
 
@@ -1202,7 +1235,9 @@ func _apply_background_preset() -> void:
 				_set_gg_background(
 					(theme.bg0 as Color) * bg_tint,
 					(theme.bg1 as Color) * bg_tint,
-					current_profile.bg_sparkles_enabled
+					current_profile.bg_sparkles_enabled,
+					theme.get("bg_zenith", Color(0.0, 0.0, 0.0, 0.0)),
+					theme.get("bg_accent", Color(0.0, 0.0, 0.0, 0.0))
 				)
 			elif current_profile.background_gradient:
 				_set_gradient_background(
@@ -1233,15 +1268,35 @@ func _set_gradient_background(top: Color, middle: Color, bottom: Color, stars: f
 	_bg_material.set_shader_parameter("stars_amount", stars)
 
 
-## GG "Custom/Screen Skybox" backdrop: bgColor0/bgColor1 wash plus sparkles,
-## rendered by the far-plane quad inside the 3D pass.
-func _set_gg_background(color0: Color, color1: Color, sparkles: bool) -> void:
+## GG "Custom/Screen Skybox" backdrop: bgColor0/bgColor1 wash plus the
+## per-time zenith crown and horizon accent band, rendered by the
+## far-plane quad inside the 3D pass. Themes without authored zenith or
+## accent colours (transparent sentinel) derive gentle ones from the two
+## anchors so every path stays coherent.
+func _set_gg_background(
+	color0: Color,
+	color1: Color,
+	sparkles: bool,
+	zenith := Color(0.0, 0.0, 0.0, 0.0),
+	accent := Color(0.0, 0.0, 0.0, 0.0)
+) -> void:
 	_environment.environment.background_mode = Environment.BG_COLOR
 	_bg_layer.visible = false
 	_gg_bg_quad.visible = true
+	if zenith.a <= 0.001:
+		zenith = color0.darkened(0.10)
+	if accent.a <= 0.001:
+		accent = color1.lightened(0.14)
 	_gg_bg_material.set_shader_parameter("color0", color0)
 	_gg_bg_material.set_shader_parameter("color1", color1)
+	_gg_bg_material.set_shader_parameter("zenith_color", zenith)
+	_gg_bg_material.set_shader_parameter("horizon_accent_color", accent)
 	_gg_bg_material.set_shader_parameter("sparkle_amount", 1.0 if sparkles else 0.0)
+	# The cloud sea takes its colour from whatever sky is actually shown,
+	# so clouds always sit inside the sky's own light - dim grey-blue at
+	# night, warm at sunset - instead of glowing with a parallel palette.
+	if void_clouds != null:
+		void_clouds.set_sky_light(color0, color1, zenith)
 
 
 func _shooting_stars_should_run() -> bool:

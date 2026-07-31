@@ -29,6 +29,40 @@ const PIGEON_RIG_SCENE := preload(
 const PIGEON_BLEND_PATH := (
 	"res://art_source/characters/pigeon/pigeon_rigify_source.blend"
 )
+const PIGEON_RIG_MARKERS := [
+	{"bone": "DEF-spine.003", "color": "#63aee6", "position": Vector3(0.0, -0.54, -0.08)},
+	{"bone": "DEF-spine.004", "color": "#64c6b5", "position": Vector3(0.0, -0.38, -0.03)},
+	{"bone": "DEF-spine.005", "color": "#7fcf9a", "position": Vector3(0.0, -0.19, 0.04)},
+	{"bone": "DEF-spine.006", "color": "#a5df85", "position": Vector3(0.0, -0.02, 0.09)},
+	{"bone": "DEF-neck.001", "color": "#ffd27a", "position": Vector3(0.0, 0.08, 0.10)},
+	{"bone": "DEF-neck.002", "color": "#f0d26e", "position": Vector3(0.0, 0.16, 0.13)},
+	{"bone": "DEF-head", "color": "#cf8cff", "position": Vector3(0.0, 0.34, 0.15)},
+	{"bone": "DEF-eye.L", "color": "#f08fc7", "position": Vector3(0.065, 0.22, 0.15)},
+	{"bone": "DEF-eye.R", "color": "#f08fc7", "position": Vector3(-0.065, 0.22, 0.15)},
+	{"bone": "DEF-beak.001.T", "color": "#ff9e81", "position": Vector3(0.0, 0.19, 0.16)},
+	{"bone": "DEF-beak_001.B", "color": "#ff9e81", "position": Vector3(0.0, 0.15, 0.16)},
+	{"bone": "DEF-shoulder.L", "color": "#ffbc62", "position": Vector3(0.13, -0.03, 0.04)},
+	{"bone": "DEF-Wing.L", "color": "#75d5d0", "position": Vector3(0.23, -0.04, 0.02)},
+	{"bone": "DEF-Wing.001.L", "color": "#d7ed9b", "position": Vector3(0.36, -0.08, 0.0)},
+	{"bone": "DEF-Wing.002.L", "color": "#ee88a8", "position": Vector3(0.48, -0.13, -0.01)},
+	{"bone": "DEF-shoulder.R", "color": "#ffbc62", "position": Vector3(-0.13, -0.03, 0.04)},
+	{"bone": "DEF-Wing.R", "color": "#75d5d0", "position": Vector3(-0.23, -0.04, 0.02)},
+	{"bone": "DEF-Wing.001.R", "color": "#d7ed9b", "position": Vector3(-0.36, -0.08, 0.0)},
+	{"bone": "DEF-Wing.002.R", "color": "#ee88a8", "position": Vector3(-0.48, -0.13, -0.01)},
+	{"bone": "DEF-spine", "color": "#74aee8", "position": Vector3(0.0, -0.62, -0.17)},
+	{"bone": "DEF-spine.001", "color": "#9a8ee8", "position": Vector3(0.0, -0.75, -0.22)},
+	{"bone": "DEF-spine.002", "color": "#ed8bad", "position": Vector3(0.0, -0.88, -0.24)},
+	{"bone": "DEF-t_feather.L", "color": "#76bede", "position": Vector3(0.06, -0.91, -0.22)},
+	{"bone": "DEF-t_feather.R", "color": "#76bede", "position": Vector3(-0.06, -0.91, -0.22)},
+	{"bone": "DEF-thigh.L", "color": "#74aee8", "position": Vector3(0.075, -0.58, -0.01)},
+	{"bone": "DEF-shin.L", "color": "#9a8ee8", "position": Vector3(0.075, -0.78, -0.01)},
+	{"bone": "DEF-foot.L", "color": "#66c7c1", "position": Vector3(0.075, -0.98, 0.0)},
+	{"bone": "DEF-toe.L", "color": "#ed8bad", "position": Vector3(0.10, -1.07, 0.02)},
+	{"bone": "DEF-thigh.R", "color": "#74aee8", "position": Vector3(-0.075, -0.58, -0.01)},
+	{"bone": "DEF-shin.R", "color": "#9a8ee8", "position": Vector3(-0.075, -0.78, -0.01)},
+	{"bone": "DEF-foot.R", "color": "#66c7c1", "position": Vector3(-0.075, -0.98, 0.0)},
+	{"bone": "DEF-toe.R", "color": "#ed8bad", "position": Vector3(-0.10, -1.07, 0.02)},
+]
 const PROCESSOR_PATH := "res://tools/clothing_lab/process_clothing.py"
 const BLENDER_PATH := "C:\\Software\\Blender\\blender.exe"
 const PLAYER_PROFILE_PATH := "res://assets/player/current_player_profile.tres"
@@ -254,7 +288,8 @@ var _pigeon_bone_option: OptionButton
 var _pigeon_rotation_controls: Array[SpinBox] = []
 var _pigeon_show_bones: CheckBox
 var _pigeon_skeleton: Skeleton3D
-var _pigeon_rig_overlay: MeshInstance3D
+var _pigeon_marker_root: Node3D
+var _pigeon_bone_markers: Dictionary = {}
 var _pigeon_base_rotations: Dictionary = {}
 var _pigeon_bone_offsets: Dictionary = {}
 var _pigeon_control_sync := false
@@ -439,6 +474,15 @@ func _input(event: InputEvent) -> void:
 			and mouse_button.pressed
 			and _is_preview_point(mouse_button.position)
 			and _begin_detail_erase_stroke(mouse_button.position)
+		):
+			get_viewport().set_input_as_handled()
+			return
+		if (
+			_pigeon_mode
+			and mouse_button.button_index == MOUSE_BUTTON_LEFT
+			and mouse_button.pressed
+			and _is_preview_point(mouse_button.position)
+			and _select_pigeon_bone_marker(mouse_button.position)
 		):
 			get_viewport().set_input_as_handled()
 			return
@@ -789,7 +833,7 @@ func _build_clothing_ui() -> void:
 	)
 	opacity_row.add_child(opacity_slider)
 	_marker_toggle = CheckBox.new()
-	_marker_toggle.text = "Full-body clothing rig markers"
+	_marker_toggle.text = "Human clothing fitting markers"
 	_marker_toggle.button_pressed = true
 	_marker_toggle.toggled.connect(
 		func(_visible: bool) -> void:
@@ -1065,7 +1109,7 @@ func _build_pigeon_rig_tools(parent: Control) -> void:
 	_separator(_pigeon_rig_tools, "Pigeon bird rig")
 	_note(
 		_pigeon_rig_tools,
-		"Live Rigify deformation skeleton. Select a DEF bone, pose it here, "
+		"Click a colored bird joint dot to select its DEF bone, pose it here, "
 		+ "or open the editable Blender source for structural rig work.",
 	)
 	_pigeon_bone_option = _option_row(_pigeon_rig_tools, "Active bone")
@@ -1087,12 +1131,12 @@ func _build_pigeon_rig_tools(parent: Control) -> void:
 		row.add_child(control)
 		_pigeon_rotation_controls.append(control)
 	_pigeon_show_bones = CheckBox.new()
-	_pigeon_show_bones.text = "Show live bone overlay"
+	_pigeon_show_bones.text = "Show bird joint dots"
 	_pigeon_show_bones.button_pressed = true
 	_pigeon_show_bones.toggled.connect(
 		func(visible: bool) -> void:
-			if _pigeon_rig_overlay != null:
-				_pigeon_rig_overlay.visible = visible
+			if _pigeon_marker_root != null:
+				_pigeon_marker_root.visible = visible
 	)
 	_pigeon_rig_tools.add_child(_pigeon_show_bones)
 	var reset_row := HBoxContainer.new()
@@ -1123,6 +1167,8 @@ func _on_rig_subject_selected(index: int) -> void:
 
 
 func _show_pigeon_rig_subject() -> void:
+	if _marker_editing:
+		_set_marker_edit_mode(false)
 	_pigeon_mode = true
 	_clear_pigeon_rig_state()
 	if _character != null:
@@ -1152,13 +1198,13 @@ func _show_pigeon_rig_subject() -> void:
 	_cache_preview_ground_bounds()
 	_cache_pigeon_bone_pose()
 	_populate_pigeon_bone_option()
-	_build_pigeon_bone_overlay()
+	_build_pigeon_joint_markers()
 	_set_human_lab_controls_enabled(false)
 	_pigeon_rig_tools.visible = true
 	_focus_character()
 	_set_status(
 		"ok",
-		"Surma pigeon loaded with %d Rigify bones. Select a DEF bone or open the Blender source."
+		"Surma pigeon loaded with %d Rigify bones. Click a joint dot to select it."
 		% _pigeon_skeleton.get_bone_count(),
 	)
 
@@ -1195,6 +1241,10 @@ func _set_human_lab_controls_enabled(enabled: bool) -> void:
 		_clothing_list.modulate.a = 1.0 if enabled else 0.45
 	if _source_path != null:
 		_source_path.editable = enabled
+	if _marker_toggle != null:
+		_marker_toggle.disabled = not enabled
+	if _marker_edit_button != null:
+		_marker_edit_button.disabled = not enabled
 	for control in [
 		_preview_pose_option,
 		_preview_speed_slider,
@@ -1265,7 +1315,7 @@ func _on_pigeon_bone_selected(_index: int) -> void:
 	for axis in mini(3, _pigeon_rotation_controls.size()):
 		_pigeon_rotation_controls[axis].value = degrees[axis]
 	_pigeon_control_sync = false
-	_refresh_pigeon_bone_overlay()
+	_refresh_pigeon_joint_markers()
 
 
 func _on_pigeon_rotation_changed(_value: float) -> void:
@@ -1293,7 +1343,7 @@ func _on_pigeon_rotation_changed(_value: float) -> void:
 		bone_index,
 		base * Quaternion.from_euler(radians),
 	)
-	_refresh_pigeon_bone_overlay()
+	_refresh_pigeon_joint_markers()
 
 
 func _reset_selected_pigeon_bone() -> void:
@@ -1320,47 +1370,126 @@ func _reset_all_pigeon_bones() -> void:
 	_on_pigeon_bone_selected(_pigeon_bone_option.selected)
 
 
-func _build_pigeon_bone_overlay() -> void:
+func _build_pigeon_joint_markers() -> void:
 	if _pigeon_skeleton == null:
 		return
-	_pigeon_rig_overlay = MeshInstance3D.new()
-	_pigeon_rig_overlay.name = "PigeonRigBoneOverlay"
-	_pigeon_rig_overlay.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_pigeon_rig_overlay.extra_cull_margin = 2.0
-	_pigeon_skeleton.add_child(_pigeon_rig_overlay)
-	_refresh_pigeon_bone_overlay()
-
-
-func _refresh_pigeon_bone_overlay() -> void:
-	if _pigeon_skeleton == null or _pigeon_rig_overlay == null:
-		return
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.albedo_color = Color("#ff5b9d")
-	material.no_depth_test = true
-	var lines := ImmediateMesh.new()
-	lines.surface_begin(Mesh.PRIMITIVE_LINES, material)
-	for bone_index in _pigeon_skeleton.get_bone_count():
-		var parent_index := _pigeon_skeleton.get_bone_parent(bone_index)
-		if parent_index < 0:
+	_pigeon_marker_root = Node3D.new()
+	_pigeon_marker_root.name = "PigeonRigJointMarkers"
+	_pigeon_skeleton.add_child(_pigeon_marker_root)
+	_pigeon_bone_markers.clear()
+	for marker_data in PIGEON_RIG_MARKERS:
+		var bone_name := String(marker_data.get("bone", ""))
+		var bone_index := _pigeon_skeleton.find_bone(bone_name)
+		if bone_index < 0:
 			continue
-		lines.surface_add_vertex(
-			_pigeon_skeleton.get_bone_global_pose(parent_index).origin
+		var base_color := Color(String(marker_data.get("color", "#ffffff")))
+		var marker := MeshInstance3D.new()
+		marker.name = "BirdJoint_%s" % bone_name.trim_prefix("DEF-")
+		marker.set_meta("bone_index", bone_index)
+		marker.set_meta("base_color", base_color)
+		marker.position = marker_data.get(
+			"position",
+			_pigeon_skeleton.get_bone_global_pose(bone_index).origin,
 		)
-		lines.surface_add_vertex(
-			_pigeon_skeleton.get_bone_global_pose(bone_index).origin
+		marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		marker.extra_cull_margin = 2.0
+		var sphere := SphereMesh.new()
+		sphere.radius = 0.018
+		sphere.height = 0.036
+		var material := StandardMaterial3D.new()
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		material.albedo_color = base_color
+		material.emission_enabled = true
+		material.emission = base_color
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		material.no_depth_test = true
+		material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+		material.render_priority = 127
+		sphere.material = material
+		marker.mesh = sphere
+		_pigeon_marker_root.add_child(marker)
+		_pigeon_bone_markers[bone_index] = marker
+	_refresh_pigeon_joint_markers()
+
+
+func _refresh_pigeon_joint_markers() -> void:
+	if _pigeon_skeleton == null or _pigeon_marker_root == null:
+		return
+	var selected_bone := _selected_pigeon_bone_index()
+	for bone_index_variant in _pigeon_bone_markers:
+		var bone_index := int(bone_index_variant)
+		var marker := _pigeon_bone_markers[bone_index] as MeshInstance3D
+		if marker == null:
+			continue
+		var selected := bone_index == selected_bone
+		marker.scale = Vector3.ONE * (1.35 if selected else 1.0)
+		var sphere := marker.mesh as SphereMesh
+		var material := (
+			sphere.material as StandardMaterial3D
+			if sphere != null
+			else null
 		)
-	lines.surface_end()
-	_pigeon_rig_overlay.mesh = lines
-	_pigeon_rig_overlay.visible = (
+		if material == null:
+			continue
+		var base_color: Color = marker.get_meta("base_color", Color.WHITE)
+		material.albedo_color = (
+			base_color.lightened(0.22) if selected else base_color
+		)
+		material.emission = material.albedo_color
+	_pigeon_marker_root.visible = (
 		_pigeon_show_bones == null or _pigeon_show_bones.button_pressed
 	)
 
 
+func _select_pigeon_bone_marker(screen_position: Vector2) -> bool:
+	if (
+		_pigeon_marker_root == null
+		or not _pigeon_marker_root.visible
+		or _pigeon_bone_markers.is_empty()
+	):
+		return false
+	var camera := _active_preview_camera()
+	if camera == null:
+		return false
+	var best_bone := -1
+	var best_distance := LANDMARK_PICK_RADIUS
+	for bone_index_variant in _pigeon_bone_markers:
+		var bone_index := int(bone_index_variant)
+		var marker := _pigeon_bone_markers[bone_index] as MeshInstance3D
+		if (
+			marker == null
+			or not marker.visible
+			or camera.is_position_behind(marker.global_position)
+		):
+			continue
+		var distance := camera.unproject_position(
+			marker.global_position
+		).distance_to(screen_position)
+		if distance < best_distance:
+			best_distance = distance
+			best_bone = bone_index
+	if best_bone < 0:
+		return false
+	return _select_pigeon_bone_index(best_bone)
+
+
+func _select_pigeon_bone_index(bone_index: int) -> bool:
+	if _pigeon_bone_option == null:
+		return false
+	for option_index in _pigeon_bone_option.item_count:
+		if int(_pigeon_bone_option.get_item_metadata(option_index)) != bone_index:
+			continue
+		_pigeon_bone_option.select(option_index)
+		_on_pigeon_bone_selected(option_index)
+		return true
+	return false
+
+
 func _clear_pigeon_rig_state() -> void:
-	if _pigeon_rig_overlay != null and is_instance_valid(_pigeon_rig_overlay):
-		_pigeon_rig_overlay.queue_free()
-	_pigeon_rig_overlay = null
+	if _pigeon_marker_root != null and is_instance_valid(_pigeon_marker_root):
+		_pigeon_marker_root.queue_free()
+	_pigeon_marker_root = null
+	_pigeon_bone_markers.clear()
 	_pigeon_skeleton = null
 	_pigeon_base_rotations.clear()
 	_pigeon_bone_offsets.clear()

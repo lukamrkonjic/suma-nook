@@ -14,6 +14,13 @@ render_mode unshaded, cull_disabled, shadows_disabled;
 
 uniform vec3 color0 : source_color = vec3(0.906, 0.87623, 0.78265);
 uniform vec3 color1 : source_color = vec3(0.90588, 0.87059, 0.81569);
+// Per-time-of-day art direction pushed by the lighting rig alongside
+// color0/color1: a deeper tone crowning the very top of the sky and a
+// luminous accent band hugging the horizon. Together with the two theme
+// anchors they give each time slot a four-stop painted gradient.
+uniform vec3 zenith_color : source_color = vec3(0.86, 0.80, 0.70);
+uniform vec3 horizon_accent_color : source_color = vec3(1.0, 0.95, 0.84);
+uniform float horizon_accent_strength : hint_range(0.0, 1.0) = 0.38;
 uniform float y_offset = 0.69;
 uniform float gradient_exponent = 0.25;
 uniform float sparkle_amount = 1.0;      // 0 disables the sparkle field
@@ -152,24 +159,38 @@ void fragment() {
 	// the light. The theme colours are authored to the reference, so they
 	// pass through almost untouched; daylight only adds the gentle lift
 	// toward the luminous lower band.
-	vec3 honey_top = color0;
-	vec3 bright_cream = mix(color0, vec3(1.0), 0.14 * daylight);
+	vec3 upper_sky = color0;
+	vec3 bright_band = mix(color0, vec3(1.0), 0.14 * daylight);
 	vec3 low_haze = mix(color1, vec3(1.0), 0.22 * daylight);
-	float band = smoothstep(
-		0.0,
-		0.5,
-		uv.y + (field_a - 0.5) * sky_breath_strength
+	float breath_y = uv.y + (field_a - 0.5) * sky_breath_strength;
+	// Four painted stops from the top of the frame to the horizon: deep
+	// zenith crown, the theme's upper sky, a luminous middle band, and
+	// the pale haze — then the horizon accent glows through the bottom.
+	vec3 color = mix(
+		zenith_color,
+		upper_sky,
+		smoothstep(0.02, 0.40, breath_y)
 	);
-	vec3 color = mix(honey_top, bright_cream, band);
+	color = mix(
+		color,
+		bright_band,
+		smoothstep(0.34, 0.66, breath_y)
+	);
 	float haze_rise = smoothstep(
-		0.52,
-		1.08,
+		0.55,
+		1.06,
 		uv.y + (field_b - 0.5) * 0.1
 	);
 	color = mix(
 		color,
 		low_haze,
-		haze_rise * (0.5 + 0.22 * daylight)
+		haze_rise * (0.45 + 0.25 * daylight)
+	);
+	float accent_band = smoothstep(0.70, 1.12, breath_y);
+	color = mix(
+		color,
+		horizon_accent_color,
+		accent_band * horizon_accent_strength
 	);
 
 	// One broad veiled light pool drifting slowly low through the sky,
@@ -227,7 +248,13 @@ void fragment() {
 		float twinkle = smoothstep(0.0, 0.5, phase) * smoothstep(1.0, 0.5, phase);
 		vec2 local = fract(uv * vec2(96.0, 54.0)) - 0.5;
 		float spot = 1.0 - smoothstep(0.0, 0.06 + sparkle_softness * 4.0, length(local));
-		color += vec3(1.0) * gate * twinkle * spot * sparkle_intensity * 0.02 * sparkle_amount;
+		// The starfield blooms after dark: brighter, slightly cool-white,
+		// while daytime keeps only faint warm glints.
+		float night_amount = 1.0 - daylight;
+		vec3 star_tint = mix(vec3(1.0), vec3(0.90, 0.94, 1.0), night_amount);
+		float star_boost = mix(1.0, 2.2, night_amount);
+		color += star_tint * gate * twinkle * spot
+			* sparkle_intensity * 0.02 * sparkle_amount * star_boost;
 	}
 	color += shooting_star_radiance(uv);
 

@@ -25,8 +25,12 @@ func _ready() -> void:
 		"DEF bones populate the rig editor",
 	)
 	_check(
-		lab._pigeon_rig_overlay != null and lab._pigeon_rig_overlay.visible,
-		"live bone overlay is visible",
+		lab._pigeon_marker_root != null and lab._pigeon_marker_root.visible,
+		"bird joint dots are visible",
+	)
+	_check(
+		lab._pigeon_bone_markers.size() >= 28,
+		"meaningful bird joints receive fitting dots",
 	)
 	if "--capture" in OS.get_cmdline_user_args():
 		await get_tree().create_timer(0.4).timeout
@@ -47,8 +51,26 @@ func _ready() -> void:
 			break
 	_check(wing_option >= 0, "left wing is selectable")
 	if wing_option >= 0:
-		lab._pigeon_bone_option.select(wing_option)
-		lab._on_pigeon_bone_selected(wing_option)
+		_check(
+			lab._pigeon_bone_markers.has(wing_index),
+			"left wing has a selectable joint dot",
+		)
+		var wing_marker := (
+			lab._pigeon_bone_markers[wing_index] as MeshInstance3D
+		)
+		var preview_camera := lab._active_preview_camera()
+		_check(
+			preview_camera != null
+			and wing_marker != null
+			and lab._select_pigeon_bone_marker(
+				preview_camera.unproject_position(wing_marker.global_position)
+			),
+			"clicking a joint dot selects it",
+		)
+		_check(
+			lab._selected_pigeon_bone_index() == wing_index,
+			"joint dot targets its bird bone",
+		)
 		var base: Quaternion = lab._pigeon_base_rotations[wing_index]
 		lab._pigeon_rotation_controls[0].value = 24.0
 		await get_tree().process_frame

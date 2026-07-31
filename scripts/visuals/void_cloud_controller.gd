@@ -21,7 +21,7 @@ const CLOUD_SHADER: Shader = preload(
 
 const SLAB_HALF_EXTENT := 84.0
 const SLAB_THICKNESS := 11.5
-const ISLAND_CLEARANCE := 8.0
+const ISLAND_CLEARANCE := 11.5
 const PALETTE_BLEND_TAU := 1.8
 const BASE_NOISE_SIZE := 96
 const WORLEY_NOISE_SIZE := 80
@@ -33,26 +33,18 @@ const CURL_NOISE_SIZE := 96
 @export var volume_opacity := 0.97
 @export_enum("low", "medium", "high") var quality_level := "medium"
 
-@export_group("Day palette")
-@export var day_crown := Color(1.0, 1.0, 0.985)
-@export var day_light := Color(1.0, 0.965, 0.90)
-@export var day_shade := Color(0.878, 0.848, 0.832)
-@export var day_rim := Color(1.0, 0.80, 0.52)
-@export var day_atmosphere := Color(1.082, 1.036, 0.932)
+# One base cotton palette, authored for full daylight. Every time of day
+# is produced by grading it with the sky colours the lighting rig pushes
+# via set_sky_light(), so the clouds always sit inside the sky's own
+# light: dim grey-blue under the night sky, warm at sunset, cream at
+# noon. Weather modifiers apply to the base before grading.
+@export_group("Cloud palette")
+@export var base_crown := Color(1.0, 1.0, 0.985)
+@export var base_light := Color(1.0, 0.965, 0.90)
+@export var base_shade := Color(0.878, 0.848, 0.832)
+@export var base_rim := Color(1.0, 0.80, 0.52)
 
-@export_group("Sunset palette")
-@export var sunset_crown := Color(1.0, 0.91, 0.77)
-@export var sunset_light := Color(0.98, 0.76, 0.62)
-@export var sunset_shade := Color(0.63, 0.51, 0.58)
-@export var sunset_rim := Color(1.0, 0.67, 0.43)
-@export var sunset_atmosphere := Color(0.93, 0.78, 0.64)
-
-@export_group("Night palette")
-@export var night_crown := Color(0.46, 0.49, 0.62)
-@export var night_light := Color(0.31, 0.34, 0.47)
-@export var night_shade := Color(0.13, 0.14, 0.23)
-@export var night_rim := Color(0.48, 0.51, 0.72)
-@export var night_atmosphere := Color(0.15, 0.16, 0.26)
+const FALLBACK_ATMOSPHERE := Color(1.082, 1.036, 0.932)
 
 var _environment: Environment
 var _rig: Node
@@ -64,23 +56,28 @@ var _underside_y := -1.0
 var _camera_distance := 37.0
 var _wind_seconds := 0.0
 var _raymarch_steps := 44
-var _cloud_top_y := -9.0
-var _cloud_bottom_y := -20.5
+var _cloud_top_y := -12.5
+var _cloud_bottom_y := -24.0
 
-var _current_crown := day_crown
-var _current_light := day_light
-var _current_shade := day_shade
-var _current_rim := day_rim
-var _current_atmosphere := day_atmosphere
+var _current_crown := base_crown
+var _current_light := base_light
+var _current_shade := base_shade
+var _current_rim := base_rim
+var _current_atmosphere := FALLBACK_ATMOSPHERE
 var _current_opacity := 0.94
 var _current_rain_absorption := 0.0
-var _target_crown := day_crown
-var _target_light := day_light
-var _target_shade := day_shade
-var _target_rim := day_rim
-var _target_atmosphere := day_atmosphere
+var _target_crown := base_crown
+var _target_light := base_light
+var _target_shade := base_shade
+var _target_rim := base_rim
+var _target_atmosphere := FALLBACK_ATMOSPHERE
 var _target_opacity := 0.94
 var _target_rain_absorption := 0.0
+
+var _sky_color0 := Color(1.108, 1.015, 0.917)
+var _sky_color1 := Color(1.082, 1.036, 0.932)
+var _sky_zenith := Color(1.062, 0.962, 0.851)
+var _sky_known := false
 
 
 func setup(environment: Environment, lighting_rig: Node) -> void:
@@ -336,73 +333,91 @@ func _on_lighting_changed(_profile) -> void:
 	_refresh_palette_targets()
 
 
+## The lighting rig pushes the sky colours actually being shown (anchors
+## plus zenith) whenever the backdrop changes, including every frame of a
+## time-of-day transition. The cloud palette regrades from them, so the
+## sea can never drift out of the sky's light.
+func set_sky_light(color0: Color, color1: Color, zenith: Color) -> void:
+	_sky_color0 = color0
+	_sky_color1 = color1
+	_sky_zenith = zenith
+	_sky_known = true
+	_refresh_palette_targets()
+
+
 func _refresh_palette_targets() -> void:
-	var time_id := "noon"
 	var weather := "day"
-	if _rig != null:
-		time_id = String(_rig.get("time_of_day_id"))
-		if _rig.has_method("weather_id"):
-			weather = String(_rig.weather_id())
-	_target_crown = day_crown
-	_target_light = day_light
-	_target_shade = day_shade
-	_target_rim = day_rim
-	_target_atmosphere = day_atmosphere
-	_target_opacity = volume_opacity
+	if _rig != null and _rig.has_method("weather_id"):
+		weather = String(_rig.weather_id())
+	var crown := base_crown
+	var light := base_light
+	var shade := base_shade
+	var rim := base_rim
+	var opacity := volume_opacity
 	_target_rain_absorption = 0.0
-	match time_id:
-		"morning":
-			_target_crown = day_crown.lerp(sunset_crown, 0.28)
-			_target_light = day_light.lerp(sunset_light, 0.22)
-			_target_shade = day_shade.lerp(sunset_shade, 0.18)
-			_target_rim = day_rim.lerp(sunset_rim, 0.30)
-			_target_atmosphere = day_atmosphere.lerp(
-				sunset_atmosphere,
-				0.24
-			)
-		"sunset":
-			_target_crown = sunset_crown
-			_target_light = sunset_light
-			_target_shade = sunset_shade
-			_target_rim = sunset_rim
-			_target_atmosphere = sunset_atmosphere
-		"night":
-			_target_crown = night_crown
-			_target_light = night_light
-			_target_shade = night_shade
-			_target_rim = night_rim
-			_target_atmosphere = night_atmosphere
 	match weather:
 		"rain":
-			_target_crown = _target_crown.lerp(
-				Color(0.70, 0.73, 0.78),
-				0.52
-			)
-			_target_light = _target_light.lerp(
-				Color(0.59, 0.63, 0.70),
-				0.48
-			)
-			_target_shade = _target_shade.lerp(
-				Color(0.38, 0.42, 0.52),
-				0.52
-			)
-			_target_atmosphere = _target_atmosphere.lerp(
-				Color(0.72, 0.74, 0.78),
-				0.44
-			)
-			_target_opacity = minf(1.0, volume_opacity + 0.04)
+			crown = crown.lerp(Color(0.70, 0.73, 0.78), 0.52)
+			light = light.lerp(Color(0.59, 0.63, 0.70), 0.48)
+			shade = shade.lerp(Color(0.38, 0.42, 0.52), 0.52)
+			opacity = minf(1.0, volume_opacity + 0.04)
 			# The talk darkens rain clouds by raising light absorption.
 			_target_rain_absorption = 0.55
 		"snow":
-			_target_crown = _target_crown.lerp(
-				Color(0.97, 0.98, 1.0),
-				0.42
-			)
-			_target_light = _target_light.lerp(
-				Color(0.85, 0.89, 0.96),
-				0.30
-			)
-	if _rig != null and _rig.has_method("shadow_ray_direction"):
+			crown = crown.lerp(Color(0.97, 0.98, 1.0), 0.42)
+			light = light.lerp(Color(0.85, 0.89, 0.96), 0.30)
+	# Grade the cotton palette by the sky's own light: keep most of the
+	# sky's hue family and follow its luminance, so night clouds are dim
+	# grey-blue shapes and sunset clouds catch the amber wash.
+	var atmosphere := FALLBACK_ATMOSPHERE
+	var grade := Color(1.0, 1.0, 1.0)
+	var brightness := 1.0
+	if _sky_known:
+		var source := _sky_color1.lerp(_sky_zenith, 0.45)
+		var luminance := (
+			source.r * 0.2126
+			+ source.g * 0.7152
+			+ source.b * 0.0722
+		)
+		var safe_luminance := maxf(luminance, 0.02)
+		var hue := Color(
+			source.r / safe_luminance,
+			source.g / safe_luminance,
+			source.b / safe_luminance
+		)
+		# Dim skies keep almost none of their hue in the clouds: night
+		# clouds should read as plain quiet grey, not warm smoke.
+		hue = Color(1.0, 1.0, 1.0).lerp(
+			hue,
+			lerpf(0.22, 0.65, clampf(luminance, 0.0, 1.0))
+		)
+		# Floor keeps night clouds as faint moonlit shapes rather than
+		# vanishing entirely into the dark.
+		brightness = maxf(
+			pow(clampf(luminance, 0.0, 1.25), 0.85),
+			0.17
+		)
+		grade = Color(
+			hue.r * brightness,
+			hue.g * brightness,
+			hue.b * brightness
+		)
+		atmosphere = _sky_color1
+	_target_crown = crown * grade
+	_target_light = light * grade
+	_target_shade = shade * grade * 0.94
+	_target_rim = rim * grade
+	_target_atmosphere = atmosphere
+	_target_opacity = opacity * lerpf(
+		0.72,
+		1.0,
+		clampf(brightness, 0.0, 1.0)
+	)
+	if (
+		_rig != null
+		and _rig.has_method("shadow_ray_direction")
+		and _material != null
+	):
 		_material.set_shader_parameter(
 			"sun_direction",
 			-_rig.shadow_ray_direction()

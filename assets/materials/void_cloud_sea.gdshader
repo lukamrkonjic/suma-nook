@@ -74,8 +74,8 @@ uniform float silver_intensity = 0.50;
 uniform float forward_scattering = 0.32;
 // World-radial fade measured from the island centre, NOT from the camera:
 // zooming may never dissolve the sea, only true distance may.
-uniform float fade_start = 44.0;
-uniform float fade_end = 68.0;
+uniform float fade_start = 40.0;
+uniform float fade_end = 62.0;
 
 varying vec3 world_position;
 
@@ -145,7 +145,7 @@ float coverage_at(vec2 xz) {
 		1.0
 	);
 	coverage *= 1.0
-		- smoothstep(44.0, 72.0, length(xz)) * horizon_openness;
+		- smoothstep(40.0, 64.0, length(xz)) * horizon_openness;
 	return coverage;
 }
 
