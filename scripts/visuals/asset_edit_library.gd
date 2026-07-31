@@ -7,10 +7,13 @@ extends RefCounted
 ## Asset Studio, newly placed objects, rebuilt tile chunks, and the next game
 ## launch. Models can blend all authored corner normals toward position-welded
 ## smooth normals without changing their geometry, and can apply a persistent
-## uniform size multiplier at their semantic asset root. Tile smoothing is
-## stronger: it relaxes and compresses the height of the exposed surface while
-## blending its normals. Tile size, perimeters, structural bases, borders, X/Z
-## positions, UVs, topology, and collision remain authored.
+## uniform size multiplier at their semantic asset root. Tile smoothing splits
+## by what a mesh is: the structural exposed surface — one connected shell
+## spanning the tile — additionally relaxes and compresses its height relief,
+## while sculpted detail forms (grass tufts, billows, stones, and other
+## separate shells) keep their silhouette and only round their shading. Tile
+## size, perimeters, structural bases, borders, X/Z positions, UVs, topology,
+## and collision remain authored.
 
 const DATA_PATH := "res://data/asset_edits.json"
 const SOURCE_ASSET_META := "suma_source_asset_id"
@@ -27,15 +30,16 @@ const SMOOTH_TILE_DETAIL := &"tile_detail"
 const SMOOTH_NONE := &"none"
 const TILE_TOP_NORMAL_MIN := 0.8
 const TILE_STRUCTURAL_SPAN_MIN := 1.2
+const TILE_SURFACE_COVERAGE_MIN := 0.6
 const TILE_RELAX_PASSES := 18
 const TILE_RELAX_WEIGHT := 0.62
 const TILE_FULL_RELIEF_SCALE := 0.08
 const TILE_DEFORM_POWER := 1.65
 const TILE_PERIMETER_EPSILON := 0.002
-const TILE_DETAIL_BOTTOM_LOCK_RATIO := 0.04
 
 var _profiles: Dictionary = {}
 var _smooth_mesh_cache: Dictionary = {}
+var _shell_field_cache: Dictionary = {}
 var _data_path := DATA_PATH
 
 
@@ -47,6 +51,7 @@ func _init(profile_path: String = DATA_PATH) -> void:
 func reload() -> void:
 	_profiles.clear()
 	_smooth_mesh_cache.clear()
+	_shell_field_cache.clear()
 	if not FileAccess.file_exists(_data_path):
 		return
 	var parsed = JSON.parse_string(FileAccess.get_file_as_string(_data_path))
@@ -323,14 +328,112 @@ func _smoothing_mode(
 	if (
 		bounds.size.x >= TILE_STRUCTURAL_SPAN_MIN
 		and bounds.size.z >= TILE_STRUCTURAL_SPAN_MIN
+		and not _is_detail_shell_field(mesh_instance.mesh)
 	):
-		## Large tile-spanning meshes may contain a sculpted exposed surface
-		## and their structural skirt in one imported surface. Only upward
+		## A tile-spanning single connected shell is the sculpted exposed
+		## surface, possibly fused with its structural skirt. Only upward
 		## normals participate, so the perimeter split stays perfectly hard.
 		return SMOOTH_TILE_TOP
-	## Small meshes fused onto a tile (stones, snow billows, moss, flowers,
-	## and similar authored details) are allowed to smooth as complete forms.
+	## Small meshes fused onto a tile and footprint-wide fields of separate
+	## sculpted shells (grass tufts, stones, snow billows, moss, flowers)
+	## are complete forms, never the ground plane.
 	return SMOOTH_TILE_DETAIL
+
+
+func _is_detail_shell_field(mesh: Mesh) -> bool:
+	## The structural exposed surface either is one connected shell (possibly
+	## fused with its skirt) or, when authored as separate slabs, still
+	## blankets its footprint with upward-facing area. A mesh of several
+	## disconnected shells whose tops cover only a fraction of the footprint
+	## is a field of sculpted forms (grass tufts and similar), never the
+	## ground plane.
+	var cache_key := mesh.get_instance_id()
+	if _shell_field_cache.has(cache_key):
+		return _shell_field_cache[cache_key]
+	var parents := {}
+	var upward_area := 0.0
+	var bounds_min := Vector3(INF, INF, INF)
+	var bounds_max := Vector3(-INF, -INF, -INF)
+	for surface in mesh.get_surface_count():
+		var arrays := mesh.surface_get_arrays(surface)
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+		var indices := PackedInt32Array()
+		if arrays[Mesh.ARRAY_INDEX] != null:
+			indices = arrays[Mesh.ARRAY_INDEX]
+		var corner_count := (
+			indices.size() if not indices.is_empty() else vertices.size()
+		)
+		if corner_count % 3 != 0:
+			continue
+		for corner in range(0, corner_count, 3):
+			var corner_indices := PackedInt32Array()
+			var keys: Array[String] = []
+			for offset in 3:
+				var index := (
+					indices[corner + offset]
+					if not indices.is_empty()
+					else corner + offset
+				)
+				corner_indices.append(index)
+				keys.append(_position_key(vertices[index]))
+				bounds_min = bounds_min.min(vertices[index])
+				bounds_max = bounds_max.max(vertices[index])
+			for key in keys:
+				if not parents.has(key):
+					parents[key] = key
+			_union_shell_keys(parents, keys[0], keys[1])
+			_union_shell_keys(parents, keys[1], keys[2])
+			if normals.size() == vertices.size() and not normals.is_empty():
+				var authored_up := (
+					normals[corner_indices[0]].y
+					+ normals[corner_indices[1]].y
+					+ normals[corner_indices[2]].y
+				)
+				if authored_up > 0.0:
+					var area_vector := (
+						vertices[corner_indices[1]]
+						- vertices[corner_indices[0]]
+					).cross(
+						vertices[corner_indices[2]]
+						- vertices[corner_indices[0]]
+					)
+					upward_area += absf(area_vector.y) * 0.5
+	var shells := 0
+	for raw_key: Variant in parents:
+		var key := String(raw_key)
+		if String(parents[key]) == key:
+			shells += 1
+			if shells > 1:
+				break
+	var footprint := (
+		(bounds_max.x - bounds_min.x) * (bounds_max.z - bounds_min.z)
+	)
+	var coverage := (
+		upward_area / footprint if footprint > 0.0001 else INF
+	)
+	var is_field := shells > 1 and coverage < TILE_SURFACE_COVERAGE_MIN
+	_shell_field_cache[cache_key] = is_field
+	return is_field
+
+
+func _union_shell_keys(parents: Dictionary, a: String, b: String) -> void:
+	var root_a := _find_shell_root(parents, a)
+	var root_b := _find_shell_root(parents, b)
+	if root_a != root_b:
+		parents[root_a] = root_b
+
+
+func _find_shell_root(parents: Dictionary, key: String) -> String:
+	var root := key
+	while String(parents[root]) != root:
+		root = String(parents[root])
+	var cursor := key
+	while String(parents[cursor]) != root:
+		var next := String(parents[cursor])
+		parents[cursor] = root
+		cursor = next
+	return root
 
 
 func _smoothed_mesh(
@@ -360,13 +463,15 @@ func _smoothed_mesh(
 			indices = arrays[Mesh.ARRAY_INDEX]
 		if vertices.size() == normals.size() and not normals.is_empty():
 			var top_only := smoothing_mode == SMOOTH_TILE_TOP
-			if smoothing_mode in [SMOOTH_TILE_TOP, SMOOTH_TILE_DETAIL]:
+			if top_only:
+				## Only the structural exposed surface flattens toward its
+				## perimeter baseline. Detail forms keep their height so tufts
+				## and billows become smooth blobs instead of crushed discs.
 				vertices = _relax_tile_vertices(
 					vertices,
 					normals,
 					indices,
-					quantized,
-					top_only
+					quantized
 				)
 				arrays[Mesh.ARRAY_VERTEX] = vertices
 			arrays[Mesh.ARRAY_NORMAL] = _blend_normals(
@@ -452,8 +557,7 @@ func _relax_tile_vertices(
 	vertices: PackedVector3Array,
 	normals: PackedVector3Array,
 	indices: PackedInt32Array,
-	amount: float,
-	top_only: bool
+	amount: float
 ) -> PackedVector3Array:
 	var groups := {}
 	var positions := {}
@@ -467,7 +571,7 @@ func _relax_tile_vertices(
 		var group: Array = groups[key]
 		group.append(index)
 		groups[key] = group
-		if not top_only or normals[index].y >= TILE_TOP_NORMAL_MIN:
+		if normals[index].y >= TILE_TOP_NORMAL_MIN:
 			eligible[key] = true
 		else:
 			rigid[key] = true
@@ -486,39 +590,28 @@ func _relax_tile_vertices(
 		TILE_PERIMETER_EPSILON,
 		maxf(span.x, span.z) * TILE_PERIMETER_EPSILON
 	)
-	var bottom_lock := maxf(
-		TILE_PERIMETER_EPSILON,
-		span.y * TILE_DETAIL_BOTTOM_LOCK_RATIO
-	)
 	var movable := {}
-	var anchor_sum := 0.0
-	var anchor_count := 0
+	var plateau_sum := 0.0
 	for raw_key: Variant in eligible:
 		var key := String(raw_key)
 		var position: Vector3 = positions[key]
-		var locked := false
-		if top_only:
-			locked = (
-				rigid.has(key)
-				or absf(position.x - bounds_min.x) <= edge_epsilon
-				or absf(position.x - bounds_max.x) <= edge_epsilon
-				or absf(position.z - bounds_min.z) <= edge_epsilon
-				or absf(position.z - bounds_max.z) <= edge_epsilon
-			)
-		else:
-			locked = position.y <= bounds_min.y + bottom_lock
-		if locked:
-			anchor_sum += position.y
-			anchor_count += 1
-		else:
+		var locked := (
+			rigid.has(key)
+			or absf(position.x - bounds_min.x) <= edge_epsilon
+			or absf(position.x - bounds_max.x) <= edge_epsilon
+			or absf(position.z - bounds_min.z) <= edge_epsilon
+			or absf(position.z - bounds_max.z) <= edge_epsilon
+		)
+		if not locked:
 			movable[key] = true
+			plateau_sum += position.y
 	if movable.is_empty():
 		return vertices
-	var baseline := (
-		anchor_sum / float(anchor_count)
-		if anchor_count > 0
-		else bounds_min.y
-	)
+	## Relief compresses toward the authored interior mean, never the perimeter
+	## anchors: a fully smoothed top keeps the tile's standardized walk-surface
+	## height instead of sagging to rim level and reading recessed against its
+	## neighbours. The locked perimeter alone keeps seams authored-tight.
+	var baseline := plateau_sum / float(movable.size())
 
 	var adjacency := {}
 	for raw_key: Variant in eligible:

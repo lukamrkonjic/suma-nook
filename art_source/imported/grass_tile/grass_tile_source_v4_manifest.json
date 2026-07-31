@@ -1,0 +1,9 @@
+{
+  "asset_id": "tile_grass",
+  "source_file": "grass_tile_source_v4.glb",
+  "source_sha256": "C17F9A2D3E10C75E0BE00D460D162D4ED7D68EEE7F6CB7B5B08DC984D2D99093",
+  "reference_image": "gemini_ref.png",
+  "origin": "Gemini-generated reference image (prompt in grass_tile_prompt.md, refined per-attempt learnings) meshed locally via Modly Hunyuan3D 2.1 shape at octree_resolution 384, num_inference_steps 50. Raw export, no decimation at source.",
+  "status": "ADOPTED — processed into assets/3d/reworked/tile_layer_surface_grass_tufts.glb, wired as tile_grass's raised surface layer",
+  "processing": "art_source/blender/process_grass_tufts_surface.py: sample whole source for a whisper of ground undulation (amplitude 0.020); find top plateau by area-weighted height of upward faces; bisect just above the plateau keeping only the discrete tuft shells; drop flat sheet remnants and dust fragments; map tuft positions onto the 1.70 m footprint and sink open bottoms into the ground cap; collapse-decimate to a 7,500-triangle budget; single grass_primary semantic material; flat per-face normals as Asset Studio's 0% baseline."
+}

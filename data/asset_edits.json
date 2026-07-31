@@ -7,6 +7,42 @@
 			"materials": {
 
 			}
+		},
+		"prop_stone_well": {
+			"scale": 1.0,
+			"smoothing": 1.0,
+			"materials": {
+
+			}
+		},
+		"prop_pine_b": {
+			"scale": 1.2,
+			"smoothing": 1.0,
+			"materials": {
+				"pine_light": {
+					"color": "648452",
+					"roughness": 0.74,
+					"metallic": 0.0
+				}
+			}
+		},
+		"tile_layer_surface_grass_tufts": {
+			"scale": 1.0,
+			"smoothing": 1.0,
+			"materials": {
+				"grass_primary": {
+					"color": "5b7b41",
+					"roughness": 0.74,
+					"metallic": 0.01
+				}
+			}
+		},
+		"prop_pine_a": {
+			"scale": 1.0,
+			"smoothing": 1.0,
+			"materials": {
+
+			}
 		}
 	}
 }

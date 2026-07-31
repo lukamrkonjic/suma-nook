@@ -71,7 +71,7 @@ func _ready() -> void:
 		is_equal_approx(
 			float(
 				_main.assets.edits.profile(
-					"tile_layer_surface_flat"
+					"tile_layer_surface_grass_tufts"
 				).get("smoothing", 0.0)
 			),
 			0.37
@@ -438,8 +438,15 @@ func _find_asset_root(root: Node, asset_id: String) -> Node3D:
 
 
 func _top_relief(mesh_instance: MeshInstance3D) -> float:
+	## Interior flatness only: the perimeter ring is locked for seams and
+	## keeps its authored height, so it is excluded from the measurement.
 	if mesh_instance == null or mesh_instance.mesh == null:
 		return INF
+	var bounds := mesh_instance.get_aabb()
+	var epsilon := maxf(
+		0.002,
+		maxf(bounds.size.x, bounds.size.z) * 0.002
+	)
 	var lower := INF
 	var upper := -INF
 	for surface in mesh_instance.mesh.get_surface_count():
@@ -450,6 +457,17 @@ func _top_relief(mesh_instance: MeshInstance3D) -> float:
 			if (
 				normals[index].y
 				< AssetEditLibraryScript.TILE_TOP_NORMAL_MIN
+			):
+				continue
+			if (
+				absf(vertices[index].x - bounds.position.x) <= epsilon
+				or absf(
+					vertices[index].x - bounds.position.x - bounds.size.x
+				) <= epsilon
+				or absf(vertices[index].z - bounds.position.z) <= epsilon
+				or absf(
+					vertices[index].z - bounds.position.z - bounds.size.z
+				) <= epsilon
 			):
 				continue
 			lower = minf(lower, vertices[index].y)

@@ -180,6 +180,7 @@ func _ready() -> void:
 		"layered rectangular tile bases ignore smoothing entirely"
 	)
 	_test_real_tile_surface_borders(library)
+	_test_grass_tufts_detail_field(library)
 
 	_expect(
 		library.save_profile(asset_id, edited_profile) == OK,
@@ -382,6 +383,14 @@ func _test_real_tile_surface_borders(library) -> void:
 			_surfaces_are_flat(authored_surfaces),
 			"%s imports flat per-face normals at 0%%" % asset_id
 		)
+		## The perimeter ring stays authored for seams, so flatness and height
+		## statistics measure the walkable interior only — the same frontier
+		## the library locks.
+		var authored_bounds := mesh_instance.get_aabb()
+		var perimeter_epsilon := maxf(
+			0.002,
+			maxf(authored_bounds.size.x, authored_bounds.size.z) * 0.002
+		)
 		library.apply_to_tree(root, asset_id, {
 			"smoothing": 1.0,
 			"materials": {},
@@ -392,6 +401,9 @@ func _test_real_tile_surface_borders(library) -> void:
 		var authored_top_max := -INF
 		var edited_top_min := INF
 		var edited_top_max := -INF
+		var authored_top_sum := 0.0
+		var edited_top_sum := 0.0
+		var top_sample_count := 0
 		for surface in authored_surfaces.size():
 			var authored_arrays: Array = authored_surfaces[surface]
 			var edited_arrays := mesh_instance.mesh.surface_get_arrays(surface)
@@ -424,22 +436,30 @@ func _test_real_tile_surface_borders(library) -> void:
 					authored_normals[index].y
 					>= AssetEditLibraryScript.TILE_TOP_NORMAL_MIN
 				):
-					authored_top_min = minf(
-						authored_top_min,
-						authored_vertices[index].y
-					)
-					authored_top_max = maxf(
-						authored_top_max,
-						authored_vertices[index].y
-					)
-					edited_top_min = minf(
-						edited_top_min,
-						edited_vertices[index].y
-					)
-					edited_top_max = maxf(
-						edited_top_max,
-						edited_vertices[index].y
-					)
+					if not _near_xz_perimeter(
+						authored_vertices[index],
+						authored_bounds,
+						perimeter_epsilon
+					):
+						authored_top_min = minf(
+							authored_top_min,
+							authored_vertices[index].y
+						)
+						authored_top_max = maxf(
+							authored_top_max,
+							authored_vertices[index].y
+						)
+						edited_top_min = minf(
+							edited_top_min,
+							edited_vertices[index].y
+						)
+						edited_top_max = maxf(
+							edited_top_max,
+							edited_vertices[index].y
+						)
+						authored_top_sum += authored_vertices[index].y
+						edited_top_sum += edited_vertices[index].y
+						top_sample_count += 1
 					if not is_equal_approx(
 						edited_vertices[index].y,
 						authored_vertices[index].y
@@ -487,6 +507,15 @@ func _test_real_tile_surface_borders(library) -> void:
 				"%s 100%% smoothing strongly flattens its relief"
 				% asset_id
 			)
+			_expect(
+				top_sample_count > 0
+				and absf(
+					edited_top_sum / float(top_sample_count)
+					- authored_top_sum / float(top_sample_count)
+				) <= 0.005,
+				"%s fully smoothed top keeps its standardized height"
+				% asset_id
+			)
 		library.apply_to_tree(root, asset_id, {
 			"smoothing": 0.0,
 			"materials": {},
@@ -496,6 +525,146 @@ func _test_real_tile_surface_borders(library) -> void:
 			"%s 0%% restores the exact authored mesh" % asset_id
 		)
 		root.free()
+
+
+func _test_grass_tufts_detail_field(library) -> void:
+	## A footprint-spanning mesh of disconnected sculpted shells must smooth as
+	## complete forms. Ground-plane treatment would crush the tuft tops toward
+	## one baseline and leave every side facet hard — the Asset Studio bug.
+	var asset_id := "tile_layer_surface_grass_tufts"
+	var packed := load(
+		"res://assets/3d/reworked/%s.glb" % asset_id
+	) as PackedScene
+	_expect(packed != null, "grass tufts surface loads")
+	if packed == null:
+		return
+	var root := packed.instantiate() as Node3D
+	root.set_meta(AssetEditLibraryScript.SOURCE_ASSET_META, asset_id)
+	add_child(root)
+	var tufts: MeshInstance3D = null
+	var cap: MeshInstance3D = null
+	for descendant in root.find_children("*", "MeshInstance3D", true, false):
+		var mesh_instance := descendant as MeshInstance3D
+		if mesh_instance.name.to_lower().contains("cap"):
+			cap = mesh_instance
+		else:
+			tufts = mesh_instance
+	_expect(
+		tufts != null and cap != null,
+		"grass tile exposes its tuft field and its ground cap"
+	)
+	if tufts == null or cap == null:
+		root.free()
+		return
+	var authored_arrays := tufts.mesh.surface_get_arrays(0)
+	var authored_cap: Dictionary = _mesh_top_stats(cap.mesh)
+	library.apply_to_tree(root, asset_id, {
+		"smoothing": 1.0,
+		"materials": {},
+	})
+	var edited_arrays := tufts.mesh.surface_get_arrays(0)
+	var authored_vertices: PackedVector3Array = (
+		authored_arrays[Mesh.ARRAY_VERTEX]
+	)
+	var edited_vertices: PackedVector3Array = (
+		edited_arrays[Mesh.ARRAY_VERTEX]
+	)
+	var moved := 0
+	for index in authored_vertices.size():
+		if not edited_vertices[index].is_equal_approx(
+			authored_vertices[index]
+		):
+			moved += 1
+	_expect(
+		moved == 0,
+		"tuft field keeps every authored vertex — no ground-plane crush"
+	)
+	var authored_normals: PackedVector3Array = (
+		authored_arrays[Mesh.ARRAY_NORMAL]
+	)
+	var edited_normals: PackedVector3Array = (
+		edited_arrays[Mesh.ARRAY_NORMAL]
+	)
+	var side_smoothed := 0
+	for index in authored_normals.size():
+		if (
+			authored_normals[index].y
+			>= AssetEditLibraryScript.TILE_TOP_NORMAL_MIN
+		):
+			continue
+		if edited_normals[index].dot(authored_normals[index]) < 0.9999:
+			side_smoothed += 1
+	_expect(
+		side_smoothed > 0,
+		"tuft sides smooth as complete forms, not top-only"
+	)
+	var edited_cap: Dictionary = _mesh_top_stats(cap.mesh)
+	_expect(
+		float(edited_cap["relief"])
+		<= float(authored_cap["relief"]) * 0.20 + 0.0001,
+		"grass ground cap still flattens like a structural surface"
+	)
+	_expect(
+		absf(float(edited_cap["mean"]) - float(authored_cap["mean"]))
+		<= 0.005,
+		"grass ground cap keeps its standardized height — never recessed"
+	)
+	root.free()
+
+
+func _mesh_top_stats(mesh: Mesh) -> Dictionary:
+	## Interior top statistics: the perimeter ring is locked for seams, so it
+	## is excluded — the same frontier AssetEditLibrary keeps rigid.
+	var bounds_min := Vector3(INF, INF, INF)
+	var bounds_max := Vector3(-INF, -INF, -INF)
+	for surface in mesh.get_surface_count():
+		var arrays := mesh.surface_get_arrays(surface)
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		for index in vertices.size():
+			bounds_min = bounds_min.min(vertices[index])
+			bounds_max = bounds_max.max(vertices[index])
+	var bounds := AABB(bounds_min, bounds_max - bounds_min)
+	var epsilon := maxf(
+		0.002,
+		maxf(bounds.size.x, bounds.size.z) * 0.002
+	)
+	var lower := INF
+	var upper := -INF
+	var total := 0.0
+	var count := 0
+	for surface in mesh.get_surface_count():
+		var arrays := mesh.surface_get_arrays(surface)
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+		for index in mini(vertices.size(), normals.size()):
+			if (
+				normals[index].y
+				< AssetEditLibraryScript.TILE_TOP_NORMAL_MIN
+			):
+				continue
+			if _near_xz_perimeter(vertices[index], bounds, epsilon):
+				continue
+			lower = minf(lower, vertices[index].y)
+			upper = maxf(upper, vertices[index].y)
+			total += vertices[index].y
+			count += 1
+	return {
+		"relief": upper - lower if count > 0 else INF,
+		"mean": total / float(count) if count > 0 else 0.0,
+	}
+
+
+func _near_xz_perimeter(
+	position: Vector3,
+	bounds: AABB,
+	epsilon: float
+) -> bool:
+	return (
+		absf(position.x - bounds.position.x) <= epsilon
+		or absf(position.x - bounds.position.x - bounds.size.x) <= epsilon
+		or absf(position.z - bounds.position.z) <= epsilon
+		or absf(position.z - bounds.position.z - bounds.size.z) <= epsilon
+	)
 
 
 func _surfaces_are_flat(surfaces: Array) -> bool:
