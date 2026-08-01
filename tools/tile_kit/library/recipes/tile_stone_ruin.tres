@@ -124,7 +124,7 @@ params = {
 
 [resource]
 script = ExtResource("2_c1j6n")
-preset_name = "Hearthruin Foundation"
+preset_name = "Stone Ruins"
 master_seed = 20265849
 separate_tiles = true
 layers = Array[ExtResource("1_e6vus")]([SubResource("Resource_qgtp7"), SubResource("Resource_56w8q"), SubResource("Resource_cujq6"), SubResource("Resource_oaopc"), SubResource("Resource_05mqk"), SubResource("Resource_dmk87")])

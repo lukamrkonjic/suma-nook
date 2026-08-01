@@ -105,6 +105,6 @@ params = {
 
 [resource]
 script = ExtResource("2_e0sh2")
-preset_name = "Starling Mere"
+preset_name = "Open Water"
 master_seed = 20264271
 layers = Array[ExtResource("1_bdosv")]([SubResource("Resource_bhpv5"), SubResource("Resource_b2a0e"), SubResource("Resource_tmrta"), SubResource("Resource_3npdk"), SubResource("Resource_iwif8")])

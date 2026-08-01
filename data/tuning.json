@@ -54,17 +54,29 @@
     "tile_grove_mature",
     "tile_concrete_brutalist",
     "tile_snowfield",
-    "tile_master_grass"
-  ],
-  "starter_land_options": [
-    "tile_grove_mature",
-    "tile_sand",
-    "tile_snowfield"
-  ],
-  "preview_tile_ids": [
+    "tile_master_grass",
+    "tile_clay",
+    "tile_cobblestone",
+    "tile_courtyard",
+    "tile_dirt",
+    "tile_dirt_crossroad",
+    "tile_dirt_road",
+    "tile_flagstone",
+    "tile_frosted_stone",
+    "tile_garden",
+    "tile_grass_flower",
+    "tile_grass_pond_edge",
+    "tile_grove_autumn",
+    "tile_grove_birch",
+    "tile_grove_flowering",
+    "tile_grove_mossy",
+    "tile_kit_grass",
     "tile_master_pavers",
     "tile_master_wood",
-    "tile_kit_grass",
+    "tile_mud",
+    "tile_open_water",
+    "tile_path",
+    "tile_plain_ground",
     "tile_proc_autumn_litter",
     "tile_proc_boulder_ground",
     "tile_proc_brick_court",
@@ -84,6 +96,20 @@
     "tile_proc_snow_drifts_study",
     "tile_proc_snow_field",
     "tile_proc_tilled_field",
-    "tile_proc_wood_plank_deck"
-  ]
+    "tile_proc_wood_plank_deck",
+    "tile_snow_drift",
+    "tile_snow_path",
+    "tile_stone_clearing",
+    "tile_stone_crystal",
+    "tile_stone_mossy",
+    "tile_stone_road",
+    "tile_stone_ruin",
+    "tile_wooden_planks"
+  ],
+  "starter_land_options": [
+    "tile_grove_mature",
+    "tile_sand",
+    "tile_snowfield"
+  ],
+  "preview_tile_ids": []
 }

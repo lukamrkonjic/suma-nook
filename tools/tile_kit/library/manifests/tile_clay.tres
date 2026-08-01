@@ -5,12 +5,15 @@
 [resource]
 script = ExtResource("1_rcu4y")
 tile_id = "tile_clay"
-display_name = "Emberbaked Loam"
+display_name = "Clay Ground"
 revision = 2
 lifecycle = "published"
+visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_clay.tres"
 baked_roles = PackedStringArray("base", "detail", "surface")
 family = "home_meadow"
+catalog_category = "farm"
+catalog_order = 20
 connection_group = "home_meadow"
 biome_tags = PackedStringArray()
 landmark_tags = PackedStringArray()

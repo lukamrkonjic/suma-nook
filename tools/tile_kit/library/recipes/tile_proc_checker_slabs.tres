@@ -102,6 +102,6 @@ params = {
 
 [resource]
 script = ExtResource("2_mo4xj")
-preset_name = "Dapplecheck Slabs"
+preset_name = "Checkerboard Tiles"
 separate_tiles = true
 layers = Array[ExtResource("1_ae15p")]([SubResource("Resource_ae15p"), SubResource("Resource_mo4xj"), SubResource("Resource_yaa1f"), SubResource("Resource_mc8ji"), SubResource("Resource_cm2dv")])

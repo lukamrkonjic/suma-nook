@@ -5,12 +5,15 @@
 [resource]
 script = ExtResource("1_wa873")
 tile_id = "tile_frosted_stone"
-display_name = "Rimeglass Stone"
+display_name = "Frosted Stone"
 revision = 2
 lifecycle = "published"
+visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_frosted_stone.tres"
 baked_roles = PackedStringArray("base", "detail", "surface")
 family = "winter"
+catalog_category = "tundra"
+catalog_order = 60
 connection_group = "winter"
 biome_tags = PackedStringArray()
 landmark_tags = PackedStringArray()

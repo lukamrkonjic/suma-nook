@@ -5,13 +5,15 @@
 [resource]
 script = ExtResource("1_llouc")
 tile_id = "tile_proc_tilled_field"
-display_name = "Furrowglow Plot"
+display_name = "Tilled Soil"
 revision = 1
 lifecycle = "published"
-visibility = "preview"
+visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_proc_tilled_field.tres"
 baked_roles = PackedStringArray("base", "surface")
 family = "home_meadow"
+catalog_category = "farm"
+catalog_order = 30
 connection_group = "tile_proc_tilled_field"
 biome_tags = PackedStringArray("meadow")
 landmark_tags = PackedStringArray()

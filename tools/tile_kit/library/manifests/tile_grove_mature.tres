@@ -5,13 +5,15 @@
 [resource]
 script = ExtResource("1_3nlxj")
 tile_id = "tile_grove_mature"
-display_name = "Elder Canopy"
-revision = 2
+display_name = "Forest Floor"
+revision = 3
 lifecycle = "published"
 visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_grove_mature.tres"
 baked_roles = PackedStringArray("base", "detail", "surface")
 family = "living_grove"
+catalog_category = "forest"
+catalog_order = 10
 connection_group = "living_grove"
 biome_tags = PackedStringArray("forest")
 landmark_tags = PackedStringArray()

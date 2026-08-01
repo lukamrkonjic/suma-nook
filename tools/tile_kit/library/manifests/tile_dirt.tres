@@ -5,12 +5,15 @@
 [resource]
 script = ExtResource("1_onujj")
 tile_id = "tile_dirt"
-display_name = "Rootrest Earth"
+display_name = "Dirt Ground"
 revision = 2
 lifecycle = "published"
+visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_dirt.tres"
 baked_roles = PackedStringArray("base", "detail", "surface")
 family = "home_meadow"
+catalog_category = "farm"
+catalog_order = 10
 connection_group = "home_meadow"
 biome_tags = PackedStringArray()
 landmark_tags = PackedStringArray()

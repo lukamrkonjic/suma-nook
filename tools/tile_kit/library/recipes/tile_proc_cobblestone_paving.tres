@@ -100,6 +100,6 @@ params = {
 
 [resource]
 script = ExtResource("2_tk4oe")
-preset_name = "Acornset Paving"
+preset_name = "Cobblestone Paving"
 separate_tiles = true
 layers = Array[ExtResource("1_cg1ls")]([SubResource("Resource_cg1ls"), SubResource("Resource_tk4oe"), SubResource("Resource_jq0ph"), SubResource("Resource_dvdft"), SubResource("Resource_ihadm")])

@@ -5,12 +5,15 @@
 [resource]
 script = ExtResource("1_b3bep")
 tile_id = "tile_dirt_crossroad"
-display_name = "Wayfarer Crossing"
+display_name = "Dirt Crossroad"
 revision = 2
 lifecycle = "published"
+visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_dirt_crossroad.tres"
 baked_roles = PackedStringArray("base", "detail", "surface")
 family = "home_meadow"
+catalog_category = "farm"
+catalog_order = 50
 connection_group = "home_meadow"
 biome_tags = PackedStringArray()
 landmark_tags = PackedStringArray()

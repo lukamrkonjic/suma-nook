@@ -452,11 +452,11 @@ func _build_admin_page() -> void:
 			core.inventory.grant(String(item_id), 99, false, true)
 		_admin_status("Granted 99 of every item (%d kinds)." % core.registries.items.size())
 	var grant_tiles := func() -> void:
-		for tile_id in core.registries.active_tile_ids():
+		var tile_ids := core.registries.obtainable_tile_ids()
+		for tile_id in tile_ids:
 			core.stock.add_tile(String(tile_id), 10)
 		_admin_status(
-			"Stocked 10 of every active tile (%d kinds)."
-			% core.registries.active_tile_ids().size()
+			"Stocked 10 of every official tile (%d kinds)." % tile_ids.size()
 		)
 	var grant_structures := func() -> void:
 		for structure_id in core.registries.structures:
@@ -464,7 +464,14 @@ func _build_admin_page() -> void:
 		_admin_status("Stocked 10 of every structure (%d kinds)." % core.registries.structures.size())
 	list.add_child(kit.section_label("Content library"))
 	_admin_action_row(list, "Every item", "Grant 99 of each registered item, quietly.", "Grant ×99", grant_items)
-	_admin_action_row(list, "Every tile", "Stock 10 of each active tile in the build library.", "Grant ×10", grant_tiles)
+	_admin_action_row(
+		list,
+		"Every official tile",
+		"Stock 10 of every obtainable tile published through Asset Studio.",
+		"Grant ×10",
+		grant_tiles,
+		"AdminRowEveryTile"
+	)
 	_admin_action_row(list, "Every structure", "Stock 10 of each structure and decoration.", "Grant ×10", grant_structures)
 
 	var toggle_tuner := func() -> void:

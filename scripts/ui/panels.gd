@@ -122,7 +122,7 @@ func _inventory_panel() -> Dictionary:
 	var visible_tile_count := 0
 	for tile_id: String in core.stock.tiles:
 		var tile := core.registries.tile(tile_id)
-		if tile == null or not core.registries.is_tile_active(tile_id):
+		if tile == null:
 			continue
 		visible_tile_count += 1
 		list.add_child(kit.label("⬢ %s ×%d" % [tile.display_name, core.stock.tile_count(tile_id)], 16))

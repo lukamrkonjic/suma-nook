@@ -37,6 +37,12 @@ const VISIBILITY_HIDDEN := "hidden"
 
 @export_group("Catalog")
 @export var family := "tile_kit"
+## Presentation-only scenery/biome used to group the authoring library.
+## Gameplay systems continue to use family.
+@export var catalog_category := "meadow"
+## Human-facing position inside the scenery category. Values use gaps so
+## designers can insert post-launch content without renumbering the group.
+@export var catalog_order := 1000
 @export var connection_group := ""
 @export var biome_tags := PackedStringArray([])
 @export var landmark_tags := PackedStringArray([])
@@ -105,6 +111,10 @@ func validation_errors() -> PackedStringArray:
 		errors.append("Tile ID must contain only lowercase letters, numbers, and underscores.")
 	if display_name.strip_edges().is_empty():
 		errors.append("Display name is required.")
+	if catalog_category.strip_edges().is_empty():
+		errors.append("Scenery category is required.")
+	if catalog_order < 0:
+		errors.append("Catalog order cannot be negative.")
 	if lifecycle not in [LIFECYCLE_DRAFT, LIFECYCLE_PUBLISHED, LIFECYCLE_ARCHIVED]:
 		errors.append("Unknown lifecycle '%s'." % lifecycle)
 	if visibility not in [VISIBILITY_ACTIVE, VISIBILITY_PREVIEW, VISIBILITY_HIDDEN]:
@@ -133,6 +143,8 @@ func to_tile_dictionary() -> Dictionary:
 	definition["id"] = tile_id
 	definition["name"] = display_name
 	definition["family"] = family
+	definition["catalog_category"] = catalog_category
+	definition["catalog_order"] = catalog_order
 	definition["connection_group"] = (
 		connection_group if not connection_group.is_empty() else tile_id
 	)
@@ -165,6 +177,8 @@ func _procedural_definition() -> Dictionary:
 		"id": tile_id,
 		"name": display_name,
 		"family": family,
+		"catalog_category": catalog_category,
+		"catalog_order": catalog_order,
 		"asset_id": asset_id("surface"),
 		"layers": layers,
 		"stackable": stackable,

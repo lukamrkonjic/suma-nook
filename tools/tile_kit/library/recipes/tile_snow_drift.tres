@@ -94,7 +94,7 @@ params = {
 
 [resource]
 script = ExtResource("2_vejqm")
-preset_name = "Pillowdrift Snow"
+preset_name = "Deep Snow"
 master_seed = 20266962
 separate_tiles = true
 layers = Array[ExtResource("1_u1gfy")]([SubResource("Resource_saik7"), SubResource("Resource_dt4yd"), SubResource("Resource_at1jk"), SubResource("Resource_vyah8")])

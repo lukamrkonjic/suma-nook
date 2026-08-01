@@ -86,6 +86,6 @@ params = {
 
 [resource]
 script = ExtResource("2_clppd")
-preset_name = "Lilypad Hollow"
+preset_name = "Small Pond"
 separate_tiles = true
 layers = Array[ExtResource("1_v4yy1")]([SubResource("Resource_v4yy1"), SubResource("Resource_clppd"), SubResource("Resource_l8srx"), SubResource("Resource_46dod")])

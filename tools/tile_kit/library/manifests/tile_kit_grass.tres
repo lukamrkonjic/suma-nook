@@ -5,13 +5,14 @@
 [resource]
 script = ExtResource("1_b38g4")
 tile_id = "tile_kit_grass"
-display_name = "Springleaf Carpet"
+display_name = "Dense Grass"
 revision = 1
 lifecycle = "published"
-visibility = "preview"
+visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_kit_grass.tres"
 baked_roles = PackedStringArray("base", "surface", "detail")
 family = "home_meadow"
+catalog_order = 20
 connection_group = "tile_kit"
 biome_tags = PackedStringArray("meadow")
 landmark_tags = PackedStringArray()

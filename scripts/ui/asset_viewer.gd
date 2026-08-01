@@ -13,6 +13,7 @@ extends CanvasLayer
 signal closed
 
 const TILE_PATCH_RADIUS := 1
+const CatalogTaxonomy := preload("res://tools/tile_kit/library/tile_catalog_taxonomy.gd")
 const DEFAULT_TILE_ID := "tile_sand"
 const MODEL_BASE_ASSET := "tile_plain_ground"
 const WEATHER_PRESETS := [
@@ -677,9 +678,16 @@ func _build_inspector(parent: Control) -> void:
 	_tile_kit_panel.status.connect(func(message: String) -> void:
 		_status.text = message)
 	column.add_child(_tile_kit_panel)
+	var material_section := _inspector_accordion(
+		column,
+		"ADVANCED MATERIAL OVERRIDES",
+		false,
+		"Optional per-asset color, roughness, metallic, and smoothing overrides. "
+		+ "These are separate from saving a procedural tile recipe."
+	)
 	_asset_editor_content = VBoxContainer.new()
 	_asset_editor_content.add_theme_constant_override("separation", 9)
-	column.add_child(_asset_editor_content)
+	(material_section["content"] as VBoxContainer).add_child(_asset_editor_content)
 	column = _asset_editor_content
 
 	_subtitle = _kit.label("Production GLB", 14, false, true)
@@ -797,11 +805,11 @@ func _build_inspector(parent: Control) -> void:
 	authored.pressed.connect(restore_authored_values)
 	authored.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	actions.add_child(authored)
-	_save_button = _kit.button("Save edits to game", true)
+	_save_button = _kit.button("Save Material Override", true)
 	_save_button.name = "AssetStudioSave"
 	_save_button.custom_minimum_size.y = 44.0
 	_save_button.tooltip_text = (
-		"Writes data/asset_edits.json. AssetLibrary applies it to this asset id "
+		"Writes an optional material/smoothing override. AssetLibrary applies it "
 		+ "everywhere in the game."
 	)
 	_save_button.pressed.connect(save_asset_edits)
@@ -1122,6 +1130,38 @@ func _editor_section(text: String) -> Label:
 	return label
 
 
+func _inspector_accordion(
+	parent: Container,
+	title: String,
+	expanded: bool,
+	help_text := ""
+) -> Dictionary:
+	var root := VBoxContainer.new()
+	root.add_theme_constant_override("separation", 6)
+	parent.add_child(root)
+	var header := _kit.choice_button("", false)
+	header.toggle_mode = true
+	header.set_pressed_no_signal(expanded)
+	header.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	header.custom_minimum_size.y = 44
+	root.add_child(header)
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", 8)
+	content.visible = expanded
+	root.add_child(content)
+	if not help_text.is_empty():
+		var help := _kit.label(help_text, 11)
+		help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		help.add_theme_color_override("font_color", Color(0.38, 0.42, 0.37))
+		content.add_child(help)
+	var refresh := func(open: bool) -> void:
+		header.text = ("▼  " if open else "▶  ") + title
+		content.visible = open
+	refresh.call(expanded)
+	header.toggled.connect(refresh)
+	return {"root": root, "header": header, "content": content}
+
+
 func _add_editor_slider(
 	parent: VBoxContainer,
 	label_text: String
@@ -1223,7 +1263,9 @@ func _rebuild_catalog() -> void:
 				"content_id": content_id,
 				"asset_id": definition.asset_id,
 				"name": display_name,
-				"group": definition.family.replace("_", " ").capitalize(),
+				"group": definition.catalog_category.replace("_", " ").capitalize(),
+				"group_key": definition.catalog_category,
+				"catalog_order": definition.catalog_order,
 			})
 	else:
 		for content_id: String in _main.core.registries.structures:
@@ -1233,13 +1275,28 @@ func _rebuild_catalog() -> void:
 				"asset_id": definition.asset_id,
 				"name": definition.display_name,
 				"group": definition.kind.capitalize(),
+				"group_key": definition.kind,
+				"catalog_order": 1000,
 			})
 	_entries.sort_custom(func(a: Dictionary, b: Dictionary):
+		if _category == "tiles":
+			var category_a := CatalogTaxonomy.category_rank(
+				String(a.get("group_key", ""))
+			)
+			var category_b := CatalogTaxonomy.category_rank(
+				String(b.get("group_key", ""))
+			)
+			if category_a != category_b:
+				return category_a < category_b
 		var group_order := String(a["group"]).naturalnocasecmp_to(
 			String(b["group"])
 		)
 		if group_order != 0:
 			return group_order < 0
+		var catalog_order_a := int(a.get("catalog_order", 1000))
+		var catalog_order_b := int(b.get("catalog_order", 1000))
+		if catalog_order_a != catalog_order_b:
+			return catalog_order_a < catalog_order_b
 		return String(a["name"]).naturalnocasecmp_to(String(b["name"])) < 0
 	)
 	var query := _search.text.strip_edges().to_lower()

@@ -95,6 +95,6 @@ params = {
 
 [resource]
 script = ExtResource("2_278by")
-preset_name = "Pebblethread Path"
+preset_name = "Meadow Path"
 separate_tiles = true
 layers = Array[ExtResource("1_3geon")]([SubResource("Resource_3geon"), SubResource("Resource_278by"), SubResource("Resource_a28lr"), SubResource("Resource_wi6o1"), SubResource("Resource_pim1c")])

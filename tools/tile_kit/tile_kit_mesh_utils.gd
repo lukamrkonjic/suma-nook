@@ -128,11 +128,18 @@ static func add_flat_blob(
 	batch.add(key, vertices, normals, indices)
 
 
-## Blob draped over the cap surface: every vertex takes its height from the
-## cap function, so a patch that crosses the bevel folds over the rim like
-## paint on a toy instead of floating above the drop. Normals stay UP — the
-## decal look wants flat sky lighting even on the curve.
-static func add_draped_blob(
+## Soft raised patch draped over the cap surface: a shallow organic cushion
+## with a rolled edge, not a painted circle. Every rim vertex takes its height
+## from the cap function so the patch hugs relief and bevels; interior rings
+## rise on a superellipse profile whose edge tangent goes vertical, which is
+## what makes moss, snow, and soil patches read as soft material RESTING on
+## the ground — a form with its own light and shadow — rather than a stain.
+##
+## `cushion` is the peak height. Zero (or near) degenerates gracefully into
+## the old flat sheen for deliberately flat marks such as wet mud, and those
+## keep UP normals for the decal read. `softness` 0..1 trades a tight rolled
+## shoulder for a broad soft dome.
+static func add_cushion_blob(
 	batch: MeshBatch,
 	key: String,
 	centre: Vector2,
@@ -141,7 +148,9 @@ static func add_draped_blob(
 	radius_z: float,
 	yaw: float,
 	radii: PackedFloat32Array,
-	cap_height: Callable
+	cap_height: Callable,
+	cushion := 0.0,
+	softness := 0.55
 ) -> void:
 	var points := radii.size()
 	var vertices := PackedVector3Array()
@@ -149,19 +158,81 @@ static func add_draped_blob(
 	var indices := PackedInt32Array()
 	var height_at := func(point: Vector2) -> float:
 		return float(cap_height.call(point)) if cap_height.is_valid() else 0.0
-	vertices.append(Vector3(centre.x, height_at.call(centre) + lift, centre.y))
-	normals.append(Vector3.UP)
 	var rotation := Basis(Vector3.UP, yaw)
-	for index in points:
+	var outline_point := func(index: int, shrink: float) -> Vector2:
 		var angle := TAU * float(index) / float(points)
 		var local := rotation * Vector3(
-			cos(angle) * radius_x * radii[index], 0.0,
-			sin(angle) * radius_z * radii[index])
-		var world := centre + Vector2(local.x, local.z)
-		vertices.append(Vector3(world.x, height_at.call(world) + lift, world.y))
+			cos(angle) * radius_x * radii[index] * shrink, 0.0,
+			sin(angle) * radius_z * radii[index] * shrink)
+		return centre + Vector2(local.x, local.z)
+
+	if cushion <= 0.002:
+		# Flat sheen fallback: one fan, sky-lit, hugging the surface.
+		vertices.append(Vector3(centre.x, height_at.call(centre) + lift, centre.y))
 		normals.append(Vector3.UP)
+		for index in points:
+			var world: Vector2 = outline_point.call(index, 1.0)
+			vertices.append(Vector3(world.x, height_at.call(world) + lift, world.y))
+			normals.append(Vector3.UP)
+		for index in points:
+			indices.append_array([0, 1 + index, 1 + (index + 1) % points])
+		batch.add(key, vertices, normals, indices)
+		return
+
+	# Superellipse cushion profile: f(s) = (1 - s^a)^e over s = 0 (centre) to
+	# 1 (contact rim). e < 1 gives a vertical edge tangent — the rolled lip.
+	var a := lerpf(3.0, 2.2, softness)
+	var e := lerpf(0.52, 0.78, softness)
+	var profile := func(s: float) -> float:
+		return pow(maxf(0.0, 1.0 - pow(s, a)), e)
+	# Ring spacing biased toward the rim, where the roll needs resolution.
+	var ring_s := PackedFloat32Array()
+	var ring_count := 5
+	for ring in ring_count:
+		ring_s.append(sin((float(ring + 1) / float(ring_count)) * PI * 0.5))
+
+	# Centre vertex.
+	var base_y := float(height_at.call(centre)) + lift
+	vertices.append(Vector3(centre.x, base_y + cushion, centre.y))
+	normals.append(Vector3.UP)
+	# Rings outward. Vertex height follows the profile above the CENTRE's cap
+	# height for interior rings, blending to the rim's own cap height at s = 1
+	# so the contact ring always meets the real ground.
+	for ring in ring_count:
+		var s := ring_s[ring]
+		var factor: float = profile.call(s)
+		# Analytic slope of the profile for the normal pitch.
+		var slope := 0.0
+		if s > 0.0001 and factor > 0.0001:
+			slope = e * a * pow(s, a - 1.0) * pow(1.0 - pow(s, a), e - 1.0)
+		for index in points:
+			var world: Vector2 = outline_point.call(index, s)
+			var ground := float(height_at.call(world)) + lift
+			var blended := lerpf(base_y, ground, s)
+			vertices.append(Vector3(world.x, blended + factor * cushion, world.y))
+			var outward := (world - centre)
+			var reach: float = maxf(outward.length(), 0.0001)
+			var radial := outward / reach
+			# dh/dr in world units: profile slope scaled by cushion over the
+			# patch's local radius at this angle.
+			var local_radius: float = maxf(reach / maxf(s, 0.0001), 0.0001)
+			var gradient := slope * cushion / local_radius
+			normals.append(Vector3(
+				radial.x * gradient, 1.0, radial.y * gradient
+			).normalized())
+
+	# Fan the centre to ring 0, stitch consecutive rings.
 	for index in points:
 		indices.append_array([0, 1 + index, 1 + (index + 1) % points])
+	for ring in ring_count - 1:
+		var a0 := 1 + ring * points
+		var b0 := 1 + (ring + 1) * points
+		for index in points:
+			var next := (index + 1) % points
+			indices.append_array([
+				a0 + index, b0 + index, b0 + next,
+				a0 + index, b0 + next, a0 + next,
+			])
 	batch.add(key, vertices, normals, indices)
 
 
@@ -296,8 +367,8 @@ static func add_slab(
 	corner: float,
 	slab_height: float,
 	yaw: float,
-	bevel: float = 0.012,
-	corner_segments: int = 3
+	bevel: float = 0.016,
+	corner_segments: int = 4
 ) -> void:
 	bevel = minf(bevel, slab_height * 0.6)
 	var outline := _slab_outline(half_x, half_z, corner, corner_segments)
@@ -309,12 +380,15 @@ static func add_slab(
 	var indices := PackedInt32Array()
 	var rotation := Basis(Vector3.UP, yaw)
 
-	# Rings bottom-up: base, bevel start, top rim (inset), matching the tile
-	# shell's winding contract.
+	# Rings bottom-up: base, shoulder start, rolled shoulder, top rim (inset),
+	# matching the tile shell's winding contract. The extra shoulder ring is
+	# what turns a chamfered box into a softly pressed pillow stone — the
+	# highlight rolls around the edge instead of snapping across one facet.
 	var rings := [
 		[0.0, 0.0, 0.0],
-		[0.0, slab_height - bevel, 0.35],
-		[bevel, slab_height, 1.2],
+		[0.0, slab_height - bevel, 0.30],
+		[bevel * 0.45, slab_height - bevel * 0.28, 0.80],
+		[bevel, slab_height, 1.25],
 	]
 	for ring: Array in rings:
 		var inset: float = ring[0]
@@ -390,8 +464,8 @@ static func add_dome(
 	radius_z: float,
 	height: float,
 	yaw: float,
-	rings: int = 4,
-	segments: int = 12
+	rings: int = 5,
+	segments: int = 14
 ) -> void:
 	var vertices := PackedVector3Array()
 	var normals := PackedVector3Array()
@@ -450,29 +524,26 @@ static func add_blade(
 	var indices := PackedInt32Array()
 	var total_rings := length_rings + tip_rings
 
-	# Width profile along the blade: broad rounded base, only a gentle taper
-	# through the body, then a closing arc across the tip rings. The blade
-	# keeps ~70% of its width almost to the end — that blunt rounded finish is
-	# the difference between the reference's plump leaves and pointy straw.
+	# Width profile along the blade: full a third of the way up, then a long
+	# smooth taper to roughly half width before the tip cap closes it. The
+	# taper is what separates slender curved foliage from the fat-petal tulip
+	# read; the wide rounded finish keeps it from ever becoming a spike or a
+	# straight cone.
 	var ring_data: Array = []
 	for ring in total_rings + 1:
 		var t := float(ring) / float(total_rings)
 		var width_factor: float
 		if ring <= length_rings:
 			var body := float(ring) / float(length_rings)
-			# Clay-toy tongue: slightly pinched at the crown, fullest at 40%,
-			# still 80% wide when the tip cap begins. Almost no taper — the
-			# moment a blade narrows toward a point it stops being a molded
-			# toy leaf and becomes a spike.
-			if body < 0.4:
-				width_factor = lerpf(0.84, 1.0, body / 0.4)
+			if body < 0.32:
+				width_factor = lerpf(0.86, 1.0, body / 0.32)
 			else:
-				width_factor = lerpf(1.0, 0.80, pow((body - 0.4) / 0.6, 1.2))
+				width_factor = lerpf(1.0, 0.52, pow((body - 0.32) / 0.68, 1.15))
 		else:
 			var tip := float(ring - length_rings) / float(tip_rings)
 			# Hemispherical close over the tip rings: a rounded end, like a
-			# thumb, never a point.
-			width_factor = 0.80 * cos(tip * PI / 2.0)
+			# fingertip, never a point.
+			width_factor = 0.52 * cos(tip * PI / 2.0)
 		ring_data.append([t, maxf(width_factor, 0.05)])
 
 	var up := Vector3.UP

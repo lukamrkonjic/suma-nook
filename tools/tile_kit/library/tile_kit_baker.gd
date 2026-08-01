@@ -7,6 +7,11 @@ extends RefCounted
 
 const DEFAULT_OUTPUT_DIRECTORY := "res://tools/tile_kit/baked"
 
+## Palette materials are identical for every tile in a run. Saving them once
+## per bake() (35+ times per library rebuild) made Windows file locking reject
+## rewrites of files written milliseconds earlier — save them once per session.
+static var _materials_written := false
+
 var output_directory := DEFAULT_OUTPUT_DIRECTORY
 
 
@@ -88,12 +93,20 @@ func remove_bake(tile_id: String) -> PackedStringArray:
 
 
 func _save_materials(errors: PackedStringArray, written: PackedStringArray) -> void:
+	if _materials_written:
+		return
 	for key: String in TileKitPalette.COLORS:
 		var material := TileKitPalette.material(key)
 		var path := "%s/materials/%s.tres" % [output_directory, key]
 		var error := ResourceSaver.save(material, path)
+		if error != OK:
+			# One quiet retry: the failure mode on Windows is a transient
+			# lock (indexer/AV) on a file written moments ago.
+			OS.delay_msec(120)
+			error = ResourceSaver.save(material, path)
 		if error == OK:
 			material.take_over_path(path)
 			written.append(path)
 		else:
 			errors.append("%s: %s" % [path, error_string(error)])
+	_materials_written = true

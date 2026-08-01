@@ -5,13 +5,14 @@
 [resource]
 script = ExtResource("1_t00vo")
 tile_id = "tile_master_grass"
-display_name = "Tile Forge: Verdant Master"
+display_name = "Wild Grass"
 revision = 2
 lifecycle = "published"
 visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_master_grass.tres"
 baked_roles = PackedStringArray("base", "detail", "surface")
 family = "tile_forge"
+catalog_order = 50
 connection_group = "tile_forge"
 biome_tags = PackedStringArray("meadow")
 landmark_tags = PackedStringArray()

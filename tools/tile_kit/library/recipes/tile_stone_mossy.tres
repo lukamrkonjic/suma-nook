@@ -25,24 +25,25 @@ params = {
 [sub_resource type="Resource" id="Resource_gootx"]
 script = ExtResource("1_yv1g8")
 kind = "dressing"
+enabled = false
 params = {
-"allow_overlap": true,
 "aspect": [0.7, 1.35],
 "color_weights": {
-"moss_deep": 40.0,
-"moss_top": 60.0
+"dressing_dark": 15.0,
+"dressing_light": 50.0,
+"dressing_medium": 35.0
 },
 "edge_margin": 0.02,
 "irregularity": [0.08, 0.14],
-"large_count": [3, 6],
+"large_count": [3, 5],
 "large_radius": [0.17, 0.29],
-"medium_count": [5, 9],
+"medium_count": [4, 7],
 "medium_radius": [0.094, 0.17],
 "outline_points": 20,
 "region_count": [2, 3],
 "region_spread": 0.3,
 "scale_multiplier": 1.0,
-"small_count": [6, 12],
+"small_count": [2, 5],
 "small_radius": [0.047, 0.094],
 "smoothing_passes": 3
 }
@@ -71,13 +72,13 @@ kind = "grass_clusters"
 params = {
 "bend_multiplier": 0.75,
 "carpet_jitter": 0.3,
-"carpet_skip_fraction": 0.52,
-"carpet_spacing": 0.43,
+"carpet_skip_fraction": 0.26,
+"carpet_spacing": 0.32,
 "coverage_mode": "carpet",
 "crown_radius": 0.02,
 "edge_margin": 0.02,
 "height_multiplier": 1.0,
-"leaf_height": [0.04, 0.09],
+"leaf_height": [0.045, 0.095],
 "leaf_width": [0.058, 0.088],
 "primary_key": "moss_clump",
 "root_sink": [0.008, 0.015],
@@ -92,6 +93,6 @@ params = {
 
 [resource]
 script = ExtResource("2_7nrhd")
-preset_name = "Fernbound Stone"
+preset_name = "Mossy Stone"
 master_seed = 20268262
 layers = Array[ExtResource("1_yv1g8")]([SubResource("Resource_xd64o"), SubResource("Resource_gootx"), SubResource("Resource_sjir5"), SubResource("Resource_xlxg5")])

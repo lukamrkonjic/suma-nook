@@ -84,5 +84,5 @@ params = {
 
 [resource]
 script = ExtResource("2_niigx")
-preset_name = "Petalwink Meadow"
+preset_name = "Flower Meadow"
 layers = Array[ExtResource("1_6iovw")]([SubResource("Resource_6iovw"), SubResource("Resource_niigx"), SubResource("Resource_cc07h"), SubResource("Resource_2vh1g")])

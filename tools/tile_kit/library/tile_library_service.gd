@@ -11,6 +11,7 @@ const OFFICIAL_RECIPE_DIRECTORY := "res://tools/tile_kit/library/recipes"
 const OFFICIAL_MANIFEST_DIRECTORY := "res://tools/tile_kit/library/manifests"
 const DRAFT_RECIPE_DIRECTORY := "user://tile_library/drafts/recipes"
 const DRAFT_MANIFEST_DIRECTORY := "user://tile_library/drafts/manifests"
+const CatalogTaxonomy := preload("res://tools/tile_kit/library/tile_catalog_taxonomy.gd")
 
 var official_recipe_directory := OFFICIAL_RECIPE_DIRECTORY
 var official_manifest_directory := OFFICIAL_MANIFEST_DIRECTORY
@@ -32,11 +33,16 @@ func reload() -> Array[TileLibraryManifest]:
 	manifests.sort_custom(func(a: TileLibraryManifest, b: TileLibraryManifest) -> bool:
 		var rank_a := _lifecycle_rank(a.lifecycle)
 		var rank_b := _lifecycle_rank(b.lifecycle)
-		return (
-			a.display_name.naturalnocasecmp_to(b.display_name) < 0
-			if rank_a == rank_b
-			else rank_a < rank_b
-		))
+		if rank_a != rank_b:
+			return rank_a < rank_b
+		var category_a := CatalogTaxonomy.category_rank(a.catalog_category)
+		var category_b := CatalogTaxonomy.category_rank(b.catalog_category)
+		if category_a != category_b:
+			return category_a < category_b
+		if a.catalog_order != b.catalog_order:
+			return a.catalog_order < b.catalog_order
+		return a.display_name.naturalnocasecmp_to(b.display_name) < 0
+	)
 	return manifests
 
 
@@ -80,7 +86,7 @@ func new_manifest_from(
 	manifest.display_name = display_name
 	manifest.source_kind = TileLibraryManifest.SOURCE_PROCEDURAL
 	manifest.lifecycle = TileLibraryManifest.LIFECYCLE_DRAFT
-	manifest.visibility = TileLibraryManifest.VISIBILITY_HIDDEN
+	manifest.visibility = TileLibraryManifest.VISIBILITY_ACTIVE
 	manifest.separate_tiles = preset != null and preset.separate_tiles
 	manifest.created_at = _timestamp()
 	manifest.updated_at = manifest.created_at

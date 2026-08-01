@@ -94,6 +94,6 @@ params = {
 
 [resource]
 script = ExtResource("2_0o4dx")
-preset_name = "Silverbark Floor"
+preset_name = "Birch Forest Floor"
 master_seed = 20262037
 layers = Array[ExtResource("1_usp0r")]([SubResource("Resource_bi1vc"), SubResource("Resource_6jswd"), SubResource("Resource_ubwpb"), SubResource("Resource_wm3ax")])

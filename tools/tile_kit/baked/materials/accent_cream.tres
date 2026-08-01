@@ -2,6 +2,6 @@
 
 [resource]
 resource_name = "tilekit_accent_cream"
-albedo_color = Color(0.9098039, 0.8666667, 0.76862746, 1)
+albedo_color = Color(0.89411765, 0.85882354, 0.77254903, 1)
 metallic_specular = 0.2
 roughness = 0.9

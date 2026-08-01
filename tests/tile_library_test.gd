@@ -3,6 +3,7 @@ extends SceneTree
 
 const TEST_ROOT := "user://tile_library_contract"
 const TEST_ID := "tile_test_library_dune"
+const CatalogTaxonomy := preload("res://tools/tile_kit/library/tile_catalog_taxonomy.gd")
 
 var _failures: Array[String] = []
 var _checks := 0
@@ -39,6 +40,9 @@ func _run() -> void:
 
 func _check_official_sources() -> void:
 	_check(TileKitPreset.OFFICIAL_RECIPES.size() == 56, "all 56 recipes are registered")
+	_check(CatalogTaxonomy.RECIPES.size() == 56, "taxonomy covers all 56 tiles")
+	_check(CatalogTaxonomy.CATEGORIES.size() == 10, "taxonomy has ten scenery categories")
+	_check(CatalogTaxonomy.validation_errors().is_empty(), "taxonomy names and IDs are unique")
 	var registered_ids: Dictionary = {}
 	var registered_names: Dictionary = {}
 	for entry in TileKitPreset.OFFICIAL_RECIPES:
@@ -57,10 +61,27 @@ func _check_official_sources() -> void:
 		_check(_has_visual_identity(preset), "%s is not an empty colour block" % tile_id)
 	var service := TileLibraryService.new()
 	service.reload()
-	_check(service.official_manifests().size() == 56, "official manifest library is complete")
+	var official := service.official_manifests()
+	_check(official.size() == 56, "official manifest library is complete")
+	_check(
+		official.all(func(manifest: TileLibraryManifest) -> bool: return manifest.visibility == TileLibraryManifest.VISIBILITY_ACTIVE),
+		"all official manifests are available in game"
+	)
+	for index in mini(official.size(), CatalogTaxonomy.RECIPES.size()):
+		_check(
+			official[index].tile_id == String(CatalogTaxonomy.RECIPES[index][1]),
+			"official library follows the curated scenery order at %d" % index
+		)
 	var catalog := _read_json("res://data/tiles.json")
+	var catalog_tiles := catalog.get("tiles", []) as Array
+	for index in mini(catalog_tiles.size(), CatalogTaxonomy.RECIPES.size()):
+		_check(
+			String((catalog_tiles[index] as Dictionary).get("id", ""))
+				== String(CatalogTaxonomy.RECIPES[index][1]),
+			"runtime catalog follows the curated scenery order at %d" % index
+		)
 	var procedural_count := 0
-	for raw in catalog.get("tiles", []):
+	for raw in catalog_tiles:
 		var tile_id := String((raw as Dictionary).get("id", ""))
 		if String((raw as Dictionary).get("source_kind", "")) \
 				== TileLibraryManifest.SOURCE_PROCEDURAL:
@@ -78,8 +99,40 @@ func _check_official_sources() -> void:
 			manifest != null and ResourceLoader.exists(manifest.recipe_path),
 			"%s keeps an editable official recipe" % tile_id
 		)
+		if CatalogTaxonomy.has_tile(tile_id):
+			_check(
+				manifest != null
+					and manifest.display_name == CatalogTaxonomy.display_name(tile_id),
+				"%s uses its simple catalog name" % tile_id
+			)
+			_check(
+				manifest != null
+					and manifest.catalog_category == CatalogTaxonomy.category(tile_id),
+				"%s uses its scenery category" % tile_id
+			)
+			_check(
+				manifest != null
+					and manifest.catalog_order == CatalogTaxonomy.catalog_order(tile_id),
+				"%s uses its curated category order" % tile_id
+			)
+			_check(
+				int((raw as Dictionary).get("catalog_order", 1000))
+					== CatalogTaxonomy.catalog_order(tile_id),
+				"%s compiles its catalog order for runtime UI" % tile_id
+			)
+			_check(
+				String((raw as Dictionary).get("catalog_category", ""))
+					== CatalogTaxonomy.category(tile_id),
+				"%s compiles its scenery category for runtime UI" % tile_id
+			)
 	_check(catalog.get("tiles", []).size() == 56, "all 56 official tiles are real runtime tiles")
 	_check(procedural_count == 56, "all 56 runtime tiles are procedural")
+	var tuning := _read_json("res://data/tuning.json")
+	_check(
+		(tuning.get("active_tile_ids", []) as Array).size() == 56
+		and (tuning.get("preview_tile_ids", []) as Array).is_empty(),
+		"the compiled gameplay roster exposes all 56 official tiles"
+	)
 	_check(TileLayerParameterSchema.SHAPES.has("crystal"), "generic scatter exposes crystals")
 	_check(TileLayerParameterSchema.SHAPES.has("footprint"), "generic scatter exposes footprints")
 	var paver_pattern := TileLayerParameterSchema.parameters("pavers")[0] as Dictionary

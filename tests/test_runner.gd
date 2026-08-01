@@ -1058,11 +1058,10 @@ func _test_registries() -> void:
 		"open water remains a real continuous-water tile"
 	)
 	check(
-		regs.active_tile_ids() == [
-			"tile_grass", "tile_sand", "tile_grove_mature",
-			"tile_concrete_brutalist", "tile_snowfield", "tile_master_grass"
-		],
-		"the active land roster remains explicit"
+		regs.active_tile_ids().size() == 56
+		and regs.preview_tile_ids().is_empty()
+		and regs.obtainable_tile_ids().all(func(tile_id: String) -> bool: return regs.is_tile_active(tile_id)),
+		"all 56 official tiles ship in the active gameplay roster"
 	)
 	check(
 		regs.discovery_pool("void_unknown") != null,
@@ -1391,7 +1390,15 @@ func _test_tile_slot_fill() -> void:
 	var assets := AssetLibrary.new(MaterialLibrary.new(palette))
 	var factory := TileVisualFactory.new(assets, core.grid)
 	for tile_id: String in core.registries.active_tile_ids():
-		var visual := factory.instantiate_visual(core.registries.tile(tile_id))
+		var definition := core.registries.tile(tile_id)
+		var visual := factory.instantiate_visual(definition)
+		if definition.render_profile == "continuous_water":
+			check(
+				visual.find_children("*", "MeshInstance3D", true, false).size() > 0,
+				"active continuous water assembles its dedicated water surface"
+			)
+			visual.free()
+			continue
 		var base_meshes: Array[MeshInstance3D] = []
 		var surface_meshes: Array[MeshInstance3D] = []
 		for found in visual.find_children("*", "MeshInstance3D", true, false):

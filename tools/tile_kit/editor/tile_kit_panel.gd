@@ -16,6 +16,7 @@ signal status(message: String)
 signal library_changed(tile_id: String)
 
 const DEBOUNCE_SECONDS := 0.13
+const CatalogTaxonomy := preload("res://tools/tile_kit/library/tile_catalog_taxonomy.gd")
 
 var preset: TileKitPreset
 var _kit: UiKit
@@ -24,7 +25,8 @@ var _seed_history: Array[int] = []
 var _stats_label: Label
 var _preset_name: LineEdit
 var _tile_id_field: LineEdit
-var _family_field: LineEdit
+var _category_field: OptionButton
+var _catalog_order_field: SpinBox
 var _visibility_field: OptionButton
 var _manifest_status: Label
 var _template_select: OptionButton
@@ -39,6 +41,9 @@ var _overwrite_button: Button
 var _archive_button: Button
 var _delete_button: Button
 var _bake_button: Button
+var _create_accordion_header: Button
+var _edit_accordion_header: Button
+var _delete_accordion_header: Button
 var _recipe_editable := true
 var _procedural_controls: Array[Control] = []
 var _separate_tiles: CheckBox
@@ -71,187 +76,281 @@ func setup(
 
 
 func _build() -> void:
-	add_theme_constant_override("separation", 9)
+	add_theme_constant_override("separation", 8)
 
-	add_child(_section("TILE IDENTITY & LIFECYCLE"))
-	add_child(_field_label("Stable ID"))
-	_tile_id_field = LineEdit.new()
-	_tile_id_field.placeholder_text = "Stable ID (tile_…)"
-	_tile_id_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	add_child(_tile_id_field)
-	add_child(_field_label("Display name"))
-	_preset_name = LineEdit.new()
-	_preset_name.placeholder_text = "Display name…"
-	_preset_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	add_child(_preset_name)
-	add_child(_field_label("Catalog family & availability"))
-	var metadata_row := HBoxContainer.new()
-	metadata_row.add_theme_constant_override("separation", 6)
-	add_child(metadata_row)
-	_family_field = LineEdit.new()
-	_family_field.placeholder_text = "Catalog family"
-	_family_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	metadata_row.add_child(_family_field)
-	_visibility_field = OptionButton.new()
-	_visibility_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_visibility_field.tooltip_text = "Runtime availability after publication"
-	_visibility_field.add_item("Active")
-	_visibility_field.add_item("Preview")
-	_visibility_field.add_item("Hidden")
-	metadata_row.add_child(_visibility_field)
-	_manifest_status = _kit.label("", 11)
-	_manifest_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	add_child(_manifest_status)
-
-	add_child(_section("CREATE FROM GENERIC TEMPLATE"))
+	# The dock is organized around the designer's three jobs. Technical
+	# distinctions (draft/publish/overwrite/archive) stay behind clear actions.
+	var create_task := _accordion(
+		self,
+		"1. CREATE A NEW TILE",
+		false,
+		"TileTaskCreate",
+		"Choose a starting template. You can name and customize it before it enters the game."
+	)
+	_create_accordion_header = create_task["header"] as Button
+	var create_content := create_task["content"] as VBoxContainer
 	var template_row := HBoxContainer.new()
 	template_row.add_theme_constant_override("separation", 6)
-	add_child(template_row)
+	create_content.add_child(template_row)
 	_template_select = OptionButton.new()
 	_template_select.name = "TileLibraryTemplate"
 	_template_select.fit_to_longest_item = false
 	_template_select.custom_minimum_size.x = 140.0
 	_template_select.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_template_select.tooltip_text = "Generic starting recipe used only for New Tile"
+	_template_select.tooltip_text = "Generic starting recipe for the new tile"
 	for template in TileTemplateLibrary.TEMPLATES:
 		_template_select.add_item(String(template["name"]))
 		var template_index := _template_select.item_count - 1
 		_template_select.set_item_metadata(template_index, template["id"])
 		_template_select.set_item_tooltip(template_index, template["description"])
 	template_row.add_child(_template_select)
-	var new_button := _button("New Tile")
-	new_button.custom_minimum_size.x = 86.0
+	var new_button := _button("Start New Tile", true)
+	new_button.name = "TileLibraryStartNew"
+	new_button.custom_minimum_size.x = 118.0
 	new_button.pressed.connect(_new_tile)
 	template_row.add_child(new_button)
 
-	var actions := GridContainer.new()
-	actions.columns = 2
-	actions.add_theme_constant_override("h_separation", 6)
-	actions.add_theme_constant_override("v_separation", 6)
-	add_child(actions)
-	_draft_button = _button("Save Draft")
+	var edit_task := _accordion(
+		self,
+		"2. EDIT THE SELECTED TILE",
+		true,
+		"TileTaskEdit",
+		"Change the selected tile, then use the single Save Changes button."
+	)
+	_edit_accordion_header = edit_task["header"] as Button
+	var edit_content := edit_task["content"] as VBoxContainer
+
+	var basics_section := _accordion(
+		edit_content, "BASICS & CATALOG", true, "TileEditBasics"
+	)
+	var basics := basics_section["content"] as VBoxContainer
+	basics.add_child(_field_label("Stable ID"))
+	_tile_id_field = LineEdit.new()
+	_tile_id_field.placeholder_text = "Stable ID (tile_...)"
+	_tile_id_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	basics.add_child(_tile_id_field)
+	basics.add_child(_field_label("Display name"))
+	_preset_name = LineEdit.new()
+	_preset_name.placeholder_text = "Display name..."
+	_preset_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	basics.add_child(_preset_name)
+	basics.add_child(_field_label("Scenery category, order & availability"))
+	var metadata_row := HBoxContainer.new()
+	metadata_row.add_theme_constant_override("separation", 6)
+	basics.add_child(metadata_row)
+	_category_field = OptionButton.new()
+	_category_field.fit_to_longest_item = false
+	_category_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_category_field.tooltip_text = "Biome/scenery group shown in the tile library"
+	for category: Array in CatalogTaxonomy.CATEGORIES:
+		_category_field.add_item(String(category[1]))
+		_category_field.set_item_metadata(
+			_category_field.item_count - 1, String(category[0])
+		)
+	metadata_row.add_child(_category_field)
+	_catalog_order_field = SpinBox.new()
+	_catalog_order_field.min_value = 0
+	_catalog_order_field.max_value = 10000
+	_catalog_order_field.step = 10
+	_catalog_order_field.custom_minimum_size.x = 70
+	_catalog_order_field.tooltip_text = "Position inside this scenery category"
+	metadata_row.add_child(_catalog_order_field)
+	_visibility_field = OptionButton.new()
+	_visibility_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_visibility_field.tooltip_text = "Availability after saving"
+	_visibility_field.add_item("In Game")
+	_visibility_field.add_item("Preview Only")
+	_visibility_field.add_item("Hidden")
+	metadata_row.add_child(_visibility_field)
+	_manifest_status = _kit.label("", 11)
+	_manifest_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	basics.add_child(_manifest_status)
+
+	_overwrite_button = _button("Save Changes to Game", true)
+	_overwrite_button.name = "TileLibrarySaveChanges"
+	_overwrite_button.pressed.connect(func() -> void: _request_operation("overwrite"))
+	basics.add_child(_overwrite_button)
+	_mutation_buttons.append(_overwrite_button)
+	var create_actions := HBoxContainer.new()
+	create_actions.add_theme_constant_override("separation", 6)
+	basics.add_child(create_actions)
+	_draft_button = _button("Save as Draft")
+	_draft_button.name = "TileLibrarySaveDraft"
 	_draft_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_draft_button.pressed.connect(func() -> void: _request_operation("draft"))
-	actions.add_child(_draft_button)
+	create_actions.add_child(_draft_button)
 	_mutation_buttons.append(_draft_button)
-	_publish_button = _button("Publish New", true)
+	_publish_button = _button("Create Tile in Game", true)
+	_publish_button.name = "TileLibraryCreateTile"
 	_publish_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_publish_button.pressed.connect(func() -> void: _request_operation("publish"))
-	actions.add_child(_publish_button)
+	create_actions.add_child(_publish_button)
 	_mutation_buttons.append(_publish_button)
-	_overwrite_button = _button("Overwrite")
-	_overwrite_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_overwrite_button.pressed.connect(func() -> void: _request_operation("overwrite"))
-	actions.add_child(_overwrite_button)
-	_mutation_buttons.append(_overwrite_button)
-	_archive_button = _button("Archive")
-	_archive_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_archive_button.pressed.connect(func() -> void: _request_operation("archive"))
-	actions.add_child(_archive_button)
-	_mutation_buttons.append(_archive_button)
-	_delete_button = _button("Hard Delete")
-	_delete_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_delete_button.pressed.connect(func() -> void: _request_operation("delete"))
-	actions.add_child(_delete_button)
-	_mutation_buttons.append(_delete_button)
-	var action_spacer := Control.new()
-	action_spacer.custom_minimum_size.y = 38.0
-	actions.add_child(action_spacer)
 
-	_confirmation = ConfirmationDialog.new()
-	_confirmation.name = "TileLibraryConfirmation"
-	_confirmation.confirmed.connect(_execute_pending_operation)
-	add_child(_confirmation)
-	var procedural_start := get_child_count()
-
-	# Seed row.
-	add_child(_section("MASTER SEED"))
+	var shape_section := _accordion(
+		edit_content,
+		"SHAPE, RANDOMIZATION & EDGES",
+		false,
+		"TileEditShape"
+	)
+	var shape := shape_section["content"] as VBoxContainer
+	_procedural_controls.append(shape_section["root"] as Control)
+	shape.add_child(_field_label("Master seed"))
 	var seed_row := HBoxContainer.new()
 	seed_row.add_theme_constant_override("separation", 6)
-	add_child(seed_row)
+	shape.add_child(seed_row)
 	_seed_field = LineEdit.new()
 	_seed_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_seed_field.text = str(preset.master_seed)
 	_seed_field.text_submitted.connect(_on_seed_entered)
 	seed_row.add_child(_seed_field)
-	var previous := _button("Prev")
+	var previous := _button("Previous")
 	previous.tooltip_text = "Return to the previous master seed"
 	previous.pressed.connect(_previous_seed)
 	seed_row.add_child(previous)
-	var reroll := _button("Randomize All", true)
-	reroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var reroll := _button("Randomize Tile", true)
 	reroll.pressed.connect(_randomize_all)
-	add_child(reroll)
-
-	# Topology is a preset-level art decision, not a layer parameter: an
-	# organic grass cap should fuse across cells, while a paved path can keep
-	# the soft groove around every authored tile.
-	add_child(_section("TILE EDGES"))
+	shape.add_child(reroll)
 	_separate_tiles = CheckBox.new()
 	_separate_tiles.name = "TileKitSeparateTiles"
-	_separate_tiles.text = "Keep tiles separated"
+	_separate_tiles.text = "Keep seams between neighbouring tiles"
 	_separate_tiles.tooltip_text = (
-		"Keep the bevel and groove between neighbouring tiles. Turn this off "
-		+ "for grass and other ground that should fuse into one surface."
+		"Enable for individual paving blocks. Disable for continuous natural ground."
 	)
 	_separate_tiles.button_pressed = preset.separate_tiles
 	_separate_tiles.toggled.connect(func(on: bool) -> void:
 		if not _suppress:
 			preset.separate_tiles = on
 			_emit_change(true))
-	add_child(_separate_tiles)
+	shape.add_child(_separate_tiles)
 
-	# Capabilities and their controls are generated from one declarative schema.
-	# This is what keeps Leaves, Wood Chips, Snow Lumps, Pavers, or a future
-	# builder reusable instead of growing tile-name-specific inspector code.
-	add_child(_section("CAPABILITY STACK"))
+	var capability_section := _accordion(
+		edit_content,
+		"SURFACE & DETAILS",
+		false,
+		"TileEditCapabilities",
+		"Turn reusable capabilities on or off, then expand their settings below."
+	)
+	var capability_content := capability_section["content"] as VBoxContainer
+	_procedural_controls.append(capability_section["root"] as Control)
 	_layer_list = VBoxContainer.new()
 	_layer_list.name = "TileKitCapabilityStack"
 	_layer_list.add_theme_constant_override("separation", 5)
-	add_child(_layer_list)
+	capability_content.add_child(_layer_list)
 	var add_layer_row := HBoxContainer.new()
 	add_layer_row.add_theme_constant_override("separation", 6)
-	add_child(add_layer_row)
+	capability_content.add_child(add_layer_row)
 	_add_layer_select = OptionButton.new()
 	_add_layer_select.name = "TileKitAddCapability"
 	_add_layer_select.fit_to_longest_item = false
 	_add_layer_select.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	add_layer_row.add_child(_add_layer_select)
-	_add_layer_button = _button("Add")
+	_add_layer_button = _button("Add Detail Type")
 	_add_layer_button.name = "TileKitAddCapabilityButton"
 	_add_layer_button.pressed.connect(_add_selected_layer)
 	add_layer_row.add_child(_add_layer_button)
-
-	add_child(_section("CAPABILITY SETTINGS"))
 	_parameter_editor = VBoxContainer.new()
 	_parameter_editor.name = "TileKitCapabilitySettings"
 	_parameter_editor.add_theme_constant_override("separation", 5)
-	add_child(_parameter_editor)
-	_rebuild_capability_ui()
+	capability_content.add_child(_parameter_editor)
 
-	# Output.
-	add_child(_section("OUTPUT"))
-	var regenerate := _button("Regenerate")
+	var output_section := _accordion(
+		edit_content,
+		"DEVELOPER OUTPUT",
+		false,
+		"TileEditOutput",
+		"Save Changes already rebakes the tile. These are manual technical tools."
+	)
+	var output := output_section["content"] as VBoxContainer
+	_procedural_controls.append(output_section["root"] as Control)
+	var regenerate := _button("Rebuild Preview")
 	regenerate.pressed.connect(func() -> void: _emit_change(true))
-	add_child(regenerate)
-	_bake_button = _button("Bake To Game", true)
-	_bake_button.tooltip_text = "Write uniquely named layer scenes for this stable tile ID"
+	output.add_child(regenerate)
+	_bake_button = _button("Rebake Generated Assets")
+	_bake_button.tooltip_text = "Rebuild generated scenes without changing catalog metadata"
 	_bake_button.pressed.connect(func() -> void: bake_requested.emit())
-	add_child(_bake_button)
+	output.add_child(_bake_button)
 	var export_button := _button("Export GLB")
 	export_button.pressed.connect(func() -> void: export_requested.emit())
-	add_child(export_button)
-
+	output.add_child(export_button)
 	_stats_label = _kit.label("", 12)
 	_stats_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	add_child(_stats_label)
-	for index in range(procedural_start, get_child_count()):
-		var child := get_child(index)
-		if child is Control:
-			_procedural_controls.append(child as Control)
+	output.add_child(_stats_label)
+
+	var delete_task := _accordion(
+		self,
+		"3. DELETE THE SELECTED TILE",
+		false,
+		"TileTaskDelete",
+		"Archive hides a tile safely. Permanent delete removes its recipe and generated assets."
+	)
+	_delete_accordion_header = delete_task["header"] as Button
+	var delete_content := delete_task["content"] as VBoxContainer
+	_archive_button = _button("Archive / Hide Tile")
+	_archive_button.name = "TileLibraryArchive"
+	_archive_button.pressed.connect(func() -> void: _request_operation("archive"))
+	delete_content.add_child(_archive_button)
+	_mutation_buttons.append(_archive_button)
+	_delete_button = _button("Delete Permanently...")
+	_delete_button.name = "TileLibraryDelete"
+	_delete_button.pressed.connect(func() -> void: _request_operation("delete"))
+	delete_content.add_child(_delete_button)
+	_mutation_buttons.append(_delete_button)
+
+	_confirmation = ConfirmationDialog.new()
+	_confirmation.name = "TileLibraryConfirmation"
+	_confirmation.confirmed.connect(_execute_pending_operation)
+	add_child(_confirmation)
+	_rebuild_capability_ui()
 	_sync_manifest_fields()
 	_sync_recipe_controls()
 	_sync_mutation_controls()
+
+
+func _accordion(
+	parent: Container,
+	title: String,
+	expanded: bool,
+	node_name: String,
+	help_text := ""
+) -> Dictionary:
+	var root := VBoxContainer.new()
+	root.name = node_name
+	root.add_theme_constant_override("separation", 6)
+	parent.add_child(root)
+	var header := _button("")
+	header.name = node_name + "Header"
+	header.toggle_mode = true
+	header.set_pressed_no_signal(expanded)
+	header.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	header.custom_minimum_size.y = 44
+	root.add_child(header)
+	var content := VBoxContainer.new()
+	content.name = node_name + "Content"
+	content.add_theme_constant_override("separation", 7)
+	content.visible = expanded
+	root.add_child(content)
+	if not help_text.is_empty():
+		var help := _kit.label(help_text, 11)
+		help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		help.add_theme_color_override("font_color", Color(0.38, 0.42, 0.37))
+		content.add_child(help)
+	header.text = _accordion_title(title, expanded)
+	header.toggled.connect(func(open: bool) -> void:
+		content.visible = open
+		header.text = _accordion_title(title, open)
+	)
+	return {"root": root, "header": header, "content": content}
+
+
+func _accordion_title(title: String, expanded: bool) -> String:
+	return ("▼  " if expanded else "▶  ") + title
+
+
+func _set_accordion(header: Button, expanded: bool) -> void:
+	if header == null or header.button_pressed == expanded:
+		return
+	header.button_pressed = expanded
 
 
 func _section(text: String) -> Label:
@@ -785,6 +884,7 @@ func select_tile(tile_id: String) -> bool:
 		preset = TileKitPreset.reference_clean_grass()
 	_sync_manifest_fields()
 	_sync_recipe_controls()
+	_set_accordion(_edit_accordion_header, true)
 	return true
 
 
@@ -794,7 +894,8 @@ func _sync_manifest_fields() -> void:
 	_suppress = true
 	_tile_id_field.text = current_manifest.tile_id
 	_preset_name.text = current_manifest.display_name
-	_family_field.text = current_manifest.family
+	_select_catalog_category(current_manifest.catalog_category)
+	_catalog_order_field.value = current_manifest.catalog_order
 	_visibility_field.select([
 		TileLibraryManifest.VISIBILITY_ACTIVE,
 		TileLibraryManifest.VISIBILITY_PREVIEW,
@@ -821,6 +922,14 @@ func _sync_manifest_fields() -> void:
 	]
 	_suppress = false
 	_sync_mutation_controls()
+
+
+func _select_catalog_category(category_id: String) -> void:
+	for index in _category_field.item_count:
+		if String(_category_field.get_item_metadata(index)) == category_id:
+			_category_field.select(index)
+			return
+	_category_field.select(0)
 
 
 func _sync_recipe_controls() -> void:
@@ -854,6 +963,9 @@ func _sync_mutation_controls() -> void:
 		if current_manifest != null else null
 	)
 	var can_overwrite := official_target != null and official_target.is_official()
+	_draft_button.visible = not can_overwrite
+	_publish_button.visible = not can_overwrite
+	_overwrite_button.visible = can_overwrite
 	_draft_button.disabled = read_only or current_manifest == null
 	_publish_button.disabled = read_only or current_manifest == null or can_overwrite
 	_overwrite_button.disabled = read_only or not can_overwrite
@@ -888,12 +1000,14 @@ func _new_tile() -> void:
 	_recipe_editable = true
 	_sync_manifest_fields()
 	_sync_recipe_controls()
+	_set_accordion(_create_accordion_header, false)
+	_set_accordion(_edit_accordion_header, true)
 	_tile_id_field.editable = true
 	_tile_id_field.grab_focus()
 	status.emit(
 		(
-			"New tile from the %s template. Give it a stable ID, then Save Draft "
-			+ "or Publish New."
+			"New tile from the %s template. Name it, customize it, then choose "
+			+ "Create Tile in Game."
 		) % TileTemplateLibrary.display_name(template_id)
 	)
 	_emit_change(true)
@@ -907,7 +1021,10 @@ func _working_manifest_from_fields() -> TileLibraryManifest:
 	)
 	working.tile_id = _tile_id_field.text.strip_edges()
 	working.display_name = _preset_name.text.strip_edges()
-	working.family = _family_field.text.strip_edges()
+	working.catalog_category = String(_category_field.get_item_metadata(
+		_category_field.selected
+	))
+	working.catalog_order = int(_catalog_order_field.value)
 	working.visibility = [
 		TileLibraryManifest.VISIBILITY_ACTIVE,
 		TileLibraryManifest.VISIBILITY_PREVIEW,
@@ -923,11 +1040,11 @@ func _request_operation(operation: String) -> void:
 	_pending_operation = operation
 	var working := _working_manifest_from_fields()
 	var action: String = String({
-		"draft": "Save draft",
-		"publish": "Publish new official tile",
-		"overwrite": "Overwrite official tile",
-		"archive": "Archive official tile",
-		"delete": "Permanently hard-delete tile",
+		"draft": "Save this unfinished tile as a draft",
+		"publish": "Create this tile in the game",
+		"overwrite": "Save changes to this game tile",
+		"archive": "Archive and hide this tile",
+		"delete": "Permanently delete this tile",
 	}.get(operation, operation))
 	_confirmation.title = String(action)
 	_confirmation.dialog_text = "%s\n\n%s (%s)" % [
@@ -976,7 +1093,7 @@ func _execute_pending_operation() -> void:
 	if current_manifest == null:
 		current_manifest = _library.official_manifest(working.tile_id)
 	_sync_manifest_fields()
-	status.emit("Tile Library operation completed for %s." % working.tile_id)
+	status.emit("Saved %s to the game." % working.display_name)
 	library_changed.emit(working.tile_id)
 
 

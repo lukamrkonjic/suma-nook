@@ -27,23 +27,25 @@ params = {
 [sub_resource type="Resource" id="Resource_ffhfp"]
 script = ExtResource("1_0ow7t")
 kind = "dressing"
+enabled = false
 params = {
 "aspect": [0.7, 1.35],
 "color_weights": {
-"moss_top": 60.0,
-"stone_deep": 40.0
+"dressing_dark": 15.0,
+"dressing_light": 50.0,
+"dressing_medium": 35.0
 },
 "edge_margin": 0.02,
 "irregularity": [0.08, 0.14],
-"large_count": [2, 3],
+"large_count": [3, 5],
 "large_radius": [0.17, 0.29],
-"medium_count": [3, 5],
+"medium_count": [4, 7],
 "medium_radius": [0.094, 0.17],
 "outline_points": 20,
 "region_count": [2, 3],
 "region_spread": 0.3,
 "scale_multiplier": 1.0,
-"small_count": [4, 7],
+"small_count": [2, 5],
 "small_radius": [0.047, 0.094],
 "smoothing_passes": 3
 }
@@ -93,6 +95,6 @@ params = {
 
 [resource]
 script = ExtResource("2_n2532")
-preset_name = "Glimmervein Ground"
+preset_name = "Crystal Ground"
 master_seed = 20265061
 layers = Array[ExtResource("1_0ow7t")]([SubResource("Resource_qheg0"), SubResource("Resource_ffhfp"), SubResource("Resource_eme5a"), SubResource("Resource_gegpa")])

@@ -71,13 +71,18 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 		var stone_key := slab_key
 		if not alt_key.is_empty() and int(stone.get("parity", 0)) == 1:
 			stone_key = alt_key
+		# A slab thinner than ~18 mm reads as a paper sheet lying on the tile
+		# rather than a manufactured piece with its own thickness. Floor it —
+		# trail pieces are the deliberate exception: nearly-flush worn tracks.
+		var minimum_height := 0.018 if pattern != "trail" else 0.006
 		TileKitMeshUtils.add_slab(batch,
 			stone_key if not stone_key.is_empty()
 				else TileKitPalette.weighted_key(rng, weights),
 			Vector3(centre.x, base_y - sink, centre.y),
 			half_x, half_z,
 			layer.value("stone_corner", 0.028),
-			rng.randf_range(float(height_band[0]), float(height_band[1])) + sink,
+			maxf(minimum_height,
+				rng.randf_range(float(height_band[0]), float(height_band[1]))) + sink,
 			yaw)
 
 	context["paver_stones"] = stones

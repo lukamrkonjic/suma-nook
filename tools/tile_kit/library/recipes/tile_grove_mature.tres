@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://tools/tile_kit/tile_kit_layer.gd" id="1_ii8ws"]
 [ext_resource type="Script" path="res://tools/tile_kit/tile_kit_preset.gd" id="2_a01by"]
 
-[sub_resource type="Resource" id="Resource_qhnuh"]
+[sub_resource type="Resource" id="Resource_ii8ws"]
 script = ExtResource("1_ii8ws")
 kind = "base"
 locked = true
@@ -22,7 +22,7 @@ params = {
 "top_key": "moss_top"
 }
 
-[sub_resource type="Resource" id="Resource_iif56"]
+[sub_resource type="Resource" id="Resource_a01by"]
 script = ExtResource("1_ii8ws")
 kind = "dressing"
 enabled = false
@@ -48,7 +48,7 @@ params = {
 "smoothing_passes": 3
 }
 
-[sub_resource type="Resource" id="Resource_fxnkh"]
+[sub_resource type="Resource" id="Resource_qhnuh"]
 script = ExtResource("1_ii8ws")
 kind = "clutter"
 params = {
@@ -67,7 +67,7 @@ params = {
 "shapes": ["lobed_clump", "twig", "leaf_litter", "mushroom"]
 }
 
-[sub_resource type="Resource" id="Resource_3qsnc"]
+[sub_resource type="Resource" id="Resource_iif56"]
 script = ExtResource("1_ii8ws")
 kind = "grass_clusters"
 params = {
@@ -94,6 +94,6 @@ params = {
 
 [resource]
 script = ExtResource("2_a01by")
-preset_name = "Elder Canopy"
-master_seed = 20263163
-layers = Array[ExtResource("1_ii8ws")]([SubResource("Resource_qhnuh"), SubResource("Resource_iif56"), SubResource("Resource_fxnkh"), SubResource("Resource_3qsnc")])
+preset_name = "Forest Floor"
+master_seed = 707631
+layers = Array[ExtResource("1_ii8ws")]([SubResource("Resource_ii8ws"), SubResource("Resource_a01by"), SubResource("Resource_qhnuh"), SubResource("Resource_iif56")])

@@ -91,6 +91,6 @@ params = {
 
 [resource]
 script = ExtResource("2_jtoek")
-preset_name = "Tile Forge: Verdant Master"
+preset_name = "Wild Grass"
 master_seed = 20265118
 layers = Array[ExtResource("1_qfr5k")]([SubResource("Resource_al6yg"), SubResource("Resource_72ayx"), SubResource("Resource_8agd0"), SubResource("Resource_rfkj7")])

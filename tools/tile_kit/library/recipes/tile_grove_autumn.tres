@@ -25,23 +25,25 @@ params = {
 [sub_resource type="Resource" id="Resource_f3yf3"]
 script = ExtResource("1_1tday")
 kind = "dressing"
+enabled = false
 params = {
 "aspect": [0.7, 1.35],
 "color_weights": {
-"autumn_amber": 55.0,
-"autumn_rust": 45.0
+"dressing_dark": 15.0,
+"dressing_light": 50.0,
+"dressing_medium": 35.0
 },
 "edge_margin": 0.02,
 "irregularity": [0.08, 0.14],
 "large_count": [3, 5],
 "large_radius": [0.17, 0.29],
-"medium_count": [5, 8],
+"medium_count": [4, 7],
 "medium_radius": [0.094, 0.17],
 "outline_points": 20,
 "region_count": [2, 3],
 "region_spread": 0.3,
 "scale_multiplier": 1.0,
-"small_count": [5, 9],
+"small_count": [2, 5],
 "small_radius": [0.047, 0.094],
 "smoothing_passes": 3
 }
@@ -50,19 +52,21 @@ params = {
 script = ExtResource("1_1tday")
 kind = "clutter"
 params = {
+"cluster_fraction": 0.75,
+"cluster_radius": 0.3,
 "color_weights": {
 "autumn_amber": 45.0,
 "autumn_rust": 40.0,
 "wood_medium": 15.0
 },
-"count": [18, 28],
-"diameter": [0.045, 0.12],
+"count": [30, 44],
+"diameter": [0.075, 0.16],
 "edge_margin": 0.035,
-"height": [0.008, 0.022],
-"min_spacing": 0.055,
+"height": [0.012, 0.024],
+"min_spacing": 0.03,
 "on_dressing_fraction": 0.55,
 "scale_multiplier": 1.0,
-"shapes": ["leaf_litter", "leaf_litter", "twig", "mushroom"]
+"shapes": ["leaf_litter", "leaf_litter", "leaf_litter", "twig", "mushroom"]
 }
 
 [sub_resource type="Resource" id="Resource_l4hv1"]
@@ -91,6 +95,6 @@ params = {
 
 [resource]
 script = ExtResource("2_glte8")
-preset_name = "Coppercanopy Floor"
+preset_name = "Autumn Forest Floor"
 master_seed = 20267007
 layers = Array[ExtResource("1_1tday")]([SubResource("Resource_0qf6w"), SubResource("Resource_f3yf3"), SubResource("Resource_lqmaw"), SubResource("Resource_l4hv1")])

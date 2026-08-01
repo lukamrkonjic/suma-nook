@@ -5,13 +5,16 @@
 [resource]
 script = ExtResource("1_oh2wp")
 tile_id = "tile_courtyard"
-display_name = "Sunwell Court"
+display_name = "Terracotta Courtyard"
 revision = 2
 lifecycle = "published"
+visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_courtyard.tres"
 separate_tiles = true
 baked_roles = PackedStringArray("base", "detail", "surface")
 family = "home_meadow"
+catalog_category = "market"
+catalog_order = 10
 connection_group = "home_meadow"
 biome_tags = PackedStringArray()
 landmark_tags = PackedStringArray()

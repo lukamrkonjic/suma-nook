@@ -5,13 +5,15 @@
 [resource]
 script = ExtResource("1_7i7qt")
 tile_id = "tile_proc_boulder_ground"
-display_name = "Stonekin Scatter"
+display_name = "Boulder Field"
 revision = 1
 lifecycle = "published"
-visibility = "preview"
+visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_proc_boulder_ground.tres"
 baked_roles = PackedStringArray("base", "detail", "surface")
 family = "home_meadow"
+catalog_category = "ruins"
+catalog_order = 10
 connection_group = "tile_proc_boulder_ground"
 biome_tags = PackedStringArray("meadow")
 landmark_tags = PackedStringArray()

@@ -5,12 +5,15 @@
 [resource]
 script = ExtResource("1_0ian6")
 tile_id = "tile_garden"
-display_name = "Tended Loam"
+display_name = "Garden Soil"
 revision = 2
 lifecycle = "published"
+visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_garden.tres"
 baked_roles = PackedStringArray("base", "detail", "surface")
 family = "home_meadow"
+catalog_category = "garden"
+catalog_order = 10
 connection_group = "home_meadow"
 biome_tags = PackedStringArray()
 landmark_tags = PackedStringArray()

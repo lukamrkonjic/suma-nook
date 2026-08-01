@@ -5,13 +5,15 @@
 [resource]
 script = ExtResource("1_etp0m")
 tile_id = "tile_proc_snow_drifts_study"
-display_name = "Windhush Drifts"
+display_name = "Snow Drifts"
 revision = 1
 lifecycle = "published"
-visibility = "preview"
+visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_proc_snow_drifts_study.tres"
 baked_roles = PackedStringArray("base", "surface")
 family = "winter"
+catalog_category = "tundra"
+catalog_order = 40
 connection_group = "tile_proc_snow_drifts_study"
 biome_tags = PackedStringArray("winter")
 landmark_tags = PackedStringArray()

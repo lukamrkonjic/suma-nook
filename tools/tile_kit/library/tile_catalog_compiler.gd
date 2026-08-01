@@ -9,6 +9,7 @@ extends RefCounted
 
 const DEFAULT_CATALOG_PATH := "res://data/tiles.json"
 const DEFAULT_TUNING_PATH := "res://data/tuning.json"
+const CatalogTaxonomy := preload("res://tools/tile_kit/library/tile_catalog_taxonomy.gd")
 
 class CandidateSnapshot:
 	extends RefCounted
@@ -66,7 +67,17 @@ func build_candidate(
 	var official_ids: Array[String] = []
 	for raw_id in official_by_id:
 		official_ids.append(String(raw_id))
-	official_ids.sort()
+	official_ids.sort_custom(func(a: String, b: String) -> bool:
+		var manifest_a := official_by_id[a] as TileLibraryManifest
+		var manifest_b := official_by_id[b] as TileLibraryManifest
+		var category_a := CatalogTaxonomy.category_rank(manifest_a.catalog_category)
+		var category_b := CatalogTaxonomy.category_rank(manifest_b.catalog_category)
+		if category_a != category_b:
+			return category_a < category_b
+		if manifest_a.catalog_order != manifest_b.catalog_order:
+			return manifest_a.catalog_order < manifest_b.catalog_order
+		return manifest_a.display_name.naturalnocasecmp_to(manifest_b.display_name) < 0
+	)
 	for tile_id in official_ids:
 		if seen_ids.has(tile_id):
 			errors.append("Manifest id '%s' collides with unmanaged runtime content." % tile_id)

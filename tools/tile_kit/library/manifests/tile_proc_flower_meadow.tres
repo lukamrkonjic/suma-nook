@@ -5,13 +5,14 @@
 [resource]
 script = ExtResource("1_4yhp2")
 tile_id = "tile_proc_flower_meadow"
-display_name = "Petalwink Meadow"
+display_name = "Flower Meadow"
 revision = 1
 lifecycle = "published"
-visibility = "preview"
+visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_proc_flower_meadow.tres"
 baked_roles = PackedStringArray("base", "detail", "surface")
 family = "home_meadow"
+catalog_order = 40
 connection_group = "tile_proc_flower_meadow"
 biome_tags = PackedStringArray("meadow")
 landmark_tags = PackedStringArray()

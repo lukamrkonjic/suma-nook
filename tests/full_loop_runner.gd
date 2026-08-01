@@ -366,14 +366,49 @@ func _step_build_library_ui() -> void:
 		"every populated content family receives one category button"
 	)
 	check(
+		main.hud._build_search != null
+		and main.hud._build_search.clear_button_enabled
+		and main.hud._build_search.placeholder_text == "Search your Build Bag...",
+		"the expanded Build Bag exposes one compact, self-clearing search field"
+	)
+	check(
 		main.hud._selected_build_category == "nature",
 		"the library remembers the last still-available category as stock changes"
 	)
 	main.hud._select_build_category("ground")
 	await wait(0.05)
 	check(
-		main.hud._build_strip.get_child_count() == 2,
-		"ground temporarily contains only the active meadow and sand tiles"
+		main.hud._build_strip.get_child_count()
+			== (entries_by_category["ground"] as Array).size(),
+		"ground shows every owned tile assigned to that build category"
+	)
+	main.hud._build_search.text = "Boardwalk"
+	main.hud._build_search.text_changed.emit(main.hud._build_search.text)
+	await wait(0.05)
+	check(
+		main.hud._build_strip.get_child_count() == 1
+		and main.hud._build_strip.get_child(0).name
+			== "BuildItem_tile_wooden_planks",
+		"Build Bag search finds a tile by its player-facing name"
+	)
+	main.hud._build_search.text = "nothing in this bag"
+	main.hud._build_search.text_changed.emit(main.hud._build_search.text)
+	await wait(0.05)
+	check(
+		main.hud._build_category_strip.get_child_count() == 0
+		and main.hud._build_strip.get_child_count() == 1
+		and "No owned pieces match" in String(
+			(main.hud._build_strip.get_child(0) as Label).text
+		),
+		"an empty search result explains how to return to the full bag"
+	)
+	main.hud._build_search.clear()
+	await wait(0.05)
+	check(
+		main.hud._selected_build_category == "ground"
+		and main.hud._build_strip.get_child_count()
+			== (entries_by_category["ground"] as Array).size(),
+		"clearing search restores the designer's previous category"
 	)
 	var first_visual_card := main.hud._build_strip.get_child(0)
 	check(
@@ -423,16 +458,18 @@ func _step_build_library_ui() -> void:
 	main.hud._select_build_category("winter")
 	await wait(0.15)
 	check(
-		main.hud._build_strip.get_child_count() == 1,
-		"winter temporarily contains only the active snow tile"
+		main.hud._build_strip.get_child_count()
+			== (entries_by_category["winter"] as Array).size(),
+		"winter exposes every owned snow-category tile"
 	)
 
 	await shot("screenshot_build_library")
 	main.hud._select_build_category("furniture")
 	await wait(0.05)
 	check(
-		main.hud._build_strip.get_child_count() == 4,
-		"furniture opens as a focused wood-and-stone seating and table shelf"
+		main.hud._build_strip.get_child_count()
+			== (entries_by_category["furniture"] as Array).size(),
+		"furniture opens as a focused owned-piece shelf"
 	)
 	main.hud._select_build_category("nature")
 	await wait(0.05)
@@ -467,13 +504,22 @@ func _step_build_library_ui() -> void:
 		var grant_tiles_button := main.pause_menu.find_child("AdminRowEveryTile", true, false) as Button
 		check(grant_tiles_button != null, "the admin page offers the grant-every-tile action")
 		if grant_tiles_button != null:
-			var grass_before := int(main.core.stock.tiles.get("tile_grass", 0))
+			var official_tile_ids := main.core.registries.obtainable_tile_ids()
+			var tile_stock_before := {}
+			for tile_id: String in official_tile_ids:
+				tile_stock_before[tile_id] = main.core.stock.tile_count(tile_id)
 			grant_tiles_button.pressed.emit()
 			await wait(0.05)
+			var all_official_tiles_granted := official_tile_ids.size() == 56
+			for tile_id: String in official_tile_ids:
+				all_official_tiles_granted = (
+					all_official_tiles_granted
+					and main.core.stock.tile_count(tile_id)
+						== int(tile_stock_before.get(tile_id, 0)) + 10
+				)
 			check(
-				int(main.core.stock.tiles.get("tile_grass", 0)) == grass_before + 10
-				and not main.core.stock.tiles.has("tile_wooden_planks"),
-				"the admin grant action stocks every active tile and no inactive tile"
+				all_official_tiles_granted,
+				"the admin grant action stocks all 56 official tiles"
 			)
 		var tuner_button := main.pause_menu.find_child("AdminRowLightingTuner", true, false) as Button
 		check(tuner_button != null, "the admin page offers the lighting tuner toggle")
@@ -507,7 +553,8 @@ func _step_build_library_ui() -> void:
 			if main.asset_viewer != null:
 				main.asset_viewer.select_content("tile_sand")
 				check(
-					main.asset_viewer.selected_asset_id() == "tile_sand",
+					main.asset_viewer.selected_asset_id()
+						== main.core.registries.tile("tile_sand").asset_id,
 					"the viewer selects registered tiles through production asset ids"
 				)
 				main.asset_viewer.select_content("struct_firepit_polished")
@@ -622,12 +669,14 @@ func _step_tile_geometry_contract() -> void:
 		var visual := tile_factory.instantiate_visual(tile_def)
 		add_child(visual)
 		var roles := {}
-		var grass_surface_top := -INF
+		var grass_detail_top := -INF
 		var bounds := _node_mesh_bounds(visual)
 		# Declared-raised skins (the sand dunes) keep a periodic boundary that
 		# deliberately crosses the slot line a little so neighbours interlock;
 		# grant them extra footprint slack.
-		var fit_margin := 0.06 if tile_def.exposed_top == "raised" else 0.03
+		# Procedural planks, stones, and dressing may lean a few centimetres
+		# across the logical slot while their collision remains tile-bound.
+		var fit_margin := 0.11
 		if (
 			bounds.size.x > main.core.grid.tile_size + fit_margin
 			or bounds.size.z > main.core.grid.tile_size + fit_margin
@@ -646,14 +695,16 @@ func _step_tile_geometry_contract() -> void:
 			)
 			if layer_role != "":
 				roles[layer_role] = int(roles.get(layer_role, 0)) + 1
-			if tile_def.id == "tile_grass" and layer_role == "surface":
-				grass_surface_top = maxf(grass_surface_top, mesh_bounds.end.y)
 			if is_surface_detail:
-				all_surface_detail_is_low_relief = (
-					all_surface_detail_is_low_relief
-					and mesh_bounds.position.y >= -0.002
-					and mesh_bounds.end.y <= 0.05
+				var detail_is_low_relief := (
+					mesh_bounds.position.y >= -0.07
+					and mesh_bounds.end.y <= 0.35
 				)
+				all_surface_detail_is_low_relief = (
+					all_surface_detail_is_low_relief and detail_is_low_relief
+				)
+				if tile_def.id == "tile_grass":
+					grass_detail_top = maxf(grass_detail_top, mesh_bounds.end.y)
 			elif mesh_bounds.end.y > (0.35 if tile_def.exposed_top == "raised" else 0.015):
 				# Declared-raised exposed tops (the sculpted sand skin) may
 				# rise above the walkable plane: the cover swap removes the
@@ -669,19 +720,22 @@ func _step_tile_geometry_contract() -> void:
 				or lower.contains("found")
 			):
 				all_are_free_of_baked_decor = false
-		if main.core.registries.is_tile_active(tile_def.id):
+		if (
+			main.core.registries.is_tile_active(tile_def.id)
+			and tile_def.render_profile != "continuous_water"
+		):
 			active_tiles_have_base_and_surface = (
 				active_tiles_have_base_and_surface
 				and int(roles.get("base", 0)) >= 1
 				and int(roles.get("surface", 0)) >= 1
 			)
 		if tile_def.id == "tile_grass":
-			# The adopted Open Meadow surface is a sculpted raised tuft field:
-			# real relief well above a flat plate, inside the raised budget.
+			# Grass now keeps its walkable cap flat and carries the visible tufts
+			# in removable detail layers, still inside the authored height budget.
 			grass_has_sculpted_tufts = (
-				int(roles.get("detail", 0)) == 0
-				and grass_surface_top > 0.05
-				and grass_surface_top <= 0.35
+				int(roles.get("detail", 0)) >= 1
+				and grass_detail_top > 0.15
+				and grass_detail_top <= 0.35
 			)
 		if tile_def.id.begins_with("tile_grove_"):
 			var grove_mesh_count := visual.find_children(
@@ -690,27 +744,27 @@ func _step_tile_geometry_contract() -> void:
 				true,
 				false
 			).size()
-			grove_mesh_counts_ok = grove_mesh_counts_ok and grove_mesh_count == 2
+			grove_mesh_counts_ok = grove_mesh_counts_ok and grove_mesh_count >= 3
 		visual.free()
-	check(all_fit, "every tile visual fits the smaller horizontal footprint")
+	check(all_fit, "every tile visual stays inside its compact procedural silhouette allowance")
 	check(
 		all_structural_shells_end_at_surface,
 		"tile block shells still end at y=0 while optional relief may rise above them"
 	)
 	check(
 		all_surface_detail_is_low_relief,
-		"raised surface profiles stay subtle and below the gameplay collision budget"
+		"procedural surface details stay inside the authored visual-height budget"
 	)
 	check(
 		active_tiles_have_base_and_surface,
-		"every active tile assembles explicit structural base and surface layers"
+		"every active land tile assembles explicit structural base and surface layers"
 	)
 	check(
 		grass_has_sculpted_tufts,
-		"Open Meadow carries its sculpted tuft surface within the raised budget"
+		"Grass carries removable sculpted tufts within the authored height budget"
 	)
 	check(all_are_free_of_baked_decor, "tile GLBs contain no baked trees or raised decor")
-	check(grove_mesh_counts_ok, "former grove tiles are flat body-and-cap variants")
+	check(grove_mesh_counts_ok, "grove tiles retain structural layers plus procedural detail")
 	var land_tiles_are_rigid := true
 	for holder_variant in main.renderer._tile_nodes.values():
 		var holder := holder_variant as Node3D
@@ -2809,7 +2863,7 @@ func _step_visual_runtime() -> void:
 	check(
 		camera_values["fov_degrees"] == 15.0
 		and camera_values["near_clip"] == 5.0
-		and camera_values["far_clip"] == 90.0
+		and camera_values["far_clip"] == 130.0
 		and camera_values["zoom_limits"]["minimum"] == 14.0
 		and camera_values["zoom_limits"]["maximum"] == 70.0,
 		"Camera manifest exposes measured lens, clipping, and extended close-up zoom limits"

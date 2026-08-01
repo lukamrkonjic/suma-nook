@@ -5,12 +5,15 @@
 [resource]
 script = ExtResource("1_yjhjm")
 tile_id = "tile_grove_autumn"
-display_name = "Coppercanopy Floor"
+display_name = "Autumn Forest Floor"
 revision = 2
 lifecycle = "published"
+visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_grove_autumn.tres"
 baked_roles = PackedStringArray("base", "detail", "surface")
 family = "living_grove"
+catalog_category = "forest"
+catalog_order = 40
 connection_group = "living_grove"
 biome_tags = PackedStringArray()
 landmark_tags = PackedStringArray()

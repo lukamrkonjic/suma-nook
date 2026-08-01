@@ -25,23 +25,25 @@ params = {
 [sub_resource type="Resource" id="Resource_71ip0"]
 script = ExtResource("1_r4pox")
 kind = "dressing"
+enabled = false
 params = {
 "aspect": [0.7, 1.35],
 "color_weights": {
-"earth_clump": 35.0,
-"moss_top": 65.0
+"dressing_dark": 15.0,
+"dressing_light": 50.0,
+"dressing_medium": 35.0
 },
 "edge_margin": 0.02,
 "irregularity": [0.08, 0.14],
-"large_count": [2, 3],
+"large_count": [3, 5],
 "large_radius": [0.17, 0.29],
-"medium_count": [3, 5],
+"medium_count": [4, 7],
 "medium_radius": [0.094, 0.17],
 "outline_points": 20,
 "region_count": [2, 3],
 "region_spread": 0.3,
 "scale_multiplier": 1.0,
-"small_count": [4, 7],
+"small_count": [2, 5],
 "small_radius": [0.047, 0.094],
 "smoothing_passes": 3
 }
@@ -55,7 +57,7 @@ params = {
 "moss_clump": 40.0,
 "stone_light": 25.0
 },
-"count": [8, 13],
+"count": [7, 11],
 "diameter": [0.05, 0.11],
 "edge_margin": 0.035,
 "height": [0.008, 0.022],
@@ -68,22 +70,23 @@ params = {
 [sub_resource type="Resource" id="Resource_ijlut"]
 script = ExtResource("1_r4pox")
 kind = "grass_clusters"
-enabled = false
 params = {
 "bend_multiplier": 0.75,
 "carpet_jitter": 0.3,
-"carpet_skip_fraction": 0.1,
-"carpet_spacing": 0.315,
+"carpet_skip_fraction": 0.45,
+"carpet_spacing": 0.4,
 "coverage_mode": "carpet",
 "crown_radius": 0.02,
 "edge_margin": 0.02,
 "height_multiplier": 1.0,
-"leaf_height": [0.095, 0.15],
+"leaf_height": [0.055, 0.095],
 "leaf_width": [0.058, 0.088],
+"primary_key": "moss_clump",
 "root_sink": [0.008, 0.015],
 "rosette_footprint": [0.14, 0.2],
 "rosette_leaves": [3, 5],
 "secondary_fraction": 0.2,
+"secondary_key": "moss_deep",
 "splay_degrees": [16.0, 34.0],
 "thickness_ratio": [0.55, 0.72],
 "width_multiplier": 1.0
@@ -91,6 +94,6 @@ params = {
 
 [resource]
 script = ExtResource("2_qrh6k")
-preset_name = "Tended Loam"
+preset_name = "Garden Soil"
 master_seed = 20264628
 layers = Array[ExtResource("1_r4pox")]([SubResource("Resource_8u3tn"), SubResource("Resource_71ip0"), SubResource("Resource_ansjs"), SubResource("Resource_ijlut")])

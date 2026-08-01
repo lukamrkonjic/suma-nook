@@ -108,7 +108,7 @@ params = {
 
 [resource]
 script = ExtResource("2_57vvy")
-preset_name = "Moonpebble Walk"
+preset_name = "Garden Path"
 master_seed = 20264408
 separate_tiles = true
 layers = Array[ExtResource("1_7eh68")]([SubResource("Resource_g676g"), SubResource("Resource_bxv5q"), SubResource("Resource_6mymw"), SubResource("Resource_ojmp5"), SubResource("Resource_dxxyj")])

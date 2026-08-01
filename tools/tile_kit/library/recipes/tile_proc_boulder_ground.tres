@@ -93,5 +93,5 @@ params = {
 
 [resource]
 script = ExtResource("2_rbd3a")
-preset_name = "Stonekin Scatter"
+preset_name = "Boulder Field"
 layers = Array[ExtResource("1_4rqi4")]([SubResource("Resource_4rqi4"), SubResource("Resource_rbd3a"), SubResource("Resource_d3e5p"), SubResource("Resource_e67mv")])

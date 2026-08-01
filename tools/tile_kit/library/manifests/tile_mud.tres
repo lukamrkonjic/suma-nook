@@ -5,12 +5,15 @@
 [resource]
 script = ExtResource("1_megfm")
 tile_id = "tile_mud"
-display_name = "Rainpool Loam"
+display_name = "Mud Puddles"
 revision = 2
 lifecycle = "published"
+visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_mud.tres"
 baked_roles = PackedStringArray("base", "detail", "surface")
 family = "home_meadow"
+catalog_category = "swamp"
+catalog_order = 50
 connection_group = "home_meadow"
 biome_tags = PackedStringArray()
 landmark_tags = PackedStringArray()

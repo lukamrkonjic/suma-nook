@@ -110,7 +110,7 @@ params = {
 
 [resource]
 script = ExtResource("2_icpij")
-preset_name = "Relicway Stone"
+preset_name = "Ruined Stone Road"
 master_seed = 20268041
 separate_tiles = true
 layers = Array[ExtResource("1_6rumw")]([SubResource("Resource_u0i5c"), SubResource("Resource_ly82a"), SubResource("Resource_rxh7d"), SubResource("Resource_pwt8a"), SubResource("Resource_sjli5")])

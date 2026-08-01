@@ -107,7 +107,7 @@ params = {
 
 [resource]
 script = ExtResource("2_dblb7")
-preset_name = "Timeworn Stepping"
+preset_name = "Stone Path"
 master_seed = 20261326
 separate_tiles = true
 layers = Array[ExtResource("1_sv7w0")]([SubResource("Resource_v8n1g"), SubResource("Resource_ti3x1"), SubResource("Resource_jdt0m"), SubResource("Resource_l4s3p"), SubResource("Resource_vpd16")])

@@ -5,14 +5,16 @@
 [resource]
 script = ExtResource("1_f4coj")
 tile_id = "tile_proc_wood_plank_deck"
-display_name = "Ambergrain Decking"
+display_name = "Wood Deck"
 revision = 1
 lifecycle = "published"
-visibility = "preview"
+visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_proc_wood_plank_deck.tres"
 separate_tiles = true
 baked_roles = PackedStringArray("base", "surface")
 family = "woodland"
+catalog_category = "market"
+catalog_order = 40
 connection_group = "tile_proc_wood_plank_deck"
 biome_tags = PackedStringArray("meadow")
 landmark_tags = PackedStringArray()

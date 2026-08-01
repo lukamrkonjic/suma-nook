@@ -5,12 +5,15 @@
 [resource]
 script = ExtResource("1_7wjdu")
 tile_id = "tile_grove_birch"
-display_name = "Silverbark Floor"
+display_name = "Birch Forest Floor"
 revision = 2
 lifecycle = "published"
+visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_grove_birch.tres"
 baked_roles = PackedStringArray("base", "detail", "surface")
 family = "living_grove"
+catalog_category = "forest"
+catalog_order = 20
 connection_group = "living_grove"
 biome_tags = PackedStringArray()
 landmark_tags = PackedStringArray()

@@ -5,13 +5,15 @@
 [resource]
 script = ExtResource("1_tgume")
 tile_id = "tile_sand"
-display_name = "Saffronwind Sand"
+display_name = "Beach Sand"
 revision = 2
 lifecycle = "published"
 visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_sand.tres"
 baked_roles = PackedStringArray("base", "detail", "surface")
 family = "home_meadow"
+catalog_category = "beach"
+catalog_order = 10
 connection_group = "home_meadow"
 biome_tags = PackedStringArray("beach")
 landmark_tags = PackedStringArray()

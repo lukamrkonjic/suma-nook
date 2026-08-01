@@ -5,13 +5,16 @@
 [resource]
 script = ExtResource("1_s4e4x")
 tile_id = "tile_flagstone"
-display_name = "Timeworn Stepping"
+display_name = "Stone Path"
 revision = 2
 lifecycle = "published"
+visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_flagstone.tres"
 separate_tiles = true
 baked_roles = PackedStringArray("base", "detail", "surface")
 family = "stonebound"
+catalog_category = "urban"
+catalog_order = 60
 connection_group = "stonebound"
 biome_tags = PackedStringArray()
 landmark_tags = PackedStringArray()

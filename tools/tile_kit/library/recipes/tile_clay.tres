@@ -94,6 +94,6 @@ params = {
 
 [resource]
 script = ExtResource("2_lrkf4")
-preset_name = "Emberbaked Loam"
+preset_name = "Clay Ground"
 master_seed = 20267596
 layers = Array[ExtResource("1_6t6sn")]([SubResource("Resource_15lgj"), SubResource("Resource_x081i"), SubResource("Resource_uv6dl"), SubResource("Resource_pfl2v")])

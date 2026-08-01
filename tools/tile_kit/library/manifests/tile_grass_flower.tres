@@ -5,12 +5,14 @@
 [resource]
 script = ExtResource("1_lebx6")
 tile_id = "tile_grass_flower"
-display_name = "Buttercup Gleam"
+display_name = "Flowering Grass"
 revision = 2
 lifecycle = "published"
+visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_grass_flower.tres"
 baked_roles = PackedStringArray("base", "detail", "surface")
 family = "home_meadow"
+catalog_order = 30
 connection_group = "home_meadow"
 biome_tags = PackedStringArray()
 landmark_tags = PackedStringArray()

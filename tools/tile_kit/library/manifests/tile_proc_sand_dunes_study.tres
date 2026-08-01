@@ -5,13 +5,15 @@
 [resource]
 script = ExtResource("1_2txrw")
 tile_id = "tile_proc_sand_dunes_study"
-display_name = "Honeywind Dunes"
+display_name = "Sand Dunes"
 revision = 1
 lifecycle = "published"
-visibility = "preview"
+visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_proc_sand_dunes_study.tres"
 baked_roles = PackedStringArray("base", "detail", "surface")
 family = "beach"
+catalog_category = "beach"
+catalog_order = 30
 connection_group = "tile_proc_sand_dunes_study"
 biome_tags = PackedStringArray("beach")
 landmark_tags = PackedStringArray()

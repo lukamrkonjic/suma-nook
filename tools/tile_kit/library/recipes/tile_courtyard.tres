@@ -107,7 +107,7 @@ params = {
 
 [resource]
 script = ExtResource("2_bviou")
-preset_name = "Sunwell Court"
+preset_name = "Terracotta Courtyard"
 master_seed = 20263040
 separate_tiles = true
 layers = Array[ExtResource("1_30dyg")]([SubResource("Resource_cysw8"), SubResource("Resource_1tkxn"), SubResource("Resource_em6c3"), SubResource("Resource_faymu"), SubResource("Resource_8jsc0")])

@@ -39,6 +39,18 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 	var batch := TileKitMeshUtils.MeshBatch.new()
 	var placed: Array[Vector2] = []
 	var limit := half - margin
+	# Clustered even without dressing: a few deterministic anchors gather most
+	# pieces into small compositions with genuinely open ground between them.
+	# Uniform scatter — any piece anywhere — is the machine tell the reference
+	# never shows; things accumulate where other things already are.
+	var anchors: Array[Vector2] = []
+	var anchor_count := 2 + (rng.randi() % 2)
+	for index in anchor_count:
+		anchors.append(Vector2(
+			rng.randf_range(-limit * 0.62, limit * 0.62),
+			rng.randf_range(-limit * 0.62, limit * 0.62)))
+	var cluster_fraction: float = layer.value("cluster_fraction", 0.7)
+	var cluster_radius: float = layer.value("cluster_radius", 0.24)
 	var attempts := 0
 	while placed.size() < count and attempts < count * 12:
 		attempts += 1
@@ -50,6 +62,11 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 			var angle := rng.randf() * TAU
 			centre = blob_centre + Vector2(cos(angle), sin(angle)) \
 				* rng.randf_range(0.0, blob_radius * 1.1)
+		elif rng.randf() < cluster_fraction:
+			var anchor := anchors[rng.randi() % anchors.size()]
+			var angle := rng.randf() * TAU
+			var distance := absf(rng.randfn(0.0, cluster_radius * 0.55))
+			centre = anchor + Vector2(cos(angle), sin(angle)) * distance
 		else:
 			centre = Vector2(rng.randf_range(-limit, limit),
 				rng.randf_range(-limit, limit))
@@ -143,9 +160,12 @@ static func _add_shape(batch: TileKitMeshUtils.MeshBatch, layer: TileKitLayer,
 				diameter * 0.62, diameter * 0.24,
 				diameter * rng.randf_range(0.10, 0.16), yaw, 3, 10)
 		"leaf_litter":
-			# A fallen-leaf decal: flat oval pressed onto the surface.
+			# A fallen leaf with real thickness: a low oval chip that catches
+			# an edge highlight. The flat 4 mm decal version read as confetti
+			# dots from the gameplay camera.
 			TileKitMeshUtils.add_dome(batch, key, origin,
-				diameter * 0.5, diameter * 0.34, 0.004, yaw, 2, 10)
+				diameter * 0.5, diameter * 0.34,
+				maxf(piece_height * 0.8, 0.008), yaw, 3, 10)
 		"mushroom":
 			# Squat stem dome with a wider cap dome — the one whimsical
 			# accent in the vocabulary. Cap colour comes from a dedicated

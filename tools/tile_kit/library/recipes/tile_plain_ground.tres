@@ -107,7 +107,7 @@ params = {
 
 [resource]
 script = ExtResource("2_f5pa1")
-preset_name = "Porcelain Seedbed"
+preset_name = "White Soil"
 master_seed = 20261389
 separate_tiles = true
 layers = Array[ExtResource("1_uo4lk")]([SubResource("Resource_ku33a"), SubResource("Resource_c57i0"), SubResource("Resource_eyo3s"), SubResource("Resource_ct0qe"), SubResource("Resource_ts3t1")])

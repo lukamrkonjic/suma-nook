@@ -115,7 +115,7 @@ params = {
 
 [resource]
 script = ExtResource("2_ww33i")
-preset_name = "Hearthstep Snowpath"
+preset_name = "Snowy Path"
 master_seed = 20264878
 separate_tiles = true
 layers = Array[ExtResource("1_k81rm")]([SubResource("Resource_7gvjm"), SubResource("Resource_wfcjj"), SubResource("Resource_jfcxk"), SubResource("Resource_hhpbl"), SubResource("Resource_qea2k")])

@@ -5,13 +5,15 @@
 [resource]
 script = ExtResource("1_qxe7c")
 tile_id = "tile_snowfield"
-display_name = "Hushfall Field"
+display_name = "Fresh Snow"
 revision = 2
 lifecycle = "published"
 visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_snowfield.tres"
 baked_roles = PackedStringArray("base", "detail", "surface")
 family = "winter"
+catalog_category = "tundra"
+catalog_order = 10
 connection_group = "winter"
 biome_tags = PackedStringArray("winter")
 landmark_tags = PackedStringArray()

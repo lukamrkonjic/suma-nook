@@ -101,6 +101,6 @@ params = {
 
 [resource]
 script = ExtResource("2_8tmau")
-preset_name = "Ambergrain Decking"
+preset_name = "Wood Deck"
 separate_tiles = true
 layers = Array[ExtResource("1_qolo6")]([SubResource("Resource_qolo6"), SubResource("Resource_8tmau"), SubResource("Resource_6ovfb"), SubResource("Resource_yuhdp"), SubResource("Resource_x3nac")])

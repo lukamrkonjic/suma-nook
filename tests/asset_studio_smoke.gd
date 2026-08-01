@@ -46,7 +46,29 @@ func _ready() -> void:
 	)
 	_expect(
 		studio.find_child("AssetStudioSave", true, false) != null,
-		"save-to-game action exists"
+		"advanced material-override save action exists"
+	)
+	var create_task := studio.find_child("TileTaskCreate", true, false) as VBoxContainer
+	var edit_task := studio.find_child("TileTaskEdit", true, false) as VBoxContainer
+	var delete_task := studio.find_child("TileTaskDelete", true, false) as VBoxContainer
+	_expect(
+		create_task != null and edit_task != null and delete_task != null,
+		"tile editor presents Create, Edit, and Delete as the three primary jobs"
+	)
+	_expect(
+		create_task != null
+		and not (create_task.get_node("TileTaskCreateContent") as Control).visible
+		and edit_task != null
+		and (edit_task.get_node("TileTaskEditContent") as Control).visible
+		and delete_task != null
+		and not (delete_task.get_node("TileTaskDeleteContent") as Control).visible,
+		"only Edit starts expanded so the right dock stays easy to scan"
+	)
+	_expect(
+		studio.find_child("TileLibraryStartNew", true, false) != null
+		and studio.find_child("TileLibrarySaveChanges", true, false) != null
+		and studio.find_child("TileLibraryDelete", true, false) != null,
+		"each primary tile job exposes one clearly named action"
 	)
 	_expect(
 		studio.find_child("AssetViewerTabTileKit", true, false) == null,
@@ -147,8 +169,8 @@ func _ready() -> void:
 		"TileKitSliderRow_base_relief_amplitude", true, false
 	) as HBoxContainer
 	_expect(
-		grass_relief_row != null and grass_relief_row.is_visible_in_tree(),
-		"former imported tiles now expose their procedural recipe controls"
+		grass_relief_row != null,
+		"former imported tiles retain editable procedural recipe controls"
 	)
 	_expect(
 		not studio.selected_asset_id().is_empty(),

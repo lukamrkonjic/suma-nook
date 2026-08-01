@@ -5,13 +5,15 @@
 [resource]
 script = ExtResource("1_w4idx")
 tile_id = "tile_proc_sandy_ground"
-display_name = "Sunmote Sand"
+display_name = "Sandy Ground"
 revision = 1
 lifecycle = "published"
-visibility = "preview"
+visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_proc_sandy_ground.tres"
 baked_roles = PackedStringArray("base", "detail", "surface")
 family = "beach"
+catalog_category = "beach"
+catalog_order = 20
 connection_group = "tile_proc_sandy_ground"
 biome_tags = PackedStringArray("beach")
 landmark_tags = PackedStringArray()

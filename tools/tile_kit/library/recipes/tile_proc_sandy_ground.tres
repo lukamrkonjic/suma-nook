@@ -92,5 +92,5 @@ params = {
 
 [resource]
 script = ExtResource("2_o01te")
-preset_name = "Sunmote Sand"
+preset_name = "Sandy Ground"
 layers = Array[ExtResource("1_t7yi1")]([SubResource("Resource_t7yi1"), SubResource("Resource_o01te"), SubResource("Resource_vawhu"), SubResource("Resource_ksxmt")])

@@ -13,12 +13,12 @@ params = {
 "bottom_chamfer": 0.016,
 "corner_radius": 0.075,
 "lower_key": "earth_deep",
-"relief_amplitude": 0.03,
+"relief_amplitude": 0.04,
+"relief_bipolar": true,
 "relief_edge_feather": 0.2,
-"relief_heap_count": [4, 7],
-"relief_heap_radius": [0.15, 0.29],
+"relief_frequency": 2.6,
 "relief_resolution": 30,
-"relief_style": "heaps",
+"relief_style": "pillow",
 "side_key": "earth_deep",
 "top_bevel": 0.075,
 "top_key": "mud_top"
@@ -27,23 +27,25 @@ params = {
 [sub_resource type="Resource" id="Resource_ac47m"]
 script = ExtResource("1_v3pm6")
 kind = "dressing"
+enabled = false
 params = {
-"allow_overlap": true,
 "aspect": [0.7, 1.35],
 "color_weights": {
-"mud_wet": 100.0
+"dressing_dark": 15.0,
+"dressing_light": 50.0,
+"dressing_medium": 35.0
 },
 "edge_margin": 0.02,
 "irregularity": [0.08, 0.14],
-"large_count": [3, 6],
+"large_count": [3, 5],
 "large_radius": [0.17, 0.29],
-"medium_count": [4, 8],
+"medium_count": [4, 7],
 "medium_radius": [0.094, 0.17],
 "outline_points": 20,
 "region_count": [2, 3],
 "region_spread": 0.3,
 "scale_multiplier": 1.0,
-"small_count": [3, 7],
+"small_count": [2, 5],
 "small_radius": [0.047, 0.094],
 "smoothing_passes": 3
 }
@@ -56,7 +58,7 @@ params = {
 "mud_wet": 65.0,
 "stone_medium": 35.0
 },
-"count": [8, 14],
+"count": [7, 12],
 "diameter": [0.05, 0.12],
 "edge_margin": 0.035,
 "height": [0.008, 0.022],
@@ -92,6 +94,6 @@ params = {
 
 [resource]
 script = ExtResource("2_qkawp")
-preset_name = "Rainpool Loam"
+preset_name = "Mud Puddles"
 master_seed = 20263017
 layers = Array[ExtResource("1_v3pm6")]([SubResource("Resource_7anjx"), SubResource("Resource_ac47m"), SubResource("Resource_a74xo"), SubResource("Resource_bgfmc")])

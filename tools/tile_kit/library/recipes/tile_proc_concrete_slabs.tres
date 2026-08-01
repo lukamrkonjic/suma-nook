@@ -101,6 +101,6 @@ params = {
 
 [resource]
 script = ExtResource("2_cmjn2")
-preset_name = "Cloudstone Slabs"
+preset_name = "Concrete Slabs"
 separate_tiles = true
 layers = Array[ExtResource("1_2lboj")]([SubResource("Resource_2lboj"), SubResource("Resource_cmjn2"), SubResource("Resource_qyeb2"), SubResource("Resource_hcf8x"), SubResource("Resource_l7f75")])

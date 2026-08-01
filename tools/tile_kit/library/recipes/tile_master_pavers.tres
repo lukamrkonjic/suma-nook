@@ -107,7 +107,7 @@ params = {
 
 [resource]
 script = ExtResource("2_ikekw")
-preset_name = "Tile Forge: Masonry Master"
+preset_name = "Large Stone Pavers"
 master_seed = 20262063
 separate_tiles = true
 layers = Array[ExtResource("1_etaih")]([SubResource("Resource_6fdcw"), SubResource("Resource_ytowo"), SubResource("Resource_dn1gq"), SubResource("Resource_8y5l8"), SubResource("Resource_t0rsm")])

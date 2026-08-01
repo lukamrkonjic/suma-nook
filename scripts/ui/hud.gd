@@ -29,6 +29,9 @@ var _build_compact_row: HBoxContainer
 var _build_expand_button: Button
 var _build_expanded_clip: Control
 var _build_expanded_content: VBoxContainer
+var _build_search: LineEdit
+var _build_category_before_search := ""
+var _build_previous_search_query := ""
 var _build_category_scroll: ScrollContainer
 var _build_category_strip: HBoxContainer
 var _build_item_scroll: ScrollContainer
@@ -280,13 +283,38 @@ func _build_layout() -> void:
 	_build_expanded_clip = Control.new()
 	_build_expanded_clip.name = "BuildLibraryExpansion"
 	_build_expanded_clip.clip_contents = true
-	_build_expanded_clip.custom_minimum_size.y = 356
+	_build_expanded_clip.custom_minimum_size.y = 410
 	_build_bar_column.add_child(_build_expanded_clip)
 	_build_expanded_content = VBoxContainer.new()
 	_build_expanded_content.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	_build_expanded_content.offset_bottom = 350
+	_build_expanded_content.offset_bottom = 404
 	_build_expanded_content.add_theme_constant_override("separation", 8)
 	_build_expanded_clip.add_child(_build_expanded_content)
+
+	_build_search = LineEdit.new()
+	_build_search.name = "BuildLibrarySearch"
+	_build_search.placeholder_text = "Search your Build Bag..."
+	_build_search.clear_button_enabled = true
+	_build_search.custom_minimum_size.y = 42
+	_build_search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_build_search.tooltip_text = "Find owned tiles, furniture, structures, or deeds by name"
+	_build_search.add_theme_font_override("font", kit.font)
+	_build_search.add_theme_font_size_override("font_size", 16)
+	var search_style := StyleBoxFlat.new()
+	search_style.bg_color = Color(1.0, 0.995, 0.97, 0.94)
+	search_style.border_color = Color(0.74, 0.75, 0.67, 0.7)
+	search_style.set_border_width_all(1)
+	search_style.set_corner_radius_all(12)
+	search_style.content_margin_left = 15
+	search_style.content_margin_right = 12
+	_build_search.add_theme_stylebox_override("normal", search_style)
+	_build_search.add_theme_stylebox_override("read_only", search_style)
+	var search_focus := search_style.duplicate() as StyleBoxFlat
+	search_focus.border_color = kit.palette.color("ui_accent").lightened(0.15)
+	search_focus.set_border_width_all(2)
+	_build_search.add_theme_stylebox_override("focus", search_focus)
+	_build_search.text_changed.connect(_on_build_search_changed)
+	_build_expanded_content.add_child(_build_search)
 
 	_build_category_scroll = ScrollContainer.new()
 	_build_category_scroll.name = "BuildCategories"
@@ -516,10 +544,13 @@ func _collect_build_entries() -> Dictionary:
 		if (
 			definition == null
 			or count <= 0
-			or not core.registries.is_tile_active(tile_id)
 		):
 			continue
 		var category_id := category_for_tile(definition)
+		if not _build_entry_matches_search(
+			definition.display_name, tile_id, category_id
+		):
+			continue
 		result[category_id].append({
 			"kind": "tile",
 			"id": tile_id,
@@ -534,6 +565,10 @@ func _collect_build_entries() -> Dictionary:
 		if definition == null or count <= 0:
 			continue
 		var category_id := category_for_structure(definition)
+		if not _build_entry_matches_search(
+			definition.display_name, structure_id, category_id
+		):
+			continue
 		result[category_id].append({
 			"kind": "structure",
 			"id": structure_id,
@@ -552,6 +587,10 @@ func _collect_build_entries() -> Dictionary:
 		var definition := core.registries.landmark(landmark_id)
 		if definition == null:
 			continue
+		if not _build_entry_matches_search(
+			definition.display_name, landmark_id, "deeds"
+		):
+			continue
 		result["deeds"].append({
 			"kind": "deed",
 			"id": landmark_id,
@@ -569,6 +608,41 @@ func _collect_build_entries() -> Dictionary:
 	return result
 
 
+func _on_build_search_changed(query: String) -> void:
+	var had_query := not _build_previous_search_query.is_empty()
+	var has_query := not query.strip_edges().is_empty()
+	if not had_query and has_query:
+		_build_category_before_search = _selected_build_category
+	elif had_query and not has_query:
+		_selected_build_category = _build_category_before_search
+		_build_category_before_search = ""
+	_build_previous_search_query = query.strip_edges()
+	_refresh_build_strip()
+
+
+func _build_search_query() -> String:
+	return _build_search.text.strip_edges().to_lower() if _build_search != null else ""
+
+
+func _build_entry_matches_search(
+	display_name: String,
+	content_id: String,
+	category_id: String
+) -> bool:
+	var query := _build_search_query()
+	if query.is_empty():
+		return true
+	var searchable := "%s %s %s" % [
+		display_name.to_lower(),
+		content_id.to_lower().replace("_", " "),
+		_build_category_label(category_id).to_lower(),
+	]
+	for term in query.split(" ", false):
+		if String(term) not in searchable:
+			return false
+	return true
+
+
 func _refresh_build_items(entries_by_category: Dictionary) -> void:
 	_thumbnail_renderer.discard_pending()
 	for child in _build_strip.get_children():
@@ -578,7 +652,12 @@ func _refresh_build_items(entries_by_category: Dictionary) -> void:
 
 	if _selected_build_category == "":
 		var empty_label := kit.label(
-			"Your Build Bag is empty — the next ferry will bring a Land Parcel.",
+			(
+				"No owned pieces match “%s”. Clear the search to see everything."
+				% _build_search.text.strip_edges()
+				if not _build_search_query().is_empty()
+				else "Your Build Bag is empty — the next ferry will bring a Land Parcel."
+			),
 			15
 		)
 		empty_label.add_theme_color_override("font_color", Color(0.45, 0.42, 0.36))
@@ -825,7 +904,7 @@ func _position_context_above_build_library() -> void:
 func set_build_library_expanded(expanded: bool, animate := true) -> void:
 	if _build_expanded_clip == null:
 		return
-	var target_height := 356.0 if expanded else 0.0
+	var target_height := 410.0 if expanded else 0.0
 	var target_width := _build_library_expanded_width() if expanded else 70.0
 	var already_settled := (
 		_build_library_expanded == expanded
@@ -1283,6 +1362,8 @@ func _on_build_mode(active: bool) -> void:
 		if InputDeviceService.shared().is_controller() and placement.held.is_empty():
 			focus_build_library()
 	else:
+		if _build_search != null and not _build_search.text.is_empty():
+			_build_search.clear()
 		_set_store_bubble_visible(false)
 		_catalogue_pointer_active = false
 		release_build_focus()

@@ -13,7 +13,7 @@ params = {
 "bottom_chamfer": 0.016,
 "corner_radius": 0.075,
 "lower_key": "earth_deep",
-"relief_amplitude": 0.024,
+"relief_amplitude": 0.03,
 "relief_edge_feather": 0.2,
 "relief_resolution": 24,
 "relief_style": "pillow",
@@ -25,16 +25,17 @@ params = {
 [sub_resource type="Resource" id="Resource_ehqc0"]
 script = ExtResource("1_g3xmj")
 kind = "dressing"
+enabled = false
 params = {
-"allow_overlap": true,
 "aspect": [0.7, 1.35],
 "color_weights": {
-"earth_clump": 70.0,
-"earth_deep": 30.0
+"dressing_dark": 15.0,
+"dressing_light": 50.0,
+"dressing_medium": 35.0
 },
 "edge_margin": 0.02,
 "irregularity": [0.08, 0.14],
-"large_count": [2, 4],
+"large_count": [3, 5],
 "large_radius": [0.17, 0.29],
 "medium_count": [4, 7],
 "medium_radius": [0.094, 0.17],
@@ -42,7 +43,7 @@ params = {
 "region_count": [2, 3],
 "region_spread": 0.3,
 "scale_multiplier": 1.0,
-"small_count": [4, 8],
+"small_count": [2, 5],
 "small_radius": [0.047, 0.094],
 "smoothing_passes": 3
 }
@@ -52,18 +53,18 @@ script = ExtResource("1_g3xmj")
 kind = "clutter"
 params = {
 "color_weights": {
-"earth_deep": 35.0,
+"earth_clump": 45.0,
 "stone_medium": 25.0,
-"wood_medium": 40.0
+"wood_medium": 30.0
 },
-"count": [8, 13],
-"diameter": [0.04, 0.11],
+"count": [9, 14],
+"diameter": [0.05, 0.12],
 "edge_margin": 0.035,
-"height": [0.008, 0.022],
+"height": [0.012, 0.028],
 "min_spacing": 0.055,
 "on_dressing_fraction": 0.55,
 "scale_multiplier": 1.0,
-"shapes": ["twig", "leaf_litter", "pebble"]
+"shapes": ["pebble", "nub", "twig", "leaf_litter"]
 }
 
 [sub_resource type="Resource" id="Resource_u7fmx"]
@@ -92,6 +93,6 @@ params = {
 
 [resource]
 script = ExtResource("2_o6lww")
-preset_name = "Rootrest Earth"
+preset_name = "Dirt Ground"
 master_seed = 20264822
 layers = Array[ExtResource("1_g3xmj")]([SubResource("Resource_xxntg"), SubResource("Resource_ehqc0"), SubResource("Resource_4cs8a"), SubResource("Resource_u7fmx")])

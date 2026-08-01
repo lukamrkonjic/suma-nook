@@ -336,7 +336,13 @@ static func _add_leaf(batch: TileKitMeshUtils.MeshBatch, layer: TileKitLayer,
 		splay_degrees: float, leaf_height: float, leaf_width: float,
 		thickness_band: Array, bend_multiplier: float, sink_band: Array,
 		secondary_fraction: float, cap_height: Callable) -> void:
-	leaf_width = minf(leaf_width, leaf_height * 0.85)
+	# Per-leaf length variety: sibling leaves in one clump differ visibly in
+	# height, which is what keeps a rosette from reading as one stamped flower.
+	leaf_height *= rng.randf_range(0.78, 1.22)
+	# Proportion discipline, enforced here rather than trusted to presets: a
+	# leaf is at most ~45% as wide as it is tall. This is the single change
+	# that retires the fat-petal tulip read across every stored recipe.
+	leaf_width = minf(leaf_width, leaf_height * 0.45)
 	var direction := Vector2(cos(yaw), sin(yaw))
 	var lean3 := Vector3(direction.x, 0.0, direction.y)
 	# The root sits slightly toward the leaf's own side, so bases spread just
@@ -354,10 +360,12 @@ static func _add_leaf(batch: TileKitMeshUtils.MeshBatch, layer: TileKitLayer,
 	if cap_height.is_valid():
 		surface_y = top + float(cap_height.call(root))
 	var p0 := Vector3(root.x, surface_y - sink, root.y)
-	# Splayed from the base — a sprout leaf grows outward from its crown, so
-	# the lean starts immediately rather than in the upper half.
-	var p1 := p0 + Vector3.UP * (leaf_height * 0.35) + lean3 * (reach * 0.30)
-	var p2 := p0 + Vector3.UP * (leaf_height * 0.72) + lean3 * (reach * 0.68 * bend)
+	# Upright through the lower third, bending through the upper half: the
+	# blade grows skyward from its crown and arcs outward as it rises, so the
+	# silhouette curves through multiple segments instead of splaying straight
+	# from the base like a tulip petal.
+	var p1 := p0 + Vector3.UP * (leaf_height * 0.38) + lean3 * (reach * 0.12)
+	var p2 := p0 + Vector3.UP * (leaf_height * 0.74) + lean3 * (reach * 0.52 * bend)
 	var p3 := p0 + Vector3.UP * leaf_height + lean3 * (reach * bend)
 
 	var key := String(layer.value("primary_key", "grass_primary"))

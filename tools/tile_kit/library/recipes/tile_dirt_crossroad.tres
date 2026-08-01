@@ -109,6 +109,6 @@ params = {
 
 [resource]
 script = ExtResource("2_4ithx")
-preset_name = "Wayfarer Crossing"
+preset_name = "Dirt Crossroad"
 master_seed = 20264925
 layers = Array[ExtResource("1_6jypw")]([SubResource("Resource_36y60"), SubResource("Resource_orbs7"), SubResource("Resource_les3g"), SubResource("Resource_4udxj"), SubResource("Resource_7p4gm")])

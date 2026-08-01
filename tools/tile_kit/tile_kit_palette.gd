@@ -23,68 +23,77 @@ extends RefCounted
 ## interpolated into new colours.
 const COLORS := {
 	"background": Color("#F5DAB3"),
-	# Grass-family tile shell (the approved reference values).
-	"tile_top": Color("#C0CD78"),
-	"tile_top_bevel": Color("#C9D281"),
-	"tile_side": Color("#849140"),
-	"tile_lower": Color("#718138"),
-	"dressing_light": Color("#B9C771"),
-	"dressing_medium": Color("#B3C26A"),
-	"dressing_dark": Color("#ABBA5C"),
-	"clutter_light": Color("#C9D281"),
-	"clutter_medium": Color("#B9C771"),
-	"grass_primary": Color("#9EAF51"),
-	"grass_secondary": Color("#8FA145"),
-	"grass_root": Color("#718138"),
+	# Grass-family tile shell. Anchored to Suma's mossy Pacific-Northwest
+	# range: the top is the mid moss green, the bevel a restrained sunlit lift,
+	# and the side the SAME hue 14% darker — never a different family, which is
+	# what made the old lime top on olive sides read as two stacked objects.
+	# The old pale yellow-lime register is retired; the lightest greens now
+	# appear only as rare sunlit tips, never as the dominant surface.
+	"tile_top": Color("#91AA61"),
+	"tile_top_bevel": Color("#9EB76B"),
+	"tile_side": Color("#7C9153"),
+	"tile_lower": Color("#5F7F4D"),
+	"dressing_light": Color("#9BB26A"),
+	"dressing_medium": Color("#8CA55E"),
+	"dressing_dark": Color("#7E9854"),
+	"clutter_light": Color("#A3B771"),
+	"clutter_medium": Color("#93A962"),
+	# Blades sit DEEPER than the top they grow from, so vegetation reads as
+	# richer material, and the sunlit tone stays reserved for accents.
+	"grass_primary": Color("#5F7F4D"),
+	"grass_secondary": Color("#6E8E55"),
+	"grass_root": Color("#46603E"),
 	# Moss family: deeper, cooler greens for forest-floor tops.
-	"moss_top": Color("#93A75B"),
-	"moss_bevel": Color("#9DB065"),
-	"moss_deep": Color("#6C7F3E"),
-	"moss_clump": Color("#7E9448"),
-	# Earth family: warm clay browns for soil, mulch, and mud beds.
-	"earth_top": Color("#B08D5F"),
-	"earth_bevel": Color("#BC9968"),
-	"earth_side": Color("#8A6B45"),
-	"earth_deep": Color("#75593A"),
-	"earth_clump": Color("#9C7B50"),
-	# Stone family: warm greys for pebbles, slabs, and paving.
-	"stone_light": Color("#C6BFB2"),
-	"stone_medium": Color("#AFA795"),
-	"stone_deep": Color("#8E8674"),
-	# Wood family: cut-timber tans for chips, twigs, and planks.
-	"wood_light": Color("#C2A06A"),
-	"wood_medium": Color("#A98652"),
-	"wood_deep": Color("#8C6C40"),
-	# Snow family: soft warm whites.
-	"snow_top": Color("#F2EFE8"),
-	"snow_bevel": Color("#F7F4EE"),
-	"snow_side": Color("#D9D4C8"),
-	"snow_lump": Color("#EDE9E0"),
-	# Sand family: pale warm dune tones.
-	"sand_top": Color("#E3CC9A"),
-	"sand_bevel": Color("#EBD6A8"),
-	"sand_side": Color("#C3A778"),
-	"sand_deep": Color("#A78C60"),
-	"sand_patch": Color("#D9C08C"),
+	"moss_top": Color("#7E9757"),
+	"moss_bevel": Color("#8AA361"),
+	"moss_deep": Color("#5C764B"),
+	"moss_clump": Color("#6C8752"),
+	# Earth family: cedar-and-loam browns around the #A9865F anchor.
+	"earth_top": Color("#A9865F"),
+	"earth_bevel": Color("#B4906A"),
+	"earth_side": Color("#907050"),
+	"earth_deep": Color("#6E5540"),
+	"earth_clump": Color("#9A7A56"),
+	# Stone family: cool grey-greens (wet PNW stone, not warm beige).
+	"stone_light": Color("#B8B5A4"),
+	"stone_medium": Color("#9D9C8D"),
+	"stone_deep": Color("#7D7F76"),
+	# Wood family: cedar tans, less yellow than the old cut-timber set.
+	"wood_light": Color("#B69169"),
+	"wood_medium": Color("#9A7A50"),
+	"wood_deep": Color("#7B603F"),
+	# Snow family: warm off-white tops over cool grey-green shadow sides —
+	# never pure white, never a warm grey side.
+	"snow_top": Color("#F0ECE0"),
+	"snow_bevel": Color("#F4F1E7"),
+	"snow_side": Color("#C7CBC1"),
+	"snow_lump": Color("#E5E3D7"),
+	# Sand family: pale dune tones pulled toward the muted #E4B886 path anchor.
+	"sand_top": Color("#DFC594"),
+	"sand_bevel": Color("#E7CFA1"),
+	"sand_side": Color("#BEA377"),
+	"sand_deep": Color("#977F5B"),
+	"sand_patch": Color("#D3B884"),
 	# Mud family: dark damp earth with a wet-patch accent.
-	"mud_top": Color("#8F6F4C"),
-	"mud_bevel": Color("#997A55"),
-	"mud_wet": Color("#6E5238"),
-	# Brick family: warm terracotta paving.
-	"brick_light": Color("#C89070"),
-	"brick_medium": Color("#B57C5C"),
-	# Still-water family for basin pools.
-	"water_blue": Color("#8FB5AC"),
-	"water_deep": Color("#7BA39A"),
-	"lily_green": Color("#7E9C4C"),
-	# Blossom and autumn accents.
-	"blossom_pink": Color("#D9A0A8"),
-	"blossom_cream": Color("#E9DAC0"),
-	"autumn_amber": Color("#C68A4F"),
-	"autumn_rust": Color("#B06B45"),
+	"mud_top": Color("#86684A"),
+	"mud_bevel": Color("#8F7252"),
+	"mud_wet": Color("#64503C"),
+	# Brick family: muted terracotta, restrained toward the #B95C48 accent.
+	"brick_light": Color("#BB8168"),
+	"brick_medium": Color("#A56C55"),
+	# Still-water family: desaturated deep teal (#257476 anchor), with the
+	# bright shallow teal reserved for highlights rather than whole pools.
+	"water_blue": Color("#3E8F88"),
+	"water_deep": Color("#2B6F6B"),
+	"lily_green": Color("#6E8C52"),
+	# Blossom and autumn accents, muted to sit inside the moss register.
+	"blossom_pink": Color("#CB969E"),
+	"blossom_cream": Color("#E6DAC1"),
+	"autumn_amber": Color("#BD8A57"),
+	"autumn_rust": Color("#A9684B"),
 	# Small whimsical accents (mushroom caps, buds).
-	"accent_terracotta": Color("#C97F5A"),
-	"accent_cream": Color("#E8DDC4"),
+	"accent_terracotta": Color("#BC7A5C"),
+	"accent_cream": Color("#E4DBC5"),
 }
 
 static var _materials: Dictionary = {}

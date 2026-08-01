@@ -8,65 +8,11 @@ extends SceneTree
 ## builders and Suma palette.
 
 const STAMP := "2026-08-01 16:00:00"
+const CatalogTaxonomy := preload("res://tools/tile_kit/library/tile_catalog_taxonomy.gd")
 
-const DISPLAY_NAMES := {
-	"tile_clay": "Emberbaked Loam",
-	"tile_cobblestone": "Bramblegate Cobbles",
-	"tile_concrete_brutalist": "Monolith Garden",
-	"tile_courtyard": "Sunwell Court",
-	"tile_dirt": "Rootrest Earth",
-	"tile_dirt_crossroad": "Wayfarer Crossing",
-	"tile_dirt_road": "Wrenfoot Lane",
-	"tile_flagstone": "Timeworn Stepping",
-	"tile_frosted_stone": "Rimeglass Stone",
-	"tile_garden": "Tended Loam",
-	"tile_grass": "Cloverlight Meadow",
-	"tile_grass_flower": "Buttercup Gleam",
-	"tile_grass_pond_edge": "Reedwhisper Bank",
-	"tile_grove_autumn": "Coppercanopy Floor",
-	"tile_grove_birch": "Silverbark Floor",
-	"tile_grove_flowering": "Petalbloom Grove",
-	"tile_grove_mature": "Elder Canopy",
-	"tile_grove_mossy": "Velvetroot Moss",
-	"tile_kit_grass": "Springleaf Carpet",
-	"tile_master_grass": "Tile Forge: Verdant Master",
-	"tile_master_pavers": "Tile Forge: Masonry Master",
-	"tile_master_wood": "Tile Forge: Timber Master",
-	"tile_mud": "Rainpool Loam",
-	"tile_open_water": "Starling Mere",
-	"tile_path": "Moonpebble Walk",
-	"tile_plain_ground": "Porcelain Seedbed",
-	"tile_proc_autumn_litter": "Copperfall Litter",
-	"tile_proc_boulder_ground": "Stonekin Scatter",
-	"tile_proc_brick_court": "Hearthbrick Court",
-	"tile_proc_checker_slabs": "Dapplecheck Slabs",
-	"tile_proc_cobblestone_paving": "Acornset Paving",
-	"tile_proc_concrete_slabs": "Cloudstone Slabs",
-	"tile_proc_fenced_meadow": "Wrenrail Paddock",
-	"tile_proc_flower_meadow": "Petalwink Meadow",
-	"tile_proc_garden_path": "Pebblethread Path",
-	"tile_proc_gravel_yard": "Finchstone Yard",
-	"tile_proc_mossy_forest_floor": "Mosswhisper Floor",
-	"tile_proc_mud_bed": "Rainroot Bed",
-	"tile_proc_mulch_dirt_floor": "Cedarcrumb Bed",
-	"tile_proc_pond_basin": "Lilypad Hollow",
-	"tile_proc_sand_dunes_study": "Honeywind Dunes",
-	"tile_proc_sandy_ground": "Sunmote Sand",
-	"tile_proc_snow_drifts_study": "Windhush Drifts",
-	"tile_proc_snow_field": "Hushsnow Blanket",
-	"tile_proc_tilled_field": "Furrowglow Plot",
-	"tile_proc_wood_plank_deck": "Ambergrain Decking",
-	"tile_sand": "Saffronwind Sand",
-	"tile_snow_drift": "Pillowdrift Snow",
-	"tile_snow_path": "Hearthstep Snowpath",
-	"tile_snowfield": "Hushfall Field",
-	"tile_stone_clearing": "Lichenrest Clearing",
-	"tile_stone_crystal": "Glimmervein Ground",
-	"tile_stone_mossy": "Fernbound Stone",
-	"tile_stone_road": "Relicway Stone",
-	"tile_stone_ruin": "Hearthruin Foundation",
-	"tile_wooden_planks": "Sunkissed Boardwalk",
-}
+## Human-facing names, scenery groups, and order live in
+## TileCatalogTaxonomy. This rebuild owns geometry and applies that taxonomy;
+## it never carries a second rename table that can drift from the editor.
 
 ## Only these entries were still sourced from imported geometry. Existing
 ## recipes are renamed below but retain their approved geometry.
@@ -122,7 +68,7 @@ func _init() -> void:
 		return
 	service.reload()
 	var metadata_only := OS.get_cmdline_user_args().has("--metadata-only")
-	var failures := PackedStringArray()
+	var failures := CatalogTaxonomy.validation_errors()
 	var converted := 0
 	var conversion_ids: Array = [] if metadata_only else CONVERTED_IDS
 	for tile_id: String in conversion_ids:
@@ -149,7 +95,7 @@ func _init() -> void:
 		manifest.source_kind = TileLibraryManifest.SOURCE_PROCEDURAL
 		manifest.recipe_path = recipe_path
 		manifest.runtime_definition = {}
-		manifest.display_name = String(DISPLAY_NAMES[tile_id])
+		_apply_catalog_taxonomy(manifest)
 		manifest.separate_tiles = preset.separate_tiles
 		manifest.baked_roles = bake.get("roles", PackedStringArray())
 		if tile_id == "tile_grass_pond_edge" and not manifest.landmark_tags.has("pond"):
@@ -170,12 +116,12 @@ func _init() -> void:
 			tile_id, int(stats.get("triangles", 0)),
 		])
 
-	# Existing procedural compositions also receive authored Suma-facing names.
+	# Every official composition receives the current human-facing taxonomy.
 	service.reload()
 	for manifest in service.official_manifests():
-		if not DISPLAY_NAMES.has(manifest.tile_id):
+		if not CatalogTaxonomy.has_tile(manifest.tile_id):
 			continue
-		manifest.display_name = String(DISPLAY_NAMES[manifest.tile_id])
+		_apply_catalog_taxonomy(manifest)
 		manifest.updated_at = STAMP
 		_apply_runtime_semantics(manifest)
 		_apply_modular_defaults(manifest)
@@ -185,7 +131,7 @@ func _init() -> void:
 				preset.preset_name = manifest.display_name
 				ResourceSaver.save(preset, manifest.recipe_path)
 		if ResourceSaver.save(manifest, manifest.resource_path) != OK:
-			failures.append("Could not apply authored name: %s" % manifest.tile_id)
+			failures.append("Could not apply catalog taxonomy: %s" % manifest.tile_id)
 
 	if not failures.is_empty():
 		for failure in failures:
@@ -200,14 +146,24 @@ func _init() -> void:
 		quit(1)
 		return
 	print("OFFICIAL PROCEDURAL REBUILD COMPLETE — %d converted, %d named" % [
-		converted, DISPLAY_NAMES.size(),
+		converted, CatalogTaxonomy.RECIPES.size(),
 	])
 	quit(0)
 
 
+func _apply_catalog_taxonomy(manifest: TileLibraryManifest) -> void:
+	manifest.display_name = CatalogTaxonomy.display_name(manifest.tile_id)
+	manifest.family = CatalogTaxonomy.runtime_family(manifest.tile_id)
+	manifest.catalog_category = CatalogTaxonomy.category(manifest.tile_id)
+	manifest.catalog_order = CatalogTaxonomy.catalog_order(manifest.tile_id)
+	# The current official library is shipped gameplay content, not a staging
+	# gallery. Future drafts remain hidden until their Create Tile action.
+	manifest.visibility = TileLibraryManifest.VISIBILITY_ACTIVE
+
+
 func _make_recipe(tile_id: String) -> TileKitPreset:
 	var preset := TileKitPreset.reference_clean_grass()
-	preset.preset_name = String(DISPLAY_NAMES[tile_id])
+	preset.preset_name = CatalogTaxonomy.display_name(tile_id)
 	preset.master_seed = 20260801 + posmod(hash(tile_id), 9000)
 	preset.separate_tiles = false
 	for layer in preset.layers:
@@ -233,9 +189,10 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 			_scatter(preset, ["leaf_litter", "pebble"], [3, 6], [0.035, 0.075], {"autumn_amber": 45.0, "stone_light": 55.0})
 			preset.separate_tiles = true
 		"tile_dirt":
-			_set_base(preset, EARTH_BASE, "pillow", 0.024)
-			_patches(preset, {"large_count": [2, 4], "medium_count": [4, 7], "small_count": [4, 8], "color_weights": {"earth_clump": 70.0, "earth_deep": 30.0}, "allow_overlap": true})
-			_scatter(preset, ["twig", "leaf_litter", "pebble"], [8, 13], [0.04, 0.11], {"wood_medium": 40.0, "earth_deep": 35.0, "stone_medium": 25.0})
+			# GG rule: no painted patches. Identity = sculpted ground + a few
+			# readable chunky fragments settling in clusters.
+			_set_base(preset, EARTH_BASE, "pillow", 0.030)
+			_scatter(preset, ["pebble", "nub", "twig", "leaf_litter"], [9, 14], [0.05, 0.12], {"earth_clump": 45.0, "wood_medium": 30.0, "stone_medium": 25.0}, [0.012, 0.028])
 		"tile_dirt_crossroad":
 			_set_base(preset, EARTH_BASE, "pillow", 0.016)
 			_pavers(preset, {"pattern": "trail", "trail_layout": "cross", "trail_width": 0.48, "trail_piece_length": [0.25, 0.48], "trail_jitter": 0.06, "gap": 0.018, "stone_height": [0.008, 0.012], "stone_corner": 0.05, "slab_key": "earth_clump", "sink": 0.007})
@@ -250,13 +207,18 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 			_scatter(preset, ["lobed_clump", "leaf_litter"], [4, 7], [0.04, 0.09], {"moss_clump": 85.0, "autumn_amber": 15.0})
 			preset.separate_tiles = true
 		"tile_frosted_stone":
-			_set_base(preset, STONE_BASE, "pillow", 0.018)
-			_patches(preset, {"large_count": [2, 4], "medium_count": [3, 6], "small_count": [5, 9], "color_weights": {"snow_top": 70.0, "snow_lump": 30.0}, "allow_overlap": true})
-			_scatter(preset, ["snow_lump", "stone_chip", "pebble"], [7, 12], [0.045, 0.12], {"snow_lump": 70.0, "stone_light": 30.0})
+			# Frost as FORM: pillowed stone with drifts of merged snow lumps
+			# gathering in hollows — never a white circle painted on grey.
+			_set_base(preset, STONE_BASE, "pillow", 0.026)
+			# Near-zero spacing and tight clusters: lumps FUSE into two or
+			# three drift masses instead of dotting the top as marshmallows.
+			_scatter(preset, ["snow_lump", "snow_lump", "snow_lump", "pebble"], [13, 19], [0.10, 0.21], {"snow_lump": 60.0, "snow_top": 25.0, "stone_light": 15.0}, [0.02, 0.045], {"min_spacing": 0.015, "cluster_fraction": 0.88, "cluster_radius": 0.15})
 		"tile_garden":
+			# Tended bed: soft worked soil with young moss-green shoots and a
+			# few buds — growth as geometry, not colour stains.
 			_set_base(preset, EARTH_BASE, "pillow", 0.022)
-			_patches(preset, {"large_count": [2, 3], "medium_count": [3, 5], "small_count": [4, 7], "color_weights": {"moss_top": 65.0, "earth_clump": 35.0}})
-			_scatter(preset, ["bud", "pebble", "leaf_pair"], [8, 13], [0.05, 0.11], {"blossom_cream": 35.0, "moss_clump": 40.0, "stone_light": 25.0})
+			_grass(preset, {"carpet_spacing": 0.40, "carpet_skip_fraction": 0.45, "leaf_height": [0.055, 0.095], "primary_key": "moss_clump", "secondary_key": "moss_deep"})
+			_scatter(preset, ["bud", "pebble", "leaf_pair"], [7, 11], [0.05, 0.11], {"blossom_cream": 35.0, "moss_clump": 40.0, "stone_light": 25.0})
 		"tile_grass", "tile_master_grass":
 			_set_base(preset, GREEN_BASE, "pillow", 0.020)
 			_grass(preset, {"carpet_spacing": 0.27 if tile_id == "tile_master_grass" else 0.31, "carpet_skip_fraction": 0.05 if tile_id == "tile_master_grass" else 0.12, "carpet_jitter": 0.34, "leaf_height": [0.08, 0.15], "leaf_width": [0.045, 0.085]})
@@ -272,9 +234,10 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 			_scatter(preset, ["lily_pad", "lily_pad", "bud"], [4, 7], [0.10, 0.20], {"lily_green": 75.0, "blossom_cream": 25.0})
 			preset.separate_tiles = true
 		"tile_grove_autumn":
+			# The reference leaf-floor is a DENSE bed of chunky 3D chips, not
+			# amber circles under sparse chips. The litter is the whole tile.
 			_set_base(preset, EARTH_BASE, "pillow", 0.025)
-			_patches(preset, {"large_count": [3, 5], "medium_count": [5, 8], "small_count": [5, 9], "color_weights": {"autumn_amber": 55.0, "autumn_rust": 45.0}})
-			_scatter(preset, ["leaf_litter", "leaf_litter", "twig", "mushroom"], [18, 28], [0.045, 0.12], {"autumn_amber": 45.0, "autumn_rust": 40.0, "wood_medium": 15.0})
+			_scatter(preset, ["leaf_litter", "leaf_litter", "leaf_litter", "twig", "mushroom"], [30, 44], [0.075, 0.16], {"autumn_amber": 45.0, "autumn_rust": 40.0, "wood_medium": 15.0}, [0.012, 0.024], {"min_spacing": 0.03, "cluster_fraction": 0.75, "cluster_radius": 0.30})
 		"tile_grove_birch":
 			_set_base(preset, {"top_key": "moss_top", "bevel_key": "moss_bevel", "side_key": "earth_side", "lower_key": "earth_deep"}, "pillow", 0.020)
 			_grass(preset, {"carpet_spacing": 0.39, "carpet_skip_fraction": 0.42, "leaf_height": [0.05, 0.10], "primary_key": "moss_clump", "secondary_key": "moss_deep"})
@@ -288,9 +251,11 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 			_grass(preset, {"carpet_spacing": 0.37, "carpet_skip_fraction": 0.32, "leaf_height": [0.06, 0.12], "primary_key": "moss_clump", "secondary_key": "moss_deep"})
 			_scatter(preset, ["lobed_clump", "twig", "leaf_litter", "mushroom"], [11, 18], [0.05, 0.13], {"moss_clump": 50.0, "wood_medium": 30.0, "autumn_amber": 20.0})
 		"tile_grove_mossy":
+			# Mossy floor: heaped ground under a real moss carpet — low dense
+			# rosettes — with cushion clumps riding the mounds.
 			_set_base(preset, {"top_key": "moss_top", "bevel_key": "moss_bevel", "side_key": "earth_side", "lower_key": "earth_deep"}, "heaps", 0.034, {"relief_heap_count": [4, 7], "relief_heap_radius": [0.14, 0.28], "relief_resolution": 30})
-			_patches(preset, {"large_count": [3, 5], "medium_count": [5, 8], "small_count": [6, 10], "color_weights": {"moss_clump": 60.0, "moss_deep": 40.0}})
-			_scatter(preset, ["lobed_clump", "nub", "mushroom", "twig"], [14, 22], [0.05, 0.14], {"moss_clump": 65.0, "moss_deep": 20.0, "wood_medium": 15.0})
+			_grass(preset, {"carpet_spacing": 0.30, "carpet_skip_fraction": 0.16, "leaf_height": [0.05, 0.10], "primary_key": "moss_clump", "secondary_key": "moss_deep"})
+			_scatter(preset, ["lobed_clump", "nub", "mushroom", "twig"], [10, 16], [0.05, 0.14], {"moss_clump": 65.0, "moss_deep": 20.0, "wood_medium": 15.0})
 		"tile_master_pavers":
 			_set_base(preset, STONE_BASE, "pillow", 0.014)
 			_pavers(preset, {"pattern": "cobbles", "stone_cell": 0.34, "stone_cell_z": 0.21, "gap": 0.018, "stone_jitter": 0.08, "stone_height": [0.024, 0.040], "stone_corner": 0.03, "slab_key": "stone_light", "slab_key_alt": "stone_medium"})
@@ -302,9 +267,10 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 			_scatter(preset, ["wood_chip", "twig"], [5, 8], [0.04, 0.10], {"wood_medium": 60.0, "wood_deep": 40.0})
 			preset.separate_tiles = true
 		"tile_mud":
-			_set_base(preset, MUD_BASE, "heaps", 0.030, {"relief_heap_count": [4, 7], "relief_heap_radius": [0.15, 0.29], "relief_resolution": 30})
-			_patches(preset, {"large_count": [3, 6], "medium_count": [4, 8], "small_count": [3, 7], "color_weights": {"mud_wet": 100.0}, "allow_overlap": true})
-			_scatter(preset, ["footprint", "pebble", "nub"], [8, 14], [0.05, 0.12], {"mud_wet": 65.0, "stone_medium": 35.0})
+			# Churned wet ground carried entirely by the sculpt: troughs AND
+			# ridges, with tracks and half-sunk stones. No painted wet rings.
+			_set_base(preset, MUD_BASE, "pillow", 0.040, {"relief_bipolar": true, "relief_frequency": 2.6, "relief_resolution": 30})
+			_scatter(preset, ["footprint", "pebble", "nub"], [7, 12], [0.05, 0.12], {"mud_wet": 65.0, "stone_medium": 35.0})
 		"tile_open_water":
 			_set_base(preset, {"top_key": "water_deep", "bevel_key": "water_blue", "side_key": "water_deep", "lower_key": "stone_deep"}, "pillow", 0.010)
 			_liquid(preset, {"level": 0.018, "inset": 0.0, "corner_radius": 0.075, "surface_key": "water_blue"})
@@ -321,9 +287,10 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 			_scatter(preset, ["dot", "stone_chip"], [4, 7], [0.025, 0.055], {"snow_lump": 65.0, "stone_light": 35.0})
 			preset.separate_tiles = true
 		"tile_sand":
+			# Sand is pure sculpt — the reference dune tile is one colour, one
+			# beautiful surface. A few worn stones, nothing else.
 			_set_base(preset, SAND_BASE, "sculpted_dunes", 0.065, {"relief_resolution": 56, "relief_edge_feather": 0.25, "dune_scale": 0.74, "dune_amount": 0.56, "dune_softness": 0.72, "dune_irregularity": 0.62, "dune_lee_depth": 0.28, "dune_direction_degrees": 307.0})
-			_patches(preset, {"large_count": [2, 4], "medium_count": [3, 6], "small_count": [4, 8], "color_weights": {"sand_patch": 100.0}, "allow_overlap": true})
-			_scatter(preset, ["pebble", "dot", "stone_chip"], [8, 14], [0.04, 0.10], {"sand_side": 60.0, "stone_light": 40.0})
+			_scatter(preset, ["pebble", "stone_chip"], [4, 7], [0.05, 0.11], {"sand_side": 60.0, "stone_light": 40.0})
 		"tile_snow_drift":
 			_set_base(preset, SNOW_BASE, "heaps", 0.115, {"relief_heap_count": [3, 6], "relief_heap_radius": [0.18, 0.38], "relief_resolution": 44})
 			_scatter(preset, ["snow_lump", "snow_lump", "pebble"], [7, 12], [0.07, 0.18], {"snow_lump": 85.0, "stone_light": 15.0})
@@ -337,17 +304,19 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 			_set_base(preset, SNOW_BASE, "sculpted_dunes", 0.085, {"relief_resolution": 56, "relief_edge_feather": 0.30, "dune_scale": 0.96, "dune_amount": 0.64, "dune_softness": 0.92, "dune_irregularity": 0.45, "dune_lee_depth": 0.13, "dune_direction_degrees": 336.0})
 			_scatter(preset, ["snow_lump", "snow_lump", "dot"], [6, 10], [0.06, 0.15], {"snow_lump": 90.0, "snow_side": 10.0})
 		"tile_stone_clearing":
+			# Worn stone ground with moss growing in the low seams — sparse
+			# real sprouts and clustered gravel instead of green stains.
 			_set_base(preset, STONE_BASE, "heaps", 0.030, {"relief_heap_count": [4, 7], "relief_heap_radius": [0.12, 0.25], "relief_resolution": 30})
-			_patches(preset, {"large_count": [2, 4], "medium_count": [4, 7], "small_count": [5, 9], "color_weights": {"moss_top": 55.0, "moss_deep": 45.0}})
-			_scatter(preset, ["pebble", "stone_chip", "lobed_clump", "pebble"], [13, 20], [0.05, 0.15], {"stone_light": 35.0, "stone_deep": 40.0, "moss_clump": 25.0})
+			_grass(preset, {"carpet_spacing": 0.44, "carpet_skip_fraction": 0.55, "leaf_height": [0.045, 0.085], "primary_key": "moss_clump", "secondary_key": "moss_deep"})
+			_scatter(preset, ["pebble", "stone_chip", "lobed_clump", "pebble"], [11, 17], [0.05, 0.15], {"stone_light": 35.0, "stone_deep": 40.0, "moss_clump": 25.0})
 		"tile_stone_crystal":
 			_set_base(preset, STONE_BASE, "heaps", 0.032, {"relief_heap_count": [3, 6], "relief_heap_radius": [0.14, 0.26], "relief_resolution": 30})
-			_patches(preset, {"large_count": [2, 3], "medium_count": [3, 5], "small_count": [4, 7], "color_weights": {"moss_top": 60.0, "stone_deep": 40.0}})
 			_scatter(preset, ["crystal", "crystal", "pebble", "stone_chip"], [8, 13], [0.08, 0.20], {"stone_light": 55.0, "blossom_cream": 25.0, "water_blue": 20.0}, [0.025, 0.07])
 		"tile_stone_mossy":
+			# Moss takes the stone by GROWING over it: a dense low sprout
+			# carpet with clump masses, the stone showing through in worn gaps.
 			_set_base(preset, STONE_BASE, "pillow", 0.025)
-			_patches(preset, {"large_count": [3, 6], "medium_count": [5, 9], "small_count": [6, 12], "color_weights": {"moss_top": 60.0, "moss_deep": 40.0}, "allow_overlap": true})
-			_grass(preset, {"carpet_spacing": 0.43, "carpet_skip_fraction": 0.52, "leaf_height": [0.04, 0.09], "primary_key": "moss_clump", "secondary_key": "moss_deep"})
+			_grass(preset, {"carpet_spacing": 0.32, "carpet_skip_fraction": 0.26, "leaf_height": [0.045, 0.095], "primary_key": "moss_clump", "secondary_key": "moss_deep"})
 			_scatter(preset, ["lobed_clump", "nub", "pebble"], [9, 15], [0.045, 0.11], {"moss_clump": 65.0, "stone_deep": 35.0})
 		"tile_stone_road":
 			_set_base(preset, STONE_BASE, "pillow", 0.015)
@@ -435,8 +404,9 @@ func _fringe(preset: TileKitPreset, params: Dictionary) -> void:
 
 
 func _scatter(preset: TileKitPreset, shapes: Array, count: Array,
-		diameter: Array, colors: Dictionary, height: Array = [0.008, 0.022]) -> void:
-	_enable(preset, "clutter", {
+		diameter: Array, colors: Dictionary, height: Array = [0.008, 0.022],
+		overrides: Dictionary = {}) -> void:
+	var params := {
 		"shapes": shapes,
 		"count": count,
 		"diameter": diameter,
@@ -445,7 +415,9 @@ func _scatter(preset: TileKitPreset, shapes: Array, count: Array,
 		"edge_margin": 0.035,
 		"on_dressing_fraction": 0.55,
 		"color_weights": colors,
-	})
+	}
+	params.merge(overrides, true)
+	_enable(preset, "clutter", params)
 
 
 func _enable(preset: TileKitPreset, kind: String, params: Dictionary) -> void:

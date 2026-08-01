@@ -356,7 +356,9 @@ class TileDefinition:
 	var id: String
 	var display_name: String
 	var traits := DefinitionTraits.new()
-	var family: String                 # home_meadow|living_grove|stonebound
+	var family: String                 # gameplay family used by rules/progression
+	var catalog_category: String       # presentation-only scenery category
+	var catalog_order: int = 1000      # curated order inside that category
 	var biome_tags: Array[String] = []
 	var asset_id: String
 	var rarity: String = "common"
@@ -415,6 +417,8 @@ class TileDefinition:
 		t.display_name = d.get("name", t.id.capitalize())
 		t.traits = DefinitionTraits.from_dict(d)
 		t.family = d.get("family", "home_meadow")
+		t.catalog_category = d.get("catalog_category", t.family)
+		t.catalog_order = int(d.get("catalog_order", 1000))
 		for tag in d.get("biome_tags", []):
 			t.biome_tags.append(String(tag))
 		t.asset_id = d.get("asset_id", "tile_grass")

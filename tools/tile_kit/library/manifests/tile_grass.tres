@@ -5,13 +5,14 @@
 [resource]
 script = ExtResource("1_7sbk3")
 tile_id = "tile_grass"
-display_name = "Cloverlight Meadow"
+display_name = "Grass"
 revision = 2
 lifecycle = "published"
 visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_grass.tres"
 baked_roles = PackedStringArray("base", "detail", "surface")
 family = "home_meadow"
+catalog_order = 10
 connection_group = "home_meadow"
 biome_tags = PackedStringArray("meadow")
 landmark_tags = PackedStringArray()

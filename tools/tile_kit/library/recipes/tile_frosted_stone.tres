@@ -13,7 +13,7 @@ params = {
 "bottom_chamfer": 0.016,
 "corner_radius": 0.075,
 "lower_key": "stone_deep",
-"relief_amplitude": 0.018,
+"relief_amplitude": 0.026,
 "relief_edge_feather": 0.2,
 "relief_resolution": 24,
 "relief_style": "pillow",
@@ -25,24 +25,25 @@ params = {
 [sub_resource type="Resource" id="Resource_w2tbv"]
 script = ExtResource("1_fji5p")
 kind = "dressing"
+enabled = false
 params = {
-"allow_overlap": true,
 "aspect": [0.7, 1.35],
 "color_weights": {
-"snow_lump": 30.0,
-"snow_top": 70.0
+"dressing_dark": 15.0,
+"dressing_light": 50.0,
+"dressing_medium": 35.0
 },
 "edge_margin": 0.02,
 "irregularity": [0.08, 0.14],
-"large_count": [2, 4],
+"large_count": [3, 5],
 "large_radius": [0.17, 0.29],
-"medium_count": [3, 6],
+"medium_count": [4, 7],
 "medium_radius": [0.094, 0.17],
 "outline_points": 20,
 "region_count": [2, 3],
 "region_spread": 0.3,
 "scale_multiplier": 1.0,
-"small_count": [5, 9],
+"small_count": [2, 5],
 "small_radius": [0.047, 0.094],
 "smoothing_passes": 3
 }
@@ -51,18 +52,21 @@ params = {
 script = ExtResource("1_fji5p")
 kind = "clutter"
 params = {
+"cluster_fraction": 0.88,
+"cluster_radius": 0.15,
 "color_weights": {
-"snow_lump": 70.0,
-"stone_light": 30.0
+"snow_lump": 60.0,
+"snow_top": 25.0,
+"stone_light": 15.0
 },
-"count": [7, 12],
-"diameter": [0.045, 0.12],
+"count": [13, 19],
+"diameter": [0.1, 0.21],
 "edge_margin": 0.035,
-"height": [0.008, 0.022],
-"min_spacing": 0.055,
+"height": [0.02, 0.045],
+"min_spacing": 0.015,
 "on_dressing_fraction": 0.55,
 "scale_multiplier": 1.0,
-"shapes": ["snow_lump", "stone_chip", "pebble"]
+"shapes": ["snow_lump", "snow_lump", "snow_lump", "pebble"]
 }
 
 [sub_resource type="Resource" id="Resource_nnscl"]
@@ -91,6 +95,6 @@ params = {
 
 [resource]
 script = ExtResource("2_g1uka")
-preset_name = "Rimeglass Stone"
+preset_name = "Frosted Stone"
 master_seed = 20262322
 layers = Array[ExtResource("1_fji5p")]([SubResource("Resource_aytwi"), SubResource("Resource_w2tbv"), SubResource("Resource_gqg0c"), SubResource("Resource_nnscl")])

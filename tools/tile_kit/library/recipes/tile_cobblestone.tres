@@ -107,7 +107,7 @@ params = {
 
 [resource]
 script = ExtResource("2_mbmpw")
-preset_name = "Bramblegate Cobbles"
+preset_name = "Cobblestone"
 master_seed = 20267347
 separate_tiles = true
 layers = Array[ExtResource("1_to1kl")]([SubResource("Resource_jflca"), SubResource("Resource_ikc4o"), SubResource("Resource_8f3g2"), SubResource("Resource_cfp73"), SubResource("Resource_bif7s")])

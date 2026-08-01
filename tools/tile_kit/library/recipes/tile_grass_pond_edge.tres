@@ -122,7 +122,7 @@ params = {
 
 [resource]
 script = ExtResource("2_ibbfm")
-preset_name = "Reedwhisper Bank"
+preset_name = "Pond Edge"
 master_seed = 20261335
 separate_tiles = true
 layers = Array[ExtResource("1_wd20y")]([SubResource("Resource_b4805"), SubResource("Resource_0ciif"), SubResource("Resource_5w5ny"), SubResource("Resource_tp2cu"), SubResource("Resource_wmchm"), SubResource("Resource_lfdl0")])

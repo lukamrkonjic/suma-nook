@@ -5,12 +5,15 @@
 [resource]
 script = ExtResource("1_ms6r4")
 tile_id = "tile_open_water"
-display_name = "Starling Mere"
+display_name = "Open Water"
 revision = 2
 lifecycle = "published"
+visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_open_water.tres"
 baked_roles = PackedStringArray("base", "detail", "surface")
 family = "waterside"
+catalog_category = "swamp"
+catalog_order = 30
 connection_group = "waterside"
 biome_tags = PackedStringArray("water")
 landmark_tags = PackedStringArray()

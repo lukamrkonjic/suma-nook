@@ -2,28 +2,30 @@ extends SceneTree
 ## One-time deterministic migration from hardcoded presets/JSON entries to the
 ## file-backed Tile Library. Safe to re-run while developing schema changes.
 
-const RECIPES := {
-	"tile_kit_grass": ["Reference Clean Grass", "reference_clean_grass"],
-	"tile_proc_flower_meadow": ["Flower Meadow", "flower_meadow"],
-	"tile_proc_garden_path": ["Garden Path", "garden_path"],
-	"tile_proc_fenced_meadow": ["Fenced Meadow", "fenced_meadow"],
-	"tile_proc_pond_basin": ["Pond Basin", "pond_basin"],
-	"tile_proc_tilled_field": ["Tilled Field", "tilled_field"],
-	"tile_proc_boulder_ground": ["Boulder Ground", "boulder_ground"],
-	"tile_proc_mossy_forest_floor": ["Mossy Forest Floor", "mossy_forest_floor"],
-	"tile_proc_autumn_litter": ["Autumn Litter", "autumn_litter"],
-	"tile_proc_mulch_dirt_floor": ["Mulch Dirt Floor", "mulch_dirt_floor"],
-	"tile_proc_snow_field": ["Snow Field", "snow_field"],
-	"tile_proc_snow_drifts_study": ["Snow Drifts (Study)", "snow_drift_study"],
-	"tile_proc_sandy_ground": ["Sandy Ground", "sandy_ground"],
-	"tile_proc_sand_dunes_study": ["Sand Dunes (Study)", "sand_dune_study"],
-	"tile_proc_mud_bed": ["Mud Bed", "mud_bed"],
-	"tile_proc_gravel_yard": ["Gravel Yard", "gravel_yard"],
-	"tile_proc_cobblestone_paving": ["Cobblestone Paving", "cobblestone_paving"],
-	"tile_proc_wood_plank_deck": ["Wood Plank Deck", "wood_plank_deck"],
-	"tile_proc_concrete_slabs": ["Concrete Slabs", "concrete_slabs"],
-	"tile_proc_brick_court": ["Brick Court", "brick_court"],
-	"tile_proc_checker_slabs": ["Checker Slabs", "checker_slabs"],
+const CatalogTaxonomy := preload("res://tools/tile_kit/library/tile_catalog_taxonomy.gd")
+
+const RECIPE_FACTORIES := {
+	"tile_kit_grass": "reference_clean_grass",
+	"tile_proc_flower_meadow": "flower_meadow",
+	"tile_proc_garden_path": "garden_path",
+	"tile_proc_fenced_meadow": "fenced_meadow",
+	"tile_proc_pond_basin": "pond_basin",
+	"tile_proc_tilled_field": "tilled_field",
+	"tile_proc_boulder_ground": "boulder_ground",
+	"tile_proc_mossy_forest_floor": "mossy_forest_floor",
+	"tile_proc_autumn_litter": "autumn_litter",
+	"tile_proc_mulch_dirt_floor": "mulch_dirt_floor",
+	"tile_proc_snow_field": "snow_field",
+	"tile_proc_snow_drifts_study": "snow_drift_study",
+	"tile_proc_sandy_ground": "sandy_ground",
+	"tile_proc_sand_dunes_study": "sand_dune_study",
+	"tile_proc_mud_bed": "mud_bed",
+	"tile_proc_gravel_yard": "gravel_yard",
+	"tile_proc_cobblestone_paving": "cobblestone_paving",
+	"tile_proc_wood_plank_deck": "wood_plank_deck",
+	"tile_proc_concrete_slabs": "concrete_slabs",
+	"tile_proc_brick_court": "brick_court",
+	"tile_proc_checker_slabs": "checker_slabs",
 }
 
 
@@ -34,8 +36,8 @@ func _init() -> void:
 	]:
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(directory))
 	var recipes: Dictionary = {}
-	for tile_id: String in RECIPES:
-		var factory_name := String((RECIPES[tile_id] as Array)[1])
+	for tile_id: String in RECIPE_FACTORIES:
+		var factory_name := String(RECIPE_FACTORIES[tile_id])
 		var recipe := _make_recipe(factory_name)
 		var path := "%s/%s.tres" % [
 			TileLibraryService.OFFICIAL_RECIPE_DIRECTORY, tile_id
@@ -83,7 +85,7 @@ func _init() -> void:
 	# Tile Kit recipes that are not runtime content yet enter as project drafts.
 	# They are editable and publishable, but do not alter a game roster merely by
 	# existing in source control.
-	for tile_id: String in RECIPES:
+	for tile_id: String in RECIPE_FACTORIES:
 		if existing_ids.has(tile_id):
 			continue
 		var recipe := ResourceLoader.load(
@@ -91,13 +93,15 @@ func _init() -> void:
 		) as TileKitPreset
 		var manifest := TileLibraryManifest.new()
 		manifest.tile_id = tile_id
-		manifest.display_name = String((RECIPES[tile_id] as Array)[0])
+		manifest.display_name = CatalogTaxonomy.display_name(tile_id)
 		manifest.source_kind = TileLibraryManifest.SOURCE_PROCEDURAL
 		manifest.recipe_path = String(recipes[tile_id])
 		manifest.separate_tiles = recipe != null and recipe.separate_tiles
 		manifest.lifecycle = TileLibraryManifest.LIFECYCLE_DRAFT
 		manifest.visibility = TileLibraryManifest.VISIBILITY_HIDDEN
 		manifest.family = _family_for(tile_id)
+		manifest.catalog_category = CatalogTaxonomy.category(tile_id)
+		manifest.catalog_order = CatalogTaxonomy.catalog_order(tile_id)
 		manifest.connection_group = tile_id
 		manifest.biome_tags = _biome_tags_for(tile_id)
 		manifest.placement_sound = _placement_sound_for(tile_id)
@@ -110,7 +114,7 @@ func _init() -> void:
 			printerr("Draft manifest migration failed: %s" % tile_id)
 			quit(1)
 			return
-	print("TILE LIBRARY BOOTSTRAPPED — %d recipes" % RECIPES.size())
+	print("TILE LIBRARY BOOTSTRAPPED — %d recipes" % RECIPE_FACTORIES.size())
 	quit(0)
 
 
@@ -135,6 +139,10 @@ func _manifest_from_runtime(
 	manifest.source_kind = TileLibraryManifest.SOURCE_EXTERNAL
 	manifest.runtime_definition = definition.duplicate(true)
 	manifest.family = String(definition.get("family", "legacy"))
+	manifest.catalog_category = String(definition.get(
+		"catalog_category", CatalogTaxonomy.category(manifest.tile_id)
+	))
+	manifest.catalog_order = int(definition.get("catalog_order", 1000))
 	manifest.connection_group = String(
 		definition.get("connection_group", manifest.family)
 	)

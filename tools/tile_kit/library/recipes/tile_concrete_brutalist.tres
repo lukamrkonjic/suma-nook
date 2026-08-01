@@ -106,7 +106,7 @@ params = {
 
 [resource]
 script = ExtResource("2_21jqq")
-preset_name = "Monolith Garden"
+preset_name = "Large Concrete Slabs"
 master_seed = 20266287
 separate_tiles = true
 layers = Array[ExtResource("1_gyip6")]([SubResource("Resource_1u4ib"), SubResource("Resource_44o8h"), SubResource("Resource_qawtl"), SubResource("Resource_k1ojc"), SubResource("Resource_7oy5i")])

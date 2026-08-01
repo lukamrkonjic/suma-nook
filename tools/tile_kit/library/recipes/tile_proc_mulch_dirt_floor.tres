@@ -94,5 +94,5 @@ params = {
 
 [resource]
 script = ExtResource("2_o0s1o")
-preset_name = "Cedarcrumb Bed"
+preset_name = "Mulch Ground"
 layers = Array[ExtResource("1_y88sr")]([SubResource("Resource_y88sr"), SubResource("Resource_o0s1o"), SubResource("Resource_cxtb6"), SubResource("Resource_ue65p")])

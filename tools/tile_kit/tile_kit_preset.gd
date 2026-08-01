@@ -1,6 +1,8 @@
 @tool
 class_name TileKitPreset
 extends Resource
+
+const CatalogTaxonomy := preload("res://tools/tile_kit/library/tile_catalog_taxonomy.gd")
 ## A complete Tile Kit tile: master seed plus an ordered stack of layers.
 ##
 ## The preset is the unit of saving, loading, and baking. Identical preset →
@@ -17,64 +19,7 @@ extends Resource
 @export var layers: Array[TileKitLayer] = []
 
 const OFFICIAL_RECIPE_DIRECTORY := "res://tools/tile_kit/library/recipes"
-const OFFICIAL_RECIPES := [
-	["Emberbaked Loam", "tile_clay"],
-	["Bramblegate Cobbles", "tile_cobblestone"],
-	["Monolith Garden", "tile_concrete_brutalist"],
-	["Sunwell Court", "tile_courtyard"],
-	["Rootrest Earth", "tile_dirt"],
-	["Wayfarer Crossing", "tile_dirt_crossroad"],
-	["Wrenfoot Lane", "tile_dirt_road"],
-	["Timeworn Stepping", "tile_flagstone"],
-	["Rimeglass Stone", "tile_frosted_stone"],
-	["Tended Loam", "tile_garden"],
-	["Cloverlight Meadow", "tile_grass"],
-	["Buttercup Gleam", "tile_grass_flower"],
-	["Reedwhisper Bank", "tile_grass_pond_edge"],
-	["Coppercanopy Floor", "tile_grove_autumn"],
-	["Silverbark Floor", "tile_grove_birch"],
-	["Petalbloom Grove", "tile_grove_flowering"],
-	["Elder Canopy", "tile_grove_mature"],
-	["Velvetroot Moss", "tile_grove_mossy"],
-	["Springleaf Carpet", "tile_kit_grass"],
-	["Tile Forge: Verdant Master", "tile_master_grass"],
-	["Tile Forge: Masonry Master", "tile_master_pavers"],
-	["Tile Forge: Timber Master", "tile_master_wood"],
-	["Rainpool Loam", "tile_mud"],
-	["Starling Mere", "tile_open_water"],
-	["Moonpebble Walk", "tile_path"],
-	["Porcelain Seedbed", "tile_plain_ground"],
-	["Copperfall Litter", "tile_proc_autumn_litter"],
-	["Stonekin Scatter", "tile_proc_boulder_ground"],
-	["Hearthbrick Court", "tile_proc_brick_court"],
-	["Dapplecheck Slabs", "tile_proc_checker_slabs"],
-	["Acornset Paving", "tile_proc_cobblestone_paving"],
-	["Cloudstone Slabs", "tile_proc_concrete_slabs"],
-	["Wrenrail Paddock", "tile_proc_fenced_meadow"],
-	["Petalwink Meadow", "tile_proc_flower_meadow"],
-	["Pebblethread Path", "tile_proc_garden_path"],
-	["Finchstone Yard", "tile_proc_gravel_yard"],
-	["Mosswhisper Floor", "tile_proc_mossy_forest_floor"],
-	["Rainroot Bed", "tile_proc_mud_bed"],
-	["Cedarcrumb Bed", "tile_proc_mulch_dirt_floor"],
-	["Lilypad Hollow", "tile_proc_pond_basin"],
-	["Honeywind Dunes", "tile_proc_sand_dunes_study"],
-	["Sunmote Sand", "tile_proc_sandy_ground"],
-	["Windhush Drifts", "tile_proc_snow_drifts_study"],
-	["Hushsnow Blanket", "tile_proc_snow_field"],
-	["Furrowglow Plot", "tile_proc_tilled_field"],
-	["Ambergrain Decking", "tile_proc_wood_plank_deck"],
-	["Saffronwind Sand", "tile_sand"],
-	["Pillowdrift Snow", "tile_snow_drift"],
-	["Hearthstep Snowpath", "tile_snow_path"],
-	["Hushfall Field", "tile_snowfield"],
-	["Lichenrest Clearing", "tile_stone_clearing"],
-	["Glimmervein Ground", "tile_stone_crystal"],
-	["Fernbound Stone", "tile_stone_mossy"],
-	["Relicway Stone", "tile_stone_road"],
-	["Hearthruin Foundation", "tile_stone_ruin"],
-	["Sunkissed Boardwalk", "tile_wooden_planks"],
-]
+const OFFICIAL_RECIPES := CatalogTaxonomy.RECIPES
 
 
 func layer_of_kind(kind: String) -> TileKitLayer:
@@ -131,7 +76,7 @@ static func reference_clean_grass() -> TileKitPreset:
 	if official != null:
 		return official
 	var preset := TileKitPreset.new()
-	preset.preset_name = "Reference Clean Grass"
+	preset.preset_name = "Dense Grass"
 	preset.master_seed = 20260801
 
 	var base := TileKitLayer.new("base", {
@@ -214,7 +159,7 @@ static func mossy_forest_floor() -> TileKitPreset:
 	if official != null:
 		return official
 	var preset := reference_clean_grass()
-	preset.preset_name = "Mossy Forest Floor"
+	preset.preset_name = "Mossy Clearing"
 	var base := preset.layer_of_kind("base")
 	base.params.merge({
 		"top_key": "moss_top", "bevel_key": "moss_bevel",
@@ -253,7 +198,7 @@ static func mulch_dirt_floor() -> TileKitPreset:
 	if official != null:
 		return official
 	var preset := reference_clean_grass()
-	preset.preset_name = "Mulch Dirt Floor"
+	preset.preset_name = "Mulch Ground"
 	var base := preset.layer_of_kind("base")
 	base.params.merge({
 		"top_key": "earth_top", "bevel_key": "earth_bevel",
@@ -315,7 +260,7 @@ static func snow_drift_study() -> TileKitPreset:
 	if official != null:
 		return official
 	var preset := snow_field()
-	preset.preset_name = "Snow Drifts (Study)"
+	preset.preset_name = "Snow Drifts"
 	var base := preset.layer_of_kind("base")
 	base.params.merge({
 		"relief_style": "sculpted_dunes",
@@ -378,7 +323,7 @@ static func sand_dune_study() -> TileKitPreset:
 	if official != null:
 		return official
 	var preset := sandy_ground()
-	preset.preset_name = "Sand Dunes (Study)"
+	preset.preset_name = "Sand Dunes"
 	var base := preset.layer_of_kind("base")
 	base.params.merge({
 		"relief_style": "sculpted_dunes",
@@ -403,7 +348,7 @@ static func mud_bed() -> TileKitPreset:
 	if official != null:
 		return official
 	var preset := reference_clean_grass()
-	preset.preset_name = "Mud Bed"
+	preset.preset_name = "Mud Ground"
 	var base := preset.layer_of_kind("base")
 	base.params.merge({
 		"top_key": "mud_top", "bevel_key": "mud_bevel",
@@ -467,7 +412,7 @@ static func wood_plank_deck() -> TileKitPreset:
 	if official != null:
 		return official
 	var preset := reference_clean_grass()
-	preset.preset_name = "Wood Plank Deck"
+	preset.preset_name = "Wood Deck"
 	preset.separate_tiles = true
 	var base := preset.layer_of_kind("base")
 	base.params.merge({
@@ -516,7 +461,7 @@ static func brick_court() -> TileKitPreset:
 	if official != null:
 		return official
 	var preset := cobblestone_paving()
-	preset.preset_name = "Brick Court"
+	preset.preset_name = "Brick Paving"
 	var base := preset.layer_of_kind("base")
 	base.params.merge({
 		"top_key": "brick_medium", "bevel_key": "brick_medium",
@@ -568,7 +513,7 @@ static func garden_path() -> TileKitPreset:
 	if official != null:
 		return official
 	var preset := reference_clean_grass()
-	preset.preset_name = "Garden Path"
+	preset.preset_name = "Meadow Path"
 	preset.separate_tiles = true
 	var stepping := TileKitLayer.new("pavers", {
 		"pattern": "stepping",
@@ -591,7 +536,7 @@ static func autumn_litter() -> TileKitPreset:
 	if official != null:
 		return official
 	var preset := reference_clean_grass()
-	preset.preset_name = "Autumn Litter"
+	preset.preset_name = "Fallen Leaves"
 	var base := preset.layer_of_kind("base")
 	base.params.merge({
 		"top_key": "earth_top", "bevel_key": "earth_bevel",
@@ -622,7 +567,7 @@ static func gravel_yard() -> TileKitPreset:
 	if official != null:
 		return official
 	var preset := reference_clean_grass()
-	preset.preset_name = "Gravel Yard"
+	preset.preset_name = "Gravel Ground"
 	var base := preset.layer_of_kind("base")
 	base.params.merge({
 		"top_key": "stone_medium", "bevel_key": "stone_light",
@@ -651,7 +596,7 @@ static func checker_slabs() -> TileKitPreset:
 	if official != null:
 		return official
 	var preset := concrete_slabs()
-	preset.preset_name = "Checker Slabs"
+	preset.preset_name = "Checkerboard Tiles"
 	var pavers := preset.layer_of_kind("pavers")
 	pavers.params.merge({
 		"slab_key": "stone_light",
@@ -686,7 +631,7 @@ static func pond_basin() -> TileKitPreset:
 	if official != null:
 		return official
 	var preset := reference_clean_grass()
-	preset.preset_name = "Pond Basin"
+	preset.preset_name = "Small Pond"
 	# A basin is a cell-sized authored object, not a continuous ground skin.
 	# Keeping its rim also prevents connected-cap generation from replacing the
 	# recessed pool sculpt when another basin sits beside it.
@@ -717,7 +662,7 @@ static func tilled_field() -> TileKitPreset:
 	if official != null:
 		return official
 	var preset := reference_clean_grass()
-	preset.preset_name = "Tilled Field"
+	preset.preset_name = "Tilled Soil"
 	var base := preset.layer_of_kind("base")
 	base.params.merge({
 		"top_key": "earth_top", "bevel_key": "earth_bevel",
@@ -738,7 +683,7 @@ static func boulder_ground() -> TileKitPreset:
 	if official != null:
 		return official
 	var preset := reference_clean_grass()
-	preset.preset_name = "Boulder Ground"
+	preset.preset_name = "Boulder Field"
 	var base := preset.layer_of_kind("base")
 	base.params.merge({
 		"top_key": "moss_top", "bevel_key": "moss_bevel",

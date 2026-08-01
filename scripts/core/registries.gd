@@ -242,6 +242,26 @@ func active_tile_ids() -> Array[String]:
 	return result
 
 
+## Every registered tile that may exist in player stock. Unlike the active
+## roster this intentionally includes preview/hidden content, so development
+## tools can grant the complete official library without changing reward pools.
+func obtainable_tile_ids() -> Array[String]:
+	var result: Array[String] = []
+	for definition: Defs.TileDefinition in tiles.values():
+		if definition.obtainable:
+			result.append(definition.id)
+	result.sort_custom(func(a: String, b: String) -> bool:
+		var tile_a := tile(a)
+		var tile_b := tile(b)
+		if tile_a.catalog_category != tile_b.catalog_category:
+			return tile_a.catalog_category < tile_b.catalog_category
+		if tile_a.catalog_order != tile_b.catalog_order:
+			return tile_a.catalog_order < tile_b.catalog_order
+		return tile_a.display_name.naturalnocasecmp_to(tile_b.display_name) < 0
+	)
+	return result
+
+
 ## Tiles the Asset Studio may show that are NOT part of the gameplay roster.
 ##
 ## New art needs to be inspected in the running game under real lighting before

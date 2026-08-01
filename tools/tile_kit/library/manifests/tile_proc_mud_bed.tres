@@ -5,13 +5,15 @@
 [resource]
 script = ExtResource("1_rpw3v")
 tile_id = "tile_proc_mud_bed"
-display_name = "Rainroot Bed"
+display_name = "Mud Ground"
 revision = 1
 lifecycle = "published"
-visibility = "preview"
+visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_proc_mud_bed.tres"
 baked_roles = PackedStringArray("base", "detail", "surface")
 family = "home_meadow"
+catalog_category = "swamp"
+catalog_order = 40
 connection_group = "tile_proc_mud_bed"
 biome_tags = PackedStringArray("meadow")
 landmark_tags = PackedStringArray()

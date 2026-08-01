@@ -1,13 +1,19 @@
 class_name KitDressingBuilder
 extends RefCounted
-## Broad flat colour patches across the tile top.
+## Broad soft patches across the tile top — moss cushions, snow pillows,
+## soil beds, wet sheens.
 ##
-## These are the reference's large soft circles: pure surface dressing, not
-## terrain. They sit a hair above the top plane, share its exact upward
-## normal, and cast no shadows, so they read as variation IN the surface
-## rather than objects ON it. Everything that would make them read as mud,
-## puddles, or holes — recession, gradients, outlines, contact shadow — is
-## structurally impossible here, not merely avoided.
+## Two profiles, chosen per layer:
+##
+## "cushion" (default) — a shallow raised pillow with a rolled edge and real
+## analytic normals. It catches its own broad highlight and settles a soft
+## contact line into the ground, so a moss patch reads as MATERIAL resting on
+## the tile. This retired the flat painted circles that read as stains on
+## every judged capture.
+##
+## "sheen" — the old flat sky-lit decal, kept deliberately for marks that ARE
+## flat: wet mud, damp rings, shadows of dampness. Never use it for moss,
+## snow, or soil.
 ##
 ## Placement is clustered, not scattered: centres are drawn around two or
 ## three loose region anchors, so blobs overlap into organic archipelagos and
@@ -28,6 +34,9 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 	var margin: float = layer.value("edge_margin", 0.02)
 	var scale: float = layer.value("scale_multiplier", 1.0)
 	var weights: Dictionary = layer.value("color_weights", {"dressing_light": 1.0})
+	var profile := String(layer.value("patch_profile", "cushion"))
+	var height_scale: float = layer.value("height_scale", 1.0)
+	var edge_softness: float = clampf(layer.value("edge_softness", 0.55), 0.0, 1.0)
 
 	# Overlap is a CHOICE, not a fate. On: centres gravitate to region
 	# anchors and blobs merge into organic archipelagos (the grass look).
@@ -51,6 +60,10 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 		var radius_band: Array = layer.value(size_key + "_radius", [0.1, 0.2])
 		for index in count:
 			var radius := rng.randf_range(radius_band[0], radius_band[1]) * scale
+			if profile == "cushion":
+				# Below this footprint a raised patch reads as a dot at the
+				# gameplay camera. Grow it or it has no business existing.
+				radius = maxf(radius, 0.075)
 			var aspect_band: Array = layer.value("aspect", [0.70, 1.35])
 			var aspect := rng.randf_range(aspect_band[0], aspect_band[1])
 			var radius_x := radius
@@ -61,7 +74,20 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 				continue
 			var centre: Vector2
 			var placed_ok := true
-			if allow_overlap:
+			if profile == "cushion" and size_key == "small" and not placed.is_empty():
+				# Small cushions never stand alone — a lone raised dot reads as
+				# a droplet. They lobe onto an existing patch, extending its
+				# silhouette the way moss creeps outward from an anchor mass.
+				var host: Dictionary = placed[rng.randi() % placed.size()]
+				var host_angle := rng.randf() * TAU
+				var host_reach: float = float(host["radius"]) * rng.randf_range(0.7, 1.0)
+				centre = Vector2(
+					clampf(float((host["centre"] as Vector2).x)
+						+ cos(host_angle) * host_reach, -limit, limit),
+					clampf(float((host["centre"] as Vector2).y)
+						+ sin(host_angle) * host_reach, -limit, limit)
+				)
+			elif allow_overlap:
 				var anchor := anchors[rng.randi() % anchors.size()]
 				centre = Vector2(
 					clampf(anchor.x + rng.randf_range(-spread, spread), -limit, limit),
@@ -84,16 +110,34 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 			if not placed_ok:
 				continue
 			var irregularity_band: Array = layer.value("irregularity", [0.08, 0.14])
+			var irregularity := rng.randf_range(
+				float(irregularity_band[0]), float(irregularity_band[1]))
+			var smoothing := int(layer.value("smoothing_passes", 3))
+			if profile == "cushion":
+				# A raised form shows its outline in silhouette, where a flat
+				# decal only showed it in plan — the same jitter that read as
+				# organic on a sheen reads as a boiled egg on a cushion.
+				# Push the wobble up and smooth one pass less, so patches come
+				# out lobed and hand-torn rather than oval.
+				irregularity = clampf(irregularity * 1.9 + 0.06, 0.10, 0.34)
+				smoothing = maxi(2, smoothing - 1)
 			var radii := TileKitMeshUtils.soft_blob_outline(
 				rng,
 				layer.value("outline_points", 20),
-				rng.randf_range(irregularity_band[0], irregularity_band[1]),
-				layer.value("smoothing_passes", 3)
+				irregularity,
+				smoothing
 			)
 			var key := TileKitPalette.weighted_key(rng, weights)
-			TileKitMeshUtils.add_draped_blob(batch, key,
+			# Cushion height grows with footprint but stays a SHALLOW form:
+			# a broad moss bed rises a few centimetres, a small tuft less.
+			# Sheen patches stay flat by definition.
+			var cushion := 0.0
+			if profile == "cushion":
+				cushion = clampf(reach * 0.30, 0.010, 0.048) * height_scale
+			TileKitMeshUtils.add_cushion_blob(batch, key,
 				Vector2(centre.x, centre.y), top + LIFT,
-				radius_x, radius_z, rng.randf() * TAU, radii, cap_height)
+				radius_x, radius_z, rng.randf() * TAU, radii, cap_height,
+				cushion, edge_softness)
 			placed.append({
 				"centre": centre,
 				"radius": (radius_x + radius_z) * 0.5,
@@ -101,9 +145,11 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 
 	# Downstream context: clutter prefers to sit on or near these.
 	context["dressing_blobs"] = placed
+	# Cushions are real forms and ground themselves with their own shadow;
+	# flat sheens stay shadowless so they cannot double-darken the surface.
 	return {
 		"meshes": [{"role": "detail", "name": "tile_dressing",
-			"mesh": batch.commit(), "cast_shadow": false}],
+			"mesh": batch.commit(), "cast_shadow": profile == "cushion"}],
 	}
 
 

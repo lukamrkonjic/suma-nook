@@ -5,14 +5,16 @@
 [resource]
 script = ExtResource("1_r3n1e")
 tile_id = "tile_proc_pond_basin"
-display_name = "Lilypad Hollow"
+display_name = "Small Pond"
 revision = 1
 lifecycle = "published"
-visibility = "preview"
+visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_proc_pond_basin.tres"
 separate_tiles = true
 baked_roles = PackedStringArray("base", "detail", "surface")
 family = "home_meadow"
+catalog_category = "swamp"
+catalog_order = 20
 connection_group = "tile_proc_pond_basin"
 biome_tags = PackedStringArray("meadow")
 landmark_tags = PackedStringArray()

@@ -98,6 +98,6 @@ params = {
 
 [resource]
 script = ExtResource("2_0vbws")
-preset_name = "Hushfall Field"
+preset_name = "Fresh Snow"
 master_seed = 20263854
 layers = Array[ExtResource("1_ym3ym")]([SubResource("Resource_peey5"), SubResource("Resource_3p5ut"), SubResource("Resource_luyjh"), SubResource("Resource_24ylk")])

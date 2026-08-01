@@ -101,5 +101,5 @@ params = {
 
 [resource]
 script = ExtResource("2_4b45c")
-preset_name = "Honeywind Dunes"
+preset_name = "Sand Dunes"
 layers = Array[ExtResource("1_wdhjc")]([SubResource("Resource_wdhjc"), SubResource("Resource_4b45c"), SubResource("Resource_rt4vm"), SubResource("Resource_h18m7")])

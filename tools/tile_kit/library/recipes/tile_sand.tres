@@ -31,23 +31,25 @@ params = {
 [sub_resource type="Resource" id="Resource_d5s2h"]
 script = ExtResource("1_kghyk")
 kind = "dressing"
+enabled = false
 params = {
-"allow_overlap": true,
 "aspect": [0.7, 1.35],
 "color_weights": {
-"sand_patch": 100.0
+"dressing_dark": 15.0,
+"dressing_light": 50.0,
+"dressing_medium": 35.0
 },
 "edge_margin": 0.02,
 "irregularity": [0.08, 0.14],
-"large_count": [2, 4],
+"large_count": [3, 5],
 "large_radius": [0.17, 0.29],
-"medium_count": [3, 6],
+"medium_count": [4, 7],
 "medium_radius": [0.094, 0.17],
 "outline_points": 20,
 "region_count": [2, 3],
 "region_spread": 0.3,
 "scale_multiplier": 1.0,
-"small_count": [4, 8],
+"small_count": [2, 5],
 "small_radius": [0.047, 0.094],
 "smoothing_passes": 3
 }
@@ -60,14 +62,14 @@ params = {
 "sand_side": 60.0,
 "stone_light": 40.0
 },
-"count": [8, 14],
-"diameter": [0.04, 0.1],
+"count": [4, 7],
+"diameter": [0.05, 0.11],
 "edge_margin": 0.035,
 "height": [0.008, 0.022],
 "min_spacing": 0.055,
 "on_dressing_fraction": 0.55,
 "scale_multiplier": 1.0,
-"shapes": ["pebble", "dot", "stone_chip"]
+"shapes": ["pebble", "stone_chip"]
 }
 
 [sub_resource type="Resource" id="Resource_f2bdi"]
@@ -96,6 +98,6 @@ params = {
 
 [resource]
 script = ExtResource("2_mnt0t")
-preset_name = "Saffronwind Sand"
+preset_name = "Beach Sand"
 master_seed = 20264017
 layers = Array[ExtResource("1_kghyk")]([SubResource("Resource_vtoqt"), SubResource("Resource_d5s2h"), SubResource("Resource_1vxf1"), SubResource("Resource_f2bdi")])
