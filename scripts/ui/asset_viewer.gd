@@ -202,6 +202,10 @@ var _status: Label
 var _hint: Label
 var _tile_tab: Button
 var _model_tab: Button
+var _tile_kit_tab: Button
+var _tile_kit_panel: TileKitPanel
+var _tile_kit_inspector: PanelContainer
+var _standard_inspector: PanelContainer
 var _weather_buttons: Dictionary = {}
 var _light_buttons: Dictionary = {}
 var _edit_target: OptionButton
@@ -519,6 +523,11 @@ func _build_ui() -> void:
 	_model_tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_model_tab.pressed.connect(_set_category.bind("models"))
 	tabs.add_child(_model_tab)
+	_tile_kit_tab = _kit.choice_button("Tile Kit")
+	_tile_kit_tab.name = "AssetViewerTabTileKit"
+	_tile_kit_tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tile_kit_tab.pressed.connect(_set_category.bind("tilekit"))
+	tabs.add_child(_tile_kit_tab)
 	_search = LineEdit.new()
 	_search.name = "AssetViewerSearch"
 	_search.placeholder_text = "Search name or asset id…"
@@ -601,6 +610,8 @@ func _build_inspector(parent: Control) -> void:
 	inspector.offset_bottom = -118.0
 	inspector.add_theme_stylebox_override("panel", _kit.panel_style(false, 18))
 	parent.add_child(inspector)
+	_standard_inspector = inspector
+	_build_tile_kit_inspector(parent)
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1117,12 +1128,51 @@ func _restore_gameplay_presentation() -> void:
 	_saved_visibility.clear()
 
 
+## The Tile Kit inspector occupies the same dock as the standard one; the
+## category decides which is visible. Building both up front keeps the swap a
+## visibility flip instead of a rebuild.
+func _build_tile_kit_inspector(parent: Control) -> void:
+	_tile_kit_inspector = PanelContainer.new()
+	_tile_kit_inspector.name = "AssetViewerTileKitInspector"
+	_tile_kit_inspector.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
+	_tile_kit_inspector.offset_left = -365.0
+	_tile_kit_inspector.offset_top = 76.0
+	_tile_kit_inspector.offset_right = -14.0
+	_tile_kit_inspector.offset_bottom = -118.0
+	_tile_kit_inspector.add_theme_stylebox_override(
+		"panel", _kit.panel_style(false, 18))
+	_tile_kit_inspector.visible = false
+	parent.add_child(_tile_kit_inspector)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.follow_focus = true
+	_tile_kit_inspector.add_child(scroll)
+	_tile_kit_panel = TileKitPanel.new()
+	_tile_kit_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tile_kit_panel.setup(_kit)
+	_tile_kit_panel.changed.connect(_rebuild_tile_kit_preview)
+	_tile_kit_panel.bake_requested.connect(_bake_tile_kit)
+	_tile_kit_panel.export_requested.connect(_export_tile_kit_glb)
+	_tile_kit_panel.status.connect(func(message: String) -> void:
+		_status.text = message)
+	scroll.add_child(_tile_kit_panel)
+
+
 func _set_category(category: String) -> void:
-	if category not in ["tiles", "models"]:
+	if category not in ["tiles", "models", "tilekit"]:
 		return
 	_category = category
 	_search.text = ""
+	var kit_active := category == "tilekit"
+	if _tile_kit_inspector != null:
+		_tile_kit_inspector.visible = kit_active
+	if _standard_inspector != null:
+		_standard_inspector.visible = not kit_active
 	_rebuild_catalog()
+	if kit_active:
+		_rebuild_tile_kit_preview()
+		return
 	var first := _first_visible_entry()
 	if not first.is_empty():
 		select_content(String(first["content_id"]))
@@ -1135,8 +1185,24 @@ func _rebuild_catalog() -> void:
 		_list.remove_child(child)
 		child.queue_free()
 	_entries.clear()
+	if _category == "tilekit":
+		_list.add_child(_catalog_group_label("PROCEDURAL TILES"))
+		var info := _kit.label(
+			"The Tile Kit builds tiles from layered lego bricks — base, "
+			+ "dressing, clutter, grass — all driven by one seed. Use the "
+			+ "inspector to reroll layers, lock keepers, and bake the result "
+			+ "into the game's grass tile.", 12)
+		info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_list.add_child(info)
+		_tile_tab.set_pressed_no_signal(false)
+		_model_tab.set_pressed_no_signal(false)
+		_tile_kit_tab.set_pressed_no_signal(true)
+		return
 	if _category == "tiles":
-		for content_id: String in _main.core.registries.active_tile_ids():
+		# The studio shows the shipped roster plus anything staged for preview,
+		# so new art can be judged in the running game before it is allowed to
+		# become obtainable content.
+		for content_id: String in _main.core.registries.viewable_tile_ids():
 			var definition := _main.core.registries.tile(content_id)
 			_entries.append({
 				"content_id": content_id,
@@ -1209,6 +1275,114 @@ func _first_visible_entry() -> Dictionary:
 		if query.is_empty() or haystack.contains(query):
 			return entry
 	return {}
+
+
+## Tile Kit preview: a 3x3 patch of the SAME preset, because repetition is the
+## test that matters — a kit tile ships as terrain, and terrain is judged in
+## multiples, never as a hero piece.
+func _rebuild_tile_kit_preview() -> void:
+	if _content_root == null or _tile_kit_panel == null:
+		return
+	for child in _content_root.get_children():
+		child.free()
+	var tile_size: float = _main.core.grid.tile_size
+	var scale := tile_size / 1.70
+	var first: TileKitGenerator
+	for z in 3:
+		for x in 3:
+			var generator := TileKitGenerator.new()
+			generator.preset = _tile_kit_panel.preset
+			generator.world_cell = Vector2i(x - 1, z - 1)
+			# Cardinal mask: 1 north, 2 east, 4 south, 8 west. The preset's
+			# separation checkbox decides whether the generator uses or ignores
+			# this real patch topology.
+			generator.neighbour_mask = (
+				(1 if z > 0 else 0)
+				| (2 if x < 2 else 0)
+				| (4 if z < 2 else 0)
+				| (8 if x > 0 else 0)
+			)
+			# Preview at live scale, exactly as TileVisualFactory will show it:
+			# X/Z squeezed to the 1.35 m cell, verticals untouched.
+			generator.scale = Vector3(scale, 1.0, scale)
+			generator.position = Vector3((x - 1) * tile_size, 0.0, (z - 1) * tile_size)
+			_content_root.add_child(generator)
+			if first == null:
+				first = generator
+	_title.text = "Tile Kit — %s" % _tile_kit_panel.preset.preset_name
+	_subtitle.text = "procedural  ·  3×3 repetition patch"
+	_hint.text = "Drag to orbit  ·  Wheel to zoom  ·  judge the repetition"
+	_status.text = "Live Tile Kit preview under game lighting."
+	if first != null:
+		_tile_kit_panel.show_statistics(first.statistics())
+	_collect_wind_nodes()
+	_frame_preview()
+
+
+## Bakes the current preset into the layer scenes the game loads for the
+## tile_kit_grass tile: base persists under cover, surface and detail hide.
+func _bake_tile_kit() -> void:
+	if _tile_kit_panel == null:
+		return
+	var directory := "res://tools/tile_kit/baked"
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(
+		directory + "/materials"))
+	# Materials first: once each palette material has a resource_path, every
+	# baked scene references it instead of embedding a private copy.
+	for key: String in TileKitPalette.COLORS:
+		var material := TileKitPalette.material(key)
+		var material_path := "%s/materials/%s.tres" % [directory, key]
+		if ResourceSaver.save(material, material_path) == OK:
+			material.take_over_path(material_path)
+	var failures: Array[String] = []
+	# Canonical mask 0 plus every connected-edge combination. Detail does not
+	# depend on topology and stays shared; base/surface variants are selected by
+	# TileVisualFactory from the live neighbours around each placed cell.
+	for mask in 16:
+		var generator := TileKitGenerator.new()
+		generator.preset = _tile_kit_panel.preset
+		generator.neighbour_mask = mask
+		add_child(generator)
+		var scenes := generator.bake_role_scenes()
+		for role: String in scenes:
+			if mask > 0 and role == "detail":
+				continue
+			var asset_id := "tile_kit_grass_%s" % role
+			if mask > 0:
+				asset_id += "_n%02d" % mask
+			var path := "%s/%s.tscn" % [directory, asset_id]
+			if ResourceSaver.save(scenes[role], path) != OK:
+				failures.append("%s mask %d" % [role, mask])
+		generator.free()
+	if not failures.is_empty():
+		_status.text = "Bake failed for: %s" % ", ".join(failures)
+		return
+	_assets.clear_edit_caches()
+	_status.text = (
+		"Baked tile_kit_grass with 16 edge topologies — restart the game "
+		+ "or reload the world to see it placed."
+	)
+
+
+func _export_tile_kit_glb() -> void:
+	if _tile_kit_panel == null:
+		return
+	var generator := TileKitGenerator.new()
+	generator.preset = _tile_kit_panel.preset
+	add_child(generator)
+	var directory := "user://tile_kit_export"
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(directory))
+	var path := "%s/%s.glb" % [
+		directory,
+		_tile_kit_panel.preset.preset_name.validate_filename().to_snake_case(),
+	]
+	var error := generator.export_glb(ProjectSettings.globalize_path(path))
+	generator.queue_free()
+	_status.text = (
+		"Exported %s" % ProjectSettings.globalize_path(path)
+		if error == OK
+		else "GLB export failed: %s" % error_string(error)
+	)
 
 
 func _rebuild_preview() -> void:

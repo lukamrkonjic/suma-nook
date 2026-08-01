@@ -160,13 +160,10 @@ func _on_slot_changed(coord: Vector2i, elevation: int) -> void:
 		if core.grid.has_cell_at(coord, elevation):
 			_scalable_backend.animate_tile(coord, elevation)
 		return
-	var key := core.grid.slot_key(coord, elevation)
-	if _tile_nodes.has(key):
-		_unregister_holder_structures(_tile_nodes[key])
-		_tile_nodes[key].queue_free()
-		_tile_nodes.erase(key)
+	_remove_cell_node(coord, elevation)
 	if core.grid.has_cell_at(coord, elevation):
 		_build_cell(coord, elevation, true)
+	_refresh_connection_neighbours(coord, elevation)
 	if elevation > 0:
 		_refresh_covered_surface(coord, elevation - 1, true)
 	# Any changed elevation can turn a void edge into a jumpable raised
@@ -199,7 +196,17 @@ func _build_cell(coord: Vector2i, elevation: int, animate := false) -> void:
 	add_child(holder)
 	_tile_nodes[core.grid.slot_key(coord, elevation)] = holder
 
-	var visual := _tile_visual_factory.instantiate_visual(def)
+	var neighbour_mask := _tile_visual_factory.connection_mask(
+		def,
+		coord,
+		elevation,
+		state.rotation
+	)
+	var visual := _tile_visual_factory.instantiate_visual(
+		def,
+		false,
+		neighbour_mask
+	)
 	visual.rotation.y = state.rotation * PI * 0.5
 	holder.add_child(visual)
 	_tile_visual_factory.set_stack_seam_visible(visual, elevation > 0)
@@ -214,6 +221,28 @@ func _build_cell(coord: Vector2i, elevation: int, animate := false) -> void:
 	_apply_anchor_visual(holder, state, def, false)
 	if animate:
 		_animate_placement_settle(holder)
+
+
+func _remove_cell_node(coord: Vector2i, elevation: int) -> void:
+	var key := core.grid.slot_key(coord, elevation)
+	if not _tile_nodes.has(key):
+		return
+	var previous: Node3D = _tile_nodes[key]
+	_unregister_holder_structures(previous)
+	# Detach immediately so a topology replacement can keep the stable holder
+	# name during the same signal turn; destruction itself stays deferred.
+	remove_child(previous)
+	previous.queue_free()
+	_tile_nodes.erase(key)
+
+
+func _refresh_connection_neighbours(coord: Vector2i, elevation: int) -> void:
+	for offset: Vector2i in WorldGrid.NEIGHBORS:
+		var neighbour_coord := coord + offset
+		if not core.grid.has_cell_at(neighbour_coord, elevation):
+			continue
+		_remove_cell_node(neighbour_coord, elevation)
+		_build_cell(neighbour_coord, elevation, false)
 
 
 func _apply_covered_surface(

@@ -117,10 +117,17 @@ func rebuild_chunk(chunk_coord: Vector2i) -> void:
 					continue
 				var world_position := core.grid.cell_to_world(coord, elevation)
 				var covered := core.grid.has_cell_at(coord, elevation + 1)
-				var batch_key := "%s|%d|%d" % [
+				var neighbour_mask := tile_factory.connection_mask(
+					definition,
+					coord,
+					elevation,
+					state.rotation
+				)
+				var batch_key := "%s|%d|%d|%d" % [
 					definition.id,
 					int(covered),
 					int(elevation > 0),
+					neighbour_mask,
 				]
 				if not batches.has(batch_key):
 					batches[batch_key] = {
@@ -128,6 +135,7 @@ func rebuild_chunk(chunk_coord: Vector2i) -> void:
 						"definition": definition,
 						"covered": covered,
 						"stack_seam": elevation > 0,
+						"neighbour_mask": neighbour_mask,
 						"entries": [],
 					}
 				(batches[batch_key]["entries"] as Array).append({
@@ -243,7 +251,8 @@ func _build_batch(chunk_root: Node3D, batch: Dictionary) -> void:
 		batch_mesh = tile_factory.batch_mesh(
 			definition as Defs.TileDefinition,
 			bool(batch["covered"]),
-			bool(batch["stack_seam"])
+			bool(batch["stack_seam"]),
+			int(batch["neighbour_mask"])
 		)
 	else:
 		batch_mesh = structure_factory.batch_mesh(

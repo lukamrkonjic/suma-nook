@@ -29,7 +29,11 @@ func _init(asset_library: AssetLibrary, world_grid: WorldGrid) -> void:
 	grid = world_grid
 
 
-func instantiate_visual(def: Defs.TileDefinition, preview := false) -> Node3D:
+func instantiate_visual(
+	def: Defs.TileDefinition,
+	preview := false,
+	neighbour_mask := 0
+) -> Node3D:
 	# Production GLBs were authored to the former 1.70 m footprint. Keep their
 	# vertical profile intact while normalizing only X/Z to the live grid size.
 	# The wrapper lets generated surface detail remain in live-grid units.
@@ -39,7 +43,7 @@ func instantiate_visual(def: Defs.TileDefinition, preview := false) -> Node3D:
 	if def.render_profile == "continuous_water":
 		authored_visual = _continuous_water_bed()
 	elif def.uses_layered_visual():
-		authored_visual = _instantiate_layered_visual(def)
+		authored_visual = _instantiate_layered_visual(def, neighbour_mask)
 	else:
 		authored_visual = assets.instantiate(def.asset_id)
 	if not def.uses_layered_visual():
@@ -60,12 +64,18 @@ func instantiate_visual(def: Defs.TileDefinition, preview := false) -> Node3D:
 func batch_mesh(
 	def: Defs.TileDefinition,
 	covered: bool,
-	stack_seam: bool
+	stack_seam: bool,
+	neighbour_mask := 0
 ) -> ArrayMesh:
-	var key := "%s|%d|%d" % [def.id, int(covered), int(stack_seam)]
+	var key := "%s|%d|%d|%d" % [
+		def.id,
+		int(covered),
+		int(stack_seam),
+		neighbour_mask,
+	]
 	if _batch_mesh_cache.has(key):
 		return _batch_mesh_cache[key]
-	var visual := instantiate_visual(def)
+	var visual := instantiate_visual(def, false, neighbour_mask)
 	set_stack_seam_visible(visual, stack_seam)
 	if def.supports_tiles:
 		set_surface_covered(visual, covered, false)
@@ -80,14 +90,25 @@ func clear_asset_edit_cache() -> void:
 	_batch_mesh_cache.clear()
 
 
-func _instantiate_layered_visual(def: Defs.TileDefinition) -> Node3D:
+func _instantiate_layered_visual(
+	def: Defs.TileDefinition,
+	neighbour_mask: int
+) -> Node3D:
 	var root := Node3D.new()
 	root.name = "LayeredTileVisual"
 	var horizontal_scale := grid.tile_size / AUTHORED_TILE_SIZE
 	for index in def.visual_layers.size():
 		var layer: Defs.TileVisualLayerDefinition = def.visual_layers[index]
-		var layer_visual := assets.instantiate(layer.asset_id)
-		layer_visual.name = "%02d_%s_%s" % [index, layer.role, layer.asset_id]
+		var resolved_asset_id := _connected_layer_asset_id(
+			layer.asset_id,
+			neighbour_mask
+		)
+		var layer_visual := assets.instantiate(resolved_asset_id)
+		layer_visual.name = "%02d_%s_%s" % [
+			index,
+			layer.role,
+			resolved_asset_id,
+		]
 		layer_visual.set_meta(LAYER_ROLE_META, layer.role)
 		layer_visual.set_meta(LAYER_COVER_BEHAVIOR_META, layer.cover_behavior)
 		if layer.scale_mode == "tile_xz":
@@ -111,6 +132,75 @@ func _instantiate_layered_visual(def: Defs.TileDefinition) -> Node3D:
 			assets.edits.profile(layer.asset_id)
 		)
 	return root
+
+
+## Tile Kit baking emits one scene per cardinal topology. Other layered assets
+## have no suffixed scene, so they transparently keep their canonical asset.
+func _connected_layer_asset_id(asset_id: String, neighbour_mask: int) -> String:
+	if neighbour_mask == 0:
+		return asset_id
+	var candidate := "%s_n%02d" % [asset_id, neighbour_mask]
+	return candidate if assets.exists(candidate) else asset_id
+
+
+## Same-family full-flush cells consume each other's shared rim. The result is
+## transformed into the tile's unrotated local space because the complete
+## visual is rotated after instantiation.
+func connection_mask(
+	def: Defs.TileDefinition,
+	coord: Vector2i,
+	elevation: int,
+	rotation_quarters := 0
+) -> int:
+	if def == null or def.connection_mode != "full_flush":
+		return 0
+	var world_mask := 0
+	var directions := [
+		[1, Vector2i(0, -1)],
+		[2, Vector2i(1, 0)],
+		[4, Vector2i(0, 1)],
+		[8, Vector2i(-1, 0)],
+	]
+	for entry: Array in directions:
+		var neighbour := grid.tile_def_at(coord + entry[1], elevation)
+		if (
+			neighbour != null
+			and neighbour.family == def.family
+			and neighbour.connection_mode == "full_flush"
+		):
+			world_mask |= int(entry[0])
+	return _world_mask_to_local(world_mask, rotation_quarters)
+
+
+static func _world_mask_to_local(world_mask: int, rotation_quarters: int) -> int:
+	if world_mask == 0 or posmod(rotation_quarters, 4) == 0:
+		return world_mask
+	var rotation := Basis(
+		Vector3.UP,
+		posmod(rotation_quarters, 4) * PI * 0.5
+	).inverse()
+	var directions := [
+		[1, Vector2i(0, -1)],
+		[2, Vector2i(1, 0)],
+		[4, Vector2i(0, 1)],
+		[8, Vector2i(-1, 0)],
+	]
+	var local_mask := 0
+	for entry: Array in directions:
+		if (world_mask & int(entry[0])) == 0:
+			continue
+		var world_direction: Vector2i = entry[1]
+		var local_3d := rotation * Vector3(
+			world_direction.x,
+			0.0,
+			world_direction.y
+		)
+		var local_direction := Vector2i(roundi(local_3d.x), roundi(local_3d.z))
+		for local_entry: Array in directions:
+			if local_entry[1] == local_direction:
+				local_mask |= int(local_entry[0])
+				break
+	return local_mask
 
 
 func _mark_authored_surface_details(authored_visual: Node3D) -> void:

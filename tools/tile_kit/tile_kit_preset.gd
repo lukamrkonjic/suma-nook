@@ -1,0 +1,675 @@
+@tool
+class_name TileKitPreset
+extends Resource
+## A complete Tile Kit tile: master seed plus an ordered stack of layers.
+##
+## The preset is the unit of saving, loading, and baking. Identical preset →
+## identical geometry, always: every random decision anywhere in the kit
+## derives from `master_seed` and the layers' own offsets.
+
+@export var preset_name := "Untitled Tile"
+@export var master_seed := 20260801
+## Keep each cell's authored rim even when the next cell uses this same preset.
+## Organic ground normally leaves this off so neighbouring cells fuse into one
+## land mass; constructed paving turns it on so its block-to-block cadence
+## remains visible.
+@export var separate_tiles := false
+@export var layers: Array[TileKitLayer] = []
+
+
+func layer_of_kind(kind: String) -> TileKitLayer:
+	for layer in layers:
+		if layer.kind == kind:
+			return layer
+	return null
+
+
+func duplicate_preset() -> TileKitPreset:
+	var copy := TileKitPreset.new()
+	copy.preset_name = preset_name
+	copy.master_seed = master_seed
+	copy.separate_tiles = separate_tiles
+	for layer in layers:
+		copy.layers.append(layer.duplicate_layer())
+	return copy
+
+
+## Built-in preset registry. The panel lists these before user presets, and
+## adding a family here is all it takes for it to appear in the studio.
+static func built_in_names() -> Array[String]:
+	return ["Reference Clean Grass", "Flower Meadow", "Garden Path",
+		"Fenced Meadow", "Pond Basin", "Tilled Field", "Boulder Ground",
+		"Mossy Forest Floor", "Autumn Litter", "Mulch Dirt Floor",
+		"Snow Field", "Snow Drifts (Study)",
+		"Sandy Ground", "Sand Dunes (Study)", "Mud Bed", "Gravel Yard",
+		"Cobblestone Paving", "Wood Plank Deck", "Concrete Slabs",
+		"Brick Court", "Checker Slabs"]
+
+
+static func make_built_in(preset_name: String) -> TileKitPreset:
+	match preset_name:
+		"Mossy Forest Floor":
+			return mossy_forest_floor()
+		"Mulch Dirt Floor":
+			return mulch_dirt_floor()
+		"Snow Field":
+			return snow_field()
+		"Snow Drifts (Study)":
+			return snow_drift_study()
+		"Sandy Ground":
+			return sandy_ground()
+		"Sand Dunes (Study)":
+			return sand_dune_study()
+		"Mud Bed":
+			return mud_bed()
+		"Cobblestone Paving":
+			return cobblestone_paving()
+		"Wood Plank Deck":
+			return wood_plank_deck()
+		"Concrete Slabs":
+			return concrete_slabs()
+		"Brick Court":
+			return brick_court()
+		"Flower Meadow":
+			return flower_meadow()
+		"Garden Path":
+			return garden_path()
+		"Autumn Litter":
+			return autumn_litter()
+		"Gravel Yard":
+			return gravel_yard()
+		"Checker Slabs":
+			return checker_slabs()
+		"Fenced Meadow":
+			return fenced_meadow()
+		"Pond Basin":
+			return pond_basin()
+		"Tilled Field":
+			return tilled_field()
+		"Boulder Ground":
+			return boulder_ground()
+	return reference_clean_grass()
+
+
+## The built-in reference preset: the approved single-tile grass look, minus
+## flowers. Values are authored against the 1.70 m catalog footprint (the
+## reference tile was described against 2.0 m; horizontal figures are scaled
+## by 0.85, verticals kept in the same visual proportion).
+static func reference_clean_grass() -> TileKitPreset:
+	var preset := TileKitPreset.new()
+	preset.preset_name = "Reference Clean Grass"
+	preset.master_seed = 20260801
+
+	var base := TileKitLayer.new("base", {
+		"top_bevel": 0.075,
+		"corner_radius": 0.075,
+		"bevel_segments": 6,
+		"bottom_chamfer": 0.016,
+	})
+	base.locked = true
+
+	var dressing := TileKitLayer.new("dressing", {
+		# The clay-reference tops are clean; dressing stays available as a
+		# brick but ships disabled for this preset.
+		"large_count": [3, 5],
+		"medium_count": [4, 7],
+		"small_count": [2, 5],
+		"large_radius": [0.17, 0.29],
+		"medium_radius": [0.094, 0.17],
+		"small_radius": [0.047, 0.094],
+		"aspect": [0.70, 1.35],
+		"irregularity": [0.08, 0.14],
+		"smoothing_passes": 3,
+		"outline_points": 20,
+		"region_count": [2, 3],
+		"region_spread": 0.30,
+		"edge_margin": 0.02,
+		"scale_multiplier": 1.0,
+		"color_weights": {
+			"dressing_light": 50.0,
+			"dressing_medium": 35.0,
+			"dressing_dark": 15.0,
+		},
+	})
+
+	var clutter := TileKitLayer.new("clutter", {
+		"count": [3, 6],
+		"diameter": [0.05, 0.11],
+		"height": [0.008, 0.018],
+		"min_spacing": 0.06,
+		"edge_margin": 0.03,
+		"on_dressing_fraction": 0.6,
+		"scale_multiplier": 1.0,
+		"color_weights": {
+			"clutter_light": 55.0,
+			"clutter_medium": 45.0,
+		},
+	})
+
+	var grass := TileKitLayer.new("grass_clusters", {
+		"coverage_mode": "carpet",
+		"carpet_spacing": 0.315,
+		"carpet_jitter": 0.30,
+		"carpet_skip_fraction": 0.10,
+		"rosette_footprint": [0.14, 0.20],
+		"rosette_leaves": [3, 5],
+		"leaf_height": [0.095, 0.150],
+		"leaf_width": [0.058, 0.088],
+		"splay_degrees": [16.0, 34.0],
+		"thickness_ratio": [0.55, 0.72],
+		"crown_radius": 0.020,
+		"bend_multiplier": 0.75,
+		"height_multiplier": 1.0,
+		"width_multiplier": 1.0,
+		"edge_margin": 0.02,
+		"root_sink": [0.008, 0.015],
+		"secondary_fraction": 0.2,
+	})
+
+	dressing.enabled = false
+	clutter.enabled = false
+	preset.layers = [base, dressing, clutter, grass]
+	return preset
+
+
+## Deep-green moss carpet over earth sides: sparse squat sprouts, mossy
+## clumps, twigs, and the odd mushroom — the forest-floor family from the
+## tile research, in the same clay register as the grass reference.
+static func mossy_forest_floor() -> TileKitPreset:
+	var preset := reference_clean_grass()
+	preset.preset_name = "Mossy Forest Floor"
+	var base := preset.layer_of_kind("base")
+	base.params.merge({
+		"top_key": "moss_top", "bevel_key": "moss_bevel",
+		"side_key": "earth_side", "lower_key": "earth_deep",
+	}, true)
+	base.params.merge({
+		"relief_style": "pillow",
+		"relief_amplitude": 0.026,
+		"relief_frequency": 2.0,
+	}, true)
+	preset.layer_of_kind("dressing").enabled = false
+	var clutter := preset.layer_of_kind("clutter")
+	clutter.enabled = true
+	clutter.params.merge({
+		"count": [7, 11],
+		"shapes": ["lobed_clump", "nub", "twig", "mushroom", "leaf_litter"],
+		"color_weights": {"moss_clump": 45.0, "moss_deep": 25.0,
+			"wood_medium": 30.0},
+		"mushroom_cap_key": "accent_terracotta",
+		"diameter": [0.060, 0.130],
+	}, true)
+	var grass := preset.layer_of_kind("grass_clusters")
+	grass.params.merge({
+		"carpet_spacing": 0.36,
+		"carpet_skip_fraction": 0.30,
+		"leaf_height": [0.06, 0.10],
+		"primary_key": "moss_clump",
+		"secondary_key": "moss_deep",
+	}, true)
+	return preset
+
+## Warm earth bed under wood-chip mulch, pebbles, and twigs. No grass at all —
+## the scatter IS the identity, straight from the dirt/mulch reference tiles.
+static func mulch_dirt_floor() -> TileKitPreset:
+	var preset := reference_clean_grass()
+	preset.preset_name = "Mulch Dirt Floor"
+	var base := preset.layer_of_kind("base")
+	base.params.merge({
+		"top_key": "earth_top", "bevel_key": "earth_bevel",
+		"side_key": "earth_side", "lower_key": "earth_deep",
+	}, true)
+	base.params.merge({
+		"relief_style": "pillow",
+		"relief_amplitude": 0.024,
+		"relief_frequency": 2.3,
+	}, true)
+	preset.layer_of_kind("dressing").enabled = false
+	var clutter := preset.layer_of_kind("clutter")
+	clutter.enabled = true
+	clutter.params.merge({
+		"count": [12, 18],
+		"min_spacing": 0.07,
+		"shapes": ["wood_chip", "wood_chip", "twig", "pebble", "mushroom"],
+		"color_weights": {"wood_light": 35.0, "wood_medium": 35.0,
+			"wood_deep": 20.0, "stone_medium": 10.0},
+		"mushroom_cap_key": "accent_cream",
+		"diameter": [0.065, 0.150],
+		"height": [0.012, 0.024],
+	}, true)
+	preset.layer_of_kind("grass_clusters").enabled = false
+	return preset
+
+
+## Soft warm-white blanket with low settled lumps. Quietest preset in the
+## kit: the snow family carries almost everything through the shell colours.
+static func snow_field() -> TileKitPreset:
+	var preset := reference_clean_grass()
+	preset.preset_name = "Snow Field"
+	var base := preset.layer_of_kind("base")
+	base.params.merge({
+		"top_key": "snow_top", "bevel_key": "snow_bevel",
+		"side_key": "snow_side", "lower_key": "stone_deep",
+		# The whole identity is the sculpt: one white, pillowed into soft
+		# drifts like the reference snow block. No lumps sitting ON the
+		# surface — the surface IS the softness.
+		# Wind-blown drifts: broad directional waves, no discrete piles —
+		# the smooth white block of the clay reference.
+		"relief_style": "dunes",
+		"relief_amplitude": 0.075,
+		"relief_frequency": 1.1,
+		"relief_resolution": 30,
+	}, true)
+	preset.layer_of_kind("clutter").enabled = false
+	preset.layer_of_kind("grass_clusters").enabled = false
+	return preset
+
+## A preserved duplicate of Snow Field for judging the new procedural dune
+## sculpt against the shipped source-derived snow. The original preset remains
+## untouched until the study has earned its place.
+static func snow_drift_study() -> TileKitPreset:
+	var preset := snow_field()
+	preset.preset_name = "Snow Drifts (Study)"
+	var base := preset.layer_of_kind("base")
+	base.params.merge({
+		"relief_style": "sculpted_dunes",
+		# The shipped snow surface has a measured 10.5 cm relief range and a
+		# broad, highly polished silhouette.
+		"relief_amplitude": 0.105,
+		# The editor permits three times the shipped strength; extra samples keep
+		# that dramatic end smooth instead of revealing the heightfield facets.
+		"relief_resolution": 64,
+		"relief_edge_feather": 0.30,
+		"dune_scale": 0.92,
+		"dune_amount": 0.68,
+		"dune_softness": 0.88,
+		"dune_irregularity": 0.52,
+		"dune_lee_depth": 0.16,
+		"dune_direction_degrees": 322.0,
+		"dune_height_exponent": 0.92,
+		"dune_seed_offset": 0,
+	}, true)
+	return preset
+
+
+## Pale dune block with drifted patches and sparse pebbles — the sand family.
+## Patches never merge: overlapping sand rings read as water stains.
+static func sandy_ground() -> TileKitPreset:
+	var preset := reference_clean_grass()
+	preset.preset_name = "Sandy Ground"
+	var base := preset.layer_of_kind("base")
+	base.params.merge({
+		"top_key": "sand_top", "bevel_key": "sand_bevel",
+		"side_key": "sand_side", "lower_key": "sand_deep",
+	}, true)
+	base.params.merge({
+		"relief_style": "dunes",
+		"relief_amplitude": 0.048,
+		"relief_frequency": 1.8,
+		"relief_resolution": 24,
+	}, true)
+	preset.layer_of_kind("dressing").enabled = false
+	var clutter := preset.layer_of_kind("clutter")
+	clutter.enabled = true
+	clutter.params.merge({
+		"count": [4, 7],
+		"shapes": ["pebble", "dot", "oval"],
+		"color_weights": {"stone_light": 55.0, "sand_side": 45.0},
+		"diameter": [0.055, 0.110],
+	}, true)
+	preset.layer_of_kind("grass_clusters").enabled = false
+	return preset
+
+
+## A preserved duplicate of Sandy Ground using staggered asymmetric wind
+## strokes instead of the legacy sine/noise dunes. Tuned to the shipped sand's
+## measured six-centimetre relief, with every shaping axis exposed in the UI.
+static func sand_dune_study() -> TileKitPreset:
+	var preset := sandy_ground()
+	preset.preset_name = "Sand Dunes (Study)"
+	var base := preset.layer_of_kind("base")
+	base.params.merge({
+		"relief_style": "sculpted_dunes",
+		"relief_amplitude": 0.060,
+		"relief_resolution": 64,
+		"relief_edge_feather": 0.27,
+		"dune_scale": 0.70,
+		"dune_amount": 0.48,
+		"dune_softness": 0.68,
+		"dune_irregularity": 0.72,
+		"dune_lee_depth": 0.34,
+		"dune_direction_degrees": 318.0,
+		"dune_height_exponent": 1.10,
+		"dune_seed_offset": 0,
+	}, true)
+	return preset
+
+
+## Dark damp earth with separated wet patches and settled nubs.
+static func mud_bed() -> TileKitPreset:
+	var preset := reference_clean_grass()
+	preset.preset_name = "Mud Bed"
+	var base := preset.layer_of_kind("base")
+	base.params.merge({
+		"top_key": "mud_top", "bevel_key": "mud_bevel",
+		"side_key": "earth_side", "lower_key": "earth_deep",
+	}, true)
+	base.params.merge({
+		# Churned wet ground: bipolar noise digs troughs and pushes ridges
+		# around the walk plane — mud, not moundland.
+		"relief_style": "pillow",
+		"relief_bipolar": true,
+		"relief_amplitude": 0.034,
+		"relief_frequency": 2.6,
+		"relief_resolution": 26,
+	}, true)
+	preset.layer_of_kind("dressing").enabled = false
+	var clutter := preset.layer_of_kind("clutter")
+	clutter.enabled = true
+	clutter.params.merge({
+		"count": [3, 5],
+		"shapes": ["nub", "pebble", "twig"],
+		"color_weights": {"earth_clump": 60.0, "stone_medium": 40.0},
+		"diameter": [0.060, 0.120],
+	}, true)
+	preset.layer_of_kind("grass_clusters").enabled = false
+	return preset
+
+
+## Rounded stone cobbles over a mortar-toned cap — the constructed paving
+## family. The pavers brick does the work; everything else stays quiet.
+static func cobblestone_paving() -> TileKitPreset:
+	var preset := reference_clean_grass()
+	preset.preset_name = "Cobblestone Paving"
+	preset.separate_tiles = true
+	var base := preset.layer_of_kind("base")
+	base.params.merge({
+		"top_key": "stone_deep", "bevel_key": "stone_medium",
+		"side_key": "stone_medium", "lower_key": "stone_deep",
+	}, true)
+	preset.layer_of_kind("dressing").enabled = false
+	preset.layer_of_kind("clutter").enabled = false
+	preset.layer_of_kind("grass_clusters").enabled = false
+	var pavers := TileKitLayer.new("pavers", {
+		"pattern": "cobbles",
+		"stone_cell": 0.55,
+		"gap": 0.026,
+		"stone_corner": 0.05,
+		"stone_height": [0.024, 0.034],
+		"slab_key": "stone_light",
+	})
+	preset.layers.append(pavers)
+	return preset
+
+
+## Long staggered boards over a shadowed cap — decking from the same brick
+## as the cobbles, at a different aspect ratio.
+static func wood_plank_deck() -> TileKitPreset:
+	var preset := reference_clean_grass()
+	preset.preset_name = "Wood Plank Deck"
+	preset.separate_tiles = true
+	var base := preset.layer_of_kind("base")
+	base.params.merge({
+		"top_key": "wood_deep", "bevel_key": "wood_medium",
+		"side_key": "wood_medium", "lower_key": "wood_deep",
+	}, true)
+	preset.layer_of_kind("dressing").enabled = false
+	preset.layer_of_kind("clutter").enabled = false
+	preset.layer_of_kind("grass_clusters").enabled = false
+	var pavers := TileKitLayer.new("pavers", {
+		"pattern": "planks",
+		"plank_width": 0.215,
+		"gap": 0.022,
+		"plank_length": [0.55, 0.95],
+		"stone_corner": 0.024,
+		"stone_height": [0.016, 0.024],
+		"slab_key": "wood_medium",
+	})
+	preset.layers.append(pavers)
+	return preset
+
+
+## Four broad precast slabs per tile — the pale courtyard paving family.
+## Crisp small corners, tight joints, one light stone colour.
+static func concrete_slabs() -> TileKitPreset:
+	var preset := cobblestone_paving()
+	preset.preset_name = "Concrete Slabs"
+	var pavers := preset.layer_of_kind("pavers")
+	pavers.params.merge({
+		"stone_cell": 0.83,
+		"gap": 0.020,
+		"stone_corner": 0.030,
+		"stone_jitter": 0.015,
+		"stone_height": [0.020, 0.026],
+		"slab_key": "stone_light",
+	}, true)
+	return preset
+
+
+## Terracotta running-bond bricks — the warm courtyard family.
+static func brick_court() -> TileKitPreset:
+	var preset := cobblestone_paving()
+	preset.preset_name = "Brick Court"
+	var base := preset.layer_of_kind("base")
+	base.params.merge({
+		"top_key": "brick_medium", "bevel_key": "brick_medium",
+		"side_key": "brick_medium", "lower_key": "earth_deep",
+	}, true)
+	var pavers := preset.layer_of_kind("pavers")
+	pavers.params.merge({
+		"stone_cell": 0.31,
+		"stone_cell_z": 0.16,
+		"gap": 0.014,
+		"stone_corner": 0.020,
+		"stone_jitter": 0.03,
+		"stone_height": [0.016, 0.022],
+		"slab_key": "brick_light",
+	}, true)
+	return preset
+
+
+## The grass tile with closed flower buds scattered through the carpet —
+## floral colour without a single petal, so the clay language holds.
+static func flower_meadow() -> TileKitPreset:
+	var preset := reference_clean_grass()
+	preset.preset_name = "Flower Meadow"
+	var grass := preset.layer_of_kind("grass_clusters")
+	grass.params.merge({"carpet_spacing": 0.34,
+		"carpet_skip_fraction": 0.14}, true)
+	var clutter := preset.layer_of_kind("clutter")
+	clutter.enabled = true
+	clutter.params.merge({
+		"count": [7, 11],
+		"min_spacing": 0.16,
+		"shapes": ["bud"],
+		"color_weights": {"blossom_pink": 55.0, "blossom_cream": 30.0,
+			"accent_terracotta": 15.0},
+		"diameter": [0.105, 0.155],
+		"height": [0.020, 0.030],
+	}, true)
+	return preset
+
+
+## Stepping stones set INTO the grass carpet — the first hybrid preset: the
+## pavers brick lays stones, and the grass layer reads them from context and
+## grows around them.
+static func garden_path() -> TileKitPreset:
+	var preset := reference_clean_grass()
+	preset.preset_name = "Garden Path"
+	preset.separate_tiles = true
+	var stepping := TileKitLayer.new("pavers", {
+		"pattern": "stepping",
+		"stepping_count": [4, 6],
+		"stepping_size": [0.26, 0.36],
+		"stone_corner": 0.06,
+		"stone_height": [0.022, 0.030],
+		"slab_key": "stone_light",
+	})
+	# Order matters: stones must exist before the grass composes, so the
+	# carpet can keep clear of them.
+	var grass_index := preset.layers.find(preset.layer_of_kind("grass_clusters"))
+	preset.layers.insert(grass_index, stepping)
+	return preset
+
+
+## Warm earth strewn with fallen leaves and twigs — the autumn forest floor.
+static func autumn_litter() -> TileKitPreset:
+	var preset := reference_clean_grass()
+	preset.preset_name = "Autumn Litter"
+	var base := preset.layer_of_kind("base")
+	base.params.merge({
+		"top_key": "earth_top", "bevel_key": "earth_bevel",
+		"side_key": "earth_side", "lower_key": "earth_deep",
+		"relief_style": "pillow",
+		"relief_amplitude": 0.020,
+		"relief_frequency": 2.2,
+	}, true)
+	var clutter := preset.layer_of_kind("clutter")
+	clutter.enabled = true
+	clutter.params.merge({
+		"count": [12, 18],
+		"min_spacing": 0.08,
+		"shapes": ["leaf_litter", "leaf_litter", "leaf_litter", "twig",
+			"mushroom"],
+		"color_weights": {"autumn_amber": 45.0, "autumn_rust": 35.0,
+			"wood_medium": 20.0},
+		"mushroom_cap_key": "autumn_rust",
+		"diameter": [0.075, 0.160],
+	}, true)
+	preset.layer_of_kind("grass_clusters").enabled = false
+	return preset
+
+
+## Dense grey pebble ground — the gravel courtyard.
+static func gravel_yard() -> TileKitPreset:
+	var preset := reference_clean_grass()
+	preset.preset_name = "Gravel Yard"
+	var base := preset.layer_of_kind("base")
+	base.params.merge({
+		"top_key": "stone_medium", "bevel_key": "stone_light",
+		"side_key": "stone_deep", "lower_key": "stone_deep",
+		"relief_style": "pillow",
+		"relief_amplitude": 0.012,
+		"relief_frequency": 3.0,
+	}, true)
+	var clutter := preset.layer_of_kind("clutter")
+	clutter.enabled = true
+	clutter.params.merge({
+		"count": [14, 20],
+		"min_spacing": 0.075,
+		"shapes": ["pebble", "pebble", "stone_chip", "dot"],
+		"color_weights": {"stone_light": 45.0, "stone_medium": 35.0,
+			"stone_deep": 20.0},
+		"diameter": [0.060, 0.120],
+	}, true)
+	preset.layer_of_kind("grass_clusters").enabled = false
+	return preset
+
+
+## Two-tone checkerboard slabs — the festival courtyard.
+static func checker_slabs() -> TileKitPreset:
+	var preset := concrete_slabs()
+	preset.preset_name = "Checker Slabs"
+	var pavers := preset.layer_of_kind("pavers")
+	pavers.params.merge({
+		"slab_key": "stone_light",
+		"slab_key_alt": "sand_top",
+		"stone_jitter": 0.008,
+	}, true)
+	return preset
+
+
+## The grass tile bordered by a low wooden rail fence — the paddock. First
+## user of the schema's edge role.
+static func fenced_meadow() -> TileKitPreset:
+	var preset := reference_clean_grass()
+	preset.preset_name = "Fenced Meadow"
+	var grass := preset.layer_of_kind("grass_clusters")
+	grass.params.merge({"edge_margin": 0.12}, true)
+	preset.layers.append(TileKitLayer.new("fence", {
+		"edges": [0, 1, 2, 3],
+		"post_key": "wood_deep",
+		"rail_key": "wood_medium",
+	}))
+	return preset
+
+
+## A grass-rimmed pool with lily pads — the pond. The base's basin mode does
+## the sculpt; water is a still plane; pads float on it.
+static func pond_basin() -> TileKitPreset:
+	var preset := reference_clean_grass()
+	preset.preset_name = "Pond Basin"
+	# A basin is a cell-sized authored object, not a continuous ground skin.
+	# Keeping its rim also prevents connected-cap generation from replacing the
+	# recessed pool sculpt when another basin sits beside it.
+	preset.separate_tiles = true
+	var base := preset.layer_of_kind("base")
+	base.params.merge({
+		"basin_depth": 0.11,
+		"basin_rim": 0.17,
+		"water_key": "water_blue",
+	}, true)
+	preset.layer_of_kind("grass_clusters").enabled = false
+	var clutter := preset.layer_of_kind("clutter")
+	clutter.enabled = true
+	clutter.params.merge({
+		"count": [3, 5],
+		"min_spacing": 0.16,
+		"edge_margin": 0.30,
+		"shapes": ["lily_pad"],
+		"color_weights": {"lily_green": 100.0},
+		"diameter": [0.14, 0.24],
+	}, true)
+	return preset
+
+
+## Parallel tilled furrows in warm earth — the farm bed, pure sculpt.
+static func tilled_field() -> TileKitPreset:
+	var preset := reference_clean_grass()
+	preset.preset_name = "Tilled Field"
+	var base := preset.layer_of_kind("base")
+	base.params.merge({
+		"top_key": "earth_top", "bevel_key": "earth_bevel",
+		"side_key": "earth_side", "lower_key": "earth_deep",
+		"relief_style": "furrows",
+		"relief_amplitude": 0.034,
+		"relief_rows": 5,
+		"relief_resolution": 30,
+	}, true)
+	preset.layer_of_kind("grass_clusters").enabled = false
+	return preset
+
+
+## One or two hero rocks on mossy ground — the boulder outcrop whose
+## silhouette reads at any distance.
+static func boulder_ground() -> TileKitPreset:
+	var preset := reference_clean_grass()
+	preset.preset_name = "Boulder Ground"
+	var base := preset.layer_of_kind("base")
+	base.params.merge({
+		"top_key": "moss_top", "bevel_key": "moss_bevel",
+		"side_key": "earth_side", "lower_key": "earth_deep",
+		"relief_style": "pillow",
+		"relief_amplitude": 0.018,
+		"relief_frequency": 2.0,
+	}, true)
+	var grass := preset.layer_of_kind("grass_clusters")
+	grass.params.merge({
+		"carpet_spacing": 0.38,
+		"carpet_skip_fraction": 0.35,
+		"primary_key": "moss_clump",
+		"secondary_key": "moss_deep",
+	}, true)
+	var clutter := preset.layer_of_kind("clutter")
+	clutter.enabled = true
+	clutter.params.merge({
+		"count": [4, 6],
+		"min_spacing": 0.22,
+		"shapes": ["boulder", "pebble", "pebble"],
+		"color_weights": {"stone_light": 40.0, "stone_medium": 45.0,
+			"stone_deep": 15.0},
+		"diameter": [0.24, 0.44],
+		"height": [0.03, 0.07],
+	}, true)
+	return preset
+

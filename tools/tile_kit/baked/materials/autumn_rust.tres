@@ -1,0 +1,7 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "tilekit_autumn_rust"
+albedo_color = Color(0.6901961, 0.41960785, 0.27058825, 1)
+metallic_specular = 0.2
+roughness = 0.9

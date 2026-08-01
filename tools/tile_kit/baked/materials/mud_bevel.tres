@@ -1,0 +1,7 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "tilekit_mud_bevel"
+albedo_color = Color(0.6, 0.47843137, 0.33333334, 1)
+metallic_specular = 0.2
+roughness = 0.9

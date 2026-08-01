@@ -1,0 +1,7 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "tilekit_moss_clump"
+albedo_color = Color(0.49411765, 0.5803922, 0.28235295, 1)
+metallic_specular = 0.2
+roughness = 0.9

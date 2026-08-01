@@ -220,6 +220,34 @@ func active_tile_ids() -> Array[String]:
 	return result
 
 
+## Tiles the Asset Studio may show that are NOT part of the gameplay roster.
+##
+## New art needs to be inspected in the running game under real lighting before
+## it is allowed into parcel rolls, the Build Bag, or collection totals. Keeping
+## the two lists apart means a work-in-progress tile can be previewed without
+## quietly becoming obtainable content.
+func preview_tile_ids() -> Array[String]:
+	var configured: Variant = tuning.get("preview_tile_ids", [])
+	var result: Array[String] = []
+	if not (configured is Array):
+		return result
+	var active := active_tile_ids()
+	for tile_id: Variant in configured:
+		var normalized := String(tile_id)
+		if tiles.has(normalized) and not active.has(normalized) \
+			and not result.has(normalized):
+			result.append(normalized)
+	return result
+
+
+## Everything a viewer may display: the shipped roster plus anything staged for
+## preview. Gameplay never calls this.
+func viewable_tile_ids() -> Array[String]:
+	var result := active_tile_ids()
+	result.append_array(preview_tile_ids())
+	return result
+
+
 func is_tile_active(tile_id: String) -> bool:
 	return active_tile_ids().has(tile_id)
 

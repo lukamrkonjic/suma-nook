@@ -1,0 +1,7 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "tilekit_water_blue"
+albedo_color = Color(0.56078434, 0.70980394, 0.6745098, 1)
+metallic_specular = 0.2
+roughness = 0.9

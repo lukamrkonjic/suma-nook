@@ -1,0 +1,539 @@
+class_name TileKitMeshUtils
+extends RefCounted
+## Geometry helpers shared by every Tile Kit layer builder.
+##
+## Everything here returns raw vertex/index data or writes into a MeshBatch —
+## one accumulating surface per palette key — so a whole layer collapses to
+## one ArrayMesh with one surface per material. That is what keeps the editing
+## preview at a handful of draw calls (one MeshInstance3D per layer) while the
+## builders stay free to emit as many little forms as they like.
+
+
+## One material's accumulating buffers. A real object, deliberately: packed
+## arrays extracted from a Dictionary are copy-on-write temporaries, and
+## appending to `(dict[k] as PackedVector3Array)` silently mutates a copy the
+## dictionary never sees. Object fields don't have that trap.
+class SurfacePool:
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var indices := PackedInt32Array()
+
+
+## Accumulates triangles per palette key, then commits one ArrayMesh with one
+## surface per key. Positions carry their own analytic normals: the builders
+## know the exact surface they are sweeping, and computed normals are what
+## make the rounded forms read as soft instead of faceted.
+class MeshBatch:
+	var _surfaces: Dictionary = {}
+
+	func _pool(key: String) -> SurfacePool:
+		if not _surfaces.has(key):
+			_surfaces[key] = SurfacePool.new()
+		return _surfaces[key]
+
+	## Appends an indexed patch. `vertices` and `normals` must be equal length;
+	## `indices` reference into the appended patch (0-based).
+	func add(key: String, vertices: PackedVector3Array,
+			normals: PackedVector3Array, indices: PackedInt32Array) -> void:
+		var pool := _pool(key)
+		var offset := pool.vertices.size()
+		pool.vertices.append_array(vertices)
+		pool.normals.append_array(normals)
+		for index in indices:
+			pool.indices.append(index + offset)
+
+	func commit() -> ArrayMesh:
+		var mesh := ArrayMesh.new()
+		for key: String in _surfaces:
+			var pool: SurfacePool = _surfaces[key]
+			if pool.vertices.is_empty():
+				continue
+			var arrays := []
+			arrays.resize(Mesh.ARRAY_MAX)
+			arrays[Mesh.ARRAY_VERTEX] = pool.vertices
+			arrays[Mesh.ARRAY_NORMAL] = pool.normals
+			arrays[Mesh.ARRAY_INDEX] = pool.indices
+			var surface := mesh.get_surface_count()
+			mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+			mesh.surface_set_material(surface, TileKitPalette.material(key))
+		return mesh
+
+	func triangle_count() -> int:
+		var total := 0
+		for key: String in _surfaces:
+			total += (_surfaces[key] as SurfacePool).indices.size() / 3
+		return total
+
+
+# --- soft blob outlines ------------------------------------------------------
+
+
+## Smooth irregular closed outline: a circle whose per-point radius is jittered
+## then neighbour-averaged. The averaging passes are the whole trick — raw
+## jitter gives a polygon with corners, two or three smoothing passes give the
+## soft hand-cut silhouette the dressing patches need.
+static func soft_blob_outline(
+	rng: RandomNumberGenerator,
+	points: int,
+	irregularity: float,
+	smoothing_passes: int
+) -> PackedFloat32Array:
+	var radii := PackedFloat32Array()
+	for index in points:
+		radii.append(1.0 + rng.randf_range(-irregularity, irregularity))
+	for pass_index in smoothing_passes:
+		var smoothed := PackedFloat32Array()
+		smoothed.resize(points)
+		for index in points:
+			var previous := radii[(index + points - 1) % points]
+			var next := radii[(index + 1) % points]
+			smoothed[index] = (previous + radii[index] * 2.0 + next) * 0.25
+		radii = smoothed
+	return radii
+
+
+## Flat filled blob at `height`, fanned from its centroid. Radial outlines are
+## star-shaped around their centre, so the fan is always a valid fill.
+static func add_flat_blob(
+	batch: MeshBatch,
+	key: String,
+	centre: Vector3,
+	radius_x: float,
+	radius_z: float,
+	yaw: float,
+	radii: PackedFloat32Array
+) -> void:
+	var points := radii.size()
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var indices := PackedInt32Array()
+	vertices.append(centre)
+	normals.append(Vector3.UP)
+	var basis := Basis(Vector3.UP, yaw)
+	for index in points:
+		var angle := TAU * float(index) / float(points)
+		var local := Vector3(
+			cos(angle) * radius_x * radii[index],
+			0.0,
+			sin(angle) * radius_z * radii[index]
+		)
+		vertices.append(centre + basis * local)
+		normals.append(Vector3.UP)
+	# Godot's front face is CLOCKWISE: the right-hand-rule normal of a front
+	# face points AWAY from the viewer. Every fan and strip in this file is
+	# wound for that convention — flip any of them and the surface silently
+	# renders inside-out while vertex normals still claim otherwise.
+	for index in points:
+		indices.append_array([0, 1 + index, 1 + (index + 1) % points])
+	batch.add(key, vertices, normals, indices)
+
+
+## Blob draped over the cap surface: every vertex takes its height from the
+## cap function, so a patch that crosses the bevel folds over the rim like
+## paint on a toy instead of floating above the drop. Normals stay UP — the
+## decal look wants flat sky lighting even on the curve.
+static func add_draped_blob(
+	batch: MeshBatch,
+	key: String,
+	centre: Vector2,
+	lift: float,
+	radius_x: float,
+	radius_z: float,
+	yaw: float,
+	radii: PackedFloat32Array,
+	cap_height: Callable
+) -> void:
+	var points := radii.size()
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var indices := PackedInt32Array()
+	var height_at := func(point: Vector2) -> float:
+		return float(cap_height.call(point)) if cap_height.is_valid() else 0.0
+	vertices.append(Vector3(centre.x, height_at.call(centre) + lift, centre.y))
+	normals.append(Vector3.UP)
+	var rotation := Basis(Vector3.UP, yaw)
+	for index in points:
+		var angle := TAU * float(index) / float(points)
+		var local := rotation * Vector3(
+			cos(angle) * radius_x * radii[index], 0.0,
+			sin(angle) * radius_z * radii[index])
+		var world := centre + Vector2(local.x, local.z)
+		vertices.append(Vector3(world.x, height_at.call(world) + lift, world.y))
+		normals.append(Vector3.UP)
+	for index in points:
+		indices.append_array([0, 1 + index, 1 + (index + 1) % points])
+	batch.add(key, vertices, normals, indices)
+
+
+# --- rounded-rectangle shells ------------------------------------------------
+
+
+## CCW rounded-rectangle outline of half-extent `half` with corner radius
+## `corner`, plus matching outward normals. Corner point count is fixed by
+## `corner_segments`, so outlines with different insets pair up ring-to-ring.
+static func rounded_rect_outline(
+	half: float,
+	corner: float,
+	corner_segments: int
+) -> Array:
+	var points := PackedVector2Array()
+	var outwards := PackedVector2Array()
+	var r := clampf(corner, 0.0015, half - 0.001)
+	var inner := half - r
+	var corners := [
+		[Vector2(inner, -inner), -PI / 2.0],
+		[Vector2(inner, inner), 0.0],
+		[Vector2(-inner, inner), PI / 2.0],
+		[Vector2(-inner, -inner), PI],
+	]
+	for corner_data: Array in corners:
+		var centre: Vector2 = corner_data[0]
+		var start: float = corner_data[1]
+		for step in corner_segments + 1:
+			var angle := start + (PI / 2.0) * float(step) / float(corner_segments)
+			var outward := Vector2(cos(angle), sin(angle))
+			points.append(centre + outward * r)
+			outwards.append(outward)
+	return [points, outwards]
+
+
+## Sweeps a shell from stacked rings of the same outline: each ring is
+## (inset, y, normal_pitch), where normal_pitch 0 = fully sideways and
+## PI/2 = straight up. Consecutive rings are stitched with quads; smooth
+## normals come from the analytic pitch, so bevels read as continuous curves
+## while a pitch jump between duplicated rings gives a deliberate hard edge.
+static func add_ring_shell(
+	batch: MeshBatch,
+	key: String,
+	half: float,
+	corner: float,
+	corner_segments: int,
+	rings: Array
+) -> void:
+	var outline: Array = rounded_rect_outline(half, corner, corner_segments)
+	var base_points: PackedVector2Array = outline[0]
+	var base_outwards: PackedVector2Array = outline[1]
+	var count := base_points.size()
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var indices := PackedInt32Array()
+
+	for ring: Array in rings:
+		var inset: float = ring[0]
+		var y: float = ring[1]
+		var pitch: float = ring[2]
+		for index in count:
+			var point := base_points[index] - base_outwards[index] * inset
+			var outward := base_outwards[index]
+			vertices.append(Vector3(point.x, y, point.y))
+			normals.append(Vector3(
+				outward.x * cos(pitch), sin(pitch), outward.y * cos(pitch)
+			).normalized())
+
+	# Ring 0 is the LOWER ring; the outline advances so that on the +X face z
+	# increases. Under Godot's clockwise front-face rule the outward winding
+	# is lower -> lower_next -> upper_next — the reverse faces every wall
+	# inward and turns the tile into a bathtub.
+	for ring_index in rings.size() - 1:
+		var a0 := ring_index * count
+		var b0 := (ring_index + 1) * count
+		for index in count:
+			var next := (index + 1) % count
+			indices.append_array([
+				a0 + index, a0 + next, b0 + next,
+				a0 + index, b0 + next, b0 + index,
+			])
+	batch.add(key, vertices, normals, indices)
+
+
+## Flat cap filling a rounded-rect outline at `inset`, facing up or down.
+static func add_rect_cap(
+	batch: MeshBatch,
+	key: String,
+	half: float,
+	corner: float,
+	corner_segments: int,
+	inset: float,
+	y: float,
+	facing_up: bool
+) -> void:
+	var outline: Array = rounded_rect_outline(half, corner, corner_segments)
+	var base_points: PackedVector2Array = outline[0]
+	var base_outwards: PackedVector2Array = outline[1]
+	var count := base_points.size()
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var indices := PackedInt32Array()
+	var normal := Vector3.UP if facing_up else Vector3.DOWN
+	vertices.append(Vector3(0.0, y, 0.0))
+	normals.append(normal)
+	for index in count:
+		var point := base_points[index] - base_outwards[index] * inset
+		vertices.append(Vector3(point.x, y, point.y))
+		normals.append(normal)
+	for index in count:
+		var next := (index + 1) % count
+		if facing_up:
+			indices.append_array([0, 1 + index, 1 + next])
+		else:
+			indices.append_array([0, 1 + next, 1 + index])
+	batch.add(key, vertices, normals, indices)
+
+
+# --- free-standing slabs -----------------------------------------------------
+
+
+## A small rounded-rectangle slab anywhere on the tile: paver stones, planks,
+## stepping flags. Same construction as the tile shell — rounded outline,
+## vertical wall, small top bevel, flat cap — shrunk to stone size, so pavers
+## read as miniature siblings of the tile itself.
+static func add_slab(
+	batch: MeshBatch,
+	key: String,
+	centre: Vector3,
+	half_x: float,
+	half_z: float,
+	corner: float,
+	slab_height: float,
+	yaw: float,
+	bevel: float = 0.012,
+	corner_segments: int = 3
+) -> void:
+	bevel = minf(bevel, slab_height * 0.6)
+	var outline := _slab_outline(half_x, half_z, corner, corner_segments)
+	var points: PackedVector2Array = outline[0]
+	var outwards: PackedVector2Array = outline[1]
+	var count := points.size()
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var indices := PackedInt32Array()
+	var rotation := Basis(Vector3.UP, yaw)
+
+	# Rings bottom-up: base, bevel start, top rim (inset), matching the tile
+	# shell's winding contract.
+	var rings := [
+		[0.0, 0.0, 0.0],
+		[0.0, slab_height - bevel, 0.35],
+		[bevel, slab_height, 1.2],
+	]
+	for ring: Array in rings:
+		var inset: float = ring[0]
+		var y: float = ring[1]
+		var pitch: float = ring[2]
+		for index in count:
+			var point := points[index] - outwards[index] * inset
+			var world := rotation * Vector3(point.x, 0.0, point.y)
+			var outward := rotation * Vector3(outwards[index].x, 0.0, outwards[index].y)
+			vertices.append(centre + Vector3(world.x, y, world.z))
+			normals.append((outward * cos(pitch) + Vector3.UP * sin(pitch)).normalized())
+	for ring_index in rings.size() - 1:
+		var a0 := ring_index * count
+		var b0 := (ring_index + 1) * count
+		for index in count:
+			var next := (index + 1) % count
+			indices.append_array([
+				a0 + index, a0 + next, b0 + next,
+				a0 + index, b0 + next, b0 + index,
+			])
+	# Flat top cap.
+	var top_first := vertices.size()
+	vertices.append(centre + Vector3(0.0, slab_height, 0.0))
+	normals.append(Vector3.UP)
+	for index in count:
+		var point := points[index] - outwards[index] * bevel
+		var world := rotation * Vector3(point.x, 0.0, point.y)
+		vertices.append(centre + Vector3(world.x, slab_height, world.z))
+		normals.append(Vector3.UP)
+	for index in count:
+		var next := (index + 1) % count
+		indices.append_array([top_first, top_first + 1 + index,
+			top_first + 1 + next])
+	batch.add(key, vertices, normals, indices)
+
+
+## Rounded-rect outline for an arbitrary half-extent pair. The tile-shell
+## outline assumes a square; slabs need rectangles for planks.
+static func _slab_outline(half_x: float, half_z: float, corner: float,
+		corner_segments: int) -> Array:
+	var points := PackedVector2Array()
+	var outwards := PackedVector2Array()
+	var r := clampf(corner, 0.0015, minf(half_x, half_z) - 0.001)
+	var inner_x := half_x - r
+	var inner_z := half_z - r
+	var corners := [
+		[Vector2(inner_x, -inner_z), -PI / 2.0],
+		[Vector2(inner_x, inner_z), 0.0],
+		[Vector2(-inner_x, inner_z), PI / 2.0],
+		[Vector2(-inner_x, -inner_z), PI],
+	]
+	for corner_data: Array in corners:
+		var centre: Vector2 = corner_data[0]
+		var start: float = corner_data[1]
+		for step in corner_segments + 1:
+			var angle := start + (PI / 2.0) * float(step) / float(corner_segments)
+			var outward := Vector2(cos(angle), sin(angle))
+			points.append(centre + outward * r)
+			outwards.append(outward)
+	return [points, outwards]
+
+
+# --- rounded organic solids --------------------------------------------------
+
+
+## Squashed hemisphere dome. `flatness` 0 = full half-sphere, 1 = nearly flat
+## disc. The workhorse for nubs, dots with slight relief, and lobed clumps.
+static func add_dome(
+	batch: MeshBatch,
+	key: String,
+	centre: Vector3,
+	radius_x: float,
+	radius_z: float,
+	height: float,
+	yaw: float,
+	rings: int = 4,
+	segments: int = 12
+) -> void:
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var indices := PackedInt32Array()
+	var basis := Basis(Vector3.UP, yaw)
+	# Inverse transpose for normals of the non-uniform scale; for a diagonal
+	# scale that is just the reciprocal per axis.
+	var inv := Vector3(1.0 / maxf(radius_x, 0.0001), 1.0 / maxf(height, 0.0001),
+		1.0 / maxf(radius_z, 0.0001))
+	for ring in rings + 1:
+		var pitch := (PI / 2.0) * float(ring) / float(rings)
+		var ring_radius := cos(pitch)
+		var ring_height := sin(pitch)
+		for segment in segments:
+			var angle := TAU * float(segment) / float(segments)
+			var unit := Vector3(cos(angle) * ring_radius, ring_height,
+				sin(angle) * ring_radius)
+			vertices.append(centre + basis * Vector3(
+				unit.x * radius_x, unit.y * height, unit.z * radius_z))
+			normals.append((basis * (unit * inv)).normalized())
+	for ring in rings:
+		var a0 := ring * segments
+		var b0 := (ring + 1) * segments
+		for segment in segments:
+			var next := (segment + 1) % segments
+			indices.append_array([
+				a0 + segment, a0 + next, b0 + next,
+				a0 + segment, b0 + next, b0 + segment,
+			])
+	batch.add(key, vertices, normals, indices)
+
+
+## One smooth grass blade: an elliptical cross-section swept along a cubic
+## Bezier, tapering to a rounded tip.
+##
+## The profile is everything here. The rejected shapes bracket it from both
+## sides — pure cushions read as pebbles, thin straight taper reads as straw —
+## and this is the middle: a broad soft leaf that keeps most of its width
+## through the body, then closes over the last rings into a rounded point
+## rather than ending at a spike.
+static func add_blade(
+	batch: MeshBatch,
+	key: String,
+	p0: Vector3,
+	p1: Vector3,
+	p2: Vector3,
+	p3: Vector3,
+	width: float,
+	thickness_ratio: float,
+	length_rings: int = 8,
+	ring_segments: int = 9,
+	tip_rings: int = 2
+) -> void:
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var indices := PackedInt32Array()
+	var total_rings := length_rings + tip_rings
+
+	# Width profile along the blade: broad rounded base, only a gentle taper
+	# through the body, then a closing arc across the tip rings. The blade
+	# keeps ~70% of its width almost to the end — that blunt rounded finish is
+	# the difference between the reference's plump leaves and pointy straw.
+	var ring_data: Array = []
+	for ring in total_rings + 1:
+		var t := float(ring) / float(total_rings)
+		var width_factor: float
+		if ring <= length_rings:
+			var body := float(ring) / float(length_rings)
+			# Clay-toy tongue: slightly pinched at the crown, fullest at 40%,
+			# still 80% wide when the tip cap begins. Almost no taper — the
+			# moment a blade narrows toward a point it stops being a molded
+			# toy leaf and becomes a spike.
+			if body < 0.4:
+				width_factor = lerpf(0.84, 1.0, body / 0.4)
+			else:
+				width_factor = lerpf(1.0, 0.80, pow((body - 0.4) / 0.6, 1.2))
+		else:
+			var tip := float(ring - length_rings) / float(tip_rings)
+			# Hemispherical close over the tip rings: a rounded end, like a
+			# thumb, never a point.
+			width_factor = 0.80 * cos(tip * PI / 2.0)
+		ring_data.append([t, maxf(width_factor, 0.05)])
+
+	var up := Vector3.UP
+	for entry: Array in ring_data:
+		var t: float = entry[0]
+		var width_factor: float = entry[1]
+		var centre := _bezier(p0, p1, p2, p3, t)
+		var tangent := _bezier_tangent(p0, p1, p2, p3, t).normalized()
+		var side := tangent.cross(up)
+		if side.length_squared() < 0.0001:
+			side = Vector3.RIGHT
+		side = side.normalized()
+		var binormal := side.cross(tangent).normalized()
+		var half_width := width * width_factor * 0.5
+		var half_thickness := half_width * thickness_ratio
+		for segment in ring_segments:
+			var angle := TAU * float(segment) / float(ring_segments)
+			var local := side * (cos(angle) * half_width) \
+				+ binormal * (sin(angle) * half_thickness)
+			vertices.append(centre + local)
+			# Ellipse normal blended toward UP. True surface normals give each
+			# leaf a hard lit-and-shaded split that reads as plastic; pulling
+			# them upward makes every leaf take most of its light from the sky,
+			# which is the flat pastel foliage shading the art style runs on.
+			var normal := (side * (cos(angle) / maxf(half_width, 0.0001)) \
+				+ binormal * (sin(angle) / maxf(half_thickness, 0.0001))).normalized()
+			normals.append((normal * 0.4 + Vector3.UP * 0.6).normalized())
+
+	for ring in total_rings:
+		var a0 := ring * ring_segments
+		var b0 := (ring + 1) * ring_segments
+		for segment in ring_segments:
+			var next := (segment + 1) % ring_segments
+			indices.append_array([
+				a0 + segment, a0 + next, b0 + next,
+				a0 + segment, b0 + next, b0 + segment,
+			])
+
+	# Tip cap: one vertex just past the last ring, normal along the tangent.
+	var tip_centre := _bezier(p0, p1, p2, p3, 1.0)
+	var tip_tangent := _bezier_tangent(p0, p1, p2, p3, 0.995).normalized()
+	var tip_index := vertices.size()
+	vertices.append(tip_centre + tip_tangent * width * 0.02)
+	normals.append(tip_tangent)
+	var last0 := total_rings * ring_segments
+	for segment in ring_segments:
+		var next := (segment + 1) % ring_segments
+		indices.append_array([last0 + segment, last0 + next, tip_index])
+
+	batch.add(key, vertices, normals, indices)
+
+
+static func _bezier(p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3,
+		t: float) -> Vector3:
+	var u := 1.0 - t
+	return p0 * (u * u * u) + p1 * (3.0 * u * u * t) \
+		+ p2 * (3.0 * u * t * t) + p3 * (t * t * t)
+
+
+static func _bezier_tangent(p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3,
+		t: float) -> Vector3:
+	var u := 1.0 - t
+	return (p1 - p0) * (3.0 * u * u) + (p2 - p1) * (6.0 * u * t) \
+		+ (p3 - p2) * (3.0 * t * t)

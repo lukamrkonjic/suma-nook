@@ -1,0 +1,7 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "tilekit_blossom_pink"
+albedo_color = Color(0.8509804, 0.627451, 0.65882355, 1)
+metallic_specular = 0.2
+roughness = 0.9

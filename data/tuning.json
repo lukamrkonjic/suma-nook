@@ -59,5 +59,8 @@
     "tile_grove_mature",
     "tile_sand",
     "tile_snowfield"
+  ],
+  "preview_tile_ids": [
+    "tile_kit_grass"
   ]
 }

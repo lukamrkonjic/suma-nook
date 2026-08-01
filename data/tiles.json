@@ -561,6 +561,43 @@
       "special_trait": "Old stone caught beneath a receding edge of snow.",
       "geometry_profile": "organic_overlay_square",
       "connection_mode": "full_flush"
+    },
+    {
+      "id": "tile_kit_grass",
+      "name": "Kit Clay Grass",
+      "family": "tile_kit",
+      "biome_tags": [
+        "meadow"
+      ],
+      "asset_id": "tile_kit_grass_surface",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_kit_grass_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_kit_grass_surface",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "detail",
+          "asset_id": "tile_kit_grass_detail",
+          "cover_behavior": "hide"
+        }
+      ],
+      "weight": 1.0,
+      "stackable": true,
+      "supports_tiles": true,
+      "surface_kind": "flat",
+      "placement_sound": "grass",
+      "collection_hint": "Tile Kit: procedural clay-toy grass, baked from the in-game generator.",
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "full_flush",
+      "exposed_top": "flush",
+      "walk_surface_height": 0.0
     }
   ]
 }

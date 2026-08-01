@@ -1,0 +1,7 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "tilekit_moss_top"
+albedo_color = Color(0.5764706, 0.654902, 0.35686275, 1)
+metallic_specular = 0.2
+roughness = 0.9

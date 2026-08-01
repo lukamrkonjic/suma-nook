@@ -1,0 +1,7 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "tilekit_dressing_dark"
+albedo_color = Color(0.67058825, 0.7294118, 0.36078432, 1)
+metallic_specular = 0.2
+roughness = 0.9

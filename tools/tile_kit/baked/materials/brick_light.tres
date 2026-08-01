@@ -1,0 +1,7 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "tilekit_brick_light"
+albedo_color = Color(0.78431374, 0.5647059, 0.4392157, 1)
+metallic_specular = 0.2
+roughness = 0.9

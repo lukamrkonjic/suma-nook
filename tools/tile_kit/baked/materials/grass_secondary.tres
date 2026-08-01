@@ -1,0 +1,7 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "tilekit_grass_secondary"
+albedo_color = Color(0.56078434, 0.6313726, 0.27058825, 1)
+metallic_specular = 0.2
+roughness = 0.9

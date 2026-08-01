@@ -1,0 +1,7 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "tilekit_sand_side"
+albedo_color = Color(0.7647059, 0.654902, 0.47058824, 1)
+metallic_specular = 0.2
+roughness = 0.9

@@ -5,7 +5,16 @@ extends RefCounted
 ## carry asset ids, this class resolves them. Tier C swaps (proxy -> hero) are
 ## file replacements at the same id — zero code changes.
 
-const SEARCH_PATHS := ["res://assets/3d/reworked/%s.glb", "res://assets/3d/final/%s.glb", "res://assets/3d/proxies/%s.glb"]
+## Tile Forge bakes finished tile layers as PackedScenes rather than GLBs, so
+## the baked directory joins the search order. A baked tile is then an ordinary
+## asset id in data/tiles.json and needs no other integration.
+const SEARCH_PATHS := [
+	"res://assets/3d/reworked/%s.glb",
+	"res://assets/3d/final/%s.glb",
+	"res://assets/3d/proxies/%s.glb",
+	"res://tools/tile_forge/baked/%s.tscn",
+	"res://tools/tile_kit/baked/%s.tscn",
+]
 const AssetEditLibraryScript := preload(
 	"res://scripts/visuals/asset_edit_library.gd"
 )
