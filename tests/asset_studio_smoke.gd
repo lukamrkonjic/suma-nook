@@ -56,8 +56,9 @@ func _ready() -> void:
 		"TileLibraryTemplate", true, false
 	) as OptionButton
 	_expect(
-		template_select != null and template_select.item_count == 5,
-		"new tiles use the five generic creation templates"
+		template_select != null
+			and template_select.item_count == TileTemplateLibrary.TEMPLATES.size(),
+		"new tiles use only the generic creation template library"
 	)
 	_expect(
 		studio.find_children("AssetViewerItem_*", "Button", true, false).size() == 56,
@@ -129,8 +130,11 @@ func _ready() -> void:
 
 	studio.select_content("tile_grass")
 	await _settle(4)
+	var imported_dune_row := studio.find_child(
+		"TileKitSliderRow_base_relief_amplitude", true, false
+	) as HBoxContainer
 	_expect(
-		dune_row != null and not dune_row.visible,
+		imported_dune_row == null or not imported_dune_row.is_visible_in_tree(),
 		"imported tiles hide procedural sculpting while retaining tile CRUD and asset editing"
 	)
 	_expect(

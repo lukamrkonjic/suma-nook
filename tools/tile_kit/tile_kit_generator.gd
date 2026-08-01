@@ -20,6 +20,8 @@ static func builder_for(kind: String) -> Object:
 	match kind:
 		"base":
 			return KitBaseBuilder
+		"liquid":
+			return KitLiquidBuilder
 		"dressing":
 			return KitDressingBuilder
 		"clutter":
@@ -30,6 +32,8 @@ static func builder_for(kind: String) -> Object:
 			return KitPaversBuilder
 		"fence":
 			return KitFenceBuilder
+		"fringe":
+			return KitFringeBuilder
 	return null
 
 var preset: TileKitPreset:

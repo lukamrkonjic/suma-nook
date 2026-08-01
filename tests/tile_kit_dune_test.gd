@@ -159,8 +159,11 @@ func _run() -> void:
 	)
 	panel.preset = TileKitPreset.reference_clean_grass()
 	panel.call("_sync_dune_controls")
+	var clean_strength_row := panel.find_child(
+		"TileKitSliderRow_base_relief_amplitude", true, false
+	) as HBoxContainer
 	_check(
-		strength_row != null and not strength_row.visible,
+		clean_strength_row == null or not clean_strength_row.is_visible_in_tree(),
 		"dune controls stay hidden for non-dune tiles"
 	)
 	panel.free()

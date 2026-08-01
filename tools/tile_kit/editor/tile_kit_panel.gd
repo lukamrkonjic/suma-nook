@@ -16,12 +16,6 @@ signal status(message: String)
 signal library_changed(tile_id: String)
 
 const DEBOUNCE_SECONDS := 0.13
-const LAYER_LABELS := {
-	"base": "Base",
-	"dressing": "Dressing",
-	"clutter": "Small Clutter",
-	"grass_clusters": "Grass",
-}
 
 var preset: TileKitPreset
 var _kit: UiKit
@@ -49,10 +43,12 @@ var _recipe_editable := true
 var _procedural_controls: Array[Control] = []
 var _separate_tiles: CheckBox
 var _layer_rows: Dictionary = {}
-## Tuning controls to resync when the preset changes: control -> [kind, key].
+var _layer_list: VBoxContainer
+var _parameter_editor: VBoxContainer
+var _add_layer_select: OptionButton
+var _add_layer_button: Button
+## Generated controls to resync when the preset changes.
 var _bound_controls: Dictionary = {}
-## Dune-only rows stay out of the way for grass, paving, and legacy presets.
-var _dune_controls: Array[Control] = []
 var _debounce: SceneTreeTimer
 var _suppress := false
 
@@ -205,51 +201,33 @@ func _build() -> void:
 			_emit_change(true))
 	add_child(_separate_tiles)
 
-	# Layer rows.
-	add_child(_section("LAYERS"))
-	for kind: String in LAYER_LABELS:
-		add_child(_layer_row(kind))
+	# Capabilities and their controls are generated from one declarative schema.
+	# This is what keeps Leaves, Wood Chips, Snow Lumps, Pavers, or a future
+	# builder reusable instead of growing tile-name-specific inspector code.
+	add_child(_section("CAPABILITY STACK"))
+	_layer_list = VBoxContainer.new()
+	_layer_list.name = "TileKitCapabilityStack"
+	_layer_list.add_theme_constant_override("separation", 5)
+	add_child(_layer_list)
+	var add_layer_row := HBoxContainer.new()
+	add_layer_row.add_theme_constant_override("separation", 6)
+	add_child(add_layer_row)
+	_add_layer_select = OptionButton.new()
+	_add_layer_select.name = "TileKitAddCapability"
+	_add_layer_select.fit_to_longest_item = false
+	_add_layer_select.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_layer_row.add_child(_add_layer_select)
+	_add_layer_button = _button("Add")
+	_add_layer_button.name = "TileKitAddCapabilityButton"
+	_add_layer_button.pressed.connect(_add_selected_layer)
+	add_layer_row.add_child(_add_layer_button)
 
-	# The handful of parameters that shape the look most; everything else
-	# lives in the preset resource for deep edits.
-	add_child(_section("TUNING"))
-	_slider("Grass spacing", "grass_clusters", "carpet_spacing", 0.16, 0.34)
-	_slider("Grass gaps", "grass_clusters", "carpet_skip_fraction", 0.0, 0.35)
-	_slider("Grass height", "grass_clusters", "height_multiplier", 0.6, 1.5)
-	_slider("Grass width", "grass_clusters", "width_multiplier", 0.6, 1.5)
-	_slider("Dressing scale", "dressing", "scale_multiplier", 0.5, 1.6)
-	_slider("Clutter scale", "clutter", "scale_multiplier", 0.5, 1.6)
-	_checkbox("Blobs may overlap", "dressing", "allow_overlap", true)
-
-	# Source-inspired sand/snow relief. The two study presets opt into this
-	# explicitly, so the established procedural presets remain untouched while
-	# their replacement look is being judged.
-	var dune_heading := _section("SCULPTED DUNES")
-	add_child(dune_heading)
-	_dune_controls.append(dune_heading)
-	_dune_controls.append(_slider(
-		"Dune strength", "base", "relief_amplitude", 0.005, 0.180))
-	_dune_controls.append(_slider(
-		"Dune scale", "base", "dune_scale", 0.35, 1.25))
-	_dune_controls.append(_slider(
-		"Dune amount", "base", "dune_amount", 0.0, 1.0))
-	_dune_controls.append(_slider(
-		"Dune softness", "base", "dune_softness", 0.0, 1.0))
-	_dune_controls.append(_slider(
-		"Irregularity", "base", "dune_irregularity", 0.0, 1.0))
-	_dune_controls.append(_slider(
-		"Lee shoulder", "base", "dune_lee_depth", 0.0, 1.0))
-	_dune_controls.append(_slider(
-		"Wind direction", "base", "dune_direction_degrees", 0.0, 360.0, 1.0))
-	var randomize_dunes := _button("Randomize Dunes", true)
-	randomize_dunes.name = "TileKitRandomizeDunes"
-	randomize_dunes.tooltip_text = (
-		"Create a new deterministic dune pattern and vary its shaping controls."
-	)
-	randomize_dunes.pressed.connect(_randomize_dunes)
-	add_child(randomize_dunes)
-	_dune_controls.append(randomize_dunes)
-	_sync_dune_controls()
+	add_child(_section("CAPABILITY SETTINGS"))
+	_parameter_editor = VBoxContainer.new()
+	_parameter_editor.name = "TileKitCapabilitySettings"
+	_parameter_editor.add_theme_constant_override("separation", 5)
+	add_child(_parameter_editor)
+	_rebuild_capability_ui()
 
 	# Output.
 	add_child(_section("OUTPUT"))
@@ -294,124 +272,403 @@ func _button(text: String, accent := false) -> Button:
 	return button
 
 
-func _layer_row(kind: String) -> HBoxContainer:
+## Compatibility entry point for the focused dune contract. The generated
+## inspector now adds/removes conditional rows instead of hiding a fixed set.
+func _sync_dune_controls() -> void:
+	_rebuild_capability_ui()
+
+
+# --- schema-driven capabilities ---------------------------------------------
+
+
+func _clear_container(container: Container) -> void:
+	for child in container.get_children():
+		container.remove_child(child)
+		child.queue_free()
+
+
+func _rebuild_capability_ui() -> void:
+	if _layer_list == null or _parameter_editor == null or preset == null:
+		return
+	_clear_container(_layer_list)
+	_layer_rows.clear()
+	for layer: TileKitLayer in preset.layers:
+		var row := _capability_layer_row(layer.kind)
+		_layer_list.add_child(row)
+	_rebuild_add_layer_menu()
+	_rebuild_parameter_editor()
+
+
+func _rebuild_add_layer_menu() -> void:
+	_add_layer_select.clear()
+	for kind: String in TileLayerParameterSchema.KIND_ORDER:
+		if preset.layer_of_kind(kind) != null:
+			continue
+		_add_layer_select.add_item(TileLayerParameterSchema.label(kind))
+		_add_layer_select.set_item_metadata(_add_layer_select.item_count - 1, kind)
+	var disabled := _add_layer_select.item_count == 0 or not _recipe_editable
+	_add_layer_button.disabled = disabled
+	_add_layer_select.disabled = disabled
+
+
+func _capability_layer_row(kind: String) -> HBoxContainer:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	var eye := CheckBox.new()
-	eye.text = "👁"
-	eye.tooltip_text = "Show this layer in the preview"
-	eye.button_pressed = true
-	eye.toggled.connect(func(on: bool) -> void:
-		var layer := preset.layer_of_kind(kind)
-		if layer != null:
-			layer.enabled = on
+	row.name = "TileKitLayerRow_%s" % kind
+	row.add_theme_constant_override("separation", 5)
+	var layer := preset.layer_of_kind(kind)
+	var enabled := CheckBox.new()
+	enabled.text = "On"
+	enabled.tooltip_text = "Include this capability in the generated tile"
+	enabled.button_pressed = layer != null and layer.enabled
+	enabled.toggled.connect(func(on: bool) -> void:
+		var target := preset.layer_of_kind(kind)
+		if target != null and not _suppress:
+			target.enabled = on
 			_emit_change(true))
-	row.add_child(eye)
+	row.add_child(enabled)
 	var lock := CheckBox.new()
-	lock.text = "🔒"
-	lock.tooltip_text = "Locked layers survive Randomize All untouched"
+	lock.text = "Lock"
+	lock.tooltip_text = "Keep this capability's layout through Randomize All"
+	lock.button_pressed = layer != null and layer.locked
 	lock.toggled.connect(func(on: bool) -> void:
-		# Locking snapshots the layer's current stream so later master-seed
-		# changes cannot move it — same rule as TileKitGenerator.set_layer_locked.
-		var layer := preset.layer_of_kind(kind)
-		if layer == null:
+		var target := preset.layer_of_kind(kind)
+		if target == null:
 			return
 		if on:
-			layer.stream_snapshot = TileKitGenerator.layer_stream(
-				preset.master_seed, layer)
+			target.stream_snapshot = TileKitGenerator.layer_stream(preset.master_seed, target)
 		else:
-			layer.stream_snapshot = 0
-		layer.locked = on)
+			target.stream_snapshot = 0
+		target.locked = on)
 	row.add_child(lock)
-	var label := _kit.label(LAYER_LABELS[kind], 13)
+	var label := _kit.label(TileLayerParameterSchema.label(kind), 12)
+	label.tooltip_text = TileLayerParameterSchema.description(kind)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	row.add_child(label)
 	if kind != "base":
-		var reroll := _button("Randomize")
-		reroll.pressed.connect(func() -> void:
-			var layer := preset.layer_of_kind(kind)
-			if layer == null or layer.locked:
-				status.emit("%s is locked." % LAYER_LABELS[kind])
-				return
-			layer.seed_offset += 1
-			_emit_change(true))
+		var reroll := _button("Roll")
+		reroll.custom_minimum_size.x = 54.0
+		reroll.tooltip_text = "Randomize layout while preserving every setting"
+		reroll.pressed.connect(func() -> void: _randomize_layer_layout(kind))
 		row.add_child(reroll)
+		var remove := _button("-")
+		remove.name = "TileKitRemoveCapability_%s" % kind
+		remove.custom_minimum_size.x = 34.0
+		remove.tooltip_text = "Remove this capability from the recipe"
+		remove.pressed.connect(func() -> void: _remove_layer(kind))
+		row.add_child(remove)
 	_layer_rows[kind] = row
 	return row
 
 
-func _checkbox(label_text: String, kind: String, key: String,
-		fallback: bool) -> void:
-	var box := CheckBox.new()
-	box.text = label_text
+func _randomize_layer_layout(kind: String) -> void:
 	var layer := preset.layer_of_kind(kind)
-	box.button_pressed = bool(layer.value(key, fallback)) if layer != null else fallback
+	if layer == null or layer.locked:
+		status.emit("%s is locked." % TileLayerParameterSchema.label(kind))
+		return
+	layer.seed_offset += 1
+	_emit_change(true)
+
+
+func _vary_layer_settings(kind: String) -> void:
+	var layer := preset.layer_of_kind(kind)
+	if layer == null or layer.locked:
+		status.emit("%s is locked." % TileLayerParameterSchema.label(kind))
+		return
+	var rng := RandomNumberGenerator.new()
+	layer.seed_offset += 1
+	rng.seed = hash("%d|%s|settings|%d" % [
+		preset.master_seed, kind, layer.seed_offset,
+	])
+	TileLayerParameterSchema.randomize_parameters(layer, rng)
+	_rebuild_parameter_editor()
+	status.emit("Varied %s settings and layout." % TileLayerParameterSchema.label(kind))
+	_emit_change(true)
+
+
+func _add_selected_layer() -> void:
+	if _add_layer_select.item_count == 0:
+		return
+	var kind := String(_add_layer_select.get_item_metadata(_add_layer_select.selected))
+	var layer := TileLayerParameterSchema.new_layer(kind)
+	if layer == null or preset.layer_of_kind(kind) != null:
+		return
+	var index := TileLayerParameterSchema.ordered_insertion_index(preset.layers, kind)
+	preset.layers.insert(index, layer)
+	_rebuild_capability_ui()
+	status.emit("Added %s capability." % TileLayerParameterSchema.label(kind))
+	_emit_change(true)
+
+
+func _remove_layer(kind: String) -> void:
+	if kind == "base":
+		return
+	var layer := preset.layer_of_kind(kind)
+	if layer == null:
+		return
+	preset.layers.erase(layer)
+	_rebuild_capability_ui()
+	status.emit("Removed %s capability." % TileLayerParameterSchema.label(kind))
+	_emit_change(true)
+
+
+func _rebuild_parameter_editor() -> void:
+	if _parameter_editor == null or preset == null:
+		return
+	_clear_container(_parameter_editor)
+	_bound_controls.clear()
+	for layer: TileKitLayer in preset.layers:
+		var heading := _section(TileLayerParameterSchema.label(layer.kind).to_upper())
+		_parameter_editor.add_child(heading)
+		var help := _kit.label(TileLayerParameterSchema.description(layer.kind), 10)
+		help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		help.modulate = Color(1.0, 1.0, 1.0, 0.72)
+		_parameter_editor.add_child(help)
+		var previous_section := ""
+		for raw: Variant in TileLayerParameterSchema.parameters(layer.kind):
+			var parameter := raw as Dictionary
+			if not TileLayerParameterSchema.is_visible(parameter, layer):
+				continue
+			var section := String(parameter.get("section", ""))
+			if not section.is_empty() and section != previous_section:
+				_parameter_editor.add_child(_field_label(section))
+				previous_section = section
+			_add_parameter_control(layer, parameter)
+		var vary := _button("Vary Settings & Layout")
+		vary.name = "TileKitVarySettings_%s" % layer.kind
+		vary.tooltip_text = "Randomize numeric ranges; content type stays unchanged"
+		vary.disabled = not _recipe_editable or layer.locked
+		var vary_kind := layer.kind
+		vary.pressed.connect(func() -> void: _vary_layer_settings(vary_kind))
+		_parameter_editor.add_child(vary)
+		if layer.kind == "base" and String(layer.value("relief_style", "none")) \
+				== "sculpted_dunes":
+			var randomize_dunes := _button("Randomize Dune Study", true)
+			randomize_dunes.name = "TileKitRandomizeDunes"
+			randomize_dunes.tooltip_text = "Vary the deterministic wind-shaped dune study"
+			randomize_dunes.pressed.connect(_randomize_dunes)
+			_parameter_editor.add_child(randomize_dunes)
+	_sync_bound_controls()
+
+
+func _add_parameter_control(layer: TileKitLayer, parameter: Dictionary) -> void:
+	match String(parameter.get("type", "float")):
+		"bool":
+			_add_parameter_checkbox(layer, parameter)
+		"enum":
+			_add_parameter_enum(layer, parameter)
+		"multi":
+			_add_parameter_multi(layer, parameter)
+		"range_float", "range_int":
+			_add_parameter_slider(layer, parameter, 0)
+			_add_parameter_slider(layer, parameter, 1)
+		_:
+			_add_parameter_slider(layer, parameter, -1)
+
+
+func _add_parameter_slider(layer: TileKitLayer, parameter: Dictionary,
+		range_index: int) -> void:
+	var key := String(parameter["key"])
+	var label_text := String(parameter["label"])
+	if range_index == 0:
+		label_text += " min"
+	elif range_index == 1:
+		label_text += " max"
+	var suffix := "" if range_index < 0 else "_%s" % ["min", "max"][range_index]
+	var row := HBoxContainer.new()
+	row.name = "TileKitSliderRow_%s_%s%s" % [layer.kind, key, suffix]
+	row.add_theme_constant_override("separation", 7)
+	_parameter_editor.add_child(row)
+	var label := _kit.label(label_text, 11)
+	label.custom_minimum_size.x = 104.0
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	row.add_child(label)
+	var slider := HSlider.new()
+	slider.name = "TileKitSlider_%s_%s%s" % [layer.kind, key, suffix]
+	slider.tooltip_text = label_text
+	slider.min_value = float(parameter.get("min", 0.0))
+	slider.max_value = float(parameter.get("max", 1.0))
+	slider.step = float(parameter.get("step", 0.01))
+	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(slider)
+	var value_label := _kit.label("", 10)
+	value_label.custom_minimum_size.x = 42.0
+	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(value_label)
+	_bound_controls[slider] = {
+		"kind": layer.kind, "key": key, "type": String(parameter.get("type", "float")),
+		"range_index": range_index,
+		"fallback": TileLayerParameterSchema.fallback(parameter, layer.kind),
+		"value_label": value_label,
+	}
+	var slider_kind := layer.kind
+	slider.value_changed.connect(func(value: float) -> void:
+		if _suppress:
+			return
+		var target := preset.layer_of_kind(slider_kind)
+		if target == null:
+			return
+		if range_index < 0:
+			target.params[key] = int(round(value)) \
+				if String(parameter.get("type", "float")) == "int" else value
+		else:
+			var band: Array = target.value(
+				key, TileLayerParameterSchema.fallback(parameter, slider_kind)
+			)
+			band = band.duplicate() if band.size() >= 2 else [value, value]
+			band[range_index] = int(round(value)) \
+				if String(parameter.get("type", "")) == "range_int" else value
+			if float(band[0]) > float(band[1]):
+				band[1 - range_index] = band[range_index]
+			target.params[key] = band
+		_update_slider_value_label(slider, value_label)
+		_emit_change(false))
+
+
+func _add_parameter_checkbox(layer: TileKitLayer, parameter: Dictionary) -> void:
+	var key := String(parameter["key"])
+	var box := CheckBox.new()
+	box.name = "TileKitCheck_%s_%s" % [layer.kind, key]
+	box.text = String(parameter["label"])
+	_parameter_editor.add_child(box)
+	_bound_controls[box] = {"kind": layer.kind, "key": key,
+		"type": "bool", "fallback": TileLayerParameterSchema.fallback(parameter, layer.kind)}
+	var box_kind := layer.kind
 	box.toggled.connect(func(on: bool) -> void:
-		var target := preset.layer_of_kind(kind)
+		var target := preset.layer_of_kind(box_kind)
 		if target != null and not _suppress:
 			target.params[key] = on
 			_emit_change(true))
-	add_child(box)
-	_bound_controls[box] = [kind, key]
 
 
-func _slider(label_text: String, kind: String, key: String,
-		minimum: float, maximum: float, step := 0.005) -> HBoxContainer:
+func _add_parameter_enum(layer: TileKitLayer, parameter: Dictionary) -> void:
 	var row := HBoxContainer.new()
-	row.name = "TileKitSliderRow_%s_%s" % [kind, key]
-	row.add_theme_constant_override("separation", 8)
-	add_child(row)
-	var label := _kit.label(label_text, 12)
-	label.custom_minimum_size.x = 108.0
+	row.add_theme_constant_override("separation", 7)
+	_parameter_editor.add_child(row)
+	var label := _kit.label(String(parameter["label"]), 11)
+	label.custom_minimum_size.x = 104.0
 	row.add_child(label)
-	var slider := HSlider.new()
-	slider.name = "TileKitSlider_%s_%s" % [kind, key]
-	slider.tooltip_text = label_text
-	slider.min_value = minimum
-	slider.max_value = maximum
-	slider.step = step
-	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var option := OptionButton.new()
+	option.name = "TileKitOption_%s_%s" % [layer.kind, parameter["key"]]
+	option.fit_to_longest_item = false
+	option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var values: Array = parameter.get("values", [])
+	var labels: Array = parameter.get("value_labels", [])
+	for index in values.size():
+		option.add_item(String(labels[index]) if index < labels.size() \
+			else _humanize(String(values[index])))
+		option.set_item_metadata(index, values[index])
+	row.add_child(option)
+	var key := String(parameter["key"])
+	_bound_controls[option] = {"kind": layer.kind, "key": key,
+		"type": "enum", "fallback": TileLayerParameterSchema.fallback(parameter, layer.kind)}
+	var option_kind := layer.kind
+	option.item_selected.connect(func(index: int) -> void:
+		if _suppress:
+			return
+		var target := preset.layer_of_kind(option_kind)
+		if target != null:
+			target.params[key] = option.get_item_metadata(index)
+			call_deferred("_rebuild_parameter_editor")
+			_emit_change(true))
+
+
+func _add_parameter_multi(layer: TileKitLayer, parameter: Dictionary) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 7)
+	_parameter_editor.add_child(row)
+	var label := _kit.label(String(parameter["label"]), 11)
+	label.custom_minimum_size.x = 104.0
+	row.add_child(label)
+	var menu := MenuButton.new()
+	menu.name = "TileKitMulti_%s_%s" % [layer.kind, parameter["key"]]
+	menu.set_meta("allow_empty", bool(parameter.get("allow_empty", false)))
+	menu.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var values: Array = parameter.get("values", [])
+	var labels: Array = parameter.get("value_labels", [])
+	var popup := menu.get_popup()
+	for index in values.size():
+		popup.add_check_item(String(labels[index]) if index < labels.size() \
+			else _humanize(String(values[index])), index)
+		popup.set_item_metadata(index, values[index])
+	var multi_kind := layer.kind
+	var key := String(parameter["key"])
+	popup.id_pressed.connect(func(id: int) -> void: _on_multi_item(menu, multi_kind, key, id))
+	row.add_child(menu)
+	_bound_controls[menu] = {"kind": layer.kind, "key": key,
+		"type": "multi", "fallback": TileLayerParameterSchema.fallback(parameter, layer.kind)}
+
+
+func _on_multi_item(menu: MenuButton, kind: String, key: String, id: int) -> void:
 	var layer := preset.layer_of_kind(kind)
-	slider.value = float(layer.value(key, minimum)) if layer != null else minimum
-	slider.value_changed.connect(func(value: float) -> void:
-		var target := preset.layer_of_kind(kind)
-		if target != null and not _suppress:
-			target.params[key] = value
-			_emit_change(false))
-	row.add_child(slider)
-	_bound_controls[slider] = [kind, key]
-	return row
+	if layer == null:
+		return
+	var popup := menu.get_popup()
+	var selected: Array = layer.value(key, []).duplicate()
+	var value: Variant = popup.get_item_metadata(id)
+	if value in selected:
+		if selected.size() == 1 and not bool(menu.get_meta("allow_empty", false)):
+			status.emit("At least one piece type or edge must remain selected.")
+			return
+		selected.erase(value)
+	else:
+		selected.append(value)
+	layer.params[key] = selected
+	_sync_multi_control(menu, selected)
+	_emit_change(true)
 
 
-## Repoints every tuning control at the freshly selected preset, silently —
-## without this, controls keep showing the previous preset's values and the
-## first touch stomps the new preset with stale numbers.
+func _humanize(value: String) -> String:
+	return value.replace("_", " ").capitalize()
+
+
 func _sync_bound_controls() -> void:
 	_suppress = true
 	for control: Control in _bound_controls:
-		var binding: Array = _bound_controls[control]
-		var layer := preset.layer_of_kind(String(binding[0]))
+		var binding := _bound_controls[control] as Dictionary
+		var layer := preset.layer_of_kind(String(binding["kind"]))
 		if layer == null:
 			continue
-		if control is HSlider:
-			var slider := control as HSlider
-			slider.set_value_no_signal(clampf(
-				float(layer.value(String(binding[1]), slider.min_value)),
-				slider.min_value, slider.max_value))
-		elif control is CheckBox:
-			(control as CheckBox).set_pressed_no_signal(
-				bool(layer.value(String(binding[1]), true)))
+		var value: Variant = layer.value(
+			String(binding["key"]), binding.get("fallback", 0.0)
+		)
+		match String(binding["type"]):
+			"float", "int":
+				var slider := control as HSlider
+				slider.set_value_no_signal(clampf(float(value), slider.min_value, slider.max_value))
+				_update_slider_value_label(slider, binding["value_label"] as Label)
+			"range_float", "range_int":
+				var slider := control as HSlider
+				var band: Array = value if value is Array else [value, value]
+				var index := int(binding["range_index"])
+				var component: Variant = (
+					band[index] if band.size() > index else slider.min_value
+				)
+				slider.set_value_no_signal(clampf(float(component), slider.min_value, slider.max_value))
+				_update_slider_value_label(slider, binding["value_label"] as Label)
+			"bool":
+				(control as CheckBox).set_pressed_no_signal(bool(value))
+			"enum":
+				var option := control as OptionButton
+				for index in option.item_count:
+					if option.get_item_metadata(index) == value:
+						option.select(index)
+						break
+			"multi":
+				_sync_multi_control(control as MenuButton, value if value is Array else [])
 	_suppress = false
 
 
-func _sync_dune_controls() -> void:
-	var base := preset.layer_of_kind("base")
-	var show_dunes := base != null \
-		and String(base.value("relief_style", "none")) == "sculpted_dunes" \
-		and _recipe_editable
-	for control in _dune_controls:
-		control.visible = show_dunes
+func _sync_multi_control(menu: MenuButton, selected: Array) -> void:
+	var popup := menu.get_popup()
+	for index in popup.item_count:
+		popup.set_item_checked(index, popup.get_item_metadata(index) in selected)
+	menu.text = "%d selected" % selected.size()
+
+
+func _update_slider_value_label(slider: HSlider, label: Label) -> void:
+	label.text = str(int(round(slider.value))) if slider.step >= 1.0 \
+		else String.num(slider.value, 3).trim_suffix("0").trim_suffix("0").trim_suffix(".")
 
 
 # --- behaviour ---------------------------------------------------------------
@@ -571,8 +828,7 @@ func _sync_recipe_controls() -> void:
 		return
 	for control in _procedural_controls:
 		control.visible = _recipe_editable
-	_sync_bound_controls()
-	_sync_dune_controls()
+	_rebuild_capability_ui()
 	_separate_tiles.disabled = not _recipe_editable
 	for control: Control in _bound_controls:
 		if control is BaseButton:
