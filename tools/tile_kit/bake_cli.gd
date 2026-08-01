@@ -1,49 +1,49 @@
 extends SceneTree
-## Headless bake of the Reference Clean Grass preset into the layer scenes the
-## game loads for tile_kit_grass. The F8 studio's Bake To Game button runs the
-## same collection logic; this exists so a fresh checkout — or an agent — can
-## produce the baked assets without opening an editor.
+## Headless stable-ID bake using the same service as the Tile Library UI.
 ##
-##   godot --headless --path . --script tools/tile_kit/bake_cli.gd
-
-const OUTPUT_DIRECTORY := "res://tools/tile_kit/baked"
+##   godot --headless --path . --script tools/tile_kit/bake_cli.gd -- \
+##     --tile-id=tile_kit_grass
+##   godot --headless --path . --script tools/tile_kit/bake_cli.gd -- \
+##     --tile-id=tile_proc_sandy_ground \
+##     --recipe=res://tools/tile_kit/library/recipes/tile_proc_sandy_ground.tres
 
 
 func _init() -> void:
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(
-		OUTPUT_DIRECTORY + "/materials"))
-	for key: String in TileKitPalette.COLORS:
-		var material := TileKitPalette.material(key)
-		var material_path := "%s/materials/%s.tres" % [OUTPUT_DIRECTORY, key]
-		if ResourceSaver.save(material, material_path) == OK:
-			material.take_over_path(material_path)
-		else:
-			push_error("material save failed: %s" % key)
-
-	var failed := false
-	var stats: Dictionary = {}
-	for mask in 16:
-		var generator := TileKitGenerator.new()
-		generator.preset = TileKitPreset.reference_clean_grass()
-		generator.neighbour_mask = mask
-		get_root().add_child(generator)
-		await process_frame
-		var scenes := generator.bake_role_scenes()
-		if mask == 0:
-			stats = generator.statistics()
-		for role: String in scenes:
-			if mask > 0 and role == "detail":
-				continue
-			var asset_id := "tile_kit_grass_%s" % role
-			if mask > 0:
-				asset_id += "_n%02d" % mask
-			var path := "%s/%s.tscn" % [OUTPUT_DIRECTORY, asset_id]
-			var error := ResourceSaver.save(scenes[role], path)
-			print("%s -> %s (%s)" % [asset_id, path, error_string(error)])
-			failed = failed or error != OK
-		generator.free()
+	var options := _options()
+	var tile_id := String(options.get("tile-id", "tile_kit_grass"))
+	var recipe_path := String(options.get("recipe", ""))
+	if recipe_path.is_empty():
+		var service := TileLibraryService.new()
+		service.reload()
+		var manifest := service.official_manifest(tile_id)
+		if manifest != null:
+			recipe_path = manifest.recipe_path
+	var preset := ResourceLoader.load(
+		recipe_path, "", ResourceLoader.CACHE_MODE_IGNORE
+	) as TileKitPreset
+	if preset == null:
+		push_error("No procedural recipe found for '%s': %s" % [tile_id, recipe_path])
+		quit(1)
+		return
+	var result := TileKitBaker.new().bake(preset, tile_id)
+	for path in result.get("written", PackedStringArray()):
+		print("wrote %s" % path)
+	if not bool(result.get("ok", false)):
+		for error in result.get("errors", PackedStringArray()):
+			push_error(String(error))
 	print("BAKE %s · %s" % [
-		"FAILED" if failed else "COMPLETE",
-		JSON.stringify(stats),
+		"COMPLETE" if bool(result.get("ok", false)) else "FAILED",
+		JSON.stringify(result.get("statistics", {})),
 	])
-	quit(1 if failed else 0)
+	quit(0 if bool(result.get("ok", false)) else 1)
+
+
+func _options() -> Dictionary:
+	var result := {}
+	for argument in OS.get_cmdline_user_args():
+		var text := String(argument)
+		if not text.begins_with("--") or "=" not in text:
+			continue
+		var split := text.trim_prefix("--").split("=", true, 1)
+		result[split[0]] = split[1]
+	return result

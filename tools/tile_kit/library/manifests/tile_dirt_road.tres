@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="TileLibraryManifest" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_kit/library/tile_library_manifest.gd" id="1_peekt"]
+
+[resource]
+script = ExtResource("1_peekt")
+tile_id = "tile_dirt_road"
+display_name = "Country Lane"
+revision = 1
+lifecycle = "published"
+source_kind = "external"
+runtime_definition = {
+"asset_id": "tile_dirt_road",
+"connection_mode": "full_flush",
+"family": "home_meadow",
+"geometry_profile": "organic_overlay_square",
+"id": "tile_dirt_road",
+"name": "Country Lane",
+"placement_sound": "grass",
+"special_trait": "A worn lane with quiet wheel tracks.",
+"stackable": true,
+"supports_tiles": true,
+"surface_kind": "flat",
+"weight": 2.0
+}
+baked_roles = PackedStringArray("base", "surface", "detail")
+family = "home_meadow"
+connection_group = "home_meadow"
+biome_tags = PackedStringArray()
+weight = 2.0
+dependencies = PackedStringArray()
+created_at = "2026-08-01 00:00:00"
+updated_at = "2026-08-01 00:00:00"
+published_at = "2026-08-01 00:00:00"

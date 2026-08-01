@@ -1,0 +1,56 @@
+[gd_resource type="Resource" script_class="TileRecipe" format=3]
+
+[ext_resource type="Resource" path="res://tools/tile_forge/materials/suma_tile_art_profile.tres" id="1_x7ial"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_base_profile.gd" id="2_yhkr5"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_detail_rule.gd" id="3_bsl35"]
+[ext_resource type="Resource" path="res://tools/tile_forge/materials/pal_golden_paving.tres" id="4_3wmls"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_recipe.gd" id="5_15w42"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_surface_layer.gd" id="6_j1oy6"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_shape_primitive.gd" id="7_7w373"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_transition_rule.gd" id="8_dof72"]
+
+[sub_resource type="Resource" id="Resource_ive0b"]
+script = ExtResource("2_yhkr5")
+mode = 2
+
+[sub_resource type="Resource" id="Resource_xnidh"]
+script = ExtResource("6_j1oy6")
+generator_id = "flat_surface"
+layer_name = "bed"
+material_slot = "shadow"
+height_bias = -0.028
+edge_lock_width = 0.02
+edge_lock_height = -0.028
+resolution = 2
+smooth_shading = false
+
+[sub_resource type="Resource" id="Resource_mx07t"]
+script = ExtResource("6_j1oy6")
+generator_id = "module_layout"
+layer_name = "slabs"
+secondary_slot = "top_secondary"
+smooth_shading = false
+params = {
+"colour_variation": 0.35,
+"height_variation": 0.0025,
+"layout": "paver_quad",
+"lift": -0.028,
+"seam": 0.03,
+"yaw_variation": 0.0
+}
+
+[resource]
+script = ExtResource("5_15w42")
+tile_id = "golden_soft_pavers"
+display_name = "Soft Pavers"
+category = 1
+tags = PackedStringArray("stone", "constructed")
+preview_notes = "Four curated slabs, 30 mm seams, chamfered rims."
+seed_value = 5240
+base_profile = SubResource("Resource_ive0b")
+palette = ExtResource("4_3wmls")
+art_profile = ExtResource("1_x7ial")
+surface_layers = Array[ExtResource("6_j1oy6")]([SubResource("Resource_xnidh"), SubResource("Resource_mx07t")])
+allowed_rotations = PackedInt32Array(0, 1, 2, 3)
+walk_surface_height = 0.03
+connection_mode = "tiny_individual_seam"

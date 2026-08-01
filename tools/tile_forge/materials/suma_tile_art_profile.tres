@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="SumaTileArtProfile" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/suma_tile_art_profile.gd" id="1_8tu5o"]
+
+[resource]
+script = ExtResource("1_8tu5o")
+top_bevel = 0.036
+detail_readable_minimum = 0.11
+hero_scale = 1.18
+support_scale = 0.96
+accent_scale = 0.78
+side_darken = 0.09
+inset_darken = 0.16
+roughness = 0.96
+specular = 0.14

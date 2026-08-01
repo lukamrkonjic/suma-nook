@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="TilePalette" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_palette.gd" id="1_0dbym"]
+
+[resource]
+script = ExtResource("1_0dbym")
+palette_id = "basin"
+display_name = "Basin"
+top_primary = "stone_mid"
+top_secondary = "stone_mid_light"
+accent = "stone_light"
+shadow = "stone_shadow"
+side = "concrete_side"
+underside = "stone_deep_shadow"
+inset = "stone_shadow"
+detail_a = "stone_mid_light"
+detail_b = "stone_shadow"

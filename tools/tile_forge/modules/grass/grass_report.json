@@ -1,0 +1,98 @@
+{
+  "scale_from_brief": 0.7941176470588236,
+  "min_width_to_height": 2.5,
+  "modules": [
+    {
+      "triangles": 106,
+      "vertices": 55,
+      "width": 0.1977,
+      "height": 0.0417,
+      "ratio": 4.75,
+      "footprint_radius": 0.0989,
+      "base_z": -0.0059,
+      "id": "grass_leaf_reference",
+      "kind": "leaf",
+      "path": "res://tools/tile_forge/modules/grass/grass_leaf_reference.glb"
+    },
+    {
+      "triangles": 1264,
+      "vertices": 656,
+      "width": 0.3504,
+      "height": 0.1008,
+      "ratio": 3.48,
+      "footprint_radius": 0.1752,
+      "base_z": -0.0211,
+      "id": "grass_low_rosette",
+      "kind": "clump",
+      "path": "res://tools/tile_forge/modules/grass/grass_low_rosette.glb",
+      "leaves": 12
+    },
+    {
+      "triangles": 1222,
+      "vertices": 633,
+      "width": 0.4056,
+      "height": 0.1274,
+      "ratio": 3.18,
+      "footprint_radius": 0.2028,
+      "base_z": -0.0214,
+      "id": "grass_directional_fan",
+      "kind": "clump",
+      "path": "res://tools/tile_forge/modules/grass/grass_directional_fan.glb",
+      "leaves": 11
+    },
+    {
+      "triangles": 1210,
+      "vertices": 627,
+      "width": 0.3234,
+      "height": 0.104,
+      "ratio": 3.11,
+      "footprint_radius": 0.1617,
+      "base_z": -0.0213,
+      "id": "grass_soft_arc",
+      "kind": "clump",
+      "path": "res://tools/tile_forge/modules/grass/grass_soft_arc.glb",
+      "leaves": 11
+    },
+    {
+      "triangles": 1154,
+      "vertices": 599,
+      "width": 0.3694,
+      "height": 0.0678,
+      "ratio": 5.45,
+      "footprint_radius": 0.1847,
+      "base_z": -0.0215,
+      "id": "grass_low_moss_mix",
+      "kind": "clump",
+      "path": "res://tools/tile_forge/modules/grass/grass_low_moss_mix.glb",
+      "leaves": 11
+    },
+    {
+      "triangles": 1360,
+      "vertices": 704,
+      "width": 0.395,
+      "height": 0.1193,
+      "ratio": 3.31,
+      "footprint_radius": 0.1975,
+      "base_z": -0.022,
+      "id": "grass_medium_tuft",
+      "kind": "clump",
+      "path": "res://tools/tile_forge/modules/grass/grass_medium_tuft.glb",
+      "leaves": 12
+    },
+    {
+      "triangles": 1934,
+      "vertices": 997,
+      "width": 0.3982,
+      "height": 0.1331,
+      "ratio": 2.99,
+      "footprint_radius": 0.1991,
+      "base_z": -0.0228,
+      "id": "grass_hero_cluster",
+      "kind": "clump",
+      "path": "res://tools/tile_forge/modules/grass/grass_hero_cluster.glb",
+      "leaves": 15
+    }
+  ],
+  "total_triangles": 8250,
+  "problems": []
+}

@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TileLibraryManifest" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_kit/library/tile_library_manifest.gd" id="1_etp0m"]
+
+[resource]
+script = ExtResource("1_etp0m")
+tile_id = "tile_proc_snow_drifts_study"
+display_name = "Snow Drifts (Study)"
+revision = 1
+lifecycle = "published"
+visibility = "preview"
+recipe_path = "res://tools/tile_kit/library/recipes/tile_proc_snow_drifts_study.tres"
+baked_roles = PackedStringArray("base", "surface")
+family = "winter"
+connection_group = "tile_proc_snow_drifts_study"
+biome_tags = PackedStringArray("winter")
+dependencies = PackedStringArray()
+created_at = "2026-08-01 00:00:00"
+updated_at = "2026-08-01 14:38:58"
+published_at = "2026-08-01 14:38:58"

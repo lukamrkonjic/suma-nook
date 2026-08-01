@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TilePalette" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_palette.gd" id="1_w3jml"]
+
+[resource]
+script = ExtResource("1_w3jml")
+palette_id = "golden_wood"
+display_name = "Golden Wood"
+top_primary = "wood_gold"
+top_secondary = "wood_primary"
+accent = "wood_gold"
+shadow = "wood_warm_shadow"
+side = "wood_gold"
+underside = "wood_gold"
+inset = "wood_warm_shadow"
+detail_a = "wood_light"
+detail_b = "wood_primary"
+detail_c = ""

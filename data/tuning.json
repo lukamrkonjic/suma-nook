@@ -2,9 +2,9 @@
   "save_path": "user://suma_nook_world.json",
   "tile_size": 1.35,
   "block_depth": 0.5,
-  "max_stack_elevation": 6,
-  "max_object_stack_depth": 6,
-  "max_decals_per_tile": 1,
+  "max_stack_elevation": 6.0,
+  "max_object_stack_depth": 6.0,
+  "max_decals_per_tile": 1.0,
   "walk_speed": 2.2,
   "walk_accel": 26.0,
   "walk_decel": 32.0,
@@ -14,7 +14,7 @@
   "jump_velocity": 5.4,
   "jump_gravity": 25.0,
   "interact_range": 1.6,
-  "player_max_health": 5,
+  "player_max_health": 5.0,
   "player_hit_invuln_seconds": 0.8,
   "health_regen_seconds_per_point": 6.0,
   "camera_min_size": 14.0,
@@ -39,10 +39,10 @@
   "grove_rest_visual_scale": 0.82,
   "fishing_collection_chance": 0.45,
   "horizon_check_tiles": [
-    4,
-    7,
-    11,
-    16
+    4.0,
+    7.0,
+    11.0,
+    16.0
   ],
   "landmark_connect_adjacent": true,
   "autosave_interval": 40.0,
@@ -53,7 +53,8 @@
     "tile_sand",
     "tile_grove_mature",
     "tile_concrete_brutalist",
-    "tile_snowfield"
+    "tile_snowfield",
+    "tile_master_grass"
   ],
   "starter_land_options": [
     "tile_grove_mature",
@@ -61,6 +62,28 @@
     "tile_snowfield"
   ],
   "preview_tile_ids": [
-    "tile_kit_grass"
+    "tile_master_pavers",
+    "tile_master_wood",
+    "tile_kit_grass",
+    "tile_proc_autumn_litter",
+    "tile_proc_boulder_ground",
+    "tile_proc_brick_court",
+    "tile_proc_checker_slabs",
+    "tile_proc_cobblestone_paving",
+    "tile_proc_concrete_slabs",
+    "tile_proc_fenced_meadow",
+    "tile_proc_flower_meadow",
+    "tile_proc_garden_path",
+    "tile_proc_gravel_yard",
+    "tile_proc_mossy_forest_floor",
+    "tile_proc_mud_bed",
+    "tile_proc_mulch_dirt_floor",
+    "tile_proc_pond_basin",
+    "tile_proc_sand_dunes_study",
+    "tile_proc_sandy_ground",
+    "tile_proc_snow_drifts_study",
+    "tile_proc_snow_field",
+    "tile_proc_tilled_field",
+    "tile_proc_wood_plank_deck"
   ]
 }

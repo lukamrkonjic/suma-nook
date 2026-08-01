@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="TileLibraryManifest" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_kit/library/tile_library_manifest.gd" id="1_s4e4x"]
+
+[resource]
+script = ExtResource("1_s4e4x")
+tile_id = "tile_flagstone"
+display_name = "Old Flagstones"
+revision = 1
+lifecycle = "published"
+source_kind = "external"
+runtime_definition = {
+"asset_id": "tile_flagstone",
+"connection_mode": "full_flush",
+"family": "stonebound",
+"geometry_profile": "organic_overlay_square",
+"id": "tile_flagstone",
+"name": "Old Flagstones",
+"placement_sound": "stone",
+"rarity": "uncommon",
+"special_trait": "Broad fitted stones for courtyards and ruins.",
+"stackable": true,
+"supports_tiles": true,
+"surface_kind": "flat",
+"weight": 1.3
+}
+baked_roles = PackedStringArray("base", "surface", "detail")
+family = "stonebound"
+connection_group = "stonebound"
+biome_tags = PackedStringArray()
+rarity = "uncommon"
+weight = 1.3
+placement_sound = "stone"
+dependencies = PackedStringArray()
+created_at = "2026-08-01 00:00:00"
+updated_at = "2026-08-01 00:00:00"
+published_at = "2026-08-01 00:00:00"

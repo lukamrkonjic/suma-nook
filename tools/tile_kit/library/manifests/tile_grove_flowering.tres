@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="TileLibraryManifest" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_kit/library/tile_library_manifest.gd" id="1_yet18"]
+
+[resource]
+script = ExtResource("1_yet18")
+tile_id = "tile_grove_flowering"
+display_name = "Flowering Ground"
+revision = 1
+lifecycle = "published"
+source_kind = "external"
+runtime_definition = {
+"asset_id": "tile_grove_flowering",
+"connection_mode": "full_flush",
+"family": "living_grove",
+"geometry_profile": "micro_bevel_square",
+"id": "tile_grove_flowering",
+"name": "Flowering Ground",
+"placement_sound": "grass",
+"rarity": "rare",
+"special_trait": "A brighter flat ground tone, with trees and flowers placed separately.",
+"weight": 0.8
+}
+baked_roles = PackedStringArray("base", "surface", "detail")
+family = "living_grove"
+connection_group = "living_grove"
+biome_tags = PackedStringArray()
+rarity = "rare"
+weight = 0.8
+dependencies = PackedStringArray()
+stackable = false
+supports_tiles = false
+created_at = "2026-08-01 00:00:00"
+updated_at = "2026-08-01 00:00:00"
+published_at = "2026-08-01 00:00:00"

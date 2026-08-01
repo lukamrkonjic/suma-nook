@@ -13,10 +13,9 @@ signal changed
 signal bake_requested
 signal export_requested
 signal status(message: String)
+signal library_changed(tile_id: String)
 
 const DEBOUNCE_SECONDS := 0.13
-const USER_PRESET_DIR := "user://tile_kit_presets"
-
 const LAYER_LABELS := {
 	"base": "Base",
 	"dressing": "Dressing",
@@ -29,8 +28,25 @@ var _kit: UiKit
 var _seed_field: LineEdit
 var _seed_history: Array[int] = []
 var _stats_label: Label
-var _preset_select: OptionButton
 var _preset_name: LineEdit
+var _tile_id_field: LineEdit
+var _family_field: LineEdit
+var _visibility_field: OptionButton
+var _manifest_status: Label
+var _template_select: OptionButton
+var _library: TileLibraryService
+var current_manifest: TileLibraryManifest
+var _pending_operation := ""
+var _confirmation: ConfirmationDialog
+var _mutation_buttons: Array[Button] = []
+var _draft_button: Button
+var _publish_button: Button
+var _overwrite_button: Button
+var _archive_button: Button
+var _delete_button: Button
+var _bake_button: Button
+var _recipe_editable := true
+var _procedural_controls: Array[Control] = []
 var _separate_tiles: CheckBox
 var _layer_rows: Dictionary = {}
 ## Tuning controls to resync when the preset changes: control -> [kind, key].
@@ -41,9 +57,17 @@ var _debounce: SceneTreeTimer
 var _suppress := false
 
 
-func setup(ui_kit: UiKit) -> void:
+func setup(
+	ui_kit: UiKit,
+	library_service: TileLibraryService = null
+) -> void:
 	_kit = ui_kit
-	preset = TileKitPreset.reference_clean_grass()
+	_library = library_service if library_service != null else TileLibraryService.new()
+	_library.reload()
+	current_manifest = _library.official_manifest("tile_kit_grass")
+	preset = _library.load_recipe(current_manifest)
+	if preset == null:
+		preset = TileKitPreset.reference_clean_grass()
 	_build()
 
 
@@ -53,30 +77,96 @@ func setup(ui_kit: UiKit) -> void:
 func _build() -> void:
 	add_theme_constant_override("separation", 9)
 
-	add_child(_kit.label("TILE KIT — PROCEDURAL TILE", 14, false, true))
-	var intro := _kit.label(
-		"Layered deterministic tile generator. Lock what you like, reroll "
-		+ "the rest, bake to the game when it sings.", 12)
-	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	add_child(intro)
-
-	# Preset row.
-	add_child(_section("PRESET"))
-	_preset_select = OptionButton.new()
-	_preset_select.custom_minimum_size.y = 38.0
-	_preset_select.item_selected.connect(_on_preset_selected)
-	add_child(_preset_select)
-	var name_row := HBoxContainer.new()
-	name_row.add_theme_constant_override("separation", 6)
-	add_child(name_row)
+	add_child(_section("TILE IDENTITY & LIFECYCLE"))
+	add_child(_field_label("Stable ID"))
+	_tile_id_field = LineEdit.new()
+	_tile_id_field.placeholder_text = "Stable ID (tile_…)"
+	_tile_id_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(_tile_id_field)
+	add_child(_field_label("Display name"))
 	_preset_name = LineEdit.new()
-	_preset_name.placeholder_text = "Preset name…"
+	_preset_name.placeholder_text = "Display name…"
 	_preset_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_row.add_child(_preset_name)
-	var save_button := _button("Save", true)
-	save_button.pressed.connect(_save_preset)
-	name_row.add_child(save_button)
-	_refresh_preset_list()
+	add_child(_preset_name)
+	add_child(_field_label("Catalog family & availability"))
+	var metadata_row := HBoxContainer.new()
+	metadata_row.add_theme_constant_override("separation", 6)
+	add_child(metadata_row)
+	_family_field = LineEdit.new()
+	_family_field.placeholder_text = "Catalog family"
+	_family_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	metadata_row.add_child(_family_field)
+	_visibility_field = OptionButton.new()
+	_visibility_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_visibility_field.tooltip_text = "Runtime availability after publication"
+	_visibility_field.add_item("Active")
+	_visibility_field.add_item("Preview")
+	_visibility_field.add_item("Hidden")
+	metadata_row.add_child(_visibility_field)
+	_manifest_status = _kit.label("", 11)
+	_manifest_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	add_child(_manifest_status)
+
+	add_child(_section("CREATE FROM GENERIC TEMPLATE"))
+	var template_row := HBoxContainer.new()
+	template_row.add_theme_constant_override("separation", 6)
+	add_child(template_row)
+	_template_select = OptionButton.new()
+	_template_select.name = "TileLibraryTemplate"
+	_template_select.fit_to_longest_item = false
+	_template_select.custom_minimum_size.x = 140.0
+	_template_select.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_template_select.tooltip_text = "Generic starting recipe used only for New Tile"
+	for template in TileTemplateLibrary.TEMPLATES:
+		_template_select.add_item(String(template["name"]))
+		var template_index := _template_select.item_count - 1
+		_template_select.set_item_metadata(template_index, template["id"])
+		_template_select.set_item_tooltip(template_index, template["description"])
+	template_row.add_child(_template_select)
+	var new_button := _button("New Tile")
+	new_button.custom_minimum_size.x = 86.0
+	new_button.pressed.connect(_new_tile)
+	template_row.add_child(new_button)
+
+	var actions := GridContainer.new()
+	actions.columns = 2
+	actions.add_theme_constant_override("h_separation", 6)
+	actions.add_theme_constant_override("v_separation", 6)
+	add_child(actions)
+	_draft_button = _button("Save Draft")
+	_draft_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_draft_button.pressed.connect(func() -> void: _request_operation("draft"))
+	actions.add_child(_draft_button)
+	_mutation_buttons.append(_draft_button)
+	_publish_button = _button("Publish New", true)
+	_publish_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_publish_button.pressed.connect(func() -> void: _request_operation("publish"))
+	actions.add_child(_publish_button)
+	_mutation_buttons.append(_publish_button)
+	_overwrite_button = _button("Overwrite")
+	_overwrite_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_overwrite_button.pressed.connect(func() -> void: _request_operation("overwrite"))
+	actions.add_child(_overwrite_button)
+	_mutation_buttons.append(_overwrite_button)
+	_archive_button = _button("Archive")
+	_archive_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_archive_button.pressed.connect(func() -> void: _request_operation("archive"))
+	actions.add_child(_archive_button)
+	_mutation_buttons.append(_archive_button)
+	_delete_button = _button("Hard Delete")
+	_delete_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_delete_button.pressed.connect(func() -> void: _request_operation("delete"))
+	actions.add_child(_delete_button)
+	_mutation_buttons.append(_delete_button)
+	var action_spacer := Control.new()
+	action_spacer.custom_minimum_size.y = 38.0
+	actions.add_child(action_spacer)
+
+	_confirmation = ConfirmationDialog.new()
+	_confirmation.name = "TileLibraryConfirmation"
+	_confirmation.confirmed.connect(_execute_pending_operation)
+	add_child(_confirmation)
+	var procedural_start := get_child_count()
 
 	# Seed row.
 	add_child(_section("MASTER SEED"))
@@ -93,8 +183,9 @@ func _build() -> void:
 	previous.pressed.connect(_previous_seed)
 	seed_row.add_child(previous)
 	var reroll := _button("Randomize All", true)
+	reroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	reroll.pressed.connect(_randomize_all)
-	seed_row.add_child(reroll)
+	add_child(reroll)
 
 	# Topology is a preset-level art decision, not a layer parameter: an
 	# organic grass cap should fuse across cells, while a paved path can keep
@@ -165,10 +256,10 @@ func _build() -> void:
 	var regenerate := _button("Regenerate")
 	regenerate.pressed.connect(func() -> void: _emit_change(true))
 	add_child(regenerate)
-	var bake := _button("Bake To Game", true)
-	bake.tooltip_text = "Write baked layer scenes the game loads for this tile"
-	bake.pressed.connect(func() -> void: bake_requested.emit())
-	add_child(bake)
+	_bake_button = _button("Bake To Game", true)
+	_bake_button.tooltip_text = "Write uniquely named layer scenes for this stable tile ID"
+	_bake_button.pressed.connect(func() -> void: bake_requested.emit())
+	add_child(_bake_button)
 	var export_button := _button("Export GLB")
 	export_button.pressed.connect(func() -> void: export_requested.emit())
 	add_child(export_button)
@@ -176,11 +267,24 @@ func _build() -> void:
 	_stats_label = _kit.label("", 12)
 	_stats_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(_stats_label)
+	for index in range(procedural_start, get_child_count()):
+		var child := get_child(index)
+		if child is Control:
+			_procedural_controls.append(child as Control)
+	_sync_manifest_fields()
+	_sync_recipe_controls()
+	_sync_mutation_controls()
 
 
 func _section(text: String) -> Label:
 	var label := _kit.label(text, 12, false, true)
 	label.add_theme_color_override("font_color", Color(0.42, 0.46, 0.40))
+	return label
+
+
+func _field_label(text: String) -> Label:
+	var label := _kit.label(text, 11, false, true)
+	label.add_theme_color_override("font_color", Color(0.34, 0.38, 0.34))
 	return label
 
 
@@ -304,7 +408,8 @@ func _sync_bound_controls() -> void:
 func _sync_dune_controls() -> void:
 	var base := preset.layer_of_kind("base")
 	var show_dunes := base != null \
-		and String(base.value("relief_style", "none")) == "sculpted_dunes"
+		and String(base.value("relief_style", "none")) == "sculpted_dunes" \
+		and _recipe_editable
 	for control in _dune_controls:
 		control.visible = show_dunes
 
@@ -387,55 +492,238 @@ func show_statistics(stats: Dictionary) -> void:
 	]
 
 
-# --- presets on disk ---------------------------------------------------------
+# --- official library --------------------------------------------------------
 
 
-func _refresh_preset_list() -> void:
-	_preset_select.clear()
-	for built_in in TileKitPreset.built_in_names():
-		_preset_select.add_item(built_in)
-	DirAccess.make_dir_recursive_absolute(
-		ProjectSettings.globalize_path(USER_PRESET_DIR))
-	var directory := DirAccess.open(USER_PRESET_DIR)
-	if directory == null:
+func current_tile_id() -> String:
+	return _tile_id_field.text.strip_edges() if _tile_id_field != null else ""
+
+
+func manifest_for(tile_id: String) -> TileLibraryManifest:
+	return _library.official_manifest(tile_id) if _library != null else null
+
+
+func can_bake_current() -> bool:
+	return _library != null \
+		and _library.can_mutate_official() \
+		and current_manifest != null \
+		and current_manifest.source_kind == TileLibraryManifest.SOURCE_PROCEDURAL \
+		and not current_tile_id().is_empty()
+
+
+func select_tile(tile_id: String) -> bool:
+	# The library is loaded once when the panel opens and refreshed by every CRUD
+	# operation. Reloading all manifests here put synchronous disk I/O on every
+	# catalog click, even though selection cannot change library membership.
+	var selected := _library.official_manifest(tile_id)
+	if selected == null:
+		status.emit("Tile '%s' has no official manifest." % tile_id)
+		return false
+	current_manifest = selected
+	var loaded := _library.load_recipe(current_manifest)
+	_recipe_editable = loaded != null
+	if loaded != null:
+		preset = loaded
+	elif preset == null:
+		preset = TileKitPreset.reference_clean_grass()
+	_sync_manifest_fields()
+	_sync_recipe_controls()
+	return true
+
+
+func _sync_manifest_fields() -> void:
+	if current_manifest == null or _tile_id_field == null:
 		return
-	for file in directory.get_files():
-		if file.ends_with(".tres"):
-			_preset_select.add_item(file.trim_suffix(".tres"))
-
-
-func _on_preset_selected(index: int) -> void:
-	var built_ins := TileKitPreset.built_in_names()
-	if index < built_ins.size():
-		preset = TileKitPreset.make_built_in(_preset_select.get_item_text(index))
-	else:
-		var path := "%s/%s.tres" % [USER_PRESET_DIR, _preset_select.get_item_text(index)]
-		var loaded := ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_IGNORE)
-		if loaded is TileKitPreset:
-			preset = loaded
-		else:
-			status.emit("Could not load %s" % path)
-			return
 	_suppress = true
-	_seed_field.text = str(preset.master_seed)
-	_preset_name.text = "" if index < built_ins.size() else preset.preset_name
-	_separate_tiles.set_pressed_no_signal(preset.separate_tiles)
+	_tile_id_field.text = current_manifest.tile_id
+	_preset_name.text = current_manifest.display_name
+	_family_field.text = current_manifest.family
+	_visibility_field.select([
+		TileLibraryManifest.VISIBILITY_ACTIVE,
+		TileLibraryManifest.VISIBILITY_PREVIEW,
+		TileLibraryManifest.VISIBILITY_HIDDEN,
+	].find(current_manifest.visibility))
+	var official_target := _library.official_manifest(current_manifest.tile_id)
+	_tile_id_field.editable = (
+		not current_manifest.is_official()
+		and (official_target == null or not official_target.is_official())
+	)
+	if preset != null:
+		_seed_field.text = str(preset.master_seed)
+		_separate_tiles.set_pressed_no_signal(preset.separate_tiles)
+	var source_note := (
+		"Editable procedural recipe"
+		if current_manifest.source_kind == TileLibraryManifest.SOURCE_PROCEDURAL
+		else "Imported geometry · manifest metadata only until replaced procedurally"
+	)
+	_manifest_status.text = "%s · revision %d · %s · %s" % [
+		current_manifest.lifecycle,
+		current_manifest.revision,
+		current_manifest.visibility,
+		source_note,
+	]
 	_suppress = false
+	_sync_mutation_controls()
+
+
+func _sync_recipe_controls() -> void:
+	if preset == null:
+		return
+	for control in _procedural_controls:
+		control.visible = _recipe_editable
 	_sync_bound_controls()
 	_sync_dune_controls()
+	_separate_tiles.disabled = not _recipe_editable
+	for control: Control in _bound_controls:
+		if control is BaseButton:
+			(control as BaseButton).disabled = not _recipe_editable
+		elif control is Slider:
+			(control as Slider).editable = _recipe_editable
+	for row in _layer_rows.values():
+		for child in (row as HBoxContainer).get_children():
+			if child is BaseButton:
+				(child as BaseButton).disabled = not _recipe_editable
+
+
+func _sync_mutation_controls() -> void:
+	if _library == null:
+		return
+	var read_only := not _library.can_mutate_official()
+	for button in _mutation_buttons:
+		button.tooltip_text = (
+			"Official content is read-only in release builds." if read_only else ""
+		)
+	var official_target := (
+		_library.official_manifest(current_manifest.tile_id)
+		if current_manifest != null else null
+	)
+	var can_overwrite := official_target != null and official_target.is_official()
+	_draft_button.disabled = read_only or current_manifest == null
+	_publish_button.disabled = read_only or current_manifest == null or can_overwrite
+	_overwrite_button.disabled = read_only or not can_overwrite
+	_archive_button.disabled = (
+		read_only
+		or current_manifest == null
+		or current_manifest.lifecycle != TileLibraryManifest.LIFECYCLE_PUBLISHED
+	)
+	_delete_button.disabled = (
+		read_only
+		or current_manifest == null
+		or current_manifest.resource_path.is_empty()
+	)
+	if _bake_button != null:
+		_bake_button.disabled = not can_bake_current()
+	if read_only and _manifest_status != null:
+		_manifest_status.text += " · RELEASE READ-ONLY"
+
+
+func _new_tile() -> void:
+	var template_id := String(_template_select.get_item_metadata(
+		_template_select.selected
+	))
+	var base := TileTemplateLibrary.instantiate(template_id)
+	if base == null:
+		status.emit("Could not create the selected generic template.")
+		return
+	preset = base
+	current_manifest = _library.new_manifest_from(
+		base, "", base.preset_name
+	)
+	_recipe_editable = true
+	_sync_manifest_fields()
+	_sync_recipe_controls()
+	_tile_id_field.editable = true
+	_tile_id_field.grab_focus()
+	status.emit(
+		(
+			"New tile from the %s template. Give it a stable ID, then Save Draft "
+			+ "or Publish New."
+		) % TileTemplateLibrary.display_name(template_id)
+	)
 	_emit_change(true)
 
 
+func _working_manifest_from_fields() -> TileLibraryManifest:
+	var working := (
+		current_manifest.duplicate_manifest()
+		if current_manifest != null
+		else _library.new_manifest_from(preset)
+	)
+	working.tile_id = _tile_id_field.text.strip_edges()
+	working.display_name = _preset_name.text.strip_edges()
+	working.family = _family_field.text.strip_edges()
+	working.visibility = [
+		TileLibraryManifest.VISIBILITY_ACTIVE,
+		TileLibraryManifest.VISIBILITY_PREVIEW,
+		TileLibraryManifest.VISIBILITY_HIDDEN,
+	][_visibility_field.selected]
+	if working.connection_group.is_empty() or not working.is_official():
+		working.connection_group = working.tile_id
+	working.separate_tiles = preset != null and preset.separate_tiles
+	return working
+
+
+func _request_operation(operation: String) -> void:
+	_pending_operation = operation
+	var working := _working_manifest_from_fields()
+	var action: String = String({
+		"draft": "Save draft",
+		"publish": "Publish new official tile",
+		"overwrite": "Overwrite official tile",
+		"archive": "Archive official tile",
+		"delete": "Permanently hard-delete tile",
+	}.get(operation, operation))
+	_confirmation.title = String(action)
+	_confirmation.dialog_text = "%s\n\n%s (%s)" % [
+		action, working.display_name, working.tile_id,
+	]
+	if operation == "delete":
+		_confirmation.dialog_text += (
+			"\n\nThis removes its manifest, procedural recipe, and generated bake. "
+			+ "References will block deletion; Archive is safer after launch."
+		)
+	elif operation in ["publish", "overwrite"]:
+		_confirmation.dialog_text += (
+			"\n\nThe recipe will be baked under this stable ID and the validated "
+			+ "runtime catalog will be recompiled."
+		)
+	_confirmation.popup_centered(Vector2i(560, 300))
+	_confirmation.get_ok_button().grab_focus()
+
+
+func _execute_pending_operation() -> void:
+	var working := _working_manifest_from_fields()
+	var result: Dictionary
+	match _pending_operation:
+		"draft":
+			result = _library.save_draft(working, preset)
+		"publish":
+			result = _library.publish_new(working, preset)
+		"overwrite":
+			result = _library.overwrite(working, preset)
+		"archive":
+			result = _library.archive(working.tile_id)
+		"delete":
+			result = (
+				_library.delete_draft(current_manifest)
+				if _library.is_user_draft(current_manifest)
+				else _library.hard_delete(working.tile_id)
+			)
+		_:
+			return
+	_pending_operation = ""
+	if not bool(result.get("ok", false)):
+		var errors: PackedStringArray = result.get("errors", PackedStringArray())
+		status.emit("Tile Library: %s" % "; ".join(errors))
+		return
+	current_manifest = result.get("manifest", null) as TileLibraryManifest
+	if current_manifest == null:
+		current_manifest = _library.official_manifest(working.tile_id)
+	_sync_manifest_fields()
+	status.emit("Tile Library operation completed for %s." % working.tile_id)
+	library_changed.emit(working.tile_id)
+
+
+## Kept as a compatibility entry point for existing panel tests/callers.
 func _save_preset() -> void:
-	var name_text := _preset_name.text.strip_edges()
-	if name_text.is_empty():
-		status.emit("Name the preset before saving.")
-		return
-	preset.preset_name = name_text
-	var path := "%s/%s.tres" % [USER_PRESET_DIR, name_text.validate_filename()]
-	var error := ResourceSaver.save(preset.duplicate_preset(), path)
-	if error != OK:
-		status.emit("Save failed: %s" % error_string(error))
-		return
-	_refresh_preset_list()
-	status.emit("Saved preset %s." % name_text)
+	_request_operation("draft")

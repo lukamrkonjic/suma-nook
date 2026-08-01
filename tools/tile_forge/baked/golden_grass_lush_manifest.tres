@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="TileBakeManifest" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_bake_manifest.gd" id="1_xewtr"]
+
+[resource]
+script = ExtResource("1_xewtr")
+tile_id = "golden_grass_lush"
+display_name = "Lush Meadow"
+recipe_path = "res://tools/tile_forge/recipes/golden/golden_grass_lush.tres"
+seed_value = 4181
+recipe_hash = "-548279940d7193df"
+baked_at = "2026-07-31T19:54:17"
+triangle_count = 2382
+vertex_count = 2460
+surface_triangle_count = 336
+detail_triangle_count = 2046
+material_count = 5
+node_count = 7
+module_instance_count = 11
+materials_used = PackedStringArray("tf_golden_grass_side", "grass_primary", "grass_shade", "grass_lush", "moss_primary")
+bounds_min = Vector3(-0.675, -0.5, -0.675)
+bounds_max = Vector3(0.675, 0.2747094, 0.675)
+exposed_top = "raised"
+collision_mode = "FROM_HEIGHTFIELD_MEDIAN"
+passed = true
+errors = PackedStringArray()
+warnings = PackedStringArray("2382 triangles is heavy for one tile")
+checks_run = 15

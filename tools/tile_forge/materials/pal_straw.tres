@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="TilePalette" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_palette.gd" id="1_ff2ir"]
+
+[resource]
+script = ExtResource("1_ff2ir")
+palette_id = "straw"
+display_name = "Straw"
+top_primary = "wood_gold"
+top_secondary = "gold_primary"
+accent = "warm_yellow"
+shadow = "wood_warm_shadow"
+detail_a = "warm_yellow"
+detail_b = "gold_primary"
+detail_c = "wood_light"

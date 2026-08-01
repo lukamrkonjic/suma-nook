@@ -48,9 +48,91 @@ func _ready() -> void:
 		studio.find_child("AssetStudioSave", true, false) != null,
 		"save-to-game action exists"
 	)
+	_expect(
+		studio.find_child("AssetViewerTabTileKit", true, false) == null,
+		"procedural authoring is merged into Tiles instead of a third category"
+	)
+	var template_select := studio.find_child(
+		"TileLibraryTemplate", true, false
+	) as OptionButton
+	_expect(
+		template_select != null and template_select.item_count == 5,
+		"new tiles use the five generic creation templates"
+	)
+	_expect(
+		studio.find_children("AssetViewerItem_*", "Button", true, false).size() == 56,
+		"the Tiles browser exposes every real compiled tile"
+	)
+	var catalog_sentinel := studio.find_child(
+		"AssetViewerItem_tile_grass", true, false
+	) as Button
+	var switch_started := Time.get_ticks_usec()
+	studio.select_content("tile_proc_sand_dunes_study")
+	var sand_switch_ms := (Time.get_ticks_usec() - switch_started) / 1000.0
+	await _settle(4)
+	_expect(
+		sand_switch_ms < 150.0,
+		"sand tile switching stays below the stutter budget (%.1f ms)"
+		% sand_switch_ms,
+	)
+	_expect(
+		not _preview_uses_live_generators(studio),
+		"tile switching uses published scenes instead of synchronous procedural regeneration",
+	)
+	switch_started = Time.get_ticks_usec()
+	studio.select_content("tile_proc_snow_drifts_study")
+	var snow_switch_ms := (Time.get_ticks_usec() - switch_started) / 1000.0
+	await _settle(4)
+	print(
+		"Asset Studio procedural switch timings: sand %.1f ms, snow %.1f ms"
+		% [sand_switch_ms, snow_switch_ms]
+	)
+	_expect(
+		snow_switch_ms < 150.0,
+		"snow tile switching stays below the stutter budget (%.1f ms)"
+		% snow_switch_ms,
+	)
+	studio.select_content("tile_proc_sand_dunes_study")
+	await _settle(4)
+	_expect(
+		is_instance_valid(catalog_sentinel)
+			and studio.find_child(
+				"AssetViewerItem_tile_grass", true, false
+			) == catalog_sentinel,
+		"tile switching preserves the catalog instead of rebuilding every row",
+	)
+	var dune_row := studio.find_child(
+		"TileKitSliderRow_base_relief_amplitude", true, false
+	) as HBoxContainer
+	_expect(
+		dune_row != null and dune_row.visible,
+		"selecting a procedural tile exposes its sculpting controls in the right inspector"
+	)
+	var tile_inspector := studio.find_child(
+		"AssetStudioTileInspector", true, false
+	) as TileKitPanel
+	if tile_inspector != null:
+		var inspector_viewport := tile_inspector.get_parent() as Control
+		_expect(
+			inspector_viewport != null
+				and tile_inspector.size.x <= inspector_viewport.size.x + 1.0,
+			"unified tile inspector fits the right dock without horizontal scrolling",
+		)
+		for child in tile_inspector.get_children():
+			if child is Control and (child as Control).visible:
+				_expect(
+					(child as Control).get_combined_minimum_size().x
+						<= tile_inspector.size.x + 1.0,
+					"right-dock tile control %s fits without horizontal clipping"
+					% child.name,
+				)
 
 	studio.select_content("tile_grass")
 	await _settle(4)
+	_expect(
+		dune_row != null and not dune_row.visible,
+		"imported tiles hide procedural sculpting while retaining tile CRUD and asset editing"
+	)
 	_expect(
 		not studio.selected_asset_id().is_empty(),
 		"registered tile resolves to a production asset"
@@ -389,6 +471,16 @@ func _find_asset_mesh(studio: Node, asset_id: String) -> MeshInstance3D:
 	if preview == null:
 		return null
 	return _find_asset_mesh_in(preview, asset_id)
+
+
+func _preview_uses_live_generators(studio: Node) -> bool:
+	var preview := studio.get("_content_root") as Node
+	if preview == null:
+		return false
+	for child in preview.get_children():
+		if child is TileKitGenerator:
+			return true
+	return false
 
 
 func _find_asset_mesh_in(root: Node, asset_id: String) -> MeshInstance3D:

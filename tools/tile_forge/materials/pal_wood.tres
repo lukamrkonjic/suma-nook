@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TilePalette" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_palette.gd" id="1_srwjs"]
+
+[resource]
+script = ExtResource("1_srwjs")
+palette_id = "wood"
+display_name = "Wood"
+top_primary = "wood_primary"
+top_secondary = "wood_gold"
+accent = "wood_light"
+shadow = "wood_warm_shadow"
+side = "wood_brown"
+underside = "wood_dark"
+inset = "wood_dark"
+detail_a = "wood_light"
+detail_b = "wood_gold"
+detail_c = "wood_brown"

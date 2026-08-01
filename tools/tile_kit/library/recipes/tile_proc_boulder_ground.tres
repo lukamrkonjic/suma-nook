@@ -1,0 +1,97 @@
+[gd_resource type="Resource" script_class="TileKitPreset" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_kit/tile_kit_layer.gd" id="1_4rqi4"]
+[ext_resource type="Script" path="res://tools/tile_kit/tile_kit_preset.gd" id="2_rbd3a"]
+
+[sub_resource type="Resource" id="Resource_4rqi4"]
+script = ExtResource("1_4rqi4")
+kind = "base"
+locked = true
+params = {
+"bevel_key": "moss_bevel",
+"bevel_segments": 6,
+"bottom_chamfer": 0.016,
+"corner_radius": 0.075,
+"lower_key": "earth_deep",
+"relief_amplitude": 0.018,
+"relief_frequency": 2.0,
+"relief_style": "pillow",
+"side_key": "earth_side",
+"top_bevel": 0.075,
+"top_key": "moss_top"
+}
+
+[sub_resource type="Resource" id="Resource_rbd3a"]
+script = ExtResource("1_4rqi4")
+kind = "dressing"
+enabled = false
+params = {
+"aspect": [0.7, 1.35],
+"color_weights": {
+"dressing_dark": 15.0,
+"dressing_light": 50.0,
+"dressing_medium": 35.0
+},
+"edge_margin": 0.02,
+"irregularity": [0.08, 0.14],
+"large_count": [3, 5],
+"large_radius": [0.17, 0.29],
+"medium_count": [4, 7],
+"medium_radius": [0.094, 0.17],
+"outline_points": 20,
+"region_count": [2, 3],
+"region_spread": 0.3,
+"scale_multiplier": 1.0,
+"small_count": [2, 5],
+"small_radius": [0.047, 0.094],
+"smoothing_passes": 3
+}
+
+[sub_resource type="Resource" id="Resource_d3e5p"]
+script = ExtResource("1_4rqi4")
+kind = "clutter"
+params = {
+"color_weights": {
+"stone_deep": 15.0,
+"stone_light": 40.0,
+"stone_medium": 45.0
+},
+"count": [4, 6],
+"diameter": [0.24, 0.44],
+"edge_margin": 0.03,
+"height": [0.03, 0.07],
+"min_spacing": 0.22,
+"on_dressing_fraction": 0.6,
+"scale_multiplier": 1.0,
+"shapes": ["boulder", "pebble", "pebble"]
+}
+
+[sub_resource type="Resource" id="Resource_e67mv"]
+script = ExtResource("1_4rqi4")
+kind = "grass_clusters"
+params = {
+"bend_multiplier": 0.75,
+"carpet_jitter": 0.3,
+"carpet_skip_fraction": 0.35,
+"carpet_spacing": 0.38,
+"coverage_mode": "carpet",
+"crown_radius": 0.02,
+"edge_margin": 0.02,
+"height_multiplier": 1.0,
+"leaf_height": [0.095, 0.15],
+"leaf_width": [0.058, 0.088],
+"primary_key": "moss_clump",
+"root_sink": [0.008, 0.015],
+"rosette_footprint": [0.14, 0.2],
+"rosette_leaves": [3, 5],
+"secondary_fraction": 0.2,
+"secondary_key": "moss_deep",
+"splay_degrees": [16.0, 34.0],
+"thickness_ratio": [0.55, 0.72],
+"width_multiplier": 1.0
+}
+
+[resource]
+script = ExtResource("2_rbd3a")
+preset_name = "Boulder Ground"
+layers = Array[ExtResource("1_4rqi4")]([SubResource("Resource_4rqi4"), SubResource("Resource_rbd3a"), SubResource("Resource_d3e5p"), SubResource("Resource_e67mv")])

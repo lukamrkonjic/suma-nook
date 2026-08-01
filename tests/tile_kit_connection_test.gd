@@ -76,6 +76,7 @@ func _run() -> void:
 	var definition := Defs.TileDefinition.new()
 	definition.id = "tile_kit_grass"
 	definition.family = "tile_kit"
+	definition.connection_group = "tile_kit_grass"
 	definition.connection_mode = "full_flush"
 	registries.tiles[definition.id] = definition
 	var grid := WorldGrid.new(registries)
@@ -86,7 +87,20 @@ func _run() -> void:
 	var runtime_mask := factory.connection_mask(definition, Vector2i.ZERO, 0, 0)
 	_check(
 		runtime_mask == 2,
-		"runtime topology sees the east same-family neighbour (got %d)" % runtime_mask
+		"runtime topology sees the east same-connection neighbour (got %d)" % runtime_mask
+	)
+	var other_definition := Defs.TileDefinition.new()
+	other_definition.id = "tile_proc_flower_meadow"
+	other_definition.family = "tile_kit"
+	other_definition.connection_group = "tile_proc_flower_meadow"
+	registries.tiles[other_definition.id] = other_definition
+	var mixed_grid := WorldGrid.new(registries)
+	mixed_grid.place_tile(Vector2i.ZERO, definition.id)
+	mixed_grid.place_tile(Vector2i.RIGHT, other_definition.id)
+	var mixed_factory := TileVisualFactory.new(assets, mixed_grid)
+	_check(
+		mixed_factory.connection_mask(definition, Vector2i.ZERO, 0, 0) == 0,
+		"different recipes in one broad family do not fuse their heightfields"
 	)
 	_check(
 		String(factory.call(

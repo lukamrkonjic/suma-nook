@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="TilePalette" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_palette.gd" id="1_utljr"]
+
+[resource]
+script = ExtResource("1_utljr")
+palette_id = "grass"
+display_name = "Grass"

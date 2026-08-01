@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="TileBakeManifest" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_bake_manifest.gd" id="1_sq0ub"]
+
+[resource]
+script = ExtResource("1_sq0ub")
+tile_id = "golden_soft_pavers"
+display_name = "Soft Pavers"
+recipe_path = "res://tools/tile_forge/recipes/golden/golden_soft_pavers.tres"
+seed_value = 5240
+recipe_hash = "2f228ab63beead9f"
+baked_at = "2026-07-31T19:54:18"
+triangle_count = 202
+vertex_count = 374
+surface_triangle_count = 202
+material_count = 4
+node_count = 6
+materials_used = PackedStringArray("tf_golden_paving_side", "stone_shadow", "stone_mid", "stone_mid_light")
+bounds_min = Vector3(-0.675, -0.5, -0.675)
+bounds_max = Vector3(0.67500013, 0.03244281, 0.67500013)
+measured_walk_height = 0.03
+connection_mode = "tiny_individual_seam"
+collision_mode = "FLAT_BOX"
+passed = true
+errors = PackedStringArray()
+warnings = PackedStringArray()
+checks_run = 15

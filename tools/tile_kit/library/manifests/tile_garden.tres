@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="TileLibraryManifest" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_kit/library/tile_library_manifest.gd" id="1_0ian6"]
+
+[resource]
+script = ExtResource("1_0ian6")
+tile_id = "tile_garden"
+display_name = "Garden Soil"
+revision = 1
+lifecycle = "published"
+source_kind = "external"
+runtime_definition = {
+"asset_id": "tile_garden",
+"connection_mode": "full_flush",
+"family": "home_meadow",
+"geometry_profile": "micro_bevel_square",
+"id": "tile_garden",
+"name": "Garden Soil",
+"placement_sound": "grass",
+"rarity": "uncommon",
+"special_trait": "A quiet soil surface ready for a planter.",
+"unlock_level": {
+"fishing": 10.0
+},
+"weight": 1.0
+}
+baked_roles = PackedStringArray("base", "surface", "detail")
+family = "home_meadow"
+connection_group = "home_meadow"
+biome_tags = PackedStringArray()
+rarity = "uncommon"
+dependencies = PackedStringArray()
+stackable = false
+supports_tiles = false
+created_at = "2026-08-01 00:00:00"
+updated_at = "2026-08-01 00:00:00"
+published_at = "2026-08-01 00:00:00"

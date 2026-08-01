@@ -1,0 +1,34 @@
+[gd_scene format=3]
+
+[ext_resource type="ArrayMesh" path="res://tools/tile_forge/baked/meshes/golden_soft_pavers_structural_base.res" id="1_38513"]
+[ext_resource type="ArrayMesh" path="res://tools/tile_forge/baked/meshes/golden_soft_pavers_surface.res" id="2_s8gs3"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_p6ocn"]
+size = Vector3(1.35, 0.5, 1.35)
+
+[node name="GeneratedTile" type="Node3D" unique_id=797481715]
+metadata/tile_forge_id = "golden_soft_pavers"
+metadata/tile_forge_seed = 4256278878497724435
+metadata/tile_forge_variant = 0
+
+[node name="StructuralBase" type="MeshInstance3D" parent="." unique_id=149030019]
+mesh = ExtResource("1_38513")
+
+[node name="Surface" type="MeshInstance3D" parent="." unique_id=1196045121]
+mesh = ExtResource("2_s8gs3")
+
+[node name="Collision" type="StaticBody3D" parent="." unique_id=980091468]
+
+[node name="GroundBox" type="CollisionShape3D" parent="Collision" unique_id=1816005259]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 0)
+shape = SubResource("BoxShape3D_p6ocn")
+
+[node name="Metadata" type="Node" parent="." unique_id=1764235524]
+metadata/tile_id = "golden_soft_pavers"
+metadata/recipe_path = "res://tools/tile_forge/recipes/golden/golden_soft_pavers.tres"
+metadata/seed = 5240
+metadata/variant = 0
+metadata/forge_version = "1.0.0"
+metadata/connection_mode = "tiny_individual_seam"
+metadata/category = "CONSTRUCTED_SURFACE"
+metadata/shared_base_asset = ""

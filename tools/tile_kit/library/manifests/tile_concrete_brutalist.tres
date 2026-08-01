@@ -1,0 +1,51 @@
+[gd_resource type="Resource" script_class="TileLibraryManifest" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_kit/library/tile_library_manifest.gd" id="1_w31rq"]
+
+[resource]
+script = ExtResource("1_w31rq")
+tile_id = "tile_concrete_brutalist"
+display_name = "Brutalist Concrete"
+revision = 1
+lifecycle = "published"
+visibility = "active"
+source_kind = "external"
+runtime_definition = {
+"asset_id": "tile_layer_surface_concrete_brutalist",
+"biome_tags": ["stone"],
+"connection_mode": "tiny_individual_seam",
+"exposed_top": "flush",
+"family": "stonebound",
+"geometry_profile": "constructed_material",
+"id": "tile_concrete_brutalist",
+"layers": [{
+"asset_id": "tile_layer_base_deep_recess",
+"cover_behavior": "persist",
+"material": "concrete_side",
+"role": "base"
+}, {
+"asset_id": "tile_layer_surface_concrete_brutalist",
+"cover_behavior": "hide",
+"material": "concrete_top",
+"role": "surface"
+}],
+"name": "Brutalist Concrete",
+"placement_sound": "stone",
+"rarity": "uncommon",
+"render_profile": "layered",
+"special_trait": "Four heavy precast panels divided by recessed control joints.",
+"stackable": true,
+"supports_tiles": true,
+"surface_kind": "flat",
+"weight": 1.0
+}
+baked_roles = PackedStringArray("base", "surface", "detail")
+family = "stonebound"
+connection_group = "stonebound"
+biome_tags = PackedStringArray("stone")
+rarity = "uncommon"
+placement_sound = "stone"
+dependencies = PackedStringArray()
+created_at = "2026-08-01 00:00:00"
+updated_at = "2026-08-01 00:00:00"
+published_at = "2026-08-01 00:00:00"

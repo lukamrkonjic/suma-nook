@@ -1,0 +1,811 @@
+{
+  "tile_size": 1.35,
+  "side_height": 0.17,
+  "top_bevel": 0.036,
+  "bottom_bevel": 0.016,
+  "grass_layouts": 12,
+  "modules": [
+    {
+      "id": "master_grass_skirt",
+      "path": "res://tools/tile_forge/masters/master_grass_skirt.glb",
+      "triangles": 72,
+      "vertices": 49,
+      "size_x": 1.35,
+      "size_y": 0.036,
+      "height": 0.17,
+      "base_z": -0.17,
+      "materials": [
+        "grass_top",
+        "grass_side"
+      ]
+    },
+    {
+      "id": "master_grass_corner",
+      "path": "res://tools/tile_forge/masters/master_grass_corner.glb",
+      "triangles": 48,
+      "vertices": 35,
+      "size_x": 0.036,
+      "size_y": 0.036,
+      "height": 0.17,
+      "base_z": -0.17,
+      "materials": [
+        "grass_top",
+        "grass_side"
+      ]
+    },
+    {
+      "id": "master_grass_lush_00",
+      "path": "res://tools/tile_forge/masters/master_grass_lush_00.glb",
+      "triangles": 2252,
+      "vertices": 1293,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.1162,
+      "base_z": -0.02596,
+      "materials": [
+        "grass_top",
+        "carpet_low.001",
+        "carpet_main.001",
+        "carpet_alt.001",
+        "carpet_low.002",
+        "carpet_main.002",
+        "carpet_alt.002",
+        "carpet_low.005",
+        "carpet_main.005",
+        "carpet_alt.005",
+        "accent_high",
+        "carpet_low.003",
+        "carpet_main.003",
+        "carpet_alt.003",
+        "carpet_low.004",
+        "carpet_main.004",
+        "carpet_alt.004",
+        "carpet_low",
+        "carpet_main",
+        "carpet_alt"
+      ]
+    },
+    {
+      "id": "master_grass_lush_01",
+      "path": "res://tools/tile_forge/masters/master_grass_lush_01.glb",
+      "triangles": 2478,
+      "vertices": 1422,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.1349,
+      "base_z": -0.05377,
+      "materials": [
+        "grass_top",
+        "carpet_low",
+        "carpet_main",
+        "carpet_alt",
+        "carpet_low.001",
+        "carpet_main.001",
+        "carpet_alt.001",
+        "carpet_low.003",
+        "carpet_main.003",
+        "carpet_alt.003",
+        "carpet_low.005",
+        "carpet_main.005",
+        "carpet_alt.005",
+        "accent_high",
+        "carpet_low.002",
+        "carpet_main.002",
+        "carpet_alt.002"
+      ]
+    },
+    {
+      "id": "master_grass_lush_02",
+      "path": "res://tools/tile_forge/masters/master_grass_lush_02.glb",
+      "triangles": 2848,
+      "vertices": 1633,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.1339,
+      "base_z": -0.03469,
+      "materials": [
+        "grass_top",
+        "carpet_low.004",
+        "carpet_main.004",
+        "carpet_alt.004",
+        "carpet_low",
+        "carpet_main",
+        "carpet_alt",
+        "carpet_low.002",
+        "carpet_main.002",
+        "carpet_alt.002",
+        "carpet_low.001",
+        "carpet_main.001",
+        "carpet_alt.001",
+        "carpet_low.003",
+        "carpet_main.003",
+        "carpet_alt.003"
+      ]
+    },
+    {
+      "id": "master_grass_lush_03",
+      "path": "res://tools/tile_forge/masters/master_grass_lush_03.glb",
+      "triangles": 3242,
+      "vertices": 1858,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.1209,
+      "base_z": -0.02596,
+      "materials": [
+        "grass_top",
+        "carpet_low.001",
+        "carpet_main.001",
+        "carpet_alt.001",
+        "carpet_low.002",
+        "carpet_main.002",
+        "carpet_alt.002",
+        "carpet_low.005",
+        "carpet_main.005",
+        "carpet_alt.005",
+        "accent_high",
+        "carpet_low.004",
+        "carpet_main.004",
+        "carpet_alt.004",
+        "carpet_low",
+        "carpet_main",
+        "carpet_alt",
+        "carpet_low.003",
+        "carpet_main.003",
+        "carpet_alt.003"
+      ]
+    },
+    {
+      "id": "master_grass_lush_04",
+      "path": "res://tools/tile_forge/masters/master_grass_lush_04.glb",
+      "triangles": 2562,
+      "vertices": 1470,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.1147,
+      "base_z": -0.03153,
+      "materials": [
+        "grass_top",
+        "carpet_low.003",
+        "carpet_main.003",
+        "carpet_alt.003",
+        "carpet_low",
+        "carpet_main",
+        "carpet_alt",
+        "carpet_low.002",
+        "carpet_main.002",
+        "carpet_alt.002",
+        "carpet_low.004",
+        "carpet_main.004",
+        "carpet_alt.004",
+        "carpet_low.005",
+        "carpet_main.005",
+        "carpet_alt.005",
+        "accent_high",
+        "carpet_low.001",
+        "carpet_main.001",
+        "carpet_alt.001"
+      ]
+    },
+    {
+      "id": "master_grass_lush_05",
+      "path": "res://tools/tile_forge/masters/master_grass_lush_05.glb",
+      "triangles": 3300,
+      "vertices": 1891,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.1379,
+      "base_z": -0.04418,
+      "materials": [
+        "grass_top",
+        "carpet_low.004",
+        "carpet_main.004",
+        "carpet_alt.004",
+        "carpet_low.002",
+        "carpet_main.002",
+        "carpet_alt.002",
+        "carpet_low.005",
+        "carpet_main.005",
+        "carpet_alt.005",
+        "accent_high",
+        "carpet_low.001",
+        "carpet_main.001",
+        "carpet_alt.001",
+        "carpet_low.003",
+        "carpet_main.003",
+        "carpet_alt.003",
+        "carpet_low",
+        "carpet_main",
+        "carpet_alt"
+      ]
+    },
+    {
+      "id": "master_grass_lush_06",
+      "path": "res://tools/tile_forge/masters/master_grass_lush_06.glb",
+      "triangles": 1686,
+      "vertices": 970,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.1144,
+      "base_z": -0.04559,
+      "materials": [
+        "grass_top",
+        "carpet_low.002",
+        "carpet_main.002",
+        "carpet_alt.002",
+        "carpet_low.003",
+        "carpet_main.003",
+        "carpet_alt.003",
+        "carpet_low.005",
+        "carpet_main.005",
+        "carpet_alt.005",
+        "accent_high",
+        "carpet_low.004",
+        "carpet_main.004",
+        "carpet_alt.004",
+        "carpet_low.001",
+        "carpet_main.001",
+        "carpet_alt.001"
+      ]
+    },
+    {
+      "id": "master_grass_lush_07",
+      "path": "res://tools/tile_forge/masters/master_grass_lush_07.glb",
+      "triangles": 2592,
+      "vertices": 1487,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.1073,
+      "base_z": -0.02596,
+      "materials": [
+        "grass_top",
+        "carpet_low",
+        "carpet_main",
+        "carpet_alt",
+        "carpet_low.005",
+        "carpet_main.005",
+        "carpet_alt.005",
+        "accent_high",
+        "carpet_low.001",
+        "carpet_main.001",
+        "carpet_alt.001",
+        "carpet_low.002",
+        "carpet_main.002",
+        "carpet_alt.002",
+        "carpet_low.003",
+        "carpet_main.003",
+        "carpet_alt.003",
+        "carpet_low.004",
+        "carpet_main.004",
+        "carpet_alt.004"
+      ]
+    },
+    {
+      "id": "master_grass_lush_08",
+      "path": "res://tools/tile_forge/masters/master_grass_lush_08.glb",
+      "triangles": 2252,
+      "vertices": 1293,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.129,
+      "base_z": -0.02596,
+      "materials": [
+        "grass_top",
+        "carpet_low.002",
+        "carpet_main.002",
+        "carpet_alt.002",
+        "carpet_low.004",
+        "carpet_main.004",
+        "carpet_alt.004",
+        "carpet_low.005",
+        "carpet_main.005",
+        "carpet_alt.005",
+        "accent_high",
+        "carpet_low.003",
+        "carpet_main.003",
+        "carpet_alt.003",
+        "carpet_low",
+        "carpet_main",
+        "carpet_alt",
+        "carpet_low.001",
+        "carpet_main.001",
+        "carpet_alt.001"
+      ]
+    },
+    {
+      "id": "master_grass_lush_09",
+      "path": "res://tools/tile_forge/masters/master_grass_lush_09.glb",
+      "triangles": 3186,
+      "vertices": 1826,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.1337,
+      "base_z": -0.04922,
+      "materials": [
+        "grass_top",
+        "carpet_low.001",
+        "carpet_main.001",
+        "carpet_alt.001",
+        "carpet_low.004",
+        "carpet_main.004",
+        "carpet_alt.004",
+        "carpet_low",
+        "carpet_main",
+        "carpet_alt",
+        "carpet_low.005",
+        "carpet_main.005",
+        "carpet_alt.005",
+        "accent_high",
+        "carpet_low.002",
+        "carpet_main.002",
+        "carpet_alt.002",
+        "carpet_low.003",
+        "carpet_main.003",
+        "carpet_alt.003"
+      ]
+    },
+    {
+      "id": "master_grass_lush_10",
+      "path": "res://tools/tile_forge/masters/master_grass_lush_10.glb",
+      "triangles": 2620,
+      "vertices": 1503,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.1062,
+      "base_z": -0.02596,
+      "materials": [
+        "grass_top",
+        "carpet_low.001",
+        "carpet_main.001",
+        "carpet_alt.001",
+        "carpet_low.002",
+        "carpet_main.002",
+        "carpet_alt.002",
+        "carpet_low.004",
+        "carpet_main.004",
+        "carpet_alt.004",
+        "carpet_low.003",
+        "carpet_main.003",
+        "carpet_alt.003",
+        "carpet_low",
+        "carpet_main",
+        "carpet_alt",
+        "carpet_low.005",
+        "carpet_main.005",
+        "carpet_alt.005",
+        "accent_high"
+      ]
+    },
+    {
+      "id": "master_grass_lush_11",
+      "path": "res://tools/tile_forge/masters/master_grass_lush_11.glb",
+      "triangles": 2706,
+      "vertices": 1552,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.146,
+      "base_z": -0.03835,
+      "materials": [
+        "grass_top",
+        "carpet_low.002",
+        "carpet_main.002",
+        "carpet_alt.002",
+        "carpet_low.001",
+        "carpet_main.001",
+        "carpet_alt.001",
+        "carpet_low.003",
+        "carpet_main.003",
+        "carpet_alt.003",
+        "carpet_low",
+        "carpet_main",
+        "carpet_alt",
+        "carpet_low.004",
+        "carpet_main.004",
+        "carpet_alt.004"
+      ]
+    },
+    {
+      "id": "gf_paver_00",
+      "path": "res://tools/tile_forge/modules/pavers/gf_paver_00.glb",
+      "triangles": 158,
+      "vertices": 81,
+      "size_x": 0.6331,
+      "size_y": 0.6539,
+      "height": 0.0567,
+      "base_z": 0.0,
+      "materials": [
+        "paver_side",
+        "paver_a"
+      ]
+    },
+    {
+      "id": "gf_paver_01",
+      "path": "res://tools/tile_forge/modules/pavers/gf_paver_01.glb",
+      "triangles": 158,
+      "vertices": 81,
+      "size_x": 0.6309,
+      "size_y": 0.6463,
+      "height": 0.0567,
+      "base_z": 0.0,
+      "materials": [
+        "paver_side",
+        "paver_a"
+      ]
+    },
+    {
+      "id": "gf_paver_02",
+      "path": "res://tools/tile_forge/modules/pavers/gf_paver_02.glb",
+      "triangles": 158,
+      "vertices": 81,
+      "size_x": 0.6333,
+      "size_y": 0.6493,
+      "height": 0.0567,
+      "base_z": 0.0,
+      "materials": [
+        "paver_side",
+        "paver_a"
+      ]
+    },
+    {
+      "id": "gf_paver_03",
+      "path": "res://tools/tile_forge/modules/pavers/gf_paver_03.glb",
+      "triangles": 158,
+      "vertices": 81,
+      "size_x": 0.6311,
+      "size_y": 0.6529,
+      "height": 0.0567,
+      "base_z": 0.0,
+      "materials": [
+        "paver_side",
+        "paver_a"
+      ]
+    },
+    {
+      "id": "master_paver_skirt",
+      "path": "res://tools/tile_forge/masters/master_paver_skirt.glb",
+      "triangles": 72,
+      "vertices": 49,
+      "size_x": 1.35,
+      "size_y": 0.036,
+      "height": 0.17,
+      "base_z": -0.17,
+      "materials": [
+        "paver_c",
+        "paver_side"
+      ]
+    },
+    {
+      "id": "master_paver_corner",
+      "path": "res://tools/tile_forge/masters/master_paver_corner.glb",
+      "triangles": 48,
+      "vertices": 35,
+      "size_x": 0.036,
+      "size_y": 0.036,
+      "height": 0.17,
+      "base_z": -0.17,
+      "materials": [
+        "paver_c",
+        "paver_side"
+      ]
+    },
+    {
+      "id": "master_soft_pavers_00",
+      "path": "res://tools/tile_forge/masters/master_soft_pavers_00.glb",
+      "triangles": 634,
+      "vertices": 328,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.0757,
+      "base_z": -0.0092,
+      "materials": [
+        "paver_joint",
+        "paver_side",
+        "paver_a"
+      ]
+    },
+    {
+      "id": "master_soft_pavers_01",
+      "path": "res://tools/tile_forge/masters/master_soft_pavers_01.glb",
+      "triangles": 634,
+      "vertices": 328,
+      "size_x": 1.35,
+      "size_y": 1.3529,
+      "height": 0.0733,
+      "base_z": -0.00793,
+      "materials": [
+        "paver_joint",
+        "paver_side",
+        "paver_a"
+      ]
+    },
+    {
+      "id": "master_soft_pavers_02",
+      "path": "res://tools/tile_forge/masters/master_soft_pavers_02.glb",
+      "triangles": 634,
+      "vertices": 328,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.0699,
+      "base_z": -0.00704,
+      "materials": [
+        "paver_joint",
+        "paver_side",
+        "paver_a"
+      ]
+    },
+    {
+      "id": "master_soft_pavers_03",
+      "path": "res://tools/tile_forge/masters/master_soft_pavers_03.glb",
+      "triangles": 634,
+      "vertices": 328,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.0697,
+      "base_z": -0.00978,
+      "materials": [
+        "paver_joint",
+        "paver_side",
+        "paver_a"
+      ]
+    },
+    {
+      "id": "gf_board_00",
+      "path": "res://tools/tile_forge/modules/boards/gf_board_00.glb",
+      "triangles": 38,
+      "vertices": 21,
+      "size_x": 1.35,
+      "size_y": 0.424,
+      "height": 0.0605,
+      "base_z": 0.0,
+      "materials": [
+        "wood_side",
+        "wood_a"
+      ]
+    },
+    {
+      "id": "gf_board_01",
+      "path": "res://tools/tile_forge/modules/boards/gf_board_01.glb",
+      "triangles": 38,
+      "vertices": 21,
+      "size_x": 1.35,
+      "size_y": 0.424,
+      "height": 0.0605,
+      "base_z": 0.0,
+      "materials": [
+        "wood_side",
+        "wood_b"
+      ]
+    },
+    {
+      "id": "gf_board_02",
+      "path": "res://tools/tile_forge/modules/boards/gf_board_02.glb",
+      "triangles": 38,
+      "vertices": 21,
+      "size_x": 1.35,
+      "size_y": 0.424,
+      "height": 0.0605,
+      "base_z": 0.0,
+      "materials": [
+        "wood_side",
+        "wood_c"
+      ]
+    },
+    {
+      "id": "gf_board_03",
+      "path": "res://tools/tile_forge/modules/boards/gf_board_03.glb",
+      "triangles": 38,
+      "vertices": 21,
+      "size_x": 1.35,
+      "size_y": 0.424,
+      "height": 0.0605,
+      "base_z": 0.0,
+      "materials": [
+        "wood_side",
+        "wood_a"
+      ]
+    },
+    {
+      "id": "master_wood_skirt",
+      "path": "res://tools/tile_forge/masters/master_wood_skirt.glb",
+      "triangles": 72,
+      "vertices": 49,
+      "size_x": 1.35,
+      "size_y": 0.036,
+      "height": 0.17,
+      "base_z": -0.17,
+      "materials": [
+        "wood_c",
+        "wood_side"
+      ]
+    },
+    {
+      "id": "master_wood_corner",
+      "path": "res://tools/tile_forge/masters/master_wood_corner.glb",
+      "triangles": 48,
+      "vertices": 35,
+      "size_x": 0.036,
+      "size_y": 0.036,
+      "height": 0.17,
+      "base_z": -0.17,
+      "materials": [
+        "wood_c",
+        "wood_side"
+      ]
+    },
+    {
+      "id": "master_wood_planks_00",
+      "path": "res://tools/tile_forge/masters/master_wood_planks_00.glb",
+      "triangles": 116,
+      "vertices": 67,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.0654,
+      "base_z": -0.00235,
+      "materials": [
+        "wood_gap",
+        "wood_side",
+        "wood_a",
+        "wood_b",
+        "wood_c"
+      ]
+    },
+    {
+      "id": "master_wood_planks_01",
+      "path": "res://tools/tile_forge/masters/master_wood_planks_01.glb",
+      "triangles": 116,
+      "vertices": 67,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.0647,
+      "base_z": -0.00211,
+      "materials": [
+        "wood_gap",
+        "wood_side",
+        "wood_b",
+        "wood_c",
+        "wood_a"
+      ]
+    },
+    {
+      "id": "master_wood_planks_02",
+      "path": "res://tools/tile_forge/masters/master_wood_planks_02.glb",
+      "triangles": 116,
+      "vertices": 67,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.0654,
+      "base_z": -0.001,
+      "materials": [
+        "wood_gap",
+        "wood_side",
+        "wood_c",
+        "wood_a"
+      ]
+    },
+    {
+      "id": "master_wood_planks_03",
+      "path": "res://tools/tile_forge/masters/master_wood_planks_03.glb",
+      "triangles": 116,
+      "vertices": 67,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.065,
+      "base_z": -0.0021,
+      "materials": [
+        "wood_gap",
+        "wood_side",
+        "wood_a",
+        "wood_b"
+      ]
+    },
+    {
+      "id": "tile_layer_surface_master_grass",
+      "path": "res://assets/3d/reworked/tile_layer_surface_master_grass.glb",
+      "triangles": 2444,
+      "vertices": 1433,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.1452,
+      "base_z": -0.055,
+      "materials": [
+        "grass_top.001",
+        "carpet_low.006",
+        "carpet_main.006",
+        "carpet_alt.006",
+        "carpet_low.007",
+        "carpet_main.007",
+        "carpet_alt.007",
+        "carpet_low.008",
+        "carpet_main.008",
+        "carpet_alt.008",
+        "accent_high.001",
+        "carpet_low.009",
+        "carpet_main.009",
+        "carpet_alt.009",
+        "carpet_low.010",
+        "carpet_main.010",
+        "carpet_alt.010",
+        "carpet_low.011",
+        "carpet_main.011",
+        "carpet_alt.011",
+        "grass_top",
+        "grass_side"
+      ]
+    },
+    {
+      "id": "tile_layer_base_master_grass",
+      "path": "res://assets/3d/reworked/tile_layer_base_master_grass.glb",
+      "triangles": 26,
+      "vertices": 16,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.445,
+      "base_z": -0.5,
+      "materials": [
+        "grass_side"
+      ]
+    },
+    {
+      "id": "tile_layer_surface_master_pavers",
+      "path": "res://assets/3d/reworked/tile_layer_surface_master_pavers.glb",
+      "triangles": 826,
+      "vertices": 724,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.1215,
+      "base_z": -0.055,
+      "materials": [
+        "paver_joint.001",
+        "paver_side.001",
+        "paver_a.001",
+        "paver_c",
+        "paver_side"
+      ]
+    },
+    {
+      "id": "tile_layer_base_master_pavers",
+      "path": "res://assets/3d/reworked/tile_layer_base_master_pavers.glb",
+      "triangles": 26,
+      "vertices": 16,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.445,
+      "base_z": -0.5,
+      "materials": [
+        "paver_side"
+      ]
+    },
+    {
+      "id": "tile_layer_surface_master_wood",
+      "path": "res://assets/3d/reworked/tile_layer_surface_master_wood.glb",
+      "triangles": 308,
+      "vertices": 255,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.118,
+      "base_z": -0.055,
+      "materials": [
+        "wood_gap.001",
+        "wood_side.001",
+        "wood_a.001",
+        "wood_b.001",
+        "wood_c.001",
+        "wood_c",
+        "wood_side"
+      ]
+    },
+    {
+      "id": "tile_layer_base_master_wood",
+      "path": "res://assets/3d/reworked/tile_layer_base_master_wood.glb",
+      "triangles": 26,
+      "vertices": 16,
+      "size_x": 1.35,
+      "size_y": 1.35,
+      "height": 0.445,
+      "base_z": -0.5,
+      "materials": [
+        "wood_side"
+      ]
+    }
+  ],
+  "total_triangles": 39524
+}

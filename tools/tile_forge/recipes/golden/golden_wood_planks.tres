@@ -1,0 +1,56 @@
+[gd_resource type="Resource" script_class="TileRecipe" format=3]
+
+[ext_resource type="Resource" path="res://tools/tile_forge/materials/suma_tile_art_profile.tres" id="1_1utdq"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_base_profile.gd" id="2_cdw8o"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_detail_rule.gd" id="3_ql32e"]
+[ext_resource type="Resource" path="res://tools/tile_forge/materials/pal_golden_wood.tres" id="4_5wbox"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_recipe.gd" id="5_cqtu5"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_surface_layer.gd" id="6_ldytq"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_shape_primitive.gd" id="7_uyv6h"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_transition_rule.gd" id="8_hs2st"]
+
+[sub_resource type="Resource" id="Resource_q0fto"]
+script = ExtResource("2_cdw8o")
+mode = 2
+
+[sub_resource type="Resource" id="Resource_lu11v"]
+script = ExtResource("6_ldytq")
+generator_id = "flat_surface"
+layer_name = "joists"
+material_slot = "shadow"
+height_bias = -0.034
+edge_lock_width = 0.02
+edge_lock_height = -0.034
+resolution = 2
+smooth_shading = false
+
+[sub_resource type="Resource" id="Resource_67kpm"]
+script = ExtResource("6_ldytq")
+generator_id = "module_layout"
+layer_name = "deck"
+secondary_slot = "top_secondary"
+smooth_shading = false
+params = {
+"colour_variation": 0.42,
+"height_variation": 0.003,
+"layout": "board_three",
+"lift": -0.034,
+"seam": 0.026,
+"yaw_variation": 0.0
+}
+
+[resource]
+script = ExtResource("5_cqtu5")
+tile_id = "golden_wood_planks"
+display_name = "Plank Deck"
+category = 1
+tags = PackedStringArray("wood", "constructed")
+preview_notes = "Three broad boards, shallow gaps, warm two-tone."
+seed_value = 6355
+base_profile = SubResource("Resource_q0fto")
+palette = ExtResource("4_5wbox")
+art_profile = ExtResource("1_1utdq")
+surface_layers = Array[ExtResource("6_ldytq")]([SubResource("Resource_lu11v"), SubResource("Resource_67kpm")])
+allowed_rotations = PackedInt32Array(0, 1, 2, 3)
+walk_surface_height = 0.028
+connection_mode = "tiny_individual_seam"

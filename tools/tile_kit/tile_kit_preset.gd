@@ -16,6 +16,31 @@ extends Resource
 @export var separate_tiles := false
 @export var layers: Array[TileKitLayer] = []
 
+const OFFICIAL_RECIPE_DIRECTORY := "res://tools/tile_kit/library/recipes"
+const OFFICIAL_RECIPES := [
+	["Reference Clean Grass", "tile_kit_grass"],
+	["Flower Meadow", "tile_proc_flower_meadow"],
+	["Garden Path", "tile_proc_garden_path"],
+	["Fenced Meadow", "tile_proc_fenced_meadow"],
+	["Pond Basin", "tile_proc_pond_basin"],
+	["Tilled Field", "tile_proc_tilled_field"],
+	["Boulder Ground", "tile_proc_boulder_ground"],
+	["Mossy Forest Floor", "tile_proc_mossy_forest_floor"],
+	["Autumn Litter", "tile_proc_autumn_litter"],
+	["Mulch Dirt Floor", "tile_proc_mulch_dirt_floor"],
+	["Snow Field", "tile_proc_snow_field"],
+	["Snow Drifts (Study)", "tile_proc_snow_drifts_study"],
+	["Sandy Ground", "tile_proc_sandy_ground"],
+	["Sand Dunes (Study)", "tile_proc_sand_dunes_study"],
+	["Mud Bed", "tile_proc_mud_bed"],
+	["Gravel Yard", "tile_proc_gravel_yard"],
+	["Cobblestone Paving", "tile_proc_cobblestone_paving"],
+	["Wood Plank Deck", "tile_proc_wood_plank_deck"],
+	["Concrete Slabs", "tile_proc_concrete_slabs"],
+	["Brick Court", "tile_proc_brick_court"],
+	["Checker Slabs", "tile_proc_checker_slabs"],
+]
+
 
 func layer_of_kind(kind: String) -> TileKitLayer:
 	for layer in layers:
@@ -34,61 +59,32 @@ func duplicate_preset() -> TileKitPreset:
 	return copy
 
 
-## Built-in preset registry. The panel lists these before user presets, and
-## adding a family here is all it takes for it to appear in the studio.
+## Compatibility view of the official recipe library. Names are no longer the
+## source of truth; every entry resolves to a project .tres below.
 static func built_in_names() -> Array[String]:
-	return ["Reference Clean Grass", "Flower Meadow", "Garden Path",
-		"Fenced Meadow", "Pond Basin", "Tilled Field", "Boulder Ground",
-		"Mossy Forest Floor", "Autumn Litter", "Mulch Dirt Floor",
-		"Snow Field", "Snow Drifts (Study)",
-		"Sandy Ground", "Sand Dunes (Study)", "Mud Bed", "Gravel Yard",
-		"Cobblestone Paving", "Wood Plank Deck", "Concrete Slabs",
-		"Brick Court", "Checker Slabs"]
+	var result: Array[String] = []
+	for entry: Array in OFFICIAL_RECIPES:
+		result.append(String(entry[0]))
+	return result
 
 
 static func make_built_in(preset_name: String) -> TileKitPreset:
-	match preset_name:
-		"Mossy Forest Floor":
-			return mossy_forest_floor()
-		"Mulch Dirt Floor":
-			return mulch_dirt_floor()
-		"Snow Field":
-			return snow_field()
-		"Snow Drifts (Study)":
-			return snow_drift_study()
-		"Sandy Ground":
-			return sandy_ground()
-		"Sand Dunes (Study)":
-			return sand_dune_study()
-		"Mud Bed":
-			return mud_bed()
-		"Cobblestone Paving":
-			return cobblestone_paving()
-		"Wood Plank Deck":
-			return wood_plank_deck()
-		"Concrete Slabs":
-			return concrete_slabs()
-		"Brick Court":
-			return brick_court()
-		"Flower Meadow":
-			return flower_meadow()
-		"Garden Path":
-			return garden_path()
-		"Autumn Litter":
-			return autumn_litter()
-		"Gravel Yard":
-			return gravel_yard()
-		"Checker Slabs":
-			return checker_slabs()
-		"Fenced Meadow":
-			return fenced_meadow()
-		"Pond Basin":
-			return pond_basin()
-		"Tilled Field":
-			return tilled_field()
-		"Boulder Ground":
-			return boulder_ground()
+	for entry: Array in OFFICIAL_RECIPES:
+		if String(entry[0]) == preset_name:
+			var official := official_recipe(String(entry[1]))
+			if official != null:
+				return official
 	return reference_clean_grass()
+
+
+static func official_recipe(tile_id: String) -> TileKitPreset:
+	var path := "%s/%s.tres" % [OFFICIAL_RECIPE_DIRECTORY, tile_id]
+	if not ResourceLoader.exists(path):
+		return null
+	var loaded := ResourceLoader.load(
+		path, "", ResourceLoader.CACHE_MODE_IGNORE
+	) as TileKitPreset
+	return loaded.duplicate_preset() if loaded != null else null
 
 
 ## The built-in reference preset: the approved single-tile grass look, minus
@@ -96,6 +92,9 @@ static func make_built_in(preset_name: String) -> TileKitPreset:
 ## reference tile was described against 2.0 m; horizontal figures are scaled
 ## by 0.85, verticals kept in the same visual proportion).
 static func reference_clean_grass() -> TileKitPreset:
+	var official := official_recipe("tile_kit_grass")
+	if official != null:
+		return official
 	var preset := TileKitPreset.new()
 	preset.preset_name = "Reference Clean Grass"
 	preset.master_seed = 20260801
@@ -176,6 +175,9 @@ static func reference_clean_grass() -> TileKitPreset:
 ## clumps, twigs, and the odd mushroom — the forest-floor family from the
 ## tile research, in the same clay register as the grass reference.
 static func mossy_forest_floor() -> TileKitPreset:
+	var official := official_recipe("tile_proc_mossy_forest_floor")
+	if official != null:
+		return official
 	var preset := reference_clean_grass()
 	preset.preset_name = "Mossy Forest Floor"
 	var base := preset.layer_of_kind("base")
@@ -212,6 +214,9 @@ static func mossy_forest_floor() -> TileKitPreset:
 ## Warm earth bed under wood-chip mulch, pebbles, and twigs. No grass at all —
 ## the scatter IS the identity, straight from the dirt/mulch reference tiles.
 static func mulch_dirt_floor() -> TileKitPreset:
+	var official := official_recipe("tile_proc_mulch_dirt_floor")
+	if official != null:
+		return official
 	var preset := reference_clean_grass()
 	preset.preset_name = "Mulch Dirt Floor"
 	var base := preset.layer_of_kind("base")
@@ -244,6 +249,9 @@ static func mulch_dirt_floor() -> TileKitPreset:
 ## Soft warm-white blanket with low settled lumps. Quietest preset in the
 ## kit: the snow family carries almost everything through the shell colours.
 static func snow_field() -> TileKitPreset:
+	var official := official_recipe("tile_proc_snow_field")
+	if official != null:
+		return official
 	var preset := reference_clean_grass()
 	preset.preset_name = "Snow Field"
 	var base := preset.layer_of_kind("base")
@@ -268,6 +276,9 @@ static func snow_field() -> TileKitPreset:
 ## sculpt against the shipped source-derived snow. The original preset remains
 ## untouched until the study has earned its place.
 static func snow_drift_study() -> TileKitPreset:
+	var official := official_recipe("tile_proc_snow_drifts_study")
+	if official != null:
+		return official
 	var preset := snow_field()
 	preset.preset_name = "Snow Drifts (Study)"
 	var base := preset.layer_of_kind("base")
@@ -295,6 +306,9 @@ static func snow_drift_study() -> TileKitPreset:
 ## Pale dune block with drifted patches and sparse pebbles — the sand family.
 ## Patches never merge: overlapping sand rings read as water stains.
 static func sandy_ground() -> TileKitPreset:
+	var official := official_recipe("tile_proc_sandy_ground")
+	if official != null:
+		return official
 	var preset := reference_clean_grass()
 	preset.preset_name = "Sandy Ground"
 	var base := preset.layer_of_kind("base")
@@ -325,6 +339,9 @@ static func sandy_ground() -> TileKitPreset:
 ## strokes instead of the legacy sine/noise dunes. Tuned to the shipped sand's
 ## measured six-centimetre relief, with every shaping axis exposed in the UI.
 static func sand_dune_study() -> TileKitPreset:
+	var official := official_recipe("tile_proc_sand_dunes_study")
+	if official != null:
+		return official
 	var preset := sandy_ground()
 	preset.preset_name = "Sand Dunes (Study)"
 	var base := preset.layer_of_kind("base")
@@ -347,6 +364,9 @@ static func sand_dune_study() -> TileKitPreset:
 
 ## Dark damp earth with separated wet patches and settled nubs.
 static func mud_bed() -> TileKitPreset:
+	var official := official_recipe("tile_proc_mud_bed")
+	if official != null:
+		return official
 	var preset := reference_clean_grass()
 	preset.preset_name = "Mud Bed"
 	var base := preset.layer_of_kind("base")
@@ -379,6 +399,9 @@ static func mud_bed() -> TileKitPreset:
 ## Rounded stone cobbles over a mortar-toned cap — the constructed paving
 ## family. The pavers brick does the work; everything else stays quiet.
 static func cobblestone_paving() -> TileKitPreset:
+	var official := official_recipe("tile_proc_cobblestone_paving")
+	if official != null:
+		return official
 	var preset := reference_clean_grass()
 	preset.preset_name = "Cobblestone Paving"
 	preset.separate_tiles = true
@@ -405,6 +428,9 @@ static func cobblestone_paving() -> TileKitPreset:
 ## Long staggered boards over a shadowed cap — decking from the same brick
 ## as the cobbles, at a different aspect ratio.
 static func wood_plank_deck() -> TileKitPreset:
+	var official := official_recipe("tile_proc_wood_plank_deck")
+	if official != null:
+		return official
 	var preset := reference_clean_grass()
 	preset.preset_name = "Wood Plank Deck"
 	preset.separate_tiles = true
@@ -432,6 +458,9 @@ static func wood_plank_deck() -> TileKitPreset:
 ## Four broad precast slabs per tile — the pale courtyard paving family.
 ## Crisp small corners, tight joints, one light stone colour.
 static func concrete_slabs() -> TileKitPreset:
+	var official := official_recipe("tile_proc_concrete_slabs")
+	if official != null:
+		return official
 	var preset := cobblestone_paving()
 	preset.preset_name = "Concrete Slabs"
 	var pavers := preset.layer_of_kind("pavers")
@@ -448,6 +477,9 @@ static func concrete_slabs() -> TileKitPreset:
 
 ## Terracotta running-bond bricks — the warm courtyard family.
 static func brick_court() -> TileKitPreset:
+	var official := official_recipe("tile_proc_brick_court")
+	if official != null:
+		return official
 	var preset := cobblestone_paving()
 	preset.preset_name = "Brick Court"
 	var base := preset.layer_of_kind("base")
@@ -471,6 +503,9 @@ static func brick_court() -> TileKitPreset:
 ## The grass tile with closed flower buds scattered through the carpet —
 ## floral colour without a single petal, so the clay language holds.
 static func flower_meadow() -> TileKitPreset:
+	var official := official_recipe("tile_proc_flower_meadow")
+	if official != null:
+		return official
 	var preset := reference_clean_grass()
 	preset.preset_name = "Flower Meadow"
 	var grass := preset.layer_of_kind("grass_clusters")
@@ -494,6 +529,9 @@ static func flower_meadow() -> TileKitPreset:
 ## pavers brick lays stones, and the grass layer reads them from context and
 ## grows around them.
 static func garden_path() -> TileKitPreset:
+	var official := official_recipe("tile_proc_garden_path")
+	if official != null:
+		return official
 	var preset := reference_clean_grass()
 	preset.preset_name = "Garden Path"
 	preset.separate_tiles = true
@@ -514,6 +552,9 @@ static func garden_path() -> TileKitPreset:
 
 ## Warm earth strewn with fallen leaves and twigs — the autumn forest floor.
 static func autumn_litter() -> TileKitPreset:
+	var official := official_recipe("tile_proc_autumn_litter")
+	if official != null:
+		return official
 	var preset := reference_clean_grass()
 	preset.preset_name = "Autumn Litter"
 	var base := preset.layer_of_kind("base")
@@ -542,6 +583,9 @@ static func autumn_litter() -> TileKitPreset:
 
 ## Dense grey pebble ground — the gravel courtyard.
 static func gravel_yard() -> TileKitPreset:
+	var official := official_recipe("tile_proc_gravel_yard")
+	if official != null:
+		return official
 	var preset := reference_clean_grass()
 	preset.preset_name = "Gravel Yard"
 	var base := preset.layer_of_kind("base")
@@ -568,6 +612,9 @@ static func gravel_yard() -> TileKitPreset:
 
 ## Two-tone checkerboard slabs — the festival courtyard.
 static func checker_slabs() -> TileKitPreset:
+	var official := official_recipe("tile_proc_checker_slabs")
+	if official != null:
+		return official
 	var preset := concrete_slabs()
 	preset.preset_name = "Checker Slabs"
 	var pavers := preset.layer_of_kind("pavers")
@@ -582,6 +629,9 @@ static func checker_slabs() -> TileKitPreset:
 ## The grass tile bordered by a low wooden rail fence — the paddock. First
 ## user of the schema's edge role.
 static func fenced_meadow() -> TileKitPreset:
+	var official := official_recipe("tile_proc_fenced_meadow")
+	if official != null:
+		return official
 	var preset := reference_clean_grass()
 	preset.preset_name = "Fenced Meadow"
 	var grass := preset.layer_of_kind("grass_clusters")
@@ -597,6 +647,9 @@ static func fenced_meadow() -> TileKitPreset:
 ## A grass-rimmed pool with lily pads — the pond. The base's basin mode does
 ## the sculpt; water is a still plane; pads float on it.
 static func pond_basin() -> TileKitPreset:
+	var official := official_recipe("tile_proc_pond_basin")
+	if official != null:
+		return official
 	var preset := reference_clean_grass()
 	preset.preset_name = "Pond Basin"
 	# A basin is a cell-sized authored object, not a continuous ground skin.
@@ -625,6 +678,9 @@ static func pond_basin() -> TileKitPreset:
 
 ## Parallel tilled furrows in warm earth — the farm bed, pure sculpt.
 static func tilled_field() -> TileKitPreset:
+	var official := official_recipe("tile_proc_tilled_field")
+	if official != null:
+		return official
 	var preset := reference_clean_grass()
 	preset.preset_name = "Tilled Field"
 	var base := preset.layer_of_kind("base")
@@ -643,6 +699,9 @@ static func tilled_field() -> TileKitPreset:
 ## One or two hero rocks on mossy ground — the boulder outcrop whose
 ## silhouette reads at any distance.
 static func boulder_ground() -> TileKitPreset:
+	var official := official_recipe("tile_proc_boulder_ground")
+	if official != null:
+		return official
 	var preset := reference_clean_grass()
 	preset.preset_name = "Boulder Ground"
 	var base := preset.layer_of_kind("base")

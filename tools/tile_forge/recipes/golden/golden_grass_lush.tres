@@ -1,0 +1,107 @@
+[gd_resource type="Resource" script_class="TileRecipe" format=3]
+
+[ext_resource type="Resource" path="res://tools/tile_forge/materials/suma_tile_art_profile.tres" id="1_fuywi"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_base_profile.gd" id="2_y5027"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_detail_rule.gd" id="3_2t44m"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_composition_pattern.gd" id="4_uyhy6"]
+[ext_resource type="Resource" path="res://tools/tile_forge/modules/set_golden_grass_clumps.tres" id="5_awerb"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_shape_primitive.gd" id="6_cg13n"]
+[ext_resource type="Resource" path="res://tools/tile_forge/modules/set_golden_moss.tres" id="7_45edc"]
+[ext_resource type="Resource" path="res://tools/tile_forge/materials/pal_golden_grass.tres" id="8_3pmxu"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_recipe.gd" id="9_id8f7"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_surface_layer.gd" id="10_e2cjw"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_transition_rule.gd" id="11_omx31"]
+
+[sub_resource type="Resource" id="Resource_i8uc8"]
+script = ExtResource("2_y5027")
+mode = 2
+
+[sub_resource type="Resource" id="Resource_nmcj6"]
+script = ExtResource("4_uyhy6")
+pattern = 10
+border_margin = 0.2
+empty_space_target = 0.26
+jitter = 0.08
+custom_anchors = PackedVector2Array()
+clearings = PackedVector3Array()
+
+[sub_resource type="Resource" id="Resource_hc45g"]
+script = ExtResource("3_2t44m")
+rule_name = "clumps"
+module_set = ExtResource("5_awerb")
+composition = SubResource("Resource_nmcj6")
+min_count = 7
+max_count = 9
+seed_offset = 11
+border_exclusion = 0.035
+min_separation = -0.055
+permit_intersection = true
+scale_range = Vector2(0.95, 1.12)
+max_tilt_deg = 4.0
+material_variant_weights = PackedFloat32Array(1, 0.42, 0)
+
+[sub_resource type="Resource" id="Resource_nh4a1"]
+script = ExtResource("4_uyhy6")
+pattern = 12
+border_margin = 0.24
+empty_space_target = 0.4
+jitter = 0.1
+custom_anchors = PackedVector2Array()
+clearings = PackedVector3Array()
+
+[sub_resource type="Resource" id="Resource_w4ntn"]
+script = ExtResource("3_2t44m")
+rule_name = "moss"
+module_set = ExtResource("7_45edc")
+composition = SubResource("Resource_nh4a1")
+min_count = 2
+max_count = 3
+seed_offset = 37
+border_exclusion = 0.05
+min_separation = -0.02
+scale_range = Vector2(1, 1.25)
+material_variant_weights = PackedFloat32Array(0.35, 1, 0)
+
+[sub_resource type="Resource" id="Resource_h2wfe"]
+script = ExtResource("6_cg13n")
+center = Vector2(-0.26, -0.18)
+extents = Vector2(0.86, 0.78)
+height = 0.046
+softness = 0.6
+
+[sub_resource type="Resource" id="Resource_iguia"]
+script = ExtResource("6_cg13n")
+center = Vector2(0.44, 0.34)
+extents = Vector2(0.66, 0.62)
+softness = 0.6
+
+[sub_resource type="Resource" id="Resource_rf1iu"]
+script = ExtResource("6_cg13n")
+shape = 7
+center = Vector2(0.3, -0.44)
+extents = Vector2(0.58, 0.52)
+height = 0.022
+softness = 0.6
+
+[sub_resource type="Resource" id="Resource_sp1jg"]
+script = ExtResource("10_e2cjw")
+layer_name = "meadow_top"
+shapes = Array[ExtResource("6_cg13n")]([SubResource("Resource_h2wfe"), SubResource("Resource_iguia"), SubResource("Resource_rf1iu")])
+edge_lock_width = 0.22
+resolution = 9
+
+[resource]
+script = ExtResource("9_id8f7")
+tile_id = "golden_grass_lush"
+display_name = "Lush Meadow"
+category = 2
+tags = PackedStringArray("grass", "meadow")
+preview_notes = "Hero clump, two supports, moss on the low side, one clear resting area."
+seed_value = 4181
+base_profile = SubResource("Resource_i8uc8")
+palette = ExtResource("8_3pmxu")
+art_profile = ExtResource("1_fuywi")
+surface_layers = Array[ExtResource("10_e2cjw")]([SubResource("Resource_sp1jg")])
+detail_rules = Array[ExtResource("3_2t44m")]([SubResource("Resource_hc45g"), SubResource("Resource_w4ntn")])
+allowed_rotations = PackedInt32Array(0, 1, 2, 3)
+collision_mode = 3

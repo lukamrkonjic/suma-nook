@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="TileLibraryManifest" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_kit/library/tile_library_manifest.gd" id="1_rcu4y"]
+
+[resource]
+script = ExtResource("1_rcu4y")
+tile_id = "tile_clay"
+display_name = "Sunbaked Clay"
+revision = 1
+lifecycle = "published"
+source_kind = "external"
+runtime_definition = {
+"asset_id": "tile_clay",
+"connection_mode": "full_flush",
+"family": "home_meadow",
+"geometry_profile": "rounded_corner_slab",
+"id": "tile_clay",
+"name": "Sunbaked Clay",
+"placement_sound": "stone",
+"rarity": "uncommon",
+"special_trait": "Warm clay with restrained surface cracks.",
+"stackable": true,
+"supports_tiles": true,
+"surface_kind": "flat",
+"weight": 0.8
+}
+baked_roles = PackedStringArray("base", "surface", "detail")
+family = "home_meadow"
+connection_group = "home_meadow"
+biome_tags = PackedStringArray()
+rarity = "uncommon"
+weight = 0.8
+placement_sound = "stone"
+dependencies = PackedStringArray()
+created_at = "2026-08-01 00:00:00"
+updated_at = "2026-08-01 00:00:00"
+published_at = "2026-08-01 00:00:00"

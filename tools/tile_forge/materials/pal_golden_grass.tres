@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="TilePalette" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_palette.gd" id="1_10nvy"]
+
+[resource]
+script = ExtResource("1_10nvy")
+palette_id = "golden_grass"
+display_name = "Golden Grass"
+accent = "grass_primary"
+side = "grass_primary"
+underside = "grass_primary"
+inset = "grass_shade"
+detail_b = "moss_primary"
+detail_c = ""

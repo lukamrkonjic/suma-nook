@@ -1,0 +1,107 @@
+[gd_resource type="Resource" script_class="TileKitPreset" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_kit/tile_kit_layer.gd" id="1_wenal"]
+[ext_resource type="Script" path="res://tools/tile_kit/tile_kit_preset.gd" id="2_rv8j0"]
+
+[sub_resource type="Resource" id="Resource_wenal"]
+script = ExtResource("1_wenal")
+kind = "base"
+locked = true
+params = {
+"bevel_key": "brick_medium",
+"bevel_segments": 6,
+"bottom_chamfer": 0.016,
+"corner_radius": 0.075,
+"lower_key": "earth_deep",
+"side_key": "brick_medium",
+"top_bevel": 0.075,
+"top_key": "brick_medium"
+}
+
+[sub_resource type="Resource" id="Resource_rv8j0"]
+script = ExtResource("1_wenal")
+kind = "dressing"
+enabled = false
+params = {
+"aspect": [0.7, 1.35],
+"color_weights": {
+"dressing_dark": 15.0,
+"dressing_light": 50.0,
+"dressing_medium": 35.0
+},
+"edge_margin": 0.02,
+"irregularity": [0.08, 0.14],
+"large_count": [3, 5],
+"large_radius": [0.17, 0.29],
+"medium_count": [4, 7],
+"medium_radius": [0.094, 0.17],
+"outline_points": 20,
+"region_count": [2, 3],
+"region_spread": 0.3,
+"scale_multiplier": 1.0,
+"small_count": [2, 5],
+"small_radius": [0.047, 0.094],
+"smoothing_passes": 3
+}
+
+[sub_resource type="Resource" id="Resource_sijcn"]
+script = ExtResource("1_wenal")
+kind = "clutter"
+enabled = false
+params = {
+"color_weights": {
+"clutter_light": 55.0,
+"clutter_medium": 45.0
+},
+"count": [3, 6],
+"diameter": [0.05, 0.11],
+"edge_margin": 0.03,
+"height": [0.008, 0.018],
+"min_spacing": 0.06,
+"on_dressing_fraction": 0.6,
+"scale_multiplier": 1.0
+}
+
+[sub_resource type="Resource" id="Resource_0hmfm"]
+script = ExtResource("1_wenal")
+kind = "grass_clusters"
+enabled = false
+params = {
+"bend_multiplier": 0.75,
+"carpet_jitter": 0.3,
+"carpet_skip_fraction": 0.1,
+"carpet_spacing": 0.315,
+"coverage_mode": "carpet",
+"crown_radius": 0.02,
+"edge_margin": 0.02,
+"height_multiplier": 1.0,
+"leaf_height": [0.095, 0.15],
+"leaf_width": [0.058, 0.088],
+"root_sink": [0.008, 0.015],
+"rosette_footprint": [0.14, 0.2],
+"rosette_leaves": [3, 5],
+"secondary_fraction": 0.2,
+"splay_degrees": [16.0, 34.0],
+"thickness_ratio": [0.55, 0.72],
+"width_multiplier": 1.0
+}
+
+[sub_resource type="Resource" id="Resource_k2rw8"]
+script = ExtResource("1_wenal")
+kind = "pavers"
+params = {
+"gap": 0.014,
+"pattern": "cobbles",
+"slab_key": "brick_light",
+"stone_cell": 0.31,
+"stone_cell_z": 0.16,
+"stone_corner": 0.02,
+"stone_height": [0.016, 0.022],
+"stone_jitter": 0.03
+}
+
+[resource]
+script = ExtResource("2_rv8j0")
+preset_name = "Brick Court"
+separate_tiles = true
+layers = Array[ExtResource("1_wenal")]([SubResource("Resource_wenal"), SubResource("Resource_rv8j0"), SubResource("Resource_sijcn"), SubResource("Resource_0hmfm"), SubResource("Resource_k2rw8")])

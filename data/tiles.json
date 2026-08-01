@@ -1,574 +1,453 @@
 {
   "tiles": [
     {
-      "id": "tile_open_water",
-      "name": "Quiet Water",
-      "family": "waterside",
-      "biome_tags": ["water"],
-      "asset_id": "tile_open_water",
-      "weight": 1.4,
-      "walkable": false,
-      "water_cells": [
-        "open_water"
-      ],
-      "anchor": "pond_anchor",
-      "decor_sockets": 0,
-      "structure_sockets": 1,
-      "stackable": false,
-      "supports_tiles": false,
-      "supports_decor": true,
-      "surface_kind": "water",
-      "render_profile": "continuous_water",
-      "collision_profile": "none",
-      "placement_sound": "water",
-      "special_trait": "A continuous piece of calm water that can support a dock.",
-      "geometry_profile": "connected_water",
-      "connection_mode": "merged_surface"
+      "asset_id": "tile_clay",
+      "connection_mode": "full_flush",
+      "family": "home_meadow",
+      "geometry_profile": "rounded_corner_slab",
+      "id": "tile_clay",
+      "name": "Sunbaked Clay",
+      "placement_sound": "stone",
+      "rarity": "uncommon",
+      "special_trait": "Warm clay with restrained surface cracks.",
+      "stackable": true,
+      "supports_tiles": true,
+      "surface_kind": "flat",
+      "weight": 0.8,
+      "connection_group": "home_meadow",
+      "biome_tags": [],
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_clay.tres",
+      "source_kind": "external",
+      "source_revision": 1
     },
     {
-      "id": "tile_grass",
-      "name": "Open Meadow",
-      "family": "home_meadow",
-      "biome_tags": ["meadow"],
-      "asset_id": "tile_grass",
-      "render_profile": "layered",
+      "asset_id": "tile_cobblestone",
+      "connection_mode": "full_flush",
+      "family": "stonebound",
+      "geometry_profile": "organic_overlay_square",
+      "id": "tile_cobblestone",
+      "name": "Village Cobbles",
+      "placement_sound": "stone",
+      "special_trait": "Rounded masonry for a lived-in village lane.",
+      "stackable": true,
+      "supports_tiles": true,
+      "surface_kind": "flat",
+      "weight": 1.8,
+      "connection_group": "stonebound",
+      "biome_tags": [],
+      "rarity": "common",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_cobblestone.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_layer_surface_concrete_brutalist",
+      "biome_tags": [
+        "stone"
+      ],
+      "connection_mode": "tiny_individual_seam",
+      "exposed_top": "flush",
+      "family": "stonebound",
+      "geometry_profile": "constructed_material",
+      "id": "tile_concrete_brutalist",
       "layers": [
         {
-          "role": "base",
-          "asset_id": "tile_layer_base_standard",
-          "material": "earth_mid",
-          "cover_behavior": "persist"
+          "asset_id": "tile_layer_base_deep_recess",
+          "cover_behavior": "persist",
+          "material": "concrete_side",
+          "role": "base"
         },
         {
-          "role": "surface",
-          "asset_id": "tile_layer_surface_grass_tufts",
-          "material": "grass_primary",
-          "cover_behavior": "hide"
+          "asset_id": "tile_layer_surface_concrete_brutalist",
+          "cover_behavior": "hide",
+          "material": "concrete_top",
+          "role": "surface"
         }
       ],
-      "weight": 3.0,
+      "name": "Brutalist Concrete",
+      "placement_sound": "stone",
+      "rarity": "uncommon",
+      "render_profile": "layered",
+      "special_trait": "Four heavy precast panels divided by recessed control joints.",
       "stackable": true,
       "supports_tiles": true,
       "surface_kind": "flat",
-      "placement_sound": "grass",
-      "collection_hint": "The gentle default. Everything grows from here.",
+      "weight": 1.0,
+      "connection_group": "stonebound",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_concrete_brutalist.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_courtyard",
+      "connection_mode": "full_flush",
+      "family": "home_meadow",
+      "geometry_profile": "stepped_platform",
+      "id": "tile_courtyard",
+      "name": "Central Courtyard",
+      "placement_sound": "stone",
+      "rarity": "rare",
+      "special_trait": "A heart for a future village.",
+      "stackable": true,
+      "structure_sockets": 1.0,
+      "supports_tiles": true,
+      "surface_kind": "flat",
+      "weight": 0.8,
+      "connection_group": "home_meadow",
+      "biome_tags": [],
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_courtyard.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_dirt",
+      "connection_mode": "full_flush",
+      "family": "home_meadow",
       "geometry_profile": "organic_overlay_square",
+      "id": "tile_dirt",
+      "name": "Soft Earth",
+      "placement_sound": "grass",
+      "special_trait": "Warm bare earth for natural transitions.",
+      "stackable": true,
+      "supports_tiles": true,
+      "surface_kind": "flat",
+      "weight": 2.2,
+      "connection_group": "home_meadow",
+      "biome_tags": [],
+      "rarity": "common",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_dirt.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_dirt_crossroad",
+      "connection_mode": "full_flush",
+      "family": "home_meadow",
+      "geometry_profile": "organic_overlay_square",
+      "id": "tile_dirt_crossroad",
+      "name": "Country Crossing",
+      "placement_sound": "grass",
+      "rarity": "uncommon",
+      "special_trait": "A broad meeting of country paths.",
+      "stackable": true,
+      "supports_tiles": true,
+      "surface_kind": "flat",
+      "weight": 1.2,
+      "connection_group": "home_meadow",
+      "biome_tags": [],
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_dirt_crossroad.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_dirt_road",
+      "connection_mode": "full_flush",
+      "family": "home_meadow",
+      "geometry_profile": "organic_overlay_square",
+      "id": "tile_dirt_road",
+      "name": "Country Lane",
+      "placement_sound": "grass",
+      "special_trait": "A worn lane with quiet wheel tracks.",
+      "stackable": true,
+      "supports_tiles": true,
+      "surface_kind": "flat",
+      "weight": 2.0,
+      "connection_group": "home_meadow",
+      "biome_tags": [],
+      "rarity": "common",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_dirt_road.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_flagstone",
+      "connection_mode": "full_flush",
+      "family": "stonebound",
+      "geometry_profile": "organic_overlay_square",
+      "id": "tile_flagstone",
+      "name": "Old Flagstones",
+      "placement_sound": "stone",
+      "rarity": "uncommon",
+      "special_trait": "Broad fitted stones for courtyards and ruins.",
+      "stackable": true,
+      "supports_tiles": true,
+      "surface_kind": "flat",
+      "weight": 1.3,
+      "connection_group": "stonebound",
+      "biome_tags": [],
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_flagstone.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_frosted_stone",
+      "connection_mode": "full_flush",
+      "family": "winter",
+      "geometry_profile": "organic_overlay_square",
+      "id": "tile_frosted_stone",
+      "name": "Frosted Stone",
+      "placement_sound": "stone",
+      "rarity": "uncommon",
+      "special_trait": "Old stone caught beneath a receding edge of snow.",
+      "stackable": true,
+      "supports_tiles": true,
+      "surface_kind": "flat",
+      "weight": 1.2,
+      "connection_group": "winter",
+      "biome_tags": [],
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_frosted_stone.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_garden",
+      "connection_mode": "full_flush",
+      "family": "home_meadow",
+      "geometry_profile": "micro_bevel_square",
+      "id": "tile_garden",
+      "name": "Garden Soil",
+      "placement_sound": "grass",
+      "rarity": "uncommon",
+      "special_trait": "A quiet soil surface ready for a planter.",
+      "unlock_level": {
+        "fishing": 10.0
+      },
+      "weight": 1.0,
+      "connection_group": "home_meadow",
+      "biome_tags": [],
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_garden.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_grass",
+      "biome_tags": [
+        "meadow"
+      ],
+      "collection_hint": "The gentle default. Everything grows from here.",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
-      "walk_surface_height": 0.03
-    },
-    {
-      "id": "tile_plain_ground",
-      "name": "Beginner White Block",
       "family": "home_meadow",
-      "asset_id": "tile_plain_ground",
-      "weight": 2.4,
+      "geometry_profile": "organic_overlay_square",
+      "id": "tile_grass",
+      "layers": [
+        {
+          "asset_id": "tile_layer_base_standard",
+          "cover_behavior": "persist",
+          "material": "earth_mid",
+          "role": "base"
+        },
+        {
+          "asset_id": "tile_layer_surface_grass_tufts",
+          "cover_behavior": "hide",
+          "material": "grass_primary",
+          "role": "surface"
+        }
+      ],
+      "name": "Open Meadow",
+      "placement_sound": "grass",
+      "render_profile": "layered",
       "stackable": true,
       "supports_tiles": true,
       "surface_kind": "flat",
-      "placement_sound": "stone",
-      "special_trait": "Garden Galaxy's plain beginner block, preserved as the direct visual-match control.",
-      "geometry_profile": "hard_square",
-      "connection_mode": "full_flush"
+      "walk_surface_height": 0.03,
+      "weight": 3.0,
+      "connection_group": "home_meadow",
+      "rarity": "common",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_grass.tres",
+      "source_kind": "external",
+      "source_revision": 1
     },
     {
+      "asset_id": "tile_grass_flower",
+      "connection_mode": "full_flush",
+      "family": "home_meadow",
+      "geometry_profile": "micro_bevel_square",
       "id": "tile_grass_flower",
       "name": "Sunlit Meadow",
-      "family": "home_meadow",
-      "asset_id": "tile_grass_flower",
-      "weight": 2.0,
       "placement_sound": "grass",
       "special_trait": "A warmer, uncluttered patch of grass.",
-      "geometry_profile": "micro_bevel_square",
-      "connection_mode": "full_flush"
+      "weight": 2.0,
+      "connection_group": "home_meadow",
+      "biome_tags": [],
+      "rarity": "common",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_grass_flower.tres",
+      "source_kind": "external",
+      "source_revision": 1
     },
     {
+      "anchor": "pond_anchor",
+      "asset_id": "tile_grass_pond_edge",
+      "collision_profile": "pond_basin",
+      "connection_mode": "full_flush",
+      "family": "home_meadow",
+      "geometry_profile": "constructed_material",
       "id": "tile_grass_pond_edge",
       "name": "Pond-Edge Meadow",
-      "family": "home_meadow",
-      "asset_id": "tile_grass_pond_edge",
-      "weight": 1.2,
+      "placement_sound": "water",
       "rarity": "uncommon",
+      "special_trait": "A fishable pool of your own.",
+      "unlock_level": {
+        "fishing": 6.0
+      },
       "water_cells": [
         "pond"
       ],
-      "anchor": "pond_anchor",
-      "collision_profile": "pond_basin",
-      "placement_sound": "water",
-      "special_trait": "A fishable pool of your own.",
-      "unlock_level": {
-        "fishing": 6
-      },
-      "geometry_profile": "constructed_material",
-      "connection_mode": "full_flush"
-    },
-    {
-      "id": "tile_path",
-      "name": "Gentle Stone Path",
-      "family": "home_meadow",
-      "asset_id": "tile_path",
-      "weight": 2.0,
-      "stackable": true,
-      "supports_tiles": true,
-      "surface_kind": "flat",
-      "placement_sound": "stone",
-      "special_trait": "Paths pull a world together.",
-      "geometry_profile": "micro_bevel_square",
-      "connection_mode": "full_flush"
-    },
-    {
-      "id": "tile_garden",
-      "name": "Garden Soil",
-      "family": "home_meadow",
-      "asset_id": "tile_garden",
-      "weight": 1.0,
-      "rarity": "uncommon",
-      "placement_sound": "grass",
-      "special_trait": "A quiet soil surface ready for a planter.",
-      "unlock_level": {
-        "fishing": 10
-      },
-      "geometry_profile": "micro_bevel_square",
-      "connection_mode": "full_flush"
-    },
-    {
-      "id": "tile_courtyard",
-      "name": "Central Courtyard",
-      "family": "home_meadow",
-      "asset_id": "tile_courtyard",
-      "weight": 0.8,
-      "rarity": "rare",
-      "stackable": true,
-      "supports_tiles": true,
-      "surface_kind": "flat",
-      "placement_sound": "stone",
-      "special_trait": "A heart for a future village.",
-      "structure_sockets": 1,
-      "geometry_profile": "stepped_platform",
-      "connection_mode": "full_flush"
-    },
-    {
-      "id": "tile_dirt",
-      "name": "Soft Earth",
-      "family": "home_meadow",
-      "asset_id": "tile_dirt",
-      "weight": 2.2,
-      "stackable": true,
-      "supports_tiles": true,
-      "surface_kind": "flat",
-      "placement_sound": "grass",
-      "special_trait": "Warm bare earth for natural transitions.",
-      "geometry_profile": "organic_overlay_square",
-      "connection_mode": "full_flush"
-    },
-    {
-      "id": "tile_dirt_road",
-      "name": "Country Lane",
-      "family": "home_meadow",
-      "asset_id": "tile_dirt_road",
-      "weight": 2.0,
-      "stackable": true,
-      "supports_tiles": true,
-      "surface_kind": "flat",
-      "placement_sound": "grass",
-      "special_trait": "A worn lane with quiet wheel tracks.",
-      "geometry_profile": "organic_overlay_square",
-      "connection_mode": "full_flush"
-    },
-    {
-      "id": "tile_dirt_crossroad",
-      "name": "Country Crossing",
-      "family": "home_meadow",
-      "asset_id": "tile_dirt_crossroad",
       "weight": 1.2,
-      "rarity": "uncommon",
-      "stackable": true,
-      "supports_tiles": true,
-      "surface_kind": "flat",
-      "placement_sound": "grass",
-      "special_trait": "A broad meeting of country paths.",
-      "geometry_profile": "organic_overlay_square",
-      "connection_mode": "full_flush"
+      "connection_group": "home_meadow",
+      "biome_tags": [],
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_grass_pond_edge.tres",
+      "source_kind": "external",
+      "source_revision": 1
     },
     {
-      "id": "tile_mud",
-      "name": "Rain-Soft Ground",
-      "family": "home_meadow",
-      "asset_id": "tile_mud",
-      "weight": 0.9,
-      "rarity": "uncommon",
-      "stackable": true,
-      "supports_tiles": true,
-      "surface_kind": "flat",
-      "placement_sound": "water",
-      "special_trait": "Dark wet earth with shallow, low-relief puddles.",
-      "geometry_profile": "organic_overlay_square",
-      "connection_mode": "full_flush"
-    },
-    {
-      "id": "tile_sand",
-      "name": "Pale Sand",
-      "family": "home_meadow",
-      "biome_tags": ["beach"],
-      "asset_id": "tile_sand",
-      "render_profile": "layered",
-      "layers": [
-        {
-          "role": "base",
-          "asset_id": "tile_layer_base_standard",
-          "material": "sand_top",
-          "cover_behavior": "persist"
-        },
-        {
-          "role": "surface",
-          "asset_id": "tile_layer_surface_sand",
-          "material": "sand_top",
-          "cover_behavior": "hide"
-        }
-      ],
-      "weight": 1.1,
-      "rarity": "uncommon",
-      "stackable": true,
-      "supports_tiles": true,
-      "surface_kind": "flat",
-      "placement_sound": "grass",
-      "special_trait": "Soft sand shaped by a faint breeze.",
-      "geometry_profile": "organic_overlay_square",
+      "asset_id": "tile_grove_autumn",
       "connection_mode": "full_flush",
-      "exposed_top": "raised",
-      "soft_surface_profile": "sand",
-      "walk_surface_height": 0.025
-    },
-    {
-      "id": "tile_clay",
-      "name": "Sunbaked Clay",
-      "family": "home_meadow",
-      "asset_id": "tile_clay",
-      "weight": 0.8,
-      "rarity": "uncommon",
-      "stackable": true,
-      "supports_tiles": true,
-      "surface_kind": "flat",
-      "placement_sound": "stone",
-      "special_trait": "Warm clay with restrained surface cracks.",
-      "geometry_profile": "rounded_corner_slab",
-      "connection_mode": "full_flush"
-    },
-    {
-      "id": "tile_wooden_planks",
-      "name": "Wooden Planks",
-      "family": "home_meadow",
-      "asset_id": "tile_wooden_planks",
-      "weight": 1.0,
-      "rarity": "uncommon",
-      "stackable": true,
-      "supports_tiles": true,
-      "surface_kind": "flat",
-      "placement_sound": "wood",
-      "special_trait": "A snug boardwalk of sun-warmed planks.",
-      "geometry_profile": "constructed_material",
-      "connection_mode": "tiny_individual_seam"
-    },
-    {
-      "id": "tile_grove_mature",
-      "name": "Grove Ground",
       "family": "living_grove",
-      "biome_tags": ["forest"],
-      "asset_id": "tile_grove_mature",
-      "render_profile": "layered",
-      "layers": [
-        {
-          "role": "base",
-          "asset_id": "tile_layer_base_standard",
-          "material": "earth_mid",
-          "cover_behavior": "persist"
-        },
-        {
-          "role": "surface",
-          "asset_id": "tile_layer_surface_flat",
-          "material": "moss_primary",
-          "cover_behavior": "hide"
-        }
-      ],
-      "weight": 3.0,
-      "stackable": true,
-      "supports_tiles": true,
-      "surface_kind": "flat",
-      "placement_sound": "grass",
-      "special_trait": "A warm flat clearing for independently placed trees.",
       "geometry_profile": "micro_bevel_square",
-      "connection_mode": "full_flush",
-      "exposed_top": "flush"
-    },
-    {
-      "id": "tile_grove_birch",
-      "name": "Birch Ground",
-      "family": "living_grove",
-      "asset_id": "tile_grove_birch",
-      "weight": 2.0,
-      "placement_sound": "grass",
-      "special_trait": "A pale, quiet woodland floor for freely placed trees.",
-      "geometry_profile": "micro_bevel_square",
-      "connection_mode": "full_flush"
-    },
-    {
-      "id": "tile_grove_mossy",
-      "name": "Moss Ground",
-      "family": "living_grove",
-      "asset_id": "tile_grove_mossy",
-      "weight": 1.6,
-      "placement_sound": "grass",
-      "special_trait": "Old, soft and entirely independent from its decorations.",
-      "geometry_profile": "micro_bevel_square",
-      "connection_mode": "full_flush"
-    },
-    {
       "id": "tile_grove_autumn",
       "name": "Autumn Ground",
-      "family": "living_grove",
-      "asset_id": "tile_grove_autumn",
-      "weight": 1.0,
-      "rarity": "uncommon",
       "placement_sound": "grass",
+      "rarity": "uncommon",
       "special_trait": "A muted woodland floor in permanent golden hour.",
       "unlock_level": {
-        "woodcutting": 7
+        "woodcutting": 7.0
       },
-      "geometry_profile": "micro_bevel_square",
-      "connection_mode": "full_flush"
+      "weight": 1.0,
+      "connection_group": "living_grove",
+      "biome_tags": [],
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_grove_autumn.tres",
+      "source_kind": "external",
+      "source_revision": 1
     },
     {
+      "asset_id": "tile_grove_birch",
+      "connection_mode": "full_flush",
+      "family": "living_grove",
+      "geometry_profile": "micro_bevel_square",
+      "id": "tile_grove_birch",
+      "name": "Birch Ground",
+      "placement_sound": "grass",
+      "special_trait": "A pale, quiet woodland floor for freely placed trees.",
+      "weight": 2.0,
+      "connection_group": "living_grove",
+      "biome_tags": [],
+      "rarity": "common",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_grove_birch.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_grove_flowering",
+      "connection_mode": "full_flush",
+      "family": "living_grove",
+      "geometry_profile": "micro_bevel_square",
       "id": "tile_grove_flowering",
       "name": "Flowering Ground",
-      "family": "living_grove",
-      "asset_id": "tile_grove_flowering",
-      "weight": 0.8,
-      "rarity": "rare",
       "placement_sound": "grass",
+      "rarity": "rare",
       "special_trait": "A brighter flat ground tone, with trees and flowers placed separately.",
-      "geometry_profile": "micro_bevel_square",
-      "connection_mode": "full_flush"
+      "weight": 0.8,
+      "connection_group": "living_grove",
+      "biome_tags": [],
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_grove_flowering.tres",
+      "source_kind": "external",
+      "source_revision": 1
     },
     {
-      "id": "tile_stone_clearing",
-      "name": "Quiet Stone",
-      "family": "stonebound",
-      "asset_id": "tile_stone_clearing",
-      "weight": 2.4,
-      "landmark_tags": [
-        "ruin"
+      "asset_id": "tile_grove_mature",
+      "biome_tags": [
+        "forest"
       ],
-      "stackable": true,
-      "supports_tiles": true,
-      "surface_kind": "flat",
-      "placement_sound": "stone",
-      "special_trait": "Clean, solid ground for deliberate decoration.",
-      "geometry_profile": "micro_bevel_square",
-      "connection_mode": "full_flush"
-    },
-    {
-      "id": "tile_stone_mossy",
-      "name": "Moss Tile",
-      "family": "stonebound",
-      "asset_id": "tile_stone_mossy",
-      "weight": 1.8,
-      "landmark_tags": [
-        "ruin"
-      ],
-      "placement_sound": "stone",
-      "special_trait": "A quiet moss surface without baked-in scatter.",
-      "geometry_profile": "micro_bevel_square",
-      "connection_mode": "full_flush"
-    },
-    {
-      "id": "tile_stone_ruin",
-      "name": "Foundation Stone",
-      "family": "stonebound",
-      "asset_id": "tile_stone_ruin",
-      "weight": 1.2,
-      "rarity": "uncommon",
-      "landmark_tags": [
-        "ruin"
-      ],
-      "placement_sound": "stone",
-      "special_trait": "Flat foundation ground for a separately placed ruin.",
-      "geometry_profile": "hard_square",
-      "connection_mode": "full_flush"
-    },
-    {
-      "id": "tile_stone_crystal",
-      "name": "Mineral Ground",
-      "family": "stonebound",
-      "asset_id": "tile_stone_crystal",
-      "weight": 0.6,
-      "rarity": "rare",
-      "placement_sound": "stone",
-      "special_trait": "Quiet stone where crystals can be placed separately.",
-      "anchor": "stone_anchor",
-      "geometry_profile": "micro_bevel_square",
-      "connection_mode": "full_flush"
-    },
-    {
-      "id": "tile_stone_road",
-      "name": "Old Road Fragment",
-      "family": "stonebound",
-      "asset_id": "tile_stone_road",
-      "weight": 1.4,
-      "landmark_tags": [
-        "ruin"
-      ],
-      "stackable": true,
-      "supports_tiles": true,
-      "surface_kind": "flat",
-      "placement_sound": "stone",
-      "special_trait": "A road that remembers where it went.",
-      "geometry_profile": "micro_bevel_square",
-      "connection_mode": "full_flush"
-    },
-    {
-      "id": "tile_cobblestone",
-      "name": "Village Cobbles",
-      "family": "stonebound",
-      "asset_id": "tile_cobblestone",
-      "weight": 1.8,
-      "stackable": true,
-      "supports_tiles": true,
-      "surface_kind": "flat",
-      "placement_sound": "stone",
-      "special_trait": "Rounded masonry for a lived-in village lane.",
-      "geometry_profile": "organic_overlay_square",
-      "connection_mode": "full_flush"
-    },
-    {
-      "id": "tile_flagstone",
-      "name": "Old Flagstones",
-      "family": "stonebound",
-      "asset_id": "tile_flagstone",
-      "weight": 1.3,
-      "rarity": "uncommon",
-      "stackable": true,
-      "supports_tiles": true,
-      "surface_kind": "flat",
-      "placement_sound": "stone",
-      "special_trait": "Broad fitted stones for courtyards and ruins.",
-      "geometry_profile": "organic_overlay_square",
-      "connection_mode": "full_flush"
-    },
-    {
-      "id": "tile_concrete_brutalist",
-      "name": "Brutalist Concrete",
-      "family": "stonebound",
-      "biome_tags": ["stone"],
-      "asset_id": "tile_layer_surface_concrete_brutalist",
-      "render_profile": "layered",
-      "layers": [
-        {
-          "role": "base",
-          "asset_id": "tile_layer_base_deep_recess",
-          "material": "concrete_side",
-          "cover_behavior": "persist"
-        },
-        {
-          "role": "surface",
-          "asset_id": "tile_layer_surface_concrete_brutalist",
-          "material": "concrete_top",
-          "cover_behavior": "hide"
-        }
-      ],
-      "weight": 1.0,
-      "rarity": "uncommon",
-      "stackable": true,
-      "supports_tiles": true,
-      "surface_kind": "flat",
-      "placement_sound": "stone",
-      "special_trait": "Four heavy precast panels divided by recessed control joints.",
-      "geometry_profile": "constructed_material",
-      "connection_mode": "tiny_individual_seam",
-      "exposed_top": "flush"
-    },
-    {
-      "id": "tile_snowfield",
-      "name": "Fresh Snow",
-      "family": "winter",
-      "biome_tags": ["winter"],
-      "asset_id": "tile_snowfield",
-      "render_profile": "layered",
-      "layers": [
-        {
-          "role": "base",
-          "asset_id": "tile_layer_base_standard",
-          "material": "snow_side",
-          "cover_behavior": "persist"
-        },
-        {
-          "role": "surface",
-          "asset_id": "tile_layer_surface_snow",
-          "material": "snow_top",
-          "cover_behavior": "hide"
-        }
-      ],
-      "weight": 3.0,
-      "stackable": true,
-      "supports_tiles": true,
-      "surface_kind": "flat",
-      "placement_sound": "grass",
-      "special_trait": "An untouched blanket of warm-white snow.",
-      "geometry_profile": "organic_overlay_square",
       "connection_mode": "full_flush",
-      "exposed_top": "raised",
-      "soft_surface_profile": "snow",
-      "walk_surface_height": 0.052
-    },
-    {
-      "id": "tile_snow_drift",
-      "name": "Drifted Snow",
-      "family": "winter",
-      "asset_id": "tile_snow_drift",
-      "weight": 1.8,
-      "stackable": true,
-      "supports_tiles": true,
-      "surface_kind": "flat",
+      "exposed_top": "flush",
+      "family": "living_grove",
+      "geometry_profile": "micro_bevel_square",
+      "id": "tile_grove_mature",
+      "layers": [
+        {
+          "asset_id": "tile_layer_base_standard",
+          "cover_behavior": "persist",
+          "material": "earth_mid",
+          "role": "base"
+        },
+        {
+          "asset_id": "tile_layer_surface_flat",
+          "cover_behavior": "hide",
+          "material": "moss_primary",
+          "role": "surface"
+        }
+      ],
+      "name": "Grove Ground",
       "placement_sound": "grass",
-      "special_trait": "Low snow banks that tuck away beneath a covering tile.",
-      "geometry_profile": "soft_recessed_top",
-      "connection_mode": "soft_isolated"
-    },
-    {
-      "id": "tile_snow_path",
-      "name": "Snowy Footpath",
-      "family": "winter",
-      "asset_id": "tile_snow_path",
-      "weight": 1.7,
+      "render_profile": "layered",
+      "special_trait": "A warm flat clearing for independently placed trees.",
       "stackable": true,
       "supports_tiles": true,
       "surface_kind": "flat",
-      "placement_sound": "stone",
-      "special_trait": "A pale path marked by alternating footsteps.",
-      "geometry_profile": "soft_recessed_top",
-      "connection_mode": "soft_isolated"
+      "weight": 3.0,
+      "connection_group": "living_grove",
+      "rarity": "common",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_grove_mature.tres",
+      "source_kind": "external",
+      "source_revision": 1
     },
     {
-      "id": "tile_frosted_stone",
-      "name": "Frosted Stone",
-      "family": "winter",
-      "asset_id": "tile_frosted_stone",
-      "weight": 1.2,
-      "rarity": "uncommon",
-      "stackable": true,
-      "supports_tiles": true,
-      "surface_kind": "flat",
-      "placement_sound": "stone",
-      "special_trait": "Old stone caught beneath a receding edge of snow.",
-      "geometry_profile": "organic_overlay_square",
-      "connection_mode": "full_flush"
+      "asset_id": "tile_grove_mossy",
+      "connection_mode": "full_flush",
+      "family": "living_grove",
+      "geometry_profile": "micro_bevel_square",
+      "id": "tile_grove_mossy",
+      "name": "Moss Ground",
+      "placement_sound": "grass",
+      "special_trait": "Old, soft and entirely independent from its decorations.",
+      "weight": 1.6,
+      "connection_group": "living_grove",
+      "biome_tags": [],
+      "rarity": "common",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_grove_mossy.tres",
+      "source_kind": "external",
+      "source_revision": 1
     },
     {
       "id": "tile_kit_grass",
       "name": "Kit Clay Grass",
-      "family": "tile_kit",
-      "biome_tags": [
-        "meadow"
-      ],
+      "family": "home_meadow",
       "asset_id": "tile_kit_grass_surface",
       "render_profile": "layered",
       "layers": [
@@ -588,16 +467,1413 @@
           "cover_behavior": "hide"
         }
       ],
+      "stackable": true,
+      "supports_tiles": true,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "full_flush",
+      "exposed_top": "raised",
+      "connection_group": "tile_kit",
+      "biome_tags": [
+        "meadow"
+      ],
+      "rarity": "common",
       "weight": 1.0,
+      "placement_sound": "grass",
+      "collection_hint": "Tile Kit: procedural clay-toy grass, baked from the in-game generator.",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_kit_grass.tres",
+      "source_kind": "procedural",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_layer_surface_master_grass",
+      "biome_tags": [
+        "meadow"
+      ],
+      "collection_hint": "Tile Forge master: sculpted meadow cap with composed clumps.",
+      "connection_mode": "full_flush",
+      "exposed_top": "raised",
+      "family": "tile_forge",
+      "geometry_profile": "micro_bevel_square",
+      "id": "tile_master_grass",
+      "layers": [
+        {
+          "asset_id": "tile_layer_base_master_grass",
+          "cover_behavior": "persist",
+          "role": "base",
+          "scale_mode": "none"
+        },
+        {
+          "asset_id": "tile_layer_surface_master_grass",
+          "cover_behavior": "hide",
+          "role": "surface",
+          "scale_mode": "none"
+        }
+      ],
+      "name": "Master Lush Grass",
+      "placement_sound": "grass",
+      "render_profile": "layered",
       "stackable": true,
       "supports_tiles": true,
       "surface_kind": "flat",
-      "placement_sound": "grass",
-      "collection_hint": "Tile Kit: procedural clay-toy grass, baked from the in-game generator.",
+      "walk_surface_height": 0.04,
+      "weight": 1.0,
+      "connection_group": "tile_forge",
+      "rarity": "common",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_master_grass.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_layer_surface_master_pavers",
+      "biome_tags": [
+        "stone"
+      ],
+      "collection_hint": "Tile Forge master: four handcrafted paving stones.",
+      "connection_mode": "tiny_individual_seam",
+      "exposed_top": "raised",
+      "family": "tile_forge",
+      "geometry_profile": "micro_bevel_square",
+      "id": "tile_master_pavers",
+      "layers": [
+        {
+          "asset_id": "tile_layer_base_master_pavers",
+          "cover_behavior": "persist",
+          "role": "base",
+          "scale_mode": "none"
+        },
+        {
+          "asset_id": "tile_layer_surface_master_pavers",
+          "cover_behavior": "hide",
+          "role": "surface",
+          "scale_mode": "none"
+        }
+      ],
+      "name": "Master Soft Pavers",
+      "placement_sound": "stone",
+      "render_profile": "layered",
+      "stackable": true,
+      "supports_tiles": true,
+      "surface_kind": "flat",
+      "walk_surface_height": 0.06,
+      "weight": 1.0,
+      "connection_group": "tile_forge",
+      "rarity": "common",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_master_pavers.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_layer_surface_master_wood",
+      "biome_tags": [
+        "wood"
+      ],
+      "collection_hint": "Tile Forge master: three broad boards that continue across cells.",
+      "connection_mode": "tiny_individual_seam",
+      "exposed_top": "raised",
+      "family": "tile_forge",
+      "geometry_profile": "micro_bevel_square",
+      "id": "tile_master_wood",
+      "layers": [
+        {
+          "asset_id": "tile_layer_base_master_wood",
+          "cover_behavior": "persist",
+          "role": "base",
+          "scale_mode": "none"
+        },
+        {
+          "asset_id": "tile_layer_surface_master_wood",
+          "cover_behavior": "hide",
+          "role": "surface",
+          "scale_mode": "none"
+        }
+      ],
+      "name": "Master Wood Planks",
+      "placement_sound": "wood",
+      "render_profile": "layered",
+      "stackable": true,
+      "supports_tiles": true,
+      "surface_kind": "flat",
+      "walk_surface_height": 0.06,
+      "weight": 1.0,
+      "connection_group": "tile_forge",
+      "rarity": "common",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_master_wood.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_mud",
+      "connection_mode": "full_flush",
+      "family": "home_meadow",
+      "geometry_profile": "organic_overlay_square",
+      "id": "tile_mud",
+      "name": "Rain-Soft Ground",
+      "placement_sound": "water",
+      "rarity": "uncommon",
+      "special_trait": "Dark wet earth with shallow, low-relief puddles.",
+      "stackable": true,
+      "supports_tiles": true,
+      "surface_kind": "flat",
+      "weight": 0.9,
+      "connection_group": "home_meadow",
+      "biome_tags": [],
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_mud.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "anchor": "pond_anchor",
+      "asset_id": "tile_open_water",
+      "biome_tags": [
+        "water"
+      ],
+      "collision_profile": "none",
+      "connection_mode": "merged_surface",
+      "decor_sockets": 0.0,
+      "family": "waterside",
+      "geometry_profile": "connected_water",
+      "id": "tile_open_water",
+      "name": "Quiet Water",
+      "placement_sound": "water",
+      "render_profile": "continuous_water",
+      "special_trait": "A continuous piece of calm water that can support a dock.",
+      "stackable": false,
+      "structure_sockets": 1.0,
+      "supports_decor": true,
+      "supports_tiles": false,
+      "surface_kind": "water",
+      "walkable": false,
+      "water_cells": [
+        "open_water"
+      ],
+      "weight": 1.4,
+      "connection_group": "waterside",
+      "rarity": "common",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_open_water.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_path",
+      "connection_mode": "full_flush",
+      "family": "home_meadow",
+      "geometry_profile": "micro_bevel_square",
+      "id": "tile_path",
+      "name": "Gentle Stone Path",
+      "placement_sound": "stone",
+      "special_trait": "Paths pull a world together.",
+      "stackable": true,
+      "supports_tiles": true,
+      "surface_kind": "flat",
+      "weight": 2.0,
+      "connection_group": "home_meadow",
+      "biome_tags": [],
+      "rarity": "common",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_path.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_plain_ground",
+      "connection_mode": "full_flush",
+      "family": "home_meadow",
+      "geometry_profile": "hard_square",
+      "id": "tile_plain_ground",
+      "name": "Beginner White Block",
+      "placement_sound": "stone",
+      "special_trait": "Garden Galaxy's plain beginner block, preserved as the direct visual-match control.",
+      "stackable": true,
+      "supports_tiles": true,
+      "surface_kind": "flat",
+      "weight": 2.4,
+      "connection_group": "home_meadow",
+      "biome_tags": [],
+      "rarity": "common",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_plain_ground.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "id": "tile_proc_autumn_litter",
+      "name": "Autumn Litter",
+      "family": "home_meadow",
+      "asset_id": "tile_proc_autumn_litter_surface",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_proc_autumn_litter_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "detail",
+          "asset_id": "tile_proc_autumn_litter_detail",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_proc_autumn_litter_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": true,
+      "supports_tiles": true,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
-      "exposed_top": "flush",
-      "walk_surface_height": 0.0
+      "exposed_top": "raised",
+      "connection_group": "tile_proc_autumn_litter",
+      "biome_tags": [
+        "meadow"
+      ],
+      "rarity": "common",
+      "weight": 1.0,
+      "placement_sound": "grass",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_autumn_litter.tres",
+      "source_kind": "procedural",
+      "source_revision": 1
+    },
+    {
+      "id": "tile_proc_boulder_ground",
+      "name": "Boulder Ground",
+      "family": "home_meadow",
+      "asset_id": "tile_proc_boulder_ground_surface",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_proc_boulder_ground_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "detail",
+          "asset_id": "tile_proc_boulder_ground_detail",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_proc_boulder_ground_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": true,
+      "supports_tiles": true,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "full_flush",
+      "exposed_top": "raised",
+      "connection_group": "tile_proc_boulder_ground",
+      "biome_tags": [
+        "meadow"
+      ],
+      "rarity": "common",
+      "weight": 1.0,
+      "placement_sound": "grass",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_boulder_ground.tres",
+      "source_kind": "procedural",
+      "source_revision": 1
+    },
+    {
+      "id": "tile_proc_brick_court",
+      "name": "Brick Court",
+      "family": "stonebound",
+      "asset_id": "tile_proc_brick_court_surface",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_proc_brick_court_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_proc_brick_court_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": true,
+      "supports_tiles": true,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "tiny_individual_seam",
+      "exposed_top": "raised",
+      "connection_group": "tile_proc_brick_court",
+      "biome_tags": [
+        "meadow"
+      ],
+      "rarity": "common",
+      "weight": 1.0,
+      "placement_sound": "stone",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_brick_court.tres",
+      "source_kind": "procedural",
+      "source_revision": 1
+    },
+    {
+      "id": "tile_proc_checker_slabs",
+      "name": "Checker Slabs",
+      "family": "stonebound",
+      "asset_id": "tile_proc_checker_slabs_surface",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_proc_checker_slabs_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_proc_checker_slabs_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": true,
+      "supports_tiles": true,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "tiny_individual_seam",
+      "exposed_top": "raised",
+      "connection_group": "tile_proc_checker_slabs",
+      "biome_tags": [
+        "meadow"
+      ],
+      "rarity": "common",
+      "weight": 1.0,
+      "placement_sound": "stone",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_checker_slabs.tres",
+      "source_kind": "procedural",
+      "source_revision": 1
+    },
+    {
+      "id": "tile_proc_cobblestone_paving",
+      "name": "Cobblestone Paving",
+      "family": "stonebound",
+      "asset_id": "tile_proc_cobblestone_paving_surface",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_proc_cobblestone_paving_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_proc_cobblestone_paving_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": true,
+      "supports_tiles": true,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "tiny_individual_seam",
+      "exposed_top": "raised",
+      "connection_group": "tile_proc_cobblestone_paving",
+      "biome_tags": [
+        "meadow"
+      ],
+      "rarity": "common",
+      "weight": 1.0,
+      "placement_sound": "stone",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_cobblestone_paving.tres",
+      "source_kind": "procedural",
+      "source_revision": 1
+    },
+    {
+      "id": "tile_proc_concrete_slabs",
+      "name": "Concrete Slabs",
+      "family": "stonebound",
+      "asset_id": "tile_proc_concrete_slabs_surface",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_proc_concrete_slabs_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_proc_concrete_slabs_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": true,
+      "supports_tiles": true,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "tiny_individual_seam",
+      "exposed_top": "raised",
+      "connection_group": "tile_proc_concrete_slabs",
+      "biome_tags": [
+        "meadow"
+      ],
+      "rarity": "common",
+      "weight": 1.0,
+      "placement_sound": "stone",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_concrete_slabs.tres",
+      "source_kind": "procedural",
+      "source_revision": 1
+    },
+    {
+      "id": "tile_proc_fenced_meadow",
+      "name": "Fenced Meadow",
+      "family": "home_meadow",
+      "asset_id": "tile_proc_fenced_meadow_surface",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_proc_fenced_meadow_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "detail",
+          "asset_id": "tile_proc_fenced_meadow_detail",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_proc_fenced_meadow_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": true,
+      "supports_tiles": true,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "full_flush",
+      "exposed_top": "raised",
+      "connection_group": "tile_proc_fenced_meadow",
+      "biome_tags": [
+        "meadow"
+      ],
+      "rarity": "common",
+      "weight": 1.0,
+      "placement_sound": "grass",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_fenced_meadow.tres",
+      "source_kind": "procedural",
+      "source_revision": 1
+    },
+    {
+      "id": "tile_proc_flower_meadow",
+      "name": "Flower Meadow",
+      "family": "home_meadow",
+      "asset_id": "tile_proc_flower_meadow_surface",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_proc_flower_meadow_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "detail",
+          "asset_id": "tile_proc_flower_meadow_detail",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_proc_flower_meadow_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": true,
+      "supports_tiles": true,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "full_flush",
+      "exposed_top": "raised",
+      "connection_group": "tile_proc_flower_meadow",
+      "biome_tags": [
+        "meadow"
+      ],
+      "rarity": "common",
+      "weight": 1.0,
+      "placement_sound": "grass",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_flower_meadow.tres",
+      "source_kind": "procedural",
+      "source_revision": 1
+    },
+    {
+      "id": "tile_proc_garden_path",
+      "name": "Garden Path",
+      "family": "home_meadow",
+      "asset_id": "tile_proc_garden_path_surface",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_proc_garden_path_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "detail",
+          "asset_id": "tile_proc_garden_path_detail",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_proc_garden_path_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": true,
+      "supports_tiles": true,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "tiny_individual_seam",
+      "exposed_top": "raised",
+      "connection_group": "tile_proc_garden_path",
+      "biome_tags": [
+        "meadow"
+      ],
+      "rarity": "common",
+      "weight": 1.0,
+      "placement_sound": "grass",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_garden_path.tres",
+      "source_kind": "procedural",
+      "source_revision": 1
+    },
+    {
+      "id": "tile_proc_gravel_yard",
+      "name": "Gravel Yard",
+      "family": "home_meadow",
+      "asset_id": "tile_proc_gravel_yard_surface",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_proc_gravel_yard_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "detail",
+          "asset_id": "tile_proc_gravel_yard_detail",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_proc_gravel_yard_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": true,
+      "supports_tiles": true,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "full_flush",
+      "exposed_top": "raised",
+      "connection_group": "tile_proc_gravel_yard",
+      "biome_tags": [
+        "meadow"
+      ],
+      "rarity": "common",
+      "weight": 1.0,
+      "placement_sound": "grass",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_gravel_yard.tres",
+      "source_kind": "procedural",
+      "source_revision": 1
+    },
+    {
+      "id": "tile_proc_mossy_forest_floor",
+      "name": "Mossy Forest Floor",
+      "family": "home_meadow",
+      "asset_id": "tile_proc_mossy_forest_floor_surface",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_proc_mossy_forest_floor_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "detail",
+          "asset_id": "tile_proc_mossy_forest_floor_detail",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_proc_mossy_forest_floor_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": true,
+      "supports_tiles": true,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "full_flush",
+      "exposed_top": "raised",
+      "connection_group": "tile_proc_mossy_forest_floor",
+      "biome_tags": [
+        "meadow"
+      ],
+      "rarity": "common",
+      "weight": 1.0,
+      "placement_sound": "grass",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_mossy_forest_floor.tres",
+      "source_kind": "procedural",
+      "source_revision": 1
+    },
+    {
+      "id": "tile_proc_mud_bed",
+      "name": "Mud Bed",
+      "family": "home_meadow",
+      "asset_id": "tile_proc_mud_bed_surface",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_proc_mud_bed_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "detail",
+          "asset_id": "tile_proc_mud_bed_detail",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_proc_mud_bed_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": true,
+      "supports_tiles": true,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "full_flush",
+      "exposed_top": "raised",
+      "connection_group": "tile_proc_mud_bed",
+      "biome_tags": [
+        "meadow"
+      ],
+      "rarity": "common",
+      "weight": 1.0,
+      "placement_sound": "grass",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_mud_bed.tres",
+      "source_kind": "procedural",
+      "source_revision": 1
+    },
+    {
+      "id": "tile_proc_mulch_dirt_floor",
+      "name": "Mulch Dirt Floor",
+      "family": "home_meadow",
+      "asset_id": "tile_proc_mulch_dirt_floor_surface",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_proc_mulch_dirt_floor_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "detail",
+          "asset_id": "tile_proc_mulch_dirt_floor_detail",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_proc_mulch_dirt_floor_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": true,
+      "supports_tiles": true,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "full_flush",
+      "exposed_top": "raised",
+      "connection_group": "tile_proc_mulch_dirt_floor",
+      "biome_tags": [
+        "meadow"
+      ],
+      "rarity": "common",
+      "weight": 1.0,
+      "placement_sound": "grass",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_mulch_dirt_floor.tres",
+      "source_kind": "procedural",
+      "source_revision": 1
+    },
+    {
+      "id": "tile_proc_pond_basin",
+      "name": "Pond Basin",
+      "family": "home_meadow",
+      "asset_id": "tile_proc_pond_basin_surface",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_proc_pond_basin_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "detail",
+          "asset_id": "tile_proc_pond_basin_detail",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_proc_pond_basin_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": true,
+      "supports_tiles": true,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "tiny_individual_seam",
+      "exposed_top": "raised",
+      "connection_group": "tile_proc_pond_basin",
+      "biome_tags": [
+        "meadow"
+      ],
+      "rarity": "common",
+      "weight": 1.0,
+      "placement_sound": "grass",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_pond_basin.tres",
+      "source_kind": "procedural",
+      "source_revision": 1
+    },
+    {
+      "id": "tile_proc_sand_dunes_study",
+      "name": "Sand Dunes (Study)",
+      "family": "beach",
+      "asset_id": "tile_proc_sand_dunes_study_surface",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_proc_sand_dunes_study_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "detail",
+          "asset_id": "tile_proc_sand_dunes_study_detail",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_proc_sand_dunes_study_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": true,
+      "supports_tiles": true,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "full_flush",
+      "exposed_top": "raised",
+      "connection_group": "tile_proc_sand_dunes_study",
+      "biome_tags": [
+        "beach"
+      ],
+      "rarity": "common",
+      "weight": 1.0,
+      "placement_sound": "grass",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_sand_dunes_study.tres",
+      "source_kind": "procedural",
+      "source_revision": 1
+    },
+    {
+      "id": "tile_proc_sandy_ground",
+      "name": "Sandy Ground",
+      "family": "beach",
+      "asset_id": "tile_proc_sandy_ground_surface",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_proc_sandy_ground_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "detail",
+          "asset_id": "tile_proc_sandy_ground_detail",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_proc_sandy_ground_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": true,
+      "supports_tiles": true,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "full_flush",
+      "exposed_top": "raised",
+      "connection_group": "tile_proc_sandy_ground",
+      "biome_tags": [
+        "beach"
+      ],
+      "rarity": "common",
+      "weight": 1.0,
+      "placement_sound": "grass",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_sandy_ground.tres",
+      "source_kind": "procedural",
+      "source_revision": 1
+    },
+    {
+      "id": "tile_proc_snow_drifts_study",
+      "name": "Snow Drifts (Study)",
+      "family": "winter",
+      "asset_id": "tile_proc_snow_drifts_study_surface",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_proc_snow_drifts_study_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_proc_snow_drifts_study_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": true,
+      "supports_tiles": true,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "full_flush",
+      "exposed_top": "raised",
+      "connection_group": "tile_proc_snow_drifts_study",
+      "biome_tags": [
+        "winter"
+      ],
+      "rarity": "common",
+      "weight": 1.0,
+      "placement_sound": "grass",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_snow_drifts_study.tres",
+      "source_kind": "procedural",
+      "source_revision": 1
+    },
+    {
+      "id": "tile_proc_snow_field",
+      "name": "Snow Field",
+      "family": "winter",
+      "asset_id": "tile_proc_snow_field_surface",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_proc_snow_field_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_proc_snow_field_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": true,
+      "supports_tiles": true,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "full_flush",
+      "exposed_top": "raised",
+      "connection_group": "tile_proc_snow_field",
+      "biome_tags": [
+        "winter"
+      ],
+      "rarity": "common",
+      "weight": 1.0,
+      "placement_sound": "grass",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_snow_field.tres",
+      "source_kind": "procedural",
+      "source_revision": 1
+    },
+    {
+      "id": "tile_proc_tilled_field",
+      "name": "Tilled Field",
+      "family": "home_meadow",
+      "asset_id": "tile_proc_tilled_field_surface",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_proc_tilled_field_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_proc_tilled_field_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": true,
+      "supports_tiles": true,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "full_flush",
+      "exposed_top": "raised",
+      "connection_group": "tile_proc_tilled_field",
+      "biome_tags": [
+        "meadow"
+      ],
+      "rarity": "common",
+      "weight": 1.0,
+      "placement_sound": "grass",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_tilled_field.tres",
+      "source_kind": "procedural",
+      "source_revision": 1
+    },
+    {
+      "id": "tile_proc_wood_plank_deck",
+      "name": "Wood Plank Deck",
+      "family": "woodland",
+      "asset_id": "tile_proc_wood_plank_deck_surface",
+      "render_profile": "layered",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_proc_wood_plank_deck_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_proc_wood_plank_deck_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": true,
+      "supports_tiles": true,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "tiny_individual_seam",
+      "exposed_top": "raised",
+      "connection_group": "tile_proc_wood_plank_deck",
+      "biome_tags": [
+        "meadow"
+      ],
+      "rarity": "common",
+      "weight": 1.0,
+      "placement_sound": "wood",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_wood_plank_deck.tres",
+      "source_kind": "procedural",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_sand",
+      "biome_tags": [
+        "beach"
+      ],
+      "connection_mode": "full_flush",
+      "exposed_top": "raised",
+      "family": "home_meadow",
+      "geometry_profile": "organic_overlay_square",
+      "id": "tile_sand",
+      "layers": [
+        {
+          "asset_id": "tile_layer_base_standard",
+          "cover_behavior": "persist",
+          "material": "sand_top",
+          "role": "base"
+        },
+        {
+          "asset_id": "tile_layer_surface_sand",
+          "cover_behavior": "hide",
+          "material": "sand_top",
+          "role": "surface"
+        }
+      ],
+      "name": "Pale Sand",
+      "placement_sound": "grass",
+      "rarity": "uncommon",
+      "render_profile": "layered",
+      "soft_surface_profile": "sand",
+      "special_trait": "Soft sand shaped by a faint breeze.",
+      "stackable": true,
+      "supports_tiles": true,
+      "surface_kind": "flat",
+      "walk_surface_height": 0.025,
+      "weight": 1.1,
+      "connection_group": "home_meadow",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_sand.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_snow_drift",
+      "connection_mode": "soft_isolated",
+      "family": "winter",
+      "geometry_profile": "soft_recessed_top",
+      "id": "tile_snow_drift",
+      "name": "Drifted Snow",
+      "placement_sound": "grass",
+      "special_trait": "Low snow banks that tuck away beneath a covering tile.",
+      "stackable": true,
+      "supports_tiles": true,
+      "surface_kind": "flat",
+      "weight": 1.8,
+      "connection_group": "winter",
+      "biome_tags": [],
+      "rarity": "common",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_snow_drift.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_snow_path",
+      "connection_mode": "soft_isolated",
+      "family": "winter",
+      "geometry_profile": "soft_recessed_top",
+      "id": "tile_snow_path",
+      "name": "Snowy Footpath",
+      "placement_sound": "stone",
+      "special_trait": "A pale path marked by alternating footsteps.",
+      "stackable": true,
+      "supports_tiles": true,
+      "surface_kind": "flat",
+      "weight": 1.7,
+      "connection_group": "winter",
+      "biome_tags": [],
+      "rarity": "common",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_snow_path.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_snowfield",
+      "biome_tags": [
+        "winter"
+      ],
+      "connection_mode": "full_flush",
+      "exposed_top": "raised",
+      "family": "winter",
+      "geometry_profile": "organic_overlay_square",
+      "id": "tile_snowfield",
+      "layers": [
+        {
+          "asset_id": "tile_layer_base_standard",
+          "cover_behavior": "persist",
+          "material": "snow_side",
+          "role": "base"
+        },
+        {
+          "asset_id": "tile_layer_surface_snow",
+          "cover_behavior": "hide",
+          "material": "snow_top",
+          "role": "surface"
+        }
+      ],
+      "name": "Fresh Snow",
+      "placement_sound": "grass",
+      "render_profile": "layered",
+      "soft_surface_profile": "snow",
+      "special_trait": "An untouched blanket of warm-white snow.",
+      "stackable": true,
+      "supports_tiles": true,
+      "surface_kind": "flat",
+      "walk_surface_height": 0.052,
+      "weight": 3.0,
+      "connection_group": "winter",
+      "rarity": "common",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_snowfield.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_stone_clearing",
+      "connection_mode": "full_flush",
+      "family": "stonebound",
+      "geometry_profile": "micro_bevel_square",
+      "id": "tile_stone_clearing",
+      "landmark_tags": [
+        "ruin"
+      ],
+      "name": "Quiet Stone",
+      "placement_sound": "stone",
+      "special_trait": "Clean, solid ground for deliberate decoration.",
+      "stackable": true,
+      "supports_tiles": true,
+      "surface_kind": "flat",
+      "weight": 2.4,
+      "connection_group": "stonebound",
+      "biome_tags": [],
+      "rarity": "common",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_stone_clearing.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "anchor": "stone_anchor",
+      "asset_id": "tile_stone_crystal",
+      "connection_mode": "full_flush",
+      "family": "stonebound",
+      "geometry_profile": "micro_bevel_square",
+      "id": "tile_stone_crystal",
+      "name": "Mineral Ground",
+      "placement_sound": "stone",
+      "rarity": "rare",
+      "special_trait": "Quiet stone where crystals can be placed separately.",
+      "weight": 0.6,
+      "connection_group": "stonebound",
+      "biome_tags": [],
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_stone_crystal.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_stone_mossy",
+      "connection_mode": "full_flush",
+      "family": "stonebound",
+      "geometry_profile": "micro_bevel_square",
+      "id": "tile_stone_mossy",
+      "landmark_tags": [
+        "ruin"
+      ],
+      "name": "Moss Tile",
+      "placement_sound": "stone",
+      "special_trait": "A quiet moss surface without baked-in scatter.",
+      "weight": 1.8,
+      "connection_group": "stonebound",
+      "biome_tags": [],
+      "rarity": "common",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_stone_mossy.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_stone_road",
+      "connection_mode": "full_flush",
+      "family": "stonebound",
+      "geometry_profile": "micro_bevel_square",
+      "id": "tile_stone_road",
+      "landmark_tags": [
+        "ruin"
+      ],
+      "name": "Old Road Fragment",
+      "placement_sound": "stone",
+      "special_trait": "A road that remembers where it went.",
+      "stackable": true,
+      "supports_tiles": true,
+      "surface_kind": "flat",
+      "weight": 1.4,
+      "connection_group": "stonebound",
+      "biome_tags": [],
+      "rarity": "common",
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_stone_road.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_stone_ruin",
+      "connection_mode": "full_flush",
+      "family": "stonebound",
+      "geometry_profile": "hard_square",
+      "id": "tile_stone_ruin",
+      "landmark_tags": [
+        "ruin"
+      ],
+      "name": "Foundation Stone",
+      "placement_sound": "stone",
+      "rarity": "uncommon",
+      "special_trait": "Flat foundation ground for a separately placed ruin.",
+      "weight": 1.2,
+      "connection_group": "stonebound",
+      "biome_tags": [],
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_stone_ruin.tres",
+      "source_kind": "external",
+      "source_revision": 1
+    },
+    {
+      "asset_id": "tile_wooden_planks",
+      "connection_mode": "tiny_individual_seam",
+      "family": "home_meadow",
+      "geometry_profile": "constructed_material",
+      "id": "tile_wooden_planks",
+      "name": "Wooden Planks",
+      "placement_sound": "wood",
+      "rarity": "uncommon",
+      "special_trait": "A snug boardwalk of sun-warmed planks.",
+      "stackable": true,
+      "supports_tiles": true,
+      "surface_kind": "flat",
+      "weight": 1.0,
+      "connection_group": "home_meadow",
+      "biome_tags": [],
+      "collection_hint": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_wooden_planks.tres",
+      "source_kind": "external",
+      "source_revision": 1
     }
   ]
 }

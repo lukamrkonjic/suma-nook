@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="TileBakeManifest" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_bake_manifest.gd" id="1_3d42v"]
+
+[resource]
+script = ExtResource("1_3d42v")
+tile_id = "golden_wood_planks"
+display_name = "Plank Deck"
+recipe_path = "res://tools/tile_forge/recipes/golden/golden_wood_planks.tres"
+seed_value = 6355
+recipe_hash = "-2426057d2b240aa"
+baked_at = "2026-07-31T19:54:18"
+triangle_count = 158
+vertex_count = 300
+surface_triangle_count = 158
+material_count = 3
+node_count = 6
+materials_used = PackedStringArray("tf_golden_wood_side", "wood_warm_shadow", "wood_gold")
+bounds_min = Vector3(-0.675, -0.5, -0.675)
+bounds_max = Vector3(0.675, 0.036317408, 0.675)
+measured_walk_height = 0.028
+connection_mode = "tiny_individual_seam"
+collision_mode = "FLAT_BOX"
+passed = true
+errors = PackedStringArray()
+warnings = PackedStringArray()
+checks_run = 15

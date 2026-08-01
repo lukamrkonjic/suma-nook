@@ -1,0 +1,34 @@
+[gd_scene format=3]
+
+[ext_resource type="ArrayMesh" path="res://tools/tile_forge/baked/meshes/golden_wood_planks_structural_base.res" id="1_1wqcx"]
+[ext_resource type="ArrayMesh" path="res://tools/tile_forge/baked/meshes/golden_wood_planks_surface.res" id="2_enbpm"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_qy0su"]
+size = Vector3(1.35, 0.5, 1.35)
+
+[node name="GeneratedTile" type="Node3D" unique_id=1348103634]
+metadata/tile_forge_id = "golden_wood_planks"
+metadata/tile_forge_seed = 3473991210170915691
+metadata/tile_forge_variant = 0
+
+[node name="StructuralBase" type="MeshInstance3D" parent="." unique_id=245007787]
+mesh = ExtResource("1_1wqcx")
+
+[node name="Surface" type="MeshInstance3D" parent="." unique_id=88425896]
+mesh = ExtResource("2_enbpm")
+
+[node name="Collision" type="StaticBody3D" parent="." unique_id=1563451843]
+
+[node name="GroundBox" type="CollisionShape3D" parent="Collision" unique_id=1496233719]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 0)
+shape = SubResource("BoxShape3D_qy0su")
+
+[node name="Metadata" type="Node" parent="." unique_id=1146798761]
+metadata/tile_id = "golden_wood_planks"
+metadata/recipe_path = "res://tools/tile_forge/recipes/golden/golden_wood_planks.tres"
+metadata/seed = 6355
+metadata/variant = 0
+metadata/forge_version = "1.0.0"
+metadata/connection_mode = "tiny_individual_seam"
+metadata/category = "CONSTRUCTED_SURFACE"
+metadata/shared_base_asset = ""

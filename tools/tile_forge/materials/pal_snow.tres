@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TilePalette" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_palette.gd" id="1_xrgnb"]
+
+[resource]
+script = ExtResource("1_xrgnb")
+palette_id = "snow"
+display_name = "Snow"
+top_primary = "snow_top"
+top_secondary = "snow_light"
+accent = "snow_highlight"
+shadow = "snow_shadow"
+side = "snow_side"
+underside = "snow_deep"
+inset = "snow_deep"
+detail_a = "snow_light"
+detail_b = "snow_shadow"
+detail_c = "snow_highlight"

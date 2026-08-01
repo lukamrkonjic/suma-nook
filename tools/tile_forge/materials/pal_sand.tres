@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TilePalette" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_palette.gd" id="1_67x5t"]
+
+[resource]
+script = ExtResource("1_67x5t")
+palette_id = "sand"
+display_name = "Sand"
+top_primary = "sand_top"
+top_secondary = "sand_light"
+accent = "sand_highlight"
+shadow = "sand_shadow"
+side = "sand_shadow"
+underside = "sand_deep"
+inset = "sand_deep"
+detail_a = "sand_shadow"
+detail_b = "sand_light"
+detail_c = "sand_highlight"

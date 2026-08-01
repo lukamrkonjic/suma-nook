@@ -302,6 +302,10 @@ class TileDefinition:
 	# its neighbours. Declared explicitly per tile, validated by test_runner.
 	var geometry_profile: String = "micro_bevel_square"
 	var connection_mode: String = "full_flush"
+	# Visual seam compatibility is narrower than gameplay family. Two tiles may
+	# both be meadow content yet use different height fields; only an identical
+	# connection group is allowed to consume their shared rim.
+	var connection_group: String = ""
 	# Two-form tiles: the EXPOSED top may sit flush with the walkable plane
 	# ("flush"), dip below it ("recessed" plank beds, carved tops) or rise
 	# above it ("raised" debris piles, mounds). The COVERED form is always the
@@ -335,6 +339,7 @@ class TileDefinition:
 		t.obtainable = bool(d.get("obtainable", true))
 		t.geometry_profile = d.get("geometry_profile", "micro_bevel_square")
 		t.connection_mode = d.get("connection_mode", "full_flush")
+		t.connection_group = d.get("connection_group", t.family)
 		t.exposed_top = d.get("exposed_top", "flush")
 		t.surface_kind = d.get(
 			"surface_kind",

@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TileLibraryManifest" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_kit/library/tile_library_manifest.gd" id="1_rpw3v"]
+
+[resource]
+script = ExtResource("1_rpw3v")
+tile_id = "tile_proc_mud_bed"
+display_name = "Mud Bed"
+revision = 1
+lifecycle = "published"
+visibility = "preview"
+recipe_path = "res://tools/tile_kit/library/recipes/tile_proc_mud_bed.tres"
+baked_roles = PackedStringArray("base", "detail", "surface")
+family = "home_meadow"
+connection_group = "tile_proc_mud_bed"
+biome_tags = PackedStringArray("meadow")
+dependencies = PackedStringArray()
+created_at = "2026-08-01 00:00:00"
+updated_at = "2026-08-01 14:38:51"
+published_at = "2026-08-01 14:38:51"

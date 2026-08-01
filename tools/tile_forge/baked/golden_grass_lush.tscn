@@ -1,0 +1,38 @@
+[gd_scene format=3]
+
+[ext_resource type="ArrayMesh" path="res://tools/tile_forge/baked/meshes/golden_grass_lush_structural_base.res" id="1_w0bvv"]
+[ext_resource type="ArrayMesh" path="res://tools/tile_forge/baked/meshes/golden_grass_lush_surface.res" id="2_dt4wj"]
+[ext_resource type="ArrayMesh" path="res://tools/tile_forge/baked/meshes/golden_grass_lush_detail_static.res" id="3_p0ikw"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ufdtp"]
+size = Vector3(1.35, 0.5, 1.35)
+
+[node name="GeneratedTile" type="Node3D" unique_id=1047991126]
+metadata/tile_forge_id = "golden_grass_lush"
+metadata/tile_forge_seed = 15717761560004760
+metadata/tile_forge_variant = 0
+
+[node name="StructuralBase" type="MeshInstance3D" parent="." unique_id=820030422]
+mesh = ExtResource("1_w0bvv")
+
+[node name="Surface" type="MeshInstance3D" parent="." unique_id=260047540]
+mesh = ExtResource("2_dt4wj")
+
+[node name="DetailStatic" type="MeshInstance3D" parent="." unique_id=1387252069]
+mesh = ExtResource("3_p0ikw")
+
+[node name="Collision" type="StaticBody3D" parent="." unique_id=1607475042]
+
+[node name="GroundBox" type="CollisionShape3D" parent="Collision" unique_id=2039220042]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 0)
+shape = SubResource("BoxShape3D_ufdtp")
+
+[node name="Metadata" type="Node" parent="." unique_id=1796536673]
+metadata/tile_id = "golden_grass_lush"
+metadata/recipe_path = "res://tools/tile_forge/recipes/golden/golden_grass_lush.tres"
+metadata/seed = 4181
+metadata/variant = 0
+metadata/forge_version = "1.0.0"
+metadata/connection_mode = "full_flush"
+metadata/category = "SURFACE_WITH_DETAILS"
+metadata/shared_base_asset = ""

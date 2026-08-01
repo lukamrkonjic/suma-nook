@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TilePalette" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_palette.gd" id="1_qhv66"]
+
+[resource]
+script = ExtResource("1_qhv66")
+palette_id = "golden_paving"
+display_name = "Golden Paving"
+top_primary = "stone_mid"
+top_secondary = "stone_mid_light"
+accent = "stone_mid"
+shadow = "stone_shadow"
+side = "stone_mid"
+underside = "stone_mid"
+inset = "stone_shadow"
+detail_a = "stone_light"
+detail_b = "stone_mid_light"
+detail_c = ""

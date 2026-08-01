@@ -1,0 +1,49 @@
+[gd_resource type="Resource" script_class="TileLibraryManifest" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_kit/library/tile_library_manifest.gd" id="1_ms6r4"]
+
+[resource]
+script = ExtResource("1_ms6r4")
+tile_id = "tile_open_water"
+display_name = "Quiet Water"
+revision = 1
+lifecycle = "published"
+source_kind = "external"
+runtime_definition = {
+"anchor": "pond_anchor",
+"asset_id": "tile_open_water",
+"biome_tags": ["water"],
+"collision_profile": "none",
+"connection_mode": "merged_surface",
+"decor_sockets": 0.0,
+"family": "waterside",
+"geometry_profile": "connected_water",
+"id": "tile_open_water",
+"name": "Quiet Water",
+"placement_sound": "water",
+"render_profile": "continuous_water",
+"special_trait": "A continuous piece of calm water that can support a dock.",
+"stackable": false,
+"structure_sockets": 1.0,
+"supports_decor": true,
+"supports_tiles": false,
+"surface_kind": "water",
+"walkable": false,
+"water_cells": ["open_water"],
+"weight": 1.4
+}
+baked_roles = PackedStringArray("base", "surface", "detail")
+family = "waterside"
+connection_group = "waterside"
+biome_tags = PackedStringArray("water")
+weight = 1.4
+placement_sound = "water"
+dependencies = PackedStringArray()
+stackable = false
+supports_tiles = false
+walkable = false
+surface_kind = "water"
+collision_profile = "none"
+created_at = "2026-08-01 00:00:00"
+updated_at = "2026-08-01 00:00:00"
+published_at = "2026-08-01 00:00:00"

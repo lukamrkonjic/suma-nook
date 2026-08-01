@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="TileLibraryManifest" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_kit/library/tile_library_manifest.gd" id="1_b3bep"]
+
+[resource]
+script = ExtResource("1_b3bep")
+tile_id = "tile_dirt_crossroad"
+display_name = "Country Crossing"
+revision = 1
+lifecycle = "published"
+source_kind = "external"
+runtime_definition = {
+"asset_id": "tile_dirt_crossroad",
+"connection_mode": "full_flush",
+"family": "home_meadow",
+"geometry_profile": "organic_overlay_square",
+"id": "tile_dirt_crossroad",
+"name": "Country Crossing",
+"placement_sound": "grass",
+"rarity": "uncommon",
+"special_trait": "A broad meeting of country paths.",
+"stackable": true,
+"supports_tiles": true,
+"surface_kind": "flat",
+"weight": 1.2
+}
+baked_roles = PackedStringArray("base", "surface", "detail")
+family = "home_meadow"
+connection_group = "home_meadow"
+biome_tags = PackedStringArray()
+rarity = "uncommon"
+weight = 1.2
+dependencies = PackedStringArray()
+created_at = "2026-08-01 00:00:00"
+updated_at = "2026-08-01 00:00:00"
+published_at = "2026-08-01 00:00:00"

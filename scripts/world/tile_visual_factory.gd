@@ -165,7 +165,7 @@ func connection_mask(
 		var neighbour := grid.tile_def_at(coord + entry[1], elevation)
 		if (
 			neighbour != null
-			and neighbour.family == def.family
+			and neighbour.connection_group == def.connection_group
 			and neighbour.connection_mode == "full_flush"
 		):
 			world_mask |= int(entry[0])

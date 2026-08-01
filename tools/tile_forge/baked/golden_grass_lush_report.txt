@@ -1,0 +1,24 @@
+# golden_grass_lush
+golden_grass_lush  tris=2382  mats=5  nodes=7  modules=11  PASS
+
+checks: 15  errors: 0  warnings: 1
+  warning 2382 triangles is heavy for one tile
+
+# data/tiles.json fragment
+{
+  "id": "tile_golden_grass_lush",
+  "name": "Lush Meadow",
+  "asset_id": "golden_grass_lush",
+  "render_profile": "layered",
+  "layers": [
+    {
+      "role": "surface",
+      "asset_id": "golden_grass_lush",
+      "scale_mode": "none",
+      "cover_behavior": "hide"
+    }
+  ],
+  "connection_mode": "full_flush",
+  "exposed_top": "raised",
+  "walk_surface_height": 0.000
+}

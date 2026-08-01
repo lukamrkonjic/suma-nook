@@ -1,0 +1,23 @@
+# golden_soft_pavers
+golden_soft_pavers  tris=202  mats=4  nodes=6  modules=0  PASS
+
+checks: 15  errors: 0  warnings: 0
+
+# data/tiles.json fragment
+{
+  "id": "tile_golden_soft_pavers",
+  "name": "Soft Pavers",
+  "asset_id": "golden_soft_pavers",
+  "render_profile": "layered",
+  "layers": [
+    {
+      "role": "surface",
+      "asset_id": "golden_soft_pavers",
+      "scale_mode": "none",
+      "cover_behavior": "hide"
+    }
+  ],
+  "connection_mode": "tiny_individual_seam",
+  "exposed_top": "flush",
+  "walk_surface_height": 0.030
+}
