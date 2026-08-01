@@ -128,6 +128,7 @@ func _run() -> void:
 	_test_imported_clothing_bundle()
 	_test_character_appearance_catalog()
 	_test_registries()
+	_test_tile_library_contract()
 	_test_ground_impact_surface_profiles()
 	_test_soft_terrain_contract()
 	_test_content_catalog_architecture()
@@ -140,18 +141,15 @@ func _run() -> void:
 	_test_starting_world()
 	_test_authored_onboarding_flow()
 	_test_maxed_debug_world_spawn()
-	_test_local_biome_discovery()
-	_test_uncapped_void_discovery()
-	_test_hobby_journal_and_direct_rewards()
+	_test_skills_grant_no_direct_placeables()
+	_test_fish_journal_retired()
 	_test_out_of_scope_systems_disabled()
 	_test_arrival_and_gift_loop()
 	_test_arrival_queue_invariants()
 	_test_practice_milestones()
 	_test_journal_milestones()
 	_test_deterministic_rng()
-	_test_void_discovery_and_honest_duplicates()
-	_test_void_duplicate_exchange()
-	_test_biome_pool_resolution()
+	_test_legacy_reward_paths_removed()
 	_test_tile_adjacency_overlap_rotation()
 	_test_elevation_stacking()
 	_test_connectivity_and_relocation()
@@ -170,7 +168,42 @@ func _run() -> void:
 	_test_current_save_policy()
 	_test_interrupted_reveal_recovery()
 	_test_progression_v1_migration()
+	_test_progression_v3_to_v4_migration()
 	_test_player_defeat_safety()
+
+
+func _test_tile_library_contract() -> void:
+	var service := TileLibraryService.new()
+	service.reload()
+	var official := service.official_manifests()
+	check(official.size() == 56, "official Tile Library manifests are complete")
+	for entry in TileKitPreset.OFFICIAL_RECIPES:
+		var tile_id := String(entry[1])
+		check(
+			ResourceLoader.exists("%s/%s.tres" % [
+				TileKitPreset.OFFICIAL_RECIPE_DIRECTORY, tile_id,
+			]),
+			"procedural recipe %s is file-backed" % tile_id,
+		)
+	var catalog := JSON.parse_string(
+		FileAccess.get_file_as_string("res://data/tiles.json")
+	) as Dictionary
+	for raw in catalog.get("tiles", []):
+		var tile_id := String((raw as Dictionary).get("id", ""))
+		check(
+			String((raw as Dictionary).get("source_kind", "")) == "procedural",
+			"runtime tile %s is procedurally authored" % tile_id,
+		)
+		check(
+			service.official_manifest(tile_id) != null,
+			"runtime tile %s has an authoritative manifest" % tile_id,
+		)
+	var candidate := service.compiler.build_candidate(official)
+	check(
+		bool(candidate.get("ok", false)),
+		"official Tile Library compiles before publication: %s"
+		% "; ".join(candidate.get("errors", PackedStringArray())),
+	)
 
 
 func _test_imported_clothing_bundle() -> void:
@@ -1027,27 +1060,35 @@ func _test_registries() -> void:
 	check(
 		regs.active_tile_ids() == [
 			"tile_grass", "tile_sand", "tile_grove_mature",
-			"tile_concrete_brutalist", "tile_snowfield"
+			"tile_concrete_brutalist", "tile_snowfield", "tile_master_grass"
 		],
 		"the active land roster remains explicit"
 	)
 	check(
-		regs.discovery_pool("void_unknown") != null
-		and regs.discovery_pool("pond_beach") != null
-		and regs.discovery_pool("tree_forest") != null,
-		"broad and biome-shaped discovery pools load"
+		regs.discovery_pool("void_unknown") != null,
+		"the ferry's broad delivery pool loads"
 	)
-	var void_pools := 0
-	var local_fallbacks := {}
+	var delivery_pools := 0
+	var local_pools := 0
 	for pool: Defs.DiscoveryPoolDefinition in regs.discovery_pools.values():
 		if pool.source == "void":
-			void_pools += 1
-		if pool.source == "local" and pool.fallback:
-			local_fallbacks[pool.skill_id] = true
-	check(void_pools == 1, "exactly one broad void discovery pool ships")
+			delivery_pools += 1
+		else:
+			local_pools += 1
+	check(delivery_pools == 1, "exactly one broad delivery pool ships")
+	check(local_pools == 0, "local biome discovery pools are fully retired")
 	check(
-		local_fallbacks.has("fishing") and local_fallbacks.has("woodcutting"),
-		"every playable local skill has a fallback discovery pool"
+		not regs.fishing_loot.is_empty()
+		and regs.fishing_loot_definition("loot_tile_water") != null
+		and regs.spirit("spirit_grove") != null
+		and regs.spirit("spirit_stone") != null
+		and regs.keepsake("keepsake_growth") != null,
+		"fishing loot, spirits, and keepsakes load as typed content"
+	)
+	check(
+		not regs.fishing_balance.is_empty()
+		and regs.fishing_balance.has("timing"),
+		"the fishing balance resource loads"
 	)
 	check(
 		regs.structure("struct_wishing_well") == null
@@ -1061,7 +1102,7 @@ func _test_content_catalog_architecture() -> void:
 	var expected_kinds := [
 		"skills", "items", "tiles", "structures", "recipes", "loot_tables",
 		"discovery_pools", "milestones", "anchors", "capabilities",
-		"enemies", "landmarks",
+		"enemies", "landmarks", "fishing_loot", "spirits", "keepsakes",
 	]
 	check(
 		regs.definition_kinds() == expected_kinds,
@@ -1254,6 +1295,28 @@ func _test_tile_slot_fill() -> void:
 			for layer: Defs.TileVisualLayerDefinition in def.visual_layers:
 				if layer.role in ["base", "surface"]:
 					asset_ids.append(layer.asset_id)
+		# Slot width depends on the layer's declared scale mode. The shipped GLB
+		# catalog is authored at 1.70 m and normalized by `tile_xz` at runtime; a
+		# layer declaring `none` is authored at the live grid size and receives
+		# no scaling, so it must measure 1.35 m in the source file.
+		var slot := TILE_SLOT
+		if def.uses_layered_visual():
+			var authored := false
+			var live := false
+			for layer: Defs.TileVisualLayerDefinition in def.visual_layers:
+				if not (layer.role in ["base", "surface"]):
+					continue
+				if layer.scale_mode == "none":
+					live = true
+				else:
+					authored = true
+			check(
+				not (authored and live),
+				"tile %s does not mix authored and live layer scale modes" % tile_id
+			)
+			if live and not authored:
+				slot = regs.tunef("tile_size", TILE_SLOT)
+		var slot_half := slot * 0.5
 		var shell := AABB()
 		var has_shell := false
 		var has_filler := false
@@ -1283,8 +1346,8 @@ func _test_tile_slot_fill() -> void:
 				# The shared base itself must fill the structural slot; the
 				# merged AABB of multiple narrower pieces is not sufficient.
 				if (
-					bounds.size.x >= TILE_SLOT - EPS
-					and bounds.size.z >= TILE_SLOT - EPS
+					bounds.size.x >= slot - EPS
+					and bounds.size.z >= slot - EPS
 					and bounds.position.y <= -0.5 + EPS
 				):
 					has_filler = true
@@ -1293,8 +1356,10 @@ func _test_tile_slot_fill() -> void:
 		if not has_shell:
 			continue
 		check(
-			absf(shell.position.x + HALF) <= EPS and absf(shell.end.x - HALF) <= EPS
-			and absf(shell.position.z + HALF) <= EPS and absf(shell.end.z - HALF) <= EPS,
+			absf(shell.position.x + slot_half) <= EPS
+			and absf(shell.end.x - slot_half) <= EPS
+			and absf(shell.position.z + slot_half) <= EPS
+			and absf(shell.end.z - slot_half) <= EPS,
 			"tile %s shell spans exactly one slot footprint (got x %.3f..%.3f, z %.3f..%.3f)"
 			% [tile_id, shell.position.x, shell.end.x, shell.position.z, shell.end.z]
 		)
@@ -1340,43 +1405,23 @@ func _test_tile_slot_fill() -> void:
 			not base_meshes.is_empty() and not surface_meshes.is_empty(),
 			"active tile %s assembles explicit base and surface render layers" % tile_id
 		)
-		if tile_id == "tile_concrete_brutalist":
-			var concrete_base_top := -INF
-			var concrete_surface_bottom := INF
-			for mesh in base_meshes + surface_meshes:
-				var relative := Transform3D.IDENTITY
-				var cursor: Node3D = mesh
-				while cursor != null and cursor != visual:
-					relative = cursor.transform * relative
-					cursor = cursor.get_parent() as Node3D
-				var bounds: AABB = relative * mesh.get_aabb()
-				if base_meshes.has(mesh):
-					concrete_base_top = maxf(concrete_base_top, bounds.end.y)
-				else:
-					concrete_surface_bottom = minf(
-						concrete_surface_bottom, bounds.position.y
-					)
-			check(
-				absf(concrete_base_top + 0.20) <= EPS
-				and absf(concrete_surface_bottom + 0.20) <= EPS,
-				"concrete base and hard-shaded cap meet at the 20 cm deep constructed seam"
-			)
 		factory.set_surface_covered(visual, true, false)
 		check(
 			base_meshes.all(func(mesh: MeshInstance3D): return mesh.visible)
 			and surface_meshes.all(func(mesh: MeshInstance3D): return not mesh.visible),
 			"covering %s persists its base and hides its complete surface layer" % tile_id
 		)
-		if tile_id == "tile_concrete_brutalist":
-			var infill := visual.find_child(
-				TileVisualFactory.COVERED_INFILL_NAME, true, false
-			) as MeshInstance3D
-			check(
-				infill != null
-				and absf(infill.position.y + 0.10) <= EPS
-				and absf(infill.get_aabb().size.y - 0.20) <= EPS,
-				"covered concrete replaces its deep cap with an exact 20 cm flush infill"
-			)
+		var infill := visual.find_child(
+			TileVisualFactory.COVERED_INFILL_NAME, true, false
+		) as MeshInstance3D
+		check(
+			infill != null
+			and absf(infill.position.y + infill.get_aabb().size.y * 0.5) <= EPS
+			and absf(infill.get_aabb().size.x - core.grid.tile_size) <= EPS
+			and absf(infill.get_aabb().size.z - core.grid.tile_size) <= EPS,
+			"covered %s receives a full-slot procedural infill flush to the walk plane"
+			% tile_id
+		)
 		factory.set_surface_covered(visual, false, false)
 		check(
 			surface_meshes.all(func(mesh: MeshInstance3D): return mesh.visible),
@@ -1390,6 +1435,10 @@ const _TILE_GLB_PATHS := [
 	"res://assets/3d/reworked/%s.glb",
 	"res://assets/3d/final/%s.glb",
 	"res://assets/3d/proxies/%s.glb",
+	# Baked procedural tiles resolve exactly like authored GLBs; this list
+	# mirrors AssetLibrary.SEARCH_PATHS so the slot-fill contract covers them.
+	"res://tools/tile_forge/baked/%s.tscn",
+	"res://tools/tile_kit/baked/%s.tscn",
 ]
 
 
@@ -1440,10 +1489,17 @@ func _test_catalog_expansion() -> void:
 			tile != null and tile.stackable and tile.supports_tiles,
 			"%s participates in the global tile stacking contract" % tile_id
 		)
+	var winter_loot_exists := false
+	for loot: Defs.FishingLootDefinition in regs.fishing_loot.values():
+		if (
+			loot.reward_kind == "tile_bundle"
+			and regs.tile(loot.building_definition_id) != null
+			and regs.tile(loot.building_definition_id).family == "winter"
+		):
+			winter_loot_exists = true
 	check(
-		not regs.tiles_in_family("winter").is_empty()
-		and regs.discovery_pool("tree_winter") != null,
-		"winter terrain is obtainable through its biome-shaped discovery pool"
+		not regs.tiles_in_family("winter").is_empty() and winter_loot_exists,
+		"winter terrain is obtainable through the fishing loot catalog"
 	)
 	var watering_can := regs.structure("struct_watering_can")
 	check(
@@ -1625,96 +1681,77 @@ func _test_authored_onboarding_flow() -> void:
 		and core.onboarding.stage == OnboardingState.TRY_VOID_FISHING,
 		"arrival raises a 3x3 biome island, one tree, and an exposed void edge"
 	)
-	var first := core.progression.on_void_fishing_catch()
-	var first_reward: Dictionary = first["reward"]
+	# Fish the first haul through the real session state machine, headless.
 	check(
-		first_reward.get("id") == "tile_open_water"
-		and core.onboarding.stage == OnboardingState.PLACE_DISCOVERY,
-		"the first void catch guarantees buildable water and guides its placement"
+		core.fishing.session.begin_session(Vector2i.ZERO),
+		"onboarding void fishing begins at the raised island"
 	)
-	core.progression.discovery.acknowledge_next()
+	for _index in 400:
+		core.fishing.tick(0.25)
+		if core.onboarding.stage == OnboardingState.PLACE_DISCOVERY:
+			break
+	core.fishing.session.cancel("test")
+	check(
+		core.onboarding.stage == OnboardingState.PLACE_DISCOVERY
+		and core.onboarding.guided_id == "tile_open_water",
+		"the first haul guarantees buildable water and guides its placement"
+	)
+	check(
+		core.stock.tile_count("tile_open_water") >= 1,
+		"the guided bundle is checked into the Build Library"
+	)
 	check(
 		core.place_tile_from_stock(Vector2i(0, 2), "tile_open_water", 0),
 		"discovered water places as an ordinary real tile"
 	)
 	core.advance_onboarding_after_placement()
 	check(
-		core.onboarding.stage == OnboardingState.TEND_TREE,
-		"placing the void discovery introduces local biome-shaped skilling"
+		core.onboarding.stage == OnboardingState.COMPLETE,
+		"placing the first haul completes onboarding into free play"
 	)
-	var local_feedback: Dictionary = {}
-	for _index in 4:
-		local_feedback = core.progression.on_activity_action(
-			"woodcutting", Vector2i(-1, -1), "struct_pine"
-		)
-	check(
-		local_feedback.get("pool_id") == "tree_forest"
-		and not (local_feedback.get("reward", {}) as Dictionary).is_empty()
-		and core.onboarding.stage == OnboardingState.PLACE_BIOME_DISCOVERY,
-		"a full tree cycle uses the surrounding forest pool"
-	)
-	var local_entry := core.progression.discovery.acknowledge_next()
-	if String(local_entry.get("kind", "")) == "tile":
-		check(
-			core.place_tile_from_stock(
-				Vector2i(1, 2), String(local_entry["id"]), 0
-			),
-			"the biome-shaped tile can be placed"
-		)
-	else:
-		var structure_id := String(local_entry.get("id", ""))
-		var definition := core.registries.structure(structure_id)
-		var token := core.stock.take_structure_token(structure_id)
-		var placed := core.grid.add_structure(
-			Vector2i(1, 1),
-			structure_id,
-			0 if definition.socket_type == "structure" else 1
-		)
-		check(not token.is_empty() and placed != null, "the biome-shaped structure can be placed")
-	core.advance_onboarding_after_placement()
-	check(core.onboarding.stage == OnboardingState.COMPLETE, "placing the local discovery completes onboarding")
 
-func _test_local_biome_discovery() -> void:
+func _test_skills_grant_no_direct_placeables() -> void:
 	var core := fresh_core(404)
 	var inventory_before := core.inventory.counts.duplicate()
-	var forest := core.progression.discovery.resolve_local_pool(
-		"woodcutting", Vector2i.ZERO, "struct_pine"
+	var tiles_before := core.stock.total_tiles()
+	var structures_before := str(core.stock.structures)
+	for _index in 6:
+		core.progression.on_activity_action("woodcutting")
+		core.progression.on_activity_action("fishing")
+	check(
+		core.progression.actions_done("woodcutting") == 6
+		and core.progression.actions_done("fishing") == 6,
+		"lifetime practice is still recorded per activity"
 	)
-	check(forest != null and forest.id == "tree_meadow", "a tree on meadow uses the meadow fallback")
-	core.grid.place_tile(Vector2i(20, 20), "tile_sand")
-	var beach := core.progression.discovery.resolve_local_pool(
-		"woodcutting", Vector2i(20, 20), "struct_pine"
+	# Practice milestones may gift pieces; ordinary actions themselves no
+	# longer roll placeable rewards or material stacks.
+	check(str(core.inventory.counts) == str(inventory_before), "skills add no material stacks")
+	check(
+		core.progression.discovery.pending.is_empty(),
+		"ordinary skill actions queue no discovery reveals"
 	)
-	check(beach != null and beach.id == "tree_beach", "sand changes the same tree into the beach pool")
-	var feedback := core.progression.on_activity_action(
-		"woodcutting", Vector2i(20, 20), "struct_pine"
+	check(
+		core.stock.total_tiles() >= tiles_before
+		or str(core.stock.structures) == structures_before,
+		"stock changes only through milestones, never per-action rolls"
 	)
-	check(feedback.get("pool_id") == "tree_beach", "activity feedback names its resolved pool")
-	check(core.progression.actions_done("woodcutting") == 1, "lifetime practice is still recorded")
-	check(str(core.inventory.counts) == str(inventory_before), "skills add no common material stacks")
 
-func _test_uncapped_void_discovery() -> void:
-	var core := fresh_core(405)
-	var before := core.stock.total_tiles()
-	for _index in 8:
-		core.progression.on_void_fishing_catch()
-	check(core.progression.discovery.pending.size() == 8, "every successful void catch queues one owned discovery")
-	check(core.stock.total_tiles() >= before, "repeated catches keep granting real build pieces")
-
-func _test_hobby_journal_and_direct_rewards() -> void:
+func _test_fish_journal_retired() -> void:
 	var core := fresh_core(505)
 	var fishing := core.registries.skill("fishing")
-	core.registries.tuning["fishing_collection_chance"] = 1.0
-	var old_entries := fishing.collection_entries.duplicate()
-	fishing.collection_entries = ["test_sunfish"] as Array[String]
-	var first := core.rewards.resolve_hobby_action(fishing)
-	check(first.collection_discovery_id == "test_sunfish", "fishing can still fill the journal")
-	check(first.was_new_discovery, "first journal catch is marked new")
-	check(not first.has_world_reward(), "the side-journal resolver never bypasses discovery progression")
-	var reward := core.progression.on_void_fishing_catch()["reward"] as Dictionary
-	check(not reward.is_empty(), "world pieces arrive through the unified discovery system")
-	check(_entry_stock_count(core, reward) >= 1, "a discovery immediately enters the Build Bag")
-	fishing.collection_entries = old_entries
+	check(
+		fishing.collection_category == "" and fishing.collection_entries.is_empty(),
+		"fishing no longer defines collectible fish journal entries"
+	)
+	var result := core.rewards.resolve_hobby_action(fishing)
+	check(
+		result.collection_discovery_id == "",
+		"a pond catch records no fish discovery"
+	)
+	check(
+		core.registries.milestone("ms_journal_fish_page") == null,
+		"the fish journal page milestone is retired"
+	)
 
 func _test_out_of_scope_systems_disabled() -> void:
 	var core := fresh_core()
@@ -1788,11 +1825,11 @@ func _test_journal_milestones() -> void:
 	var core := fresh_core()
 	var reached: Array = []
 	core.progression.milestones.milestone_reached.connect(func(id, _rewards): reached.append(id))
-	core.collection.record("fish", "sunny_minnow")
-	core.collection.record("fish", "pond_darter")
-	check(not reached.has("ms_journal_fish_page"), "an incomplete journal page stays unclaimed")
-	core.collection.record("fish", "silver_leaf_fish")
-	check(reached.has("ms_journal_fish_page"), "completing every entry claims the journal milestone")
+	core.collection.record("woodland", "first_pruning")
+	core.collection.record("woodland", "healthy_grove")
+	check(not reached.has("ms_journal_woodland_page"), "an incomplete journal page stays unclaimed")
+	core.collection.record("woodland", "ancient_bough")
+	check(reached.has("ms_journal_woodland_page"), "completing every entry claims the journal milestone")
 
 
 func _test_deterministic_rng() -> void:
@@ -1812,92 +1849,34 @@ func _test_deterministic_rng() -> void:
 	check(differs, "different seeds diverge")
 
 
-func _test_void_discovery_and_honest_duplicates() -> void:
+## Characterization: the legacy exchange and local-pool systems are gone and
+## nothing recreates their behavior. The fishing feature suite
+## (tests/fishing_test_runner.gd) covers their replacements in depth.
+func _test_legacy_reward_paths_removed() -> void:
 	var core := fresh_core(808)
-	var first := core.progression.on_void_fishing_catch()["reward"] as Dictionary
-	check(first.get("id") == "tile_open_water", "the authored first void discovery is useful water")
-	check(core.progression.discovery.has_pending(), "discovery presentation is save-safe and pending")
-	var accepted := core.progression.discovery.acknowledge_next()
-	check(accepted.get("id") == first.get("id"), "acknowledgement returns the exact granted piece")
-	var before := _entry_stock_count(core, first)
-	var second := core.progression.on_void_fishing_catch()["reward"] as Dictionary
-	check(not second.is_empty(), "later void catches use the broad gacha pool")
-	check(_entry_stock_count(core, second) >= 1, "duplicates remain honest owned copies")
-	check(_entry_stock_count(core, first) == before or second.get("id") == first.get("id"), "no hidden duplicate currency conversion exists")
-
-func _test_void_duplicate_exchange() -> void:
-	var core := fresh_core(909)
-	core.stock.add_tile("tile_grass", 3)
-	check(core.progression.void_exchange.offerable_count("tile", "tile_grass") == 3, "placed keeper copies protect all three stored grass spares")
-	for index in 3:
-		var result := core.progression.void_exchange.offer("tile", "tile_grass")
-		check(bool(result.get("ok", false)), "spare offer %d succeeds" % (index + 1))
-		if index < 2:
-			check((result.get("reward", {}) as Dictionary).is_empty(), "the void waits for exactly three matching spares")
-		else:
-			var reward: Dictionary = result["reward"]
-			check(
-				reward.get("kind") == "tile"
-				and reward.get("id") == "tile_sand",
-				"three grass spares return a different Ground-category tile"
-			)
-	check(core.stock.tile_count("tile_grass") == 0, "exactly the three stored spares are consumed")
-	check(core._placed_tile_count("tile_grass") == 9, "placed keeper copies remain untouched")
-	core.stock.add_structure("struct_snowman")
-	check(core.progression.void_exchange.offerable_count("structure", "struct_snowman") == 0, "an unplaced only copy is protected")
-	core.stock.add_structure("struct_snowman")
-	core.progression.void_exchange.offer("structure", "struct_snowman")
 	check(
-		core.progression.void_exchange.has_offerable_duplicates()
-		and core.progression.void_exchange.offered_count(
-			"structure", "struct_snowman"
-		) == 1,
-		"a partial offering remains visible while it waits for another spare"
-	)
-	core.stock.add_tile("tile_snowfield", 4)
-	core.progression.void_exchange.offer("tile", "tile_snowfield")
-	core.progression.void_exchange.offer("tile", "tile_snowfield")
-	var impossible := core.progression.void_exchange.offer(
-		"tile", "tile_snowfield"
+		not core.progression.has_method("on_void_fishing_catch"),
+		"the legacy direct void-catch reward path is removed"
 	)
 	check(
-		not bool(impossible.get("ok", true))
-		and impossible.get("reason") == "no_alternative"
-		and core.stock.tile_count("tile_snowfield") == 4
-		and core.progression.void_exchange.offered_count(
-			"tile", "tile_snowfield"
-		) == 0,
-		"an unfinished one-item category returns all offers without loss"
-	)
-
-func _test_biome_pool_resolution() -> void:
-	var core := fresh_core(1010)
-	core.grid.place_tile(Vector2i(20, 20), "tile_grove_mature")
-	core.grid.place_tile(Vector2i(30, 30), "tile_snowfield")
-	core.grid.place_tile(Vector2i(40, 40), "tile_sand")
-	var forest := core.progression.discovery.resolve_local_pool("woodcutting", Vector2i(20, 20), "struct_pine")
-	var winter := core.progression.discovery.resolve_local_pool("woodcutting", Vector2i(30, 30), "struct_pine")
-	var beach := core.progression.discovery.resolve_local_pool("woodcutting", Vector2i(40, 40), "struct_pine")
-	check(forest.id == "tree_forest", "forest-built trees resolve the forest reward theme")
-	check(winter.id == "tree_winter", "snow-built trees resolve the winter reward theme")
-	check(beach.id == "tree_beach", "sand-built trees resolve the sunset/beach reward theme")
-	var pond := Vector2i(60, 60)
-	core.grid.place_tile(pond, "tile_open_water")
-	for offset: Vector2i in WorldGrid.NEIGHBORS:
-		var tree_coord := pond + offset
-		core.grid.place_tile(tree_coord, "tile_grass")
-		core.grid.add_structure(tree_coord, "struct_pine", 1)
-	var planted_forest := core.progression.discovery.resolve_local_pool(
-		"fishing", pond
+		"void_exchange" not in core.progression,
+		"the three-spare void exchange system is removed"
 	)
 	check(
-		planted_forest != null and planted_forest.id == "pond_forest",
-		"player-placed pines turn an ordinary meadow pond into a forest pond"
+		not core.progression.discovery.has_method("resolve_local_pool")
+		and not core.progression.discovery.has_method("record_local_action"),
+		"local biome discovery rolls are removed"
+	)
+	var progression_payload := core.progression.to_save_dict()
+	check(
+		int(progression_payload["version"]) == 4
+		and not progression_payload.has("void_exchange"),
+		"progression persists as version 4 without exchange state"
 	)
 	check(
 		core.registries.structure("struct_shrine") == null
 		and not core.registries.capabilities.has("focus_shrine"),
-		"manual shrine bias and land insurance are fully retired"
+		"manual shrine bias and land insurance remain fully retired"
 	)
 
 func _test_tile_adjacency_overlap_rotation() -> void:
@@ -2492,8 +2471,11 @@ func _test_deed_replacement() -> void:
 
 func _test_rework_save_round_trip() -> void:
 	var core := fresh_core(31415)
-	core.progression.on_void_fishing_catch()
-	core.progression.on_activity_action("fishing", Vector2i.ZERO)
+	var haul = core.fishing.debug_force_catch(Vector2i.ZERO)
+	check(haul != null, "a haul commits before the round trip")
+	core.fishing.pouch.add_spirit("spirit_grove")
+	core.fishing.pouch.arm_slot(0)
+	core.progression.on_activity_action("fishing")
 	core.stock.add_tile("tile_grove_birch")
 	core.profile.position = Vector3(0.234, 0.0, 0.345)
 	core.profile.facing = 1.11
@@ -2504,6 +2486,7 @@ func _test_rework_save_round_trip() -> void:
 	}
 	core.arrivals.trigger_arrival()
 	core.arrivals.mark_delivery_ready(core.arrivals.current_payload)
+	core.progression.discovery.discover_delivery()
 	core.rng.randi_range("probe", 0, 999999)
 	check(core.save(), "save writes")
 	var restored := GameCore.new()
@@ -2511,8 +2494,26 @@ func _test_rework_save_round_trip() -> void:
 	restored.save_manager.save_path = core.save_manager.save_path
 	restored.save_manager.backup_path = core.save_manager.backup_path
 	check(restored.load_game(), "save loads")
-	check(restored.progression.discovery.first_void_discovery_done, "first-discovery guarantee state round-trips")
-	check(restored.progression.discovery.pending.size() == 2, "all pending discoveries round-trip")
+	check(restored.fishing.first_catch_done, "first-catch guarantee state round-trips")
+	check(
+		restored.fishing.basket.haul_count() == core.fishing.basket.haul_count()
+		and str(restored.fishing.basket.to_save_dict())
+			== str(core.fishing.basket.to_save_dict()),
+		"pending basket hauls round-trip exactly"
+	)
+	check(
+		restored.fishing.pouch.slots() == ["spirit_grove"]
+		and restored.fishing.pouch.armed_index() == 0,
+		"spirit pouch charms and the armed slot round-trip"
+	)
+	check(
+		restored.fishing.luck.state.catches_since_rare
+			== core.fishing.luck.state.catches_since_rare
+		and restored.fishing.luck.state.catches_since_keepsake
+			== core.fishing.luck.state.catches_since_keepsake,
+		"hidden protection counters round-trip"
+	)
+	check(restored.progression.discovery.pending.size() == 1, "the pending ferry discovery round-trips")
 	check(restored.progression.actions_done("fishing") == core.progression.actions_done("fishing"), "lifetime actions round-trip")
 	check(restored.stock.tile_count("tile_grove_birch") == 1, "stock round-trips")
 	check(restored.grid.cells.size() == core.grid.cells.size(), "grid round-trips")
@@ -2722,9 +2723,29 @@ func _test_current_save_policy() -> void:
 	)
 	var retired_reference_cases := [
 		{
-			"label": "discovery progress",
+			"label": "fishing pouch state",
 			"mutate": func(save: Dictionary) -> void:
-				save["progression"]["discovery"]["progress"]["retired_pool"] = 1,
+				save["features"]["fishing"]["pouch"]["slots"] = ["retired_spirit"],
+		},
+		{
+			"label": "fishing basket state",
+			"mutate": func(save: Dictionary) -> void:
+				save["features"]["fishing"]["basket"]["hauls"] = [{
+					"haul_id": 1,
+					"catch_size": "single",
+					"entries": [{
+						"form": "model",
+						"loot_id": "retired_loot",
+						"building_id": "retired_structure",
+						"quantity": 1,
+						"rarity": "common",
+					}],
+				}],
+		},
+		{
+			"label": "retired exchange state",
+			"mutate": func(save: Dictionary) -> void:
+				save["progression"]["void_exchange"] = {"offerings": {}},
 		},
 		{
 			"label": "discovery state",
@@ -2784,7 +2805,7 @@ func _test_current_save_policy() -> void:
 
 func _test_interrupted_reveal_recovery() -> void:
 	var core := fresh_core()
-	var entry := core.progression.on_void_fishing_catch()["reward"] as Dictionary
+	var entry := core.progression.discovery.discover_delivery()
 	check(core.progression.discovery.has_pending(), "discovery reveal is pending")
 	var stock_before := _entry_stock_count(core, entry)
 	core.save()
@@ -2845,6 +2866,81 @@ func _test_progression_v1_migration() -> void:
 	CurrentSaveValidatorScript._validate_progression(progression_errors, progression, core.registries)
 	check(progression_errors.is_empty(), "migrated progression passes strict validation: " + ", ".join(progression_errors))
 	check(str(ProgressionModule.migrate_save_payload(migrated)) == str(migrated), "migration is idempotent")
+
+## v3 → v4: the fishing rework retires the three-spare exchange (refunding
+## partial offerings), local discovery progress, and released-fish records.
+func _test_progression_v3_to_v4_migration() -> void:
+	var core := fresh_core()
+	var v3_save := {
+		"progression": {
+			"version": 3,
+			"discovery": {
+				"progress": {"pond_forest": 2},
+				"pending": [{"kind": "tile", "id": "tile_sand", "pool_id": "void_unknown", "source": "void", "was_new": true}],
+				"first_void_discovery_done": true,
+			},
+			"void_exchange": {"offerings": {
+				"tile:tile_grass": 2,
+				"structure:struct_snowman": 1,
+			}},
+			"milestones": {"claimed": []},
+			"activity_actions": {"fishing": 9},
+			"archived_v1": {},
+			"archived_v2": {},
+		},
+		"stock": {
+			"tiles": {"tile_grass": 1},
+			"structures": {},
+			"structure_instances": [],
+			"deeds": [],
+		},
+		"collection": {"entries": {
+			"fish/sunny_minnow": {"count": 3},
+			"tiles/tile_grass": {"count": 1},
+		}},
+		"onboarding": {"stage": "tend_tree", "guided_kind": "", "guided_id": ""},
+	}
+	var migrated := ProgressionModule.migrate_save_payload(v3_save)
+	var progression: Dictionary = migrated["progression"]
+	check(int(progression["version"]) == 4, "v3 payloads migrate to progression v4")
+	check(not progression.has("void_exchange"), "the exchange subsystem is retired from the payload")
+	check(
+		int(migrated["stock"]["tiles"]["tile_grass"]) == 3
+		and int(migrated["stock"]["structures"]["struct_snowman"]) == 1,
+		"partial exchange offerings refund their real removed copies"
+	)
+	check(
+		not (progression["discovery"] as Dictionary).has("progress")
+		and not (progression["discovery"] as Dictionary).has("first_void_discovery_done"),
+		"local discovery progress and the first-catch flag leave the discovery payload"
+	)
+	check(
+		bool(migrated["features"]["fishing"]["first_catch_done"]),
+		"the first-catch guarantee state moves to the fishing feature payload"
+	)
+	check(
+		(progression["discovery"]["pending"] as Array).size() == 1,
+		"pending discoveries stay owned and revealable"
+	)
+	check(
+		not (migrated["collection"]["entries"] as Dictionary).has("fish/sunny_minnow")
+		and (migrated["collection"]["entries"] as Dictionary).has("tiles/tile_grass"),
+		"released-fish journal records retire; the rest of the journal is untouched"
+	)
+	check(
+		String(migrated["onboarding"]["stage"]) == "complete",
+		"retired onboarding stages complete instead of stranding the save"
+	)
+	var archived: Dictionary = progression["archived_v3"]
+	check(
+		int(archived["void_exchange"]["offerings"]["tile:tile_grass"]) == 2
+		and archived.has("fish_collection"),
+		"retired v3 state is archived verbatim for history"
+	)
+	var progression_errors := PackedStringArray()
+	CurrentSaveValidatorScript._validate_progression(progression_errors, progression, core.registries)
+	check(progression_errors.is_empty(), "migrated v4 progression passes strict validation: " + ", ".join(progression_errors))
+	check(str(ProgressionModule.migrate_save_payload(migrated)) == str(migrated), "v4 migration is idempotent")
 
 func _test_player_defeat_safety() -> void:
 	var core := fresh_core()

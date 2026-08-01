@@ -16,40 +16,24 @@ static func validate(snapshot, issues: Array) -> void:
 	_validate_tuning(snapshot, issues)
 
 
+## Since the fishing rework, discovery pools exist only for the ferry's
+## periodic gift: exactly one broad "void"-sourced pool, no local skill pools.
 static func _validate_discovery_pools(snapshot, issues: Array) -> void:
-	var void_count := 0
-	var fallbacks := {}
+	var delivery_count := 0
 	for pool: Defs.DiscoveryPoolDefinition in snapshot.discovery_pools.values():
 		var source = snapshot.source("discovery_pools", pool.id)
-		if not ["void", "local"].has(pool.source):
+		if pool.source != "void":
 			_error(
 				issues, "discovery.source.invalid", source, "source",
-				"pool '%s' has unknown source '%s'" % [pool.id, pool.source]
+				"pool '%s' has retired source '%s' — local skill pools no longer exist"
+				% [pool.id, pool.source]
 			)
-		if pool.source == "void":
-			void_count += 1
-			if pool.skill_id != "" or not pool.context_tags.is_empty():
-				_error(
-					issues, "discovery.void.context", source, "skill",
-					"void pool '%s' cannot declare local context" % pool.id
-				)
-		else:
-			if not snapshot.skills.has(pool.skill_id):
-				_error(
-					issues, "discovery.skill.missing", source, "skill",
-					"pool '%s' references missing skill '%s'" % [pool.id, pool.skill_id]
-				)
-			if pool.fallback:
-				if fallbacks.has(pool.skill_id):
-					_error(
-						issues, "discovery.fallback.duplicate", source, "fallback",
-						"skill '%s' has more than one fallback pool" % pool.skill_id
-					)
-				fallbacks[pool.skill_id] = true
-		if pool.actions_per_reward <= 0:
+			continue
+		delivery_count += 1
+		if pool.skill_id != "" or not pool.context_tags.is_empty():
 			_error(
-				issues, "discovery.actions.invalid", source, "actions_per_reward",
-				"pool '%s' must require at least one action" % pool.id
+				issues, "discovery.void.context", source, "skill",
+				"delivery pool '%s' cannot declare local context" % pool.id
 			)
 		if pool.rewards.is_empty():
 			_error(
@@ -77,18 +61,11 @@ static func _validate_discovery_pools(snapshot, issues: Array) -> void:
 					"rewards[%d].weight" % index,
 					"reward weight must be positive"
 				)
-	if void_count != 1:
+	if delivery_count != 1:
 		_error(
 			issues, "discovery.void.count", null, "discovery_pools",
-			"exactly one broad void pool is required (found %d)" % void_count
+			"exactly one broad delivery pool is required (found %d)" % delivery_count
 		)
-	for skill: Defs.SkillDefinition in snapshot.skills.values():
-		if not skill.future and not fallbacks.has(skill.id):
-			_error(
-				issues, "discovery.fallback.missing",
-				snapshot.source("skills", skill.id), "id",
-				"playable skill '%s' needs one local fallback pool" % skill.id
-			)
 
 
 static func _validate_milestones(snapshot, issues: Array) -> void:
@@ -162,12 +139,6 @@ static func _validate_tuning(snapshot, issues: Array) -> void:
 		_error(
 			issues, "tuning.starter.missing", null, "starter_land_options",
 			"progression requires starter land options"
-		)
-	var first_void := String(snapshot.tuning.get("first_void_reward", ""))
-	if not snapshot.tiles.has(first_void):
-		_error(
-			issues, "tuning.first_void.missing", null, "first_void_reward",
-			"first void reward '%s' is not a tile" % first_void
 		)
 
 

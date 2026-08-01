@@ -1,0 +1,65 @@
+[gd_resource type="Resource" script_class="TileModuleSet" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_module_entry.gd" id="1_h2ill"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_module_set.gd" id="2_vvu1s"]
+
+[sub_resource type="Resource" id="Resource_td0h6"]
+script = ExtResource("1_h2ill")
+mesh_path = "res://tools/tile_forge/modules/stones/gf_stone_a.glb"
+tags = PackedStringArray("stones")
+footprint_radius = 0.0892
+height = 0.062
+sink = 0.01
+
+[sub_resource type="Resource" id="Resource_o6d0l"]
+script = ExtResource("1_h2ill")
+mesh_path = "res://tools/tile_forge/modules/stones/gf_stone_b.glb"
+weight = 0.85
+tags = PackedStringArray("stones")
+footprint_radius = 0.0717
+height = 0.052
+sink = 0.01
+
+[sub_resource type="Resource" id="Resource_a4bp2"]
+script = ExtResource("1_h2ill")
+mesh_path = "res://tools/tile_forge/modules/stones/gf_stone_c.glb"
+weight = 0.7
+tags = PackedStringArray("stones")
+footprint_radius = 0.1034
+height = 0.07
+sink = 0.01
+
+[sub_resource type="Resource" id="Resource_bis3e"]
+script = ExtResource("1_h2ill")
+mesh_path = "res://tools/tile_forge/modules/stones/gf_stone_d.glb"
+weight = 0.55
+tags = PackedStringArray("stones")
+footprint_radius = 0.0688
+height = 0.044
+sink = 0.01
+
+[sub_resource type="Resource" id="Resource_tb6xh"]
+script = ExtResource("1_h2ill")
+mesh_path = "res://tools/tile_forge/modules/stones/gf_stone_e.glb"
+weight = 0.45
+tags = PackedStringArray("stones")
+footprint_radius = 0.0968
+height = 0.058
+sink = 0.01
+
+[sub_resource type="Resource" id="Resource_j2xbl"]
+script = ExtResource("1_h2ill")
+mesh_path = "res://tools/tile_forge/modules/stones/gf_stone_f.glb"
+weight = 0.4
+tags = PackedStringArray("stones")
+footprint_radius = 0.0843
+height = 0.048
+sink = 0.01
+
+[resource]
+script = ExtResource("2_vvu1s")
+set_id = "stones"
+display_name = "Stones"
+family = "stones"
+modules = Array[ExtResource("1_h2ill")]([SubResource("Resource_td0h6"), SubResource("Resource_o6d0l"), SubResource("Resource_a4bp2"), SubResource("Resource_bis3e"), SubResource("Resource_tb6xh"), SubResource("Resource_j2xbl")])
+max_repeats_per_module = 2

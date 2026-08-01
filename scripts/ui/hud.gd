@@ -3,7 +3,8 @@ extends CanvasLayer
 ## Persistent interface: health, context prompts, toasts, the Build Bag, and
 ## tutorial hints. Discovery presentation and modal panels live elsewhere.
 
-signal void_exchange_requested
+signal catch_basket_requested
+signal spirit_pouch_requested
 signal build_piece_selected(kind: String, id: String)
 signal build_world_browse_requested
 signal build_store_requested
@@ -56,7 +57,8 @@ var _catalogue_pointer_active := false
 var _thumbnail_renderer: BuildThumbnailRenderer
 var _build_preview_targets: Dictionary = {}
 var _context_column: VBoxContainer
-var _void_exchange_button: Button
+var _catch_basket_button: Button
+var _spirit_pouch_button: Button
 var _bottom_buttons: HBoxContainer
 var _menu_button: Button
 var _build_button: Button
@@ -90,13 +92,9 @@ func setup(game_core: GameCore, ui_kit: UiKit, placement_controller: PlacementCo
 	kit = ui_kit
 	placement = placement_controller
 	_build_layout()
-	core.progression.void_exchange.offering_changed.connect(
-		func(_kind, _id, _count): _refresh_void_exchange_button()
-	)
 	core.onboarding.stage_changed.connect(func(_stage): update_tutorial())
 	core.stock.stock_changed.connect(func():
 		_refresh_build_strip()
-		_refresh_void_exchange_button()
 	)
 	if core.registries.feature("combat_enabled", false):
 		core.combat.health_changed.connect(_on_health_changed)
@@ -200,11 +198,16 @@ func _build_layout() -> void:
 	_build_button = kit.button("Shape Land", true)
 	_build_button.pressed.connect(_on_build_button_pressed)
 	_bottom_buttons.add_child(_build_button)
-	_void_exchange_button = kit.button("Offer Duplicates")
-	_void_exchange_button.pressed.connect(
-		func(): void_exchange_requested.emit()
+	_catch_basket_button = kit.button("Catch Basket")
+	_catch_basket_button.pressed.connect(
+		func(): catch_basket_requested.emit()
 	)
-	_bottom_buttons.add_child(_void_exchange_button)
+	_bottom_buttons.add_child(_catch_basket_button)
+	_spirit_pouch_button = kit.button("Spirit Pouch")
+	_spirit_pouch_button.pressed.connect(
+		func(): spirit_pouch_requested.emit()
+	)
+	_bottom_buttons.add_child(_spirit_pouch_button)
 
 	# Build Bag — a single floating icon at rest, expanding upward into the
 	# owned-piece browser only while the player is using it.
@@ -426,7 +429,7 @@ func _build_layout() -> void:
 # ------------------------------------------------------------------ refresh
 
 func _refresh_all() -> void:
-	_refresh_void_exchange_button()
+	refresh_fishing_buttons()
 	_refresh_build_strip()
 	if core.registries.feature("combat_enabled", false):
 		_on_health_changed(core.combat.health, core.combat.max_health)
@@ -434,16 +437,31 @@ func _refresh_all() -> void:
 		_health_box.visible = false
 
 
-func _refresh_void_exchange_button() -> void:
-	if _void_exchange_button == null:
-		return
-	var available := core.progression.void_exchange.has_offerable_duplicates()
-	_void_exchange_button.disabled = not available
-	_void_exchange_button.tooltip_text = (
-		"Throw spare copies into the void."
-		if available
-		else "Keep one copy. Spare duplicates will appear here."
-	)
+func refresh_fishing_buttons() -> void:
+	if _catch_basket_button != null:
+		var haul_count: int = core.fishing.basket.haul_count()
+		var capacity: int = core.fishing.basket.capacity()
+		_catch_basket_button.text = (
+			"Catch Basket" if haul_count == 0
+			else "Catch Basket %d/%d" % [haul_count, capacity]
+		)
+		_catch_basket_button.disabled = haul_count == 0
+		_catch_basket_button.tooltip_text = (
+			"Hauls from the void wait here until you place or return them."
+			if haul_count > 0
+			else "Fish from any exposed edge to fill the basket."
+		)
+	if _spirit_pouch_button != null:
+		var spirit_count: int = core.fishing.pouch.slots().size()
+		_spirit_pouch_button.text = (
+			"Spirit Pouch" if spirit_count == 0
+			else "Spirit Pouch %d/%d" % [spirit_count, core.fishing.pouch.capacity()]
+		)
+		_spirit_pouch_button.tooltip_text = (
+			"Arm a Spirit to lean the next catch toward its theme."
+			if spirit_count > 0
+			else "Finish tending a tree to earn a Grove Spirit."
+		)
 
 
 func _refresh_build_strip() -> void:
@@ -1403,21 +1421,13 @@ func update_tutorial() -> void:
 				)
 			)
 			return
-		OnboardingState.TEND_TREE:
-			set_hint(
-				"Tend the pine again — its surroundings are shaping a discovery."
-				if core.progression.actions_done("woodcutting") > 0
-				else "Tend the pine. The biome around it decides what it can find."
-			)
-			return
-		OnboardingState.PLACE_BIOME_DISCOVERY:
-			set_hint("Place the biome-shaped piece your tree uncovered.")
-			return
 	if core.arrivals.has_waiting_package():
 		set_hint("A gift crate is waiting at the northern dock.")
+	elif core.fishing.basket.is_full():
+		set_hint("The Catch Basket is full — place or return a haul to fish again.")
 	elif core.progression.actions_done("fishing") == 0:
 		set_hint(
-			"Fish from an exposed edge for a broad discovery, or from a pond for themed finds. (%s)"
+			"Fish from an exposed edge. What you build nearby shapes the catch. (%s)"
 			% InputDeviceService.shared().format_action(&"interact", "when close")
 		)
 	elif core.grid.placed_tile_count() == 0 and core.stock.total_tiles() > 0:

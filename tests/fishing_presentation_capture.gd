@@ -50,8 +50,18 @@ func _ready() -> void:
 	await _enter_gameplay()
 	_main.core.registries.tuning["fishing_wait_min"] = 20.0
 	_main.core.registries.tuning["fishing_wait_max"] = 20.0
-	_main.core.registries.tuning["void_fishing_wait_min"] = 20.0
-	_main.core.registries.tuning["void_fishing_wait_max"] = 20.0
+	# Hold the session in its waiting state so the capture stays stable.
+	_main.core.fishing.balance._data["timing"] = {
+		"cast_seconds": 0.4,
+		"wait_min_seconds": 20.0,
+		"wait_max_seconds": 20.0,
+		"bite_window_seconds": 6.0,
+		"manual_reel_seconds": 1.8,
+		"auto_reel_seconds": 2.6,
+		"reveal_seconds": 1.4,
+		"recast_pause_seconds": 0.8,
+		"total_max_seconds": 40.0,
+	}
 	_main.player.global_position = (
 		_main.core.grid.cell_to_world(Vector2i(1, 0))
 		+ Vector3(_main.core.grid.tile_size * 0.42, 0.0, 0.0)

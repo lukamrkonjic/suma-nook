@@ -26,6 +26,9 @@ const FireInteractionsScript := preload(
 const CurrentSaveValidatorScript := preload(
 	"res://scripts/systems/current_save_validator.gd"
 )
+const FishingModuleScript := preload(
+	"res://scripts/features/fishing/fishing_module.gd"
+)
 
 var registries: Registries
 var rng: RngService
@@ -45,6 +48,7 @@ var combat: CombatManager
 var save_manager: SaveManager
 var camping
 var fire
+var fishing
 var interactions
 
 var autosave_timer := 0.0
@@ -91,6 +95,9 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 	rewards = RewardManager.new(registries, rng, inventory, stock, collection)
 	equipment = EquipmentManager.new(registries)
 	progression = ProgressionModule.new(registries, rng, grid, stock, collection, equipment)
+	fishing = FishingModuleScript.new(
+		registries, rng, grid, stock, collection, progression
+	)
 	onboarding = OnboardingState.new()
 	arrivals = ArrivalScheduler.new(registries, rng)
 	crafting = CraftingManager.new(registries, inventory, stock, progression, equipment, collection)
@@ -102,10 +109,20 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 	# must not retain the root, otherwise root -> manager -> callable -> root
 	# forms a permanent reference cycle each time a game session is rebuilt.
 	var owner_ref: WeakRef = weakref(self)
-	progression.discovery.discovery_ready.connect(func(entry: Dictionary):
+	fishing.session.haul_committed.connect(func(haul):
 		var owner := owner_ref.get_ref() as GameCore
 		if owner != null:
-			owner.onboarding_discovery_received(entry)
+			owner._on_fishing_haul_committed(haul)
+	)
+	fishing.basket.basket_changed.connect(func():
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._dirty = true
+	)
+	fishing.pouch.pouch_changed.connect(func():
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._dirty = true
 	)
 	progression.milestones.milestone_reached.connect(func(milestone_id, rewards_granted):
 		var owner := owner_ref.get_ref() as GameCore
@@ -151,6 +168,7 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 func new_game(new_profile: PlayerProfile) -> void:
 	profile = new_profile
 	camping.reset()
+	fishing.reset()
 	onboarding.set_stage(OnboardingState.COMPLETE)
 	_compose_starting_world()
 	grid.home_cell = Vector2i.ZERO
@@ -176,6 +194,7 @@ func new_game(new_profile: PlayerProfile) -> void:
 func begin_onboarding_game(new_profile: PlayerProfile) -> void:
 	profile = new_profile
 	camping.reset()
+	fishing.reset()
 	grid.cells.clear()
 	grid.stacked_cells.clear()
 	grid.rebuild_structure_index()
@@ -234,46 +253,39 @@ func choose_onboarding_land(tile_id: String) -> bool:
 ## Called after a successful placement. It verifies the live world state
 ## before advancing and returns the next guaranteed piece for presentation.
 func advance_onboarding_after_placement() -> Dictionary:
-	var next: Dictionary = {}
-	match onboarding.stage:
-		OnboardingState.PLACE_DISCOVERY:
-			onboarding.set_stage(OnboardingState.TEND_TREE)
-			next = {
-				"message": "Now tend the pine. Its surroundings will shape what it finds.",
-			}
-		OnboardingState.PLACE_BIOME_DISCOVERY:
-			onboarding.set_stage(OnboardingState.COMPLETE)
-			next = {
-				"message": "Build the world you want. Every biome changes what its skills can uncover.",
-			}
-		_:
-			return {}
+	if onboarding.stage != OnboardingState.PLACE_DISCOVERY:
+		return {}
+	onboarding.set_stage(OnboardingState.COMPLETE)
 	save()
-	return next
+	return {
+		"message": "Build the world you want. What you build shapes what the void gives back.",
+	}
 
 
-func onboarding_discovery_received(entry: Dictionary) -> bool:
-	var kind := String(entry.get("kind", ""))
-	var content_id := String(entry.get("id", ""))
-	if kind not in ["tile", "structure"] or content_id == "":
-		return false
-	match onboarding.stage:
-		OnboardingState.TRY_VOID_FISHING:
-			if String(entry.get("source", "")) != "void":
-				return false
+## Every committed haul autosaves; during onboarding the first catch also
+## hands its piece to the guided placement lesson (the tutorial performs the
+## basket "take" for the player).
+func _on_fishing_haul_committed(haul) -> void:
+	autosave_soon()
+	if onboarding.stage != OnboardingState.TRY_VOID_FISHING:
+		return
+	var entry = haul.primary_entry()
+	if entry == null:
+		return
+	match entry.form:
+		FishingReward.FORM_TILE_BUNDLE:
+			fishing.basket.take_tile_bundle(haul.haul_id, 0)
 			onboarding.guide_piece(
-				OnboardingState.PLACE_DISCOVERY, kind, content_id
+				OnboardingState.PLACE_DISCOVERY, "tile", entry.building_id
 			)
-		OnboardingState.TEND_TREE:
-			if String(entry.get("source", "")) != "local":
-				return false
+		FishingReward.FORM_MODEL:
+			fishing.basket.take_model(haul.haul_id, 0)
 			onboarding.guide_piece(
-				OnboardingState.PLACE_BIOME_DISCOVERY, kind, content_id
+				OnboardingState.PLACE_DISCOVERY, "structure", entry.building_id
 			)
 		_:
-			return false
+			return
 	save()
-	return true
 
 
 ## Repairs an interrupted guided placement after load without duplicating a
@@ -388,6 +400,7 @@ func place_tile_from_stock(
 func tick(delta: float) -> void:
 	_poll_autosave()
 	play_seconds += delta
+	fishing.tick(delta)
 	arrivals.tick(delta)
 	if registries.feature("combat_enabled", false):
 		combat.tick(delta)
@@ -510,6 +523,7 @@ func _save_payload() -> Dictionary:
 		"combat": combat.to_save_dict(),
 		"features": {
 			"camping": camping.to_save_dict(),
+			"fishing": fishing.to_save_dict(),
 		},
 		"view": view_state.duplicate(true),
 		"visual": visual_state.duplicate(true),
@@ -582,6 +596,9 @@ func load_game() -> bool:
 	stock.from_save_dict(data.get("stock", {}))
 	camping.from_save_dict(
 		(data.get("features", {}) as Dictionary).get("camping", {})
+	)
+	fishing.from_save_dict(
+		(data.get("features", {}) as Dictionary).get("fishing", {})
 	)
 	collection.from_save_dict(data.get("collection", {}))
 	progression.from_save_dict(data.get("progression", {}))

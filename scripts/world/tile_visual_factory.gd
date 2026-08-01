@@ -109,6 +109,12 @@ func _instantiate_layered_visual(
 			layer.role,
 			resolved_asset_id,
 		]
+		# Topology variants are implementation details of one editable asset.
+		# Keep the canonical layer id on the root so Asset Studio profiles,
+		# material defaults, and newly built world chunks all address the same
+		# source regardless of which neighbour-mask scene was instantiated.
+		layer_visual.set_meta(AssetEditLibrary.SOURCE_ASSET_META, layer.asset_id)
+		layer_visual.set_meta("suma_resolved_topology_asset_id", resolved_asset_id)
 		layer_visual.set_meta(LAYER_ROLE_META, layer.role)
 		layer_visual.set_meta(LAYER_COVER_BEHAVIOR_META, layer.cover_behavior)
 		if layer.scale_mode == "tile_xz":

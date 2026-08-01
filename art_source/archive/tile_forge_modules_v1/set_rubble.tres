@@ -1,0 +1,52 @@
+[gd_resource type="Resource" script_class="TileModuleSet" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_module_entry.gd" id="1_a16gm"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_module_set.gd" id="2_7vp1d"]
+
+[sub_resource type="Resource" id="Resource_0b1he"]
+script = ExtResource("1_a16gm")
+mesh_path = "res://tools/tile_forge/modules/rubble/gf_rubble_a.glb"
+tags = PackedStringArray("rubble")
+footprint_radius = 0.1003
+height = 0.0504
+
+[sub_resource type="Resource" id="Resource_sh10f"]
+script = ExtResource("1_a16gm")
+mesh_path = "res://tools/tile_forge/modules/rubble/gf_rubble_b.glb"
+weight = 0.85
+tags = PackedStringArray("rubble")
+footprint_radius = 0.0796
+height = 0.0386
+
+[sub_resource type="Resource" id="Resource_tgxdm"]
+script = ExtResource("1_a16gm")
+mesh_path = "res://tools/tile_forge/modules/rubble/gf_rubble_c.glb"
+weight = 0.7
+tags = PackedStringArray("rubble")
+footprint_radius = 0.1033
+height = 0.0587
+
+[sub_resource type="Resource" id="Resource_ktngk"]
+script = ExtResource("1_a16gm")
+mesh_path = "res://tools/tile_forge/modules/rubble/gf_rubble_d.glb"
+weight = 0.55
+tags = PackedStringArray("rubble")
+footprint_radius = 0.0677
+height = 0.0377
+
+[sub_resource type="Resource" id="Resource_ajhn2"]
+script = ExtResource("1_a16gm")
+mesh_path = "res://tools/tile_forge/modules/rubble/gf_rubble_e.glb"
+weight = 0.45
+tags = PackedStringArray("rubble")
+footprint_radius = 0.0918
+height = 0.0416
+
+[resource]
+script = ExtResource("2_7vp1d")
+set_id = "rubble"
+display_name = "Rubble"
+family = "rubble"
+modules = Array[ExtResource("1_a16gm")]([SubResource("Resource_0b1he"), SubResource("Resource_sh10f"), SubResource("Resource_tgxdm"), SubResource("Resource_ktngk"), SubResource("Resource_ajhn2")])
+separation_scale = 1.15
+max_repeats_per_module = 2

@@ -4,11 +4,9 @@
       "id": "fishing",
       "name": "Fishing",
       "icon": "🎣",
-      "description": "Fish into the unknown for broad discoveries, or build a pond whose surrounding biome shapes what the water brings back.",
+      "description": "Cast the magical rod from any exposed edge. The world you built nearby shapes what the void gives back.",
       "tool_type": "rod",
       "action_seconds": 2.6,
-      "collection_category": "fish",
-      "collection_entries": ["sunny_minnow", "pond_darter", "silver_leaf_fish"],
       "animation_tag": "fish",
       "audio_tag": "fishing"
     },

@@ -1,0 +1,22 @@
+{
+  "spirits": [
+    {
+      "id": "spirit_grove",
+      "name": "Grove Spirit",
+      "icon": "🌿",
+      "color": "6f8e4f",
+      "theme_tag": "grove",
+      "source_skill": "woodcutting",
+      "description": "A small green charm left by a well-tended tree. Arm it to lean one catch strongly toward grove pieces."
+    },
+    {
+      "id": "spirit_stone",
+      "name": "Stone Spirit",
+      "icon": "🪨",
+      "color": "8c8982",
+      "theme_tag": "stone",
+      "source_skill": "mining",
+      "description": "A cool grey charm left by worked stone. Arm it to lean one catch strongly toward stone pieces."
+    }
+  ]
+}

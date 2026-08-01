@@ -1,16 +1,23 @@
 class_name ProgressionModule
 extends RefCounted
-## Composition root for progression v3: immediate discoveries shaped by local
-## biomes, the three-spare void exchange, lifetime practice, and milestones.
+## Composition root for progression v4: lifetime practice, milestones, and the
+## ferry's periodic discovery gift. Building rewards now arrive exclusively
+## through the fishing feature module; this class only counts activity and
+## publishes narrow completion events other features may adapt.
+
+## Emitted when an activity finishes a full source cycle (a tree rests, a
+## future stone seam is worked out). Adapters — not this module — decide what
+## a completed cycle is worth.
+signal activity_cycle_completed(skill_id: String)
 
 var registries: Registries
 var discovery: DiscoverySystem
-var void_exchange: VoidExchangeSystem
 var milestones: MilestoneSystem
 
 var activity_actions: Dictionary = {}
 var archived_v1: Dictionary = {}
 var archived_v2: Dictionary = {}
+var archived_v3: Dictionary = {}
 
 
 func _init(
@@ -23,38 +30,29 @@ func _init(
 ) -> void:
 	registries = regs
 	discovery = DiscoverySystem.new(regs, rng, grid, stock, collection)
-	void_exchange = VoidExchangeSystem.new(regs, rng, grid, stock, discovery)
 	milestones = MilestoneSystem.new(regs, stock, equipment, collection)
 	collection.discovered.connect(func(_category: String, _id: String):
 		milestones.check_all(activity_actions)
 	)
 
 
-func on_activity_action(
-	skill_id: String,
-	coord: Vector2i = Vector2i.ZERO,
-	source_structure_id: String = ""
-) -> Dictionary:
+## One ordinary activity action (a chop, a pond cast). Counts practice only —
+## activities no longer roll placeable rewards directly.
+func on_activity_action(skill_id: String) -> void:
 	activity_actions[skill_id] = int(activity_actions.get(skill_id, 0)) + 1
-	var feedback := discovery.record_local_action(
-		skill_id,
-		coord,
-		source_structure_id
-	)
 	milestones.check_all(activity_actions)
-	return feedback
 
 
-func on_void_fishing_catch() -> Dictionary:
+## A full source cycle completed (tree rested, seam exhausted). Publishes the
+## narrow event Spirit adapters listen to.
+func on_activity_cycle_completed(skill_id: String) -> void:
+	activity_cycle_completed.emit(skill_id)
+
+
+## One fishing haul physically committed to the Catch Basket.
+func on_fishing_haul_committed() -> void:
 	activity_actions["fishing"] = int(activity_actions.get("fishing", 0)) + 1
-	var reward := discovery.discover_void()
 	milestones.check_all(activity_actions)
-	return {
-		"pool_id": "void",
-		"progress": 0,
-		"required": 1,
-		"reward": reward,
-	}
 
 
 func actions_done(skill_id: String) -> int:
@@ -72,19 +70,18 @@ func is_recipe_unlocked(recipe: Defs.RecipeDefinition) -> bool:
 
 func to_save_dict() -> Dictionary:
 	return {
-		"version": 3,
+		"version": 4,
 		"discovery": discovery.to_save_dict(),
-		"void_exchange": void_exchange.to_save_dict(),
 		"milestones": milestones.to_save_dict(),
 		"activity_actions": activity_actions.duplicate(),
 		"archived_v1": archived_v1.duplicate(true),
 		"archived_v2": archived_v2.duplicate(true),
+		"archived_v3": archived_v3.duplicate(true),
 	}
 
 
 func from_save_dict(data: Dictionary) -> void:
 	discovery.from_save_dict(data.get("discovery", {}))
-	void_exchange.from_save_dict(data.get("void_exchange", {}))
 	milestones.from_save_dict(data.get("milestones", {}))
 	activity_actions.clear()
 	for skill_id: String in data.get("activity_actions", {}):
@@ -92,11 +89,13 @@ func from_save_dict(data: Dictionary) -> void:
 			activity_actions[skill_id] = int(data["activity_actions"][skill_id])
 	archived_v1 = data.get("archived_v1", {}).duplicate(true)
 	archived_v2 = data.get("archived_v2", {}).duplicate(true)
+	archived_v3 = data.get("archived_v3", {}).duplicate(true)
 
 
-## Runs before strict validation. Both retired progression generations are
-## archived verbatim, pending old rewards become owned discoveries, and the
-## removed ritual structures become their ordinary decorative counterparts.
+## Runs before strict validation. Retired progression generations are archived
+## verbatim; v1/v2 first migrate through the historical v3 shape, then v3
+## migrates to v4 (fishing rework: the three-spare exchange refunds its
+## partial offerings and local skill discovery retires).
 static func migrate_save_payload(data: Dictionary) -> Dictionary:
 	var migrated := data.duplicate(true)
 	var old_progression: Dictionary = migrated.get("progression", {})
@@ -161,7 +160,92 @@ static func migrate_save_payload(data: Dictionary) -> Dictionary:
 	_retire_old_onboarding(migrated)
 	_retire_old_inventory(migrated)
 	_retire_old_arrival_payload(migrated)
+	_migrate_v3_to_v4(migrated)
 	return migrated
+
+
+## v3 → v4: the fishing rework. Deterministic order, loss-proof:
+## 1. Partial exchange offerings refund to stock (they were real removed
+##    copies), sorted by key so the result never depends on hash order.
+## 2. Local discovery progress retires (it was progress, not currency).
+## 3. first_void_discovery_done moves to the fishing feature payload.
+## 4. Collectible-fish journal entries are removed with the fish page.
+## 5. Onboarding stages that taught local discovery complete themselves.
+## No bait, hook, or reservoir state ever shipped, so there is nothing to
+## convert into Spirits.
+static func _migrate_v3_to_v4(data: Dictionary) -> void:
+	var progression: Dictionary = data.get("progression", {})
+	if int(progression.get("version", 0)) != 3:
+		return
+	var archived_v3 := {}
+	var exchange: Dictionary = progression.get("void_exchange", {})
+	var offerings: Dictionary = exchange.get("offerings", {})
+	if not offerings.is_empty():
+		archived_v3["void_exchange"] = exchange.duplicate(true)
+		var keys: Array = offerings.keys()
+		keys.sort()
+		for key: String in keys:
+			var parts := key.split(":", false, 1)
+			if parts.size() != 2:
+				continue
+			var count := clampi(int(offerings[key]), 0, 2)
+			if count <= 0:
+				continue
+			_refund_to_stock(data, parts[0], parts[1], count)
+	progression.erase("void_exchange")
+	var discovery: Dictionary = progression.get("discovery", {})
+	if discovery.has("progress"):
+		archived_v3["discovery_progress"] = discovery.get("progress", {})
+		discovery.erase("progress")
+	var first_done := bool(discovery.get("first_void_discovery_done", false))
+	discovery.erase("first_void_discovery_done")
+	progression["discovery"] = discovery
+	var features: Dictionary = data.get("features", {})
+	var fishing: Dictionary = features.get("fishing", {})
+	if not fishing.has("first_catch_done"):
+		fishing["first_catch_done"] = first_done
+	features["fishing"] = fishing
+	data["features"] = features
+	_scrub_fish_collection(data, archived_v3)
+	var onboarding: Dictionary = data.get("onboarding", {})
+	if String(onboarding.get("stage", "")) in ["tend_tree", "place_biome_discovery"]:
+		onboarding["stage"] = "complete"
+		onboarding["guided_kind"] = ""
+		onboarding["guided_id"] = ""
+	if not archived_v3.is_empty():
+		progression["archived_v3"] = archived_v3
+	progression["version"] = 4
+
+
+static func _refund_to_stock(
+	data: Dictionary,
+	kind: String,
+	content_id: String,
+	count: int
+) -> void:
+	if kind not in ["tile", "structure"] or content_id == "":
+		return
+	if not data.has("stock"):
+		data["stock"] = {}
+	var stock: Dictionary = data["stock"]
+	var bucket_name := "tiles" if kind == "tile" else "structures"
+	var bucket: Dictionary = stock.get(bucket_name, {})
+	bucket[content_id] = int(bucket.get(content_id, 0)) + count
+	stock[bucket_name] = bucket
+
+
+## Fish were never catchable in the new design: released-fish journal records
+## retire with the fishing rework. The rest of the journal is untouched.
+static func _scrub_fish_collection(data: Dictionary, archived_v3: Dictionary) -> void:
+	var collection: Dictionary = data.get("collection", {})
+	var entries: Dictionary = collection.get("entries", {})
+	var removed := {}
+	for key: String in entries.keys():
+		if key.begins_with("fish/"):
+			removed[key] = entries[key]
+			entries.erase(key)
+	if not removed.is_empty():
+		archived_v3["fish_collection"] = removed
 
 
 static func _grant_migrated_entry(data: Dictionary, entry: Dictionary) -> void:

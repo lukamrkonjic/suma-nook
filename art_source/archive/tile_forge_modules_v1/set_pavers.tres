@@ -1,0 +1,48 @@
+[gd_resource type="Resource" script_class="TileModuleSet" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_module_entry.gd" id="1_nsmfv"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_module_set.gd" id="2_1je1b"]
+
+[sub_resource type="Resource" id="Resource_qn65h"]
+script = ExtResource("1_nsmfv")
+mesh_path = "res://tools/tile_forge/modules/pavers/gf_paver_a.glb"
+tags = PackedStringArray("pavers")
+footprint_radius = 0.15
+height = 0.0455
+sink = 0.002
+
+[sub_resource type="Resource" id="Resource_favjs"]
+script = ExtResource("1_nsmfv")
+mesh_path = "res://tools/tile_forge/modules/pavers/gf_paver_b.glb"
+weight = 0.85
+tags = PackedStringArray("pavers")
+footprint_radius = 0.12
+height = 0.0405
+sink = 0.002
+
+[sub_resource type="Resource" id="Resource_bcgkh"]
+script = ExtResource("1_nsmfv")
+mesh_path = "res://tools/tile_forge/modules/pavers/gf_paver_c.glb"
+weight = 0.7
+tags = PackedStringArray("pavers")
+footprint_radius = 0.18
+height = 0.0505
+sink = 0.002
+
+[sub_resource type="Resource" id="Resource_140rt"]
+script = ExtResource("1_nsmfv")
+mesh_path = "res://tools/tile_forge/modules/pavers/gf_paver_d.glb"
+weight = 0.55
+tags = PackedStringArray("pavers")
+footprint_radius = 0.1
+height = 0.0386
+sink = 0.002
+
+[resource]
+script = ExtResource("2_1je1b")
+set_id = "pavers"
+display_name = "Pavers"
+family = "pavers"
+modules = Array[ExtResource("1_nsmfv")]([SubResource("Resource_qn65h"), SubResource("Resource_favjs"), SubResource("Resource_bcgkh"), SubResource("Resource_140rt")])
+separation_scale = 1.2
+max_repeats_per_module = 2

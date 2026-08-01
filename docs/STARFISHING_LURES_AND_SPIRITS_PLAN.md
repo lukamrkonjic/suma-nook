@@ -1,6 +1,12 @@
-# Starfishing, Lures, and Settled Spirits — Implementation Plan
+# Starfishing, Lures, and Settled Spirits — Implementation Plan (historical)
 
-Status: implementation-ready design plan; gameplay code is not changed by this document.
+> **Superseded 2026-08-01, never implemented.** The shipped fishing rework
+> (`docs/VOID_FISHING.md`) deliberately went the other way: no lures, no
+> material consumption, no Echo Throne — Wild Cast plus habitat sampling,
+> the five-slot Spirit Pouch, and the physical Catch Basket. Retained only
+> for the reasoning history.
+
+Status: retired unimplemented plan.
 
 This plan defines the replacement for the current split between broad Void fishing, direct local skill discoveries, and the three-spare Void Exchange. It translates the decisions from the Garden Galaxy research into a system that keeps the gacha delight, makes ordinary fishing and woodcutting useful, gives players category control, and still converges toward collection completion.
 

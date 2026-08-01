@@ -193,43 +193,36 @@ func _step_creation() -> void:
 		"the Pale Sand start is a 3x3 island with exposed void edges"
 	)
 	check(main.core.onboarding.stage == OnboardingState.TRY_VOID_FISHING, "void fishing is the first world-making verb")
-	main.core.progression.on_void_fishing_catch()
+	# Commit the first haul through the live fishing services; the guided
+	# onboarding hook auto-takes the guaranteed water bundle for placement.
+	var first_haul = main.core.fishing.debug_force_catch(Vector2i.ZERO)
 	await wait(0.55)
 	check(
-		main.discovery_reveal.is_open()
-		and main.core.progression.discovery.peek_pending().get("id") == "tile_open_water",
-		"the first cast reveals real buildable water"
+		first_haul != null
+		and main.core.onboarding.stage == OnboardingState.PLACE_DISCOVERY
+		and main.core.onboarding.guided_id == "tile_open_water",
+		"the first cast hauls real buildable water and guides its placement"
 	)
-	main.discovery_reveal._accept()
+	main._resume_guided_onboarding()
 	await wait(0.45)
 	check(
 		main.placement.held.get("id", "") == "tile_open_water",
-		"acknowledged discovery is held for immediate placement"
+		"the guided haul is held for immediate placement"
 	)
 	check(main.placement.try_place_at(Vector2i(0, 2)), "first discovered water places beside the island")
 	await wait(0.2)
-	check(main.core.onboarding.stage == OnboardingState.TEND_TREE, "placing water introduces local skilling")
-	for _index in 4:
-		main.core.progression.on_activity_action(
-			"woodcutting", Vector2i(-1, -1), "struct_pine"
-		)
-	await wait(0.55)
-	check(
-		main.discovery_reveal.is_open()
-		and main.core.onboarding.stage == OnboardingState.PLACE_BIOME_DISCOVERY,
-		"a complete tree cycle reveals a beach-shaped reward"
-	)
-	main.discovery_reveal._accept()
-	await wait(0.45)
-	var held_kind := String(main.placement.held.get("kind", ""))
-	var placed_local := (
-		main.placement.try_place_at(Vector2i(1, 2))
-		if held_kind == "tile"
-		else main.placement.try_place_at(Vector2i(1, 1))
-	)
-	check(placed_local, "the local biome discovery can be placed")
+	check(main.core.onboarding.stage == OnboardingState.COMPLETE, "placing the first haul completes onboarding")
+	# Spirits arrive through the narrow activity-completion event.
+	var pouch_before: int = main.core.fishing.pouch.slots().size()
+	main.core.progression.on_activity_cycle_completed("woodcutting")
 	await wait(0.2)
-	check(main.core.onboarding.stage == OnboardingState.COMPLETE, "placing it completes onboarding")
+	check(
+		main.core.fishing.pouch.slots().size() == pouch_before + 1
+		and main.core.fishing.pouch.slots().back() == "spirit_grove",
+		"a completed tree cycle settles one Grove Spirit into the pouch"
+	)
+	# Unplaced bundle copies return to the basket before the fixture resets.
+	main.core.fishing.basket.reconcile_bundle_checkout()
 
 	main.core.new_game(main.core.profile)
 	main.renderer.rebuild_all()
@@ -1901,6 +1894,20 @@ func _step_fishing() -> void:
 	var camera_pan := main.camera_rig._pan_offset
 	var items_before := _inventory_total()
 	var actions_before := main.core.progression.actions_done("fishing")
+	var hauls_before: int = main.core.fishing.basket.haul_count()
+	# Acceptance-speed timings: the session contract is identical, only the
+	# configured waits shrink so the windowed run stays fast.
+	main.core.fishing.balance._data["timing"] = {
+		"cast_seconds": 0.3,
+		"wait_min_seconds": 0.4,
+		"wait_max_seconds": 0.7,
+		"bite_window_seconds": 1.2,
+		"manual_reel_seconds": 0.3,
+		"auto_reel_seconds": 0.5,
+		"reveal_seconds": 0.4,
+		"recast_pause_seconds": 0.3,
+		"total_max_seconds": 30.0,
+	}
 	await _tap_key(KEY_F)
 	await wait(0.55)
 	check(
@@ -1997,51 +2004,62 @@ func _step_fishing() -> void:
 		"fishing seats the keeper in place facing the cast, camera untouched"
 	)
 	await shot("screenshot_fishing_the_void")
+	# Wait for the bite, then press the fishing input to reel in manually.
+	var bite_deadline := Time.get_ticks_msec() + 8000
+	while (
+		main.core.fishing.session.state != FishingSessionStates.State.BITE
+		and Time.get_ticks_msec() < bite_deadline
+	):
+		await wait(0.05)
+	check(
+		main.core.fishing.session.state == FishingSessionStates.State.BITE,
+		"a clear bite arrives inside the configured window"
+	)
+	await _tap_key(KEY_F)
 	var deadline := Time.get_ticks_msec() + 6000
 	while (
-		not main.effects.void_fishing.has_carried_reward()
+		main.core.fishing.basket.haul_count() == hauls_before
 		and Time.get_ticks_msec() < deadline
 	):
-		await wait(0.1)
-	check(main.core.progression.actions_done("fishing") == actions_before + 1, "one catch creates one discovery action")
+		await wait(0.05)
 	check(
-		main.effects.void_fishing.has_carried_reward(),
-		"the rolled build piece rises from the rift and reaches the keeper's hands"
+		main.core.fishing.basket.haul_count() == hauls_before + 1,
+		"the manual reel commits one physical haul to the Catch Basket"
 	)
-	var pending_reward := main.core.progression.discovery.peek_pending()
-	check(
-		main.effects.void_fishing.carried_reward_id()
-			== String(pending_reward.get("id", "")),
-		"the visible retrieved piece is the exact item granted by discovery"
-	)
-	await wait(0.2)
-	check(main.discovery_reveal.is_open(), "the immediate single-item discovery opens")
+	check(main.core.progression.actions_done("fishing") == actions_before + 1, "one catch counts one fishing action")
 	check(_inventory_total() == items_before, "void fishing adds no material stacks")
 	check(
-		main.player.state == PlayerController.State.FREE,
-		"fishing returns cleanly to free movement before the discovery is handled"
+		main.core.fishing.session.is_active(),
+		"the rod automatically casts again after the catch"
 	)
 	check(
 		not main.effects.void_fishing.dock_is_visible()
-		and not main.player.presentation_locked()
 		and absf(main.camera_rig._yaw_target - camera_yaw) < 0.001
 		and absf(main.camera_rig.zoom_distance() - camera_zoom) < 0.001
 		and main.camera_rig._pan_offset.is_equal_approx(camera_pan),
-		"the seated lock releases without changing the gameplay camera"
+		"auto-recast keeps the seat and never touches the gameplay camera"
 	)
-	main.discovery_reveal._accept()
-	await wait(0.4)
+	main.skill_actions.cancel_all()
+	await wait(0.3)
 	check(
-		not main.effects.void_fishing.has_carried_reward(),
-		"accepting the discovery hands the miniature into placement"
+		not main.core.fishing.session.is_active()
+		and main.player.state == PlayerController.State.FREE,
+		"cancelling ends the session and frees the keeper"
 	)
+	check(tool_mount != null and tool_mount.get_child_count() == 0, "the rod hides after the session ends")
+	# The haul is taken from the basket into the existing placement pipeline.
+	var haul = main.core.fishing.basket.hauls[hauls_before]
+	var primary = haul.primary_entry()
+	if primary.form == "tile_bundle":
+		main._on_basket_tile_bundle_taken(haul.haul_id, 0)
+	else:
+		main._on_basket_model_taken(haul.haul_id, 0)
+	await wait(0.2)
 	check(
-		String(main.placement.held.get("id", ""))
-			== String(pending_reward.get("id", "")),
-		"the physically retrieved item becomes the held placement piece"
+		String(main.placement.held.get("id", "")) == primary.building_id,
+		"the physically staged catch becomes the held placement piece"
 	)
 	main.placement.store_held()
-	check(tool_mount != null and tool_mount.get_child_count() == 0, "the rod hides after the catch")
 
 func _step_parcel() -> void:
 	print("STEP ferry discovery")

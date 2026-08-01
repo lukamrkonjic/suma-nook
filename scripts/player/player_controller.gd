@@ -31,6 +31,9 @@ enum State { FREE, FISHING_CAST, FISHING_WAIT, FISHING_CATCH, WOODCUTTING, ATTAC
 
 const GROUND_MASK := 1
 const EDGE_WALL_MASK := WorldRenderer.EDGE_WALL_LAYER
+## Pushable ambient characters use their own layer so the player can bump them
+## without making every prop or enemy part of the same collision contract.
+const PUSHABLE_NPC_LAYER := 1 << 4
 const MIN_GROUND_IMPACT_SPEED := 2.0
 
 var core: GameCore
@@ -65,9 +68,9 @@ func setup(game_core: GameCore, rig: CameraRig, player_visual: PlayerVisual) -> 
 	position = core.profile.position
 	rotation.y = core.profile.facing
 	floor_snap_length = 0.4
-	# Only the ground layer: the perimeter lip exists for enemies, never for
-	# the player — stepping off the edge is a real choice (swim or portal).
-	collision_mask = GROUND_MASK
+	# The perimeter lip exists for enemies, never for the player — stepping off
+	# the edge remains a real choice. Pushable NPCs are the only extra mask.
+	collision_mask = GROUND_MASK | PUSHABLE_NPC_LAYER
 	suspend_water_rescue()
 
 
@@ -122,7 +125,9 @@ func _physics_process(delta: float) -> void:
 			velocity.y = maxf(velocity.y, 0.0)
 	var was_on_floor := is_on_floor()
 	var vertical_speed_before_slide := velocity.y
+	var horizontal_velocity_before_slide := Vector3(velocity.x, 0.0, velocity.z)
 	move_and_slide()
+	_push_collided_npcs(horizontal_velocity_before_slide)
 	if (
 		not was_on_floor
 		and is_on_floor()
@@ -166,6 +171,37 @@ func _physics_process(delta: float) -> void:
 	if _focus_scan_accum >= 0.15:
 		_focus_scan_accum = 0.0
 		_update_focus()
+
+
+## CharacterBody3D resolves the player's contact first; the NPC then receives
+## the intended pre-slide motion so a head-on bump still has useful force.
+func _push_collided_npcs(intended_velocity: Vector3) -> void:
+	if intended_velocity.length_squared() <= 0.01:
+		return
+	var pushed: Dictionary = {}
+	for collision_index in get_slide_collision_count():
+		var collision := get_slide_collision(collision_index)
+		var collider := collision.get_collider() as Node
+		if (
+			collider == null
+			or not collider.is_in_group("pushable_npcs")
+			or pushed.has(collider.get_instance_id())
+		):
+			continue
+		var receiver := _push_receiver(collider)
+		if receiver == null:
+			continue
+		pushed[collider.get_instance_id()] = true
+		receiver.call("apply_player_push", intended_velocity)
+
+
+func _push_receiver(collider: Node) -> Node:
+	if collider.has_method("apply_player_push"):
+		return collider
+	for child in collider.get_children():
+		if child.has_method("apply_player_push"):
+			return child
+	return null
 
 
 func _free_move(delta: float) -> void:

@@ -92,5 +92,5 @@ params = {
 
 [resource]
 script = ExtResource("2_18x6f")
-preset_name = "Fenced Meadow"
+preset_name = "Wrenrail Paddock"
 layers = Array[ExtResource("1_v58p7")]([SubResource("Resource_v58p7"), SubResource("Resource_18x6f"), SubResource("Resource_nqa7a"), SubResource("Resource_kvb3e"), SubResource("Resource_gw1a3")])

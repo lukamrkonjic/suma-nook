@@ -1,0 +1,121 @@
+[gd_resource type="Resource" script_class="TileKitPreset" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_kit/tile_kit_layer.gd" id="1_k81rm"]
+[ext_resource type="Script" path="res://tools/tile_kit/tile_kit_preset.gd" id="2_ww33i"]
+
+[sub_resource type="Resource" id="Resource_7gvjm"]
+script = ExtResource("1_k81rm")
+kind = "base"
+locked = true
+params = {
+"bevel_key": "snow_bevel",
+"bevel_segments": 6,
+"bottom_chamfer": 0.016,
+"corner_radius": 0.075,
+"dune_amount": 0.42,
+"dune_direction_degrees": 22.0,
+"dune_irregularity": 0.32,
+"dune_lee_depth": 0.12,
+"dune_scale": 0.88,
+"dune_softness": 0.9,
+"lower_key": "stone_deep",
+"relief_amplitude": 0.06,
+"relief_edge_feather": 0.28,
+"relief_resolution": 48,
+"relief_style": "sculpted_dunes",
+"side_key": "snow_side",
+"top_bevel": 0.075,
+"top_key": "snow_top"
+}
+
+[sub_resource type="Resource" id="Resource_wfcjj"]
+script = ExtResource("1_k81rm")
+kind = "dressing"
+enabled = false
+params = {
+"aspect": [0.7, 1.35],
+"color_weights": {
+"dressing_dark": 15.0,
+"dressing_light": 50.0,
+"dressing_medium": 35.0
+},
+"edge_margin": 0.02,
+"irregularity": [0.08, 0.14],
+"large_count": [3, 5],
+"large_radius": [0.17, 0.29],
+"medium_count": [4, 7],
+"medium_radius": [0.094, 0.17],
+"outline_points": 20,
+"region_count": [2, 3],
+"region_spread": 0.3,
+"scale_multiplier": 1.0,
+"small_count": [2, 5],
+"small_radius": [0.047, 0.094],
+"smoothing_passes": 3
+}
+
+[sub_resource type="Resource" id="Resource_jfcxk"]
+script = ExtResource("1_k81rm")
+kind = "pavers"
+params = {
+"gap": 0.025,
+"pattern": "trail",
+"sink": 0.008,
+"slab_key": "snow_side",
+"stone_cell": 0.55,
+"stone_corner": 0.055,
+"stone_height": [0.007, 0.011],
+"trail_jitter": 0.06,
+"trail_layout": "straight",
+"trail_piece_length": [0.2, 0.36],
+"trail_width": 0.52
+}
+
+[sub_resource type="Resource" id="Resource_hhpbl"]
+script = ExtResource("1_k81rm")
+kind = "clutter"
+params = {
+"color_weights": {
+"snow_lump": 25.0,
+"snow_side": 75.0
+},
+"count": [9, 14],
+"diameter": [0.055, 0.115],
+"edge_margin": 0.035,
+"height": [0.008, 0.022],
+"min_spacing": 0.055,
+"on_dressing_fraction": 0.55,
+"scale_multiplier": 1.0,
+"shapes": ["footprint", "footprint", "snow_lump"]
+}
+
+[sub_resource type="Resource" id="Resource_qea2k"]
+script = ExtResource("1_k81rm")
+kind = "grass_clusters"
+enabled = false
+params = {
+"bend_multiplier": 0.75,
+"carpet_jitter": 0.3,
+"carpet_skip_fraction": 0.1,
+"carpet_spacing": 0.315,
+"coverage_mode": "carpet",
+"crown_radius": 0.02,
+"edge_margin": 0.02,
+"height_multiplier": 1.0,
+"leaf_height": [0.095, 0.15],
+"leaf_width": [0.058, 0.088],
+"root_sink": [0.008, 0.015],
+"rosette_footprint": [0.14, 0.2],
+"rosette_leaves": [3, 5],
+"secondary_fraction": 0.2,
+"splay_degrees": [16.0, 34.0],
+"thickness_ratio": [0.55, 0.72],
+"width_multiplier": 1.0
+}
+
+[resource]
+script = ExtResource("2_ww33i")
+preset_name = "Hearthstep Snowpath"
+master_seed = 20264878
+separate_tiles = true
+layers = Array[ExtResource("1_k81rm")]([SubResource("Resource_7gvjm"), SubResource("Resource_wfcjj"), SubResource("Resource_jfcxk"), SubResource("Resource_hhpbl"), SubResource("Resource_qea2k")])

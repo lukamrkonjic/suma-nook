@@ -1,0 +1,11 @@
+{
+  "keepsakes": [
+    {
+      "id": "keepsake_growth",
+      "name": "Growth Keepsake",
+      "icon": "🌱",
+      "effect": "growth",
+      "description": "A warm seed-shaped charm. Once activated, appropriate trees can be shifted between their young, mature, and tall forms."
+    }
+  ]
+}

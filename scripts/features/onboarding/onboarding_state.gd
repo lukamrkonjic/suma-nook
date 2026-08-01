@@ -1,24 +1,21 @@
 class_name OnboardingState
 extends RefCounted
-## Saved first-session state machine for the discovery loop: choose a biome,
-## fish the void, place what answered, then learn that a local tree is shaped
-## by the world around it.
+## Saved first-session state machine for the fishing loop: choose a biome,
+## fish the void from an exposed edge, then place what the first haul brought
+## back. Free play begins with the placement lesson complete; Spirits and the
+## basket introduce themselves through ordinary play.
 
 signal stage_changed(stage: String)
 
 const LAND_CHOICE := "land_choice"
 const TRY_VOID_FISHING := "try_void_fishing"
 const PLACE_DISCOVERY := "place_discovery"
-const TEND_TREE := "tend_tree"
-const PLACE_BIOME_DISCOVERY := "place_biome_discovery"
 const COMPLETE := "complete"
 
 const STAGES := [
 	LAND_CHOICE,
 	TRY_VOID_FISHING,
 	PLACE_DISCOVERY,
-	TEND_TREE,
-	PLACE_BIOME_DISCOVERY,
 	COMPLETE,
 ]
 
@@ -58,7 +55,7 @@ func is_active() -> bool:
 
 
 func requires_guided_placement() -> bool:
-	return stage in [PLACE_DISCOVERY, PLACE_BIOME_DISCOVERY]
+	return stage == PLACE_DISCOVERY
 
 
 func to_save_dict() -> Dictionary:

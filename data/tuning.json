@@ -46,7 +46,7 @@
   ],
   "landmark_connect_adjacent": true,
   "autosave_interval": 40.0,
-  "discovery_context_radius": 2,
+  "discovery_context_radius": 2.0,
   "first_void_reward": "tile_open_water",
   "active_tile_ids": [
     "tile_grass",

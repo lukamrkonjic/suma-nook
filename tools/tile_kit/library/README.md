@@ -32,17 +32,21 @@ That ID is the contract used by worlds, inventory, rewards, and future saves.
 - **Hard Delete** is blocked while manifests, authored JSON, or development
   saves reference the ID. It is intended for correcting development mistakes.
 
-Imported legacy tiles have manifests too. Their catalog metadata is editable
-now; their geometry remains external until a procedural recipe replaces it.
+Every official tile now has a native procedural recipe. The old imported GLBs
+are no longer runtime geometry for the official tile catalog; stable IDs and
+gameplay metadata were retained while their visual construction was replaced.
+The source-of-truth conversion is reproducible through
+`rebuild_official_procedural_library.gd`, so a clean checkout can regenerate
+the recipes, topology-aware bakes, manifests, and compiled catalog.
 
 New tiles begin from the generic templates in `TileTemplateLibrary` (organic
 ground, bare ground, sculpted dunes, constructed surface, or shallow basin).
 Templates have no game IDs and never appear in the Tiles browser. A template
 becomes content only after the designer assigns a new stable ID and publishes.
 
-All 21 current procedural recipes are published as real preview-stage tiles.
-Preview publication makes them available for live authoring and review without
-silently expanding the progression-facing active tile roster.
+All 56 official tiles are published as native procedural recipes with unique
+Suma names. Preview publication makes them available for live authoring and
+review without silently expanding the progression-facing active tile roster.
 
 All mutating service methods are disabled outside editor/debug builds. The UI
 reflects this, but the guard is enforced in `TileLibraryService` so release
@@ -65,3 +69,12 @@ Headless bake:
 ```text
 godot --headless --path . --script tools/tile_kit/bake_cli.gd -- --tile-id=tile_kit_grass
 ```
+
+Rebuild the complete official procedural library and catalog:
+
+```text
+godot --headless --path . --script tools/tile_kit/library/rebuild_official_procedural_library.gd
+```
+
+Use `-- --metadata-only` to reapply names and gameplay metadata without
+rebaking geometry.

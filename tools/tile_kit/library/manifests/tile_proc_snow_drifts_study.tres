@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_etp0m")
 tile_id = "tile_proc_snow_drifts_study"
-display_name = "Snow Drifts (Study)"
+display_name = "Windhush Drifts"
 revision = 1
 lifecycle = "published"
 visibility = "preview"
@@ -14,7 +14,9 @@ baked_roles = PackedStringArray("base", "surface")
 family = "winter"
 connection_group = "tile_proc_snow_drifts_study"
 biome_tags = PackedStringArray("winter")
+landmark_tags = PackedStringArray()
 dependencies = PackedStringArray()
+water_cells = PackedStringArray()
 created_at = "2026-08-01 00:00:00"
-updated_at = "2026-08-01 14:38:58"
+updated_at = "2026-08-01 16:00:00"
 published_at = "2026-08-01 14:38:58"

@@ -15,6 +15,8 @@ var visual: PlayerVisual
 var effects: EffectsManager
 
 var _loop_id := 0    # bumping this cancels any in-flight sequence
+var _void_cast_point := Vector3.ZERO
+var _void_session_visuals := false
 
 
 func setup(game_core: GameCore, player_controller: PlayerController, player_visual: PlayerVisual, effects_manager: EffectsManager) -> void:
@@ -23,12 +25,26 @@ func setup(game_core: GameCore, player_controller: PlayerController, player_visu
 	visual = player_visual
 	effects = effects_manager
 	player.state_changed.connect(_on_player_state_changed)
+	var session: FishingSessionService = core.fishing.session
+	session.cast_started.connect(_on_fishing_cast_started)
+	session.waiting_started.connect(_on_fishing_waiting_started)
+	session.bite_started.connect(_on_fishing_bite_started)
+	session.manual_reel_started.connect(_on_fishing_reel_started)
+	session.auto_reel_started.connect(_on_fishing_reel_started)
+	session.reveal_started.connect(_on_fishing_reveal_started)
+	session.haul_committed.connect(_on_fishing_haul_committed)
+	session.basket_full_paused.connect(_on_fishing_basket_full)
+	session.fishing_stopped.connect(_on_fishing_stopped)
 
 
 func _on_player_state_changed(new_state: PlayerController.State) -> void:
 	if new_state == PlayerController.State.FREE or new_state == PlayerController.State.BUILDING:
 		_loop_id += 1
 		visual.apply_equipment(core.equipment)
+		# Walking away (or opening build mode) ends the fishing session; the
+		# session releases any reserved Spirit itself.
+		if _void_session_visuals and core.fishing.session.is_active():
+			core.fishing.session.cancel("player_moved")
 
 
 func try_interact() -> void:
@@ -83,10 +99,15 @@ func interact_with(focus: Dictionary) -> void:
 
 func _start_fishing(coord: Vector2i) -> void:
 	var my_loop := _prepare_action(coord, "rod")
-	_fishing_cycle(my_loop, coord, false, _pond_point(coord))
+	_pond_fishing_cycle(my_loop, coord, _pond_point(coord))
 
 
+## Edge fishing hands control to the fishing session state machine; this node
+## only stages the seated presentation and mirrors session events into
+## animation, effects, and player states.
 func _start_void_fishing(cast_point: Vector3) -> void:
+	if core.fishing.session.is_active():
+		return
 	_loop_id += 1
 	var my_loop := _loop_id
 	# The keeper moves in free 360° directions, but the world has four grid
@@ -105,13 +126,7 @@ func _start_void_fishing(cast_point: Vector3) -> void:
 	else:
 		player.face_toward(cast_point)
 	player.set_state(PlayerController.State.FISHING_CAST)
-	_stage_void_fishing(my_loop, cast_point)
-
-
-func _stage_void_fishing(
-	my_loop: int,
-	cast_point: Vector3
-) -> void:
+	_void_cast_point = cast_point
 	var staged := await effects.prepare_void_fishing(cast_point)
 	if not staged or my_loop != _loop_id:
 		effects.cancel_void_fishing()
@@ -119,114 +134,142 @@ func _stage_void_fishing(
 			player.set_state(PlayerController.State.FREE)
 		return
 	action_feedback.emit("tool_equip", {})
-	_fishing_cycle(
-		my_loop,
-		player.current_cell(),
-		true,
-		cast_point,
-		true
-	)
+	_void_session_visuals = true
+	core.fishing.session.begin_session(cell)
 
 
-func _fishing_cycle(
-	my_loop: int,
-	coord: Vector2i,
-	is_void: bool,
-	cast_point: Vector3,
-	presentation_staged := false
-) -> void:
-	if my_loop != _loop_id or (not is_void and core.grid.cell(coord) == null):
+## The fishing input pressed while the line is out. At the bite it retrieves
+## the catch faster; at any other moment it does nothing.
+func fishing_input() -> void:
+	core.fishing.session.request_manual_reel()
+
+
+func _on_fishing_cast_started(_context: FishingRollContext, _duration: float) -> void:
+	if not _void_session_visuals:
 		return
 	player.set_state(PlayerController.State.FISHING_CAST)
-	action_feedback.emit("fish_cast", {"point": cast_point, "void": is_void})
+	# The seated keeper needs only a short settle beat before the line drops.
+	visual.play("fish_wait")
+	action_feedback.emit("fish_cast", {"point": _void_cast_point, "void": true})
+
+
+func _on_fishing_waiting_started(_duration: float) -> void:
+	if not _void_session_visuals:
+		return
+	# The line drops once the settle beat ends: the rift opens under the LIVE
+	# rod tip, which has finished blending into the seated pose by now.
+	effects.show_void_cast(_void_cast_point)
+	player.set_state(PlayerController.State.FISHING_WAIT)
+	visual.play("fish_wait")
+
+
+func _on_fishing_bite_started(_window: float) -> void:
+	if not _void_session_visuals:
+		return
+	effects.void_bite()
+	action_feedback.emit("fish_bite", {"point": _void_cast_point})
+
+
+func _on_fishing_reel_started(_duration: float) -> void:
+	if not _void_session_visuals:
+		return
+	player.set_state(PlayerController.State.FISHING_CATCH)
+	visual.play("fish_catch")
+
+
+func _on_fishing_reveal_started(haul: FishingHaul, _duration: float) -> void:
+	if not _void_session_visuals:
+		return
+	var primary := haul.primary_entry()
+	if primary != null:
+		# Fire-and-forget: the session's reveal timer paces the sequence.
+		effects.retrieve_void_reward({
+			"kind": primary.content_kind(),
+			"id": primary.building_id,
+		})
+
+
+func _on_fishing_haul_committed(haul: FishingHaul) -> void:
+	if not _void_session_visuals:
+		return
+	effects.consume_carried_void_reward()
+	action_feedback.emit("fish_catch", {
+		"haul": haul.to_dict(),
+		"void": true,
+		"point": player.global_position,
+	})
+
+
+func _on_fishing_basket_full() -> void:
+	if not _void_session_visuals:
+		return
+	action_feedback.emit("basket_full", {})
+
+
+func _on_fishing_stopped(_reason: String) -> void:
+	if not _void_session_visuals:
+		return
+	_void_session_visuals = false
+	effects.cancel_void_fishing()
+	if player.state in [
+		PlayerController.State.FISHING_CAST,
+		PlayerController.State.FISHING_WAIT,
+		PlayerController.State.FISHING_CATCH,
+	]:
+		player.set_state(PlayerController.State.FREE)
+
+
+## Pond fishing is a cozy ambient moment: the catch is admired and released.
+## Fish are ambient water animals — never rewards, records, or resources.
+func _pond_fishing_cycle(
+	my_loop: int,
+	coord: Vector2i,
+	cast_point: Vector3
+) -> void:
+	if my_loop != _loop_id or core.grid.cell(coord) == null:
+		return
+	player.set_state(PlayerController.State.FISHING_CAST)
+	action_feedback.emit("fish_cast", {"point": cast_point, "void": false})
 	var speed := core.equipment.tool_stat("rod", "speed", 1.0)
 	var cast_seconds := (
 		visual.authored_action_duration("fish_cast", 0.45) / speed
 	)
-	if presentation_staged:
-		# The seated keeper needs only a short settle beat before the line
-		# drops — the full authored standing cast would read as hesitation.
-		visual.play("fish_wait")
-		cast_seconds = minf(cast_seconds, 0.3 / speed)
-	else:
-		visual.play("fish_cast", cast_seconds)
+	visual.play("fish_cast", cast_seconds)
 	await _wait(cast_seconds)
 	if my_loop != _loop_id:
-		if is_void:
-			effects.cancel_void_fishing()
 		return
-	if is_void:
-		effects.show_void_cast(cast_point)
-	else:
-		effects.show_bobber(cast_point)
-		effects.ripple(cast_point)
+	effects.show_bobber(cast_point)
+	effects.ripple(cast_point)
 	player.set_state(PlayerController.State.FISHING_WAIT)
 	visual.play("fish_wait")
-	# Void fishing is the game's core activity: its wait is a savored,
-	# deliberately longer stretch than a quick pond catch.
-	var wait_seconds: float
-	if is_void:
-		wait_seconds = core.rng.randf_range(
-			"fishing_wait",
-			core.registries.tunef("void_fishing_wait_min", 3.4),
-			core.registries.tunef("void_fishing_wait_max", 6.8)
-		) / speed
-	else:
-		wait_seconds = core.rng.randf_range(
-			"fishing_wait",
-			core.registries.tunef("fishing_wait_min", 1.2),
-			core.registries.tunef("fishing_wait_max", 3.2)
-		) / speed
+	var wait_seconds := core.rng.randf_range(
+		"fishing_wait",
+		core.registries.tunef("fishing_wait_min", 1.2),
+		core.registries.tunef("fishing_wait_max", 3.2)
+	) / speed
 	await _wait(wait_seconds)
 	if my_loop != _loop_id:
 		effects.hide_bobber()
-		if is_void:
-			effects.cancel_void_fishing()
 		return
-	# Bite!
-	if is_void:
-		effects.void_bite()
-	else:
-		effects.bobber_dip()
-		effects.ripple(cast_point)
+	effects.bobber_dip()
+	effects.ripple(cast_point)
 	action_feedback.emit("fish_bite", {"point": cast_point})
-	# A void bite earns a longer anticipation beat before the haul begins.
-	await _wait(0.55 if is_void else 0.35)
+	await _wait(0.35)
 	if my_loop != _loop_id:
 		effects.hide_bobber()
-		if is_void:
-			effects.cancel_void_fishing()
 		return
 	player.set_state(PlayerController.State.FISHING_CATCH)
 	visual.play("fish_catch")
 	effects.hide_bobber()
-	var skill := core.registries.skill("fishing")
-	var result
-	var discovery_feedback: Dictionary
-	# Pond fish are released; a void catch physically hauls its rolled build
-	# piece through the rift before the discovery card may open.
-	if is_void:
-		result = core.rewards.resolve_hobby_action(skill)
-		discovery_feedback = core.progression.on_void_fishing_catch()
-		await effects.retrieve_void_reward(
-			discovery_feedback.get("reward", {})
-		)
-	else:
-		await effects.catch_and_release(
-			cast_point,
-			player.global_position + Vector3(0, 0.85, 0)
-		)
-		result = core.rewards.resolve_hobby_action(skill)
-		discovery_feedback = core.progression.on_activity_action(
-			"fishing",
-			coord
-		)
+	await effects.catch_and_release(
+		cast_point,
+		player.global_position + Vector3(0, 0.85, 0)
+	)
+	core.progression.on_activity_action("fishing")
 	if my_loop != _loop_id:
 		return
 	action_feedback.emit("fish_catch", {
-		"result": result.to_dict(),
-		"discovery": discovery_feedback,
-		"void": is_void,
+		"void": false,
 		"point": player.global_position,
 	})
 	player.set_state(PlayerController.State.FREE)
@@ -284,14 +327,9 @@ func _chop_cycle(my_loop: int, instance_id: int) -> void:
 	effects.burst("fx_wood_chip", impact_point, 6)
 	effects.shake_structure(instance_id)
 	var result := core.rewards.resolve_hobby_action(core.registries.skill("woodcutting"))
-	var discovery_feedback := core.progression.on_activity_action(
-		"woodcutting",
-		found["coord"],
-		structure.structure_id
-	)
+	core.progression.on_activity_action("woodcutting")
 	action_feedback.emit("chop_impact", {
 		"result": result.to_dict(),
-		"discovery": discovery_feedback,
 		"point": impact_point,
 	})
 	structure.anchor_actions_done += 1
@@ -301,6 +339,9 @@ func _chop_cycle(my_loop: int, instance_id: int) -> void:
 			1.0 - 0.1 * structure.anchor_upgrade
 		)
 		core.track_resting_structure(instance_id)
+		# The finished cycle publishes a narrow completion event; the Spirit
+		# adapter — not this node — decides it is worth a Grove Spirit.
+		core.progression.on_activity_cycle_completed("woodcutting")
 		action_feedback.emit("grove_rest", {"instance_id": instance_id})
 		core.autosave_soon()
 		await _wait(maxf(0.12, cycle_seconds - impact_seconds))
@@ -364,5 +405,7 @@ func _wait(seconds: float) -> void:
 
 func cancel_all() -> void:
 	_loop_id += 1
+	if core != null and core.fishing.session.is_active():
+		core.fishing.session.cancel("cancel_all")
 	effects.hide_bobber()
 	effects.cancel_void_fishing()

@@ -5,31 +5,21 @@
 [resource]
 script = ExtResource("1_s0vhg")
 tile_id = "tile_snow_path"
-display_name = "Snowy Footpath"
-revision = 1
+display_name = "Hearthstep Snowpath"
+revision = 2
 lifecycle = "published"
-source_kind = "external"
-runtime_definition = {
-"asset_id": "tile_snow_path",
-"connection_mode": "soft_isolated",
-"family": "winter",
-"geometry_profile": "soft_recessed_top",
-"id": "tile_snow_path",
-"name": "Snowy Footpath",
-"placement_sound": "stone",
-"special_trait": "A pale path marked by alternating footsteps.",
-"stackable": true,
-"supports_tiles": true,
-"surface_kind": "flat",
-"weight": 1.7
-}
-baked_roles = PackedStringArray("base", "surface", "detail")
+recipe_path = "res://tools/tile_kit/library/recipes/tile_snow_path.tres"
+separate_tiles = true
+baked_roles = PackedStringArray("base", "detail", "surface")
 family = "winter"
 connection_group = "winter"
 biome_tags = PackedStringArray()
+landmark_tags = PackedStringArray()
 weight = 1.7
 placement_sound = "stone"
 dependencies = PackedStringArray()
+water_cells = PackedStringArray()
 created_at = "2026-08-01 00:00:00"
-updated_at = "2026-08-01 00:00:00"
+updated_at = "2026-08-01 16:00:00"
 published_at = "2026-08-01 00:00:00"
+notes = "Original Suma procedural composition. Stable ID retained for runtime references; no extracted source geometry is used."

@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "timing": {
+    "cast_seconds": 1.2,
+    "wait_min_seconds": 8.0,
+    "wait_max_seconds": 16.0,
+    "bite_window_seconds": 6.0,
+    "manual_reel_seconds": 1.8,
+    "auto_reel_seconds": 2.6,
+    "reveal_seconds": 1.4,
+    "recast_pause_seconds": 0.8,
+    "total_max_seconds": 30.0
+  },
+  "source_pools": {
+    "local": 0.6,
+    "global": 0.3,
+    "wildcard": 0.1
+  },
+  "haul_sizes": {
+    "single": 0.8,
+    "rich": 0.17,
+    "bountiful": 0.03
+  },
+  "single_form_weights": {
+    "tile_bundle": 0.7,
+    "model": 0.3
+  },
+  "rich_second_form_weights": {
+    "tile_bundle": 0.55,
+    "model": 0.45
+  },
+  "bundle_ranges": {
+    "common": [4, 8],
+    "uncommon": [2, 4],
+    "rare": [1, 2]
+  },
+  "keepsake": {
+    "base_chance": 0.04,
+    "pity_start": 20,
+    "pity_bonus_per_catch": 0.02
+  },
+  "rare_luck": {
+    "pity_start": 10,
+    "weight_bonus_per_catch": 0.35
+  },
+  "spirit_theme_multiplier": 6.0,
+  "habitat_theme_multiplier": 2.5,
+  "pouch_capacity": 5,
+  "basket_capacity": 3,
+  "unlock_groups": ["core"],
+  "first_catch_loot_id": "loot_tile_water",
+  "fallback_loot_id": "loot_tile_grass",
+  "habitat": {
+    "base_themes": {
+      "wild": 1.0
+    },
+    "family_themes": {
+      "home_meadow": { "wild": 1.0 },
+      "living_grove": { "grove": 1.0 },
+      "stonebound": { "stone": 1.0 },
+      "winter": { "wild": 0.4, "oddity": 0.6 },
+      "waterside": { "wild": 1.0 },
+      "tile_forge": { "wild": 0.6, "grove": 0.4 }
+    },
+    "biome_themes": {
+      "forest": { "grove": 0.6 },
+      "stone": { "stone": 0.6 },
+      "beach": { "wild": 0.4 },
+      "winter": { "oddity": 0.3 },
+      "urban": { "oddity": 0.4, "stone": 0.2 },
+      "water": { "wild": 0.3 }
+    },
+    "structure_tag_themes": {
+      "biome_forest": { "grove": 1.0 },
+      "tree": { "grove": 1.0 },
+      "plant": { "grove": 0.5 },
+      "woodland": { "grove": 0.8 },
+      "stonework": { "stone": 1.0 },
+      "garden": { "wild": 0.4 },
+      "nature": { "wild": 0.4 },
+      "winter": { "oddity": 1.0 },
+      "waterside": { "wild": 0.6 },
+      "utility": { "oddity": 0.3 }
+    },
+    "max_model_contributions": 2,
+    "model_duplicate_cap": 1,
+    "model_theme_cap": 2.0
+  }
+}

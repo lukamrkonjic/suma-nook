@@ -126,6 +126,102 @@ class DiscoveryPoolDefinition:
 		return pool
 
 
+class FishingLootDefinition:
+	extends Resource
+	## One reward the void can return from edge fishing. References existing
+	## building content by stable id; fishing never duplicates tile/model/
+	## keepsake definitions and never knows how a piece renders or places.
+	var id: String
+	var display_name: String
+	var traits := DefinitionTraits.new()
+	var reward_kind: String = "tile_bundle"   # tile_bundle|model|keepsake
+	var building_definition_id: String = ""   # tile/structure/keepsake stable id
+	var theme_tags: Array[String] = []        # broad habitat themes (grove, stone…)
+	var pool_tags: Array[String] = []         # local|global|wildcard
+	var rarity: String = "common"             # common|uncommon|rare
+	var base_weight: float = 1.0
+	var bundle_min: int = 0                   # 0 falls back to rarity defaults
+	var bundle_max: int = 0
+	var unique: bool = false                  # granted at most once (keepsakes)
+	var unlock_group: String = "core"         # future content activation hook
+	var presentation_profile: String = ""     # optional reveal flourish id
+
+	static func from_dict(d: Dictionary) -> FishingLootDefinition:
+		var loot := FishingLootDefinition.new()
+		loot.id = d.get("id", "")
+		loot.display_name = d.get("name", loot.id.capitalize())
+		loot.traits = DefinitionTraits.from_dict(d)
+		loot.reward_kind = String(d.get("reward_kind", "tile_bundle"))
+		loot.building_definition_id = String(d.get("building_definition_id", loot.id))
+		for tag in d.get("theme_tags", []):
+			loot.theme_tags.append(String(tag))
+		for tag in d.get("pool_tags", []):
+			loot.pool_tags.append(String(tag))
+		loot.rarity = String(d.get("rarity", "common"))
+		loot.base_weight = float(d.get("base_weight", 1.0))
+		loot.bundle_min = int(d.get("bundle_min", 0))
+		loot.bundle_max = int(d.get("bundle_max", 0))
+		loot.unique = bool(d.get("unique", loot.reward_kind == "keepsake"))
+		loot.unlock_group = String(d.get("unlock_group", "core"))
+		loot.presentation_profile = String(d.get("presentation_profile", ""))
+		return loot
+
+	func has_theme(theme: String) -> bool:
+		return theme_tags.has(theme)
+
+	func in_pool(pool: String) -> bool:
+		return pool_tags.has(pool)
+
+
+class SpiritDefinition:
+	extends Resource
+	## A physical charm earned by completing an ordinary activity cycle. One
+	## armed Spirit strongly weights one catch toward its broad theme; Spirits
+	## never change rarity, haul size, quantities, or Keepsake odds.
+	var id: String
+	var display_name: String
+	var traits := DefinitionTraits.new()
+	var description: String
+	var icon_glyph: String
+	var color := Color(0.7, 0.8, 0.7)
+	var theme_tag: String = ""                # theme this charm targets
+	var source_skill: String = ""             # activity whose cycle creates it
+
+	static func from_dict(d: Dictionary) -> SpiritDefinition:
+		var s := SpiritDefinition.new()
+		s.id = d.get("id", "")
+		s.display_name = d.get("name", s.id.capitalize())
+		s.traits = DefinitionTraits.from_dict(d)
+		s.description = d.get("description", "")
+		s.icon_glyph = d.get("icon", "✧")
+		s.color = Color.from_string("#" + String(d.get("color", "9cc09c")), s.color)
+		s.theme_tag = String(d.get("theme_tag", ""))
+		s.source_skill = String(d.get("source_skill", ""))
+		return s
+
+
+class KeepsakeDefinition:
+	extends Resource
+	## A rare bonus reward with one small behavior. The reward generator only
+	## grants a Keepsake id; a narrow service applies its effect.
+	var id: String
+	var display_name: String
+	var traits := DefinitionTraits.new()
+	var description: String
+	var icon_glyph: String
+	var effect_id: String = ""                # interpreted by the keepsake service
+
+	static func from_dict(d: Dictionary) -> KeepsakeDefinition:
+		var k := KeepsakeDefinition.new()
+		k.id = d.get("id", "")
+		k.display_name = d.get("name", k.id.capitalize())
+		k.traits = DefinitionTraits.from_dict(d)
+		k.description = d.get("description", "")
+		k.icon_glyph = d.get("icon", "❖")
+		k.effect_id = String(d.get("effect", ""))
+		return k
+
+
 class MilestoneDefinition:
 	extends Resource
 	## A one-time reward moment. Practice milestones fire on lifetime action

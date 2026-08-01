@@ -257,6 +257,12 @@ var _updating_edit_controls := false
 var _wind_strength := 0.0
 var _wind_elapsed := 0.0
 var _wind_bases: Dictionary = {}
+## asset id -> resource path for the selected procedural tile's baked cardinal
+## variants. They stream in off-thread so sand/snow selection stays responsive.
+var _pending_topology_assets: Dictionary = {}
+var _pending_topology_content_id := ""
+var _topology_load_failed := false
+var _topology_ready: Dictionary = {}
 var _saved_visibility: Dictionary = {}
 var _saved_camera: Camera3D
 var _saved_lighting_state: Dictionary = {}
@@ -339,6 +345,7 @@ func close() -> void:
 func _process(delta: float) -> void:
 	if not visible:
 		return
+	_poll_published_topology_loads()
 	_animate_wind(delta)
 	if _input_service.is_controller():
 		var look := Input.get_vector(
@@ -390,11 +397,16 @@ func select_content(content_id: String) -> void:
 		_rebuild_catalog()
 	else:
 		_sync_catalog_selection()
-	# Switching always previews the already-published runtime scenes. Rebuilding
-	# nine procedural generators here made high-resolution sand/snow selection
-	# block the main thread. Actual recipe edits still use the live generator
-	# through TileKitPanel.changed.
+	# Switching previews the already-published runtime topology variants.
+	# Rebuilding nine procedural generators here made high-resolution sand/snow
+	# selection block the main thread. The baked N/E/S/W variants stream in
+	# off-thread, then appear as one finished patch. Actual recipe edits still
+	# use the live generator through TileKitPanel.changed.
+	var loading_topology := _begin_published_topology_load(definition)
 	_rebuild_preview()
+	if loading_topology:
+		_content_root.visible = false
+		_status.text = "Preparing connected tile preview..."
 
 
 func select_asset(asset_id: String) -> void:
@@ -1294,6 +1306,12 @@ func _first_visible_entry() -> Dictionary:
 func _rebuild_tile_kit_preview() -> void:
 	if _content_root == null or _tile_kit_panel == null:
 		return
+	# A recipe edit supersedes any not-yet-presented published patch. Threaded
+	# requests may finish in ResourceLoader's global cache, but this inspector
+	# now intentionally shows the live working recipe.
+	_pending_topology_assets.clear()
+	_pending_topology_content_id = ""
+	_content_root.visible = true
 	for child in _content_root.get_children():
 		child.free()
 	var tile_size: float = _main.core.grid.tile_size
@@ -1444,7 +1462,17 @@ func _rebuild_preview() -> void:
 	if _category == "tiles":
 		for z in range(-TILE_PATCH_RADIUS, TILE_PATCH_RADIUS + 1):
 			for x in range(-TILE_PATCH_RADIUS, TILE_PATCH_RADIUS + 1):
-				var tile := _tile_factory.instantiate_visual(selected_tile, false)
+				var neighbour_mask := 0
+				if (
+					selected_tile.connection_mode == "full_flush"
+					and bool(_topology_ready.get(_selected_content_id, false))
+				):
+					neighbour_mask = _patch_neighbour_mask(
+						x, z, TILE_PATCH_RADIUS
+					)
+				var tile := _tile_factory.instantiate_visual(
+					selected_tile, false, neighbour_mask
+				)
 				tile.position = Vector3(x * tile_size, 0.0, z * tile_size)
 				_content_root.add_child(tile)
 	else:
@@ -1470,6 +1498,98 @@ func _rebuild_preview() -> void:
 	_refresh_edit_targets(selected_tile)
 	_collect_wind_nodes()
 	_frame_preview()
+
+
+## Cardinal neighbours available inside an Asset Studio square preview patch.
+## Uses the same bit contract as TileKitGenerator and WorldRenderer:
+## 1 north, 2 east, 4 south, 8 west.
+static func _patch_neighbour_mask(x: int, z: int, radius: int) -> int:
+	return (
+		(1 if z > -radius else 0)
+		| (2 if x < radius else 0)
+		| (4 if z < radius else 0)
+		| (8 if x > -radius else 0)
+	)
+
+
+## Starts (or adopts) threaded requests for exactly the baked variants needed
+## by this 3x3 patch. Returns true while the correct connected preview is not
+## ready; callers hide the canonical standalone fallback during that interval
+## so the UI never lies about the unchecked "Keep tiles separated" setting.
+func _begin_published_topology_load(selected_tile: Variant) -> bool:
+	_pending_topology_assets.clear()
+	_pending_topology_content_id = ""
+	_topology_load_failed = false
+	_content_root.visible = true
+	if (
+		_category != "tiles"
+		or selected_tile == null
+		or selected_tile.connection_mode != "full_flush"
+		or _tile_kit_panel == null
+		or _tile_kit_panel.current_manifest == null
+		or _tile_kit_panel.current_manifest.source_kind
+			!= TileLibraryManifest.SOURCE_PROCEDURAL
+		or _tile_kit_panel.preset == null
+		or _tile_kit_panel.preset.separate_tiles
+	):
+		return false
+	var masks := {}
+	for z in range(-TILE_PATCH_RADIUS, TILE_PATCH_RADIUS + 1):
+		for x in range(-TILE_PATCH_RADIUS, TILE_PATCH_RADIUS + 1):
+			masks[_patch_neighbour_mask(x, z, TILE_PATCH_RADIUS)] = true
+	for layer: Defs.TileVisualLayerDefinition in selected_tile.visual_layers:
+		for mask: int in masks:
+			var candidate := "%s_n%02d" % [layer.asset_id, mask]
+			if not _assets.exists(candidate) or _assets.has_cached_scene(candidate):
+				continue
+			var path := AssetLibrary.resolve_path(candidate)
+			var state := ResourceLoader.load_threaded_get_status(path)
+			if state == ResourceLoader.THREAD_LOAD_LOADED:
+				var loaded := ResourceLoader.load_threaded_get(path) as PackedScene
+				_assets.prime_packed_scene(candidate, loaded)
+				continue
+			if state != ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+				var error := ResourceLoader.load_threaded_request(path, "PackedScene")
+				if error != OK:
+					_topology_load_failed = true
+					continue
+			_pending_topology_assets[candidate] = path
+	if _pending_topology_assets.is_empty():
+		if not _topology_load_failed:
+			_topology_ready[_selected_content_id] = true
+		return false
+	_topology_ready.erase(_selected_content_id)
+	_pending_topology_content_id = _selected_content_id
+	return true
+
+
+func _poll_published_topology_loads() -> void:
+	if _pending_topology_assets.is_empty():
+		return
+	for asset_id: String in _pending_topology_assets.keys():
+		var path := String(_pending_topology_assets[asset_id])
+		var state := ResourceLoader.load_threaded_get_status(path)
+		if state == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+			continue
+		if state == ResourceLoader.THREAD_LOAD_LOADED:
+			var packed := ResourceLoader.load_threaded_get(path) as PackedScene
+			_assets.prime_packed_scene(asset_id, packed)
+		else:
+			_topology_load_failed = true
+		_pending_topology_assets.erase(asset_id)
+	if not _pending_topology_assets.is_empty():
+		return
+	var completed_content_id := _pending_topology_content_id
+	_pending_topology_content_id = ""
+	if completed_content_id != _selected_content_id:
+		return
+	_content_root.visible = true
+	if _topology_load_failed:
+		_status.text = "Connected preview could not be streamed; showing live recipe."
+		_rebuild_tile_kit_preview()
+		return
+	_topology_ready[completed_content_id] = true
+	_rebuild_preview()
 
 
 func _refresh_edit_targets(selected_tile: Defs.TileDefinition) -> void:
@@ -1612,7 +1732,7 @@ func _refresh_edit_controls() -> void:
 	for key: String in edits:
 		if not keys.has(key):
 			keys.append(key)
-	keys.sort()
+	keys.sort_custom(_material_key_before)
 	for key: String in keys:
 		_material_slot.add_item(key.replace("_", " ").capitalize())
 		_material_slot.set_item_metadata(_material_slot.item_count - 1, key)
@@ -1634,6 +1754,27 @@ func _refresh_edit_controls() -> void:
 		_refresh_selected_material_controls()
 	_save_button.disabled = not _edit_dirty
 	_updating_edit_controls = false
+
+
+static func _material_key_before(a: String, b: String) -> bool:
+	return _material_key_priority(a) < _material_key_priority(b) or (
+		_material_key_priority(a) == _material_key_priority(b) and a < b
+	)
+
+
+static func _material_key_priority(key: String) -> int:
+	var lower := key.to_lower()
+	if lower.ends_with("_top") or lower == "top":
+		return 0
+	if "primary" in lower or "surface" in lower:
+		return 1
+	if "bevel" in lower or "light" in lower:
+		return 2
+	if "side" in lower or "medium" in lower:
+		return 3
+	if "deep" in lower or "lower" in lower:
+		return 4
+	return 5
 
 
 func _clear_edit_controls() -> void:
@@ -1711,6 +1852,7 @@ func _asset_supports_smoothing(asset_id: String) -> bool:
 	return (
 		not asset_id.is_empty()
 		and not asset_id.begins_with("tile_layer_base_")
+		and not asset_id.ends_with("_base")
 	)
 
 

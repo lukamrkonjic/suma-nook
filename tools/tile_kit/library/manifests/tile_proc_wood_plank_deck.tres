@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_f4coj")
 tile_id = "tile_proc_wood_plank_deck"
-display_name = "Wood Plank Deck"
+display_name = "Ambergrain Decking"
 revision = 1
 lifecycle = "published"
 visibility = "preview"
@@ -15,8 +15,10 @@ baked_roles = PackedStringArray("base", "surface")
 family = "woodland"
 connection_group = "tile_proc_wood_plank_deck"
 biome_tags = PackedStringArray("meadow")
+landmark_tags = PackedStringArray()
 placement_sound = "wood"
 dependencies = PackedStringArray()
+water_cells = PackedStringArray()
 created_at = "2026-08-01 00:00:00"
-updated_at = "2026-08-01 14:39:08"
+updated_at = "2026-08-01 16:00:00"
 published_at = "2026-08-01 14:39:08"

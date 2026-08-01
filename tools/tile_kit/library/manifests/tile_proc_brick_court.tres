@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_5xdo5")
 tile_id = "tile_proc_brick_court"
-display_name = "Brick Court"
+display_name = "Hearthbrick Court"
 revision = 1
 lifecycle = "published"
 visibility = "preview"
@@ -15,8 +15,10 @@ baked_roles = PackedStringArray("base", "surface")
 family = "stonebound"
 connection_group = "tile_proc_brick_court"
 biome_tags = PackedStringArray("meadow")
+landmark_tags = PackedStringArray()
 placement_sound = "stone"
 dependencies = PackedStringArray()
+water_cells = PackedStringArray()
 created_at = "2026-08-01 00:00:00"
-updated_at = "2026-08-01 14:38:49"
+updated_at = "2026-08-01 16:00:00"
 published_at = "2026-08-01 14:38:49"

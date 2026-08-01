@@ -80,6 +80,19 @@ func _ready() -> void:
 		not _preview_uses_live_generators(studio),
 		"tile switching uses published scenes instead of synchronous procedural regeneration",
 	)
+	var separate_tiles := studio.find_child(
+		"TileKitSeparateTiles", true, false
+	) as CheckBox
+	_expect(
+		separate_tiles != null and not separate_tiles.button_pressed,
+		"sand opens with its authored seamless topology setting"
+	)
+	_expect(
+		_preview_has_complete_topology_patch(
+			studio, "tile_proc_sand_dunes_study_surface"
+		),
+		"initial sand preview consumes connected baked variants without a checkbox toggle"
+	)
 	switch_started = Time.get_ticks_usec()
 	studio.select_content("tile_proc_snow_drifts_study")
 	var snow_switch_ms := (Time.get_ticks_usec() - switch_started) / 1000.0
@@ -130,12 +143,12 @@ func _ready() -> void:
 
 	studio.select_content("tile_grass")
 	await _settle(4)
-	var imported_dune_row := studio.find_child(
+	var grass_relief_row := studio.find_child(
 		"TileKitSliderRow_base_relief_amplitude", true, false
 	) as HBoxContainer
 	_expect(
-		imported_dune_row == null or not imported_dune_row.is_visible_in_tree(),
-		"imported tiles hide procedural sculpting while retaining tile CRUD and asset editing"
+		grass_relief_row != null and grass_relief_row.is_visible_in_tree(),
+		"former imported tiles now expose their procedural recipe controls"
 	)
 	_expect(
 		not studio.selected_asset_id().is_empty(),
@@ -157,7 +170,7 @@ func _ready() -> void:
 		is_equal_approx(
 			float(
 				_main.assets.edits.profile(
-					"tile_layer_surface_grass_tufts"
+					"tile_grass_surface"
 				).get("smoothing", 0.0)
 			),
 			0.37
@@ -212,13 +225,13 @@ func _ready() -> void:
 	await _settle(4)
 	var sand_mesh := _find_asset_mesh(
 		studio,
-		"tile_layer_surface_sand"
+		"tile_sand_surface"
 	)
 	_expect(sand_mesh != null, "sand preview exposes its surface asset")
 	var authored_relief := _top_relief(sand_mesh)
 	studio.set_surface_smoothing(1.0)
 	await _settle(2)
-	sand_mesh = _find_asset_mesh(studio, "tile_layer_surface_sand")
+	sand_mesh = _find_asset_mesh(studio, "tile_sand_surface")
 	_expect(
 		_top_relief(sand_mesh) <= authored_relief * 0.20,
 		"100% live tile smoothing strongly flattens the sand relief"
@@ -324,7 +337,7 @@ func _ready() -> void:
 		color_picker.color = chosen_sand_color
 		color_picker.color_changed.emit(chosen_sand_color)
 		await _settle(2)
-		sand_mesh = _find_asset_mesh(studio, "tile_layer_surface_sand")
+		sand_mesh = _find_asset_mesh(studio, "tile_sand_surface")
 		_expect(
 			_material_color(sand_mesh).is_equal_approx(chosen_sand_color),
 			"tile color edit changes the live composed surface material"
@@ -347,7 +360,7 @@ func _ready() -> void:
 			await _settle(2)
 			sand_mesh = _find_asset_mesh(
 				studio,
-				"tile_layer_surface_sand"
+				"tile_sand_surface"
 			)
 			_expect(
 				color_picker.color.a == 1.0
@@ -359,7 +372,7 @@ func _ready() -> void:
 		studio.save_asset_edits()
 		await _settle(3)
 		var sand_profile: Dictionary = _main.assets.edits.profile(
-			"tile_layer_surface_sand"
+			"tile_sand_surface"
 		)
 		var sand_materials: Dictionary = sand_profile.get("materials", {})
 		_expect(
@@ -377,7 +390,7 @@ func _ready() -> void:
 		add_child(fresh_sand)
 		var fresh_sand_mesh := _find_asset_mesh_in(
 			fresh_sand,
-			"tile_layer_surface_sand"
+			"tile_sand_surface"
 		)
 		_expect(
 			_material_color(fresh_sand_mesh).is_equal_approx(
@@ -385,7 +398,8 @@ func _ready() -> void:
 			),
 			"new in-game tile instances consume the saved color"
 		)
-		fresh_sand.free()
+		fresh_sand.queue_free()
+		await _settle(1)
 
 	studio.select_content("struct_firepit_polished")
 	studio.set_weather_preset("rain")
@@ -487,6 +501,19 @@ func _preview_uses_live_generators(studio: Node) -> bool:
 	return false
 
 
+func _preview_has_complete_topology_patch(studio: Node, asset_id: String) -> bool:
+	var preview := studio.get("_content_root") as Node
+	if preview == null:
+		return false
+	var found := {}
+	for descendant in preview.find_children("*", "Node3D", true, false):
+		var name_text := String(descendant.name)
+		for mask in [3, 6, 7, 9, 11, 12, 13, 14, 15]:
+			if name_text.contains("%s_n%02d" % [asset_id, mask]):
+				found[mask] = true
+	return found.size() == 9
+
+
 func _find_asset_mesh_in(root: Node, asset_id: String) -> MeshInstance3D:
 	for descendant in root.find_children(
 		"*",
@@ -574,13 +601,30 @@ func _top_relief(mesh_instance: MeshInstance3D) -> float:
 func _material_color(mesh_instance: MeshInstance3D) -> Color:
 	if mesh_instance == null:
 		return Color.TRANSPARENT
-	var material := mesh_instance.get_active_material(0)
+	var material: Material
+	for surface in mesh_instance.mesh.get_surface_count():
+		var candidate := mesh_instance.get_active_material(surface)
+		if (
+			candidate != null
+			and _material_authoring_key(candidate, surface) == "sand_top"
+		):
+			material = candidate
+			break
+	if material == null:
+		material = mesh_instance.get_active_material(0)
 	if material is StandardMaterial3D:
 		return (material as StandardMaterial3D).albedo_color
 	if material is ShaderMaterial:
 		var value = (material as ShaderMaterial).get_shader_parameter("albedo")
 		return value if value is Color else Color.TRANSPARENT
 	return Color.TRANSPARENT
+
+
+func _material_authoring_key(material: Material, surface: int) -> String:
+	var key := material.resource_name.get_slice("|", 0).get_slice(".", 0)
+	if key.begins_with("tilekit_"):
+		key = key.trim_prefix("tilekit_")
+	return key if not key.is_empty() else "surface_%02d" % surface
 
 
 func _expect(condition: bool, message: String) -> void:

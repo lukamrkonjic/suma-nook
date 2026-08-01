@@ -5,51 +5,23 @@
 [resource]
 script = ExtResource("1_tgume")
 tile_id = "tile_sand"
-display_name = "Pale Sand"
-revision = 1
+display_name = "Saffronwind Sand"
+revision = 2
 lifecycle = "published"
 visibility = "active"
-source_kind = "external"
-runtime_definition = {
-"asset_id": "tile_sand",
-"biome_tags": ["beach"],
-"connection_mode": "full_flush",
-"exposed_top": "raised",
-"family": "home_meadow",
-"geometry_profile": "organic_overlay_square",
-"id": "tile_sand",
-"layers": [{
-"asset_id": "tile_layer_base_standard",
-"cover_behavior": "persist",
-"material": "sand_top",
-"role": "base"
-}, {
-"asset_id": "tile_layer_surface_sand",
-"cover_behavior": "hide",
-"material": "sand_top",
-"role": "surface"
-}],
-"name": "Pale Sand",
-"placement_sound": "grass",
-"rarity": "uncommon",
-"render_profile": "layered",
-"soft_surface_profile": "sand",
-"special_trait": "Soft sand shaped by a faint breeze.",
-"stackable": true,
-"supports_tiles": true,
-"surface_kind": "flat",
-"walk_surface_height": 0.025,
-"weight": 1.1
-}
-baked_roles = PackedStringArray("base", "surface", "detail")
+recipe_path = "res://tools/tile_kit/library/recipes/tile_sand.tres"
+baked_roles = PackedStringArray("base", "detail", "surface")
 family = "home_meadow"
 connection_group = "home_meadow"
 biome_tags = PackedStringArray("beach")
+landmark_tags = PackedStringArray()
 rarity = "uncommon"
 weight = 1.1
 dependencies = PackedStringArray()
 soft_surface_profile = "sand"
 walk_surface_height = 0.025
+water_cells = PackedStringArray()
 created_at = "2026-08-01 00:00:00"
-updated_at = "2026-08-01 00:00:00"
+updated_at = "2026-08-01 16:00:00"
 published_at = "2026-08-01 00:00:00"
+notes = "Original Suma procedural composition. Stable ID retained for runtime references; no extracted source geometry is used."

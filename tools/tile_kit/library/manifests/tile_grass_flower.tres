@@ -5,29 +5,19 @@
 [resource]
 script = ExtResource("1_lebx6")
 tile_id = "tile_grass_flower"
-display_name = "Sunlit Meadow"
-revision = 1
+display_name = "Buttercup Gleam"
+revision = 2
 lifecycle = "published"
-source_kind = "external"
-runtime_definition = {
-"asset_id": "tile_grass_flower",
-"connection_mode": "full_flush",
-"family": "home_meadow",
-"geometry_profile": "micro_bevel_square",
-"id": "tile_grass_flower",
-"name": "Sunlit Meadow",
-"placement_sound": "grass",
-"special_trait": "A warmer, uncluttered patch of grass.",
-"weight": 2.0
-}
-baked_roles = PackedStringArray("base", "surface", "detail")
+recipe_path = "res://tools/tile_kit/library/recipes/tile_grass_flower.tres"
+baked_roles = PackedStringArray("base", "detail", "surface")
 family = "home_meadow"
 connection_group = "home_meadow"
 biome_tags = PackedStringArray()
+landmark_tags = PackedStringArray()
 weight = 2.0
 dependencies = PackedStringArray()
-stackable = false
-supports_tiles = false
+water_cells = PackedStringArray()
 created_at = "2026-08-01 00:00:00"
-updated_at = "2026-08-01 00:00:00"
+updated_at = "2026-08-01 16:00:00"
 published_at = "2026-08-01 00:00:00"
+notes = "Original Suma procedural composition. Stable ID retained for runtime references; no extracted source geometry is used."

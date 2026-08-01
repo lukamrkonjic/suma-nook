@@ -38,18 +38,26 @@ func _run() -> void:
 
 
 func _check_official_sources() -> void:
-	_check(TileKitPreset.OFFICIAL_RECIPES.size() == 21, "21 recipes are registered")
+	_check(TileKitPreset.OFFICIAL_RECIPES.size() == 56, "all 56 recipes are registered")
+	var registered_ids: Dictionary = {}
+	var registered_names: Dictionary = {}
 	for entry in TileKitPreset.OFFICIAL_RECIPES:
 		var tile_id := String(entry[1])
+		var display_name := String(entry[0])
+		_check(not registered_ids.has(tile_id), "%s is registered once" % tile_id)
+		_check(not registered_names.has(display_name), "%s has a unique authored name" % display_name)
+		registered_ids[tile_id] = true
+		registered_names[display_name] = true
 		var path := "%s/%s.tres" % [
 			TileKitPreset.OFFICIAL_RECIPE_DIRECTORY, tile_id,
 		]
 		_check(ResourceLoader.exists(path), "%s has a file-backed recipe" % tile_id)
 		var preset := TileKitPreset.make_built_in(String(entry[0]))
 		_check(preset != null, "%s loads through the compatibility API" % tile_id)
+		_check(_has_visual_identity(preset), "%s is not an empty colour block" % tile_id)
 	var service := TileLibraryService.new()
 	service.reload()
-	_check(service.official_manifests().size() >= 56, "official manifest library is populated")
+	_check(service.official_manifests().size() == 56, "official manifest library is complete")
 	var catalog := _read_json("res://data/tiles.json")
 	var procedural_count := 0
 	for raw in catalog.get("tiles", []):
@@ -61,8 +69,21 @@ func _check_official_sources() -> void:
 			service.official_manifest(tile_id) != null,
 			"runtime tile %s has an authoritative manifest" % tile_id
 		)
+		var manifest := service.official_manifest(tile_id)
+		_check(
+			manifest != null and manifest.source_kind == TileLibraryManifest.SOURCE_PROCEDURAL,
+			"%s no longer depends on imported placeholder geometry" % tile_id
+		)
+		_check(
+			manifest != null and ResourceLoader.exists(manifest.recipe_path),
+			"%s keeps an editable official recipe" % tile_id
+		)
 	_check(catalog.get("tiles", []).size() == 56, "all 56 official tiles are real runtime tiles")
-	_check(procedural_count == 21, "all 21 procedural recipes are real runtime tiles")
+	_check(procedural_count == 56, "all 56 runtime tiles are procedural")
+	_check(TileLayerParameterSchema.SHAPES.has("crystal"), "generic scatter exposes crystals")
+	_check(TileLayerParameterSchema.SHAPES.has("footprint"), "generic scatter exposes footprints")
+	var paver_pattern := TileLayerParameterSchema.parameters("pavers")[0] as Dictionary
+	_check((paver_pattern["values"] as Array).has("trail"), "generic pavers expose trail layouts")
 	for template in TileTemplateLibrary.TEMPLATES:
 		_check(
 			not String(template["id"]).begins_with("tile_"),
@@ -91,6 +112,21 @@ func _check_official_sources() -> void:
 		"tile inspector contains no second real-tile dropdown"
 	)
 	panel.free()
+
+
+func _has_visual_identity(preset: TileKitPreset) -> bool:
+	if preset == null:
+		return false
+	var base := preset.layer_of_kind("base")
+	if base != null and (
+		String(base.value("relief_style", "none")) != "none"
+		and float(base.value("relief_amplitude", 0.0)) > 0.001
+	):
+		return true
+	for layer in preset.layers:
+		if layer.enabled and layer.kind != "base":
+			return true
+	return false
 
 
 func _check_compiler_candidate() -> void:

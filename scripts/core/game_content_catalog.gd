@@ -9,10 +9,14 @@ const CampingDefinitionValidatorScript := preload(
 const ProgressionDefinitionValidatorScript := preload(
 	"res://scripts/features/progression/progression_definition_validator.gd"
 )
+const FishingDefinitionValidatorScript := preload(
+	"res://scripts/features/fishing/fishing_definition_validator.gd"
+)
 
 
 static func create() -> Registries:
 	var registries := Registries.new()
 	registries.register_validator(CampingDefinitionValidatorScript.validate)
 	registries.register_validator(ProgressionDefinitionValidatorScript.validate)
+	registries.register_validator(FishingDefinitionValidatorScript.validate)
 	return registries

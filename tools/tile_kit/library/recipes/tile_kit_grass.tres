@@ -83,5 +83,5 @@ params = {
 
 [resource]
 script = ExtResource("2_oajhk")
-preset_name = "Reference Clean Grass"
+preset_name = "Springleaf Carpet"
 layers = Array[ExtResource("1_guku3")]([SubResource("Resource_5ejib"), SubResource("Resource_0wldu"), SubResource("Resource_2ow8h"), SubResource("Resource_se1wv")])

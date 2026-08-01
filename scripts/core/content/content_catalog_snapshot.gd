@@ -16,6 +16,9 @@ const DEFINITION_KINDS: Array[String] = [
 	"capabilities",
 	"enemies",
 	"landmarks",
+	"fishing_loot",
+	"spirits",
+	"keepsakes",
 ]
 
 var base_path: String
@@ -34,6 +37,10 @@ var anchors: Dictionary = {}
 var capabilities: Dictionary = {}
 var enemies: Dictionary = {}
 var landmarks: Dictionary = {}
+var fishing_loot: Dictionary = {}
+var spirits: Dictionary = {}
+var keepsakes: Dictionary = {}
+var fishing_balance: Dictionary = {}
 var sources: Dictionary = {}
 
 
@@ -55,6 +62,9 @@ func definitions(kind: String) -> Dictionary:
 		"capabilities": return capabilities
 		"enemies": return enemies
 		"landmarks": return landmarks
+		"fishing_loot": return fishing_loot
+		"spirits": return spirits
+		"keepsakes": return keepsakes
 	return {}
 
 

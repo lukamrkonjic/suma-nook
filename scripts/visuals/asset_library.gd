@@ -55,6 +55,19 @@ func instantiate(asset_id: String) -> Node3D:
 	return node
 
 
+## Asset Studio streams large procedural topology scenes off the main thread,
+## then hands the completed PackedScene to the ordinary asset cache. Runtime
+## consumers still resolve assets by stable ID; this only avoids repeating a
+## synchronous text-scene parse at the moment the designer changes selection.
+func prime_packed_scene(asset_id: String, packed: PackedScene) -> void:
+	if not asset_id.is_empty() and packed != null:
+		_cache[asset_id] = packed
+
+
+func has_cached_scene(asset_id: String) -> bool:
+	return _cache.has(asset_id) and _cache[asset_id] is PackedScene
+
+
 func save_asset_profile(asset_id: String, profile: Dictionary) -> Error:
 	var error := edits.save_profile(asset_id, profile)
 	if error == OK:

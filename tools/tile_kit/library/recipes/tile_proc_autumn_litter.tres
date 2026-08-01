@@ -93,5 +93,5 @@ params = {
 
 [resource]
 script = ExtResource("2_qu5w5")
-preset_name = "Autumn Litter"
+preset_name = "Copperfall Litter"
 layers = Array[ExtResource("1_ggnha")]([SubResource("Resource_ggnha"), SubResource("Resource_qu5w5"), SubResource("Resource_3p0hc"), SubResource("Resource_lgb0a")])

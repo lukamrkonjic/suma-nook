@@ -513,16 +513,15 @@ func _build_admin_page() -> void:
 		var ok := core.arrivals.trigger_arrival()
 		_admin_status("Ferry arrival triggered." if ok else "Ferry could not arrive right now.")
 	var grant_fishing_discovery := func() -> void:
-		core.progression.on_void_fishing_catch()
-		_admin_status("Pulled one broad discovery from the void.")
+		var haul = core.fishing.debug_force_catch(core.grid.home_cell)
+		_admin_status(
+			"Committed one %s haul to the Catch Basket." % haul.catch_size
+			if haul != null
+			else "The Catch Basket is full — take or return a haul first."
+		)
 	var grant_woodland_discovery := func() -> void:
-		for _index in 4:
-			core.progression.on_activity_action(
-				"woodcutting",
-				core.grid.home_cell,
-				"struct_pine"
-			)
-		_admin_status("Completed one biome-shaped tree discovery.")
+		core.progression.on_activity_cycle_completed("woodcutting")
+		_admin_status("Completed one tree cycle — a Grove Spirit was offered to the pouch.")
 	var save_now := func() -> void:
 		_admin_status("Garden saved." if core.save() else "Could not save the garden.")
 	var build_mock := func() -> void:
@@ -567,8 +566,58 @@ func _build_admin_page() -> void:
 	)
 	_admin_action_row(list, "Reset save", "Deletes the save and its backup, then restarts the game fresh.", "Reset", reset_save)
 	_admin_action_row(list, "Ferry", "Bring the delivery ferry in right away.", "Trigger arrival", trigger_ferry)
-	_admin_action_row(list, "Void Fishing", "Queue one broad random discovery.", "Discover", grant_fishing_discovery)
-	_admin_action_row(list, "Woodland Tending", "Complete one local biome-shaped tree discovery.", "Discover", grant_woodland_discovery)
+	_admin_action_row(list, "Void Fishing", "Generate and commit one full haul to the Catch Basket.", "Catch now", grant_fishing_discovery)
+	_admin_action_row(list, "Woodland Tending", "Publish one completed tree cycle (grants a Grove Spirit).", "Complete cycle", grant_woodland_discovery)
+	_admin_action_row(
+		list, "Habitat sample",
+		"Print the 3x3 habitat themes around the keeper's current cell.",
+		"Inspect",
+		func() -> void:
+			var report: Dictionary = core.fishing.debug_habitat_report(
+				core.grid.world_to_cell(settings_bridge.player.global_position)
+			)
+			_admin_status("Habitat %s → %s" % [report["anchor"], report["normalized"]])
+	)
+	_admin_action_row(
+		list, "Spirit Pouch",
+		"Fill every free pouch slot with Grove Spirits, or clear it.",
+		"Fill pouch",
+		func() -> void:
+			core.fishing.debug_fill_pouch()
+			_admin_status("Spirit Pouch filled.")
+	)
+	_admin_action_row(
+		list, "Catch Basket",
+		"Fill the basket with forced catches, or clear all pending hauls.",
+		"Fill basket",
+		func() -> void:
+			core.fishing.debug_fill_basket()
+			_admin_status("Catch Basket filled.")
+	)
+	_admin_action_row(
+		list, "Clear fishing state",
+		"Empty the Spirit Pouch and the Catch Basket.",
+		"Clear both",
+		func() -> void:
+			core.fishing.debug_clear_pouch()
+			core.fishing.debug_clear_basket()
+			_admin_status("Pouch and basket cleared.")
+	)
+	_admin_action_row(
+		list, "Fishing simulation",
+		"Run 10,000 seeded virtual catches through the live reward services.",
+		"Simulate",
+		func() -> void:
+			var report: Dictionary = core.fishing.run_simulation(1337, 10000)
+			_admin_status(
+				"10k catches — sizes %s · forms %s · keepsakes %d · fallbacks %d"
+				% [
+					report["sizes"], report["forms"],
+					int(report["keepsakes"]),
+					int(report["empty_pool_fallbacks"]),
+				]
+			)
+	)
 	_admin_action_row(list, "Save", "Write the garden to disk immediately.", "Save now", save_now)
 
 	_status_label = kit.label("", 15)

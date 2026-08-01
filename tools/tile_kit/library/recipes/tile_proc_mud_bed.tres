@@ -93,5 +93,5 @@ params = {
 
 [resource]
 script = ExtResource("2_wa4od")
-preset_name = "Mud Bed"
+preset_name = "Rainroot Bed"
 layers = Array[ExtResource("1_pvbgg")]([SubResource("Resource_pvbgg"), SubResource("Resource_wa4od"), SubResource("Resource_4vx2b"), SubResource("Resource_hrcbl")])

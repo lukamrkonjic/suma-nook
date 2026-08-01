@@ -92,5 +92,5 @@ params = {
 
 [resource]
 script = ExtResource("2_yt011")
-preset_name = "Gravel Yard"
+preset_name = "Finchstone Yard"
 layers = Array[ExtResource("1_jw7ro")]([SubResource("Resource_jw7ro"), SubResource("Resource_yt011"), SubResource("Resource_qmrse"), SubResource("Resource_5sl8e")])

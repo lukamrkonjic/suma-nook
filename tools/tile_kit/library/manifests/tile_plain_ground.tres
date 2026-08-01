@@ -5,31 +5,21 @@
 [resource]
 script = ExtResource("1_ksl41")
 tile_id = "tile_plain_ground"
-display_name = "Beginner White Block"
-revision = 1
+display_name = "Porcelain Seedbed"
+revision = 2
 lifecycle = "published"
-source_kind = "external"
-runtime_definition = {
-"asset_id": "tile_plain_ground",
-"connection_mode": "full_flush",
-"family": "home_meadow",
-"geometry_profile": "hard_square",
-"id": "tile_plain_ground",
-"name": "Beginner White Block",
-"placement_sound": "stone",
-"special_trait": "Garden Galaxy's plain beginner block, preserved as the direct visual-match control.",
-"stackable": true,
-"supports_tiles": true,
-"surface_kind": "flat",
-"weight": 2.4
-}
-baked_roles = PackedStringArray("base", "surface", "detail")
+recipe_path = "res://tools/tile_kit/library/recipes/tile_plain_ground.tres"
+separate_tiles = true
+baked_roles = PackedStringArray("base", "detail", "surface")
 family = "home_meadow"
 connection_group = "home_meadow"
 biome_tags = PackedStringArray()
+landmark_tags = PackedStringArray()
 weight = 2.4
 placement_sound = "stone"
 dependencies = PackedStringArray()
+water_cells = PackedStringArray()
 created_at = "2026-08-01 00:00:00"
-updated_at = "2026-08-01 00:00:00"
+updated_at = "2026-08-01 16:00:00"
 published_at = "2026-08-01 00:00:00"
+notes = "Original Suma procedural composition. Stable ID retained for runtime references; no extracted source geometry is used."

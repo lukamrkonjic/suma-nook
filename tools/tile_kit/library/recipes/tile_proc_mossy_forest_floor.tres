@@ -94,5 +94,5 @@ params = {
 
 [resource]
 script = ExtResource("2_n4ed2")
-preset_name = "Mossy Forest Floor"
+preset_name = "Mosswhisper Floor"
 layers = Array[ExtResource("1_1j3dv")]([SubResource("Resource_1j3dv"), SubResource("Resource_n4ed2"), SubResource("Resource_dtngj"), SubResource("Resource_adua4")])

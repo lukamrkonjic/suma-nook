@@ -1,0 +1,83 @@
+[gd_resource type="Resource" script_class="TileModuleSet" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_module_entry.gd" id="1_uo4i1"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_module_set.gd" id="2_cbehr"]
+
+[sub_resource type="Resource" id="Resource_k1cub"]
+script = ExtResource("1_uo4i1")
+mesh_path = "res://tools/tile_forge/modules/gravel/gf_pebble_a.glb"
+tags = PackedStringArray("gravel")
+footprint_radius = 0.0432
+height = 0.03
+sink = 0.005
+
+[sub_resource type="Resource" id="Resource_is320"]
+script = ExtResource("1_uo4i1")
+mesh_path = "res://tools/tile_forge/modules/gravel/gf_pebble_b.glb"
+weight = 0.85
+tags = PackedStringArray("gravel")
+footprint_radius = 0.0412
+height = 0.024
+sink = 0.005
+
+[sub_resource type="Resource" id="Resource_fuss0"]
+script = ExtResource("1_uo4i1")
+mesh_path = "res://tools/tile_forge/modules/gravel/gf_pebble_c.glb"
+weight = 0.7
+tags = PackedStringArray("gravel")
+footprint_radius = 0.0518
+height = 0.034
+sink = 0.005
+
+[sub_resource type="Resource" id="Resource_bnorf"]
+script = ExtResource("1_uo4i1")
+mesh_path = "res://tools/tile_forge/modules/gravel/gf_pebble_d.glb"
+weight = 0.55
+tags = PackedStringArray("gravel")
+footprint_radius = 0.0343
+height = 0.02
+sink = 0.005
+
+[sub_resource type="Resource" id="Resource_ingey"]
+script = ExtResource("1_uo4i1")
+mesh_path = "res://tools/tile_forge/modules/gravel/gf_pebble_e.glb"
+weight = 0.45
+tags = PackedStringArray("gravel")
+footprint_radius = 0.0482
+height = 0.026
+sink = 0.005
+
+[sub_resource type="Resource" id="Resource_ar2s6"]
+script = ExtResource("1_uo4i1")
+mesh_path = "res://tools/tile_forge/modules/gravel/gf_pebble_f.glb"
+weight = 0.4
+tags = PackedStringArray("gravel")
+footprint_radius = 0.0414
+height = 0.031
+sink = 0.005
+
+[sub_resource type="Resource" id="Resource_gjetg"]
+script = ExtResource("1_uo4i1")
+mesh_path = "res://tools/tile_forge/modules/gravel/gf_pebble_g.glb"
+weight = 0.35
+tags = PackedStringArray("gravel")
+footprint_radius = 0.0549
+height = 0.028
+sink = 0.005
+
+[sub_resource type="Resource" id="Resource_vp35g"]
+script = ExtResource("1_uo4i1")
+mesh_path = "res://tools/tile_forge/modules/gravel/gf_pebble_h.glb"
+weight = 0.3
+tags = PackedStringArray("gravel")
+footprint_radius = 0.0347
+height = 0.022
+sink = 0.005
+
+[resource]
+script = ExtResource("2_cbehr")
+set_id = "pebbles"
+display_name = "Pebbles"
+family = "gravel"
+modules = Array[ExtResource("1_uo4i1")]([SubResource("Resource_k1cub"), SubResource("Resource_is320"), SubResource("Resource_fuss0"), SubResource("Resource_bnorf"), SubResource("Resource_ingey"), SubResource("Resource_ar2s6"), SubResource("Resource_gjetg"), SubResource("Resource_vp35g")])
+separation_scale = 1.1

@@ -47,10 +47,20 @@ float hash21(vec2 p) {
 	return fract(p.x * p.y);
 }
 
+// C2-continuous step: plain smoothstep's derivative kinks at both edges
+// draw visible Mach-band creases across the sky's broad calm gradients.
+float smootherstep(float edge0, float edge1, float value) {
+	float t = clamp((value - edge0) / max(edge1 - edge0, 0.0001), 0.0, 1.0);
+	return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+
 float value_noise_2d(vec2 point) {
 	vec2 cell = floor(point);
 	vec2 local = fract(point);
-	local = local * local * (3.0 - 2.0 * local);
+	// Quintic fade (C2 continuous): the cubic fade's second-derivative
+	// seams show up as faint straight creases across calm sky gradients.
+	local = local * local * local
+		* (local * (local * 6.0 - 15.0) + 10.0);
 	float bottom = mix(
 		hash21(cell),
 		hash21(cell + vec2(1.0, 0.0)),
@@ -169,16 +179,16 @@ void fragment() {
 	vec3 color = mix(
 		zenith_color,
 		upper_sky,
-		smoothstep(0.02, 0.40, breath_y)
+		smootherstep(0.02, 0.44, breath_y)
 	);
 	color = mix(
 		color,
 		bright_band,
-		smoothstep(0.34, 0.66, breath_y)
+		smootherstep(0.32, 0.70, breath_y)
 	);
-	float haze_rise = smoothstep(
+	float haze_rise = smootherstep(
 		0.55,
-		1.06,
+		1.08,
 		uv.y + (field_b - 0.5) * 0.1
 	);
 	color = mix(
@@ -186,7 +196,7 @@ void fragment() {
 		low_haze,
 		haze_rise * (0.45 + 0.25 * daylight)
 	);
-	float accent_band = smoothstep(0.70, 1.12, breath_y);
+	float accent_band = smootherstep(0.70, 1.14, breath_y);
 	color = mix(
 		color,
 		horizon_accent_color,
@@ -257,6 +267,17 @@ void fragment() {
 			* sparkle_intensity * 0.02 * sparkle_amount * star_boost;
 	}
 	color += shooting_star_radiance(uv);
+
+	// Debanding dither: ordered interleaved-gradient noise stays under
+	// the 8-bit quantisation step, unlike white noise which reads as
+	// grain. It also breathes down after dark, where any speckle would
+	// show against the near-black sky.
+	float ordered = fract(
+		52.9829189 * fract(
+			0.06711056 * FRAGCOORD.x + 0.00583715 * FRAGCOORD.y
+		)
+	);
+	color += vec3(ordered - 0.5) * (mix(0.4, 1.0, daylight) / 255.0);
 
 	ALBEDO = color;
 }

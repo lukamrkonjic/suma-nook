@@ -1,0 +1,113 @@
+[gd_resource type="Resource" script_class="TileKitPreset" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_kit/tile_kit_layer.gd" id="1_to1kl"]
+[ext_resource type="Script" path="res://tools/tile_kit/tile_kit_preset.gd" id="2_mbmpw"]
+
+[sub_resource type="Resource" id="Resource_jflca"]
+script = ExtResource("1_to1kl")
+kind = "base"
+locked = true
+params = {
+"bevel_key": "stone_light",
+"bevel_segments": 6,
+"bottom_chamfer": 0.016,
+"corner_radius": 0.075,
+"lower_key": "stone_deep",
+"relief_amplitude": 0.012,
+"relief_edge_feather": 0.2,
+"relief_resolution": 24,
+"relief_style": "pillow",
+"side_key": "stone_deep",
+"top_bevel": 0.075,
+"top_key": "stone_medium"
+}
+
+[sub_resource type="Resource" id="Resource_ikc4o"]
+script = ExtResource("1_to1kl")
+kind = "dressing"
+enabled = false
+params = {
+"aspect": [0.7, 1.35],
+"color_weights": {
+"dressing_dark": 15.0,
+"dressing_light": 50.0,
+"dressing_medium": 35.0
+},
+"edge_margin": 0.02,
+"irregularity": [0.08, 0.14],
+"large_count": [3, 5],
+"large_radius": [0.17, 0.29],
+"medium_count": [4, 7],
+"medium_radius": [0.094, 0.17],
+"outline_points": 20,
+"region_count": [2, 3],
+"region_spread": 0.3,
+"scale_multiplier": 1.0,
+"small_count": [2, 5],
+"small_radius": [0.047, 0.094],
+"smoothing_passes": 3
+}
+
+[sub_resource type="Resource" id="Resource_8f3g2"]
+script = ExtResource("1_to1kl")
+kind = "pavers"
+params = {
+"gap": 0.025,
+"pattern": "cobbles",
+"slab_key": "stone_medium",
+"slab_key_alt": "stone_light",
+"stone_cell": 0.31,
+"stone_cell_z": 0.24,
+"stone_corner": 0.035,
+"stone_height": [0.022, 0.038],
+"stone_jitter": 0.09
+}
+
+[sub_resource type="Resource" id="Resource_cfp73"]
+script = ExtResource("1_to1kl")
+kind = "clutter"
+params = {
+"color_weights": {
+"moss_clump": 70.0,
+"stone_deep": 30.0
+},
+"count": [4, 7],
+"diameter": [0.04, 0.09],
+"edge_margin": 0.035,
+"height": [0.008, 0.022],
+"min_spacing": 0.055,
+"on_dressing_fraction": 0.55,
+"scale_multiplier": 1.0,
+"shapes": ["lobed_clump", "leaf_litter", "pebble"]
+}
+
+[sub_resource type="Resource" id="Resource_bif7s"]
+script = ExtResource("1_to1kl")
+kind = "grass_clusters"
+enabled = false
+params = {
+"bend_multiplier": 0.75,
+"carpet_jitter": 0.3,
+"carpet_skip_fraction": 0.1,
+"carpet_spacing": 0.315,
+"coverage_mode": "carpet",
+"crown_radius": 0.02,
+"edge_margin": 0.02,
+"height_multiplier": 1.0,
+"leaf_height": [0.095, 0.15],
+"leaf_width": [0.058, 0.088],
+"root_sink": [0.008, 0.015],
+"rosette_footprint": [0.14, 0.2],
+"rosette_leaves": [3, 5],
+"secondary_fraction": 0.2,
+"splay_degrees": [16.0, 34.0],
+"thickness_ratio": [0.55, 0.72],
+"width_multiplier": 1.0
+}
+
+[resource]
+script = ExtResource("2_mbmpw")
+preset_name = "Bramblegate Cobbles"
+master_seed = 20267347
+separate_tiles = true
+layers = Array[ExtResource("1_to1kl")]([SubResource("Resource_jflca"), SubResource("Resource_ikc4o"), SubResource("Resource_8f3g2"), SubResource("Resource_cfp73"), SubResource("Resource_bif7s")])

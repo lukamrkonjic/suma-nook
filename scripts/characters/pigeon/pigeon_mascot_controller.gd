@@ -7,10 +7,17 @@ extends Node
 
 signal movement_state_changed(state: MovementState)
 
+const RIG_PROFILE_PATH := (
+	"res://assets/characters/pigeon/pigeon_rig_profile.json"
+)
+
 enum MovementState {
 	DORMANT,
 	IDLE,
 	WALKING,
+	PUSHED,
+	FALLING,
+	RECOVERING,
 	TAKING_OFF,
 	FLYING,
 	LANDING,
@@ -25,6 +32,12 @@ enum MovementState {
 @export_range(2.0, 20.0, 0.25, "suffix:s") var flight_duration_max := 8.5
 @export_range(1.0, 12.0, 0.25, "suffix:m") var ground_follow_radius := 4.5
 @export_range(2.0, 16.0, 0.25, "suffix:m") var forced_takeoff_distance := 6.5
+@export_range(0.5, 6.0, 0.1, "suffix:m/s") var push_speed_min := 1.7
+@export_range(0.5, 6.0, 0.1, "suffix:m/s") var push_speed_max := 2.8
+@export_range(0.5, 10.0, 0.1, "suffix:m/s²") var push_deceleration := 3.5
+@export_range(1.0, 20.0, 0.1, "suffix:m/s²") var edge_fall_gravity := 6.0
+@export_range(0.1, 1.5, 0.05, "suffix:m") var recovery_drop_distance := 0.45
+@export_range(0.6, 3.0, 0.05, "suffix:s") var recovery_flight_duration := 1.35
 
 @onready var mascot := get_parent() as CharacterBody3D
 @onready var model := mascot.get_node("Model") as Node3D
@@ -53,6 +66,15 @@ var _orbit_phase := 0.0
 var _orbit_radius := 2.0
 var _orbit_direction := 1.0
 var _model_rest_position := Vector3.ZERO
+var _push_velocity := Vector3.ZERO
+var _fall_speed := 0.0
+var _last_safe_cell := Vector2i.ZERO
+var _has_last_safe_cell := false
+var _recovery_cell := Vector2i.ZERO
+var _recovery_start := Vector3.ZERO
+var _recovery_target := Vector3.ZERO
+var _recovery_elapsed := 0.0
+var _edge_ground_y := 0.0
 
 var _wing_root_bones: Array[int] = []
 var _wing_mid_bones: Array[int] = []
@@ -71,15 +93,90 @@ var _lab_preview_animation := ""
 func _ready() -> void:
 	_rng.randomize()
 	_model_rest_position = model.position
+	if not bool(mascot.get_meta("skip_saved_pigeon_rig", false)):
+		_apply_saved_rig_profile()
 	_cache_bones()
 	# Wing deformation can extend well beyond the imported T-pose bounds.
 	# Give skinned meshes room so the body is never culled while the wings move.
 	for child in model.find_children("*", "MeshInstance3D", true, false):
 		(child as MeshInstance3D).extra_cull_margin = 1.5
 	mascot.visible = false
+	mascot.add_to_group("pushable_npcs")
 	mascot.collision_layer = 0
 	mascot.collision_mask = 0
 	set_physics_process(false)
+
+
+## The Clothing Lab stages edits against the untouched imported skeleton, then
+## recaches its animation baseline only after the user presses Save + Apply.
+func recache_lab_animation_base_pose() -> void:
+	if skeleton == null:
+		return
+	for bone_index in _animated_bones:
+		if bone_index >= 0:
+			_base_bone_rotations[bone_index] = (
+				skeleton.get_bone_pose_rotation(bone_index)
+			)
+
+
+func _apply_saved_rig_profile() -> void:
+	var profile_path := String(
+		mascot.get_meta("pigeon_rig_profile_path", RIG_PROFILE_PATH)
+	)
+	if skeleton == null or not FileAccess.file_exists(profile_path):
+		return
+	var parsed: Variant = JSON.parse_string(
+		FileAccess.get_file_as_string(profile_path)
+	)
+	if not parsed is Dictionary:
+		push_warning("Ignoring invalid pigeon rig profile JSON.")
+		return
+	var entries := (parsed as Dictionary).get("bones", {}) as Dictionary
+	var base_rotations: Dictionary = {}
+	var base_positions: Dictionary = {}
+	for bone_index in skeleton.get_bone_count():
+		base_rotations[bone_index] = skeleton.get_bone_pose_rotation(bone_index)
+		base_positions[bone_index] = skeleton.get_bone_pose_position(bone_index)
+	for bone_index in skeleton.get_bone_count():
+		var bone_name := skeleton.get_bone_name(bone_index)
+		if not entries.has(bone_name):
+			continue
+		var entry := entries[bone_name] as Dictionary
+		var rotation := _rig_profile_vector3(
+			entry.get("rotation_degrees", [])
+		)
+		var radians := Vector3(
+			deg_to_rad(rotation.x),
+			deg_to_rad(rotation.y),
+			deg_to_rad(rotation.z),
+		)
+		skeleton.set_bone_pose_rotation(
+			bone_index,
+			(base_rotations[bone_index] as Quaternion)
+			* Quaternion.from_euler(radians),
+		)
+		var position := _rig_profile_vector3(entry.get("position", []))
+		var parent_index := skeleton.get_bone_parent(bone_index)
+		var local_offset := position
+		if parent_index >= 0:
+			local_offset = (
+				skeleton.get_bone_global_pose(parent_index).basis.inverse()
+				* position
+			)
+		skeleton.set_bone_pose_position(
+			bone_index,
+			(base_positions[bone_index] as Vector3) + local_offset,
+		)
+
+
+func _rig_profile_vector3(value: Variant) -> Vector3:
+	if value is Array and (value as Array).size() >= 3:
+		return Vector3(
+			float((value as Array)[0]),
+			float((value as Array)[1]),
+			float((value as Array)[2]),
+		)
+	return Vector3.ZERO
 
 
 func setup(player_controller: PlayerController, world_grid: WorldGrid) -> void:
@@ -95,9 +192,12 @@ func spawn_near_player() -> void:
 	if bool(result.get("found", false)):
 		_current_cell = result["cell"]
 		mascot.global_position = _ground_position(_current_cell)
+		_last_safe_cell = _current_cell
+		_has_last_safe_cell = true
 	else:
 		_current_cell = grid.world_to_cell(player.global_position)
 		mascot.global_position = player.global_position + Vector3(0.72, 0.03, 0.32)
+		_has_last_safe_cell = false
 	var player_direction := player.global_position - mascot.global_position
 	player_direction.y = 0.0
 	if player_direction.length_squared() > 0.001:
@@ -105,11 +205,14 @@ func spawn_near_player() -> void:
 	model.visible = true
 	mascot.visible = true
 	_ground_hops = 0
+	_push_velocity = Vector3.ZERO
+	_fall_speed = 0.0
 	_begin_idle(0.7)
 
 
 func despawn() -> void:
 	movement_state = MovementState.DORMANT
+	_set_collision_enabled(false)
 	mascot.visible = false
 	_reset_visual_pose()
 
@@ -120,10 +223,42 @@ func movement_state_name() -> String:
 
 func is_flying() -> bool:
 	return movement_state in [
+		MovementState.RECOVERING,
 		MovementState.TAKING_OFF,
 		MovementState.FLYING,
 		MovementState.LANDING,
 	]
+
+
+## Called by PlayerController after a real CharacterBody contact. The mascot
+## keeps the impulse after contact ends, so a committed shove can carry him
+## across the last half-tile and over the island edge.
+func apply_player_push(player_velocity: Vector3) -> void:
+	if movement_state not in [
+		MovementState.IDLE,
+		MovementState.WALKING,
+		MovementState.PUSHED,
+	]:
+		return
+	var planar_velocity := Vector3(player_velocity.x, 0.0, player_velocity.z)
+	if planar_velocity.length_squared() <= 0.01:
+		return
+	var current_cell := grid.world_to_cell(mascot.global_position)
+	if _has_ground_support(current_cell):
+		_last_safe_cell = current_cell
+		_has_last_safe_cell = true
+	var push_speed := clampf(
+		planar_velocity.length() * 0.75,
+		push_speed_min,
+		push_speed_max,
+	)
+	var incoming := planar_velocity.normalized() * push_speed
+	_push_velocity = _push_velocity.lerp(incoming, 0.78).limit_length(
+		push_speed_max
+	)
+	_face_direction(_push_velocity.normalized())
+	face.set_expression(PigeonFaceRig.EyeExpression.SURPRISED)
+	_set_state(MovementState.PUSHED)
 
 
 ## Drives the same procedural poses used in the world from a deterministic
@@ -205,6 +340,12 @@ func _physics_process(delta: float) -> void:
 			_update_idle(delta)
 		MovementState.WALKING:
 			_update_walking(delta)
+		MovementState.PUSHED:
+			_update_pushed(delta)
+		MovementState.FALLING:
+			_update_edge_fall(delta)
+		MovementState.RECOVERING:
+			_update_edge_recovery(delta)
 		MovementState.TAKING_OFF:
 			_update_takeoff(delta)
 		MovementState.FLYING:
@@ -234,9 +375,105 @@ func _update_idle(delta: float) -> void:
 
 
 func _begin_idle(minimum_seconds := 1.0) -> void:
+	_push_velocity = Vector3.ZERO
+	_set_collision_enabled(true)
 	_set_state(MovementState.IDLE)
 	_state_seconds = maxf(minimum_seconds, _rng.randf_range(1.25, 3.25))
 	face.set_expression(PigeonFaceRig.EyeExpression.NEUTRAL)
+
+
+func _update_pushed(delta: float) -> void:
+	mascot.global_position += _push_velocity * delta
+	_walk_phase += delta * 10.5
+	var current_cell := grid.world_to_cell(mascot.global_position)
+	if not _has_ground_support(current_cell):
+		_begin_edge_fall()
+		return
+	_current_cell = current_cell
+	_last_safe_cell = current_cell
+	_has_last_safe_cell = true
+	mascot.global_position.y = _ground_position(current_cell).y
+	_push_velocity = _push_velocity.move_toward(
+		Vector3.ZERO,
+		push_deceleration * delta,
+	)
+	if _push_velocity.length_squared() <= 0.015:
+		_push_velocity = Vector3.ZERO
+		_begin_idle(0.65)
+
+
+func _begin_edge_fall() -> void:
+	if not _has_last_safe_cell:
+		var fallback := _find_safe_cell_near(
+			grid.world_to_cell(player.global_position),
+			4,
+		)
+		if bool(fallback.get("found", false)):
+			_last_safe_cell = fallback["cell"]
+			_has_last_safe_cell = true
+	if not _has_last_safe_cell:
+		despawn()
+		return
+	_edge_ground_y = _ground_position(_last_safe_cell).y
+	_fall_speed = 0.0
+	_set_collision_enabled(false)
+	face.set_expression(PigeonFaceRig.EyeExpression.SURPRISED)
+	_set_state(MovementState.FALLING)
+
+
+func _update_edge_fall(delta: float) -> void:
+	_push_velocity = _push_velocity.move_toward(
+		Vector3.ZERO,
+		push_deceleration * 0.45 * delta,
+	)
+	_fall_speed += edge_fall_gravity * delta
+	mascot.global_position += (
+		_push_velocity * delta
+		+ Vector3.DOWN * _fall_speed * delta
+	)
+	if mascot.global_position.y <= _edge_ground_y - recovery_drop_distance:
+		_begin_edge_recovery()
+
+
+func _begin_edge_recovery() -> void:
+	_recovery_cell = _last_safe_cell
+	if not _has_ground_support(_recovery_cell):
+		var fallback := _find_safe_cell_near(
+			grid.world_to_cell(player.global_position),
+			4,
+		)
+		if not bool(fallback.get("found", false)):
+			despawn()
+			return
+		_recovery_cell = fallback["cell"]
+	_recovery_start = mascot.global_position
+	_recovery_target = _ground_position(_recovery_cell)
+	_recovery_elapsed = 0.0
+	_push_velocity = Vector3.ZERO
+	var home_direction := _recovery_target - _recovery_start
+	home_direction.y = 0.0
+	if home_direction.length_squared() > 0.001:
+		_face_direction(home_direction.normalized())
+	_set_state(MovementState.RECOVERING)
+
+
+func _update_edge_recovery(delta: float) -> void:
+	_recovery_elapsed += delta
+	var progress := clampf(
+		_recovery_elapsed / recovery_flight_duration,
+		0.0,
+		1.0,
+	)
+	var eased := progress * progress * (3.0 - 2.0 * progress)
+	mascot.global_position = _recovery_start.lerp(_recovery_target, eased)
+	mascot.global_position.y += sin(progress * PI) * 0.48
+	if progress >= 1.0:
+		mascot.global_position = _recovery_target
+		_current_cell = _recovery_cell
+		_last_safe_cell = _recovery_cell
+		_has_last_safe_cell = true
+		_ground_hops = 0
+		_begin_idle(1.1)
 
 
 func _begin_walk_to_neighbor() -> bool:
@@ -299,6 +536,7 @@ func _update_walking(delta: float) -> void:
 func _begin_takeoff() -> void:
 	if movement_state in [MovementState.TAKING_OFF, MovementState.FLYING]:
 		return
+	_set_collision_enabled(false)
 	_set_state(MovementState.TAKING_OFF)
 	_state_seconds = 0.72
 	_takeoff_origin = mascot.global_position
@@ -406,6 +644,23 @@ func _update_visual_pose(delta: float) -> void:
 			roll = sin(_pose_time * 1.35) * 0.008
 			_apply_ground_wing_tuck(0.82)
 			_apply_idle_body_pose(_pose_time)
+		MovementState.PUSHED:
+			bob = absf(sin(_walk_phase)) * 0.018
+			roll = sin(_walk_phase) * 0.055
+			_apply_ground_wing_tuck(0.84)
+			_apply_walk_cycle(_walk_phase)
+		MovementState.FALLING:
+			_wing_phase += delta * 21.0
+			_apply_flight_flap(0.68)
+			_apply_flight_body_pose(_wing_phase)
+			roll = sin(_wing_phase * 0.5) * 0.10
+			pitch = 0.10
+		MovementState.RECOVERING:
+			_wing_phase += delta * 16.5
+			_apply_flight_flap(0.58)
+			_apply_flight_body_pose(_wing_phase)
+			bob = sin(_wing_phase) * 0.012
+			pitch = -0.16
 		MovementState.TAKING_OFF:
 			_wing_phase += delta * 18.0
 			var remaining_tuck := clampf(_state_seconds / 0.72, 0.0, 1.0) * 0.82
@@ -718,6 +973,15 @@ func _is_clear_ground_cell(cell: Vector2i) -> bool:
 		return false
 	var state := grid.cell(cell)
 	return state != null and state.structures.is_empty()
+
+
+func _has_ground_support(cell: Vector2i) -> bool:
+	return grid != null and grid.is_walkable(cell)
+
+
+func _set_collision_enabled(enabled: bool) -> void:
+	mascot.collision_layer = PlayerController.PUSHABLE_NPC_LAYER if enabled else 0
+	mascot.collision_mask = PlayerController.GROUND_MASK if enabled else 0
 
 
 func _ground_position(cell: Vector2i) -> Vector3:

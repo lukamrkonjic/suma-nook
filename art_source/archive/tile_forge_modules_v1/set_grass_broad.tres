@@ -1,0 +1,56 @@
+[gd_resource type="Resource" script_class="TileModuleSet" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_module_entry.gd" id="1_huqvh"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_module_set.gd" id="2_lqv5x"]
+
+[sub_resource type="Resource" id="Resource_1cn1a"]
+script = ExtResource("1_huqvh")
+mesh_path = "res://tools/tile_forge/modules/grass/gf_grass_broad_a.glb"
+tags = PackedStringArray("grass")
+footprint_radius = 0.2119
+height = 0.115
+sink = 0.01
+
+[sub_resource type="Resource" id="Resource_eqpp0"]
+script = ExtResource("1_huqvh")
+mesh_path = "res://tools/tile_forge/modules/grass/gf_grass_broad_b.glb"
+weight = 0.85
+tags = PackedStringArray("grass")
+footprint_radius = 0.2341
+height = 0.1
+sink = 0.01
+
+[sub_resource type="Resource" id="Resource_vwron"]
+script = ExtResource("1_huqvh")
+mesh_path = "res://tools/tile_forge/modules/grass/gf_grass_broad_c.glb"
+weight = 0.7
+tags = PackedStringArray("grass")
+footprint_radius = 0.1863
+height = 0.128
+sink = 0.01
+
+[sub_resource type="Resource" id="Resource_gy6mb"]
+script = ExtResource("1_huqvh")
+mesh_path = "res://tools/tile_forge/modules/grass/gf_grass_broad_d.glb"
+weight = 0.55
+tags = PackedStringArray("grass")
+footprint_radius = 0.2065
+height = 0.092
+sink = 0.01
+
+[sub_resource type="Resource" id="Resource_6ir46"]
+script = ExtResource("1_huqvh")
+mesh_path = "res://tools/tile_forge/modules/grass/gf_grass_broad_e.glb"
+weight = 0.45
+tags = PackedStringArray("grass")
+footprint_radius = 0.1772
+height = 0.108
+sink = 0.01
+
+[resource]
+script = ExtResource("2_lqv5x")
+set_id = "grass_broad"
+display_name = "Grass Broad"
+modules = Array[ExtResource("1_huqvh")]([SubResource("Resource_1cn1a"), SubResource("Resource_eqpp0"), SubResource("Resource_vwron"), SubResource("Resource_gy6mb"), SubResource("Resource_6ir46")])
+separation_scale = 1.05
+max_repeats_per_module = 2

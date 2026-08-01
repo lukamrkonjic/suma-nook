@@ -1,0 +1,48 @@
+[gd_resource type="Resource" script_class="TileModuleSet" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_module_entry.gd" id="1_xh07l"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_module_set.gd" id="2_jqirn"]
+
+[sub_resource type="Resource" id="Resource_gy55s"]
+script = ExtResource("1_xh07l")
+mesh_path = "res://tools/tile_forge/modules/leaves/gf_leafpile_a.glb"
+tags = PackedStringArray("leaves")
+footprint_radius = 0.1051
+height = 0.0172
+sink = 0.004
+
+[sub_resource type="Resource" id="Resource_xwlwm"]
+script = ExtResource("1_xh07l")
+mesh_path = "res://tools/tile_forge/modules/leaves/gf_leafpile_b.glb"
+weight = 0.85
+tags = PackedStringArray("leaves")
+footprint_radius = 0.0807
+height = 0.0154
+sink = 0.004
+
+[sub_resource type="Resource" id="Resource_40a68"]
+script = ExtResource("1_xh07l")
+mesh_path = "res://tools/tile_forge/modules/leaves/gf_leafpile_c.glb"
+weight = 0.7
+tags = PackedStringArray("leaves")
+footprint_radius = 0.1263
+height = 0.0267
+sink = 0.004
+
+[sub_resource type="Resource" id="Resource_24n2t"]
+script = ExtResource("1_xh07l")
+mesh_path = "res://tools/tile_forge/modules/leaves/gf_leafpile_d.glb"
+weight = 0.55
+tags = PackedStringArray("leaves")
+footprint_radius = 0.0619
+height = 0.0141
+sink = 0.004
+
+[resource]
+script = ExtResource("2_jqirn")
+set_id = "leaves"
+display_name = "Leaves"
+family = "leaves"
+modules = Array[ExtResource("1_xh07l")]([SubResource("Resource_gy55s"), SubResource("Resource_xwlwm"), SubResource("Resource_40a68"), SubResource("Resource_24n2t")])
+separation_scale = 0.85
+max_repeats_per_module = 2

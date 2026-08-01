@@ -92,5 +92,5 @@ params = {
 
 [resource]
 script = ExtResource("2_nv6hq")
-preset_name = "Tilled Field"
+preset_name = "Furrowglow Plot"
 layers = Array[ExtResource("1_mdhbd")]([SubResource("Resource_mdhbd"), SubResource("Resource_nv6hq"), SubResource("Resource_s54os"), SubResource("Resource_abmug")])

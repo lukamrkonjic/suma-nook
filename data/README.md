@@ -4,8 +4,15 @@ All game content is JSON here, loaded into typed definitions by
 `scripts/core/registries.gd` (cross-references validated at startup — a bad id
 fails loudly, never silently).
 
-- `tuning.json` — every gameplay constant: movement, camera, fishing timing,
-  pity thresholds, autosave, save path/version, tutorial guarantees.
+- `tuning.json` — every gameplay constant: movement, camera, pond ambience,
+  autosave, save path/version, tutorial guarantees.
+- `fishing_balance.json` — every void-fishing tunable: timing, pool weights,
+  haul sizes, bundle ranges, hidden protection, habitat theme mappings.
+- `fishing_loot.json` — what the void can return (tile bundles, models,
+  keepsakes) referencing building content by stable id; themes, pools,
+  rarity, `unlock_group`.
+- `fishing_spirits.json`, `fishing_keepsakes.json` — Spirit charms and
+  Keepsake charms (see `docs/VOID_FISHING.md`).
 - `skills.json` — SkillDefinitions: xp curve, tool type, loot tables, level
   unlocks (`kind`: parcel | recipe | tile | anchor_upgrade). Mining ships as a
   `future: true` definition proving new skills are data-only.

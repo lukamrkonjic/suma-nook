@@ -92,5 +92,5 @@ params = {
 
 [resource]
 script = ExtResource("2_dc3yp")
-preset_name = "Snow Field"
+preset_name = "Hushsnow Blanket"
 layers = Array[ExtResource("1_jsexw")]([SubResource("Resource_jsexw"), SubResource("Resource_dc3yp"), SubResource("Resource_yu60y"), SubResource("Resource_mgay7")])

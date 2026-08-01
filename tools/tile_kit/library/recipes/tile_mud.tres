@@ -1,0 +1,97 @@
+[gd_resource type="Resource" script_class="TileKitPreset" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_kit/tile_kit_layer.gd" id="1_v3pm6"]
+[ext_resource type="Script" path="res://tools/tile_kit/tile_kit_preset.gd" id="2_qkawp"]
+
+[sub_resource type="Resource" id="Resource_7anjx"]
+script = ExtResource("1_v3pm6")
+kind = "base"
+locked = true
+params = {
+"bevel_key": "mud_bevel",
+"bevel_segments": 6,
+"bottom_chamfer": 0.016,
+"corner_radius": 0.075,
+"lower_key": "earth_deep",
+"relief_amplitude": 0.03,
+"relief_edge_feather": 0.2,
+"relief_heap_count": [4, 7],
+"relief_heap_radius": [0.15, 0.29],
+"relief_resolution": 30,
+"relief_style": "heaps",
+"side_key": "earth_deep",
+"top_bevel": 0.075,
+"top_key": "mud_top"
+}
+
+[sub_resource type="Resource" id="Resource_ac47m"]
+script = ExtResource("1_v3pm6")
+kind = "dressing"
+params = {
+"allow_overlap": true,
+"aspect": [0.7, 1.35],
+"color_weights": {
+"mud_wet": 100.0
+},
+"edge_margin": 0.02,
+"irregularity": [0.08, 0.14],
+"large_count": [3, 6],
+"large_radius": [0.17, 0.29],
+"medium_count": [4, 8],
+"medium_radius": [0.094, 0.17],
+"outline_points": 20,
+"region_count": [2, 3],
+"region_spread": 0.3,
+"scale_multiplier": 1.0,
+"small_count": [3, 7],
+"small_radius": [0.047, 0.094],
+"smoothing_passes": 3
+}
+
+[sub_resource type="Resource" id="Resource_a74xo"]
+script = ExtResource("1_v3pm6")
+kind = "clutter"
+params = {
+"color_weights": {
+"mud_wet": 65.0,
+"stone_medium": 35.0
+},
+"count": [8, 14],
+"diameter": [0.05, 0.12],
+"edge_margin": 0.035,
+"height": [0.008, 0.022],
+"min_spacing": 0.055,
+"on_dressing_fraction": 0.55,
+"scale_multiplier": 1.0,
+"shapes": ["footprint", "pebble", "nub"]
+}
+
+[sub_resource type="Resource" id="Resource_bgfmc"]
+script = ExtResource("1_v3pm6")
+kind = "grass_clusters"
+enabled = false
+params = {
+"bend_multiplier": 0.75,
+"carpet_jitter": 0.3,
+"carpet_skip_fraction": 0.1,
+"carpet_spacing": 0.315,
+"coverage_mode": "carpet",
+"crown_radius": 0.02,
+"edge_margin": 0.02,
+"height_multiplier": 1.0,
+"leaf_height": [0.095, 0.15],
+"leaf_width": [0.058, 0.088],
+"root_sink": [0.008, 0.015],
+"rosette_footprint": [0.14, 0.2],
+"rosette_leaves": [3, 5],
+"secondary_fraction": 0.2,
+"splay_degrees": [16.0, 34.0],
+"thickness_ratio": [0.55, 0.72],
+"width_multiplier": 1.0
+}
+
+[resource]
+script = ExtResource("2_qkawp")
+preset_name = "Rainpool Loam"
+master_seed = 20263017
+layers = Array[ExtResource("1_v3pm6")]([SubResource("Resource_7anjx"), SubResource("Resource_ac47m"), SubResource("Resource_a74xo"), SubResource("Resource_bgfmc")])

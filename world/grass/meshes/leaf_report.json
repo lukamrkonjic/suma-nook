@@ -1,0 +1,125 @@
+{
+ "modules": [
+  {
+   "triangles": 36,
+   "predicted_triangles": 36,
+   "vertices": 44,
+   "width": 0.1006,
+   "depth": 0.0997,
+   "height": 0.0384,
+   "min_z": 0.0,
+   "contact_vertices": 8,
+   "contact_wind_max": 0.0,
+   "wind_range": [
+    0.0,
+    1.0
+   ],
+   "glb_attributes": [
+    "COLOR_0",
+    "NORMAL",
+    "POSITION"
+   ],
+   "glb_triangles": 36,
+   "id": "grass_leaf_small",
+   "kind": "dense",
+   "path": "res://world/grass/meshes/grass_leaf_small.glb"
+  },
+  {
+   "triangles": 45,
+   "predicted_triangles": 45,
+   "vertices": 55,
+   "width": 0.1426,
+   "depth": 0.139,
+   "height": 0.0588,
+   "min_z": 0.0,
+   "contact_vertices": 10,
+   "contact_wind_max": 0.0,
+   "wind_range": [
+    0.0,
+    1.0
+   ],
+   "glb_attributes": [
+    "COLOR_0",
+    "NORMAL",
+    "POSITION"
+   ],
+   "glb_triangles": 45,
+   "id": "grass_leaf_medium",
+   "kind": "dense",
+   "path": "res://world/grass/meshes/grass_leaf_medium.glb"
+  },
+  {
+   "triangles": 54,
+   "predicted_triangles": 54,
+   "vertices": 66,
+   "width": 0.235,
+   "depth": 0.1728,
+   "height": 0.0852,
+   "min_z": 0.0,
+   "contact_vertices": 12,
+   "contact_wind_max": 0.0,
+   "wind_range": [
+    0.0,
+    1.0
+   ],
+   "glb_attributes": [
+    "COLOR_0",
+    "NORMAL",
+    "POSITION"
+   ],
+   "glb_triangles": 54,
+   "id": "grass_leaf_large",
+   "kind": "dense",
+   "path": "res://world/grass/meshes/grass_leaf_large.glb"
+  },
+  {
+   "triangles": 45,
+   "predicted_triangles": 45,
+   "vertices": 55,
+   "width": 0.2109,
+   "depth": 0.1995,
+   "height": 0.1244,
+   "min_z": 0.0,
+   "contact_vertices": 10,
+   "contact_wind_max": 0.0,
+   "wind_range": [
+    0.0,
+    1.0
+   ],
+   "glb_attributes": [
+    "COLOR_0",
+    "NORMAL",
+    "POSITION"
+   ],
+   "glb_triangles": 45,
+   "id": "grass_leaf_tall",
+   "kind": "flexible",
+   "path": "res://world/grass/meshes/grass_leaf_tall.glb"
+  },
+  {
+   "triangles": 36,
+   "predicted_triangles": 36,
+   "vertices": 44,
+   "width": 0.2372,
+   "depth": 0.2356,
+   "height": 0.1484,
+   "min_z": 0.0,
+   "contact_vertices": 8,
+   "contact_wind_max": 0.0,
+   "wind_range": [
+    0.0,
+    1.0
+   ],
+   "glb_attributes": [
+    "COLOR_0",
+    "NORMAL",
+    "POSITION"
+   ],
+   "glb_triangles": 36,
+   "id": "grass_leaf_accent",
+   "kind": "flexible",
+   "path": "res://world/grass/meshes/grass_leaf_accent.glb"
+  }
+ ],
+ "problems": []
+}

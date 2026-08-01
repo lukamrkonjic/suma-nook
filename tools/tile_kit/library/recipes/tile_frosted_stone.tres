@@ -1,0 +1,96 @@
+[gd_resource type="Resource" script_class="TileKitPreset" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_kit/tile_kit_layer.gd" id="1_fji5p"]
+[ext_resource type="Script" path="res://tools/tile_kit/tile_kit_preset.gd" id="2_g1uka"]
+
+[sub_resource type="Resource" id="Resource_aytwi"]
+script = ExtResource("1_fji5p")
+kind = "base"
+locked = true
+params = {
+"bevel_key": "stone_light",
+"bevel_segments": 6,
+"bottom_chamfer": 0.016,
+"corner_radius": 0.075,
+"lower_key": "stone_deep",
+"relief_amplitude": 0.018,
+"relief_edge_feather": 0.2,
+"relief_resolution": 24,
+"relief_style": "pillow",
+"side_key": "stone_deep",
+"top_bevel": 0.075,
+"top_key": "stone_medium"
+}
+
+[sub_resource type="Resource" id="Resource_w2tbv"]
+script = ExtResource("1_fji5p")
+kind = "dressing"
+params = {
+"allow_overlap": true,
+"aspect": [0.7, 1.35],
+"color_weights": {
+"snow_lump": 30.0,
+"snow_top": 70.0
+},
+"edge_margin": 0.02,
+"irregularity": [0.08, 0.14],
+"large_count": [2, 4],
+"large_radius": [0.17, 0.29],
+"medium_count": [3, 6],
+"medium_radius": [0.094, 0.17],
+"outline_points": 20,
+"region_count": [2, 3],
+"region_spread": 0.3,
+"scale_multiplier": 1.0,
+"small_count": [5, 9],
+"small_radius": [0.047, 0.094],
+"smoothing_passes": 3
+}
+
+[sub_resource type="Resource" id="Resource_gqg0c"]
+script = ExtResource("1_fji5p")
+kind = "clutter"
+params = {
+"color_weights": {
+"snow_lump": 70.0,
+"stone_light": 30.0
+},
+"count": [7, 12],
+"diameter": [0.045, 0.12],
+"edge_margin": 0.035,
+"height": [0.008, 0.022],
+"min_spacing": 0.055,
+"on_dressing_fraction": 0.55,
+"scale_multiplier": 1.0,
+"shapes": ["snow_lump", "stone_chip", "pebble"]
+}
+
+[sub_resource type="Resource" id="Resource_nnscl"]
+script = ExtResource("1_fji5p")
+kind = "grass_clusters"
+enabled = false
+params = {
+"bend_multiplier": 0.75,
+"carpet_jitter": 0.3,
+"carpet_skip_fraction": 0.1,
+"carpet_spacing": 0.315,
+"coverage_mode": "carpet",
+"crown_radius": 0.02,
+"edge_margin": 0.02,
+"height_multiplier": 1.0,
+"leaf_height": [0.095, 0.15],
+"leaf_width": [0.058, 0.088],
+"root_sink": [0.008, 0.015],
+"rosette_footprint": [0.14, 0.2],
+"rosette_leaves": [3, 5],
+"secondary_fraction": 0.2,
+"splay_degrees": [16.0, 34.0],
+"thickness_ratio": [0.55, 0.72],
+"width_multiplier": 1.0
+}
+
+[resource]
+script = ExtResource("2_g1uka")
+preset_name = "Rimeglass Stone"
+master_seed = 20262322
+layers = Array[ExtResource("1_fji5p")]([SubResource("Resource_aytwi"), SubResource("Resource_w2tbv"), SubResource("Resource_gqg0c"), SubResource("Resource_nnscl")])

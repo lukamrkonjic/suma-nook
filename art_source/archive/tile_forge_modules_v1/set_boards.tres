@@ -1,0 +1,48 @@
+[gd_resource type="Resource" script_class="TileModuleSet" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_module_entry.gd" id="1_j1t3m"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_module_set.gd" id="2_uipdt"]
+
+[sub_resource type="Resource" id="Resource_ncp7l"]
+script = ExtResource("1_j1t3m")
+mesh_path = "res://tools/tile_forge/modules/boards/gf_board_a.glb"
+tags = PackedStringArray("boards")
+footprint_radius = 0.1719
+height = 0.03
+sink = 0.002
+
+[sub_resource type="Resource" id="Resource_tv3ub"]
+script = ExtResource("1_j1t3m")
+mesh_path = "res://tools/tile_forge/modules/boards/gf_board_b.glb"
+weight = 0.85
+tags = PackedStringArray("boards")
+footprint_radius = 0.1483
+height = 0.026
+sink = 0.002
+
+[sub_resource type="Resource" id="Resource_604ln"]
+script = ExtResource("1_j1t3m")
+mesh_path = "res://tools/tile_forge/modules/boards/gf_board_c.glb"
+weight = 0.7
+tags = PackedStringArray("boards")
+footprint_radius = 0.205
+height = 0.034
+sink = 0.002
+
+[sub_resource type="Resource" id="Resource_5xkn7"]
+script = ExtResource("1_j1t3m")
+mesh_path = "res://tools/tile_forge/modules/boards/gf_board_d.glb"
+weight = 0.55
+tags = PackedStringArray("boards")
+footprint_radius = 0.1294
+height = 0.028
+sink = 0.002
+
+[resource]
+script = ExtResource("2_uipdt")
+set_id = "boards"
+display_name = "Boards"
+family = "boards"
+modules = Array[ExtResource("1_j1t3m")]([SubResource("Resource_ncp7l"), SubResource("Resource_tv3ub"), SubResource("Resource_604ln"), SubResource("Resource_5xkn7")])
+separation_scale = 1.2
+max_repeats_per_module = 2

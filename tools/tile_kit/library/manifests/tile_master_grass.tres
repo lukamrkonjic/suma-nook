@@ -5,47 +5,21 @@
 [resource]
 script = ExtResource("1_t00vo")
 tile_id = "tile_master_grass"
-display_name = "Master Lush Grass"
-revision = 1
+display_name = "Tile Forge: Verdant Master"
+revision = 2
 lifecycle = "published"
 visibility = "active"
-source_kind = "external"
-runtime_definition = {
-"asset_id": "tile_layer_surface_master_grass",
-"biome_tags": ["meadow"],
-"collection_hint": "Tile Forge master: sculpted meadow cap with composed clumps.",
-"connection_mode": "full_flush",
-"exposed_top": "raised",
-"family": "tile_forge",
-"geometry_profile": "micro_bevel_square",
-"id": "tile_master_grass",
-"layers": [{
-"asset_id": "tile_layer_base_master_grass",
-"cover_behavior": "persist",
-"role": "base",
-"scale_mode": "none"
-}, {
-"asset_id": "tile_layer_surface_master_grass",
-"cover_behavior": "hide",
-"role": "surface",
-"scale_mode": "none"
-}],
-"name": "Master Lush Grass",
-"placement_sound": "grass",
-"render_profile": "layered",
-"stackable": true,
-"supports_tiles": true,
-"surface_kind": "flat",
-"walk_surface_height": 0.04,
-"weight": 1.0
-}
-baked_roles = PackedStringArray("base", "surface", "detail")
+recipe_path = "res://tools/tile_kit/library/recipes/tile_master_grass.tres"
+baked_roles = PackedStringArray("base", "detail", "surface")
 family = "tile_forge"
 connection_group = "tile_forge"
 biome_tags = PackedStringArray("meadow")
+landmark_tags = PackedStringArray()
 collection_hint = "Tile Forge master: sculpted meadow cap with composed clumps."
 dependencies = PackedStringArray()
 walk_surface_height = 0.04
+water_cells = PackedStringArray()
 created_at = "2026-08-01 00:00:00"
-updated_at = "2026-08-01 00:00:00"
+updated_at = "2026-08-01 16:00:00"
 published_at = "2026-08-01 00:00:00"
+notes = "Original Suma procedural composition. Stable ID retained for runtime references; no extracted source geometry is used."

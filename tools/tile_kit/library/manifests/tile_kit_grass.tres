@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_b38g4")
 tile_id = "tile_kit_grass"
-display_name = "Kit Clay Grass"
+display_name = "Springleaf Carpet"
 revision = 1
 lifecycle = "published"
 visibility = "preview"
@@ -14,8 +14,10 @@ baked_roles = PackedStringArray("base", "surface", "detail")
 family = "home_meadow"
 connection_group = "tile_kit"
 biome_tags = PackedStringArray("meadow")
+landmark_tags = PackedStringArray()
 collection_hint = "Tile Kit: procedural clay-toy grass, baked from the in-game generator."
 dependencies = PackedStringArray()
+water_cells = PackedStringArray()
 created_at = "2026-08-01 00:00:00"
-updated_at = "2026-08-01 00:00:00"
+updated_at = "2026-08-01 16:00:00"
 published_at = "2026-08-01 00:00:00"

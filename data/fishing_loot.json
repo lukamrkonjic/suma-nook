@@ -1,0 +1,55 @@
+{
+  "fishing_loot": [
+    { "id": "loot_tile_water", "name": "Open Water", "reward_kind": "tile_bundle", "building_definition_id": "tile_open_water", "theme_tags": ["wild"], "pool_tags": ["local", "global"], "rarity": "common", "base_weight": 2.6 },
+    { "id": "loot_tile_grass", "name": "Meadow Grass", "reward_kind": "tile_bundle", "building_definition_id": "tile_grass", "theme_tags": ["wild"], "pool_tags": ["local", "global"], "rarity": "common", "base_weight": 3.0 },
+    { "id": "loot_tile_sand", "name": "Warm Sand", "reward_kind": "tile_bundle", "building_definition_id": "tile_sand", "theme_tags": ["wild"], "pool_tags": ["local", "global"], "rarity": "common", "base_weight": 2.2 },
+    { "id": "loot_tile_grove", "name": "Grove Floor", "reward_kind": "tile_bundle", "building_definition_id": "tile_grove_mature", "theme_tags": ["grove"], "pool_tags": ["local", "global"], "rarity": "common", "base_weight": 2.4 },
+    { "id": "loot_tile_master_grass", "name": "Deep Meadow", "reward_kind": "tile_bundle", "building_definition_id": "tile_master_grass", "theme_tags": ["grove", "wild"], "pool_tags": ["global"], "rarity": "common", "base_weight": 1.6 },
+    { "id": "loot_tile_stone", "name": "Old Concrete", "reward_kind": "tile_bundle", "building_definition_id": "tile_concrete_brutalist", "theme_tags": ["stone"], "pool_tags": ["local", "global"], "rarity": "uncommon", "base_weight": 1.8 },
+    { "id": "loot_tile_snow", "name": "Snowfield", "reward_kind": "tile_bundle", "building_definition_id": "tile_snowfield", "theme_tags": ["oddity", "wild"], "pool_tags": ["local", "global", "wildcard"], "rarity": "uncommon", "base_weight": 1.2 },
+
+    { "id": "loot_model_pine", "name": "Mature Pine", "reward_kind": "model", "building_definition_id": "struct_pine", "theme_tags": ["grove"], "pool_tags": ["local", "global"], "rarity": "common", "base_weight": 1.4 },
+    { "id": "loot_model_pine_tall", "name": "Tall Pine", "reward_kind": "model", "building_definition_id": "struct_pine_tall", "theme_tags": ["grove"], "pool_tags": ["local", "global"], "rarity": "uncommon", "base_weight": 0.9 },
+    { "id": "loot_model_pine_young", "name": "Young Pine", "reward_kind": "model", "building_definition_id": "struct_pine_young", "theme_tags": ["grove"], "pool_tags": ["local", "global"], "rarity": "common", "base_weight": 1.3 },
+    { "id": "loot_model_bush", "name": "Rounded Bush", "reward_kind": "model", "building_definition_id": "struct_bush", "theme_tags": ["grove"], "pool_tags": ["local", "global"], "rarity": "common", "base_weight": 1.4 },
+    { "id": "loot_model_log_pile", "name": "Stacked Firewood", "reward_kind": "model", "building_definition_id": "struct_log_pile", "theme_tags": ["grove"], "pool_tags": ["local", "global"], "rarity": "common", "base_weight": 1.1 },
+    { "id": "loot_model_wooden_arch", "name": "Garden Arch", "reward_kind": "model", "building_definition_id": "struct_wooden_arch", "theme_tags": ["grove"], "pool_tags": ["local", "global"], "rarity": "uncommon", "base_weight": 0.7 },
+    { "id": "loot_model_trellis", "name": "Garden Trellis", "reward_kind": "model", "building_definition_id": "struct_garden_trellis", "theme_tags": ["grove", "wild"], "pool_tags": ["local", "global"], "rarity": "uncommon", "base_weight": 0.8 },
+    { "id": "loot_model_planter", "name": "Planter", "reward_kind": "model", "building_definition_id": "struct_planter", "theme_tags": ["grove", "wild"], "pool_tags": ["local", "global"], "rarity": "common", "base_weight": 1.1 },
+
+    { "id": "loot_model_stone_wall", "name": "Old Stone Wall", "reward_kind": "model", "building_definition_id": "struct_stone_wall", "theme_tags": ["stone"], "pool_tags": ["local", "global"], "rarity": "common", "base_weight": 1.2 },
+    { "id": "loot_model_stone_wall_low", "name": "Low Stone Wall", "reward_kind": "model", "building_definition_id": "struct_stone_wall_low", "theme_tags": ["stone"], "pool_tags": ["local", "global"], "rarity": "common", "base_weight": 1.1 },
+    { "id": "loot_model_stone_wall_corner", "name": "Stone Wall Corner", "reward_kind": "model", "building_definition_id": "struct_stone_wall_corner", "theme_tags": ["stone"], "pool_tags": ["local", "global"], "rarity": "uncommon", "base_weight": 0.8 },
+    { "id": "loot_model_stone_pillar", "name": "Stone Pillar", "reward_kind": "model", "building_definition_id": "struct_stone_pillar", "theme_tags": ["stone"], "pool_tags": ["local", "global"], "rarity": "uncommon", "base_weight": 0.8 },
+    { "id": "loot_model_stone_bench", "name": "Stone Bench", "reward_kind": "model", "building_definition_id": "struct_stone_bench", "theme_tags": ["stone"], "pool_tags": ["local", "global"], "rarity": "common", "base_weight": 1.0 },
+    { "id": "loot_model_stone_well", "name": "Village Well", "reward_kind": "model", "building_definition_id": "struct_stone_well", "theme_tags": ["stone"], "pool_tags": ["local", "global"], "rarity": "rare", "base_weight": 0.5 },
+    { "id": "loot_model_stone_wall_polished", "name": "Polished Stone Wall", "reward_kind": "model", "building_definition_id": "struct_stone_wall_polished", "theme_tags": ["stone"], "pool_tags": ["global"], "rarity": "uncommon", "base_weight": 0.7 },
+    { "id": "loot_model_birdbath", "name": "Birdbath", "reward_kind": "model", "building_definition_id": "struct_birdbath", "theme_tags": ["stone", "wild"], "pool_tags": ["local", "global"], "rarity": "uncommon", "base_weight": 0.8 },
+    { "id": "loot_model_ruin_arch", "name": "Reclaimed Arch", "reward_kind": "model", "building_definition_id": "struct_ruin_arch", "theme_tags": ["stone", "oddity"], "pool_tags": ["global", "wildcard"], "rarity": "rare", "base_weight": 0.5 },
+
+    { "id": "loot_model_bench", "name": "Keeper's Bench", "reward_kind": "model", "building_definition_id": "struct_bench", "theme_tags": ["wild"], "pool_tags": ["local", "global"], "rarity": "common", "base_weight": 1.2 },
+    { "id": "loot_model_stool", "name": "Stool", "reward_kind": "model", "building_definition_id": "struct_stool", "theme_tags": ["wild"], "pool_tags": ["local", "global"], "rarity": "common", "base_weight": 1.2 },
+    { "id": "loot_model_table", "name": "Round Table", "reward_kind": "model", "building_definition_id": "struct_table", "theme_tags": ["wild"], "pool_tags": ["local", "global"], "rarity": "common", "base_weight": 1.0 },
+    { "id": "loot_model_fence", "name": "Fence", "reward_kind": "model", "building_definition_id": "struct_fence", "theme_tags": ["wild"], "pool_tags": ["local", "global"], "rarity": "common", "base_weight": 1.1 },
+    { "id": "loot_model_gate", "name": "Gate", "reward_kind": "model", "building_definition_id": "struct_gate", "theme_tags": ["wild"], "pool_tags": ["local", "global"], "rarity": "uncommon", "base_weight": 0.8 },
+    { "id": "loot_model_lantern", "name": "Warm Lantern", "reward_kind": "model", "building_definition_id": "struct_lantern", "theme_tags": ["wild"], "pool_tags": ["local", "global"], "rarity": "common", "base_weight": 1.1 },
+    { "id": "loot_model_campfire", "name": "Campfire", "reward_kind": "model", "building_definition_id": "struct_campfire", "theme_tags": ["wild"], "pool_tags": ["local", "global"], "rarity": "uncommon", "base_weight": 0.9 },
+    { "id": "loot_model_high_tent", "name": "High Tent", "reward_kind": "model", "building_definition_id": "struct_high_tent", "theme_tags": ["wild"], "pool_tags": ["global"], "rarity": "rare", "base_weight": 0.6 },
+    { "id": "loot_model_pot", "name": "Terracotta Pot", "reward_kind": "model", "building_definition_id": "struct_pot", "theme_tags": ["wild"], "pool_tags": ["local", "global"], "rarity": "common", "base_weight": 1.2 },
+    { "id": "loot_model_chest", "name": "Storage Chest", "reward_kind": "model", "building_definition_id": "struct_chest", "theme_tags": ["wild"], "pool_tags": ["global"], "rarity": "uncommon", "base_weight": 0.7 },
+    { "id": "loot_model_box", "name": "Cardboard Box", "reward_kind": "model", "building_definition_id": "struct_box", "theme_tags": ["oddity"], "pool_tags": ["global", "wildcard"], "rarity": "common", "base_weight": 1.0 },
+    { "id": "loot_model_dock", "name": "Small Dock", "reward_kind": "model", "building_definition_id": "struct_dock", "theme_tags": ["wild"], "pool_tags": ["global"], "rarity": "uncommon", "base_weight": 0.7 },
+    { "id": "loot_model_sign", "name": "Signpost", "reward_kind": "model", "building_definition_id": "struct_sign", "theme_tags": ["wild"], "pool_tags": ["local", "global"], "rarity": "common", "base_weight": 1.0 },
+    { "id": "loot_model_watering_can", "name": "Sage Watering Can", "reward_kind": "model", "building_definition_id": "struct_watering_can", "theme_tags": ["wild"], "pool_tags": ["local", "global"], "rarity": "common", "base_weight": 1.0 },
+    { "id": "loot_model_barrel", "name": "Garden Barrel", "reward_kind": "model", "building_definition_id": "struct_barrel", "theme_tags": ["wild"], "pool_tags": ["local", "global"], "rarity": "common", "base_weight": 1.0 },
+    { "id": "loot_model_crate", "name": "Slatted Crate", "reward_kind": "model", "building_definition_id": "struct_crate", "theme_tags": ["wild"], "pool_tags": ["local", "global"], "rarity": "common", "base_weight": 1.0 },
+    { "id": "loot_model_firepit_polished", "name": "Polished Firepit", "reward_kind": "model", "building_definition_id": "struct_firepit_polished", "theme_tags": ["stone", "wild"], "pool_tags": ["global"], "rarity": "uncommon", "base_weight": 0.7 },
+
+    { "id": "loot_model_milk_churn", "name": "Milk Churn", "reward_kind": "model", "building_definition_id": "struct_milk_churn", "theme_tags": ["oddity"], "pool_tags": ["global", "wildcard"], "rarity": "uncommon", "base_weight": 0.9 },
+    { "id": "loot_model_wheelbarrow", "name": "Wheelbarrow", "reward_kind": "model", "building_definition_id": "struct_wheelbarrow", "theme_tags": ["oddity", "wild"], "pool_tags": ["global", "wildcard"], "rarity": "uncommon", "base_weight": 0.8 },
+    { "id": "loot_model_snowman", "name": "Friendly Snowkeeper", "reward_kind": "model", "building_definition_id": "struct_snowman", "theme_tags": ["oddity"], "pool_tags": ["wildcard"], "rarity": "rare", "base_weight": 0.5 },
+    { "id": "loot_model_water_wheel", "name": "Waterside Wheel", "reward_kind": "model", "building_definition_id": "struct_water_wheel", "theme_tags": ["oddity", "wild"], "pool_tags": ["global", "wildcard"], "rarity": "rare", "base_weight": 0.5 },
+
+    { "id": "loot_keepsake_growth", "name": "Growth Keepsake", "reward_kind": "keepsake", "building_definition_id": "keepsake_growth", "theme_tags": ["grove", "wild"], "pool_tags": ["global"], "rarity": "rare", "base_weight": 1.0, "unique": true }
+  ]
+}

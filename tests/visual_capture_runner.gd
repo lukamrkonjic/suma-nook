@@ -64,10 +64,10 @@ func _run() -> void:
 	await wait(1.45)
 	await shot("03_sand_island_surrounded_by_void")
 
-	main.core.progression.on_void_fishing_catch()
+	main.core.fishing.debug_force_catch(Vector2i.ZERO)
 	await wait(0.8)
-	await shot("04_first_void_discovery_water")
-	main.discovery_reveal._accept()
+	await shot("04_first_haul_guides_water_placement")
+	main._resume_guided_onboarding()
 	await wait(0.45)
 	main.placement.try_place_at(Vector2i(0, 2))
 	await wait(0.4)
@@ -81,32 +81,24 @@ func _run() -> void:
 	main.core.progression.activity_actions["fishing"] = 3
 	main.panels.toggle("skills")
 	await wait(0.4)
-	await shot("06_activities_and_biome_discoveries")
+	await shot("06_activities_and_practice")
 	main.panels.close()
 
-	main.core.stock.add_tile("tile_grass", 3)
-	main.panels.show_void_exchange_picker()
+	main.core.fishing.debug_force_catch(Vector2i.ZERO)
+	main.core.fishing.debug_force_catch(Vector2i.ZERO)
+	main.panels.show_catch_basket()
 	await wait(0.4)
-	await shot("07_void_exchange_three_spares")
-	main.core.progression.void_exchange.offer("tile", "tile_grass")
-	main.panels.show_void_exchange_picker()
-	await wait(0.35)
-	await shot("08_void_exchange_one_of_three")
+	await shot("07_catch_basket_hauls")
 	main.panels.close()
-	main.core.progression.void_exchange.offer("tile", "tile_grass")
-	main.core.progression.void_exchange.offer("tile", "tile_grass")
-	await wait(0.8)
-	await shot("09_void_returns_same_category")
 
-	if main.discovery_reveal.is_open():
-		main.discovery_reveal._accept()
-		await wait(0.35)
-	for _index in 4:
-		main.core.progression.on_activity_action(
-			"woodcutting", Vector2i.ZERO, "struct_pine"
-		)
-	await wait(0.8)
-	await shot("10_local_biome_discovery")
+	main.core.progression.on_activity_cycle_completed("woodcutting")
+	main.core.progression.on_activity_cycle_completed("mining")
+	main.panels.show_spirit_pouch()
+	await wait(0.4)
+	await shot("08_spirit_pouch_charms")
+	main.panels.close()
+	await wait(0.3)
+	await shot("09_world_after_fishing")
 
 	print("VISUAL CAPTURE DONE — %s" % _shot_dir)
 	main.core.autosave_paused = true

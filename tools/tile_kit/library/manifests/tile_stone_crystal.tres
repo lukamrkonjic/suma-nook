@@ -5,33 +5,22 @@
 [resource]
 script = ExtResource("1_86vs4")
 tile_id = "tile_stone_crystal"
-display_name = "Mineral Ground"
-revision = 1
+display_name = "Glimmervein Ground"
+revision = 2
 lifecycle = "published"
-source_kind = "external"
-runtime_definition = {
-"anchor": "stone_anchor",
-"asset_id": "tile_stone_crystal",
-"connection_mode": "full_flush",
-"family": "stonebound",
-"geometry_profile": "micro_bevel_square",
-"id": "tile_stone_crystal",
-"name": "Mineral Ground",
-"placement_sound": "stone",
-"rarity": "rare",
-"special_trait": "Quiet stone where crystals can be placed separately.",
-"weight": 0.6
-}
-baked_roles = PackedStringArray("base", "surface", "detail")
+recipe_path = "res://tools/tile_kit/library/recipes/tile_stone_crystal.tres"
+baked_roles = PackedStringArray("base", "detail", "surface")
 family = "stonebound"
 connection_group = "stonebound"
 biome_tags = PackedStringArray()
+landmark_tags = PackedStringArray()
 rarity = "rare"
 weight = 0.6
 placement_sound = "stone"
 dependencies = PackedStringArray()
-stackable = false
-supports_tiles = false
+water_cells = PackedStringArray()
+anchor_id = "stone_anchor"
 created_at = "2026-08-01 00:00:00"
-updated_at = "2026-08-01 00:00:00"
+updated_at = "2026-08-01 16:00:00"
 published_at = "2026-08-01 00:00:00"
+notes = "Original Suma procedural composition. Stable ID retained for runtime references; no extracted source geometry is used."

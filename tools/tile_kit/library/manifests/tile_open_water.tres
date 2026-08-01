@@ -5,37 +5,15 @@
 [resource]
 script = ExtResource("1_ms6r4")
 tile_id = "tile_open_water"
-display_name = "Quiet Water"
-revision = 1
+display_name = "Starling Mere"
+revision = 2
 lifecycle = "published"
-source_kind = "external"
-runtime_definition = {
-"anchor": "pond_anchor",
-"asset_id": "tile_open_water",
-"biome_tags": ["water"],
-"collision_profile": "none",
-"connection_mode": "merged_surface",
-"decor_sockets": 0.0,
-"family": "waterside",
-"geometry_profile": "connected_water",
-"id": "tile_open_water",
-"name": "Quiet Water",
-"placement_sound": "water",
-"render_profile": "continuous_water",
-"special_trait": "A continuous piece of calm water that can support a dock.",
-"stackable": false,
-"structure_sockets": 1.0,
-"supports_decor": true,
-"supports_tiles": false,
-"surface_kind": "water",
-"walkable": false,
-"water_cells": ["open_water"],
-"weight": 1.4
-}
-baked_roles = PackedStringArray("base", "surface", "detail")
+recipe_path = "res://tools/tile_kit/library/recipes/tile_open_water.tres"
+baked_roles = PackedStringArray("base", "detail", "surface")
 family = "waterside"
 connection_group = "waterside"
 biome_tags = PackedStringArray("water")
+landmark_tags = PackedStringArray()
 weight = 1.4
 placement_sound = "water"
 dependencies = PackedStringArray()
@@ -43,7 +21,12 @@ stackable = false
 supports_tiles = false
 walkable = false
 surface_kind = "water"
+render_profile = "continuous_water"
 collision_profile = "none"
+water_cells = PackedStringArray("open_water")
+anchor_id = "pond_anchor"
+decor_sockets = 0
 created_at = "2026-08-01 00:00:00"
-updated_at = "2026-08-01 00:00:00"
+updated_at = "2026-08-01 16:00:00"
 published_at = "2026-08-01 00:00:00"
+notes = "Original Suma procedural composition. Stable ID retained for runtime references; no extracted source geometry is used."

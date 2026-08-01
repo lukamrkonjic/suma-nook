@@ -1,0 +1,56 @@
+[gd_resource type="Resource" script_class="TileModuleSet" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_module_entry.gd" id="1_u38ng"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_module_set.gd" id="2_7v7d6"]
+
+[sub_resource type="Resource" id="Resource_q5kc6"]
+script = ExtResource("1_u38ng")
+mesh_path = "res://tools/tile_forge/modules/straw/gf_straw_a.glb"
+tags = PackedStringArray("straw")
+footprint_radius = 0.1881
+height = 0.0185
+sink = 0.004
+
+[sub_resource type="Resource" id="Resource_h45rw"]
+script = ExtResource("1_u38ng")
+mesh_path = "res://tools/tile_forge/modules/straw/gf_straw_b.glb"
+weight = 0.85
+tags = PackedStringArray("straw")
+footprint_radius = 0.1826
+height = 0.0304
+sink = 0.004
+
+[sub_resource type="Resource" id="Resource_yq17m"]
+script = ExtResource("1_u38ng")
+mesh_path = "res://tools/tile_forge/modules/straw/gf_straw_c.glb"
+weight = 0.7
+tags = PackedStringArray("straw")
+footprint_radius = 0.1383
+height = 0.0331
+sink = 0.004
+
+[sub_resource type="Resource" id="Resource_bmtao"]
+script = ExtResource("1_u38ng")
+mesh_path = "res://tools/tile_forge/modules/straw/gf_straw_d.glb"
+weight = 0.55
+tags = PackedStringArray("straw")
+footprint_radius = 0.1895
+height = 0.0202
+sink = 0.004
+
+[sub_resource type="Resource" id="Resource_byc8a"]
+script = ExtResource("1_u38ng")
+mesh_path = "res://tools/tile_forge/modules/straw/gf_straw_e.glb"
+weight = 0.45
+tags = PackedStringArray("straw")
+footprint_radius = 0.1404
+height = 0.0342
+sink = 0.004
+
+[resource]
+script = ExtResource("2_7v7d6")
+set_id = "straw"
+display_name = "Straw"
+family = "straw"
+modules = Array[ExtResource("1_u38ng")]([SubResource("Resource_q5kc6"), SubResource("Resource_h45rw"), SubResource("Resource_yq17m"), SubResource("Resource_bmtao"), SubResource("Resource_byc8a")])
+separation_scale = 0.75

@@ -36,7 +36,7 @@ uniform vec3 slab_min = vec3(-84.0, -18.6, -84.0);
 uniform vec3 slab_max = vec3(84.0, -7.1, 84.0);
 uniform int view_steps = 44;
 
-uniform float extinction = 1.5;
+uniform float extinction = 1.7;
 uniform float light_absorption = 0.62;
 uniform float rain_absorption = 0.0;
 uniform float density_gain = 1.6;
@@ -46,29 +46,38 @@ uniform float worley_world_scale = 34.0;
 uniform float detail_world_scale = 8.5;
 uniform float curl_world_scale = 46.0;
 uniform float curl_strength = 2.6;
-uniform float erosion_strength = 0.52;
+uniform float erosion_strength = 0.58;
 
 uniform float coverage_world_scale = 70.0;
 uniform float coverage_bias = 0.56;
 uniform float horizon_openness = 0.85;
 uniform float tone_world_scale = 110.0;
-uniform float tone_spread : hint_range(0.0, 0.5) = 0.20;
+uniform float tone_spread : hint_range(0.0, 0.5) = 0.26;
 
-uniform vec2 wind_direction = vec2(0.82, 0.57);
+// Wind blows along the default camera's screen-right axis so the sea
+// visibly drifts left to right, forever: the mirrored-repeat noise
+// wraps seamlessly, so the cycle never ends or resets.
+uniform vec2 wind_direction = vec2(0.7071, -0.7071);
 uniform float wind_time = 0.0;
-uniform float wind_base_speed = 0.55;
-uniform float wind_detail_speed = 1.35;
+uniform float wind_base_speed = 0.75;
+uniform float wind_detail_speed = 1.6;
 uniform float wind_top_skew = 5.0;
 
 uniform vec3 sun_direction = vec3(-0.35, 0.65, -0.30);
-uniform vec3 crown_color : source_color = vec3(1.0, 0.995, 0.965);
-uniform vec3 light_color : source_color = vec3(1.0, 0.94, 0.82);
-uniform vec3 shade_color : source_color = vec3(0.815, 0.77, 0.745);
+// Five tonal stops build each formation, dark to bright: deep taupe
+// foundations, soft shadowed cavities, the warm cream body, ivory light
+// areas, and the bright sunlit highlight (spec palette 9F9189 / C4B5A7 /
+// E6D5BD / F5E8CF / FFF8E8, authored slightly hot for the tonemap).
+uniform vec3 deep_shadow_color : source_color = vec3(0.686, 0.626, 0.590);
+uniform vec3 shade_color : source_color = vec3(0.846, 0.781, 0.720);
+uniform vec3 mid_color : source_color = vec3(0.992, 0.919, 0.815);
+uniform vec3 crown_color : source_color = vec3(1.057, 1.001, 0.893);
+uniform vec3 light_color : source_color = vec3(1.10, 1.07, 1.001);
 uniform vec3 rim_color : source_color = vec3(1.0, 0.79, 0.50);
 uniform vec3 atmosphere_color : source_color = vec3(0.935, 0.90, 0.815);
 uniform float mist_opacity : hint_range(0.0, 1.0) = 0.97;
-uniform float sun_energy = 2.1;
-uniform float ambient_energy = 1.12;
+uniform float sun_energy = 2.6;
+uniform float ambient_energy = 0.72;
 // Sun-kissed cloud tops: bright soft highlights where a crest has open
 // sky above it. The controller scales this with the sky's brightness so
 // highlights live in the light hours and vanish at night.
@@ -78,8 +87,8 @@ uniform float silver_intensity = 0.50;
 uniform float forward_scattering = 0.32;
 // World-radial fade measured from the island centre, NOT from the camera:
 // zooming may never dissolve the sea, only true distance may.
-uniform float fade_start = 30.0;
-uniform float fade_end = 48.0;
+uniform float fade_start = 36.0;
+uniform float fade_end = 56.0;
 
 varying vec3 world_position;
 
@@ -144,12 +153,12 @@ float coverage_at(vec2 xz) {
 		vec3(mirrored2(sample_uv), 0.36)
 	).r;
 	float coverage = clamp(
-		coverage_bias + (field - 0.5) * 0.85,
+		coverage_bias + (field - 0.5) * 0.88,
 		0.0,
 		1.0
 	);
 	coverage *= 1.0
-		- smoothstep(30.0, 50.0, length(xz)) * horizon_openness;
+		- smoothstep(36.0, 58.0, length(xz)) * horizon_openness;
 	return coverage;
 }
 
@@ -189,8 +198,12 @@ float sample_density(vec3 point, float coverage, bool full_detail) {
 		mirrored3(sample_point / worley_world_scale)
 	).r;
 	float base_shape = remap(perlin, billow - 1.0, 1.0, 0.0, 1.0);
+	// Irregular silhouette: broad areas stay low while high-coverage
+	// cores raise taller clusters, so the skyline is uneven accumulation
+	// rather than one level wall.
+	float ceiling = mix(0.72, 1.0, smoothstep(0.45, 0.80, coverage));
 	float gradient = smoothstep(0.02, 0.14, height)
-		* smoothstep(1.0, 0.32, height);
+		* (1.0 - smoothstep(ceiling * 0.40, ceiling, height));
 	base_shape *= gradient;
 
 	float shaped = remap(base_shape, 1.0 - coverage, 1.0, 0.0, 1.0)
@@ -377,31 +390,68 @@ void fragment() {
 			powder_strength * (0.35 + 0.65 * away_from_sun)
 		);
 		float height = height_fraction(point);
-		// Sky ambient grows with height and dims where the sun march found
-		// thick material above - creases shade, crowns stay luminous.
-		float ambient_occlusion = 0.45
-			+ 0.55 * exp(-light_depth * 0.22);
-		vec3 ambient = mix(
-			shade_color,
-			crown_color,
-			smoothstep(0.05, 0.95, height)
-		) * (ambient_energy * ambient_occlusion);
-		vec3 sun_term = light_color
-			* (sun_energy * beer * powder_term * phase);
-		vec3 rim_term = rim_color * (silver * beer);
-		// Crest highlight: where little material sits above the sample,
-		// this is a sunlit top and it catches a soft bright kiss.
-		float above_density = sample_density(
+
+		// Self-shadowing between stacked puffs: two probes straight up
+		// measure how buried this sample is under other cloud material.
+		// Open-sky crests stay lit; lobes sitting under or behind others
+		// fall into soft shadowed cavities, and undersides go darkest.
+		float above_near = sample_density(
 			point + vec3(0.0, 1.15, 0.0),
 			coverage,
 			false
 		);
-		float crest = clamp(1.0 - above_density * 2.2, 0.0, 1.0)
+		float above_far = sample_density(
+			point + vec3(0.0, 2.60, 0.0),
+			coverage,
+			false
+		);
+		float overhang = clamp(
+			above_near * 1.5 + above_far * 0.9,
+			0.0,
+			2.2
+		);
+		float up_occlusion = exp(-overhang * 1.1);
+		float cavity = 0.30 + 0.70 * exp(-light_depth * 0.30);
+
+		// Stacked tonality, dark to bright: taupe foundations low, soft
+		// shadow, cream body, ivory light areas high - then occlusion
+		// carves the cavities between overlapping forms.
+		vec3 vertical_tone = mix(
+			deep_shadow_color,
+			shade_color,
+			smoothstep(0.0, 0.35, height)
+		);
+		vertical_tone = mix(
+			vertical_tone,
+			mid_color,
+			smoothstep(0.28, 0.62, height)
+		);
+		vertical_tone = mix(
+			vertical_tone,
+			crown_color,
+			smoothstep(0.58, 0.92, height)
+		);
+		vec3 ambient = vertical_tone
+			* (ambient_energy * cavity * mix(0.42, 1.0, up_occlusion));
+		vec3 sun_term = light_color
+			* (sun_energy * beer * powder_term * phase)
+			* mix(0.55, 1.0, up_occlusion);
+		vec3 rim_term = rim_color * (silver * beer);
+		// Crest highlight: open sky above means a sunlit cap.
+		float crest = clamp(1.0 - above_near * 2.2, 0.0, 1.0)
 			* smoothstep(0.40, 0.80, height);
 		vec3 highlight_term = light_color
 			* (crest * crest_highlight_energy * (0.35 + 0.65 * beer));
+		// Foreground band: masses near the camera read darker and
+		// heavier; the distance fade already lightens the background.
+		float foreground = smoothstep(
+			46.0,
+			20.0,
+			distance(point.xz, camera.xz)
+		);
 		vec3 scattered = (ambient + sun_term + rim_term + highlight_term)
-			* mass_tone_at(point.xz);
+			* mass_tone_at(point.xz)
+			* mix(1.0, 0.84, foreground);
 
 		float step_extinction = density * extinction * full_step;
 		float step_transmittance = exp(-step_extinction);

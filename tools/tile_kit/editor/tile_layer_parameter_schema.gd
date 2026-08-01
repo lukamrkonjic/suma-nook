@@ -16,7 +16,7 @@ const KIND_ORDER := [
 const SHAPES := [
 	"dot", "oval", "leaf_pair", "lobed_clump", "nub", "pebble",
 	"stone_chip", "twig", "wood_chip", "leaf_litter", "mushroom",
-	"snow_lump", "bud", "boulder", "lily_pad",
+	"snow_lump", "bud", "boulder", "lily_pad", "crystal", "footprint",
 ]
 
 const DEFINITIONS := {
@@ -118,7 +118,7 @@ const DEFINITIONS := {
 	},
 	"clutter": {
 		"label": "Surface Scatter",
-		"description": "A generic distribution of leaves, chips, stones, flowers, or lumps.",
+		"description": "A generic distribution of leaves, chips, stones, flowers, crystals, imprints, or lumps.",
 		"defaults": {"count": [7, 13], "diameter": [0.05, 0.11],
 			"height": [0.008, 0.018], "min_spacing": 0.06,
 			"edge_margin": 0.03, "on_dressing_fraction": 0.0,
@@ -198,7 +198,7 @@ const DEFINITIONS := {
 			"stone_height": [0.02, 0.03], "stone_corner": 0.028},
 		"parameters": [
 			{"section": "PATTERN", "key": "pattern", "label": "Pattern type",
-				"type": "enum", "values": ["cobbles", "planks", "stepping"],
+				"type": "enum", "values": ["cobbles", "planks", "stepping", "trail"],
 				"randomize": false},
 			{"key": "stone_cell", "label": "Cell width", "type": "float",
 				"min": 0.12, "max": 0.90, "step": 0.01,
@@ -221,6 +221,18 @@ const DEFINITIONS := {
 			{"key": "stepping_size", "label": "Stone size", "type": "range_float",
 				"min": 0.10, "max": 0.58, "step": 0.01, "fallback": [0.24, 0.34],
 				"when": {"pattern": ["stepping"]}},
+			{"section": "TRAIL COMPOSITION", "key": "trail_layout", "label": "Trail layout",
+				"type": "enum", "values": ["straight", "cross"], "randomize": false,
+				"when": {"pattern": ["trail"]}},
+			{"key": "trail_width", "label": "Trail width", "type": "float",
+				"min": 0.18, "max": 1.25, "step": 0.01,
+				"when": {"pattern": ["trail"]}},
+			{"key": "trail_piece_length", "label": "Piece length", "type": "range_float",
+				"min": 0.12, "max": 0.72, "step": 0.01, "fallback": [0.24, 0.42],
+				"when": {"pattern": ["trail"]}},
+			{"key": "trail_jitter", "label": "Trail irregularity", "type": "float",
+				"min": 0.0, "max": 0.24, "step": 0.005,
+				"when": {"pattern": ["trail"]}},
 			{"section": "JOINTS & PROFILE", "key": "gap", "label": "Gap width",
 				"type": "float", "min": 0.004, "max": 0.09, "step": 0.002},
 			{"key": "stone_height", "label": "Piece height", "type": "range_float",

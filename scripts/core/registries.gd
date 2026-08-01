@@ -38,6 +38,10 @@ var anchors: Dictionary = {}
 var capabilities: Dictionary = {}
 var enemies: Dictionary = {}
 var landmarks: Dictionary = {}
+var fishing_loot: Dictionary = {}
+var spirits: Dictionary = {}
+var keepsakes: Dictionary = {}
+var fishing_balance: Dictionary = {}
 var load_issues: Array = []
 var load_errors: PackedStringArray = []
 var feature_validators: Array[Callable] = []
@@ -104,6 +108,21 @@ func load_all(base_path := "res://data", report_issues := true) -> bool:
 	_load_list(
 		candidate, base_path + "/landmarks.json", "landmarks", "landmarks",
 		candidate.landmarks, Defs.LandmarkDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/fishing_loot.json", "fishing_loot", "fishing_loot",
+		candidate.fishing_loot, Defs.FishingLootDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/fishing_spirits.json", "spirits", "spirits",
+		candidate.spirits, Defs.SpiritDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/fishing_keepsakes.json", "keepsakes", "keepsakes",
+		candidate.keepsakes, Defs.KeepsakeDefinition.from_dict, issues
+	)
+	candidate.fishing_balance = _read_object(
+		base_path + "/fishing_balance.json", issues
 	)
 	CommonDefinitionValidatorScript.validate(candidate, issues)
 	TileDefinitionValidatorScript.validate(candidate, issues)
@@ -198,6 +217,9 @@ func anchor(id: String) -> Defs.AnchorDefinition: return anchors.get(id)
 func capability(id: String) -> Defs.CapabilityDefinition: return capabilities.get(id)
 func enemy(id: String) -> Defs.EnemyDefinition: return enemies.get(id)
 func landmark(id: String) -> Defs.LandmarkDefinition: return landmarks.get(id)
+func fishing_loot_definition(id: String) -> Defs.FishingLootDefinition: return fishing_loot.get(id)
+func spirit(id: String) -> Defs.SpiritDefinition: return spirits.get(id)
+func keepsake(id: String) -> Defs.KeepsakeDefinition: return keepsakes.get(id)
 
 
 func has_definition(kind: String, id: String) -> bool:
@@ -361,6 +383,10 @@ func _adopt(candidate) -> void:
 	capabilities = candidate.capabilities
 	enemies = candidate.enemies
 	landmarks = candidate.landmarks
+	fishing_loot = candidate.fishing_loot
+	spirits = candidate.spirits
+	keepsakes = candidate.keepsakes
+	fishing_balance = candidate.fishing_balance
 
 
 func _publish_issues(issues: Array, report_issues: bool) -> void:

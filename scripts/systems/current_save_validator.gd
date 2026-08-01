@@ -89,7 +89,49 @@ static func validate(data: Dictionary, registries: Registries) -> PackedStringAr
 			"features.camping.shelters[%d] references missing iid %d"
 			% [index, instance_id]
 		)
+	_validate_fishing(errors, feature_data.get("fishing", {}), registries)
 	return errors
+
+
+static func _validate_fishing(
+	errors: PackedStringArray,
+	raw: Variant,
+	registries: Registries
+) -> void:
+	if not raw is Dictionary:
+		errors.append("features.fishing must be an object")
+		return
+	var data: Dictionary = raw
+	if data.is_empty():
+		return
+	var pouch: Dictionary = data.get("pouch", {})
+	for index in (pouch.get("slots", []) as Array).size():
+		var spirit_id := String(pouch["slots"][index])
+		_require(
+			errors, registries.spirit(spirit_id) != null,
+			"features.fishing.pouch.slots[%d] references missing spirit '%s'"
+			% [index, spirit_id]
+		)
+	var basket: Dictionary = data.get("basket", {})
+	for index in (basket.get("hauls", []) as Array).size():
+		var raw_haul: Variant = basket["hauls"][index]
+		if not raw_haul is Dictionary:
+			errors.append("features.fishing.basket.hauls[%d] must be an object" % index)
+			continue
+		for entry_index in ((raw_haul as Dictionary).get("entries", []) as Array).size():
+			var entry: Dictionary = raw_haul["entries"][entry_index]
+			var form := String(entry.get("form", ""))
+			var building_id := String(entry.get("building_id", ""))
+			var known := (
+				(form == "tile_bundle" and registries.tile(building_id) != null)
+				or (form == "model" and registries.structure(building_id) != null)
+				or (form == "keepsake" and registries.keepsake(building_id) != null)
+			)
+			_require(
+				errors, known,
+				"features.fishing.basket.hauls[%d].entries[%d] references missing %s '%s'"
+				% [index, entry_index, form, building_id]
+			)
 
 
 ## Archived v1/v2 blobs are deliberately not validated: they preserve retired
@@ -104,14 +146,14 @@ static func _validate_progression(
 		return
 	var data: Dictionary = raw
 	_require(
-		errors, int(data.get("version", 0)) == 3,
-		"progression.version must be 3"
+		errors, int(data.get("version", 0)) == 4,
+		"progression.version must be 4"
+	)
+	_require(
+		errors, not data.has("void_exchange"),
+		"progression.void_exchange was retired in v4"
 	)
 	var discovery: Dictionary = data.get("discovery", {})
-	_validate_dictionary_ids(
-		errors, discovery.get("progress", {}), registries.discovery_pools,
-		"progression.discovery.progress"
-	)
 	for index in (discovery.get("pending", []) as Array).size():
 		var entry: Variant = discovery["pending"][index]
 		if not entry is Dictionary:
@@ -127,26 +169,6 @@ static func _validate_progression(
 			errors, known,
 			"progression.discovery.pending[%d] references missing %s '%s'"
 			% [index, kind, content_id]
-		)
-	var exchange: Dictionary = data.get("void_exchange", {})
-	for key: String in exchange.get("offerings", {}):
-		var parts := key.split(":", false, 1)
-		var known := false
-		if parts.size() == 2:
-			known = (
-				parts[0] == "tile" and registries.tile(parts[1]) != null
-			) or (
-				parts[0] == "structure"
-				and registries.structure(parts[1]) != null
-			)
-		_require(
-			errors, known,
-			"progression.void_exchange.offerings references missing '%s'" % key
-		)
-		_require(
-			errors,
-			int(exchange["offerings"][key]) in [1, 2],
-			"progression.void_exchange.offerings '%s' must be 1 or 2" % key
 		)
 	_validate_array_ids(
 		errors, data.get("milestones", {}).get("claimed", []), registries.milestones,
@@ -231,6 +253,7 @@ static func _validate_collection(
 		"structures": "structures",
 		"landmarks": "landmarks",
 		"creatures": "enemies",
+		"keepsakes": "keepsakes",
 	}
 	for key: String in entries:
 		var category := key.get_slice("/", 0)

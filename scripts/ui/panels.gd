@@ -5,6 +5,8 @@ extends CanvasLayer
 
 signal panel_toggled(panel_name: String, open: bool)
 signal landmark_resolution_chosen(landmark_id: String, resolution: String)
+signal basket_tile_bundle_taken(haul_id: int, entry_index: int)
+signal basket_model_taken(haul_id: int, entry_index: int)
 
 const PANEL_ORDER := [
 	"inventory",
@@ -589,99 +591,36 @@ func _settings_panel() -> Dictionary:
 
 # ------------------------------------------------------------------ landmark resolve dialog
 
-# ------------------------------------------------------------------ duplicate exchange
+# ------------------------------------------------------------------ catch basket
 
-func show_void_exchange_picker() -> void:
+func show_catch_basket() -> void:
 	close()
-	var win := kit.window("Offer Duplicates to the Void", Vector2(650, 560))
+	var win := kit.window("Catch Basket", Vector2(680, 580))
 	_open_panel = win["root"]
-	_open_name = "void_exchange"
+	_open_name = "catch_basket"
 	win["close"].pressed.connect(close)
 	add_child(_open_panel)
 	var col: VBoxContainer = win["content"]
 
-	var intro_card := kit.progression_card(
-		Vector2(0, 96),
-		kit.palette.color("ui_accent")
-	)
-	var intro_copy := VBoxContainer.new()
-	intro_copy.add_theme_constant_override("separation", 6)
-	intro_card.add_child(intro_copy)
-	intro_copy.add_child(kit.eyebrow(
-		"THREE TRUE SPARES · SAME EXACT PIECE",
+	var basket: CatchBasketAdapter = core.fishing.basket
+	col.add_child(kit.eyebrow(
+		"%d OF %d HAULS WAITING" % [basket.haul_count(), basket.capacity()],
 		kit.palette.color("ui_accent")
 	))
-	var intro := kit.muted_label(
-		"Your first copy is always protected. Throw three spare copies of one piece into the void and it returns a different random piece from the same Build Bag category.",
-		14
-	)
-	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	intro_copy.add_child(intro)
-	col.add_child(intro_card)
 
-	var parts := _scroll_list(350.0)
+	var parts := _scroll_list(430.0)
 	col.add_child(parts["scroll"])
 	var list: VBoxContainer = parts["list"]
 	list.add_theme_constant_override("separation", 9)
-	var entries := core.progression.void_exchange.offerable_entries()
-	for entry: Dictionary in entries:
-		var kind := String(entry["kind"])
-		var content_id := String(entry["id"])
-		var offered := int(entry["offered"])
-		var available := int(entry["available"])
-		var card := kit.progression_card(
-			Vector2.ZERO,
-			kit.palette.color("ui_accent")
-		)
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 10)
-		card.add_child(row)
-		var copy := VBoxContainer.new()
-		copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(copy)
-		copy.add_child(kit.label(String(entry["name"]), 16, false, true))
-		copy.add_child(kit.eyebrow(
-			"%s · %d / %d offered · %d spare now"
-			% [
-				String(entry["category"]).capitalize(),
-				offered,
-				VoidExchangeSystem.REQUIRED,
-				available,
-			],
-			kit.palette.color("ui_accent")
-		))
-		var offer := kit.button("Throw one")
-		offer.disabled = available <= 0
-		offer.tooltip_text = (
-			"Throw one spare %s into the void." % String(entry["name"])
-			if available > 0
-			else "The offering waits until you find another spare."
-		)
-		offer.pressed.connect(func():
-			var result := core.progression.void_exchange.offer(kind, content_id)
-			if not bool(result.get("ok", false)):
-				if String(result.get("reason", "")) == "no_alternative":
-					core.notified.emit(
-						"The void found no different %s piece yet, so all three returned."
-						% String(entry["category"]).capitalize(),
-						"warn"
-					)
-					show_void_exchange_picker()
-				return
-			if not (result.get("reward", {}) as Dictionary).is_empty():
-				close()
-			else:
-				show_void_exchange_picker()
-		)
-		row.add_child(offer)
-		list.add_child(card)
-	if entries.is_empty():
+	for haul: FishingHaul in basket.hauls:
+		list.add_child(_basket_haul_card(haul))
+	if basket.haul_count() == 0:
 		var empty := kit.progression_card(
 			Vector2(0, 110),
 			Color(0.58, 0.56, 0.51)
 		)
 		var note := kit.muted_label(
-			"No spare copies yet. The keeper copy of every piece stays safe.",
+			"The basket is empty. Fish from any exposed edge and the void's hauls will wait here.",
 			14
 		)
 		note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -689,7 +628,180 @@ func show_void_exchange_picker() -> void:
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		empty.add_child(note)
 		list.add_child(empty)
-	panel_toggled.emit("void_exchange", true)
+	panel_toggled.emit("catch_basket", true)
+	focus_default()
+
+
+func _basket_haul_card(haul: FishingHaul) -> Control:
+	var card := kit.progression_card(Vector2.ZERO, kit.palette.color("ui_accent"))
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 7)
+	card.add_child(column)
+	var size_names := {
+		FishingHaul.SIZE_SINGLE: "Catch",
+		FishingHaul.SIZE_RICH: "Rich Catch",
+		FishingHaul.SIZE_BOUNTIFUL: "Bountiful Catch",
+	}
+	column.add_child(kit.eyebrow(
+		String(size_names.get(haul.catch_size, "Catch")).to_upper(),
+		kit.palette.color("ui_accent")
+	))
+	for entry_index in haul.entries.size():
+		var entry: FishingReward = haul.entries[entry_index]
+		column.add_child(_basket_entry_row(haul, entry_index, entry))
+	if haul.keepsake != null:
+		column.add_child(_basket_keepsake_row(haul))
+	var discard_row := HBoxContainer.new()
+	discard_row.alignment = BoxContainer.ALIGNMENT_END
+	column.add_child(discard_row)
+	var discard := kit.button("Return to the void")
+	discard.tooltip_text = "Let this whole haul go. The void keeps what it takes back."
+	discard.pressed.connect(func():
+		core.fishing.basket.discard_haul(haul.haul_id)
+		show_catch_basket()
+	)
+	discard_row.add_child(discard)
+	return card
+
+
+func _basket_entry_row(
+	haul: FishingHaul,
+	entry_index: int,
+	entry: FishingReward
+) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var copy := VBoxContainer.new()
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(copy)
+	var display_name := entry.building_id
+	if entry.form == FishingReward.FORM_TILE_BUNDLE:
+		var tile := core.registries.tile(entry.building_id)
+		if tile != null:
+			display_name = tile.display_name
+		copy.add_child(kit.label(
+			"%s × %d" % [display_name, entry.quantity], 16, false, true
+		))
+		copy.add_child(kit.eyebrow(
+			"TILE BUNDLE · %s" % entry.rarity.to_upper(),
+			kit.palette.color("ui_accent")
+		))
+		var place := kit.button("Place tiles")
+		place.disabled = entry.quantity <= 0
+		place.tooltip_text = "Take the bundle into tile placement. Unplaced tiles return here."
+		place.pressed.connect(func():
+			basket_tile_bundle_taken.emit(haul.haul_id, entry_index)
+		)
+		row.add_child(place)
+	else:
+		var structure := core.registries.structure(entry.building_id)
+		if structure != null:
+			display_name = structure.display_name
+		copy.add_child(kit.label(display_name, 16, false, true))
+		copy.add_child(kit.eyebrow(
+			"MODEL · %s" % entry.rarity.to_upper(),
+			kit.palette.color("ui_accent")
+		))
+		var place := kit.button("Place it")
+		place.tooltip_text = "Take this model into placement mode."
+		place.pressed.connect(func():
+			basket_model_taken.emit(haul.haul_id, entry_index)
+		)
+		row.add_child(place)
+	return row
+
+
+func _basket_keepsake_row(haul: FishingHaul) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var copy := VBoxContainer.new()
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(copy)
+	var definition := core.registries.keepsake(haul.keepsake.building_id)
+	var display_name := (
+		definition.display_name if definition != null else haul.keepsake.building_id
+	)
+	copy.add_child(kit.label("%s ❖" % display_name, 16, false, true))
+	var hint := kit.muted_label(
+		definition.description if definition != null else "", 13
+	)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	copy.add_child(hint)
+	var activate := kit.button("Activate", true)
+	activate.tooltip_text = "Wake the keepsake. Its gift stays with you forever."
+	activate.pressed.connect(func():
+		var keepsake_id: String = core.fishing.activate_keepsake_from_basket(haul.haul_id)
+		if keepsake_id != "":
+			core.notified.emit("%s hums to life." % display_name, "levelup")
+		show_catch_basket()
+	)
+	row.add_child(activate)
+	return row
+
+
+# ------------------------------------------------------------------ spirit pouch
+
+func show_spirit_pouch() -> void:
+	close()
+	var win := kit.window("Spirit Pouch", Vector2(560, 470))
+	_open_panel = win["root"]
+	_open_name = "spirit_pouch"
+	win["close"].pressed.connect(close)
+	add_child(_open_panel)
+	var col: VBoxContainer = win["content"]
+
+	var pouch: SpiritPouchService = core.fishing.pouch
+	var armed := pouch.armed_index()
+
+	var wild_card := kit.progression_card(Vector2(0, 74), kit.palette.color("ui_accent"))
+	var wild_row := HBoxContainer.new()
+	wild_row.add_theme_constant_override("separation", 10)
+	wild_card.add_child(wild_row)
+	var wild_copy := VBoxContainer.new()
+	wild_copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wild_row.add_child(wild_copy)
+	wild_copy.add_child(kit.label("Wild Cast", 16, false, true))
+	wild_copy.add_child(kit.eyebrow(
+		"NO CHARM · THE VOID DECIDES" + (" · ARMED" if armed < 0 else ""),
+		kit.palette.color("ui_accent")
+	))
+	var wild_button := kit.button("Fish wild", armed < 0)
+	wild_button.disabled = armed < 0
+	wild_button.pressed.connect(func():
+		core.fishing.pouch.select_wild_cast()
+		show_spirit_pouch()
+	)
+	wild_row.add_child(wild_button)
+	col.add_child(wild_card)
+
+	var slots := pouch.slots()
+	for slot_index in pouch.capacity():
+		var card := kit.progression_card(Vector2(0, 68), kit.palette.color("ui_accent"))
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		card.add_child(row)
+		var copy := VBoxContainer.new()
+		copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(copy)
+		if slot_index < slots.size():
+			var spirit := core.registries.spirit(slots[slot_index])
+			var spirit_name := spirit.display_name if spirit != null else slots[slot_index]
+			copy.add_child(kit.label(spirit_name, 16, false, true))
+			copy.add_child(kit.eyebrow(
+				("ARMED FOR THE NEXT CATCH" if slot_index == armed else "RESTING IN ITS SLOT"),
+				kit.palette.color("ui_accent")
+			))
+			var arm := kit.button("Arm" if slot_index != armed else "Armed", slot_index != armed)
+			arm.disabled = slot_index == armed
+			arm.pressed.connect(func():
+				core.fishing.pouch.arm_slot(slot_index)
+				show_spirit_pouch()
+			)
+			row.add_child(arm)
+		else:
+			copy.add_child(kit.muted_label("An empty charm slot.", 14))
+		col.add_child(card)
+	panel_toggled.emit("spirit_pouch", true)
 	focus_default()
 
 

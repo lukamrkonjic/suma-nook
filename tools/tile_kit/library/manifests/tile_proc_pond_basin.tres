@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_r3n1e")
 tile_id = "tile_proc_pond_basin"
-display_name = "Pond Basin"
+display_name = "Lilypad Hollow"
 revision = 1
 lifecycle = "published"
 visibility = "preview"
@@ -15,7 +15,13 @@ baked_roles = PackedStringArray("base", "detail", "surface")
 family = "home_meadow"
 connection_group = "tile_proc_pond_basin"
 biome_tags = PackedStringArray("meadow")
+landmark_tags = PackedStringArray()
 dependencies = PackedStringArray()
+stackable = false
+supports_tiles = false
+collision_profile = "pond_basin"
+water_cells = PackedStringArray("pond")
+anchor_id = "pond_anchor"
 created_at = "2026-08-01 00:00:00"
-updated_at = "2026-08-01 14:38:51"
+updated_at = "2026-08-01 16:00:00"
 published_at = "2026-08-01 14:38:51"

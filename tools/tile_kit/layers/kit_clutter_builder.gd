@@ -18,7 +18,7 @@ extends RefCounted
 
 const ALL_SHAPES := ["dot", "oval", "leaf_pair", "lobed_clump", "nub",
 	"pebble", "stone_chip", "twig", "wood_chip", "leaf_litter", "mushroom",
-	"snow_lump", "bud", "boulder", "lily_pad"]
+	"snow_lump", "bud", "boulder", "lily_pad", "crystal", "footprint"]
 
 
 static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
@@ -186,6 +186,34 @@ static func _add_shape(batch: TileKitMeshUtils.MeshBatch, layer: TileKitLayer,
 				origin + Vector3.UP * (bud_height * 0.85),
 				diameter * 0.42, diameter * 0.42,
 				diameter * rng.randf_range(0.34, 0.42), yaw, 5, 12)
+		"crystal":
+			# A reusable faceted mineral cluster: one tall six-sided shard and
+			# two smaller companions. Low segment counts keep the silhouette
+			# angular so it catches light differently from organic scatter.
+			var shard_height := maxf(piece_height * 3.0, diameter * 0.95)
+			TileKitMeshUtils.add_dome(batch, key, origin,
+				diameter * 0.24, diameter * 0.22, shard_height, yaw, 2, 6)
+			for shard in 2:
+				var shard_yaw := yaw + (-0.85 if shard == 0 else 1.15)
+				var offset := Vector3(cos(shard_yaw), 0.0, sin(shard_yaw)) \
+					* diameter * 0.25
+				TileKitMeshUtils.add_dome(batch, key, origin + offset,
+					diameter * 0.14, diameter * 0.13,
+					shard_height * (0.48 if shard == 0 else 0.62),
+					shard_yaw, 2, 5)
+		"footprint":
+			# One piece represents a paired impression. The material remains
+			# recipe-controlled, so the same vocabulary serves snow, mud, sand,
+			# or a stylized painted trail.
+			var forward := Vector3(cos(yaw), 0.0, sin(yaw))
+			var side := Vector3(-forward.z, 0.0, forward.x)
+			for foot in 2:
+				var offset := forward * diameter * (float(foot) - 0.5) * 0.72 \
+					+ side * diameter * (0.18 if foot == 0 else -0.18)
+				TileKitMeshUtils.add_dome(batch, key,
+					origin + offset + Vector3.UP * 0.001,
+					diameter * 0.28, diameter * 0.13, 0.004,
+					yaw + PI * 0.5, 2, 10)
 		"snow_lump":
 			TileKitMeshUtils.add_dome(batch, key,
 				origin - Vector3(0.0, diameter * 0.04, 0.0),

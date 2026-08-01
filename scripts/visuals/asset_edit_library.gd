@@ -231,6 +231,12 @@ func _mesh_instances(root: Node) -> Array[MeshInstance3D]:
 
 func material_key(material: Material, surface: int) -> String:
 	var key := material.resource_name.get_slice("|", 0).get_slice(".", 0)
+	# Tile Kit prefixes material resources to opt out of global semantic
+	# rebinding. That namespace is an implementation detail, not an authoring
+	# label: profiles and Asset Studio should still say `sand_top`, not
+	# `tilekit_sand_top`.
+	if key.begins_with("tilekit_"):
+		key = key.trim_prefix("tilekit_")
 	return key if not key.is_empty() else "surface_%02d" % surface
 
 

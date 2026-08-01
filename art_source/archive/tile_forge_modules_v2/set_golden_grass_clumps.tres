@@ -1,0 +1,77 @@
+[gd_resource type="Resource" script_class="TileModuleSet" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_module_entry.gd" id="1_18vj6"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_module_set.gd" id="2_bjl1s"]
+
+[sub_resource type="Resource" id="Resource_q556e"]
+script = ExtResource("1_18vj6")
+mesh_path = "res://tools/tile_forge/modules/grass/gf_clump_hero_a.glb"
+tags = PackedStringArray("grass")
+footprint_radius = 0.1826
+height = 0.2039
+sink = 0.014
+scale_range = Vector2(0.92, 1.12)
+max_tilt_deg = 5.0
+
+[sub_resource type="Resource" id="Resource_wpxc2"]
+script = ExtResource("1_18vj6")
+mesh_path = "res://tools/tile_forge/modules/grass/gf_clump_hero_b.glb"
+weight = 0.85
+tags = PackedStringArray("grass")
+footprint_radius = 0.2064
+height = 0.1854
+sink = 0.014
+scale_range = Vector2(0.92, 1.12)
+max_tilt_deg = 5.0
+
+[sub_resource type="Resource" id="Resource_2cfux"]
+script = ExtResource("1_18vj6")
+mesh_path = "res://tools/tile_forge/modules/grass/gf_clump_mid_a.glb"
+weight = 0.7
+tags = PackedStringArray("grass")
+footprint_radius = 0.1613
+height = 0.1607
+sink = 0.014
+scale_range = Vector2(0.92, 1.12)
+max_tilt_deg = 5.0
+
+[sub_resource type="Resource" id="Resource_s2hep"]
+script = ExtResource("1_18vj6")
+mesh_path = "res://tools/tile_forge/modules/grass/gf_clump_mid_b.glb"
+weight = 0.6
+tags = PackedStringArray("grass")
+footprint_radius = 0.1337
+height = 0.1458
+sink = 0.014
+scale_range = Vector2(0.92, 1.12)
+max_tilt_deg = 5.0
+
+[sub_resource type="Resource" id="Resource_36rx4"]
+script = ExtResource("1_18vj6")
+mesh_path = "res://tools/tile_forge/modules/grass/gf_clump_small_a.glb"
+weight = 0.5
+tags = PackedStringArray("grass")
+footprint_radius = 0.1213
+height = 0.1137
+sink = 0.014
+scale_range = Vector2(0.92, 1.12)
+max_tilt_deg = 5.0
+
+[sub_resource type="Resource" id="Resource_m15mf"]
+script = ExtResource("1_18vj6")
+mesh_path = "res://tools/tile_forge/modules/grass/gf_clump_small_b.glb"
+weight = 0.42
+tags = PackedStringArray("grass")
+footprint_radius = 0.084
+height = 0.1013
+sink = 0.014
+scale_range = Vector2(0.92, 1.12)
+max_tilt_deg = 5.0
+
+[resource]
+script = ExtResource("2_bjl1s")
+set_id = "golden_grass_clumps"
+display_name = "Golden Grass Clumps"
+modules = Array[ExtResource("1_18vj6")]([SubResource("Resource_q556e"), SubResource("Resource_wpxc2"), SubResource("Resource_2cfux"), SubResource("Resource_s2hep"), SubResource("Resource_36rx4"), SubResource("Resource_m15mf")])
+separation_scale = 0.7
+max_repeats_per_module = 2

@@ -5,48 +5,22 @@
 [resource]
 script = ExtResource("1_7sbk3")
 tile_id = "tile_grass"
-display_name = "Open Meadow"
-revision = 1
+display_name = "Cloverlight Meadow"
+revision = 2
 lifecycle = "published"
 visibility = "active"
-source_kind = "external"
-runtime_definition = {
-"asset_id": "tile_grass",
-"biome_tags": ["meadow"],
-"collection_hint": "The gentle default. Everything grows from here.",
-"connection_mode": "full_flush",
-"exposed_top": "raised",
-"family": "home_meadow",
-"geometry_profile": "organic_overlay_square",
-"id": "tile_grass",
-"layers": [{
-"asset_id": "tile_layer_base_standard",
-"cover_behavior": "persist",
-"material": "earth_mid",
-"role": "base"
-}, {
-"asset_id": "tile_layer_surface_grass_tufts",
-"cover_behavior": "hide",
-"material": "grass_primary",
-"role": "surface"
-}],
-"name": "Open Meadow",
-"placement_sound": "grass",
-"render_profile": "layered",
-"stackable": true,
-"supports_tiles": true,
-"surface_kind": "flat",
-"walk_surface_height": 0.03,
-"weight": 3.0
-}
-baked_roles = PackedStringArray("base", "surface", "detail")
+recipe_path = "res://tools/tile_kit/library/recipes/tile_grass.tres"
+baked_roles = PackedStringArray("base", "detail", "surface")
 family = "home_meadow"
 connection_group = "home_meadow"
 biome_tags = PackedStringArray("meadow")
+landmark_tags = PackedStringArray()
 weight = 3.0
 collection_hint = "The gentle default. Everything grows from here."
 dependencies = PackedStringArray()
 walk_surface_height = 0.03
+water_cells = PackedStringArray()
 created_at = "2026-08-01 00:00:00"
-updated_at = "2026-08-01 00:00:00"
+updated_at = "2026-08-01 16:00:00"
 published_at = "2026-08-01 00:00:00"
+notes = "Original Suma procedural composition. Stable ID retained for runtime references; no extracted source geometry is used."

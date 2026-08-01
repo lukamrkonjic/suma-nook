@@ -39,11 +39,13 @@ const VISIBILITY_HIDDEN := "hidden"
 @export var family := "tile_kit"
 @export var connection_group := ""
 @export var biome_tags := PackedStringArray([])
+@export var landmark_tags := PackedStringArray([])
 @export var rarity := "common"
 @export var weight := 1.0
 @export var obtainable := true
 @export var placement_sound := "grass"
 @export_multiline var collection_hint := ""
+@export_multiline var special_trait := ""
 ## Explicit content references not represented in runtime_definition. Hard
 ## delete treats these as dependencies; archive does not require removing them.
 @export var dependencies := PackedStringArray([])
@@ -52,9 +54,15 @@ const VISIBILITY_HIDDEN := "hidden"
 @export var supports_decor := true
 @export var walkable := true
 @export var surface_kind := "flat"
+@export var render_profile := "layered"
 @export var collision_profile := "flat"
 @export var soft_surface_profile := ""
 @export var walk_surface_height := 0.0
+@export var water_cells := PackedStringArray([])
+@export var anchor_id := ""
+@export var decor_sockets := 3
+@export var structure_sockets := 1
+@export var unlock_level: Dictionary = {}
 
 @export_group("Audit")
 @export var created_at := ""
@@ -67,8 +75,11 @@ func duplicate_manifest() -> TileLibraryManifest:
 	var copy := duplicate(true) as TileLibraryManifest
 	copy.runtime_definition = runtime_definition.duplicate(true)
 	copy.biome_tags = biome_tags.duplicate()
+	copy.landmark_tags = landmark_tags.duplicate()
 	copy.baked_roles = baked_roles.duplicate()
 	copy.dependencies = dependencies.duplicate()
+	copy.water_cells = water_cells.duplicate()
+	copy.unlock_level = unlock_level.duplicate(true)
 	return copy
 
 
@@ -126,10 +137,12 @@ func to_tile_dictionary() -> Dictionary:
 		connection_group if not connection_group.is_empty() else tile_id
 	)
 	definition["biome_tags"] = Array(biome_tags)
+	definition["landmark_tags"] = Array(landmark_tags)
 	definition["rarity"] = rarity
 	definition["weight"] = weight
 	definition["placement_sound"] = placement_sound
 	definition["collection_hint"] = collection_hint
+	definition["special_trait"] = special_trait
 	definition["obtainable"] = lifecycle == LIFECYCLE_PUBLISHED and obtainable
 	definition["source_manifest"] = resource_path
 	definition["source_kind"] = source_kind
@@ -153,16 +166,21 @@ func _procedural_definition() -> Dictionary:
 		"name": display_name,
 		"family": family,
 		"asset_id": asset_id("surface"),
-		"render_profile": "layered",
 		"layers": layers,
 		"stackable": stackable,
 		"supports_tiles": supports_tiles,
 		"supports_decor": supports_decor,
 		"walkable": walkable,
 		"surface_kind": surface_kind,
+		"render_profile": render_profile,
 		"collision_profile": collision_profile,
 		"soft_surface_profile": soft_surface_profile,
 		"walk_surface_height": walk_surface_height,
+		"water_cells": Array(water_cells),
+		"anchor": anchor_id,
+		"decor_sockets": decor_sockets,
+		"structure_sockets": structure_sockets,
+		"unlock_level": unlock_level.duplicate(true),
 		"geometry_profile": "rounded_corner_slab",
 		"connection_mode": "tiny_individual_seam" if separate_tiles else "full_flush",
 		# Procedural caps may add seed-driven relief above the nominal walk

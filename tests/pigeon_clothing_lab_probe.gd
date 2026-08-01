@@ -1,5 +1,7 @@
 extends Node
 
+const RIG_PROFILE_TEST_PATH := "user://pigeon_rig_profile_probe.json"
+
 var _failures := 0
 
 
@@ -7,6 +9,9 @@ func _ready() -> void:
 	var lab := (
 		load("res://characters/lab/clothing_lab.tscn") as PackedScene
 	).instantiate() as ClothingLab
+	if FileAccess.file_exists(RIG_PROFILE_TEST_PATH):
+		DirAccess.remove_absolute(RIG_PROFILE_TEST_PATH)
+	lab._pigeon_rig_profile_path_override = RIG_PROFILE_TEST_PATH
 	add_child(lab)
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -35,6 +40,14 @@ func _ready() -> void:
 	_check(
 		lab._pigeon_right_panel.visible and not lab._human_right_panel.visible,
 		"right panel changes to pigeon-specific controls",
+	)
+	_check(
+		lab._pigeon_right_panel.is_ancestor_of(lab._pigeon_rig_tools),
+		"bird rig controls live in the normal right-hand rig sidebar",
+	)
+	_check(
+		lab._pigeon_left_panel.visible and not lab._human_left_panel.visible,
+		"pigeon mode hides the irrelevant human appearance controls on the left",
 	)
 	_check(
 		lab._pigeon_animation_option.item_count == 5,
@@ -66,6 +79,17 @@ func _ready() -> void:
 		var wing_marker := (
 			lab._pigeon_bone_markers[wing_index] as MeshInstance3D
 		)
+		_check(
+			wing_marker.position.is_equal_approx(
+				lab._pigeon_marker_applied_origins[wing_index]
+			),
+			"bird marker starts on its stable anatomical handle",
+		)
+		_check(
+			wing_marker.position.y > -0.12
+			and absf(wing_marker.position.x) > 0.18,
+			"wing handle sits on the visible wing instead of its hidden DEF pivot",
+		)
 		var preview_camera := lab._active_preview_camera()
 		_check(
 			preview_camera != null
@@ -79,14 +103,108 @@ func _ready() -> void:
 			lab._selected_pigeon_bone_index() == wing_index,
 			"joint dot targets its bird bone",
 		)
+		var paired_wing_index := lab._pigeon_skeleton.find_bone("DEF-Wing.R")
+		var base_position: Vector3 = lab._pigeon_base_positions[wing_index]
+		var marker_start := wing_marker.position
+		lab._set_pigeon_marker_edit_mode(true)
+		var marker_screen := preview_camera.unproject_position(
+			wing_marker.global_position
+		)
+		var began_drag := lab._begin_pigeon_marker_drag(marker_screen)
+		if began_drag:
+			lab._drag_pigeon_marker(marker_screen + Vector2(24.0, -12.0))
+			lab._end_pigeon_marker_drag(true)
+		var position_offset: Vector3 = lab._pigeon_bone_position_offsets.get(
+			wing_index,
+			Vector3.ZERO,
+		)
+		var mirrored_offset: Vector3 = lab._pigeon_bone_position_offsets.get(
+			paired_wing_index,
+			Vector3.ZERO,
+		)
+		_check(began_drag, "edit mode begins a drag from a visible bird joint")
+		_check(position_offset.length() > 0.002, "dragging changes the bird joint position")
+		_check(
+			mirrored_offset.is_equal_approx(
+				Vector3(-position_offset.x, position_offset.y, position_offset.z)
+			),
+			"paired bird joints mirror position edits",
+		)
+		_check(
+			lab._pigeon_skeleton.get_bone_pose_position(wing_index).is_equal_approx(
+				base_position
+			),
+			"joint dragging leaves the bird unchanged before Save + Apply",
+		)
+		_check(
+			not wing_marker.position.is_equal_approx(marker_start),
+			"the selected rig marker follows its edited joint",
+		)
+		lab._save_and_apply_pigeon_rig_draft()
+		_check(
+			FileAccess.file_exists(RIG_PROFILE_TEST_PATH),
+			"Save + Apply persists the bird rig draft",
+		)
+		_check(
+			not lab._pigeon_skeleton.get_bone_pose_position(wing_index).is_equal_approx(
+				base_position
+			),
+			"Save + Apply deforms the live DEF bone once",
+		)
+		var runtime_mascot := (
+			load("res://characters/mascots/pigeon_mascot.tscn") as PackedScene
+		).instantiate() as CharacterBody3D
+		var runtime_skeleton := runtime_mascot.get_node(
+			"Model/PigeonRig/Skeleton3D"
+		) as Skeleton3D
+		var runtime_wing_index := runtime_skeleton.find_bone("DEF-Wing.L")
+		var runtime_base_position := runtime_skeleton.get_bone_pose_position(
+			runtime_wing_index
+		)
+		runtime_mascot.set_meta(
+			"pigeon_rig_profile_path",
+			RIG_PROFILE_TEST_PATH,
+		)
+		add_child(runtime_mascot)
+		await get_tree().process_frame
+		_check(
+			not runtime_skeleton.get_bone_pose_position(
+				runtime_wing_index
+			).is_equal_approx(runtime_base_position),
+			"new runtime pigeons load the saved rig profile",
+		)
+		runtime_mascot.free()
+		var saved_position := lab._pigeon_skeleton.get_bone_pose_position(wing_index)
+		lab._select_pigeon_bone_index(wing_index)
+		lab._reset_selected_pigeon_bone()
+		_check(
+			lab._pigeon_skeleton.get_bone_pose_position(wing_index).is_equal_approx(
+				saved_position
+			),
+			"reset edits only the draft until it is saved",
+		)
+		lab._save_and_apply_pigeon_rig_draft()
+		_check(
+			lab._pigeon_skeleton.get_bone_pose_position(wing_index).is_equal_approx(
+				base_position
+			),
+			"saving the reset restores the authored joint position",
+		)
+		lab._set_pigeon_marker_edit_mode(false)
 		var base: Quaternion = lab._pigeon_base_rotations[wing_index]
 		lab._pigeon_rotation_controls[0].value = 24.0
 		await get_tree().process_frame
 		_check(
+			lab._pigeon_skeleton.get_bone_pose_rotation(wing_index).is_equal_approx(base),
+			"rotation controls also remain staged before Save + Apply",
+		)
+		lab._save_and_apply_pigeon_rig_draft()
+		_check(
 			not lab._pigeon_skeleton.get_bone_pose_rotation(wing_index).is_equal_approx(base),
-			"bone rotation control poses the selected wing",
+			"Save + Apply commits the staged bone rotation",
 		)
 		lab._reset_selected_pigeon_bone()
+		lab._save_and_apply_pigeon_rig_draft()
 		_check(
 			lab._pigeon_skeleton.get_bone_pose_rotation(wing_index).is_equal_approx(base),
 			"bone reset restores the authored pose",
@@ -206,6 +324,8 @@ func _ready() -> void:
 	)
 	print("PIGEON_CLOTHING_LAB failures=", _failures)
 	lab.free()
+	if FileAccess.file_exists(RIG_PROFILE_TEST_PATH):
+		DirAccess.remove_absolute(RIG_PROFILE_TEST_PATH)
 	await get_tree().process_frame
 	get_tree().quit(0 if _failures == 0 else 1)
 

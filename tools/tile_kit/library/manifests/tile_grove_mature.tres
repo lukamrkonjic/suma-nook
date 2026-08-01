@@ -5,45 +5,20 @@
 [resource]
 script = ExtResource("1_3nlxj")
 tile_id = "tile_grove_mature"
-display_name = "Grove Ground"
-revision = 1
+display_name = "Elder Canopy"
+revision = 2
 lifecycle = "published"
 visibility = "active"
-source_kind = "external"
-runtime_definition = {
-"asset_id": "tile_grove_mature",
-"biome_tags": ["forest"],
-"connection_mode": "full_flush",
-"exposed_top": "flush",
-"family": "living_grove",
-"geometry_profile": "micro_bevel_square",
-"id": "tile_grove_mature",
-"layers": [{
-"asset_id": "tile_layer_base_standard",
-"cover_behavior": "persist",
-"material": "earth_mid",
-"role": "base"
-}, {
-"asset_id": "tile_layer_surface_flat",
-"cover_behavior": "hide",
-"material": "moss_primary",
-"role": "surface"
-}],
-"name": "Grove Ground",
-"placement_sound": "grass",
-"render_profile": "layered",
-"special_trait": "A warm flat clearing for independently placed trees.",
-"stackable": true,
-"supports_tiles": true,
-"surface_kind": "flat",
-"weight": 3.0
-}
-baked_roles = PackedStringArray("base", "surface", "detail")
+recipe_path = "res://tools/tile_kit/library/recipes/tile_grove_mature.tres"
+baked_roles = PackedStringArray("base", "detail", "surface")
 family = "living_grove"
 connection_group = "living_grove"
 biome_tags = PackedStringArray("forest")
+landmark_tags = PackedStringArray()
 weight = 3.0
 dependencies = PackedStringArray()
+water_cells = PackedStringArray()
 created_at = "2026-08-01 00:00:00"
-updated_at = "2026-08-01 00:00:00"
+updated_at = "2026-08-01 16:00:00"
 published_at = "2026-08-01 00:00:00"
+notes = "Original Suma procedural composition. Stable ID retained for runtime references; no extracted source geometry is used."

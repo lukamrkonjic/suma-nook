@@ -1,0 +1,47 @@
+[gd_resource type="Resource" script_class="TileModuleSet" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_module_entry.gd" id="1_xp3u0"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_module_set.gd" id="2_njhyp"]
+
+[sub_resource type="Resource" id="Resource_afir6"]
+script = ExtResource("1_xp3u0")
+mesh_path = "res://tools/tile_forge/modules/grass/gf_moss_a.glb"
+tags = PackedStringArray("grass")
+footprint_radius = 0.1049
+height = 0.045
+sink = 0.008
+
+[sub_resource type="Resource" id="Resource_pcpsj"]
+script = ExtResource("1_xp3u0")
+mesh_path = "res://tools/tile_forge/modules/grass/gf_moss_b.glb"
+weight = 0.85
+tags = PackedStringArray("grass")
+footprint_radius = 0.0964
+height = 0.038
+sink = 0.008
+
+[sub_resource type="Resource" id="Resource_6v5sb"]
+script = ExtResource("1_xp3u0")
+mesh_path = "res://tools/tile_forge/modules/grass/gf_moss_c.glb"
+weight = 0.7
+tags = PackedStringArray("grass")
+footprint_radius = 0.1482
+height = 0.052
+sink = 0.008
+
+[sub_resource type="Resource" id="Resource_ue80s"]
+script = ExtResource("1_xp3u0")
+mesh_path = "res://tools/tile_forge/modules/grass/gf_moss_d.glb"
+weight = 0.55
+tags = PackedStringArray("grass")
+footprint_radius = 0.1159
+height = 0.034
+sink = 0.008
+
+[resource]
+script = ExtResource("2_njhyp")
+set_id = "moss"
+display_name = "Moss"
+modules = Array[ExtResource("1_xp3u0")]([SubResource("Resource_afir6"), SubResource("Resource_pcpsj"), SubResource("Resource_6v5sb"), SubResource("Resource_ue80s")])
+separation_scale = 1.0
+max_repeats_per_module = 2

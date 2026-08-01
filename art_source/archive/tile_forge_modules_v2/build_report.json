@@ -1,0 +1,735 @@
+{
+  "modules": [
+    {
+      "id": "gf_clump_hero_a",
+      "family": "grass",
+      "path": "res://tools/tile_forge/modules/grass/gf_clump_hero_a.glb",
+      "triangles": 320,
+      "vertices": 178,
+      "footprint_radius": 0.1826,
+      "size_x": 0.3554,
+      "size_y": 0.2828,
+      "height": 0.2039,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_clump_hero_b",
+      "family": "grass",
+      "path": "res://tools/tile_forge/modules/grass/gf_clump_hero_b.glb",
+      "triangles": 384,
+      "vertices": 210,
+      "footprint_radius": 0.2064,
+      "size_x": 0.3857,
+      "size_y": 0.3241,
+      "height": 0.1854,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_clump_mid_a",
+      "family": "grass",
+      "path": "res://tools/tile_forge/modules/grass/gf_clump_mid_a.glb",
+      "triangles": 284,
+      "vertices": 158,
+      "footprint_radius": 0.1613,
+      "size_x": 0.3216,
+      "size_y": 0.2744,
+      "height": 0.1607,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_clump_mid_b",
+      "family": "grass",
+      "path": "res://tools/tile_forge/modules/grass/gf_clump_mid_b.glb",
+      "triangles": 248,
+      "vertices": 138,
+      "footprint_radius": 0.1337,
+      "size_x": 0.2539,
+      "size_y": 0.2324,
+      "height": 0.1458,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_clump_small_a",
+      "family": "grass",
+      "path": "res://tools/tile_forge/modules/grass/gf_clump_small_a.glb",
+      "triangles": 212,
+      "vertices": 118,
+      "footprint_radius": 0.1213,
+      "size_x": 0.2191,
+      "size_y": 0.2118,
+      "height": 0.1137,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_clump_small_b",
+      "family": "grass",
+      "path": "res://tools/tile_forge/modules/grass/gf_clump_small_b.glb",
+      "triangles": 212,
+      "vertices": 118,
+      "footprint_radius": 0.084,
+      "size_x": 0.1509,
+      "size_y": 0.1413,
+      "height": 0.1013,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_moss_a",
+      "family": "grass",
+      "path": "res://tools/tile_forge/modules/grass/gf_moss_a.glb",
+      "triangles": 102,
+      "vertices": 57,
+      "footprint_radius": 0.1817,
+      "size_x": 0.3354,
+      "size_y": 0.3348,
+      "height": 0.07,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_moss_b",
+      "family": "grass",
+      "path": "res://tools/tile_forge/modules/grass/gf_moss_b.glb",
+      "triangles": 134,
+      "vertices": 75,
+      "footprint_radius": 0.2139,
+      "size_x": 0.3759,
+      "size_y": 0.3953,
+      "height": 0.082,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_moss_c",
+      "family": "grass",
+      "path": "res://tools/tile_forge/modules/grass/gf_moss_c.glb",
+      "triangles": 70,
+      "vertices": 39,
+      "footprint_radius": 0.1373,
+      "size_x": 0.2417,
+      "size_y": 0.1944,
+      "height": 0.058,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_straw_a",
+      "family": "straw",
+      "path": "res://tools/tile_forge/modules/straw/gf_straw_a.glb",
+      "triangles": 228,
+      "vertices": 130,
+      "footprint_radius": 0.251,
+      "size_x": 0.4973,
+      "size_y": 0.4274,
+      "height": 0.136,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary",
+        "accent"
+      ]
+    },
+    {
+      "id": "gf_straw_b",
+      "family": "straw",
+      "path": "res://tools/tile_forge/modules/straw/gf_straw_b.glb",
+      "triangles": 256,
+      "vertices": 146,
+      "footprint_radius": 0.2626,
+      "size_x": 0.4748,
+      "size_y": 0.36,
+      "height": 0.1211,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary",
+        "accent"
+      ]
+    },
+    {
+      "id": "gf_straw_c",
+      "family": "straw",
+      "path": "res://tools/tile_forge/modules/straw/gf_straw_c.glb",
+      "triangles": 200,
+      "vertices": 114,
+      "footprint_radius": 0.1875,
+      "size_x": 0.3641,
+      "size_y": 0.3242,
+      "height": 0.1458,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary",
+        "accent"
+      ]
+    },
+    {
+      "id": "gf_straw_d",
+      "family": "straw",
+      "path": "res://tools/tile_forge/modules/straw/gf_straw_d.glb",
+      "triangles": 228,
+      "vertices": 130,
+      "footprint_radius": 0.2363,
+      "size_x": 0.4214,
+      "size_y": 0.4032,
+      "height": 0.1112,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary",
+        "accent"
+      ]
+    },
+    {
+      "id": "gf_straw_e",
+      "family": "straw",
+      "path": "res://tools/tile_forge/modules/straw/gf_straw_e.glb",
+      "triangles": 172,
+      "vertices": 98,
+      "footprint_radius": 0.1526,
+      "size_x": 0.2699,
+      "size_y": 0.2782,
+      "height": 0.1236,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary",
+        "accent"
+      ]
+    },
+    {
+      "id": "gf_leaf_a",
+      "family": "leaves",
+      "path": "res://tools/tile_forge/modules/leaves/gf_leaf_a.glb",
+      "triangles": 200,
+      "vertices": 114,
+      "footprint_radius": 0.2869,
+      "size_x": 0.4491,
+      "size_y": 0.5044,
+      "height": 0.084,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary",
+        "accent"
+      ]
+    },
+    {
+      "id": "gf_leaf_b",
+      "family": "leaves",
+      "path": "res://tools/tile_forge/modules/leaves/gf_leaf_b.glb",
+      "triangles": 228,
+      "vertices": 130,
+      "footprint_radius": 0.3094,
+      "size_x": 0.6041,
+      "size_y": 0.5533,
+      "height": 0.0742,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary",
+        "accent"
+      ]
+    },
+    {
+      "id": "gf_leaf_c",
+      "family": "leaves",
+      "path": "res://tools/tile_forge/modules/leaves/gf_leaf_c.glb",
+      "triangles": 172,
+      "vertices": 98,
+      "footprint_radius": 0.1944,
+      "size_x": 0.3683,
+      "size_y": 0.3712,
+      "height": 0.0816,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary",
+        "accent"
+      ]
+    },
+    {
+      "id": "gf_leaf_d",
+      "family": "leaves",
+      "path": "res://tools/tile_forge/modules/leaves/gf_leaf_d.glb",
+      "triangles": 200,
+      "vertices": 114,
+      "footprint_radius": 0.2378,
+      "size_x": 0.4034,
+      "size_y": 0.4259,
+      "height": 0.0692,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary",
+        "accent"
+      ]
+    },
+    {
+      "id": "gf_stone_small_a",
+      "family": "stones",
+      "path": "res://tools/tile_forge/modules/stones/gf_stone_small_a.glb",
+      "triangles": 94,
+      "vertices": 49,
+      "footprint_radius": 0.0748,
+      "size_x": 0.1457,
+      "size_y": 0.1113,
+      "height": 0.075,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_stone_small_b",
+      "family": "stones",
+      "path": "res://tools/tile_forge/modules/stones/gf_stone_small_b.glb",
+      "triangles": 104,
+      "vertices": 54,
+      "footprint_radius": 0.0643,
+      "size_x": 0.1261,
+      "size_y": 0.1264,
+      "height": 0.068,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_stone_small_c",
+      "family": "stones",
+      "path": "res://tools/tile_forge/modules/stones/gf_stone_small_c.glb",
+      "triangles": 88,
+      "vertices": 46,
+      "footprint_radius": 0.0815,
+      "size_x": 0.1605,
+      "size_y": 0.1236,
+      "height": 0.082,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_stone_mid_a",
+      "family": "stones",
+      "path": "res://tools/tile_forge/modules/stones/gf_stone_mid_a.glb",
+      "triangles": 108,
+      "vertices": 56,
+      "footprint_radius": 0.1119,
+      "size_x": 0.2146,
+      "size_y": 0.1851,
+      "height": 0.118,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_stone_mid_b",
+      "family": "stones",
+      "path": "res://tools/tile_forge/modules/stones/gf_stone_mid_b.glb",
+      "triangles": 100,
+      "vertices": 52,
+      "footprint_radius": 0.1138,
+      "size_x": 0.1865,
+      "size_y": 0.224,
+      "height": 0.13,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_stone_mid_c",
+      "family": "stones",
+      "path": "res://tools/tile_forge/modules/stones/gf_stone_mid_c.glb",
+      "triangles": 98,
+      "vertices": 51,
+      "footprint_radius": 0.1237,
+      "size_x": 0.2455,
+      "size_y": 0.1938,
+      "height": 0.105,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_stone_hero_a",
+      "family": "stones",
+      "path": "res://tools/tile_forge/modules/stones/gf_stone_hero_a.glb",
+      "triangles": 102,
+      "vertices": 53,
+      "footprint_radius": 0.1548,
+      "size_x": 0.3052,
+      "size_y": 0.2804,
+      "height": 0.19,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_stone_hero_b",
+      "family": "stones",
+      "path": "res://tools/tile_forge/modules/stones/gf_stone_hero_b.glb",
+      "triangles": 102,
+      "vertices": 53,
+      "footprint_radius": 0.1669,
+      "size_x": 0.2904,
+      "size_y": 0.3214,
+      "height": 0.175,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_rubble_hero",
+      "family": "rubble",
+      "path": "res://tools/tile_forge/modules/rubble/gf_rubble_hero.glb",
+      "triangles": 56,
+      "vertices": 30,
+      "footprint_radius": 0.1476,
+      "size_x": 0.2909,
+      "size_y": 0.2363,
+      "height": 0.1122,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_rubble_mid_a",
+      "family": "rubble",
+      "path": "res://tools/tile_forge/modules/rubble/gf_rubble_mid_a.glb",
+      "triangles": 56,
+      "vertices": 30,
+      "footprint_radius": 0.1021,
+      "size_x": 0.2033,
+      "size_y": 0.1894,
+      "height": 0.0806,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_rubble_mid_b",
+      "family": "rubble",
+      "path": "res://tools/tile_forge/modules/rubble/gf_rubble_mid_b.glb",
+      "triangles": 60,
+      "vertices": 32,
+      "footprint_radius": 0.123,
+      "size_x": 0.2073,
+      "size_y": 0.2381,
+      "height": 0.0797,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_rubble_small_a",
+      "family": "rubble",
+      "path": "res://tools/tile_forge/modules/rubble/gf_rubble_small_a.glb",
+      "triangles": 56,
+      "vertices": 30,
+      "footprint_radius": 0.0778,
+      "size_x": 0.1514,
+      "size_y": 0.1254,
+      "height": 0.0583,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_rubble_small_b",
+      "family": "rubble",
+      "path": "res://tools/tile_forge/modules/rubble/gf_rubble_small_b.glb",
+      "triangles": 56,
+      "vertices": 30,
+      "footprint_radius": 0.0839,
+      "size_x": 0.1281,
+      "size_y": 0.1517,
+      "height": 0.0532,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_paver_large",
+      "family": "pavers",
+      "path": "res://tools/tile_forge/modules/pavers/gf_paver_large.glb",
+      "triangles": 44,
+      "vertices": 24,
+      "footprint_radius": 0.33,
+      "size_x": 0.66,
+      "size_y": 0.66,
+      "height": 0.0591,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_paver_large_alt",
+      "family": "pavers",
+      "path": "res://tools/tile_forge/modules/pavers/gf_paver_large_alt.glb",
+      "triangles": 44,
+      "vertices": 24,
+      "footprint_radius": 0.33,
+      "size_x": 0.66,
+      "size_y": 0.66,
+      "height": 0.0549,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_paver_mid",
+      "family": "pavers",
+      "path": "res://tools/tile_forge/modules/pavers/gf_paver_mid.glb",
+      "triangles": 44,
+      "vertices": 24,
+      "footprint_radius": 0.215,
+      "size_x": 0.43,
+      "size_y": 0.43,
+      "height": 0.0522,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_paver_mid_alt",
+      "family": "pavers",
+      "path": "res://tools/tile_forge/modules/pavers/gf_paver_mid_alt.glb",
+      "triangles": 44,
+      "vertices": 24,
+      "footprint_radius": 0.215,
+      "size_x": 0.43,
+      "size_y": 0.43,
+      "height": 0.0493,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_paver_wide",
+      "family": "pavers",
+      "path": "res://tools/tile_forge/modules/pavers/gf_paver_wide.glb",
+      "triangles": 44,
+      "vertices": 24,
+      "footprint_radius": 0.445,
+      "size_x": 0.89,
+      "size_y": 0.43,
+      "height": 0.0553,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_paver_tall",
+      "family": "pavers",
+      "path": "res://tools/tile_forge/modules/pavers/gf_paver_tall.glb",
+      "triangles": 44,
+      "vertices": 24,
+      "footprint_radius": 0.445,
+      "size_x": 0.43,
+      "size_y": 0.89,
+      "height": 0.0562,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_paver_small",
+      "family": "pavers",
+      "path": "res://tools/tile_forge/modules/pavers/gf_paver_small.glb",
+      "triangles": 44,
+      "vertices": 24,
+      "footprint_radius": 0.15,
+      "size_x": 0.3,
+      "size_y": 0.3,
+      "height": 0.0475,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_board_a",
+      "family": "boards",
+      "path": "res://tools/tile_forge/modules/boards/gf_board_a.glb",
+      "triangles": 44,
+      "vertices": 24,
+      "footprint_radius": 0.675,
+      "size_x": 1.35,
+      "size_y": 0.4326,
+      "height": 0.064,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_board_b",
+      "family": "boards",
+      "path": "res://tools/tile_forge/modules/boards/gf_board_b.glb",
+      "triangles": 44,
+      "vertices": 24,
+      "footprint_radius": 0.675,
+      "size_x": 1.35,
+      "size_y": 0.4326,
+      "height": 0.0599,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_board_c",
+      "family": "boards",
+      "path": "res://tools/tile_forge/modules/boards/gf_board_c.glb",
+      "triangles": 44,
+      "vertices": 24,
+      "footprint_radius": 0.675,
+      "size_x": 1.35,
+      "size_y": 0.4326,
+      "height": 0.0679,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_board_narrow_a",
+      "family": "boards",
+      "path": "res://tools/tile_forge/modules/boards/gf_board_narrow_a.glb",
+      "triangles": 44,
+      "vertices": 24,
+      "footprint_radius": 0.675,
+      "size_x": 1.35,
+      "size_y": 0.318,
+      "height": 0.0613,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_board_narrow_b",
+      "family": "boards",
+      "path": "res://tools/tile_forge/modules/boards/gf_board_narrow_b.glb",
+      "triangles": 44,
+      "vertices": 24,
+      "footprint_radius": 0.675,
+      "size_x": 1.35,
+      "size_y": 0.318,
+      "height": 0.0558,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    },
+    {
+      "id": "gf_board_half",
+      "family": "boards",
+      "path": "res://tools/tile_forge/modules/boards/gf_board_half.glb",
+      "triangles": 44,
+      "vertices": 24,
+      "footprint_radius": 0.331,
+      "size_x": 0.662,
+      "size_y": 0.4326,
+      "height": 0.0619,
+      "base_z": 0.0,
+      "materials": [
+        "shadow",
+        "tf_primary"
+      ]
+    }
+  ],
+  "count": 44,
+  "families": [
+    "boards",
+    "grass",
+    "leaves",
+    "pavers",
+    "rubble",
+    "stones",
+    "straw"
+  ],
+  "total_triangles": 5502,
+  "problems": [
+    "gf_clump_hero_b: 384 tris outside the grass budget 40-320",
+    "gf_stone_small_b: 104 tris outside the stones budget 20-100",
+    "gf_stone_mid_a: 108 tris outside the stones budget 20-100",
+    "gf_stone_hero_a: 102 tris outside the stones budget 20-100",
+    "gf_stone_hero_b: 102 tris outside the stones budget 20-100"
+  ]
+}

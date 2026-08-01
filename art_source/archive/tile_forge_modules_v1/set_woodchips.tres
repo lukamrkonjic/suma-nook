@@ -1,0 +1,48 @@
+[gd_resource type="Resource" script_class="TileModuleSet" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_module_entry.gd" id="1_qjy8q"]
+[ext_resource type="Script" path="res://tools/tile_forge/resources/tile_module_set.gd" id="2_ksocl"]
+
+[sub_resource type="Resource" id="Resource_qku30"]
+script = ExtResource("1_qjy8q")
+mesh_path = "res://tools/tile_forge/modules/rubble/gf_woodchip_a.glb"
+tags = PackedStringArray("rubble")
+footprint_radius = 0.0834
+height = 0.0274
+sink = 0.004
+
+[sub_resource type="Resource" id="Resource_a4rcf"]
+script = ExtResource("1_qjy8q")
+mesh_path = "res://tools/tile_forge/modules/rubble/gf_woodchip_b.glb"
+weight = 0.85
+tags = PackedStringArray("rubble")
+footprint_radius = 0.1139
+height = 0.0177
+sink = 0.004
+
+[sub_resource type="Resource" id="Resource_15dov"]
+script = ExtResource("1_qjy8q")
+mesh_path = "res://tools/tile_forge/modules/rubble/gf_woodchip_c.glb"
+weight = 0.7
+tags = PackedStringArray("rubble")
+footprint_radius = 0.066
+height = 0.0164
+sink = 0.004
+
+[sub_resource type="Resource" id="Resource_jnvv5"]
+script = ExtResource("1_qjy8q")
+mesh_path = "res://tools/tile_forge/modules/rubble/gf_woodchip_d.glb"
+weight = 0.55
+tags = PackedStringArray("rubble")
+footprint_radius = 0.1028
+height = 0.0178
+sink = 0.004
+
+[resource]
+script = ExtResource("2_ksocl")
+set_id = "woodchips"
+display_name = "Woodchips"
+family = "rubble"
+modules = Array[ExtResource("1_qjy8q")]([SubResource("Resource_qku30"), SubResource("Resource_a4rcf"), SubResource("Resource_15dov"), SubResource("Resource_jnvv5")])
+separation_scale = 0.9
+max_repeats_per_module = 2

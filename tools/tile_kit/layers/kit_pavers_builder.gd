@@ -13,9 +13,11 @@ extends RefCounted
 ## whisker), so a paved land mass reads continuous across tile seams exactly
 ## like the grass carpet does — no bald mortar border at every tile edge.
 ##
-## Two patterns:
+## Four patterns:
 ##   "cobbles"  offset grid of near-square rounded stones, jittered
 ##   "planks"   long boards in rows with staggered joints
+##   "stepping" scattered feature stones
+##   "trail"    a straight or crossing band of irregular fitted pieces
 static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 		context: Dictionary) -> Dictionary:
 	var half: float = context.get("surface_half", 0.85)
@@ -37,6 +39,8 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 		stones = _plank_courses(layer, rng, half)
 	elif pattern == "stepping":
 		stones = _stepping_stones(layer, rng, half)
+	elif pattern == "trail":
+		stones = _trail_courses(layer, rng, half)
 	else:
 		stones = _cobble_courses(layer, rng, half)
 
@@ -188,5 +192,49 @@ static func _stepping_stones(layer: TileKitLayer, rng: RandomNumberGenerator,
 				"yaw": rng.randf_range(-0.12, 0.12),
 				"parity": 0,
 			})
+	return stones
+
+
+## A reusable path band. `straight` produces one north/south course while
+## `cross` composes the perpendicular course too, de-duplicating the centre.
+## Earth-coloured, nearly flush pieces read as wheel-worn tracks; taller stone
+## pieces read as a laid path. This is generic composition vocabulary rather
+## than a named-tile special case.
+static func _trail_courses(layer: TileKitLayer, rng: RandomNumberGenerator,
+		half: float) -> Array:
+	var layout := String(layer.value("trail_layout", "straight"))
+	var width: float = layer.value("trail_width", 0.52)
+	var length_band: Array = layer.value("trail_piece_length", [0.24, 0.42])
+	var jitter: float = layer.value("trail_jitter", 0.07)
+	var stones := _trail_axis(layer, rng, half, width, length_band, jitter, false)
+	if layout == "cross":
+		for stone: Dictionary in _trail_axis(
+			layer, rng, half, width, length_band, jitter, true
+		):
+			var centre: Vector2 = stone["centre"]
+			if absf(centre.x) < width * 0.42 and absf(centre.y) < width * 0.42:
+				continue
+			stones.append(stone)
+	return stones
+
+
+static func _trail_axis(layer: TileKitLayer, rng: RandomNumberGenerator,
+		half: float, width: float, length_band: Array, jitter: float,
+		horizontal: bool) -> Array:
+	var stones: Array = []
+	var cursor := -half + 0.008
+	while cursor < half - 0.008:
+		var length := rng.randf_range(float(length_band[0]), float(length_band[1]))
+		var finish := minf(cursor + length, half - 0.008)
+		var along := (cursor + finish) * 0.5
+		var across := rng.randf_range(-jitter, jitter)
+		stones.append({
+			"centre": Vector2(along, across) if horizontal else Vector2(across, along),
+			"half_x": (finish - cursor) * 0.5 if horizontal else width * 0.5,
+			"half_z": width * 0.5 if horizontal else (finish - cursor) * 0.5,
+			"yaw": rng.randf_range(-jitter, jitter),
+			"parity": stones.size() % 2,
+		})
+		cursor = finish + maxf(0.008, float(layer.value("gap", 0.026)))
 	return stones
 

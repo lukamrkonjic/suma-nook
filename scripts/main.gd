@@ -55,6 +55,7 @@ var panels: GamePanels
 var pause_menu: PauseMenu
 var discovery_reveal: DiscoveryReveal
 var arrival_picker: ArrivalLandPicker
+var catch_basket_view: CatchBasketView
 var input_hints: InputHintOverlay
 var character_creator: CharacterCreator
 var audio: GameAudio
@@ -212,8 +213,31 @@ func _build_world_scene() -> void:
 	effects.bind_void_fishing(core, player, player_visual)
 	lighting.bind_fog_interactors(player, camera_rig)
 	skill_actions.setup(core, player, player_visual, effects)
+	catch_basket_view = CatchBasketView.new()
+	catch_basket_view.name = "CatchBasketView"
+	world_root.add_child(catch_basket_view)
+	catch_basket_view.setup(core.fishing.basket, core.registries)
+	catch_basket_view.visible = core.fishing.basket.haul_count() > 0
+	core.fishing.session.fishing_started.connect(_place_catch_basket_view)
+	core.fishing.basket.basket_changed.connect(func():
+		catch_basket_view.visible = (
+			core.fishing.basket.haul_count() > 0
+			or core.fishing.session.is_active()
+		)
+	)
 	player_visual.apply_profile(core.profile)
 	player_visual.apply_equipment(core.equipment)
+
+
+## The basket sits one step behind the keeper's fishing spot, on land.
+func _place_catch_basket_view(anchor: Vector2i) -> void:
+	var base := core.grid.cell_to_world(anchor, core.grid.top_elevation(anchor))
+	var back := -player.global_basis.z
+	back.y = 0.0
+	if back.length_squared() > 0.001:
+		back = back.normalized()
+	catch_basket_view.global_position = base - back * 0.55 + Vector3(0.4, 0.02, 0.0)
+	catch_basket_view.visible = true
 
 
 func _build_ui() -> void:
@@ -567,8 +591,29 @@ func debug_reset_save() -> void:
 
 func _connect_flows() -> void:
 	hud.pause_requested.connect(func(): open_pause_menu())
-	hud.void_exchange_requested.connect(
-		panels.show_void_exchange_picker
+	hud.catch_basket_requested.connect(panels.show_catch_basket)
+	hud.spirit_pouch_requested.connect(panels.show_spirit_pouch)
+	panels.basket_tile_bundle_taken.connect(_on_basket_tile_bundle_taken)
+	panels.basket_model_taken.connect(_on_basket_model_taken)
+	core.fishing.basket.basket_changed.connect(func():
+		hud.refresh_fishing_buttons()
+	)
+	core.fishing.pouch.pouch_changed.connect(func():
+		hud.refresh_fishing_buttons()
+	)
+	core.fishing.pouch.spirit_added.connect(func(spirit_id: String):
+		var spirit := core.registries.spirit(spirit_id)
+		if spirit != null:
+			hud.toast("%s settles into your pouch." % spirit.display_name, "good")
+			audio.play_event("discovery")
+	)
+	core.fishing.pouch.spirit_rejected_full.connect(func(_spirit_id: String):
+		hud.toast("Your Spirit Pouch is full — five charms is plenty.", "warn")
+	)
+	# Leaving build mode returns any unplaced bundle copies to the basket.
+	placement.mode_changed.connect(func(active: bool):
+		if not active and core.fishing.basket.has_active_bundle():
+			core.fishing.basket.reconcile_bundle_checkout()
 	)
 	hud.build_piece_selected.connect(func(kind, id):
 		audio.play_event("build_preview")
@@ -947,6 +992,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif player.state == PlayerController.State.FREE:
 			player.cancel_click_command()
 			_perform_interaction(player.focus())
+		elif player.state in [
+			PlayerController.State.FISHING_CAST,
+			PlayerController.State.FISHING_WAIT,
+		]:
+			# At the bite this retrieves the catch faster; otherwise nothing.
+			skill_actions.fishing_input()
 	elif event.is_action_pressed("cancel"):
 		if (
 			_is_controller_event(event)
@@ -1240,6 +1291,10 @@ func _on_action_feedback(kind: String, data: Dictionary) -> void:
 		"fish_catch":
 			audio.play_event("fish_catch")
 			hud.update_tutorial()
+			if bool(data.get("void", false)):
+				hud.refresh_fishing_buttons()
+		"basket_full":
+			hud.toast("The Catch Basket is full. Take or return a haul to keep fishing.", "warn")
 		"chop_windup":
 			audio.play_event("chop_windup")
 		"chop_impact":
@@ -1289,12 +1344,31 @@ func _on_loot(grants: Array) -> void:
 			hud.update_tutorial()
 
 
+## Taking a tile bundle from the basket checks its copies into the Build
+## Library and enters the existing tile-placement mode holding that tile.
+## Unplaced copies return to the bundle when build mode closes.
+func _on_basket_tile_bundle_taken(haul_id: int, entry_index: int) -> void:
+	var taken: Dictionary = core.fishing.basket.take_tile_bundle(haul_id, entry_index)
+	if taken.is_empty():
+		return
+	panels.close()
+	audio.play_event("build_preview")
+	placement.hold_new("tile", String(taken["tile_id"]))
+
+
+func _on_basket_model_taken(haul_id: int, entry_index: int) -> void:
+	var structure_id: String = core.fishing.basket.take_model(haul_id, entry_index)
+	if structure_id == "":
+		return
+	panels.close()
+	audio.play_event("build_preview")
+	placement.hold_new("structure", structure_id)
+
+
 func _on_discovery_accepted(entry: Dictionary) -> void:
 	audio.play_event("parcel_select")
 	if String(entry.get("source", "")) == "delivery":
 		core.arrivals.resolve_delivery()
-	elif String(entry.get("source", "")) == "void":
-		effects.consume_carried_void_reward()
 	hud.update_tutorial()
 	var kind := String(entry.get("kind", ""))
 	var content_id := String(entry.get("id", ""))

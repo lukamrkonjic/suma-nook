@@ -1,0 +1,98 @@
+[gd_resource type="Resource" script_class="TileKitPreset" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_kit/tile_kit_layer.gd" id="1_d2uf4"]
+[ext_resource type="Script" path="res://tools/tile_kit/tile_kit_preset.gd" id="2_rld5v"]
+
+[sub_resource type="Resource" id="Resource_4pmiu"]
+script = ExtResource("1_d2uf4")
+kind = "base"
+locked = true
+params = {
+"bevel_key": "stone_light",
+"bevel_segments": 6,
+"bottom_chamfer": 0.016,
+"corner_radius": 0.075,
+"lower_key": "stone_deep",
+"relief_amplitude": 0.03,
+"relief_edge_feather": 0.2,
+"relief_heap_count": [4, 7],
+"relief_heap_radius": [0.12, 0.25],
+"relief_resolution": 30,
+"relief_style": "heaps",
+"side_key": "stone_deep",
+"top_bevel": 0.075,
+"top_key": "stone_medium"
+}
+
+[sub_resource type="Resource" id="Resource_omi17"]
+script = ExtResource("1_d2uf4")
+kind = "dressing"
+params = {
+"aspect": [0.7, 1.35],
+"color_weights": {
+"moss_deep": 45.0,
+"moss_top": 55.0
+},
+"edge_margin": 0.02,
+"irregularity": [0.08, 0.14],
+"large_count": [2, 4],
+"large_radius": [0.17, 0.29],
+"medium_count": [4, 7],
+"medium_radius": [0.094, 0.17],
+"outline_points": 20,
+"region_count": [2, 3],
+"region_spread": 0.3,
+"scale_multiplier": 1.0,
+"small_count": [5, 9],
+"small_radius": [0.047, 0.094],
+"smoothing_passes": 3
+}
+
+[sub_resource type="Resource" id="Resource_6tcem"]
+script = ExtResource("1_d2uf4")
+kind = "clutter"
+params = {
+"color_weights": {
+"moss_clump": 25.0,
+"stone_deep": 40.0,
+"stone_light": 35.0
+},
+"count": [13, 20],
+"diameter": [0.05, 0.15],
+"edge_margin": 0.035,
+"height": [0.008, 0.022],
+"min_spacing": 0.055,
+"on_dressing_fraction": 0.55,
+"scale_multiplier": 1.0,
+"shapes": ["pebble", "stone_chip", "lobed_clump", "pebble"]
+}
+
+[sub_resource type="Resource" id="Resource_uxa8s"]
+script = ExtResource("1_d2uf4")
+kind = "grass_clusters"
+enabled = false
+params = {
+"bend_multiplier": 0.75,
+"carpet_jitter": 0.3,
+"carpet_skip_fraction": 0.1,
+"carpet_spacing": 0.315,
+"coverage_mode": "carpet",
+"crown_radius": 0.02,
+"edge_margin": 0.02,
+"height_multiplier": 1.0,
+"leaf_height": [0.095, 0.15],
+"leaf_width": [0.058, 0.088],
+"root_sink": [0.008, 0.015],
+"rosette_footprint": [0.14, 0.2],
+"rosette_leaves": [3, 5],
+"secondary_fraction": 0.2,
+"splay_degrees": [16.0, 34.0],
+"thickness_ratio": [0.55, 0.72],
+"width_multiplier": 1.0
+}
+
+[resource]
+script = ExtResource("2_rld5v")
+preset_name = "Lichenrest Clearing"
+master_seed = 20261848
+layers = Array[ExtResource("1_d2uf4")]([SubResource("Resource_4pmiu"), SubResource("Resource_omi17"), SubResource("Resource_6tcem"), SubResource("Resource_uxa8s")])

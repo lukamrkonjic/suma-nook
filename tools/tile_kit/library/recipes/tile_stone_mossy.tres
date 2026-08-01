@@ -1,0 +1,97 @@
+[gd_resource type="Resource" script_class="TileKitPreset" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_kit/tile_kit_layer.gd" id="1_yv1g8"]
+[ext_resource type="Script" path="res://tools/tile_kit/tile_kit_preset.gd" id="2_7nrhd"]
+
+[sub_resource type="Resource" id="Resource_xd64o"]
+script = ExtResource("1_yv1g8")
+kind = "base"
+locked = true
+params = {
+"bevel_key": "stone_light",
+"bevel_segments": 6,
+"bottom_chamfer": 0.016,
+"corner_radius": 0.075,
+"lower_key": "stone_deep",
+"relief_amplitude": 0.025,
+"relief_edge_feather": 0.2,
+"relief_resolution": 24,
+"relief_style": "pillow",
+"side_key": "stone_deep",
+"top_bevel": 0.075,
+"top_key": "stone_medium"
+}
+
+[sub_resource type="Resource" id="Resource_gootx"]
+script = ExtResource("1_yv1g8")
+kind = "dressing"
+params = {
+"allow_overlap": true,
+"aspect": [0.7, 1.35],
+"color_weights": {
+"moss_deep": 40.0,
+"moss_top": 60.0
+},
+"edge_margin": 0.02,
+"irregularity": [0.08, 0.14],
+"large_count": [3, 6],
+"large_radius": [0.17, 0.29],
+"medium_count": [5, 9],
+"medium_radius": [0.094, 0.17],
+"outline_points": 20,
+"region_count": [2, 3],
+"region_spread": 0.3,
+"scale_multiplier": 1.0,
+"small_count": [6, 12],
+"small_radius": [0.047, 0.094],
+"smoothing_passes": 3
+}
+
+[sub_resource type="Resource" id="Resource_sjir5"]
+script = ExtResource("1_yv1g8")
+kind = "clutter"
+params = {
+"color_weights": {
+"moss_clump": 65.0,
+"stone_deep": 35.0
+},
+"count": [9, 15],
+"diameter": [0.045, 0.11],
+"edge_margin": 0.035,
+"height": [0.008, 0.022],
+"min_spacing": 0.055,
+"on_dressing_fraction": 0.55,
+"scale_multiplier": 1.0,
+"shapes": ["lobed_clump", "nub", "pebble"]
+}
+
+[sub_resource type="Resource" id="Resource_xlxg5"]
+script = ExtResource("1_yv1g8")
+kind = "grass_clusters"
+params = {
+"bend_multiplier": 0.75,
+"carpet_jitter": 0.3,
+"carpet_skip_fraction": 0.52,
+"carpet_spacing": 0.43,
+"coverage_mode": "carpet",
+"crown_radius": 0.02,
+"edge_margin": 0.02,
+"height_multiplier": 1.0,
+"leaf_height": [0.04, 0.09],
+"leaf_width": [0.058, 0.088],
+"primary_key": "moss_clump",
+"root_sink": [0.008, 0.015],
+"rosette_footprint": [0.14, 0.2],
+"rosette_leaves": [3, 5],
+"secondary_fraction": 0.2,
+"secondary_key": "moss_deep",
+"splay_degrees": [16.0, 34.0],
+"thickness_ratio": [0.55, 0.72],
+"width_multiplier": 1.0
+}
+
+[resource]
+script = ExtResource("2_7nrhd")
+preset_name = "Fernbound Stone"
+master_seed = 20268262
+layers = Array[ExtResource("1_yv1g8")]([SubResource("Resource_xd64o"), SubResource("Resource_gootx"), SubResource("Resource_sjir5"), SubResource("Resource_xlxg5")])

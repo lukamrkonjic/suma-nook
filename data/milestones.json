@@ -131,16 +131,6 @@
       ]
     },
     {
-      "id": "ms_journal_fish_page",
-      "name": "The Fish Page",
-      "kind": "journal_page",
-      "category": "fish",
-      "entries": ["sunny_minnow", "pond_darter", "silver_leaf_fish"],
-      "rewards": [
-        { "kind": "note", "note": "Every local fish, met and released" }
-      ]
-    },
-    {
       "id": "ms_journal_woodland_page",
       "name": "The Woodland Page",
       "kind": "journal_page",

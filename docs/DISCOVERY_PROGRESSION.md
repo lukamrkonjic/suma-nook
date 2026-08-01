@@ -1,6 +1,13 @@
-# Suma — discovery progression
+# Suma — discovery progression (historical)
 
-Status: current implementation authority, 2026-07-30.
+> **Superseded 2026-08-01.** Void fishing, local biome pools, and the
+> three-spare Void Exchange were replaced by the void-fishing rework:
+> habitat-shaped hauls, the Spirit Pouch, and the physical Catch Basket.
+> The current authority is `docs/VOID_FISHING.md`. Only the ferry's
+> single-item discovery gift still uses the pending-reveal contract
+> described here.
+
+Status: retired implementation authority (was current 2026-07-30).
 
 This document supersedes the Inspiration, wishing well, Vision, refund-coin,
 and shrine progression designs. Those documents remain only as historical

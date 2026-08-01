@@ -14,7 +14,11 @@ Typed GDScript, explicit wiring, no global event bus, no autoloads.
 - `player/` — PlayerController (continuous CharacterBody3D movement + state
   machine), PlayerVisual (proxy build, customization, procedural animation,
   equipment attachments), CameraRig, SkillActions (fishing/chopping/attack
-  sequencing; rewards resolve on impact frames).
+  sequencing; edge fishing drives the fishing session state machine).
+- `features/fishing/` — the void-fishing feature module: pure domain +
+  application services, narrow ports, and Godot adapters for the 3×3
+  habitat sample, Spirit Pouch, and physical Catch Basket
+  (`docs/VOID_FISHING.md`).
 - `visuals/` — MaterialLibrary, AssetLibrary (GLB by asset id + material
   rebind), LightingRig, EffectsManager.
 - `ui/` — UiKit (shared look), Hud, GamePanels, ParcelReveal,
