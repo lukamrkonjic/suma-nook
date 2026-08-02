@@ -23,6 +23,9 @@ params = {
 "side_key": "tile_side",
 "top_bevel": 0.075,
 "top_key": "tile_top",
+"turf_cap": false,
+"turf_thickness": 0.078,
+"turf_wobble": 0.013,
 "water_key": "water_blue"
 }
 

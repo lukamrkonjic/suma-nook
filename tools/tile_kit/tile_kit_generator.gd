@@ -60,6 +60,19 @@ var world_cell := Vector2i.ZERO:
 		if is_inside_tree():
 			rebuild()
 
+## Presentation-only: hide the deep structural body (the stacking contract's
+## below-seam block) so ground-level previews show the tile as the thin floor
+## piece the player actually reads. Gameplay stacking is untouched — this
+## only filters meshes with role "base" in THIS preview instance.
+var show_structural_base := true:
+	set(value):
+		show_structural_base = value
+		for kind: String in _layer_nodes:
+			for child in (_layer_nodes[kind] as Node3D).get_children():
+				if child is MeshInstance3D \
+						and String(child.get_meta("role", "")) == "base":
+					(child as MeshInstance3D).visible = value
+
 ## kind -> MeshInstance3D
 var _layer_nodes: Dictionary = {}
 ## kind -> Array of mesh entries (role/name/mesh) from the last build.
@@ -141,8 +154,11 @@ func _set_layer_meshes(kind: String, meshes: Array) -> void:
 		var instance := MeshInstance3D.new()
 		instance.name = entry.get("name", kind)
 		instance.mesh = entry["mesh"]
+		instance.set_meta("role", entry.get("role", "detail"))
 		if not bool(entry.get("cast_shadow", true)):
 			instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		if String(entry.get("role", "")) == "base" and not show_structural_base:
+			instance.visible = false
 		holder.add_child(instance)
 
 

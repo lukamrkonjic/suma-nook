@@ -28,34 +28,34 @@ const COLORS := {
 	# moss green, the bevel a clear sunlit lift, and the side the SAME hue a
 	# full value step (~25%) darker — the volume must read at gameplay zoom,
 	# not only in close renders. Lightest greens appear only as sunlit tips.
-	# Grass family: confident warm yellow-green in the reference register —
-	# the audited grass reads far yellower than a "grass green" — pulled a
-	# step mossier for Suma. Sides are earthy olive, a full value below.
-	"tile_top": Color("#A3B944"),
-	"tile_top_bevel": Color("#B5CA51"),
-	"tile_side": Color("#6E7C34"),
-	"tile_lower": Color("#57642A"),
-	"dressing_light": Color("#B0C24F"),
-	"dressing_medium": Color("#93A93E"),
-	"dressing_dark": Color("#7E9536"),
-	"clutter_light": Color("#C2D05E"),
-	"clutter_medium": Color("#9DB245"),
-	# Blade tones: tufts sit slightly darker OR lighter than the top, never
-	# a different hue family. Root shadow anchors the tuft bases.
-	"grass_primary": Color("#87A139"),
-	"grass_secondary": Color("#C3D45E"),
-	"grass_root": Color("#5C7029"),
+	# Grass family: the approved Suma moss greens — natural, never neon.
+	# Primary #6E9140 dominates; supporting and recessed greens stay close
+	# in hue; the highlight is a restrained accent, never a surface.
+	"tile_top": Color("#6E9140"),
+	"tile_top_bevel": Color("#7FA24B"),
+	"tile_side": Color("#557433"),
+	"tile_lower": Color("#4A6631"),
+	"dressing_light": Color("#7FA24B"),
+	"dressing_medium": Color("#6E9140"),
+	"dressing_dark": Color("#557433"),
+	"clutter_light": Color("#8CB055"),
+	"clutter_medium": Color("#7FA24B"),
+	# Blade tones: supporting green carries most tufts, recessed green
+	# anchors bases and shaded clusters, highlight is rare sunlit tips.
+	"grass_primary": Color("#7FA24B"),
+	"grass_secondary": Color("#8CB055"),
+	"grass_root": Color("#557433"),
 	# Moss / forest family: deeper cooler green, still lively.
-	"moss_top": Color("#71903B"),
-	"moss_bevel": Color("#81A146"),
-	"moss_deep": Color("#4B6329"),
-	"moss_clump": Color("#5E7C31"),
+	"moss_top": Color("#5F7F38"),
+	"moss_bevel": Color("#6E9140"),
+	"moss_deep": Color("#455E2B"),
+	"moss_clump": Color("#527030"),
 	# Earth family: warm loam, clearly darker and redder than sand.
-	"earth_top": Color("#A06B3E"),
-	"earth_bevel": Color("#B37A49"),
-	"earth_side": Color("#7A4E2B"),
-	"earth_deep": Color("#59371D"),
-	"earth_clump": Color("#8A5A32"),
+	"earth_top": Color("#87603A"),
+	"earth_bevel": Color("#93693F"),
+	"earth_side": Color("#70492C"),
+	"earth_deep": Color("#543521"),
+	"earth_clump": Color("#7A5430"),
 	# Stone family: warm greys — reference stone never goes blue.
 	"stone_light": Color("#CDC5AB"),
 	"stone_medium": Color("#A69E83"),

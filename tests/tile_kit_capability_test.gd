@@ -66,8 +66,8 @@ func _check_panel() -> void:
 		and panel.find_child("TileKitSlider_clutter_diameter_max", true, false) is HSlider,
 		"inspector exposes generic scatter amount and size ranges")
 	_check(panel.find_child(
-		"TileKitSlider_grass_clusters_rosette_leaves_max", true, false
-	) is HSlider, "organic carpet exposes leaves per sprout")
+		"TileKitOption_grass_clusters_coverage_mode", true, false
+	) is OptionButton, "organic carpet exposes its composition mode")
 	var add_select := panel.find_child("TileKitAddCapability", true, false) as OptionButton
 	var paver_index := -1
 	for index in add_select.item_count:

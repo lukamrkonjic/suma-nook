@@ -200,12 +200,20 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 	match tile_id:
 		# ------------------------------------------------------------ meadow
 		"tile_grass":
-			# PROTOTYPE — Standard Grass: calm vivid top, one broad turf
-			# mass, a few chunky directional tufts, real open ground.
-			_set_base(preset, GREEN_BASE, "pillow", 0.012)
-			_grass(preset, {"coverage_mode": "tufts", "tuft_scale": 1.0,
-				"mass_scale": 1.0, "mass_height": [0.024, 0.038],
-				"tuft_lean": 0.5, "extra_tufts": [0, 1]})
+			# GOLD MASTER 01 — Standard Grass. Thin soil body, distinct turf
+			# cap with a wobbled perimeter, hand-directed cluster layout,
+			# partial fringe. The library's quality contract derives from
+			# this tile; nothing else ships until it passes.
+			_set_base(preset, {"top_key": "tile_top",
+				"bevel_key": "tile_top_bevel", "side_key": "earth_side",
+				"lower_key": "earth_deep", "turf_side_key": "tile_side"},
+				"pillow", 0.026,
+				{"relief_frequency": 1.3, "relief_resolution": 16,
+					"relief_edge_feather": 0.14,
+					"turf_cap": true, "turf_thickness": 0.078,
+					"turf_wobble": 0.013, "top_bevel": 0.034,
+					"corner_radius": 0.05, "bevel_segments": 4})
+			_grass(preset, {"coverage_mode": "gold_grass", "tuft_scale": 1.0})
 		"tile_kit_grass":
 			# Dense Grass: tighter interlock, thicker pile, more sculpted tips.
 			_set_base(preset, GREEN_BASE, "pillow", 0.016)

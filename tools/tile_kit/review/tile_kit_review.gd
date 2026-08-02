@@ -13,9 +13,12 @@ var _camera: Camera3D
 var _stage: Node3D
 var _focus_ids := PackedStringArray()
 var _catalog_mode := false
+var _gold_mode := false
 var _catalog_overlay: CanvasLayer
 var _render_host: Node
 var _render_viewport: Viewport
+var _key_light: DirectionalLight3D
+var _environment: Environment
 
 
 func _ready() -> void:
@@ -28,6 +31,8 @@ func _ready() -> void:
 			)
 		elif argument == "--catalog":
 			_catalog_mode = true
+		elif argument == "--gold":
+			_gold_mode = true
 	# The catalog once rendered through a dedicated 6400x5600 SubViewport.
 	# That path produced wrong ortho framing AND phantom sheared under-tile
 	# geometry on some machines (the hidpi rig), while the root viewport
@@ -37,7 +42,9 @@ func _ready() -> void:
 	_render_viewport = get_viewport()
 	_build_rig()
 	await get_tree().process_frame
-	if _catalog_mode:
+	if _gold_mode:
+		await _run_gold()
+	elif _catalog_mode:
 		await _run_catalog()
 	elif _focus_ids.is_empty():
 		await _run()
@@ -74,11 +81,12 @@ func _build_rig() -> void:
 	# Contact depth between close forms — turf lobes, paver joints, drift
 	# beds — the same read the game gets from its SSAO pass.
 	environment.ssao_enabled = true
-	environment.ssao_intensity = 2.0
-	environment.ssao_radius = 0.35
-	environment.ssao_power = 1.4
+	environment.ssao_intensity = 1.2
+	environment.ssao_radius = 0.28
+	environment.ssao_power = 1.3
 	var world := WorldEnvironment.new()
 	world.environment = environment
+	_environment = environment
 	_render_host.add_child(world)
 
 	var key := DirectionalLight3D.new()
@@ -92,6 +100,7 @@ func _build_rig() -> void:
 	# Lower, front-left: a more grazing key so shallow sculpt — dunes, turf
 	# lobes, furrows — actually shades. The old high sun flattened relief.
 	key.rotation_degrees = Vector3(-40.0, -32.0, 0.0)
+	_key_light = key
 	_render_host.add_child(key)
 
 	_stage = Node3D.new()
@@ -309,6 +318,140 @@ func _run() -> void:
 				_stage.add_child(generator)
 		_frame(6.2, Vector3(0.0, -0.2, 0.0))
 		await _shoot(study["name"])
+
+
+# --- gold master review ------------------------------------------------------
+
+
+func _set_neutral_light() -> void:
+	_key_light.light_energy = 1.0
+	_key_light.light_color = Color(1.0, 0.985, 0.955)
+	_environment.ambient_light_color = Color(0.89, 0.90, 0.89)
+	_environment.ambient_light_energy = 0.60
+	_environment.tonemap_exposure = 1.0
+
+
+func _set_gameplay_light() -> void:
+	_key_light.light_energy = 1.15
+	_key_light.light_color = Color(1.0, 0.945, 0.85)
+	_environment.ambient_light_color = Color(0.84, 0.88, 0.91)
+	_environment.ambient_light_energy = 0.54
+	_environment.tonemap_exposure = 1.1
+
+
+## A cream ground plane at the tile's visual base: hides the deep stacking
+## body (in game the tile always sits on terrain or another tile) and
+## receives the soft contact shadow the diorama read depends on.
+func _add_ground_plane() -> void:
+	var plane := MeshInstance3D.new()
+	var mesh := PlaneMesh.new()
+	mesh.size = Vector2(60.0, 60.0)
+	var material := StandardMaterial3D.new()
+	material.albedo_color = TileKitPalette.color("background")
+	material.roughness = 1.0
+	mesh.material = material
+	plane.mesh = mesh
+	plane.position = Vector3(0.0, -0.185, 0.0)
+	plane.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_stage.add_child(plane)
+
+
+func _gold_generator(seed_offset := 0) -> TileKitGenerator:
+	var generator := TileKitGenerator.new()
+	var preset := TileKitPreset.official_recipe("tile_grass")
+	if seed_offset != 0:
+		preset.master_seed += seed_offset
+	generator.show_structural_base = false
+	generator.preset = preset
+	return generator
+
+
+func _run_gold() -> void:
+	# A + B: isolated hero under neutral, then gameplay lighting.
+	_clear()
+	_add_ground_plane()
+	var hero := _gold_generator()
+	_stage.add_child(hero)
+	_frame(3.2, Vector3(0.0, -0.05, 0.0))
+	await _calibrate_width(3.9)
+	_set_neutral_light()
+	await _shoot("gold_a_hero_neutral.png")
+	print("gold stats: %s" % JSON.stringify(hero.statistics()))
+	_set_gameplay_light()
+	await _shoot("gold_b_hero_gameplay.png")
+
+	# C: the four cluster archetypes, each alone on the cream ground.
+	_clear()
+	_add_ground_plane()
+	var archetype_rng := RandomNumberGenerator.new()
+	archetype_rng.seed = 4242
+	for archetype in 4:
+		var batch := TileKitMeshUtils.MeshBatch.new()
+		KitClusterBuilder._gold_cluster(batch, archetype_rng,
+			Vector2.ZERO, 0.0, archetype + 1, 1.0)
+		var instance := MeshInstance3D.new()
+		instance.mesh = batch.commit()
+		instance.position = Vector3(float(archetype - 1.5) * 0.85, -0.183, 0.0)
+		_stage.add_child(instance)
+	_frame(2.4, Vector3(0.0, -0.1, 0.0))
+	await _calibrate_width(4.4)
+	_set_neutral_light()
+	await _shoot("gold_c_archetypes.png")
+
+	# D: 3x3 patch — connected grassland.
+	_clear()
+	_add_ground_plane()
+	for z in 3:
+		for x in 3:
+			var generator := _gold_generator(x * 31 + z * 7)
+			generator.world_cell = Vector2i(x - 1, z - 1)
+			generator.neighbour_mask = (
+				(1 if z > 0 else 0) | (2 if x < 2 else 0)
+				| (4 if z < 2 else 0) | (8 if x > 0 else 0)
+			)
+			generator.position = Vector3((x - 1) * 1.70, 0.0, (z - 1) * 1.70)
+			_stage.add_child(generator)
+	_frame(6.2, Vector3(0.0, -0.15, 0.0))
+	await _calibrate_width(7.6)
+	_set_gameplay_light()
+	await _shoot("gold_d_patch_3x3.png")
+
+	# E: the same patch with props standing on it.
+	for prop: Dictionary in [
+		{"asset": "prop_pine_a", "at": Vector3(-1.7, 0.0, -1.7)},
+		{"asset": "prop_bench", "at": Vector3(0.35, 0.0, 0.2)},
+		{"asset": "prop_lantern", "at": Vector3(1.6, 0.0, 1.2)},
+	]:
+		var path := AssetLibrary.resolve_path(String(prop["asset"]))
+		if path.is_empty():
+			continue
+		var scene := load(path) as PackedScene
+		if scene == null:
+			continue
+		var instance := scene.instantiate() as Node3D
+		instance.position = prop["at"]
+		_stage.add_child(instance)
+	await _shoot("gold_e_patch_props.png")
+
+	# F: rejected thick tile beside the gold master, identical framing.
+	_clear()
+	_add_ground_plane()
+	var rejected_path := ProjectSettings.globalize_path(_output_dir).path_join(
+		"rejected_tile_grass.tres")
+	var rejected := ResourceLoader.load(rejected_path, "",
+		ResourceLoader.CACHE_MODE_IGNORE) as TileKitPreset
+	if rejected != null:
+		var old := TileKitGenerator.new()
+		old.preset = rejected
+		old.position = Vector3(-1.35, 0.0, 0.0)
+		_stage.add_child(old)
+	var current := _gold_generator()
+	current.position = Vector3(1.35, 0.0, 0.0)
+	_stage.add_child(current)
+	_frame(4.4, Vector3(0.0, -0.15, 0.0))
+	await _calibrate_width(6.4)
+	_set_neutral_light()
+	await _shoot("gold_f_before_after.png")
 
 
 func _run_focus() -> void:

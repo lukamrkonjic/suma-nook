@@ -24,7 +24,10 @@ params = {
 "relief_style": "heaps",
 "side_key": "earth_side",
 "top_bevel": 0.075,
-"top_key": "earth_top"
+"top_key": "earth_top",
+"turf_cap": false,
+"turf_thickness": 0.078,
+"turf_wobble": 0.013
 }
 
 [sub_resource type="Resource" id="Resource_x081i"]

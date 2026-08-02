@@ -24,7 +24,10 @@ params = {
 "relief_style": "heaps",
 "side_key": "stone_deep",
 "top_bevel": 0.075,
-"top_key": "stone_medium"
+"top_key": "stone_medium",
+"turf_cap": false,
+"turf_thickness": 0.078,
+"turf_wobble": 0.013
 }
 
 [sub_resource type="Resource" id="Resource_ffhfp"]

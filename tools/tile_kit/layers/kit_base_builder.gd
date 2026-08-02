@@ -36,6 +36,7 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 		"bevel": String(layer.value("bevel_key", "tile_top_bevel")),
 		"side": String(layer.value("side_key", "tile_side")),
 		"lower": String(layer.value("lower_key", "tile_lower")),
+		"turf_side": String(layer.value("turf_side_key", "tile_side")),
 	}
 
 	var mask := int(context.get("neighbour_mask", 0))
@@ -106,6 +107,23 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 			],
 		}
 
+	# Turf-cap mode: the premium organic construction. The cap splits into a
+	# thin soil body and a separate turf layer visibly RESTING on it — a
+	# gently wobbled perimeter band in the grass register over dark warm
+	# earth sides, the way a hand-built diorama piece is actually made.
+	if bool(layer.value("turf_cap", false)):
+		return {
+			"meshes": [
+				{"role": "base", "name": "tile_body",
+					"mesh": _body(corner, chamfer, keys)},
+				{"role": "surface", "name": "tile_cap",
+					"mesh": _turf_cap(bevel, corner, segments, keys, relief,
+						int(layer.value("relief_resolution", 14)),
+						float(layer.value("turf_thickness", 0.075)),
+						float(layer.value("turf_wobble", 0.012)), rng)},
+			],
+		}
+
 	return {
 		"meshes": [
 			{"role": "base", "name": "tile_body", "mesh": _body(corner, chamfer, keys)},
@@ -133,16 +151,23 @@ static func _relief_function(layer: TileKitLayer, rng: RandomNumberGenerator,
 	if style == "none" or amplitude <= 0.0:
 		return func(_local: Vector2) -> float: return 0.0
 	var frequency: float = layer.value("relief_frequency", 2.2)
+	# Relief is SEED-INDEPENDENT by design: it samples world coordinates,
+	# and two same-recipe neighbours must produce identical heights along
+	# their shared boundary even when their detail seeds differ — otherwise
+	# every reroll opens hairline cracks in connected land. Variation across
+	# seeds belongs to the detail layers; the ground itself is the recipe's.
+	var stable := RandomNumberGenerator.new()
+	stable.seed = hash("tilekit_relief|%s|%.3f" % [style, frequency])
 	var noise := FastNoiseLite.new()
-	noise.seed = rng.randi()
+	noise.seed = stable.randi()
 	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	noise.frequency = frequency
 	noise.fractal_type = FastNoiseLite.FRACTAL_FBM
 	noise.fractal_octaves = 2
 	noise.fractal_gain = 0.38
-	var dune_yaw := rng.randf() * TAU
+	var dune_yaw := stable.randf() * TAU
 	var dune_direction := Vector2(cos(dune_yaw), sin(dune_yaw))
-	var dune_phase := rng.randf() * TAU
+	var dune_phase := stable.randf() * TAU
 	var sculpted_dunes: Callable
 	if style == "sculpted_dunes":
 		sculpted_dunes = _sculpted_dune_function(layer, rng)
@@ -239,8 +264,10 @@ static func _sculpted_dune_function(
 	rng: RandomNumberGenerator
 ) -> Callable:
 	var seed_offset := int(layer.value("dune_seed_offset", 0))
+	# Stable pattern seed (see _relief_function): the dune field belongs to
+	# the recipe, not the reroll, so connected cells always agree.
 	var pattern_rng := RandomNumberGenerator.new()
-	pattern_rng.seed = hash("%d|sculpted_dunes|%d" % [rng.seed, seed_offset])
+	pattern_rng.seed = hash("tilekit|sculpted_dunes|%d" % seed_offset)
 	var scale: float = layer.value("dune_scale", 0.72)
 	var amount: float = clampf(layer.value("dune_amount", 0.5), 0.0, 1.0)
 	var softness: float = clampf(layer.value("dune_softness", 0.7), 0.0, 1.0)
@@ -626,6 +653,95 @@ static func _cap(bevel: float, corner: float, segments: int, keys: Dictionary,
 		maxi(segments, 3), bevel, 0.0, true)
 	_add_relief_blanket(batch, String(keys["top"]), bevel, corner, relief,
 		resolution)
+	return batch.commit()
+
+
+## The turf-cap surface: soil wall from the seam up to the turf line, then a
+## slightly wobbled turf band that laps a few millimetres over the soil, a
+## SMALL top bevel, and the flat walkable top with gentle relief. Two honest
+## materials meeting in an irregular hand-cut line — never one extruded slab.
+static func _turf_cap(bevel: float, corner: float, segments: int,
+		keys: Dictionary, relief: Callable, resolution: int,
+		thickness: float, wobble: float,
+		rng: RandomNumberGenerator) -> ArrayMesh:
+	var batch := TileKitMeshUtils.MeshBatch.new()
+	var soil_key := String(keys["side"])
+	var turf_side_key := String(keys.get("turf_side", "tile_side"))
+	var turf_bevel_key := String(keys["bevel"])
+	var turf_top_key := String(keys["top"])
+
+	# Soil wall: seam up to the turf underside.
+	TileKitMeshUtils.add_ring_shell(batch, soil_key, HALF, corner, 3, [
+		[0.0, SEAM, 0.0],
+		[0.0, -thickness, 0.0],
+	])
+
+	# Turf band with a smoothed per-point wobble: the perimeter waves in and
+	# out a little, and the underside flares slightly outward so the turf
+	# reads as a cap RESTING on the soil rather than a painted stripe.
+	var outline: Array = TileKitMeshUtils.rounded_rect_outline(HALF, corner, 4)
+	var points: PackedVector2Array = outline[0]
+	var outwards: PackedVector2Array = outline[1]
+	var count := points.size()
+	var offsets := PackedFloat32Array()
+	for index in count:
+		offsets.append(rng.randf_range(-wobble * 0.4, wobble))
+	for smoothing_pass in 2:
+		var smoothed := PackedFloat32Array()
+		smoothed.resize(count)
+		for index in count:
+			smoothed[index] = (offsets[(index + count - 1) % count]
+				+ offsets[index] * 2.0 + offsets[(index + 1) % count]) * 0.25
+		offsets = smoothed
+	var flare := 0.007
+	# Rings bottom-up: [y, wobble scale, fixed extra offset, pitch, key].
+	# Under-lip flares outward, band body carries the wobble, the small
+	# bevel eases the wobble out, and the top ring pulls in by the bevel so
+	# the walkable outline stays true.
+	var ring_specs := [
+		[-thickness, 1.0, flare, -0.35, turf_side_key],
+		[-thickness * 0.55, 1.0, 0.0, 0.0, turf_side_key],
+		[-bevel, 0.55, 0.0, 0.30, turf_side_key],
+		[-bevel * 0.4, 0.22, 0.0, 0.85, turf_bevel_key],
+		[0.0, 0.0, -bevel, 1.35, turf_bevel_key],
+	]
+	var previous_ring: Array = []
+	for spec: Array in ring_specs:
+		var y: float = spec[0]
+		var wobble_scale: float = spec[1]
+		var extra: float = spec[2]
+		var pitch: float = spec[3]
+		var ring_vertices := PackedVector3Array()
+		var ring_normals := PackedVector3Array()
+		for index in count:
+			var offset: float = offsets[index] * wobble_scale + extra
+			var point := points[index] + outwards[index] * offset
+			ring_vertices.append(Vector3(point.x, y, point.y))
+			var outward := outwards[index]
+			ring_normals.append(Vector3(
+				outward.x * cos(pitch), sin(pitch), outward.y * cos(pitch)
+			).normalized())
+		if not previous_ring.is_empty():
+			var vertices := PackedVector3Array()
+			var normals := PackedVector3Array()
+			var indices := PackedInt32Array()
+			vertices.append_array(previous_ring[0])
+			vertices.append_array(ring_vertices)
+			normals.append_array(previous_ring[1])
+			normals.append_array(ring_normals)
+			for index in count:
+				var next := (index + 1) % count
+				indices.append_array([
+					index, next, count + next,
+					index, count + next, count + index,
+				])
+			batch.add(String(spec[4]), vertices, normals, indices)
+		previous_ring = [ring_vertices, ring_normals]
+
+	# Flat walkable top and its gentle relief.
+	TileKitMeshUtils.add_rect_cap(batch, turf_top_key, HALF, corner,
+		maxi(segments, 3), bevel, 0.0, true)
+	_add_relief_blanket(batch, turf_top_key, bevel, corner, relief, resolution)
 	return batch.commit()
 
 

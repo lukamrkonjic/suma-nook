@@ -29,7 +29,10 @@ params = {
 "relief_style": "sculpted_dunes",
 "side_key": "sand_side",
 "top_bevel": 0.075,
-"top_key": "sand_top"
+"top_key": "sand_top",
+"turf_cap": false,
+"turf_thickness": 0.078,
+"turf_wobble": 0.013
 }
 
 [sub_resource type="Resource" id="Resource_d5s2h"]

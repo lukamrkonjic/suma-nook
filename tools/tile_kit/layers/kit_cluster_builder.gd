@@ -49,6 +49,8 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 	# accent tiles where the grass is a subject rather than a surface.
 	var composition: Array
 	var mode := String(layer.value("coverage_mode", "carpet"))
+	if mode == "gold_grass":
+		return _build_gold_grass(layer, rng, context)
 	if mode == "tufts":
 		return _build_tuft_composition(layer, rng, context)
 	if mode == "turf":
@@ -136,6 +138,183 @@ static func _compose_carpet(layer: TileKitLayer, rng: RandomNumberGenerator,
 				"yaw": rng.randf() * TAU,
 			})
 	return result
+
+
+# --- gold master grass -------------------------------------------------------
+
+## The hand-directed Standard Grass composition. Anchor positions, archetype
+## choices, and fringe spans are AUTHORED — the seed only breathes life into
+## them with small jitter, yaw variation, and blade-level randomness, so every
+## seed reads as the same deliberate design executed slightly differently.
+##
+## Layout (normalised tile space): a medium three-direction tuft rear-left, a
+## wide fan against the right edge, a small curved group front-left, two
+## asymmetric supports, one optional taller accent, and fringe on parts of
+## the rear and right edges only. The centre-front stays calm for props.
+const GOLD_ANCHORS := [
+	{"at": Vector2(-0.36, -0.44), "archetype": 1},
+	{"at": Vector2(0.62, 0.05), "archetype": 2},
+	{"at": Vector2(-0.47, 0.35), "archetype": 3},
+	{"at": Vector2(-0.28, 0.50), "archetype": 3},
+	{"at": Vector2(0.20, -0.22), "archetype": 3},
+	{"at": Vector2(0.33, 0.58), "archetype": 3},
+]
+const GOLD_ACCENT := Vector2(0.47, -0.52)
+const GOLD_FRINGE := [
+	# [edge outward, along-edge fractions 0..1] — parts of two edges only.
+	[Vector2(0.0, -1.0), [0.30, 0.52, 0.74]],
+	[Vector2(1.0, 0.0), [0.38, 0.60]],
+]
+
+
+static func _build_gold_grass(layer: TileKitLayer,
+		rng: RandomNumberGenerator, context: Dictionary) -> Dictionary:
+	var half: float = context.get("surface_half", 0.85)
+	var top: float = context.get("surface_top", 0.0)
+	var cap_height: Callable = context.get("cap_height", Callable())
+	var batch := TileKitMeshUtils.MeshBatch.new()
+	var scale: float = layer.value("tuft_scale", 1.0)
+
+	var surface_at := func(point: Vector2) -> float:
+		if cap_height.is_valid():
+			return top + float(cap_height.call(Vector2(
+				clampf(point.x, -half, half), clampf(point.y, -half, half))))
+		return top
+
+	for anchor: Dictionary in GOLD_ANCHORS:
+		var position: Vector2 = (anchor["at"] as Vector2) * half + Vector2(
+			rng.randf_range(-0.05, 0.05), rng.randf_range(-0.05, 0.05))
+		_gold_cluster(batch, rng, position, surface_at.call(position),
+			int(anchor["archetype"]), scale)
+	if rng.randf() < 0.55:
+		var position := GOLD_ACCENT * half + Vector2(
+			rng.randf_range(-0.05, 0.05), rng.randf_range(-0.05, 0.05))
+		_gold_cluster(batch, rng, position, surface_at.call(position), 4, scale)
+
+	# Fringe: short grouped blades integrated into the turf edge, on parts
+	# of two edges only, leaning gently outward. Connected edges take no
+	# fringe — inside a land mass the seam must stay invisible.
+	var mask := int(context.get("neighbour_mask", 0))
+	var edge_bits := {Vector2(0.0, -1.0): 1, Vector2(1.0, 0.0): 2,
+		Vector2(0.0, 1.0): 4, Vector2(-1.0, 0.0): 8}
+	for span: Array in GOLD_FRINGE:
+		var outward: Vector2 = span[0]
+		if (mask & int(edge_bits.get(outward, 0))) != 0:
+			continue
+		var along := Vector2(-outward.y, outward.x)
+		for fraction: float in span[1]:
+			var position := outward * (half - 0.055) \
+				+ along * ((fraction * 2.0 - 1.0) * (half - 0.06)) \
+				+ along * rng.randf_range(-0.04, 0.04)
+			var outward_yaw := atan2(outward.y, outward.x)
+			_gold_fringe_tuft(batch, rng, position,
+				surface_at.call(position), outward_yaw, scale)
+
+	context["grass_clusters"] = []
+	return {
+		"meshes": [{"role": "detail", "name": "tile_grass",
+			"mesh": batch.commit()}],
+	}
+
+
+## One sculpted cluster: blades share a crown over a small recessed base pad,
+## and every archetype forms a single coherent silhouette.
+static func _gold_cluster(batch: TileKitMeshUtils.MeshBatch,
+		rng: RandomNumberGenerator, centre: Vector2, surface_y: float,
+		archetype: int, scale: float) -> void:
+	var facing := rng.randf() * TAU
+	var pad_radius := 0.075 * scale
+	var blades: Array[Dictionary] = []
+	match archetype:
+		1:
+			# Low three-direction tuft: three small groups sharing a base.
+			pad_radius = 0.10 * scale
+			for group in 3:
+				var group_yaw := facing + group * 2.09 \
+					+ rng.randf_range(-0.25, 0.25)
+				for blade in 3:
+					blades.append({"yaw": group_yaw + (blade - 1.0) * 0.42,
+						"height": rng.randf_range(0.15, 0.21),
+						"lean": rng.randf_range(0.45, 0.62)})
+		2:
+			# Wide fan: one direction, tall centre falling to short flanks.
+			pad_radius = 0.11 * scale
+			var fan_count := 8
+			for blade in fan_count:
+				var spread := (float(blade) / float(fan_count - 1) - 0.5) * 2.1
+				var falloff := 1.0 - absf(spread) * 0.34
+				blades.append({"yaw": facing + spread
+						+ rng.randf_range(-0.12, 0.12),
+					"height": rng.randf_range(0.17, 0.23) * falloff,
+					"lean": rng.randf_range(0.55, 0.75)})
+		3:
+			# Small curved tuft: few blades, one flow, moderate bend.
+			pad_radius = 0.065 * scale
+			var count := 4 + (rng.randi() % 2)
+			for blade in count:
+				blades.append({"yaw": facing
+						+ (float(blade) / float(count - 1) - 0.5) * 1.1
+						+ rng.randf_range(-0.15, 0.15),
+					"height": rng.randf_range(0.13, 0.18),
+					"lean": rng.randf_range(0.55, 0.75)})
+		4:
+			# Taller asymmetric accent: the one dramatic silhouette. Blades
+			# take evenly separated directions so the cluster stays a fan of
+			# distinct curls — never a merged trunk.
+			pad_radius = 0.11 * scale
+			var tallest := rng.randi_range(0, 6)
+			for blade in 7:
+				var is_tall: bool = blade == tallest \
+					or blade == (tallest + 3) % 7
+				blades.append({"yaw": facing + float(blade) * (TAU / 7.0)
+						+ rng.randf_range(-0.25, 0.25),
+					"height": rng.randf_range(0.30, 0.38) if is_tall
+						else rng.randf_range(0.17, 0.24),
+					"lean": rng.randf_range(0.45, 0.62)})
+
+	for blade: Dictionary in blades:
+		_gold_blade(batch, rng, centre, surface_y, float(blade["yaw"]),
+			float(blade["height"]) * scale, float(blade["lean"]),
+			pad_radius * 0.5)
+
+
+static func _gold_fringe_tuft(batch: TileKitMeshUtils.MeshBatch,
+		rng: RandomNumberGenerator, centre: Vector2, surface_y: float,
+		outward_yaw: float, scale: float) -> void:
+	for blade in 3 + (rng.randi() % 2):
+		_gold_blade(batch, rng, centre, surface_y,
+			outward_yaw + rng.randf_range(-0.6, 0.6),
+			rng.randf_range(0.07, 0.105) * scale,
+			rng.randf_range(0.6, 0.85), 0.03)
+
+
+## One broad curved blade: thick at the base, a long soft taper, a gently
+## curled tip. Chunky enough to read at gameplay distance; never a spike.
+static func _gold_blade(batch: TileKitMeshUtils.MeshBatch,
+		rng: RandomNumberGenerator, centre: Vector2, surface_y: float,
+		yaw: float, blade_height: float, lean: float,
+		root_spread: float) -> void:
+	var direction := Vector2(cos(yaw), sin(yaw))
+	var root := centre + direction * rng.randf_range(0.2, 1.0) * root_spread
+	var lean3 := Vector3(direction.x, 0.0, direction.y)
+	var reach := blade_height * lean
+	var width := clampf(blade_height * rng.randf_range(0.34, 0.42),
+		0.040, 0.115)
+	# The arc: upright through the lower half, bending hard through the top
+	# third, the tip dropping slightly past its peak — a curled leaf, never
+	# a leaning cone.
+	var p0 := Vector3(root.x, surface_y - 0.012, root.y)
+	var p1 := p0 + Vector3.UP * (blade_height * 0.48) + lean3 * (reach * 0.06)
+	var p2 := p0 + Vector3.UP * (blade_height * 0.92) + lean3 * (reach * 0.52)
+	var p3 := p0 + Vector3.UP * (blade_height * 0.94) + lean3 * reach
+	var roll := rng.randf()
+	var key := "grass_primary"
+	if roll < 0.26:
+		key = "grass_root"
+	elif roll < 0.38:
+		key = "grass_secondary"
+	TileKitMeshUtils.add_blade(batch, key, p0, p1, p2, p3, width,
+		rng.randf_range(0.42, 0.52), 6, 6, 2)
 
 
 # --- tufts: art-directed sparse grass ----------------------------------------
