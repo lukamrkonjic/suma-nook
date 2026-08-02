@@ -83,7 +83,15 @@ def validate() -> list[str]:
             errors.append(f"Canonical palette is missing '{section}'")
 
     swatches = read_color_block(PALETTE, "swatches")
-    colors = read_token_specs(PALETTE, "colors")
+    color_references = read_token_specs(PALETTE, "colors")
+    color_literals = read_color_block(PALETTE, "colors")
+    colors = set(color_references) | set(color_literals)
+    duplicate_colors = set(color_references) & set(color_literals)
+    if duplicate_colors:
+        errors.append(
+            "Semantic colors have duplicate literal/reference definitions: "
+            + ", ".join(sorted(duplicate_colors))
+        )
     render_targets = read_color_block(PALETTE, "render_targets")
     if len(colors) < 200:
         errors.append(
@@ -99,12 +107,27 @@ def validate() -> list[str]:
             errors.append(
                 f"Reference token '{reference_id}' must be named '{expected_id}'"
             )
-    for token, spec in colors.items():
+    for token, spec in color_references.items():
         swatch_id = str(spec["swatch"])
         if swatch_id not in swatches:
             errors.append(f"Token '{token}' references missing swatch '{swatch_id}'")
+    for token, value in color_literals.items():
+        if len(value) != 4:
+            errors.append(f"Token '{token}' must have exactly four RGBA components")
     if not render_targets:
         errors.append("render_targets is empty")
+    missing_targets = colors - set(render_targets)
+    extra_targets = set(render_targets) - colors
+    if missing_targets:
+        errors.append(
+            "Semantic colors missing render targets: "
+            + ", ".join(sorted(missing_targets))
+        )
+    if extra_targets:
+        errors.append(
+            "Render targets without semantic colors: "
+            + ", ".join(sorted(extra_targets))
+        )
 
     for section in ("environment_profiles", "world_themes", "background_presets"):
         block = _dictionary_text(text, section)
@@ -126,7 +149,7 @@ def validate() -> list[str]:
             )
 
     aliases = _aliases(text)
-    known_tokens = set(colors) | set(aliases)
+    known_tokens = colors | set(aliases)
     for alias, target in aliases.items():
         if target not in colors:
             errors.append(f"Alias '{alias}' targets missing token '{target}'")
@@ -205,7 +228,10 @@ def main() -> int:
         for error in errors:
             print(f"- {error}")
         return 1
-    count = len(read_token_specs(PALETTE, "colors"))
+    count = len(
+        set(read_token_specs(PALETTE, "colors"))
+        | set(read_color_block(PALETTE, "colors"))
+    )
     swatch_count = len(read_color_block(PALETTE, "swatches"))
     target_count = len(read_color_block(PALETTE, "render_targets"))
     print(

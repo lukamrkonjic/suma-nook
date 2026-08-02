@@ -1,0 +1,12 @@
+{
+  "id": "pebble_phant",
+  "body_plan": "legged",
+  "palette": {"body": "#9FA8BC", "body_light": "#ADB6C8", "limb": "#8B94A8", "foot": "#778094", "face": "#E8E4DA", "belly": "#DDD8CC", "accent": "#E8A9A0", "ink": "#363443", "ear": "#8B94A8"},
+  "torso": {"length": 0.2, "radius": 0.11, "blend": 0.035},
+  "head": {"radius": 0.105, "face": "pup", "stabilize": 0.3},
+  "legs": {"count": 4, "length": 0.13, "stance": 0.14, "radius": 0.036, "foot_radius": 0.034},
+  "ears": {"count": 2, "length": 0.085, "radius": 0.034, "style": "side"},
+  "tail": {"segments": 1, "length": 0.07, "radius": 0.012, "droop": 0.6, "wag": 0.3, "wag_rate": 1.4},
+  "gait": {"reference_speed": 1.1, "cadence": 6.0, "stride": 0.085, "step_lift": 0.04, "body_bob": 0.014, "lean": 0.035, "waddle": 0.045},
+  "juice": {"squash": 0.2, "head_lag": 0.06, "head_snap": 7.0, "ear_spring": 26.0, "tail_drag": 0.86, "outline": 0.006}
+}

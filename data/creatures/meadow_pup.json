@@ -1,0 +1,12 @@
+{
+  "id": "meadow_pup",
+  "body_plan": "legged",
+  "palette": {"body": "#C99E6A", "body_light": "#D9B27E", "limb": "#B08A5A", "foot": "#8A6B48", "face": "#F4E6CC", "belly": "#EFDDC0", "accent": "#8A6B48", "ink": "#3B3247"},
+  "torso": {"length": 0.17, "radius": 0.082, "blend": 0.03},
+  "head": {"radius": 0.095, "face": "pup", "stabilize": 0.3},
+  "legs": {"count": 4, "length": 0.14, "stance": 0.115, "radius": 0.024, "foot_radius": 0.024},
+  "ears": {"count": 2, "length": 0.075, "radius": 0.02, "style": "side", "ear": "#B08A5A"},
+  "tail": {"segments": 2, "length": 0.14, "radius": 0.022, "droop": 0.25, "wag": 0.6, "wag_rate": 5.0},
+  "gait": {"reference_speed": 1.6, "cadence": 9.5, "stride": 0.075, "step_lift": 0.045, "body_bob": 0.014, "lean": 0.05, "waddle": 0.02},
+  "juice": {"squash": 0.2, "head_lag": 0.05, "ear_spring": 30.0, "tail_drag": 0.88, "outline": 0.006}
+}

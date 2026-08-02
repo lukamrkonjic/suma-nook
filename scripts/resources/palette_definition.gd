@@ -4,9 +4,10 @@ extends CozyPalette
 ##
 ## All authored colors live in `assets/palettes/gg_material_palette.tres`:
 ##
-## - `swatches` contains the deliberately small primitive palette, using
-##   role-neutral `<hue-family>_<tone>` references from 050 light to 950 dark;
-## - `colors` maps semantic material, UI, character, and VFX tokens to swatches;
+## - `swatches` contains the deliberately small shared palette used by grouped
+##   character choices, lighting profiles, themes, and authoring tools;
+## - `colors` owns the exact approved source value for each semantic material,
+##   UI, character, and VFX token;
 ## - `render_targets` contains calibrated screen-space targets;
 ## - `environment_profiles` contains every lighting/profile color;
 ## - `world_themes` contains time-of-day theme colors;

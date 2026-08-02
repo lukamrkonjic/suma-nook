@@ -23,8 +23,8 @@ const FishingRodScript := preload(
 const FishingPoseModifierScript := preload(
 	"res://scripts/player/fishing_pose_modifier.gd"
 )
-const SpiritPhysicsPrototypeScript := preload(
-	"res://scripts/player/spirit_physics_prototype.gd"
+const ProceduralCritterPlayerScript := preload(
+	"res://scripts/player/procedural_critter_player.gd"
 )
 
 signal animation_started(animation_name: String)
@@ -216,8 +216,8 @@ var _locomotion_transition_count := 0
 var _fishing_rod: FishingRod
 var _fishing_pose_modifier: FishingPoseModifier
 var _seated_fishing_active := false
-var _spirit_prototype: Node3D
-var _spirit_prototype_enabled := false
+var _procedural_critter: Node3D
+var _procedural_critter_enabled := false
 
 var _walk_amount := 0.0
 var _walk_phase := 0.0
@@ -268,28 +268,28 @@ func _switch_body(body_index: int) -> void:
 			% _asset_profile.asset_id
 		)
 		_collect_parts()
-	_sync_spirit_prototype_visibility()
+	_sync_procedural_critter_visibility()
 
 
-func set_spirit_prototype_enabled(enabled: bool) -> void:
-	_spirit_prototype_enabled = enabled
-	if enabled and not is_instance_valid(_spirit_prototype):
-		_spirit_prototype = SpiritPhysicsPrototypeScript.new()
-		_spirit_prototype.name = "SpiritPhysicsPrototype"
-		add_child(_spirit_prototype)
-		_spirit_prototype.call("build")
-	_sync_spirit_prototype_visibility()
+func set_procedural_critter_enabled(enabled: bool) -> void:
+	_procedural_critter_enabled = enabled
+	if enabled and not is_instance_valid(_procedural_critter):
+		_procedural_critter = ProceduralCritterPlayerScript.new()
+		_procedural_critter.name = "ProceduralCritterPlayer"
+		add_child(_procedural_critter)
+		_procedural_critter.call("build")
+	_sync_procedural_critter_visibility()
 
 
-func spirit_prototype_enabled() -> bool:
-	return _spirit_prototype_enabled
+func procedural_critter_enabled() -> bool:
+	return _procedural_critter_enabled
 
 
-func _sync_spirit_prototype_visibility() -> void:
+func _sync_procedural_critter_visibility() -> void:
 	if is_instance_valid(_body):
-		_body.visible = not _spirit_prototype_enabled
-	if is_instance_valid(_spirit_prototype):
-		_spirit_prototype.visible = _spirit_prototype_enabled
+		_body.visible = not _procedural_critter_enabled
+	if is_instance_valid(_procedural_critter):
+		_procedural_critter.visible = _procedural_critter_enabled
 
 
 func _teardown_body() -> void:
@@ -576,12 +576,12 @@ func _animated_ground_offset(bounds: AABB, preview_scale: float) -> float:
 ## capsule-driven; soft ground consumes only these world-space X/Z positions
 ## so swapping the temporary character asset never couples terrain to its rig.
 func foot_world_positions() -> Array[Vector3]:
-	if _spirit_prototype_enabled and is_instance_valid(_spirit_prototype):
-		var prototype_feet: Array[Vector3] = []
-		for foot_position in _spirit_prototype.call("foot_world_positions"):
-			prototype_feet.append(foot_position as Vector3)
-		if prototype_feet.size() == 2:
-			return prototype_feet
+	if _procedural_critter_enabled and is_instance_valid(_procedural_critter):
+		var critter_feet: Array[Vector3] = []
+		for foot_position in _procedural_critter.call("foot_world_positions"):
+			critter_feet.append(foot_position as Vector3)
+		if critter_feet.size() == 2:
+			return critter_feet
 	var result: Array[Vector3] = []
 	if _skeleton != null and _asset_profile != null:
 		for bone_name in [

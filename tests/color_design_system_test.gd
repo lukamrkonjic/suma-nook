@@ -13,9 +13,25 @@ func _ready() -> void:
 	_expect(palette.validate().is_empty(), "palette metadata validates")
 	_expect(palette.swatches.size() == 128, "palette uses exactly 128 reference tokens")
 	_expect(palette.swatches.size() <= 128, "reference palette stays within its hard cap")
-	_expect(palette.all_color_keys().size() >= 200, "semantic token set is comprehensive")
-	_expect(not palette.render_targets.is_empty(), "render targets share the canonical file")
+	_expect(palette.colors.size() == 427, "palette has all 427 canonical semantic colors")
+	_expect(palette.all_color_keys().size() == 432, "five aliases complete the named palette")
+	_expect(
+		palette.render_targets.size() == palette.colors.size(),
+		"every canonical semantic color has a screen target"
+	)
 	_expect(palette.has_color("ui_text"), "aliases resolve to canonical tokens")
+	_expect(
+		palette.raw_color("warm_white").is_equal_approx(
+			Color(0.870355, 0.845445, 0.758989, 1.0)
+		),
+		"game-ready semantic source values load exactly"
+	)
+	_expect(
+		palette.render_target("warm_white").is_equal_approx(
+			Color(0.9647, 0.9333, 0.8392, 1.0)
+		),
+		"screen-space target values load exactly"
+	)
 	_expect(
 		palette.character_swatches("skin").size()
 		== palette.character_swatch_groups.get("skin", []).size(),

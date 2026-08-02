@@ -88,6 +88,7 @@ var _tail_bones: Array[int] = []
 var _animated_bones: Array[int] = []
 var _base_bone_rotations: Dictionary = {}
 var _lab_preview_animation := ""
+var _procedural_visual: Node3D
 
 
 func _ready() -> void:
@@ -185,6 +186,22 @@ func setup(player_controller: PlayerController, world_grid: WorldGrid) -> void:
 	set_physics_process(true)
 
 
+## Swaps the rendered body for a procedural SDF critter. The rigged pigeon
+## model stays in the scene untouched — the Clothing Lab and saved rig
+## profiles keep working against it — but it is hidden and its skeleton is no
+## longer posed. All world AI states continue exactly as before.
+func attach_procedural_visual(visual: Node3D) -> void:
+	_procedural_visual = visual
+	model.visible = false
+	var attachment := mascot.get_node_or_null("FaceAttachment") as Node3D
+	if attachment != null:
+		attachment.visible = false
+
+
+func has_procedural_visual() -> bool:
+	return is_instance_valid(_procedural_visual)
+
+
 func spawn_near_player() -> void:
 	if not is_instance_valid(player) or grid == null:
 		return
@@ -202,7 +219,7 @@ func spawn_near_player() -> void:
 	player_direction.y = 0.0
 	if player_direction.length_squared() > 0.001:
 		_face_direction(player_direction.normalized())
-	model.visible = true
+	model.visible = not has_procedural_visual()
 	mascot.visible = true
 	_ground_hops = 0
 	_push_velocity = Vector3.ZERO
@@ -630,6 +647,8 @@ func _update_landing(delta: float) -> void:
 
 
 func _update_visual_pose(delta: float) -> void:
+	if has_procedural_visual():
+		return
 	var bob := 0.0
 	var roll := 0.0
 	var pitch := 0.0
@@ -931,6 +950,8 @@ func _cache_bones() -> void:
 
 
 func _reset_visual_pose() -> void:
+	if has_procedural_visual():
+		return
 	model.position = _model_rest_position
 	model.rotation.x = 0.0
 	model.rotation.z = 0.0

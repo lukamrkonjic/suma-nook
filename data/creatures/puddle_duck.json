@@ -1,0 +1,12 @@
+{
+  "id": "puddle_duck",
+  "body_plan": "legged",
+  "palette": {"body": "#F5D96B", "body_light": "#F8E284", "wing": "#EFCB55", "limb": "#E89B4E", "foot": "#E8894E", "face": "#F8EED0", "belly": "#F6E9BC", "accent": "#E8894E", "ink": "#38333C", "ear": "#EFCB55"},
+  "torso": {"length": 0.095, "radius": 0.075, "blend": 0.03},
+  "head": {"radius": 0.072, "face": "owl", "stabilize": 0.45},
+  "legs": {"count": 2, "length": 0.055, "segments": 1, "stance": 0.075, "radius": 0.014, "foot_radius": 0.022},
+  "wings": {"length": 0.075, "flap_hz": 4.5, "flap": 0.55},
+  "tail": {"segments": 1, "length": 0.05, "radius": 0.022, "droop": 0.0, "wag": 0.5, "wag_rate": 3.2},
+  "gait": {"reference_speed": 1.0, "cadence": 9.0, "stride": 0.04, "step_lift": 0.028, "body_bob": 0.011, "lean": 0.04, "waddle": 0.11},
+  "juice": {"squash": 0.24, "head_lag": 0.04, "head_snap": 11.0, "tail_drag": 0.85, "outline": 0.005}
+}

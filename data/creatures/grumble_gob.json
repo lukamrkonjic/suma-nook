@@ -1,0 +1,12 @@
+{
+  "id": "grumble_gob",
+  "body_plan": "legged",
+  "palette": {"body": "#96A960", "body_light": "#A5B66E", "limb": "#75894A", "foot": "#5C6E3A", "face": "#E9E4C4", "belly": "#DCD8B2", "accent": "#C9A25E", "ink": "#332F38", "ear": "#75894A"},
+  "torso": {"length": 0.09, "radius": 0.088, "blend": 0.032},
+  "head": {"radius": 0.115, "face": "pup", "stabilize": 0.25},
+  "legs": {"count": 2, "length": 0.14, "stance": 0.1, "radius": 0.026, "segments": 2, "foot_radius": 0.03},
+  "arms": {"count": 3, "length": 0.14, "radius": 0.028},
+  "ears": {"count": 2, "length": 0.085, "radius": 0.013, "style": "side", "blend": 0.008},
+  "gait": {"reference_speed": 1.6, "cadence": 6.5, "stride": 0.08, "step_lift": 0.05, "body_bob": 0.016, "lean": 0.06, "waddle": 0.05},
+  "juice": {"squash": 0.24, "head_lag": 0.055, "head_snap": 9.0, "ear_spring": 34.0, "outline": 0.006}
+}

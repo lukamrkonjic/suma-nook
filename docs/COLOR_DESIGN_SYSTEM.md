@@ -6,9 +6,11 @@ It is the only file in `assets/palettes/`. Game scripts, gameplay JSON, visual
 profiles, shaders, generated meshes, and UI scenes must refer to its semantic
 tokens instead of owning RGB values.
 
-The file deliberately separates 128 reusable reference tokens from the larger
-semantic vocabulary. The game can keep precise names such as `water_deep`,
-`ui_bad`, and `hair_primary` without each name introducing another RGB value.
+The file deliberately separates the exact approved semantic source palette
+from 128 reusable reference tokens used by grouped character choices, lighting
+profiles, world themes, and authoring tools. The game keeps precise names such
+as `water_deep`, `ui_bad`, and `hair_primary`, and those runtime roles retain
+their individually calibrated values.
 
 `PaletteDefinition` is the access layer, not another data source. Use
 `PaletteDefinition.shared()` when a system does not already receive the shared
@@ -16,10 +18,10 @@ palette from `Main`.
 
 ## Contents of the canonical file
 
-- `swatches`: the complete primitive source palette, expressed as role-neutral
-  reference tokens and capped at 128 RGB colors for the whole game.
-- `colors`: semantic world, character, UI, VFX, weather, cloud, debug, and
-  shader roles. Each role points to a reference token rather than owning RGB.
+- `swatches`: shared profile, theme, character-choice, and authoring colors,
+  expressed as role-neutral reference tokens and capped at 128 RGB values.
+- `colors`: exact approved source values for semantic world, character, UI,
+  VFX, weather, cloud, debug, and shader roles.
 - `render_targets`: measured screen-space targets used by the palette solver.
   These are verification targets, not material albedos.
 - `aliases`: compatibility names that resolve to a canonical semantic token.
@@ -48,9 +50,9 @@ Reference names must never describe a consumer, asset, biome, character, or UI
 state. Those meanings belong in semantic tokens:
 
 ```text
-green_500 (reference token) <- grass_primary (semantic token)
-blue_700  (reference token) <- night_pupil (semantic token)
-sand_200  (reference token) <- cloud_crown (semantic token)
+green_500 (reference token) <- grouped character/profile choice
+blue_700  (reference token) <- grouped character/profile choice
+sand_200  (reference token) <- grouped character/profile choice
 ```
 
 Shaders keep neutral white fallbacks because Godot shader files cannot load a
@@ -59,19 +61,25 @@ runtime. A shader fallback must never become a second authored palette.
 
 ## Changing a color
 
-Change the reference token used by an existing semantic token, or adjust the
-reference value itself when all roles sharing it should change together. Do
-not copy RGB into consumers. Material instances, lighting profiles, clouds,
-backgrounds, and shader-bound effects resolve the role through the shared
-design system.
+Change the semantic token's source value in the canonical resource. Adjust a
+reference value only when all grouped profile, theme, or character choices
+sharing it should change together. Do not copy RGB into consumers. Material
+instances, lighting profiles, clouds, backgrounds, and shader-bound effects
+resolve the role through the shared design system.
+
+For a complete approved named-palette delivery, use
+`python tools/import_named_palette.py SOURCE.json SCREEN_TARGETS.json`. The
+importer requires an exact 427-token-plus-5-alias key match, verifies alias
+parity, and preserves the aliases as resolving names in the canonical file.
 
 If a genuinely new role is needed:
 
-1. Add a semantic token to `colors`; name the role, not its hue, and point it
-   to the nearest suitable existing reference token.
-2. Add a primitive to `swatches` only when none of the existing 128 can serve
-   the role. The validator rejects any 129th swatch, so adding one at the cap
-   requires deliberately merging or removing another.
+1. Add a semantic token to `colors`; name the role, not its hue, and assign its
+   approved source value in the canonical resource.
+2. Add a primitive to `swatches` only for a genuinely reusable profile, theme,
+   character-choice, or authoring color. The validator rejects any 129th
+   swatch, so adding one at the cap requires deliberately merging or removing
+   another.
 3. Add its prefix to `token_domains` when an existing prefix does not describe
    the consumer.
 4. Consume the token with `palette.color("token_name")` or a typed environment

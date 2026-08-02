@@ -1,0 +1,11 @@
+{
+  "id": "dot_beetle",
+  "body_plan": "legged",
+  "palette": {"body": "#D95F52", "body_light": "#3F3B44", "limb": "#4A4550", "face": "#EFE6D2", "belly": "#E4D9C2", "accent": "#EFB7A6", "ink": "#2E2B36", "ear": "#3F3B44"},
+  "torso": {"length": 0.11, "radius": 0.06, "blend": 0.026},
+  "head": {"radius": 0.058, "face": "critter", "stabilize": 0.45},
+  "legs": {"count": 6, "length": 0.05, "stance": 0.095, "radius": 0.011, "foot_balls": false, "foot_radius": 0.013, "inset": 0.012},
+  "ears": {"count": 2, "length": 0.045, "radius": 0.009, "style": "tuft", "blend": 0.006},
+  "gait": {"reference_speed": 0.9, "cadence": 13.0, "stride": 0.035, "step_lift": 0.024, "body_bob": 0.006, "lean": 0.04},
+  "juice": {"squash": 0.16, "head_lag": 0.035, "head_snap": 11.0, "ear_spring": 48.0, "outline": 0.004}
+}

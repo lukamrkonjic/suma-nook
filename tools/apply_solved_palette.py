@@ -20,6 +20,7 @@ from PIL import Image
 
 from palette_io import (
     CANONICAL_PALETTE,
+    read_color_block,
     read_color_hexes,
     read_token_specs,
     update_color_block,
@@ -157,25 +158,36 @@ def main():
         key: tuple(int(value[i:i + 2], 16) / 255.0 for i in (0, 2, 4)) + (1.0,)
         for key, value in solved.items()
     }
-    token_specs = read_token_specs(pal_path)
-    grouped: dict[str, list[tuple[float, float, float, float]]] = {}
-    for token, value in semantic_replacements.items():
-        spec = token_specs.get(token)
-        if spec is None:
-            continue
-        grouped.setdefault(str(spec["swatch"]), []).append(value)
-    replacements = {
-        swatch_id: tuple(float(component) for component in np.mean(values, axis=0))
-        for swatch_id, values in grouped.items()
-    }
-    update_color_block(pal_path, "swatches", replacements)
+    literal_tokens = read_color_block(pal_path, "colors")
+    if literal_tokens:
+        replacements = {
+            token: value
+            for token, value in semantic_replacements.items()
+            if token in literal_tokens
+        }
+        update_color_block(pal_path, "colors", replacements)
+        destination = "exact semantic colors"
+    else:
+        token_specs = read_token_specs(pal_path)
+        grouped: dict[str, list[tuple[float, float, float, float]]] = {}
+        for token, value in semantic_replacements.items():
+            spec = token_specs.get(token)
+            if spec is None:
+                continue
+            grouped.setdefault(str(spec["swatch"]), []).append(value)
+        replacements = {
+            swatch_id: tuple(float(component) for component in np.mean(values, axis=0))
+            for swatch_id, values in grouped.items()
+        }
+        update_color_block(pal_path, "swatches", replacements)
+        destination = "shared swatches"
     print("palette: %s" % pal_path)
     for k in ("grass_primary", "pine_medium", "stone_light", "wood_light",
               "earth_mid", "water_turquoise", "background_cream_01"):
         print("  %-20s target #%s  ->  source #%s" % (k, targets[k], solved[k]))
     print(
-        "%d targets solved into %d shared swatches; updated %s"
-        % (len(targets), len(replacements), pal_path)
+        "%d targets solved into %d %s; updated %s"
+        % (len(solved), len(replacements), destination, pal_path)
     )
     print("PROFILE BACKGROUND -> #%s" % solved["background_cream_01"])
 

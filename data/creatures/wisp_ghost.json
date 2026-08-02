@@ -1,0 +1,12 @@
+{
+  "id": "wisp_ghost",
+  "body_plan": "legged",
+  "palette": {"body": "#DCE3EE", "body_light": "#E6EBF3", "face": "#F6F8FB", "belly": "#EDF1F7", "accent": "#B8C4D8", "ink": "#5A6275"},
+  "torso": {"length": 0.09, "radius": 0.085, "height": 0.17, "blend": 0.038},
+  "head": {"radius": 0.09, "offset": [0.0, 0.1, -0.008], "face": "critter", "stabilize": 0.25},
+  "legs": {"count": 0},
+  "arms": {"count": 2, "length": 0.1, "radius": 0.026},
+  "tail": {"segments": 2, "length": 0.16, "radius": 0.03, "droop": 1.0, "wag": 0.5, "wag_rate": 1.4},
+  "gait": {"reference_speed": 0.9, "cadence": 5.0, "body_bob": 0.024, "lean": 0.07},
+  "juice": {"squash": 0.3, "head_lag": 0.08, "head_snap": 7.0, "tail_drag": 0.92, "outline": 0.005}
+}

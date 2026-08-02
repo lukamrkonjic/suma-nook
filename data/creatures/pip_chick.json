@@ -1,0 +1,12 @@
+{
+  "id": "pip_chick",
+  "body_plan": "legged",
+  "palette": {"body": "#F8E29A", "body_light": "#FAE9AC", "wing": "#F3D77E", "limb": "#E89B4E", "foot": "#E8894E", "face": "#FBF2D8", "belly": "#F8ECC2", "accent": "#E8894E", "ink": "#38333C", "ear": "#F3D77E"},
+  "torso": {"length": 0.055, "radius": 0.055, "blend": 0.026},
+  "head": {"radius": 0.06, "face": "owl", "stabilize": 0.45},
+  "legs": {"count": 2, "length": 0.045, "segments": 1, "stance": 0.05, "radius": 0.01, "foot_radius": 0.015},
+  "wings": {"length": 0.05, "flap_hz": 5.0, "flap": 0.6},
+  "ears": {"count": 1, "length": 0.03, "radius": 0.012, "style": "up", "blend": 0.007},
+  "gait": {"reference_speed": 0.8, "cadence": 12.0, "stride": 0.03, "step_lift": 0.022, "body_bob": 0.008, "lean": 0.05},
+  "juice": {"squash": 0.26, "head_lag": 0.035, "head_snap": 12.0, "ear_spring": 42.0, "outline": 0.004}
+}

@@ -1,0 +1,12 @@
+{
+  "id": "triblob",
+  "body_plan": "legged",
+  "palette": {"body": "#9B7FB5", "body_light": "#AE92C6", "limb": "#7A6191", "foot": "#584767", "face": "#F3E9D8", "belly": "#EADEC8", "accent": "#EFAF72", "ink": "#38313F"},
+  "torso": {"length": 0.1, "radius": 0.1, "blend": 0.032},
+  "head": {"radius": 0.1, "face": "critter", "stabilize": 0.25},
+  "legs": {"count": 2, "length": 0.18, "stance": 0.105, "radius": 0.03, "segments": 2, "foot_radius": 0.03},
+  "arms": {"count": 3, "length": 0.15, "radius": 0.032},
+  "ears": {"count": 1, "length": 0.09, "radius": 0.018, "style": "up", "ear": "#EFAF72"},
+  "gait": {"reference_speed": 1.8, "cadence": 6.0, "stride": 0.08, "step_lift": 0.055, "body_bob": 0.016, "lean": 0.06, "waddle": 0.05},
+  "juice": {"squash": 0.24, "head_lag": 0.05, "ear_spring": 38.0, "outline": 0.006}
+}

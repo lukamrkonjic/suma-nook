@@ -1,0 +1,12 @@
+{
+  "id": "bamboo_bun",
+  "body_plan": "legged",
+  "palette": {"body": "#F2EDE4", "body_light": "#F6F1E8", "limb": "#3F3B44", "foot": "#332F3A", "face": "#F8F3EA", "belly": "#E9E3D6", "accent": "#3F3B44", "ink": "#332F3A", "ear": "#3F3B44"},
+  "torso": {"length": 0.16, "radius": 0.1, "blend": 0.034},
+  "head": {"radius": 0.105, "face": "critter", "stabilize": 0.3},
+  "legs": {"count": 4, "length": 0.1, "stance": 0.125, "radius": 0.03, "foot_radius": 0.03},
+  "ears": {"count": 2, "length": 0.04, "radius": 0.024, "style": "up"},
+  "tail": {"segments": 1, "length": 0.04, "radius": 0.024, "droop": 0.35, "wag": 0.2, "wag_rate": 1.2},
+  "gait": {"reference_speed": 1.1, "cadence": 7.0, "stride": 0.065, "step_lift": 0.035, "body_bob": 0.014, "lean": 0.04, "waddle": 0.06},
+  "juice": {"squash": 0.24, "head_lag": 0.055, "head_snap": 8.0, "ear_spring": 40.0, "tail_drag": 0.85, "outline": 0.006}
+}

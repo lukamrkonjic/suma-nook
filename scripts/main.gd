@@ -17,6 +17,9 @@ const InputHintOverlayScript := preload(
 const PIGEON_MASCOT_SCENE := preload(
 	"res://characters/mascots/pigeon_mascot.tscn"
 )
+const ProceduralOwlMascotScript := preload(
+	"res://scripts/characters/owl/procedural_owl_mascot.gd"
+)
 const DEBUG_WORLD_TILE_COUNT := 5000
 const DEBUG_WORLD_MODEL_COUNT := 1250
 const MAXED_WORLD_TILE_COUNT := 10000
@@ -156,22 +159,22 @@ func _build_world_scene() -> void:
 
 	player = PlayerController.new()
 	player.name = "Player"
-	var spirit_player_enabled := core.registries.feature(
-		"spirit_player_prototype_enabled", false
+	var procedural_critter_enabled := core.registries.feature(
+		"procedural_critter_player_enabled", false
 	)
 	var capsule := CollisionShape3D.new()
 	var shape := CapsuleShape3D.new()
-	shape.radius = 0.18 if spirit_player_enabled else 0.3
-	shape.height = 0.76 if spirit_player_enabled else 1.1
+	shape.radius = 0.17 if procedural_critter_enabled else 0.3
+	shape.height = 0.64 if procedural_critter_enabled else 1.1
 	capsule.shape = shape
-	capsule.position.y = 0.39 if spirit_player_enabled else 0.56
+	capsule.position.y = 0.32 if procedural_critter_enabled else 0.56
 	player.add_child(capsule)
 	player_visual = PlayerVisual.new()
 	player_visual.name = "Visual"
 	player.add_child(player_visual)
 	world_root.add_child(player)
 	player_visual.build(assets, palette)
-	player_visual.set_spirit_prototype_enabled(spirit_player_enabled)
+	player_visual.set_procedural_critter_enabled(procedural_critter_enabled)
 
 	camera_rig = CameraRig.new()
 	camera_rig.name = "CameraRig"
@@ -211,6 +214,13 @@ func _build_world_scene() -> void:
 	world_root.add_child(pigeon_mascot)
 	pigeon_controller = pigeon_mascot.get_node("MascotController") as PigeonMascotController
 	pigeon_controller.setup(player, core.grid)
+	if core.registries.feature("procedural_owl_mascot_enabled", false):
+		var owl_visual := ProceduralOwlMascotScript.new() as Node3D
+		owl_visual.name = "ProceduralOwlVisual"
+		pigeon_mascot.add_child(owl_visual)
+		owl_visual.call("build")
+		owl_visual.call("setup", pigeon_controller)
+		pigeon_controller.attach_procedural_visual(owl_visual)
 	effects.bind_water_interaction(core, player)
 	effects.bind_ground_impacts(core, player, audio)
 	effects.bind_soft_terrain(core, player)

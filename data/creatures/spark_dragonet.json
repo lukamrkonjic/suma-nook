@@ -1,0 +1,13 @@
+{
+  "id": "spark_dragonet",
+  "body_plan": "flyer",
+  "palette": {"body": "#C46A5A", "body_light": "#CF7A66", "wing": "#8A4F43", "limb": "#A05648", "foot": "#7A4238", "face": "#F4E0C0", "belly": "#EFD6AE", "accent": "#F2B36B", "ink": "#342E3A", "ear": "#F2B36B"},
+  "torso": {"length": 0.08, "radius": 0.08, "height": 0.16, "blend": 0.032},
+  "head": {"radius": 0.088, "offset": [0.0, 0.135, -0.01], "face": "critter", "stabilize": 0.5},
+  "legs": {"count": 2, "length": 0.07, "segments": 1, "stance": 0.085, "radius": 0.016, "foot_radius": 0.022},
+  "wings": {"length": 0.13, "flap_hz": 2.8, "flap": 0.62, "bank": 0.55, "hover_bob": 0.024, "pitch": 0.13},
+  "ears": {"count": 2, "length": 0.055, "radius": 0.015, "style": "tuft", "blend": 0.008},
+  "tail": {"segments": 3, "length": 0.19, "radius": 0.026, "droop": 0.45, "wag": 0.35, "wag_rate": 1.6},
+  "gait": {"reference_speed": 1.0, "cadence": 8.0, "stride": 0.05, "step_lift": 0.035, "body_bob": 0.012, "waddle": 0.06},
+  "juice": {"squash": 0.24, "head_lag": 0.04, "head_snap": 11.0, "ear_spring": 42.0, "tail_drag": 0.9, "outline": 0.005}
+}

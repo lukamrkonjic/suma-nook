@@ -1,0 +1,12 @@
+{
+  "id": "breeze_pony",
+  "body_plan": "legged",
+  "palette": {"body": "#C68E5E", "body_light": "#D19E6C", "limb": "#A87850", "foot": "#5E4632", "face": "#F4E4C8", "belly": "#EBD9B8", "accent": "#8A6748", "ink": "#37323E", "ear": "#8A6748"},
+  "torso": {"length": 0.18, "radius": 0.08, "blend": 0.03},
+  "head": {"radius": 0.085, "offset": [0.0, 0.09, -0.1], "face": "pup", "stabilize": 0.4},
+  "legs": {"count": 4, "length": 0.165, "stance": 0.1, "radius": 0.02, "foot_radius": 0.022},
+  "ears": {"count": 2, "length": 0.055, "radius": 0.016, "style": "up"},
+  "tail": {"segments": 3, "length": 0.2, "radius": 0.026, "droop": 0.55, "wag": 0.4, "wag_rate": 1.6},
+  "gait": {"reference_speed": 2.6, "cadence": 9.5, "stride": 0.095, "step_lift": 0.06, "body_bob": 0.014, "lean": 0.05},
+  "juice": {"squash": 0.18, "head_lag": 0.05, "head_snap": 10.0, "ear_spring": 42.0, "tail_drag": 0.9, "outline": 0.005}
+}

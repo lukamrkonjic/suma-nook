@@ -1,0 +1,11 @@
+{
+  "id": "waddle_pen",
+  "body_plan": "legged",
+  "palette": {"body": "#4A5668", "body_light": "#556275", "wing": "#3E4858", "limb": "#3E4858", "foot": "#E89B4E", "face": "#F4EFE2", "belly": "#F4EFE2", "accent": "#E89B4E", "ink": "#2E2B36", "ear": "#3E4858"},
+  "torso": {"length": 0.09, "radius": 0.085, "blend": 0.032},
+  "head": {"radius": 0.08, "face": "owl", "stabilize": 0.4},
+  "legs": {"count": 2, "length": 0.06, "segments": 1, "stance": 0.085, "radius": 0.016, "foot_radius": 0.024},
+  "wings": {"length": 0.08, "flap_hz": 4.0, "flap": 0.5},
+  "gait": {"reference_speed": 0.9, "cadence": 8.5, "stride": 0.035, "step_lift": 0.025, "body_bob": 0.01, "lean": 0.04, "waddle": 0.13},
+  "juice": {"squash": 0.24, "head_lag": 0.04, "head_snap": 10.0, "outline": 0.005}
+}

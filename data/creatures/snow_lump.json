@@ -1,0 +1,12 @@
+{
+  "id": "snow_lump",
+  "body_plan": "legged",
+  "palette": {"body": "#EAF1F2", "body_light": "#F2F7F7", "limb": "#D3DEE1", "foot": "#AEBEC4", "face": "#E6E4DA", "belly": "#DDE7E9", "accent": "#B4C2C8", "ink": "#39414A", "ear": "#D3DEE1"},
+  "torso": {"length": 0.13, "radius": 0.105, "blend": 0.036},
+  "head": {"radius": 0.1, "face": "pup", "stabilize": 0.25},
+  "legs": {"count": 2, "length": 0.12, "stance": 0.12, "radius": 0.034, "segments": 2, "foot_radius": 0.038},
+  "arms": {"count": 2, "length": 0.19, "radius": 0.044},
+  "ears": {"count": 2, "length": 0.03, "radius": 0.018, "style": "up", "blend": 0.009},
+  "gait": {"reference_speed": 1.2, "cadence": 6.0, "stride": 0.08, "step_lift": 0.045, "body_bob": 0.018, "lean": 0.05, "waddle": 0.07},
+  "juice": {"squash": 0.26, "head_lag": 0.06, "head_snap": 7.5, "ear_spring": 36.0, "outline": 0.006}
+}

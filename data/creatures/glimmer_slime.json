@@ -1,0 +1,10 @@
+{
+  "id": "glimmer_slime",
+  "body_plan": "legged",
+  "palette": {"body": "#8ED1E0", "body_light": "#A1DBE8", "face": "#EFF7F2", "belly": "#C4E9EF", "accent": "#EFB7A6", "ink": "#33404A"},
+  "torso": {"length": 0.07, "radius": 0.095, "blend": 0.04},
+  "head": {"radius": 0.085, "offset": [0.0, 0.075, -0.01], "face": "critter", "stabilize": 0.2},
+  "legs": {"count": 0},
+  "gait": {"reference_speed": 0.7, "cadence": 7.0, "body_bob": 0.03, "lean": 0.08, "waddle": 0.1},
+  "juice": {"squash": 0.4, "head_lag": 0.07, "head_snap": 7.0, "outline": 0.006}
+}
