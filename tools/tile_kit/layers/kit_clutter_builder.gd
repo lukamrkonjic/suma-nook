@@ -170,12 +170,13 @@ static func _add_shape(batch: TileKitMeshUtils.MeshBatch, layer: TileKitLayer,
 			TileKitMeshUtils.add_dome(batch, key, origin,
 				diameter * 0.42, diameter * 0.42, piece_height * 1.4, yaw)
 		"clod":
-			# A chunky flat-shaded soil clod — the audited reference builds
-			# entire soil fields from a handful of these faceted prisms.
+			# A chunky flat-shaded soil clod, matched to the audited soil
+			# fields: 9-10 large near-cubic faceted lumps per tile, deeply
+			# embedded — height over half their width, a third of it sunk.
 			TileKitMeshUtils.add_faceted_chunk(batch, key, origin,
 				diameter * 0.52, diameter * 0.44,
-				diameter * rng.randf_range(0.34, 0.50), yaw, rng,
-				5 + (rng.randi() % 2), 0.55)
+				diameter * rng.randf_range(0.45, 0.70), yaw, rng,
+				5, 0.52, rng.randf_range(0.18, 0.34))
 		"rock":
 			# A hero faceted rock: one big crystal-cut mass with a shoulder.
 			TileKitMeshUtils.add_faceted_chunk(batch, key, origin,

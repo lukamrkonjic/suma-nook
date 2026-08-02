@@ -1058,10 +1058,15 @@ func _test_registries() -> void:
 		"open water remains a real continuous-water tile"
 	)
 	check(
-		regs.active_tile_ids().size() == 56
+		regs.active_tile_ids().size() == 55
 		and regs.preview_tile_ids().is_empty()
 		and regs.obtainable_tile_ids().all(func(tile_id: String) -> bool: return regs.is_tile_active(tile_id)),
-		"all 56 official tiles ship in the active gameplay roster"
+		"the 55 catalog tiles ship in the active gameplay roster"
+	)
+	check(
+		regs.tile("tile_proc_fenced_meadow") != null
+		and not regs.is_tile_active("tile_proc_fenced_meadow"),
+		"the retired paddock still resolves for old saves without being active"
 	)
 	check(
 		regs.discovery_pool("void_unknown") != null,

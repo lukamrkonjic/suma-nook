@@ -14,15 +14,15 @@ params = {
 "bottom_chamfer": 0.016,
 "corner_radius": 0.075,
 "lower_key": "stone_deep",
-"relief_amplitude": 0.01,
+"relief_amplitude": 0.014,
 "relief_bipolar": false,
 "relief_edge_feather": 0.2,
-"relief_frequency": 2.2,
+"relief_frequency": 1.1,
 "relief_resolution": 24,
 "relief_style": "pillow",
-"side_key": "snow_side",
+"side_key": "stone_medium",
 "top_bevel": 0.075,
-"top_key": "snow_top",
+"top_key": "accent_cream",
 "turf_cap": false,
 "turf_thickness": 0.078,
 "turf_wobble": 0.013
@@ -45,41 +45,27 @@ params = {
 
 [sub_resource type="Resource" id="Resource_eyo3s"]
 script = ExtResource("1_uo4lk")
-kind = "pavers"
-params = {
-"gap": 0.025,
-"pattern": "cobbles",
-"slab_key": "snow_top",
-"slab_key_alt": "stone_light",
-"stone_cell": 0.82,
-"stone_cell_z": 0.82,
-"stone_corner": 0.045,
-"stone_height": [0.014, 0.018],
-"stone_jitter": 0.0
-}
-
-[sub_resource type="Resource" id="Resource_ct0qe"]
-script = ExtResource("1_uo4lk")
 kind = "clutter"
 params = {
-"cluster_fraction": 0.7,
-"cluster_radius": 0.24,
+"cluster_fraction": 0.55,
+"cluster_radius": 0.28,
 "color_weights": {
-"snow_lump": 65.0,
-"stone_light": 35.0
+"snow_lump": 35.0,
+"stone_light": 45.0,
+"stone_medium": 20.0
 },
-"count": [2, 4],
-"diameter": [0.05, 0.09],
-"edge_margin": 0.035,
-"height": [0.008, 0.014],
-"min_spacing": 0.055,
+"count": [6, 8],
+"diameter": [0.2, 0.38],
+"edge_margin": 0.08,
+"height": [0.016, 0.028],
+"min_spacing": 0.16,
 "on_dressing_fraction": 0.55,
 "placement_mode": "clusters",
 "scale_multiplier": 1.0,
-"shapes": ["stone_chip"]
+"shapes": ["clod"]
 }
 
-[sub_resource type="Resource" id="Resource_ts3t1"]
+[sub_resource type="Resource" id="Resource_ct0qe"]
 script = ExtResource("1_uo4lk")
 kind = "grass_clusters"
 enabled = false
@@ -112,5 +98,4 @@ params = {
 script = ExtResource("2_f5pa1")
 preset_name = "White Soil"
 master_seed = 20261389
-separate_tiles = true
-layers = Array[ExtResource("1_uo4lk")]([SubResource("Resource_ku33a"), SubResource("Resource_c57i0"), SubResource("Resource_eyo3s"), SubResource("Resource_ct0qe"), SubResource("Resource_ts3t1")])
+layers = Array[ExtResource("1_uo4lk")]([SubResource("Resource_ku33a"), SubResource("Resource_c57i0"), SubResource("Resource_eyo3s"), SubResource("Resource_ct0qe")])

@@ -545,20 +545,37 @@ static func _basin_cap(bevel: float, corner: float, segments: int,
 	return batch.commit()
 
 
-## Still-water plane sitting a little below the rim, dressed as a contained
-## volume: a lit surface with soft wave forms and a meniscus ring against the
-## pool wall — never a flat opaque square.
+## Still-water plane sitting well below the rim: ONE clean translucent
+## surface, exactly like the reference basin — the visible bank wall above
+## the water is what sells the volume. No rings, no ripple clutter.
 static func _basin_water(bevel: float, corner: float, rim: float, depth: float,
-		water_key: String, rng: RandomNumberGenerator) -> ArrayMesh:
+		water_key: String, _rng: RandomNumberGenerator) -> ArrayMesh:
 	var batch := TileKitMeshUtils.MeshBatch.new()
 	var inset := bevel + rim - 0.008
-	# The reference basin sets its water well below the land top — the
-	# visible inner wall above the surface is what sells the volume.
 	var level := -depth * 0.62
-	TileKitMeshUtils.add_rect_cap(batch, water_key, HALF, corner, 6,
-		inset, level, true)
-	TileKitMeshUtils.add_water_dressing(batch, rng, HALF, corner, inset, level,
-		"water_light", 1 + (rng.randi() % 2))
+	# A plain square grid, not a centre fan: long skinny fan triangles show
+	# their seams through the translucent surface. The reference pond water
+	# is exactly this — one flat square sheet.
+	var extent := HALF - inset
+	var cells := 6
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var indices := PackedInt32Array()
+	var step := (extent * 2.0) / float(cells)
+	for row in cells + 1:
+		for column in cells + 1:
+			vertices.append(Vector3(-extent + column * step, level,
+				-extent + row * step))
+			normals.append(Vector3.UP)
+	var stride := cells + 1
+	for row in cells:
+		for column in cells:
+			var a := row * stride + column
+			var b := row * stride + column + 1
+			var c := (row + 1) * stride + column + 1
+			var d := (row + 1) * stride + column
+			indices.append_array([a, b, c, a, c, d])
+	batch.add(water_key, vertices, normals, indices)
 	return batch.commit()
 
 

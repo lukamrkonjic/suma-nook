@@ -14,10 +14,10 @@ params = {
 "bottom_chamfer": 0.016,
 "corner_radius": 0.075,
 "lower_key": "stone_deep",
-"relief_amplitude": 0.026,
+"relief_amplitude": 0.018,
 "relief_bipolar": false,
 "relief_edge_feather": 0.2,
-"relief_frequency": 2.2,
+"relief_frequency": 1.2,
 "relief_resolution": 24,
 "relief_style": "pillow",
 "side_key": "stone_deep",
@@ -31,37 +31,44 @@ params = {
 [sub_resource type="Resource" id="Resource_w2tbv"]
 script = ExtResource("1_fji5p")
 kind = "dressing"
-enabled = false
 params = {
 "allow_overlap": true,
-"edge_softness": 0.55,
-"height_scale": 1.0,
-"large_count": [2, 4],
-"medium_count": [3, 6],
+"aspect": [0.58, 0.85],
+"color_weights": {
+"snow_top": 100.0
+},
+"edge_softness": 0.72,
+"height_scale": 0.7,
+"irregularity": [0.2, 0.3],
+"large_count": [1, 1],
+"large_radius": [0.38, 0.48],
+"medium_count": [1, 1],
+"medium_radius": [0.17, 0.24],
+"outline_points": 26,
 "patch_profile": "cushion",
+"region_spread": 0.5,
 "scale_multiplier": 1.0,
-"small_count": [2, 5]
+"small_count": [0, 0]
 }
 
 [sub_resource type="Resource" id="Resource_gqg0c"]
 script = ExtResource("1_fji5p")
 kind = "clutter"
 params = {
-"cluster_fraction": 0.9,
-"cluster_radius": 0.16,
+"cluster_fraction": 1.0,
+"cluster_radius": 0.14,
 "color_weights": {
-"snow_lump": 70.0,
-"snow_top": 30.0
+"snow_lump": 100.0
 },
-"count": [5, 8],
-"diameter": [0.14, 0.24],
+"count": [1, 2],
+"diameter": [0.15, 0.22],
 "edge_margin": 0.035,
-"height": [0.016, 0.028],
-"min_spacing": 0.02,
+"height": [0.014, 0.022],
+"min_spacing": 0.055,
 "on_dressing_fraction": 0.55,
 "placement_mode": "clusters",
 "scale_multiplier": 1.0,
-"shapes": ["drift_mound", "snow_lump", "snow_lump"]
+"shapes": ["snow_lump"]
 }
 
 [sub_resource type="Resource" id="Resource_nnscl"]

@@ -341,7 +341,7 @@
       "placement_sound": "grass",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_fenced_meadow.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -1013,7 +1013,7 @@
 
       },
       "geometry_profile": "rounded_corner_slab",
-      "connection_mode": "tiny_individual_seam",
+      "connection_mode": "full_flush",
       "exposed_top": "raised",
       "connection_group": "home_meadow",
       "biome_tags": [],

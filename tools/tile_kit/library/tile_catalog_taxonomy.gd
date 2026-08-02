@@ -62,7 +62,6 @@ const RECIPES := [
 	["Flowering Grass", "tile_grass_flower", "meadow", 30],
 	["Flower Meadow", "tile_proc_flower_meadow", "meadow", 40],
 	["Wild Grass", "tile_master_grass", "meadow", 50],
-	["Fenced Meadow", "tile_proc_fenced_meadow", "meadow", 60],
 
 	["Forest Floor", "tile_grove_mature", "forest", 10],
 	["Birch Forest Floor", "tile_grove_birch", "forest", 20],

@@ -14,10 +14,10 @@ params = {
 "bottom_chamfer": 0.016,
 "corner_radius": 0.075,
 "lower_key": "earth_deep",
-"relief_amplitude": 0.03,
+"relief_amplitude": 0.016,
 "relief_bipolar": false,
 "relief_edge_feather": 0.2,
-"relief_frequency": 2.2,
+"relief_frequency": 1.1,
 "relief_resolution": 24,
 "relief_style": "pillow",
 "side_key": "earth_side",
@@ -47,22 +47,22 @@ params = {
 script = ExtResource("1_g3xmj")
 kind = "clutter"
 params = {
-"cluster_fraction": 0.9,
-"cluster_radius": 0.22,
+"cluster_fraction": 0.55,
+"cluster_radius": 0.3,
 "color_weights": {
-"earth_clump": 40.0,
-"earth_deep": 35.0,
-"earth_side": 25.0
+"earth_bevel": 25.0,
+"earth_clump": 42.0,
+"earth_deep": 33.0
 },
-"count": [6, 9],
-"diameter": [0.12, 0.2],
-"edge_margin": 0.035,
-"height": [0.016, 0.03],
-"min_spacing": 0.075,
+"count": [9, 10],
+"diameter": [0.22, 0.46],
+"edge_margin": 0.07,
+"height": [0.02, 0.036],
+"min_spacing": 0.15,
 "on_dressing_fraction": 0.55,
 "placement_mode": "clusters",
 "scale_multiplier": 1.0,
-"shapes": ["clod", "clod", "clod", "pebble"]
+"shapes": ["clod"]
 }
 
 [sub_resource type="Resource" id="Resource_u7fmx"]

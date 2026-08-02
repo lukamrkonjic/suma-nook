@@ -39,8 +39,10 @@ func _run() -> void:
 
 
 func _check_official_sources() -> void:
-	_check(TileKitPreset.OFFICIAL_RECIPES.size() == 56, "all 56 recipes are registered")
-	_check(CatalogTaxonomy.RECIPES.size() == 56, "taxonomy covers all 56 tiles")
+	_check(TileKitPreset.OFFICIAL_RECIPES.size() == 55,
+		"all 55 catalog recipes are registered")
+	_check(CatalogTaxonomy.RECIPES.size() == 55,
+		"taxonomy covers the 55 catalog tiles")
 	_check(CatalogTaxonomy.CATEGORIES.size() == 10, "taxonomy has ten scenery categories")
 	_check(CatalogTaxonomy.validation_errors().is_empty(), "taxonomy names and IDs are unique")
 	var registered_ids: Dictionary = {}
@@ -63,23 +65,45 @@ func _check_official_sources() -> void:
 	service.reload()
 	var official := service.official_manifests()
 	_check(official.size() == 56, "official manifest library is complete")
+	# Retired-by-art-direction tiles stay archived + hidden (never deleted:
+	# saves must keep resolving them); everything else ships active.
+	var RETIRED := ["tile_proc_fenced_meadow"]
 	_check(
-		official.all(func(manifest: TileLibraryManifest) -> bool: return manifest.visibility == TileLibraryManifest.VISIBILITY_ACTIVE),
-		"all official manifests are available in game"
+		official.all(func(manifest: TileLibraryManifest) -> bool:
+			if manifest.tile_id in RETIRED:
+				return manifest.lifecycle == TileLibraryManifest.LIFECYCLE_ARCHIVED \
+					and manifest.visibility == TileLibraryManifest.VISIBILITY_HIDDEN
+			return manifest.visibility == TileLibraryManifest.VISIBILITY_ACTIVE),
+		"official manifests are active, retired tiles archived but resolvable"
 	)
-	for index in mini(official.size(), CatalogTaxonomy.RECIPES.size()):
+	var curated := official.filter(
+		func(manifest: TileLibraryManifest) -> bool:
+			return manifest.tile_id not in RETIRED)
+	for index in mini(curated.size(), CatalogTaxonomy.RECIPES.size()):
 		_check(
-			official[index].tile_id == String(CatalogTaxonomy.RECIPES[index][1]),
+			curated[index].tile_id == String(CatalogTaxonomy.RECIPES[index][1]),
 			"official library follows the curated scenery order at %d" % index
 		)
 	var catalog := _read_json("res://data/tiles.json")
 	var catalog_tiles := catalog.get("tiles", []) as Array
-	for index in mini(catalog_tiles.size(), CatalogTaxonomy.RECIPES.size()):
+	var curated_catalog := catalog_tiles.filter(
+		func(raw: Variant) -> bool:
+			return String((raw as Dictionary).get("id", "")) not in RETIRED)
+	for index in mini(curated_catalog.size(), CatalogTaxonomy.RECIPES.size()):
 		_check(
-			String((catalog_tiles[index] as Dictionary).get("id", ""))
+			String((curated_catalog[index] as Dictionary).get("id", ""))
 				== String(CatalogTaxonomy.RECIPES[index][1]),
 			"runtime catalog follows the curated scenery order at %d" % index
 		)
+	var retired_entry: Dictionary = {}
+	for raw in catalog_tiles:
+		if String((raw as Dictionary).get("id", "")) == "tile_proc_fenced_meadow":
+			retired_entry = raw as Dictionary
+	_check(
+		not retired_entry.is_empty()
+			and not bool(retired_entry.get("obtainable", true)),
+		"retired paddock still compiles for old saves but is unobtainable"
+	)
 	var procedural_count := 0
 	for raw in catalog_tiles:
 		var tile_id := String((raw as Dictionary).get("id", ""))
@@ -129,9 +153,9 @@ func _check_official_sources() -> void:
 	_check(procedural_count == 56, "all 56 runtime tiles are procedural")
 	var tuning := _read_json("res://data/tuning.json")
 	_check(
-		(tuning.get("active_tile_ids", []) as Array).size() == 56
+		(tuning.get("active_tile_ids", []) as Array).size() == 55
 		and (tuning.get("preview_tile_ids", []) as Array).is_empty(),
-		"the compiled gameplay roster exposes all 56 official tiles"
+		"the compiled gameplay roster exposes the 55 catalog tiles"
 	)
 	_check(TileLayerParameterSchema.SHAPES.has("crystal"), "generic scatter exposes crystals")
 	_check(TileLayerParameterSchema.SHAPES.has("footprint"), "generic scatter exposes footprints")

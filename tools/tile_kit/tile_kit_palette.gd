@@ -122,8 +122,10 @@ static func material(key: String) -> StandardMaterial3D:
 	if key in ["water_blue", "water_light"]:
 		result.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		result.albedo_color.a = 0.86
-		result.roughness = 0.18
-		result.metallic_specular = 0.55
+		# Soft sheen only: a tight glossy highlight interpolates visibly
+		# across the water plane's long fan triangles and draws an X.
+		result.roughness = 0.34
+		result.metallic_specular = 0.32
 	_materials[key] = result
 	return result
 

@@ -36,7 +36,7 @@ const CONVERTED_IDS := [
 	"tile_stone_mossy", "tile_stone_road", "tile_stone_ruin",
 	"tile_wooden_planks",
 	"tile_kit_grass", "tile_proc_flower_meadow", "tile_proc_garden_path",
-	"tile_proc_fenced_meadow", "tile_proc_pond_basin", "tile_proc_tilled_field",
+	"tile_proc_pond_basin", "tile_proc_tilled_field",
 	"tile_proc_boulder_ground", "tile_proc_mossy_forest_floor",
 	"tile_proc_autumn_litter", "tile_proc_mulch_dirt_floor",
 	"tile_proc_snow_field", "tile_proc_snow_drifts_study",
@@ -145,6 +145,16 @@ func _init() -> void:
 	# Every official composition receives the current human-facing taxonomy.
 	service.reload()
 	for manifest in service.official_manifests():
+		if manifest.tile_id == "tile_proc_fenced_meadow":
+			# Retired by art direction. Archived, never deleted: worlds that
+			# placed it keep resolving the ID, but it leaves the catalog,
+			# build UI, and reward pools.
+			manifest.lifecycle = TileLibraryManifest.LIFECYCLE_ARCHIVED
+			manifest.visibility = TileLibraryManifest.VISIBILITY_HIDDEN
+			manifest.updated_at = STAMP
+			if ResourceSaver.save(manifest, manifest.resource_path) != OK:
+				failures.append("Could not archive: %s" % manifest.tile_id)
+			continue
 		if not CatalogTaxonomy.has_tile(manifest.tile_id):
 			continue
 		_apply_catalog_taxonomy(manifest)
@@ -248,14 +258,6 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 			_grass(preset, {"coverage_mode": "tufts", "tuft_scale": 1.45,
 				"mass_scale": 1.15, "mass_height": [0.034, 0.055],
 				"tuft_lean": 0.9, "extra_tufts": [1, 2]})
-		"tile_proc_fenced_meadow":
-			_set_base(preset, GREEN_BASE, "pillow", 0.014)
-			_turf(preset, {"turf_spacing": 0.24, "turf_footprint": [0.24, 0.35],
-				"turf_height": [0.040, 0.058], "blade_fraction": 0.38,
-				"turf_overhang": 0.0, "edge_margin": 0.12})
-			_enable(preset, "fence", {"edges": [0, 1, 2, 3],
-				"post_key": "wood_deep", "rail_key": "wood_medium"})
-
 		# ------------------------------------------------------------ forest
 		"tile_grove_mature":
 			# PROTOTYPE — Forest Floor: one broad moss mass, one leaf-litter
@@ -378,27 +380,30 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 				"turf_height": [0.030, 0.046], "blade_fraction": 0.36})
 			preset.separate_tiles = true
 		"tile_plain_ground":
-			_set_base(preset, SNOW_BASE, "pillow", 0.010)
-			_pavers(preset, {"pattern": "cobbles", "stone_cell": 0.82,
-				"stone_cell_z": 0.82, "gap": 0.025, "stone_jitter": 0.0,
-				"stone_height": [0.014, 0.018], "stone_corner": 0.045,
-				"slab_key": "snow_top", "slab_key_alt": "stone_light"})
-			_scatter(preset, ["stone_chip"], [2, 4], [0.05, 0.09],
-				{"snow_lump": 65.0, "stone_light": 35.0}, [0.008, 0.014])
-			preset.separate_tiles = true
+			# White Soil: the reference soil construction in a pale cream
+			# register — quiet chalky cap, a few large soft-toned clods.
+			_set_base(preset, {"top_key": "accent_cream",
+				"bevel_key": "snow_bevel", "side_key": "stone_medium",
+				"lower_key": "stone_deep"}, "pillow", 0.014,
+				{"relief_frequency": 1.1})
+			_scatter(preset, ["clod"], [6, 8], [0.20, 0.38],
+				{"stone_light": 45.0, "snow_lump": 35.0, "stone_medium": 20.0},
+				[0.016, 0.028],
+				{"cluster_fraction": 0.55, "cluster_radius": 0.28,
+					"min_spacing": 0.16, "edge_margin": 0.08})
 
 		# -------------------------------------------------------------- farm
 		"tile_dirt":
-			# PROTOTYPE — Dirt Ground: softly compressed loam with two
-			# clusters of chunky flat-shaded clods, exactly the reference
-			# soil language. No dots.
-			_set_base(preset, EARTH_BASE, "pillow", 0.030)
-			_scatter(preset, ["clod", "clod", "clod", "pebble"], [6, 9],
-				[0.12, 0.20],
-				{"earth_clump": 40.0, "earth_deep": 35.0, "earth_side": 25.0},
-				[0.016, 0.030],
-				{"cluster_fraction": 0.9, "cluster_radius": 0.22,
-					"min_spacing": 0.075})
+			# Dirt Ground, matched to the measured reference soil: a thin
+			# quiet cap carrying 9-10 LARGE deeply-embedded faceted clods
+			# (each 12-29% of tile width) spread across the whole top.
+			_set_base(preset, EARTH_BASE, "pillow", 0.016,
+				{"relief_frequency": 1.1})
+			_scatter(preset, ["clod"], [9, 10], [0.22, 0.46],
+				{"earth_clump": 42.0, "earth_deep": 33.0, "earth_bevel": 25.0},
+				[0.020, 0.036],
+				{"cluster_fraction": 0.55, "cluster_radius": 0.30,
+					"min_spacing": 0.15, "edge_margin": 0.07})
 		"tile_clay":
 			_set_base(preset, EARTH_BASE, "heaps", 0.026,
 				{"relief_heap_count": [5, 8], "relief_heap_radius": [0.12, 0.23],
@@ -432,29 +437,33 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 
 		# ------------------------------------------------------------- swamp
 		"tile_grass_pond_edge":
-			_set_base(preset, GREEN_BASE, "pillow", 0.014,
-				{"basin_depth": 0.12, "basin_rim": 0.23})
-			_liquid(preset, {"level": -0.065, "inset": 0.25,
-				"corner_radius": 0.18, "surface_key": "water_blue"})
-			_fringe(preset, {"material_key": "moss_clump", "inset": 0.12,
-				"width": 0.10, "height": 0.045, "pieces_per_edge": 9,
-				"jitter": 0.25})
-			_scatter(preset, ["lily_pad", "lily_pad", "bud"], [3, 5],
-				[0.13, 0.22], {"lily_green": 75.0, "blossom_cream": 25.0},
-				[0.008, 0.014])
+			# Pond Edge: the same clean bank construction as the pond — no
+			# fringe course, no rings — with a wider walkable grass ledge.
+			_set_base(preset, {"top_key": "tile_top",
+				"bevel_key": "tile_top_bevel", "side_key": "earth_side",
+				"lower_key": "earth_deep"}, "none", 0.0,
+				{"basin_depth": 0.13, "basin_rim": 0.19,
+					"water_key": "water_blue", "top_bevel": 0.04,
+					"corner_radius": 0.055})
+			_scatter(preset, ["lily_pad"], [1, 2], [0.16, 0.24],
+				{"lily_green": 100.0}, [0.008, 0.014],
+				{"min_spacing": 0.18, "edge_margin": 0.32,
+					"cluster_fraction": 1.0, "cluster_radius": 0.12})
 			preset.separate_tiles = true
 		"tile_proc_pond_basin":
-			# PROTOTYPE — Small Pond: a real water volume — grass-rimmed
-			# basin, translucent pale surface set well below the rim, one
-			# lily group and a reed tuft on the rim.
-			_set_base(preset, GREEN_BASE, "none", 0.0,
-				{"basin_depth": 0.13, "basin_rim": 0.16,
-					"water_key": "water_blue"})
-			_scatter(preset, ["lily_pad", "lily_pad", "bud"], [2, 4],
-				[0.20, 0.30], {"lily_green": 78.0, "blossom_cream": 22.0},
-				[0.008, 0.014],
-				{"min_spacing": 0.16, "edge_margin": 0.30,
-					"cluster_fraction": 1.0, "cluster_radius": 0.15})
+			# Small Pond, reference construction: slim grass lip, soil bank
+			# walls, one clean translucent water plane well below the rim.
+			# No rings, no ripples, no clutter — the volume IS the tile.
+			_set_base(preset, {"top_key": "tile_top",
+				"bevel_key": "tile_top_bevel", "side_key": "earth_side",
+				"lower_key": "earth_deep"}, "none", 0.0,
+				{"basin_depth": 0.15, "basin_rim": 0.10,
+					"water_key": "water_blue", "top_bevel": 0.04,
+					"corner_radius": 0.055})
+			_scatter(preset, ["lily_pad"], [1, 3], [0.18, 0.28],
+				{"lily_green": 100.0}, [0.008, 0.014],
+				{"min_spacing": 0.18, "edge_margin": 0.26,
+					"cluster_fraction": 1.0, "cluster_radius": 0.14})
 			preset.separate_tiles = true
 		"tile_open_water":
 			_set_base(preset, {"top_key": "water_deep", "bevel_key": "water_blue",
@@ -578,14 +587,22 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 				[0.008, 0.014])
 			preset.separate_tiles = true
 		"tile_frosted_stone":
-			# Frost as FORM: pillowed stone with two or three broad drift
-			# masses gathering in the hollows.
-			_set_base(preset, STONE_BASE, "pillow", 0.026)
-			_scatter(preset, ["drift_mound", "snow_lump", "snow_lump"],
-				[5, 8], [0.14, 0.24],
-				{"snow_lump": 70.0, "snow_top": 30.0}, [0.016, 0.028],
-				{"min_spacing": 0.02, "cluster_fraction": 0.9,
-					"cluster_radius": 0.16})
+			# Frosted Stone: quiet pillowed stone under ONE broad smooth
+			# snow blanket (plus a small companion patch) — a single
+			# readable accumulation, never scattered lumps.
+			_set_base(preset, STONE_BASE, "pillow", 0.018,
+				{"relief_frequency": 1.2})
+			_patches(preset, {"patch_profile": "cushion",
+				"large_count": [1, 1], "medium_count": [1, 1],
+				"small_count": [0, 0], "large_radius": [0.38, 0.48],
+				"medium_radius": [0.17, 0.24], "aspect": [0.58, 0.85],
+				"irregularity": [0.20, 0.30], "outline_points": 26,
+				"height_scale": 0.7, "edge_softness": 0.72,
+				"region_spread": 0.5, "allow_overlap": true,
+				"color_weights": {"snow_top": 100.0}})
+			_scatter(preset, ["snow_lump"], [1, 2], [0.15, 0.22],
+				{"snow_lump": 100.0}, [0.014, 0.022],
+				{"cluster_fraction": 1.0, "cluster_radius": 0.14})
 
 		# ------------------------------------------------------------ market
 		"tile_courtyard":
