@@ -3,5 +3,6 @@
   "combat_enabled": false,
   "monsters_enabled": false,
   "hostile_landmarks_enabled": false,
-  "ferry_arrivals_enabled": true
+  "ferry_arrivals_enabled": true,
+  "spirit_player_prototype_enabled": true
 }

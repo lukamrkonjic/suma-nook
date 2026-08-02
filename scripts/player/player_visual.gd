@@ -23,6 +23,9 @@ const FishingRodScript := preload(
 const FishingPoseModifierScript := preload(
 	"res://scripts/player/fishing_pose_modifier.gd"
 )
+const SpiritPhysicsPrototypeScript := preload(
+	"res://scripts/player/spirit_physics_prototype.gd"
+)
 
 signal animation_started(animation_name: String)
 signal animation_event(animation_name: String, event_name: String)
@@ -213,6 +216,8 @@ var _locomotion_transition_count := 0
 var _fishing_rod: FishingRod
 var _fishing_pose_modifier: FishingPoseModifier
 var _seated_fishing_active := false
+var _spirit_prototype: Node3D
+var _spirit_prototype_enabled := false
 
 var _walk_amount := 0.0
 var _walk_phase := 0.0
@@ -263,6 +268,28 @@ func _switch_body(body_index: int) -> void:
 			% _asset_profile.asset_id
 		)
 		_collect_parts()
+	_sync_spirit_prototype_visibility()
+
+
+func set_spirit_prototype_enabled(enabled: bool) -> void:
+	_spirit_prototype_enabled = enabled
+	if enabled and not is_instance_valid(_spirit_prototype):
+		_spirit_prototype = SpiritPhysicsPrototypeScript.new()
+		_spirit_prototype.name = "SpiritPhysicsPrototype"
+		add_child(_spirit_prototype)
+		_spirit_prototype.call("build")
+	_sync_spirit_prototype_visibility()
+
+
+func spirit_prototype_enabled() -> bool:
+	return _spirit_prototype_enabled
+
+
+func _sync_spirit_prototype_visibility() -> void:
+	if is_instance_valid(_body):
+		_body.visible = not _spirit_prototype_enabled
+	if is_instance_valid(_spirit_prototype):
+		_spirit_prototype.visible = _spirit_prototype_enabled
 
 
 func _teardown_body() -> void:
@@ -549,6 +576,12 @@ func _animated_ground_offset(bounds: AABB, preview_scale: float) -> float:
 ## capsule-driven; soft ground consumes only these world-space X/Z positions
 ## so swapping the temporary character asset never couples terrain to its rig.
 func foot_world_positions() -> Array[Vector3]:
+	if _spirit_prototype_enabled and is_instance_valid(_spirit_prototype):
+		var prototype_feet: Array[Vector3] = []
+		for foot_position in _spirit_prototype.call("foot_world_positions"):
+			prototype_feet.append(foot_position as Vector3)
+		if prototype_feet.size() == 2:
+			return prototype_feet
 	var result: Array[Vector3] = []
 	if _skeleton != null and _asset_profile != null:
 		for bone_name in [

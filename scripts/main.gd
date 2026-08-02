@@ -156,18 +156,22 @@ func _build_world_scene() -> void:
 
 	player = PlayerController.new()
 	player.name = "Player"
+	var spirit_player_enabled := core.registries.feature(
+		"spirit_player_prototype_enabled", false
+	)
 	var capsule := CollisionShape3D.new()
 	var shape := CapsuleShape3D.new()
-	shape.radius = 0.3
-	shape.height = 1.1
+	shape.radius = 0.18 if spirit_player_enabled else 0.3
+	shape.height = 0.76 if spirit_player_enabled else 1.1
 	capsule.shape = shape
-	capsule.position.y = 0.56
+	capsule.position.y = 0.39 if spirit_player_enabled else 0.56
 	player.add_child(capsule)
 	player_visual = PlayerVisual.new()
 	player_visual.name = "Visual"
 	player.add_child(player_visual)
 	world_root.add_child(player)
 	player_visual.build(assets, palette)
+	player_visual.set_spirit_prototype_enabled(spirit_player_enabled)
 
 	camera_rig = CameraRig.new()
 	camera_rig.name = "CameraRig"
