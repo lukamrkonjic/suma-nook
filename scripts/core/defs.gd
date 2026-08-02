@@ -92,7 +92,7 @@ class DiscoveryPoolDefinition:
 	var traits := DefinitionTraits.new()
 	var description: String
 	var icon_glyph: String
-	var color := Color(0.7, 0.7, 0.7)
+	var color := PaletteDefinition.shared().color("ui_neutral")
 	var source: String = "local"      # void|local
 	var skill_id: String = ""
 	var context_tags: Array[String] = []
@@ -108,7 +108,10 @@ class DiscoveryPoolDefinition:
 		pool.traits = DefinitionTraits.from_dict(d)
 		pool.description = d.get("description", "")
 		pool.icon_glyph = d.get("icon", "✦")
-		pool.color = Color.from_string("#" + String(d.get("color", "b0b0b0")), pool.color)
+		pool.color = PaletteDefinition.shared().color(
+			String(d.get("color_token", "ui_neutral")),
+			pool.color
+		)
 		pool.source = String(d.get("source", "local"))
 		pool.skill_id = String(d.get("skill", ""))
 		for tag in d.get("context_tags", []):
@@ -183,7 +186,7 @@ class SpiritDefinition:
 	var traits := DefinitionTraits.new()
 	var description: String
 	var icon_glyph: String
-	var color := Color(0.7, 0.8, 0.7)
+	var color := PaletteDefinition.shared().color("spirit_grove")
 	var theme_tag: String = ""                # theme this charm targets
 	var source_skill: String = ""             # activity whose cycle creates it
 
@@ -194,7 +197,10 @@ class SpiritDefinition:
 		s.traits = DefinitionTraits.from_dict(d)
 		s.description = d.get("description", "")
 		s.icon_glyph = d.get("icon", "✧")
-		s.color = Color.from_string("#" + String(d.get("color", "9cc09c")), s.color)
+		s.color = PaletteDefinition.shared().color(
+			String(d.get("color_token", "spirit_grove")),
+			s.color
+		)
 		s.theme_tag = String(d.get("theme_tag", ""))
 		s.source_skill = String(d.get("source_skill", ""))
 		return s

@@ -5,12 +5,9 @@
 [resource]
 script = ExtResource("1")
 profile_id = "candidate_c_defined"
-background_color = Color(0.9176, 0.8941, 0.8157, 1)
-ambient_color = Color(0.8667, 0.8471, 0.7961, 1)
 ambient_energy = 0.72
 background_gradient = false
 stars_enabled = false
-sun_color = Color(1.0, 0.9608, 0.902, 1)
 sun_energy = 1.02
 sun_specular = 0.55
 sun_pitch_deg = -62.0

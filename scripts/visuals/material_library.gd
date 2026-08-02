@@ -87,6 +87,10 @@ var _style_data: Dictionary = {}
 func _init(pal: CozyPalette) -> void:
 	palette = pal
 	_style_data = JSON.parse_string(FileAccess.get_file_as_string(STYLE_DATA_PATH))
+	if palette is PaletteDefinition:
+		(palette as PaletteDefinition).palette_changed.connect(
+			_on_palette_changed
+		)
 
 
 func material(key: String) -> Material:
@@ -98,7 +102,7 @@ func material(key: String) -> Material:
 		return _cache(key, _flora_material(key))
 	if key.begins_with("uw_"):
 		return _cache(key, _underwater_material(key))
-	if not palette.colors.has(key):
+	if not _has_palette_color(key):
 		return _fallback()
 	var style := material_parameters(key)
 	var emission_energy := float(style.get("emission_energy", EMISSIVE.get(key, 0.0)))
@@ -169,7 +173,7 @@ func material_parameters(key: String) -> Dictionary:
 
 func material_parameter_manifest() -> Dictionary:
 	var manifest := {}
-	for key: String in palette.colors:
+	for key: String in _palette_keys():
 		var live := material(key)
 		if live is ShaderMaterial:
 			manifest[key] = _shader_material_manifest(key, live as ShaderMaterial)
@@ -317,6 +321,7 @@ func _water_material() -> ShaderMaterial:
 	m.set_shader_parameter("side_top_color", palette.color("water_shallow_highlight"))
 	m.set_shader_parameter("side_bottom_color", palette.color("water_turquoise"))
 	m.set_shader_parameter("caustic_color", palette.color("water_caustic"))
+	m.set_shader_parameter("placement_invalid_tint", palette.color("ui_invalid"))
 	for parameter in WATER_PARAMETERS:
 		m.set_shader_parameter(parameter, WATER_PARAMETERS[parameter])
 	return m
@@ -393,12 +398,100 @@ func rebind_materials(root: Node) -> void:
 func _semantic_key(raw_name: String) -> String:
 	# glTF import can suffix duplicates ("grass.001"); strip that.
 	var key := raw_name.get_slice(".", 0)
-	return key if palette.colors.has(key) else ""
+	return key if _has_palette_color(key) else ""
 
 
 func _fallback() -> Material:
 	if not _materials.has("__fallback"):
 		var m := StandardMaterial3D.new()
-		m.albedo_color = Color.MAGENTA
+		m.albedo_color = palette.color("debug_missing")
 		_materials["__fallback"] = m
 	return _materials["__fallback"]
+
+
+func _has_palette_color(key: String) -> bool:
+	if palette is PaletteDefinition:
+		return (palette as PaletteDefinition).has_color(key)
+	return palette.colors.has(key)
+
+
+func _palette_keys() -> PackedStringArray:
+	if palette is PaletteDefinition:
+		return (palette as PaletteDefinition).all_color_keys()
+	return PackedStringArray(palette.colors.keys())
+
+
+func _on_palette_changed(_scheme_id: String) -> void:
+	for key: String in _materials:
+		if key == "__fallback" or key.contains("|"):
+			continue
+		_refresh_material_color(key, _materials[key])
+
+
+func _refresh_material_color(key: String, material_instance: Material) -> void:
+	if material_instance is ShaderMaterial:
+		var shader_material := material_instance as ShaderMaterial
+		if key == "water":
+			shader_material.set_shader_parameter(
+				"shallow_color",
+				_styled_albedo("water_shallow", palette.color("water_shallow"))
+			)
+			shader_material.set_shader_parameter(
+				"mid_color",
+				_styled_albedo("water_turquoise", palette.color("water_turquoise"))
+			)
+			shader_material.set_shader_parameter(
+				"deep_color",
+				_styled_albedo("water_deep", palette.color("water_deep"))
+			)
+			shader_material.set_shader_parameter(
+				"foam_color",
+				_styled_albedo("water_foam", palette.color("water_foam"))
+			)
+			shader_material.set_shader_parameter(
+				"sky_color",
+				palette.color("background_day")
+			)
+			shader_material.set_shader_parameter(
+				"side_top_color",
+				palette.color("water_shallow_highlight")
+			)
+			shader_material.set_shader_parameter(
+				"side_bottom_color",
+				palette.color("water_turquoise")
+			)
+			shader_material.set_shader_parameter(
+				"caustic_color",
+				palette.color("water_caustic")
+			)
+			return
+		if key.begins_with("uw_"):
+			shader_material.set_shader_parameter(
+				"albedo",
+				_styled_albedo(key, palette.color(key))
+			)
+			shader_material.set_shader_parameter(
+				"caustic_color",
+				palette.color("water_caustic")
+			)
+			return
+		shader_material.set_shader_parameter(
+			"albedo",
+			_styled_albedo(key, palette.color(key), material_parameters(key))
+		)
+		if SOFT_TERRAIN_PARAMETERS.has(key):
+			_configure_soft_terrain_material(
+				shader_material,
+				key,
+				SOFT_TERRAIN_PARAMETERS[key]
+			)
+		return
+	if material_instance is StandardMaterial3D:
+		var standard := material_instance as StandardMaterial3D
+		var alpha := standard.albedo_color.a
+		standard.albedo_color = Color(
+			_styled_albedo(key, palette.color(key), material_parameters(key)),
+			alpha
+		)
+		if standard.emission_enabled:
+			standard.emission = palette.color(key)

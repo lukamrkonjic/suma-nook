@@ -29,7 +29,8 @@ TILE = 2.0
 # side walls stay a warm supporting band.
 BLOCK_DEPTH = 0.60
 
-# Palette mirrors assets/palettes/cozy_diorama_palette.tres — keep in sync.
+# Offline preview values only. Exported material NAMES are semantic; runtime
+# colors always rebind through assets/palettes/gg_material_palette.tres.
 # Raw unlit albedos; the DirectionalLight3D creates light and shade — no baked
 # sunlight, no orientation tint, no screen-space color grading.
 def srgb(hexcode: str) -> tuple:

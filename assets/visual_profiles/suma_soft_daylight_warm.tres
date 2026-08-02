@@ -5,16 +5,10 @@
 [resource]
 script = ExtResource("1")
 profile_id = "suma_soft_daylight_warm"
-background_color = Color(0.9400, 0.8800, 0.7500, 1)
-ambient_color = Color(0.9600, 0.8800, 0.7400, 1)
 ambient_energy = 2.15
 ambient_gradient_enabled = true
-ambient_sky_color = Color(0.9600, 0.8800, 0.7300, 1)
-ambient_equator_color = Color(0.9300, 0.8000, 0.6300, 1)
-ambient_ground_color = Color(0.8700, 0.7700, 0.6000, 1)
 background_gradient = false
 stars_enabled = false
-sun_color = Color(1.0000, 0.9000, 0.7200, 1)
 sun_energy = 4.9
 sun_specular = 0.05
 sun_pitch_deg = -55

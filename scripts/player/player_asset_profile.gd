@@ -47,9 +47,13 @@ extends Resource
 @export var material_shader: Shader
 @export_range(0.0, 2.0, 0.01) var material_saturation := 1.14
 @export_range(0.0, 2.0, 0.01) var material_value_scale := 0.88
-@export var material_tint := Color(1.0, 0.97, 0.92, 1.0)
+@export var material_tint_token := "character_material_tint"
 @export_range(0.0, 1.0, 0.01) var material_roughness := 0.9
 @export_range(0.0, 1.0, 0.01) var material_specular := 0.14
+
+
+func material_tint() -> Color:
+	return PaletteDefinition.shared().color(material_tint_token)
 
 
 func validation_errors() -> PackedStringArray:

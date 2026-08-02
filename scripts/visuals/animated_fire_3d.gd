@@ -17,6 +17,7 @@ extends Node3D
 @export var playing := true
 
 var _materials: MaterialLibrary
+var _color_system := PaletteDefinition.shared()
 var _rng := RandomNumberGenerator.new()
 var _flames: Array[FlameState] = []
 var _embers: Array[DriftState] = []
@@ -303,7 +304,7 @@ func _update_flame(state: FlameState, delta: float) -> void:
 		)
 		state.pool.set_instance_color(
 			state.index,
-			Color(1.0, 1.0, 1.0, 0.0)
+			Color(_color_system.color("ui_white"), 0.0)
 		)
 		return
 	var t := clampf(state.age / state.lifetime, 0.0, 1.0)
@@ -342,7 +343,7 @@ func _update_flame(state: FlameState, delta: float) -> void:
 	)
 	state.pool.set_instance_color(
 		state.index,
-		Color(1.0, 1.0, 1.0, opacity)
+		Color(_color_system.color("ui_white"), opacity)
 	)
 
 
@@ -390,7 +391,10 @@ func _update_ember(state: DriftState, delta: float) -> void:
 	)
 	state.pool.set_instance_color(
 		state.index,
-		Color(1.0, 1.0, 1.0, 1.0 - smoothstep(0.35, 1.0, t))
+		Color(
+			_color_system.color("ui_white"),
+			1.0 - smoothstep(0.35, 1.0, t)
+		)
 	)
 
 
@@ -448,7 +452,7 @@ func _update_smoke(state: DriftState, delta: float) -> void:
 	)
 	state.pool.set_instance_color(
 		state.index,
-		Color(1.0, 1.0, 1.0, opacity)
+		Color(_color_system.color("ui_white"), opacity)
 	)
 
 
@@ -462,15 +466,15 @@ func _hide_drift(state: DriftState) -> void:
 	)
 	state.pool.set_instance_color(
 		state.index,
-		Color(1.0, 1.0, 1.0, 0.0)
+		Color(_color_system.color("ui_white"), 0.0)
 	)
 
 
 func _flame_palette() -> Array[Color]:
-	var deep := _palette_color("fire_red", Color("#b84a2a"))
-	var orange := _palette_color("fire_orange", Color("#d98b22"))
-	var yellow := _palette_color("fire_yellow", Color("#f2d84a"))
-	var pale := _palette_color("fire_core", Color("#fff4cc"))
+	var deep := _palette_color("fire_red")
+	var orange := _palette_color("fire_orange")
+	var yellow := _palette_color("fire_yellow")
+	var pale := _palette_color("fire_core")
 	return [
 		deep.lerp(orange, 0.58),
 		orange.darkened(0.06),
@@ -480,11 +484,11 @@ func _flame_palette() -> Array[Color]:
 	]
 
 
-func _palette_color(key: String, fallback: Color) -> Color:
+func _palette_color(key: String) -> Color:
 	return (
-		_materials.palette.color(key, fallback)
+		_materials.palette.color(key, _color_system.color(key))
 		if _materials != null
-		else fallback
+		else _color_system.color(key)
 	)
 
 
@@ -512,7 +516,7 @@ func _smoke_material() -> StandardMaterial3D:
 			material = source.duplicate() as StandardMaterial3D
 	if material == null:
 		material = StandardMaterial3D.new()
-		material.albedo_color = Color("#c4baa7")
+		material.albedo_color = _color_system.color("smoke")
 	material.transparency = (
 		BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS
 	)

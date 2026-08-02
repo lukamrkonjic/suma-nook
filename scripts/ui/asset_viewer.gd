@@ -702,7 +702,7 @@ func _build_inspector(parent: Control) -> void:
 	_import_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_import_status.add_theme_color_override(
 		"font_color",
-		Color(0.34, 0.39, 0.34)
+		_kit.palette.color("ui_asset_debug_text_dark")
 	)
 	column.add_child(_import_status)
 
@@ -828,8 +828,8 @@ func _configure_color_picker() -> void:
 	var popup := _color_picker.get_popup()
 	popup.transparent_bg = false
 	var panel := StyleBoxFlat.new()
-	panel.bg_color = Color("f5f0e2")
-	panel.border_color = Color("766f60")
+	panel.bg_color = _kit.palette.color("ui_asset_panel")
+	panel.border_color = _kit.palette.color("ui_asset_panel_border")
 	panel.set_border_width_all(2)
 	panel.set_corner_radius_all(12)
 	panel.set_content_margin_all(12.0)
@@ -845,7 +845,7 @@ func _build_design_palette(parent: VBoxContainer) -> void:
 	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	guidance.add_theme_color_override(
 		"font_color",
-		Color(0.37, 0.41, 0.35)
+		_kit.palette.color("ui_asset_debug_text_a")
 	)
 	parent.add_child(guidance)
 	_palette_status = _kit.label("Choose a material slot first.", 11, false, true)
@@ -903,7 +903,7 @@ func _build_design_palette(parent: VBoxContainer) -> void:
 	_palette_count = _kit.label("", 10, false, true)
 	_palette_count.add_theme_color_override(
 		"font_color",
-		Color(0.43, 0.46, 0.39)
+		_kit.palette.color("ui_asset_debug_text_light")
 	)
 	parent.add_child(_palette_count)
 	_palette_grid = GridContainer.new()
@@ -1006,7 +1006,10 @@ func _rebuild_palette_swatches() -> void:
 
 
 func _design_palette_color(key: String) -> Color:
-	var fallback := _assets.materials.palette.color(key, Color.WHITE)
+	var fallback := _assets.materials.palette.color(
+		key,
+		_assets.materials.palette.color("neutral_white")
+	)
 	var material := _assets.materials.material(key)
 	if material == null:
 		fallback.a = 1.0
@@ -1099,7 +1102,11 @@ func _style_palette_swatch(
 	color: Color,
 	selected: bool
 ) -> void:
-	var border := Color("f4e7c8") if selected else Color(0.19, 0.18, 0.15, 0.42)
+	var border := (
+		_kit.palette.color("ui_asset_selected")
+		if selected
+		else _kit.palette.color("ui_asset_unselected_border")
+	)
 	var width := 4 if selected else 1
 	for state in ["normal", "hover", "pressed", "focus"]:
 		var style := StyleBoxFlat.new()
@@ -1109,14 +1116,20 @@ func _style_palette_swatch(
 			else color.lightened(0.045) if state == "hover" else color
 		)
 		style.border_color = (
-			Color("b27a61") if state in ["hover", "focus"] else border
+			_kit.palette.color("ui_asset_hover")
+			if state in ["hover", "focus"]
+			else border
 		)
 		style.set_border_width_all(3 if state in ["hover", "focus"] else width)
 		style.set_corner_radius_all(8)
 		style.set_content_margin_all(4.0)
 		button.add_theme_stylebox_override(state, style)
 	var luminance := color.get_luminance()
-	var text_color := Color("332b25") if luminance > 0.62 else Color("fff8e8")
+	var text_color := (
+		_kit.palette.color("ui_asset_text_dark")
+		if luminance > 0.62
+		else _kit.palette.color("ui_asset_text_light")
+	)
 	button.add_theme_color_override("font_color", text_color)
 	button.add_theme_color_override("font_hover_color", text_color)
 	button.add_theme_color_override("font_pressed_color", text_color)
@@ -1126,7 +1139,10 @@ func _style_palette_swatch(
 
 func _editor_section(text: String) -> Label:
 	var label := _kit.label(text, 12, false, true)
-	label.add_theme_color_override("font_color", Color(0.40, 0.44, 0.38))
+	label.add_theme_color_override(
+		"font_color",
+		_kit.palette.color("ui_asset_debug_text_b")
+	)
 	return label
 
 
@@ -1152,7 +1168,10 @@ func _inspector_accordion(
 	if not help_text.is_empty():
 		var help := _kit.label(help_text, 11)
 		help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		help.add_theme_color_override("font_color", Color(0.38, 0.42, 0.37))
+		help.add_theme_color_override(
+			"font_color",
+			_kit.palette.color("ui_asset_debug_text_c")
+		)
 		content.add_child(help)
 	var refresh := func(open: bool) -> void:
 		header.text = ("▼  " if open else "▶  ") + title
@@ -1341,7 +1360,10 @@ func _catalog_group_label(text: String) -> Label:
 	var label := _kit.label(text.to_upper(), 12, false, true)
 	label.custom_minimum_size.y = 28.0
 	label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-	label.add_theme_color_override("font_color", Color(0.42, 0.46, 0.40))
+	label.add_theme_color_override(
+		"font_color",
+		_kit.palette.color("ui_asset_debug_text_d")
+	)
 	return label
 
 
@@ -1799,12 +1821,12 @@ func _refresh_edit_controls() -> void:
 	_metallic_slider.editable = not keys.is_empty()
 	if keys.is_empty():
 		_selected_material_key = ""
-		_color_picker.color = Color.WHITE
+		_color_picker.color = _kit.palette.color("neutral_white")
 		_roughness_slider.set_value_no_signal(0.0)
 		_metallic_slider.set_value_no_signal(0.0)
 		_roughness_readout.text = "—"
 		_metallic_readout.text = "—"
-		_refresh_palette_selection(Color.WHITE, false)
+		_refresh_palette_selection(_kit.palette.color("neutral_white"), false)
 	else:
 		_selected_material_key = keys[0]
 		_material_slot.select(0)
@@ -1859,7 +1881,7 @@ func _refresh_selected_material_controls() -> void:
 	var values := _material_values(_selected_material_key)
 	_color_picker.color = Color.from_string(
 		String(values.get("color", "ffffff")),
-		Color.WHITE
+		_kit.palette.color("neutral_white")
 	)
 	var roughness := float(values.get("roughness", 0.72))
 	var metallic := float(values.get("metallic", 0.0))
@@ -2283,7 +2305,7 @@ func _add_production_warm_light(
 	)
 	var light := OmniLight3D.new()
 	light.name = "AssetViewerProductionLight"
-	light.light_color = Color(1.0, 0.72, 0.4)
+	light.light_color = _kit.palette.color("vfx_local_light")
 	light.omni_range = 4.5
 	light.position.y = definition.light_height
 	light.light_energy = _main.lighting.local_light_energy(base_energy)
@@ -2442,5 +2464,5 @@ func _divider() -> VSeparator:
 
 func _translucent_panel() -> StyleBoxFlat:
 	var style := _kit.panel_style(false, 16)
-	style.bg_color = Color(0.95, 0.94, 0.89, 0.84)
+	style.bg_color = _kit.palette.color("ui_asset_preview_surface")
 	return style

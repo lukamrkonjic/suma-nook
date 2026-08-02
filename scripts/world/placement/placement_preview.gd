@@ -1,5 +1,7 @@
 class_name PlacementPreview
 extends RefCounted
+
+var _color_system := PaletteDefinition.shared()
 ## Presents the actual held visual above its resolved landing point.
 ## Invalid placement is communicated on the held model itself so stacked pieces
 ## cannot occlude the feedback. Unlike the original flat-red replacement, a
@@ -17,7 +19,7 @@ const WATER_INVALID_STRENGTH := 0.68
 func _init(parent: Node3D, tile_size: float) -> void:
 	lift_height = maxf(0.14, tile_size * 0.12)
 	invalid_overlay = StandardMaterial3D.new()
-	invalid_overlay.albedo_color = Color(1.0, 0.08, 0.045, 0.24)
+	invalid_overlay.albedo_color = _color_system.color("ui_invalid")
 	invalid_overlay.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	invalid_overlay.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	invalid_overlay.cull_mode = BaseMaterial3D.CULL_DISABLED

@@ -43,15 +43,17 @@ const CURL_NOISE_SIZE := 96
 # F5E8CF / FFF8E8, authored slightly hot for the tonemap): taupe
 # foundations, soft shadow, cream body, ivory light areas, and the
 # sunlit highlight.
-@export_group("Cloud palette")
-@export var base_deep := Color(0.686, 0.626, 0.590)
-@export var base_shade := Color(0.846, 0.781, 0.720)
-@export var base_mid := Color(0.992, 0.919, 0.815)
-@export var base_crown := Color(1.057, 1.001, 0.893)
-@export var base_light := Color(1.10, 1.07, 1.001)
-@export var base_rim := Color(1.0, 0.80, 0.52)
-
-const FALLBACK_ATMOSPHERE := Color(1.082, 1.036, 0.932)
+var _palette := PaletteDefinition.shared()
+var base_deep := _palette.color("cloud_base_deep")
+var base_shade := _palette.color("cloud_base_shade")
+var base_mid := _palette.color("cloud_base_mid")
+var base_crown := _palette.color("cloud_base_crown")
+var base_light := _palette.color("cloud_base_light")
+var base_rim := _palette.color("cloud_base_rim")
+var _fallback_atmosphere: Color = _palette.world_theme("default").get(
+	"bg1",
+	_palette.color("neutral_white")
+)
 
 var _environment: Environment
 var _rig: Node
@@ -72,7 +74,7 @@ var _current_shade := base_shade
 var _current_deep := base_deep
 var _current_mid := base_mid
 var _current_rim := base_rim
-var _current_atmosphere := FALLBACK_ATMOSPHERE
+var _current_atmosphere := _fallback_atmosphere
 var _current_opacity := 0.94
 var _current_rain_absorption := 0.0
 var _target_crown := base_crown
@@ -81,13 +83,22 @@ var _target_shade := base_shade
 var _target_deep := base_deep
 var _target_mid := base_mid
 var _target_rim := base_rim
-var _target_atmosphere := FALLBACK_ATMOSPHERE
+var _target_atmosphere := _fallback_atmosphere
 var _target_opacity := 0.94
 var _target_rain_absorption := 0.0
 
-var _sky_color0 := Color(1.108, 1.015, 0.917)
-var _sky_color1 := Color(1.082, 1.036, 0.932)
-var _sky_zenith := Color(1.062, 0.962, 0.851)
+var _sky_color0: Color = _palette.world_theme("default").get(
+	"bg0",
+	_palette.color("neutral_white")
+)
+var _sky_color1: Color = _palette.world_theme("default").get(
+	"bg1",
+	_palette.color("neutral_white")
+)
+var _sky_zenith: Color = _palette.world_theme("default").get(
+	"bg_zenith",
+	_palette.color("neutral_white")
+)
 var _sky_known := false
 
 
@@ -99,6 +110,27 @@ func setup(environment: Environment, lighting_rig: Node) -> void:
 	apply_quality(quality_level)
 	if _rig != null and _rig.has_signal("profile_applied"):
 		_rig.profile_applied.connect(_on_lighting_changed)
+	if not _palette.palette_changed.is_connected(_on_palette_changed):
+		_palette.palette_changed.connect(_on_palette_changed)
+	_apply_design_system_palette()
+	_refresh_palette_targets()
+
+
+func _apply_design_system_palette() -> void:
+	base_deep = _palette.color("cloud_base_deep")
+	base_shade = _palette.color("cloud_base_shade")
+	base_mid = _palette.color("cloud_base_mid")
+	base_crown = _palette.color("cloud_base_crown")
+	base_light = _palette.color("cloud_base_light")
+	base_rim = _palette.color("cloud_base_rim")
+	_fallback_atmosphere = _palette.world_theme("default").get(
+		"bg1",
+		_palette.color("neutral_white")
+	)
+
+
+func _on_palette_changed(_scheme_id: String) -> void:
+	_apply_design_system_palette()
 	_refresh_palette_targets()
 
 
@@ -376,22 +408,22 @@ func _refresh_palette_targets() -> void:
 	_target_rain_absorption = 0.0
 	match weather:
 		"rain":
-			crown = crown.lerp(Color(0.70, 0.73, 0.78), 0.52)
-			light = light.lerp(Color(0.59, 0.63, 0.70), 0.48)
-			shade = shade.lerp(Color(0.38, 0.42, 0.52), 0.52)
-			deep = deep.lerp(Color(0.30, 0.34, 0.43), 0.52)
-			mid = mid.lerp(Color(0.62, 0.66, 0.73), 0.48)
+			crown = crown.lerp(_palette.color("cloud_rain_crown"), 0.52)
+			light = light.lerp(_palette.color("cloud_rain_light"), 0.48)
+			shade = shade.lerp(_palette.color("cloud_rain_shade"), 0.52)
+			deep = deep.lerp(_palette.color("cloud_rain_deep"), 0.52)
+			mid = mid.lerp(_palette.color("cloud_rain_mid"), 0.48)
 			opacity = minf(1.0, volume_opacity + 0.04)
 			# The talk darkens rain clouds by raising light absorption.
 			_target_rain_absorption = 0.55
 		"snow":
-			crown = crown.lerp(Color(0.97, 0.98, 1.0), 0.42)
-			light = light.lerp(Color(0.85, 0.89, 0.96), 0.30)
-			mid = mid.lerp(Color(0.90, 0.93, 0.98), 0.30)
+			crown = crown.lerp(_palette.color("cloud_snow_crown"), 0.42)
+			light = light.lerp(_palette.color("cloud_snow_light"), 0.30)
+			mid = mid.lerp(_palette.color("cloud_snow_mid"), 0.30)
 	# Grade the cotton palette by the sky's own light: keep most of the
 	# sky's hue family and follow its luminance, so night clouds are dim
 	# grey-blue shapes and sunset clouds catch the amber wash.
-	var atmosphere := FALLBACK_ATMOSPHERE
+	var atmosphere := _fallback_atmosphere
 	var grade := Color(1.0, 1.0, 1.0)
 	var brightness := 1.0
 	if _sky_known:

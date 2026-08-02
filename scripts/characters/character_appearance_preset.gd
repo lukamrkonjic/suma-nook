@@ -10,12 +10,12 @@ extends Resource
 @export var parts: Array[CharacterPartDefinition] = []
 
 @export_group("Colors")
-@export var skin_color := Color("e0b06c")
-@export var hair_color := Color("543826")
-@export var brow_color := Color("543826")
-@export var moustache_color := Color("543826")
-@export var eye_color := Color("241a14")
-@export var mouth_color := Color("5c372a")
+@export var skin_color := PaletteDefinition.shared().color("skin_light")
+@export var hair_color := PaletteDefinition.shared().color("hair_primary")
+@export var brow_color := PaletteDefinition.shared().color("hair_primary")
+@export var moustache_color := PaletteDefinition.shared().color("hair_primary")
+@export var eye_color := PaletteDefinition.shared().color("character_eye")
+@export var mouth_color := PaletteDefinition.shared().color("character_mouth")
 
 
 func part_in_slot(slot: String) -> CharacterPartDefinition:
@@ -39,7 +39,7 @@ func color_for_channel(channel: String) -> Color:
 			return eye_color
 		"mouth":
 			return mouth_color
-	return Color.WHITE
+	return PaletteDefinition.shared().color("neutral_white")
 
 
 func validation_errors() -> PackedStringArray:

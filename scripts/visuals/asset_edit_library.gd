@@ -264,7 +264,7 @@ func material_values(material: Material) -> Dictionary:
 			),
 		}
 	return {
-		"color": Color.WHITE.to_html(false),
+		"color": PaletteDefinition.shared().color("neutral_white").to_html(false),
 		"roughness": 0.72,
 		"metallic": 0.0,
 	}
@@ -705,10 +705,14 @@ func _apply_material_values(material: Material, raw_values: Variant) -> void:
 	if not raw_values is Dictionary:
 		return
 	var values := raw_values as Dictionary
-	var color := Color.from_string(
-		String(values.get("color", "ffffff")),
-		Color.WHITE
+	var color := PaletteDefinition.shared().color(
+		String(values.get("color_token", "ui_white")),
+		PaletteDefinition.shared().color("neutral_white")
 	)
+	# Runtime authoring may deliberately store a custom color. Shipped
+	# profiles use semantic tokens so global schemes can still transform them.
+	if values.has("color"):
+		color = Color.from_string(String(values["color"]), color)
 	var roughness := clampf(float(values.get("roughness", 0.72)), 0.0, 1.0)
 	var metallic := clampf(float(values.get("metallic", 0.0)), 0.0, 1.0)
 	if material is StandardMaterial3D:
@@ -744,7 +748,7 @@ func _shader_color(material: ShaderMaterial) -> Color:
 			var value = material.get_shader_parameter(name)
 			if value is Color:
 				return value
-	return Color.WHITE
+	return PaletteDefinition.shared().color("neutral_white")
 
 
 func _shader_float(
@@ -789,11 +793,7 @@ func _sanitize_profile(raw: Dictionary) -> Dictionary:
 		if not supplied_materials[key] is Dictionary:
 			continue
 		var values: Dictionary = supplied_materials[key]
-		materials[key] = {
-			"color": Color.from_string(
-				String(values.get("color", "ffffff")),
-				Color.WHITE
-			).to_html(false),
+		var normalized := {
 			"roughness": clampf(
 				float(values.get("roughness", 0.72)),
 				0.0,
@@ -805,6 +805,14 @@ func _sanitize_profile(raw: Dictionary) -> Dictionary:
 				1.0
 			),
 		}
+		if values.has("color_token"):
+			normalized["color_token"] = String(values["color_token"])
+		else:
+			normalized["color"] = Color.from_string(
+				String(values.get("color", "ffffff")),
+				PaletteDefinition.shared().color("neutral_white")
+			).to_html(false)
+		materials[key] = normalized
 	return {
 		"scale": clampf(
 			float(raw.get("scale", 1.0)),

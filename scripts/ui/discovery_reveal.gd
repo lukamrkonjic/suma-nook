@@ -49,7 +49,7 @@ func _show(entry: Dictionary) -> void:
 	add_child(_root)
 
 	var dim := ColorRect.new()
-	dim.color = Color(0.08, 0.09, 0.08, 0.68)
+	dim.color = kit.palette.color("ui_reveal_scrim")
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.add_child(dim)
 

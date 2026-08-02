@@ -97,7 +97,7 @@ func _build_shell() -> void:
 
 	var scrim := ColorRect.new()
 	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	scrim.color = Color(0.18, 0.18, 0.15, 0.54)
+	scrim.color = kit.palette.color("ui_pause_scrim")
 	scrim.mouse_filter = Control.MOUSE_FILTER_STOP
 	_root.add_child(scrim)
 
@@ -119,7 +119,7 @@ func _build_shell() -> void:
 	footer.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	footer.position.y = -24
 	footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	footer.add_theme_color_override("font_color", Color(0.82, 0.8, 0.72))
+	footer.add_theme_color_override("font_color", kit.palette.color("ui_pause_footer"))
 	footer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(footer)
 	_root.visible = false
@@ -707,7 +707,7 @@ func _add_brand_header(kicker: String, subtitle: String) -> void:
 	var brand := kit.label("Suma Nook", 32, false, true)
 	text.add_child(brand)
 	var sub := kit.label(subtitle, 16)
-	sub.add_theme_color_override("font_color", Color(0.46, 0.45, 0.4))
+	sub.add_theme_color_override("font_color", kit.palette.color("ui_pause_subtitle"))
 	text.add_child(sub)
 	var state := kit.section_label(kicker)
 	state.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -729,7 +729,7 @@ func _add_page_header(title: String, subtitle: String) -> void:
 	row.add_child(text)
 	text.add_child(kit.label(title, 30, false, true))
 	var sub := kit.label(subtitle, 15)
-	sub.add_theme_color_override("font_color", Color(0.48, 0.47, 0.42))
+	sub.add_theme_color_override("font_color", kit.palette.color("ui_pause_subtle"))
 	text.add_child(sub)
 
 
@@ -749,7 +749,7 @@ func _setting_row(title: String, description: String, control: Control) -> Margi
 	row.add_child(text)
 	text.add_child(kit.label(title, 19, false, true))
 	var note := kit.label(description, 14)
-	note.add_theme_color_override("font_color", Color(0.49, 0.48, 0.43))
+	note.add_theme_color_override("font_color", kit.palette.color("ui_pause_note"))
 	text.add_child(note)
 	row.add_child(control)
 	return holder
@@ -802,7 +802,7 @@ func _control_row(action: String, keys: Array, description: String) -> MarginCon
 	row.add_child(text)
 	text.add_child(kit.label(action, 18, false, true))
 	var note := kit.label(description, 14)
-	note.add_theme_color_override("font_color", Color(0.49, 0.48, 0.43))
+	note.add_theme_color_override("font_color", kit.palette.color("ui_pause_note"))
 	text.add_child(note)
 	var caps := HBoxContainer.new()
 	caps.alignment = BoxContainer.ALIGNMENT_END

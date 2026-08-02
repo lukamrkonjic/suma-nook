@@ -1,5 +1,7 @@
 class_name Enemy
 extends CharacterBody3D
+
+var _color_system := PaletteDefinition.shared()
 ## Scene-side enemy actor: readable telegraphs, short encounters, no home
 ## invasion (leashed to its landmark). Health/loot resolve in CombatManager.
 
@@ -53,7 +55,7 @@ func setup(game_core: GameCore, assets: AssetLibrary, enemy_def: Defs.EnemyDefin
 	ring.outer_radius = 0.62
 	_telegraph_ring.mesh = ring
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.95, 0.6, 0.25, 0.85)
+	mat.albedo_color = _color_system.color("vfx_enemy_warning")
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_telegraph_ring.material_override = mat
@@ -132,7 +134,7 @@ func _fire_projectile() -> void:
 	ball.height = 0.22
 	projectile.mesh = ball
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.4, 0.5, 0.2)
+	mat.albedo_color = _color_system.color("vfx_enemy_body")
 	projectile.material_override = mat
 	get_parent().add_child(projectile)
 	projectile.global_position = global_position + Vector3(0, 0.7, 0)

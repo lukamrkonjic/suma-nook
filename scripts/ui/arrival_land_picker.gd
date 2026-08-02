@@ -44,7 +44,7 @@ func open(tile_ids: Array) -> void:
 
 	var scrim := ColorRect.new()
 	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	scrim.color = Color(0.12, 0.13, 0.10, 0.38)
+	scrim.color = kit.palette.color("ui_arrival_scrim")
 	scrim.mouse_filter = Control.MOUSE_FILTER_STOP
 	_root.add_child(scrim)
 
@@ -58,10 +58,13 @@ func open(tile_ids: Array) -> void:
 
 	var eyebrow := kit.eyebrow(
 		"Your first piece of the world",
-		Color(0.82, 0.75, 0.48)
+		kit.palette.color("ui_arrival_border")
 	)
 	eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	eyebrow.add_theme_color_override("font_color", Color(0.94, 0.87, 0.61))
+	eyebrow.add_theme_color_override(
+		"font_color",
+		kit.palette.color("ui_arrival_eyebrow")
+	)
 	shell.add_child(eyebrow)
 	var title := kit.label("Choose where you land", 34, true, true)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -72,7 +75,10 @@ func open(tile_ids: Array) -> void:
 		true
 	)
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_color_override("font_color", Color(0.9, 0.88, 0.8))
+	subtitle.add_theme_color_override(
+		"font_color",
+		kit.palette.color("ui_arrival_subtitle")
+	)
 	shell.add_child(subtitle)
 
 	var row := HBoxContainer.new()
@@ -94,7 +100,10 @@ func open(tile_ids: Array) -> void:
 		true
 	)
 	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	prompt.add_theme_color_override("font_color", Color(0.86, 0.84, 0.76))
+	prompt.add_theme_color_override(
+		"font_color",
+		kit.palette.color("ui_arrival_prompt")
+	)
 	shell.add_child(prompt)
 	focus_default()
 
@@ -121,9 +130,9 @@ func focus_default() -> void:
 func _land_card(definition: Defs.TileDefinition) -> Control:
 	var accent := kit.palette.color("ui_good")
 	if definition.biome_tags.has("beach"):
-		accent = Color(0.82, 0.62, 0.28)
+		accent = kit.palette.color("ui_arrival_warm")
 	elif definition.biome_tags.has("winter"):
-		accent = Color(0.56, 0.72, 0.80)
+		accent = kit.palette.color("ui_arrival_cool")
 	var card := kit.progression_card(Vector2(250, 340), accent)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 9)

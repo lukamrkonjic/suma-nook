@@ -4,7 +4,7 @@
       "id": "void_unknown",
       "name": "The Ferry's Find",
       "icon": "✦",
-      "color": "8b7bc1",
+      "color_token": "discovery_void",
       "source": "void",
       "actions_per_reward": 1,
       "description": "The ferry's periodic gift can be almost any kind of world piece.",

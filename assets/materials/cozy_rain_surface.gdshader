@@ -5,8 +5,8 @@ const int FOOTSTEP_COUNT = 4;
 
 uniform sampler2D noise_texture : repeat_enable, filter_linear_mipmap_anisotropic;
 uniform sampler2D depth_texture : hint_depth_texture, repeat_disable, filter_nearest;
-uniform vec3 wet_color : source_color = vec3(0.12, 0.19, 0.20);
-uniform vec3 ripple_color : source_color = vec3(0.72, 0.86, 0.88);
+uniform vec3 wet_color : source_color = vec3(1.0);
+uniform vec3 ripple_color : source_color = vec3(1.0);
 uniform float wetness : hint_range(0.0, 1.5) = 0.8;
 uniform float puddle_amount : hint_range(0.0, 1.5) = 0.72;
 uniform float ripple_amount : hint_range(0.0, 1.5) = 0.85;

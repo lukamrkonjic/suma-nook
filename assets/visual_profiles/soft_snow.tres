@@ -5,18 +5,9 @@
 [resource]
 script = ExtResource("1")
 profile_id = "soft_snow"
-background_color = Color(0.69, 0.75, 0.78, 1)
-ambient_color = Color(0.72, 0.78, 0.82, 1)
 ambient_energy = 0.72
 ambient_gradient_enabled = true
-ambient_sky_color = Color(0.67, 0.74, 0.82, 1)
-ambient_equator_color = Color(0.58, 0.62, 0.66, 1)
-ambient_ground_color = Color(0.78, 0.8, 0.78, 1)
 background_gradient = true
-gradient_top = Color(0.56, 0.66, 0.74, 1)
-gradient_mid = Color(0.67, 0.74, 0.77, 1)
-gradient_bottom = Color(0.78, 0.79, 0.75, 1)
-sun_color = Color(0.88, 0.93, 1, 1)
 sun_energy = 0.68
 sun_pitch_deg = -58.0
 sun_yaw_deg = -65.0

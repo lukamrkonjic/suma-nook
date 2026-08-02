@@ -511,7 +511,10 @@ func _tint_mesh(mesh_instance: MeshInstance3D, color: Color) -> void:
 			# The game's palette shader owns the surface: drive its albedo.
 			var styled := override as ShaderMaterial
 			styled.set_shader_parameter("base_albedo", color)
-			styled.set_shader_parameter("palette_tint", Color.WHITE)
+			styled.set_shader_parameter(
+				"palette_tint",
+				PaletteDefinition.shared().color("neutral_white")
+			)
 			styled.set_shader_parameter("saturation", 1.0)
 			styled.set_shader_parameter("value_scale", 1.0)
 			continue

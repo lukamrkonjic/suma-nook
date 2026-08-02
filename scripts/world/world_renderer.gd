@@ -1,5 +1,7 @@
 class_name WorldRenderer
 extends Node3D
+
+var _color_system := PaletteDefinition.shared()
 ## Reconciles WorldGrid state into scene nodes: tile visuals + walk colliders,
 ## structures, edge blockers, anchor rest states, and landmark phases.
 ## State-diff driven (cell_changed / grid_changed) — never per-frame scans.
@@ -64,7 +66,7 @@ func setup(game_core: GameCore, asset_library: AssetLibrary) -> void:
 	_edge_root.name = "EdgeBlockers"
 	add_child(_edge_root)
 	_silhouette_material = StandardMaterial3D.new()
-	_silhouette_material.albedo_color = Color(0.16, 0.18, 0.15, 0.92)
+	_silhouette_material.albedo_color = _color_system.color("vfx_silhouette")
 	_silhouette_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_silhouette_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_setup_screen_space_outline()
@@ -488,7 +490,7 @@ func _add_warm_light(
 	flicker: bool
 ) -> OmniLight3D:
 	var light := OmniLight3D.new()
-	light.light_color = Color(1.0, 0.72, 0.4)
+	light.light_color = _color_system.color("vfx_local_light")
 	light.omni_range = 4.5
 	light.position.y = height
 	light.light_energy = energy
@@ -1264,7 +1266,7 @@ func _add_mist(node: Node3D) -> void:
 	disc.height = 0.08
 	mist.mesh = disc
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.85, 0.85, 0.78, 0.5)
+	mat.albedo_color = _color_system.color("vfx_mist_disc")
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mist.material_override = mat

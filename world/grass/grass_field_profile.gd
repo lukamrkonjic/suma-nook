@@ -149,22 +149,33 @@ const DENSITY_SEED_OFFSET := 15485
 @export_group("Surface Colour")
 ## Three closely related greens — at most ~9% apart in value — so the ground has
 ## rhythm without any one blob reading as a patch of different material.
-@export var surface_deep := Color("#78954A")
-@export var surface_primary := Color("#87A551")
-@export var surface_light := Color("#95B15C")
+@export var surface_deep := PaletteDefinition.shared().color(
+	"grass_field_surface_deep"
+)
+@export var surface_primary := PaletteDefinition.shared().color(
+	"grass_field_surface_primary"
+)
+@export var surface_light := PaletteDefinition.shared().color(
+	"grass_field_surface_light"
+)
 
 @export_group("Tuft Colour")
-## These mirror the defaults in world/grass/grass_tuft.gdshader exactly so the
-## resource and the shader can never drift apart. Tufts sit a touch cooler and
-## deeper than the surface beneath them, which is what stops the carpet reading
-## as flat paint when the two overlap.
+## These resolve from the canonical color design system and are pushed into the
+## shader at runtime. Tufts sit a touch cooler and deeper than the surface
+## beneath them, which stops the carpet reading as flat paint when they overlap.
 ## Lightened and pulled closer together after the straw pass came back reading
 ## as near-black strands over a pale lawn. The brief asks for close green tones;
 ## foliage that sits far darker than the ground it grows from separates into
 ## individually countable pieces, which is the opposite of a carpet.
-@export var tuft_deep := Color(0.53, 0.67, 0.34)
-@export var tuft_primary := Color(0.61, 0.75, 0.40)
-@export var tuft_light := Color(0.70, 0.83, 0.48)
+@export var tuft_deep := PaletteDefinition.shared().color(
+	"grass_field_tuft_deep"
+)
+@export var tuft_primary := PaletteDefinition.shared().color(
+	"grass_field_tuft_primary"
+)
+@export var tuft_light := PaletteDefinition.shared().color(
+	"grass_field_tuft_light"
+)
 
 @export_group("Wind")
 ## Prevailing direction in world XZ. One direction for the whole field: gusts

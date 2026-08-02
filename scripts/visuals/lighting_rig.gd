@@ -25,8 +25,6 @@ const NIGHT_AMBIENT_ENERGY_MULTIPLIER := 0.09
 const NIGHT_SUN_ENERGY_MULTIPLIER := 0.08
 const NIGHT_LOCAL_LIGHT_MULTIPLIER := 3.6
 const NIGHT_GLOW_INTENSITY := 0.34
-const NIGHT_AMBIENT_TINT := Color(0.34, 0.46, 0.72)
-const NIGHT_BACKGROUND_TINT := Color(0.94, 0.95, 0.98)
 # Shooting stars are scheduled on the CPU but rendered as one tiny
 # screen-space shader feature in the backdrop. Their cost is independent of
 # world size, and the long randomized gaps keep them feeling special.
@@ -54,6 +52,7 @@ const FAR_DISTANCE_FADE_MAX_ALPHA := 0.0
 @export var fallback_profile: VisualStyleProfile
 
 var current_profile: VisualStyleProfile
+var _palette := PaletteDefinition.shared()
 var _sun: DirectionalLight3D
 var _environment: WorldEnvironment
 var _ambient_sky: Sky
@@ -75,7 +74,7 @@ var _grade_rect: ColorRect
 var _grade_material: ShaderMaterial
 var _distance_haze_layer: CanvasLayer
 var _distance_haze_rect: ColorRect
-var _distance_haze_color := Color(0.91, 0.92, 0.86)
+var _distance_haze_color := _palette.color("vfx_distance_haze")
 var _ground_fog: CozyGroundFog
 var _rain_surface: CozyRainSurface
 var void_clouds: VoidCloudController
@@ -95,6 +94,8 @@ var _shooting_star_duration := 0.8
 
 
 func _ready() -> void:
+	if not _palette.palette_changed.is_connected(_on_palette_changed):
+		_palette.palette_changed.connect(_on_palette_changed)
 	_sun = DirectionalLight3D.new()
 	_sun.name = "Sun"
 	_sun.shadow_enabled = true
@@ -159,6 +160,7 @@ func _ready() -> void:
 	# linear radiance with no canvas color-space ambiguity.
 	_gg_bg_material = ShaderMaterial.new()
 	_gg_bg_material.shader = GG_BG_SHADER
+	_apply_background_shader_palette()
 	_gg_bg_quad = MeshInstance3D.new()
 	_gg_bg_quad.name = "GGBackdrop"
 	var quad := QuadMesh.new()
@@ -250,6 +252,63 @@ func _ready() -> void:
 	get_tree().node_added.connect(_on_tree_node_added)
 
 
+func _on_palette_changed(_scheme_id: String) -> void:
+	_apply_background_shader_palette()
+	for profile in [
+		day_profile,
+		mist_profile,
+		rain_profile,
+		leaves_profile,
+		snow_profile,
+		blossom_profile,
+		neutral_profile,
+		warm_profile,
+		overcast_profile,
+		fallback_profile,
+	]:
+		if profile != null:
+			profile.invalidate_color_design_system()
+	if current_profile != null:
+		apply_profile(current_profile)
+
+
+func _apply_background_shader_palette() -> void:
+	if _bg_material != null:
+		_bg_material.set_shader_parameter(
+			"centre_glow_color",
+			_palette.color("environment_centre_glow")
+		)
+		_bg_material.set_shader_parameter(
+			"shooting_star_trail_color",
+			_palette.color("environment_shooting_star_trail")
+		)
+		_bg_material.set_shader_parameter(
+			"shooting_star_head_color",
+			_palette.color("environment_shooting_star_head")
+		)
+		_bg_material.set_shader_parameter(
+			"mist_star_color",
+			_palette.color("environment_mist_star")
+		)
+	if _gg_bg_material != null:
+		_gg_bg_material.set_shader_parameter(
+			"centre_glow_color",
+			_palette.color("environment_centre_glow")
+		)
+		_gg_bg_material.set_shader_parameter(
+			"shooting_star_trail_color",
+			_palette.color("environment_shooting_star_trail")
+		)
+		_gg_bg_material.set_shader_parameter(
+			"shooting_star_head_color",
+			_palette.color("environment_shooting_star_head")
+		)
+		_gg_bg_material.set_shader_parameter(
+			"night_star_color",
+			_palette.color("environment_night_star")
+		)
+
+
 func _process(delta: float) -> void:
 	var should_run := _shooting_stars_should_run()
 	if not should_run:
@@ -287,6 +346,7 @@ func _process(delta: float) -> void:
 
 
 func apply_profile(profile: VisualStyleProfile) -> void:
+	profile.apply_color_design_system(_palette)
 	current_profile = profile
 	var env := _environment.environment
 	var uses_canvas_bg := profile.background_gradient or profile.background_gg_gradient
@@ -998,78 +1058,6 @@ func _apply_particle_quality() -> void:
 		_rain_surface.set_quality(particle_quality_id)
 
 
-## The six serialized WorldTheme assets from the GG reference build
-## (sharedassets1 202-207). "sky"/"equator" are HDR pickers and therefore
-## LINEAR radiance; every other color is sRGB-authored. "night_*" values are
-## the dark-mode multipliers/targets used by WorldTheme.Calculate.
-const GG_THEMES := {
-	"default": {
-		# Art-directed to the fishing reference's pale cream-peach
-		# atmosphere: deeper warmth high up, luminous cream low. Authored
-		# PRE-tonemap: the grading chain compresses ~15% and crushes blue
-		# ~27%, so these overshoot toward blue-white to land on the
-		# measured reference values (0.945,0.878,0.752)/(0.965,0.925,0.832)
-		# in the final frame.
-		"bg0": Color(1.108, 1.015, 0.917), "bg1": Color(1.082, 1.036, 0.932),
-		"bg_zenith": Color(1.062, 0.962, 0.851),
-		"bg_accent": Color(1.120, 1.052, 0.948),
-		"night_bg": Color(0.913, 0.80487, 0.70666),
-		"sky": Color(0.8, 0.74118, 0.76863), "equator": Color(0.65098, 0.41961, 0.37255),
-		"night_tint": Color(1.0, 0.90825, 0.78931),
-		"light": Color(1.0, 1.0, 0.99216), "night_light": Color(1.0, 0.87073, 0.67451),
-		"min_intensity": 0.8,
-	},
-	"blue": {
-		"bg0": Color(0.62125, 0.69434, 0.71), "bg1": Color(0.80029, 0.955, 0.84412),
-		"night_bg": Color(0.26171, 0.27566, 0.318),
-		"sky": Color(0.75294, 0.82745, 0.87843), "equator": Color(0.70196, 0.61569, 0.62745),
-		"night_tint": Color(0.5451, 0.60691, 0.67059),
-		"light": Color(1.0, 0.96078, 0.89804), "night_light": Color(0.43137, 0.60784, 0.77255),
-		"min_intensity": 0.8,
-	},
-	"green": {
-		"bg0": Color(0.78824, 0.81176, 0.57255), "bg1": Color(0.93217, 0.96, 0.6771),
-		"night_bg": Color(0.28948, 0.30371, 0.396),
-		"sky": Color(0.8, 0.74118, 0.76863), "equator": Color(0.50196, 0.43529, 0.33725),
-		"night_tint": Color(0.54385, 0.65407, 0.67059),
-		"light": Color(1.0, 0.96471, 0.91373), "night_light": Color(0.59069, 0.743, 0.71471),
-		"min_intensity": 0.8,
-	},
-	"brown": {
-		"bg0": Color(0.241, 0.216, 0.21184), "bg1": Color(0.276, 0.24892, 0.23902),
-		"bg_zenith": Color(0.200, 0.200, 0.335),
-		"bg_accent": Color(0.335, 0.282, 0.256),
-		"night_bg": Color(0.76821, 0.78708, 0.80189),
-		"sky": Color(0.61569, 0.48235, 0.35294), "equator": Color(0.65098, 0.50588, 0.46667),
-		"night_tint": Color(0.721, 0.62799, 0.47298),
-		"light": Color(1.0, 1.0, 0.99216), "night_light": Color(0.83137, 0.88235, 0.90196),
-		"min_intensity": 0.6,
-	},
-	"orange": {
-		# Deep burnt-orange sunset: one orange family from a dark sienna
-		# crown down to a muted amber horizon - darker and quieter than a
-		# postcard sunset. Authored pre-tonemap like the others.
-		"bg0": Color(0.830, 0.520, 0.390), "bg1": Color(0.930, 0.610, 0.415),
-		"bg_zenith": Color(0.520, 0.335, 0.250),
-		"bg_accent": Color(1.000, 0.720, 0.470),
-		"night_bg": Color(0.55189, 0.61503, 0.67059),
-		"sky": Color(0.8, 0.74118, 0.76863), "equator": Color(0.65098, 0.41961, 0.37255),
-		"night_tint": Color(0.72642, 0.68393, 0.51854),
-		"light": Color(0.95283, 0.84909, 0.68915), "night_light": Color(0.8331, 0.92453, 0.80824),
-		"min_intensity": 0.85,
-	},
-	"pink": {
-		"bg0": Color(0.90588, 0.67524, 0.67216), "bg1": Color(0.95686, 0.83735, 0.8),
-		"bg_zenith": Color(0.906, 0.648, 0.700),
-		"bg_accent": Color(1.040, 0.930, 0.848),
-		"night_bg": Color(0.31765, 0.26275, 0.29295),
-		"sky": Color(0.87843, 0.75294, 0.76966), "equator": Color(0.70196, 0.61569, 0.62745),
-		"night_tint": Color(0.5451, 0.60691, 0.67059),
-		"light": Color(1.0, 0.89804, 0.89928), "night_light": Color(0.55434, 0.43137, 0.77255),
-		"min_intensity": 0.95,
-	},
-}
-
 ## Each Suma time slot is an exact steady GG state (theme id, lightLevel).
 ## Verified against the official screenshot set: cream days are Default
 ## light, the rosy garden is Pink light, warm evenings are Orange light, and
@@ -1093,9 +1081,13 @@ func _gg_light_level() -> float:
 func _gg_background_tint(theme: Dictionary, level: float) -> Color:
 	# Preserve the original warm Brown-theme night, with only a restrained
 	# darkening/cooling pass at the fully-night endpoint.
+	var time_colors := _palette.background_preset("time_of_day")
 	return (
-		(theme.night_bg as Color).lerp(Color.WHITE, level)
-		* NIGHT_BACKGROUND_TINT.lerp(Color.WHITE, level)
+		(theme.night_bg as Color).lerp(_palette.color("neutral_white"), level)
+		* (time_colors.night_background_tint as Color).lerp(
+			_palette.color("neutral_white"),
+			level
+		)
 	)
 
 
@@ -1107,9 +1099,12 @@ func _apply_gg_time_of_day() -> void:
 	var profile := current_profile
 	var env := _environment.environment
 	var state := _gg_time_state()
-	var theme: Dictionary = GG_THEMES[state[0]]
+	var theme := _palette.world_theme(state[0])
 	var level := float(state[1])
-	var ambient_tint := NIGHT_AMBIENT_TINT.lerp(Color.WHITE, level)
+	var time_colors := _palette.background_preset("time_of_day")
+	var ambient_tint := (
+		time_colors.night_ambient_tint as Color
+	).lerp(_palette.color("neutral_white"), level)
 	_sun.light_color = (theme.night_light as Color).lerp(theme.light, level)
 	_sun.light_energy = (
 		lerpf(NIGHT_SUN_ENERGY_MULTIPLIER, 1.0, level)
@@ -1148,8 +1143,8 @@ func _apply_gg_time_of_day() -> void:
 			(theme.bg0 as Color) * bg_tint,
 			(theme.bg1 as Color) * bg_tint,
 			profile.bg_sparkles_enabled,
-			theme.get("bg_zenith", Color(0.0, 0.0, 0.0, 0.0)),
-			theme.get("bg_accent", Color(0.0, 0.0, 0.0, 0.0))
+			theme.get("bg_zenith", Color.TRANSPARENT),
+			theme.get("bg_accent", Color.TRANSPARENT)
 		)
 
 
@@ -1166,21 +1161,28 @@ func _apply_time_of_day() -> void:
 	env.ambient_light_energy = current_profile.ambient_energy
 	env.glow_enabled = current_profile.glow_enabled and _user_bloom_enabled
 	env.glow_intensity = current_profile.glow_intensity
+	var time_colors := _palette.background_preset("time_of_day")
 	match time_of_day_id:
 		"morning":
-			_sun.light_color = current_profile.sun_color.lerp(Color(1.0, 0.78, 0.58), 0.38)
+			_sun.light_color = current_profile.sun_color.lerp(
+				time_colors.morning_light,
+				0.38
+			)
 			_sun.light_energy = current_profile.sun_energy * 0.78
 			_sun.rotation_degrees.x = -28.0
 			env.ambient_light_energy = current_profile.ambient_energy * 0.82
 		"sunset":
-			_sun.light_color = current_profile.sun_color.lerp(Color(1.0, 0.48, 0.25), 0.62)
+			_sun.light_color = current_profile.sun_color.lerp(
+				time_colors.sunset_light,
+				0.62
+			)
 			_sun.light_energy = current_profile.sun_energy * 0.62
 			_sun.rotation_degrees.x = -15.0
 			env.ambient_light_energy = current_profile.ambient_energy * 0.55
 			env.glow_enabled = _user_bloom_enabled
 			env.glow_intensity = maxf(current_profile.glow_intensity, 0.28)
 		"night":
-			_sun.light_color = Color(0.42, 0.56, 0.9)
+			_sun.light_color = time_colors.night_light
 			_sun.light_energy = (
 				current_profile.sun_energy
 				* NIGHT_SUN_ENERGY_MULTIPLIER
@@ -1211,23 +1213,25 @@ func _apply_background_preset() -> void:
 				0.0
 			)
 		"dusk":
+			var dusk := _palette.background_preset("dusk")
 			_set_gradient_background(
-				Color(0.39, 0.34, 0.5),
-				Color(0.72, 0.47, 0.43),
-				Color(0.9, 0.67, 0.48),
+				dusk.top,
+				dusk.middle,
+				dusk.bottom,
 				0.0
 			)
 		"night":
+			var night := _palette.background_preset("night")
 			_set_gradient_background(
-				Color(0.055, 0.075, 0.14),
-				Color(0.09, 0.15, 0.22),
-				Color(0.12, 0.2, 0.24),
+				night.top,
+				night.middle,
+				night.bottom,
 				1.0
 			)
 		_:
 			if current_profile.background_gg_gradient:
 				var state := _gg_time_state()
-				var theme: Dictionary = GG_THEMES[state[0]]
+				var theme := _palette.world_theme(state[0])
 				var bg_tint := _gg_background_tint(
 					theme,
 					float(state[1])
@@ -1236,8 +1240,8 @@ func _apply_background_preset() -> void:
 					(theme.bg0 as Color) * bg_tint,
 					(theme.bg1 as Color) * bg_tint,
 					current_profile.bg_sparkles_enabled,
-					theme.get("bg_zenith", Color(0.0, 0.0, 0.0, 0.0)),
-					theme.get("bg_accent", Color(0.0, 0.0, 0.0, 0.0))
+					theme.get("bg_zenith", Color.TRANSPARENT),
+					theme.get("bg_accent", Color.TRANSPARENT)
 				)
 			elif current_profile.background_gradient:
 				_set_gradient_background(
@@ -1277,8 +1281,8 @@ func _set_gg_background(
 	color0: Color,
 	color1: Color,
 	sparkles: bool,
-	zenith := Color(0.0, 0.0, 0.0, 0.0),
-	accent := Color(0.0, 0.0, 0.0, 0.0)
+	zenith := Color.TRANSPARENT,
+	accent := Color.TRANSPARENT
 ) -> void:
 	_environment.environment.background_mode = Environment.BG_COLOR
 	_bg_layer.visible = false
@@ -1455,11 +1459,11 @@ func _build_rain() -> GPUParticles3D:
 	var streak := BoxMesh.new()
 	streak.size = Vector3(0.012, 0.68, 0.012)
 	var streak_mat := StandardMaterial3D.new()
-	streak_mat.albedo_color = Color(0.76, 0.88, 0.92, 0.36)
+	streak_mat.albedo_color = _palette.color("vfx_rain_streak")
 	streak_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	streak_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	streak_mat.emission_enabled = true
-	streak_mat.emission = Color(0.54, 0.68, 0.72)
+	streak_mat.emission = _palette.color("vfx_rain_emission")
 	streak_mat.emission_energy_multiplier = 0.22
 	streak.material = streak_mat
 	particles.draw_pass_1 = streak
@@ -1497,7 +1501,7 @@ func _build_motes() -> GPUParticles3D:
 	mote.radius = 0.018
 	mote.height = 0.036
 	var mote_material := StandardMaterial3D.new()
-	mote_material.albedo_color = Color(1.0, 0.93, 0.72, 0.48)
+	mote_material.albedo_color = _palette.color("vfx_mote")
 	mote_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mote_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mote.material = mote_material
@@ -1538,7 +1542,7 @@ func _build_leaves() -> GPUParticles3D:
 	particles.position.y = 8.0
 	var leaf := QuadMesh.new()
 	leaf.size = Vector2(0.11, 0.18)
-	leaf.material = _particle_material(Color(0.63, 0.48, 0.18, 0.82), true)
+	leaf.material = _particle_material(_palette.color("vfx_leaf"), true)
 	particles.draw_pass_1 = leaf
 	return particles
 
@@ -1574,7 +1578,7 @@ func _build_snow() -> GPUParticles3D:
 	var flake := SphereMesh.new()
 	flake.radius = 0.025
 	flake.height = 0.05
-	flake.material = _particle_material(Color(0.96, 0.98, 1.0, 0.78))
+	flake.material = _particle_material(_palette.color("vfx_snowflake"))
 	particles.draw_pass_1 = flake
 	return particles
 
@@ -1611,7 +1615,7 @@ func _build_blossoms() -> GPUParticles3D:
 	particles.position.y = 7.0
 	var petal := QuadMesh.new()
 	petal.size = Vector2(0.09, 0.13)
-	petal.material = _particle_material(Color(1.0, 0.69, 0.77, 0.84), true)
+	petal.material = _particle_material(_palette.color("vfx_petal"), true)
 	particles.draw_pass_1 = petal
 	return particles
 
@@ -1647,7 +1651,7 @@ func _build_spores() -> GPUParticles3D:
 	var spore := SphereMesh.new()
 	spore.radius = 0.014
 	spore.height = 0.028
-	spore.material = _particle_material(Color(1.0, 0.85, 0.47, 0.5))
+	spore.material = _particle_material(_palette.color("vfx_spore"))
 	particles.draw_pass_1 = spore
 	return particles
 
@@ -1685,7 +1689,7 @@ func _apply_particle_curves(
 	var colors := PackedColorArray()
 	for point in alpha_points:
 		offsets.append(float(point[0]))
-		colors.append(Color(1.0, 1.0, 1.0, float(point[1])))
+		colors.append(Color(_palette.color("ui_white"), float(point[1])))
 	alpha_gradient.offsets = offsets
 	alpha_gradient.colors = colors
 	var alpha_texture := GradientTexture1D.new()

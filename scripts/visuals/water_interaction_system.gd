@@ -1,5 +1,7 @@
 class_name WaterInteractionSystem
 extends Node3D
+
+var _color_system := PaletteDefinition.shared()
 ## Constant-budget player/water interaction.
 ##
 ## Six world-space impulses deform every joined/chunked water mesh through its
@@ -334,7 +336,7 @@ func _droplet_mesh(
 	droplet.radial_segments = radial_segments
 	droplet.rings = rings
 	var material := StandardMaterial3D.new()
-	material.albedo_color = Color(0.78, 0.92, 0.93, 0.62)
+	material.albedo_color = _color_system.color("vfx_water_droplet")
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.vertex_color_use_as_albedo = true
@@ -346,9 +348,9 @@ func _particle_fade_ramp() -> GradientTexture1D:
 	var gradient := Gradient.new()
 	gradient.offsets = PackedFloat32Array([0.0, 0.58, 1.0])
 	gradient.colors = PackedColorArray([
-		Color(0.88, 0.98, 0.97, 0.28),
-		Color(0.74, 0.92, 0.93, 0.54),
-		Color(0.56, 0.80, 0.84, 0.0),
+		_color_system.color("vfx_water_ripple_outer"),
+		_color_system.color("vfx_water_ripple_mid"),
+		_color_system.color("vfx_water_ripple_fade"),
 	])
 	var texture := GradientTexture1D.new()
 	texture.gradient = gradient

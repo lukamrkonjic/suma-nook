@@ -2,11 +2,40 @@ class_name VisualStyleProfile
 extends Resource
 ## Data-driven lighting/atmosphere preset. SumaSoftDaylight applies one of
 ## these; gameplay scenes and visual labs share the same rig so every capture
-## is calibrated identically.
+## is calibrated identically. Color values are intentionally not serialized
+## here: every profile color resolves from the canonical PaletteDefinition.
+
+const COLOR_PROPERTIES := [
+	"background_color",
+	"ambient_color",
+	"ambient_sky_color",
+	"ambient_equator_color",
+	"ambient_ground_color",
+	"gradient_top",
+	"gradient_mid",
+	"gradient_bottom",
+	"sun_color",
+	"fog_color",
+	"bg_color0",
+	"bg_color1",
+	"night_bg_multiply",
+	"night_ambient_tint",
+	"night_light_color",
+]
+
+var _applying_design_system := false
+var _color_overrides: Dictionary = {}
+var _resolved_profile_id := ""
 
 @export var profile_id := "garden_galaxy_day"
-@export var background_color := Color(0.9176, 0.8941, 0.8157)
-@export var ambient_color := Color(0.8667, 0.8471, 0.7961)
+var background_color := Color.MAGENTA:
+	set(value):
+		background_color = value
+		_track_color_override("background_color", value)
+var ambient_color := Color.MAGENTA:
+	set(value):
+		ambient_color = value
+		_track_color_override("ambient_color", value)
 @export var ambient_energy := 0.78
 
 @export_group("Ambient hemisphere")
@@ -14,21 +43,42 @@ extends Resource
 ## camera backdrop independent. Upward faces receive a soft sky tint while
 ## downward faces receive warm ground bounce, like a miniature studio diorama.
 @export var ambient_gradient_enabled := false
-@export var ambient_sky_color := Color(0.8, 0.741, 0.769)
-@export var ambient_equator_color := Color(0.651, 0.42, 0.373)
-@export var ambient_ground_color := Color(0.859, 0.8, 0.722)
+var ambient_sky_color := Color.MAGENTA:
+	set(value):
+		ambient_sky_color = value
+		_track_color_override("ambient_sky_color", value)
+var ambient_equator_color := Color.MAGENTA:
+	set(value):
+		ambient_equator_color = value
+		_track_color_override("ambient_equator_color", value)
+var ambient_ground_color := Color.MAGENTA:
+	set(value):
+		ambient_ground_color = value
+		_track_color_override("ambient_ground_color", value)
 
 @export_group("Background gradient")
 ## When enabled the rig shows a screen-space vertical gradient (mist preset)
 ## behind the diorama instead of the flat background color.
 @export var background_gradient := false
-@export var gradient_top := Color(0.7059, 0.7765, 0.7725)
-@export var gradient_mid := Color(0.7255, 0.8, 0.7765)
-@export var gradient_bottom := Color(0.7333, 0.8157, 0.7922)
+var gradient_top := Color.MAGENTA:
+	set(value):
+		gradient_top = value
+		_track_color_override("gradient_top", value)
+var gradient_mid := Color.MAGENTA:
+	set(value):
+		gradient_mid = value
+		_track_color_override("gradient_mid", value)
+var gradient_bottom := Color.MAGENTA:
+	set(value):
+		gradient_bottom = value
+		_track_color_override("gradient_bottom", value)
 @export var stars_enabled := false
 
 @export_group("Key light")
-@export var sun_color := Color(1.0, 0.9608, 0.902)
+var sun_color := Color.MAGENTA:
+	set(value):
+		sun_color = value
+		_track_color_override("sun_color", value)
 @export var sun_energy := 0.95
 @export var sun_specular := 0.55
 ## Degrees. Pitch below horizon; yaw chosen so shadows fall to screen lower-right
@@ -80,7 +130,10 @@ extends Resource
 @export var contrast := 1.0
 @export var saturation := 1.0
 @export var fog_enabled := false
-@export var fog_color := Color(0.9137, 0.8863, 0.8118)
+var fog_color := Color.MAGENTA:
+	set(value):
+		fog_color = value
+		_track_color_override("fog_color", value)
 @export var fog_density := 0.01
 
 @export_group("Localized ground fog")
@@ -117,16 +170,31 @@ extends Resource
 ## Screen-space two-color backdrop matching "Custom/Screen Skybox"
 ## (theme bgColor0/bgColor1) with the sparse sparkle field.
 @export var background_gg_gradient := false
-@export var bg_color0 := Color(0.906, 0.87623, 0.78265)
-@export var bg_color1 := Color(0.90588, 0.87059, 0.81569)
+var bg_color0 := Color.MAGENTA:
+	set(value):
+		bg_color0 = value
+		_track_color_override("bg_color0", value)
+var bg_color1 := Color.MAGENTA:
+	set(value):
+		bg_color1 = value
+		_track_color_override("bg_color1", value)
 @export var bg_sparkles_enabled := true
 ## Theme Default dark-mode constants (WorldTheme.Calculate): background is
 ## multiplied by night_bg_multiply, ambient/sky by night_ambient_tint, the sun
 ## lerps to night_light_color and min_light_intensity, and the sun pitch
 ## lerps from day toward sun_pitch_night_deg.
-@export var night_bg_multiply := Color(0.913, 0.80487, 0.70666)
-@export var night_ambient_tint := Color(1.0, 0.90825, 0.78931)
-@export var night_light_color := Color(1.0, 0.87073, 0.67451)
+var night_bg_multiply := Color.MAGENTA:
+	set(value):
+		night_bg_multiply = value
+		_track_color_override("night_bg_multiply", value)
+var night_ambient_tint := Color.MAGENTA:
+	set(value):
+		night_ambient_tint = value
+		_track_color_override("night_ambient_tint", value)
+var night_light_color := Color.MAGENTA:
+	set(value):
+		night_light_color = value
+		_track_color_override("night_light_color", value)
 @export var min_light_intensity := 0.8
 @export var sun_pitch_night_deg := -50.0
 ## PPv2 forward-path AO multiplies the whole lit image, not just ambient.
@@ -146,3 +214,40 @@ extends Resource
 @export var blossoms_enabled := false
 @export var spores_enabled := false
 @export var local_light_multiplier := 1.0
+
+
+func apply_color_design_system(
+	palette: PaletteDefinition,
+	force := false
+) -> void:
+	if palette == null:
+		return
+	if _resolved_profile_id == profile_id and not force:
+		return
+	var resolved := palette.environment_profile(profile_id)
+	_applying_design_system = true
+	for field: String in COLOR_PROPERTIES:
+		if _color_overrides.has(field) and not force:
+			continue
+		if resolved.has(field):
+			set(field, resolved[field])
+	_applying_design_system = false
+	_resolved_profile_id = profile_id
+
+
+func commit_color_design_system(palette: PaletteDefinition) -> void:
+	if palette == null:
+		return
+	for field: String in COLOR_PROPERTIES:
+		palette.set_environment_color(profile_id, field, get(field))
+	_color_overrides.clear()
+	_resolved_profile_id = profile_id
+
+
+func invalidate_color_design_system() -> void:
+	_resolved_profile_id = ""
+
+
+func _track_color_override(field: String, value: Color) -> void:
+	if not _applying_design_system:
+		_color_overrides[field] = value

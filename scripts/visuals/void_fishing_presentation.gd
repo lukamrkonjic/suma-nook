@@ -14,12 +14,9 @@ const StructureVisualFactoryScript := preload(
 const RIFT_DEPTH := 3.5
 const REWARD_MAX_SPAN := 0.52
 const REWARD_MAX_HEIGHT := 0.62
-const TOP_COLOR := Color("#FFF4D8")
-const MID_COLOR := Color("#F8E7AE")
-const BOTTOM_COLOR := Color("#D5FFF1")
-const SHARD_COLOR := Color("#8FFFD7")
 const LINE_SAMPLES := 22
 
+var _color_system := PaletteDefinition.shared()
 var core: GameCore
 var assets: AssetLibrary
 var player: PlayerController
@@ -568,10 +565,19 @@ func _rebuild_ribbon(
 
 func _line_color_at(t: float) -> Color:
 	if t < 0.45:
-		return TOP_COLOR.lerp(MID_COLOR, t / 0.45)
+		return _color_system.color("void_beam_top").lerp(
+			_color_system.color("void_beam_mid"),
+			t / 0.45
+		)
 	if t < 0.76:
-		return MID_COLOR.lerp(BOTTOM_COLOR, (t - 0.45) / 0.31)
-	return BOTTOM_COLOR.lerp(Color("#F2FFFA"), (t - 0.76) / 0.24)
+		return _color_system.color("void_beam_mid").lerp(
+			_color_system.color("void_beam_bottom"),
+			(t - 0.45) / 0.31
+		)
+	return _color_system.color("void_beam_bottom").lerp(
+		_color_system.color("void_glow_white"),
+		(t - 0.76) / 0.24
+	)
 
 
 func _build_line_rig() -> void:
@@ -601,22 +607,30 @@ func _build_line_rig() -> void:
 	)
 	_rig.add_child(_halo_line)
 
-	_tip_glow = _glow_quad(0.11, Color("#FFF0C8"), 3)
+	_tip_glow = _glow_quad(0.11, _color_system.color("void_glow_warm"), 3)
 	_tip_glow.name = "RodTipShine"
 	_rig.add_child(_tip_glow)
 
 	_endpoint = Node3D.new()
 	_endpoint.name = "MagicalShardEndpoint"
 	_rig.add_child(_endpoint)
-	_endpoint_bloom = _glow_quad(0.52, Color(SHARD_COLOR, 0.55), 2)
+	_endpoint_bloom = _glow_quad(
+		0.52,
+		Color(_color_system.color("void_shard"), 0.55),
+		2
+	)
 	_endpoint.add_child(_endpoint_bloom)
-	_endpoint_inner_bloom = _glow_quad(0.24, Color("#D8FFF1", 0.85), 3)
+	_endpoint_inner_bloom = _glow_quad(
+		0.24,
+		Color(_color_system.color("void_glow_mint"), 0.85),
+		3
+	)
 	_endpoint.add_child(_endpoint_inner_bloom)
 	_shard_body = _build_shard()
 	_endpoint.add_child(_shard_body)
 	_endpoint_light = OmniLight3D.new()
 	_endpoint_light.name = "ShardLight"
-	_endpoint_light.light_color = SHARD_COLOR
+	_endpoint_light.light_color = _color_system.color("void_shard")
 	_endpoint_light.light_energy = 1.0
 	_endpoint_light.omni_range = 2.0
 	_endpoint_light.omni_attenuation = 1.6
@@ -629,7 +643,7 @@ func _build_line_rig() -> void:
 		arc_mesh.size = Vector2(0.011, 0.16)
 		arc.mesh = arc_mesh
 		arc.material_override = _additive_material(
-			Color("#9BFFDB")
+			_color_system.color("void_shard_bright")
 		)
 		arc.cast_shadow = (
 			GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -646,7 +660,7 @@ func _build_line_rig() -> void:
 	for index in 10:
 		var sparkle := _glow_quad(
 			0.028 + float(index % 4) * 0.008,
-			Color("#D5FFF1", 0.68),
+			Color(_color_system.color("void_beam_bottom"), 0.68),
 			2
 		)
 		sparkle.name = "ShardSparkle%02d" % index
@@ -658,7 +672,11 @@ func _build_line_rig() -> void:
 			"speed": 0.22 + float(index % 5) * 0.035,
 			"rise": 0.055 + float(index % 4) * 0.028,
 		})
-	_traveller = _glow_quad(0.05, Color("#F4FFF9", 0.8), 3)
+	_traveller = _glow_quad(
+		0.05,
+		Color(_color_system.color("void_glow_white"), 0.8),
+		3
+	)
 	_traveller.name = "LineTraveller"
 	_traveller.visible = false
 	_rig.add_child(_traveller)
@@ -671,11 +689,11 @@ func _build_shard() -> Node3D:
 	var body := Node3D.new()
 	body.name = "ShardBody"
 	var shard_material := StandardMaterial3D.new()
-	shard_material.albedo_color = Color("#E8FFF6")
+	shard_material.albedo_color = _color_system.color("void_shard_surface")
 	shard_material.roughness = 0.25
 	shard_material.metallic = 0.0
 	shard_material.emission_enabled = true
-	shard_material.emission = SHARD_COLOR
+	shard_material.emission = _color_system.color("void_shard")
 	shard_material.emission_energy_multiplier = 1.5
 	var upper := MeshInstance3D.new()
 	upper.name = "ShardUpper"
@@ -852,9 +870,9 @@ func _soft_disc_texture() -> GradientTexture2D:
 	var gradient := Gradient.new()
 	gradient.offsets = PackedFloat32Array([0.0, 0.4, 1.0])
 	gradient.colors = PackedColorArray([
-		Color(1.0, 1.0, 1.0, 1.0),
-		Color(1.0, 1.0, 1.0, 0.45),
-		Color(1.0, 1.0, 1.0, 0.0),
+		_color_system.color("ui_white"),
+		Color(_color_system.color("ui_white"), 0.45),
+		Color(_color_system.color("ui_white"), 0.0),
 	])
 	var texture := GradientTexture2D.new()
 	texture.gradient = gradient

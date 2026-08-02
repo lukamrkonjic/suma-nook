@@ -12,12 +12,13 @@ enum EyeExpression {
 	SURPRISED,
 }
 
-const EYE_WHITE_COLOR := Color("f5f3ee")
-const PUPIL_COLOR := Color("424651")
-const CATCHLIGHT_COLOR := Color("ffffff")
-const UPPER_BEAK_COLOR := Color("ff8f6e")
-const LOWER_BEAK_COLOR := Color("e86a58")
-const MOUTH_COLOR := Color("542731")
+var _color_system := PaletteDefinition.shared()
+var eye_white_color := _color_system.color("pigeon_eye_white")
+var pupil_color := _color_system.color("pigeon_pupil")
+var catchlight_color := _color_system.color("pigeon_catchlight")
+var upper_beak_color := _color_system.color("pigeon_beak_upper")
+var lower_beak_color := _color_system.color("pigeon_beak_lower")
+var mouth_color := _color_system.color("pigeon_mouth")
 
 const BLINK_CLOSE_SECONDS := 0.055
 const BLINK_HOLD_SECONDS := 0.035
@@ -170,12 +171,12 @@ func _build_face() -> void:
 	geometry.name = "FaceGeometry"
 	add_child(geometry)
 
-	var eye_white_material := _make_material(EYE_WHITE_COLOR)
-	var pupil_material := _make_material(PUPIL_COLOR)
-	var catchlight_material := _make_material(CATCHLIGHT_COLOR)
-	var upper_beak_material := _make_material(UPPER_BEAK_COLOR)
-	var lower_beak_material := _make_material(LOWER_BEAK_COLOR)
-	var mouth_material := _make_material(MOUTH_COLOR)
+	var eye_white_material := _make_material(eye_white_color)
+	var pupil_material := _make_material(pupil_color)
+	var catchlight_material := _make_material(catchlight_color)
+	var upper_beak_material := _make_material(upper_beak_color)
+	var lower_beak_material := _make_material(lower_beak_color)
+	var mouth_material := _make_material(mouth_color)
 
 	var eyes := Node3D.new()
 	eyes.name = "Eyes"

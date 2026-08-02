@@ -1,9 +1,10 @@
 class_name TileKitPalette
 extends RefCounted
-## The locked palette and shared materials for Tile Kit tiles.
+## Tile Kit semantic roles backed by Suma's canonical color design system.
 ##
-## Every colour a generated tile may use lives here, by name, as an exact
-## value. Builders ask for materials by key and NEVER construct colours —
+## Every colour a generated tile may use lives in
+## assets/palettes/gg_material_palette.tres. Builders ask for materials by key
+## and NEVER construct colours —
 ## that single rule is what makes "no randomizer can produce an off-palette
 ## colour" a structural guarantee instead of a code-review hope.
 ##
@@ -11,9 +12,9 @@ extends RefCounted
 ## carries a handful of material resources, and two baked variants share the
 ## same resources when instanced side by side.
 ##
-## The keys are deliberately prefixed "tilekit_" so MaterialLibrary's semantic
-## rebinding (which matches resource_name against palette keys) leaves these
-## untouched: the kit's palette is locked by design, including at runtime.
+## Baked resource names stay prefixed "tilekit_" while this mapping resolves
+## their authoring roles through the same scheme controls as the rest of the
+## game.
 
 ## The kit's closed colour set, organised as material families in the same
 ## desaturated clay register as the approved grass reference. Family values
@@ -21,8 +22,12 @@ extends RefCounted
 ## earth, stone, wood, snow — docs/TILE_IMAGE_GENERATION_PROMPTS.md); nothing
 ## here is sampled from another game's assets. Exact, never randomized, never
 ## interpolated into new colours.
+const DESIGN_SYSTEM: PaletteDefinition = preload(
+	"res://assets/palettes/gg_material_palette.tres"
+)
+
 const COLORS := {
-	"background": Color("#F5DAB3"),
+	"background": "tilekit_background",
 	# Grass-family tile shell. Anchored to Suma's mossy Pacific-Northwest
 	# range, retuned for confident value separation: the top is a richer mid
 	# moss green, the bevel a clear sunlit lift, and the side the SAME hue a
@@ -31,70 +36,70 @@ const COLORS := {
 	# Grass family: the approved Suma moss greens — natural, never neon.
 	# Primary #6E9140 dominates; supporting and recessed greens stay close
 	# in hue; the highlight is a restrained accent, never a surface.
-	"tile_top": Color("#6E9140"),
-	"tile_top_bevel": Color("#7FA24B"),
-	"tile_side": Color("#557433"),
-	"tile_lower": Color("#4A6631"),
-	"dressing_light": Color("#7FA24B"),
-	"dressing_medium": Color("#6E9140"),
-	"dressing_dark": Color("#557433"),
-	"clutter_light": Color("#8CB055"),
-	"clutter_medium": Color("#7FA24B"),
+	"tile_top": "tilekit_tile_top",
+	"tile_top_bevel": "tilekit_tile_top_bevel",
+	"tile_side": "tilekit_tile_side",
+	"tile_lower": "tilekit_tile_lower",
+	"dressing_light": "tilekit_tile_top_bevel",
+	"dressing_medium": "tilekit_tile_top",
+	"dressing_dark": "tilekit_tile_side",
+	"clutter_light": "tilekit_clutter_light",
+	"clutter_medium": "tilekit_tile_top_bevel",
 	# Blade tones: supporting green carries most tufts, recessed green
 	# anchors bases and shaded clusters, highlight is rare sunlit tips.
-	"grass_primary": Color("#7FA24B"),
-	"grass_secondary": Color("#8CB055"),
-	"grass_root": Color("#557433"),
+	"grass_primary": "tilekit_tile_top_bevel",
+	"grass_secondary": "tilekit_clutter_light",
+	"grass_root": "tilekit_tile_side",
 	# Moss / forest family: deeper cooler green, still lively.
-	"moss_top": Color("#5F7F38"),
-	"moss_bevel": Color("#6E9140"),
-	"moss_deep": Color("#455E2B"),
-	"moss_clump": Color("#527030"),
+	"moss_top": "tilekit_moss_top",
+	"moss_bevel": "tilekit_tile_top",
+	"moss_deep": "tilekit_moss_deep",
+	"moss_clump": "tilekit_moss_clump",
 	# Earth family: warm loam, clearly darker and redder than sand.
-	"earth_top": Color("#87603A"),
-	"earth_bevel": Color("#93693F"),
-	"earth_side": Color("#70492C"),
-	"earth_deep": Color("#543521"),
-	"earth_clump": Color("#7A5430"),
+	"earth_top": "tilekit_earth_top",
+	"earth_bevel": "tilekit_earth_bevel",
+	"earth_side": "tilekit_earth_side",
+	"earth_deep": "tilekit_earth_deep",
+	"earth_clump": "tilekit_earth_clump",
 	# Stone family: warm greys — reference stone never goes blue.
-	"stone_light": Color("#CDC5AB"),
-	"stone_medium": Color("#A69E83"),
-	"stone_deep": Color("#75705A"),
+	"stone_light": "tilekit_stone_light",
+	"stone_medium": "tilekit_stone_medium",
+	"stone_deep": "tilekit_stone_deep",
 	# Wood family: golden cedar tops over darker sides.
-	"wood_light": Color("#BE8D58"),
-	"wood_medium": Color("#96683A"),
-	"wood_deep": Color("#66451F"),
+	"wood_light": "tilekit_wood_light",
+	"wood_medium": "tilekit_wood_medium",
+	"wood_deep": "tilekit_wood_deep",
 	# Snow family: warm ivory tops, cool pale-blue shadow sides.
-	"snow_top": Color("#F6F1E1"),
-	"snow_bevel": Color("#FBF7EB"),
-	"snow_side": Color("#B7C4CB"),
-	"snow_lump": Color("#EDEADB"),
+	"snow_top": "tilekit_snow_top",
+	"snow_bevel": "tilekit_snow_bevel",
+	"snow_side": "tilekit_snow_side",
+	"snow_lump": "tilekit_snow_lump",
 	# Sand family: creamy golden dunes — brighter and yellower than dirt.
-	"sand_top": Color("#EFD08F"),
-	"sand_bevel": Color("#F8DFA4"),
-	"sand_side": Color("#C09A5F"),
-	"sand_deep": Color("#8F7040"),
-	"sand_patch": Color("#E2C17C"),
+	"sand_top": "tilekit_sand_top",
+	"sand_bevel": "tilekit_sand_bevel",
+	"sand_side": "tilekit_sand_side",
+	"sand_deep": "tilekit_sand_deep",
+	"sand_patch": "tilekit_sand_patch",
 	# Mud family: dark damp earth with a wet-patch accent.
-	"mud_top": Color("#7A5B38"),
-	"mud_bevel": Color("#886745"),
-	"mud_wet": Color("#4E3A24"),
+	"mud_top": "tilekit_mud_top",
+	"mud_bevel": "tilekit_mud_bevel",
+	"mud_wet": "tilekit_mud_wet",
 	# Brick / clay family: confident warm terracotta.
-	"brick_light": Color("#C97E52"),
-	"brick_medium": Color("#A05A3C"),
+	"brick_light": "tilekit_brick_light",
+	"brick_medium": "tilekit_brick_medium",
 	# Water family: restrained pale blue-green, translucent in material.
-	"water_blue": Color("#7FB2AB"),
-	"water_deep": Color("#3E7570"),
-	"water_light": Color("#A8D3C6"),
-	"lily_green": Color("#6B934C"),
+	"water_blue": "tilekit_water_blue",
+	"water_deep": "tilekit_water_deep",
+	"water_light": "tilekit_water_light",
+	"lily_green": "tilekit_lily_green",
 	# Blossom and autumn accents.
-	"blossom_pink": Color("#E39DAD"),
-	"blossom_cream": Color("#F2E6C8"),
-	"autumn_amber": Color("#D29140"),
-	"autumn_rust": Color("#B3653A"),
+	"blossom_pink": "tilekit_blossom_pink",
+	"blossom_cream": "tilekit_blossom_cream",
+	"autumn_amber": "tilekit_autumn_amber",
+	"autumn_rust": "tilekit_autumn_rust",
 	# Small whimsical accents (mushroom caps, buds).
-	"accent_terracotta": Color("#C97A54"),
-	"accent_cream": Color("#EFE3C8"),
+	"accent_terracotta": "tilekit_accent_terracotta",
+	"accent_cream": "tilekit_accent_cream",
 }
 
 static var _materials: Dictionary = {}
@@ -102,7 +107,7 @@ static var _materials: Dictionary = {}
 
 static func color(key: String) -> Color:
 	assert(COLORS.has(key), "TileKitPalette: unknown colour key %s" % key)
-	return COLORS[key]
+	return DESIGN_SYSTEM.color(COLORS[key])
 
 
 ## The one shared material per palette key. Solid colour and matte across the

@@ -20,7 +20,7 @@
 			"smoothing": 1.0,
 			"materials": {
 				"pine_light": {
-					"color": "648452",
+					"color_token": "asset_edit_pine_light",
 					"roughness": 0.74,
 					"metallic": 0.0
 				}
@@ -31,7 +31,7 @@
 			"smoothing": 1.0,
 			"materials": {
 				"grass_primary": {
-					"color": "5b7b41",
+					"color_token": "asset_edit_grass_primary",
 					"roughness": 0.74,
 					"metallic": 0.01
 				}

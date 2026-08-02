@@ -3,8 +3,8 @@ render_mode cull_disabled, depth_draw_opaque;
 // Underwater flora: slow shader sway (stronger toward blade tips, anchored
 // bases), caustic shimmer, saturation falling off with depth.
 
-uniform vec4 albedo : source_color = vec4(0.435, 0.647, 0.333, 1.0);
-uniform vec4 caustic_color : source_color = vec4(0.675, 0.808, 0.804, 1.0);
+uniform vec4 albedo : source_color = vec4(1.0);
+uniform vec4 caustic_color : source_color = vec4(1.0);
 uniform float water_level = -0.14;
 uniform float sway_strength = 0.06;
 uniform float sway_speed = 1.1;

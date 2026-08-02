@@ -874,7 +874,7 @@ func _rebuild_debug() -> void:
 	var mesh := ImmediateMesh.new()
 	var material := StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.albedo_color = Color(1.0, 0.35, 0.85)
+	material.albedo_color = PaletteDefinition.shared().color("debug_magenta")
 	mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP, material)
 	for corner: Vector2 in [
 		bounds.position,
@@ -900,7 +900,7 @@ func _clearance_ring(clearance: Dictionary) -> MeshInstance3D:
 	var mesh := ImmediateMesh.new()
 	var material := StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.albedo_color = Color(0.25, 0.85, 1.0)
+	material.albedo_color = PaletteDefinition.shared().color("debug_cyan")
 	var centre: Vector2 = clearance["position"]
 	var radius: float = clearance["radius"]
 	mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP, material)

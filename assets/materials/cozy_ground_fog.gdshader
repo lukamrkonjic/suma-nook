@@ -5,7 +5,7 @@ const int SWEEP_COUNT = 6;
 const int LIGHT_COUNT = 4;
 
 uniform sampler2D noise_texture : repeat_enable, filter_linear_mipmap_anisotropic;
-uniform vec3 mist_color : source_color = vec3(0.88, 0.87, 0.81);
+uniform vec3 mist_color : source_color = vec3(1.0);
 uniform float mist_density : hint_range(0.0, 2.0) = 0.68;
 uniform float noise_scale : hint_range(0.02, 0.35) = 0.095;
 uniform vec2 wind = vec2(0.025, -0.018);

@@ -5,16 +5,10 @@
 [resource]
 script = ExtResource("1")
 profile_id = "suma_soft_overcast"
-background_color = Color(0.7922, 0.8588, 0.851, 1)
-ambient_color = Color(0.7725, 0.8431, 0.8392, 1)
 ambient_energy = 0.56
 ambient_gradient_enabled = false
-ambient_sky_color = Color(0.7569, 0.8392, 0.8471, 1)
-ambient_equator_color = Color(0.8157, 0.8667, 0.8627, 1)
-ambient_ground_color = Color(0.749, 0.8039, 0.8, 1)
 background_gradient = false
 stars_enabled = false
-sun_color = Color(0.949, 0.9804, 1, 1)
 sun_energy = 0.58
 sun_specular = 0.24
 sun_pitch_deg = -68.0

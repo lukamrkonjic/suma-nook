@@ -63,8 +63,8 @@ func _build() -> void:
 	_panel.offset_bottom = 340.0
 	_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.025, 0.035, 0.032, 0.90)
-	style.border_color = Color(0.45, 0.78, 0.51, 0.92)
+	style.bg_color = PaletteDefinition.shared().color("ui_performance_surface")
+	style.border_color = PaletteDefinition.shared().color("ui_performance_border")
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(7)
 	style.content_margin_left = 13.0
@@ -79,7 +79,10 @@ func _build() -> void:
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_label.add_theme_font_override("font", ThemeDB.fallback_font)
 	_label.add_theme_font_size_override("font_size", 14)
-	_label.add_theme_color_override("font_color", Color(0.88, 0.96, 0.88))
+	_label.add_theme_color_override(
+		"font_color",
+		PaletteDefinition.shared().color("ui_performance_text")
+	)
 	_label.add_theme_constant_override("line_spacing", 2)
 	_panel.add_child(_label)
 

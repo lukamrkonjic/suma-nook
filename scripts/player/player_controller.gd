@@ -594,6 +594,14 @@ func _spawn_rescue_hole(at: Vector3) -> MeshInstance3D:
 	hole.mesh = disc
 	var material := ShaderMaterial.new()
 	material.shader = RESCUE_HOLE_SHADER
+	material.set_shader_parameter(
+		"hole_color",
+		PaletteDefinition.shared().color("vfx_rescue_hole")
+	)
+	material.set_shader_parameter(
+		"rim_color",
+		PaletteDefinition.shared().color("vfx_rescue_rim")
+	)
 	hole.material_override = material
 	hole.rotation_degrees.x = -90.0
 	hole.scale = Vector3(0.01, 0.01, 0.01)

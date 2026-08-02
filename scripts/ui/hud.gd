@@ -151,7 +151,7 @@ func _build_layout() -> void:
 	_hover_collection_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hover_collection_label.add_theme_color_override(
 		"font_color",
-		Color(0.42, 0.4, 0.34)
+		kit.palette.color("ui_collection_text")
 	)
 	hover_col.add_child(_hover_collection_label)
 
@@ -181,7 +181,7 @@ func _build_layout() -> void:
 	_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_hint_label.custom_minimum_size.x = 400
-	_hint_label.add_theme_color_override("font_color", Color(0.35, 0.31, 0.24))
+	_hint_label.add_theme_color_override("font_color", kit.palette.color("ui_hint_dark"))
 	_hint_panel.add_child(_hint_label)
 	_prompt_label = kit.label("", 20)
 	_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -252,20 +252,20 @@ func _build_layout() -> void:
 	_build_expand_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	_build_expand_button.focus_mode = Control.FOCUS_ALL
 	var bag_normal := StyleBoxFlat.new()
-	bag_normal.bg_color = Color(1.0, 0.995, 0.965, 0.98)
-	bag_normal.border_color = Color(0.78, 0.8, 0.7, 0.82)
+	bag_normal.bg_color = kit.palette.color("ui_bag_surface")
+	bag_normal.border_color = kit.palette.color("ui_bag_border")
 	bag_normal.set_border_width_all(2)
 	bag_normal.set_corner_radius_all(33)
-	bag_normal.shadow_color = Color(0.12, 0.15, 0.09, 0.22)
+	bag_normal.shadow_color = kit.palette.color("ui_bag_shadow")
 	bag_normal.shadow_size = 10
 	bag_normal.shadow_offset = Vector2(0, 5)
 	var bag_hover := bag_normal.duplicate()
-	bag_hover.bg_color = Color.WHITE
-	bag_hover.border_color = Color(0.56, 0.68, 0.38)
+	bag_hover.bg_color = kit.palette.color("ui_white")
+	bag_hover.border_color = kit.palette.color("ui_bag_hover")
 	bag_hover.shadow_size = 14
 	bag_hover.shadow_offset = Vector2(0, 7)
 	var bag_pressed := bag_hover.duplicate()
-	bag_pressed.bg_color = Color(0.94, 0.96, 0.88)
+	bag_pressed.bg_color = kit.palette.color("ui_bag_pressed")
 	bag_pressed.shadow_size = 5
 	bag_pressed.shadow_offset = Vector2(0, 2)
 	_build_expand_button.add_theme_stylebox_override("normal", bag_normal)
@@ -301,8 +301,8 @@ func _build_layout() -> void:
 	_build_search.add_theme_font_override("font", kit.font)
 	_build_search.add_theme_font_size_override("font_size", 16)
 	var search_style := StyleBoxFlat.new()
-	search_style.bg_color = Color(1.0, 0.995, 0.97, 0.94)
-	search_style.border_color = Color(0.74, 0.75, 0.67, 0.7)
+	search_style.bg_color = kit.palette.color("ui_search_surface")
+	search_style.border_color = kit.palette.color("ui_search_border")
 	search_style.set_border_width_all(1)
 	search_style.set_corner_radius_all(12)
 	search_style.content_margin_left = 15
@@ -371,7 +371,10 @@ func _build_layout() -> void:
 	_build_next_button.pressed.connect(func(): _page_build_items(1))
 	item_row.add_child(_build_next_button)
 	_build_hint_label = kit.label("", 12)
-	_build_hint_label.add_theme_color_override("font_color", Color(0.45, 0.4, 0.33))
+	_build_hint_label.add_theme_color_override(
+		"font_color",
+		kit.palette.color("ui_hint_medium")
+	)
 	_build_expanded_content.add_child(_build_hint_label)
 
 	_build_drop_overlay = PanelContainer.new()
@@ -381,11 +384,11 @@ func _build_layout() -> void:
 	_build_drop_overlay.visible = false
 	_build_drop_overlay.gui_input.connect(_on_build_drop_overlay_input)
 	var drop_style := StyleBoxFlat.new()
-	drop_style.bg_color = Color(0.31, 0.43, 0.24, 0.94)
-	drop_style.border_color = Color(0.82, 0.91, 0.56)
+	drop_style.bg_color = kit.palette.color("ui_drop_surface")
+	drop_style.border_color = kit.palette.color("ui_drop_border")
 	drop_style.set_border_width_all(4)
 	drop_style.set_corner_radius_all(16)
-	drop_style.shadow_color = Color(0.08, 0.12, 0.06, 0.24)
+	drop_style.shadow_color = kit.palette.color("ui_drop_shadow")
 	drop_style.shadow_size = 10
 	_build_drop_overlay.add_theme_stylebox_override("panel", drop_style)
 	_build_drop_label = kit.label(
@@ -407,38 +410,41 @@ func _build_layout() -> void:
 	_store_bubble.custom_minimum_size = Vector2(190, 52)
 	_store_bubble.tooltip_text = "Return this placed piece to storage"
 	var store_normal := StyleBoxFlat.new()
-	store_normal.bg_color = Color(1.0, 0.995, 0.965, 0.98)
-	store_normal.border_color = Color(0.76, 0.79, 0.68, 0.9)
+	store_normal.bg_color = kit.palette.color("ui_store_surface")
+	store_normal.border_color = kit.palette.color("ui_store_border")
 	store_normal.set_border_width_all(2)
 	store_normal.set_corner_radius_all(24)
 	store_normal.content_margin_left = 22
 	store_normal.content_margin_right = 22
 	store_normal.content_margin_top = 13
 	store_normal.content_margin_bottom = 13
-	store_normal.shadow_color = Color(0.13, 0.16, 0.1, 0.2)
+	store_normal.shadow_color = kit.palette.color("ui_store_shadow")
 	store_normal.shadow_size = 10
 	store_normal.shadow_offset = Vector2(0, 5)
 	var store_hover := store_normal.duplicate()
-	store_hover.bg_color = Color.WHITE
-	store_hover.border_color = Color(0.56, 0.67, 0.38)
+	store_hover.bg_color = kit.palette.color("ui_white")
+	store_hover.border_color = kit.palette.color("ui_store_hover")
 	store_hover.shadow_size = 13
 	var store_pressed := store_hover.duplicate()
-	store_pressed.bg_color = Color(0.94, 0.96, 0.88)
+	store_pressed.bg_color = kit.palette.color("ui_store_pressed")
 	store_pressed.shadow_size = 5
 	store_pressed.shadow_offset = Vector2(0, 2)
 	_store_bubble.add_theme_stylebox_override("normal", store_normal)
 	_store_bubble.add_theme_stylebox_override("hover", store_hover)
 	_store_bubble.add_theme_stylebox_override("pressed", store_pressed)
 	_store_bubble.add_theme_stylebox_override("focus", store_hover)
-	_store_bubble.add_theme_color_override("font_color", Color(0.24, 0.27, 0.19))
 	_store_bubble.add_theme_color_override(
-		"font_hover_color", Color(0.18, 0.25, 0.12)
+		"font_color",
+		kit.palette.color("ui_store_text")
 	)
 	_store_bubble.add_theme_color_override(
-		"font_pressed_color", Color(0.18, 0.25, 0.12)
+		"font_hover_color", kit.palette.color("ui_store_text_active")
 	)
 	_store_bubble.add_theme_color_override(
-		"font_focus_color", Color(0.18, 0.25, 0.12)
+		"font_pressed_color", kit.palette.color("ui_store_text_active")
+	)
+	_store_bubble.add_theme_color_override(
+		"font_focus_color", kit.palette.color("ui_store_text_active")
 	)
 	_store_bubble.visible = false
 	_store_bubble.pressed.connect(_store_held_from_bubble)
@@ -660,7 +666,10 @@ func _refresh_build_items(entries_by_category: Dictionary) -> void:
 			),
 			15
 		)
-		empty_label.add_theme_color_override("font_color", Color(0.45, 0.42, 0.36))
+		empty_label.add_theme_color_override(
+			"font_color",
+			kit.palette.color("ui_empty_text")
+		)
 		_build_strip.add_child(empty_label)
 		return
 
@@ -1326,7 +1335,12 @@ func _on_health_changed(current: int, maximum: int) -> void:
 	_health_box.visible = current < maximum or _enemies_near()
 	for i in maximum:
 		var heart := kit.label("♥", 22)
-		heart.add_theme_color_override("font_color", Color(0.78, 0.32, 0.28) if i < current else Color(0.4, 0.37, 0.33, 0.5))
+		heart.add_theme_color_override(
+			"font_color",
+			kit.palette.color("ui_health")
+			if i < current
+			else kit.palette.color("ui_health_empty")
+		)
 		_health_box.add_child(heart)
 
 
@@ -1425,17 +1439,26 @@ func set_hover_tooltip(display_name: String, collection_name: String) -> void:
 ## Keeps unboxed world-space guidance legible across the pale day and dark
 ## rain backdrops without adding a large UI panel over the diorama.
 func apply_weather_contrast(rain_enabled: bool) -> void:
-	var hint_color := Color(0.92, 0.89, 0.8) if rain_enabled else Color(0.35, 0.31, 0.24)
-	var prompt_color := Color(0.97, 0.94, 0.86) if rain_enabled else kit.text_color()
+	var hint_color := (
+		kit.palette.color("ui_hint_rain")
+		if rain_enabled
+		else kit.palette.color("ui_hint_dark")
+	)
+	var prompt_color := (
+		kit.palette.color("ui_prompt_rain") if rain_enabled else kit.text_color()
+	)
 	for entry in [[_hint_label, hint_color], [_prompt_label, prompt_color]]:
 		var label := entry[0] as Label
 		label.add_theme_color_override("font_color", entry[1])
-		label.add_theme_color_override("font_outline_color", Color(0.12, 0.15, 0.12, 0.8))
+		label.add_theme_color_override(
+			"font_outline_color",
+			kit.palette.color("ui_rain_outline")
+		)
 		label.add_theme_constant_override("outline_size", 3 if rain_enabled else 0)
 
 
 func toast(message: String, tone := "common") -> void:
-	var accent := Color(0.56, 0.53, 0.45)
+	var accent := kit.palette.color("ui_accent_neutral")
 	var glyph := "◆"
 	var tag := "WORLD NOTE"
 	match tone:
@@ -1448,7 +1471,7 @@ func toast(message: String, tone := "common") -> void:
 			glyph = "✧"
 			tag = "TRAIL MARKER"
 		"warn":
-			accent = Color(0.66, 0.31, 0.23)
+			accent = kit.palette.color("ui_accent_alert")
 			glyph = "!"
 			tag = "TAKE CARE"
 		"good":

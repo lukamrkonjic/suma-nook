@@ -32,7 +32,7 @@ MODEL_SCALE = 0.434
 FRONT_Y = -1.0
 
 COLORS = {
-    # gg_render_target_palette / gg_pnw_mossy_v1
+    # gg_material_palette.tres render_targets
     "skin": (0.8784, 0.6902, 0.4235, 1.0),  # skin_light / #E0B06C
     "hair": (0.3294, 0.2196, 0.1490, 1.0),  # hair_primary / #543826
     "eyes": (0.2196, 0.1412, 0.0980, 1.0),  # hair_deep / #382419

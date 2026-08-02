@@ -83,7 +83,7 @@ sheet upgrades automatically once they exist on disk.
 
 | Knob | File |
 |---|---|
-| Raw albedos | `assets/palettes/cozy_diorama_palette.tres` (+ Blender mirror in `art_source/procedural/build_assets.py`) |
+| Complete color system | `assets/palettes/gg_material_palette.tres` (the only authored runtime color source) |
 | Material response | `scripts/visuals/material_library.gd` |
 | Environment/sun/AO profiles | `assets/visual_profiles/garden_galaxy_day.tres` (B), `_candidate_a/_c.tres`, `_mist.tres` |
 | Rig plumbing | `scripts/visuals/lighting_rig.gd` |

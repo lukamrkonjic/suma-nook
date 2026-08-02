@@ -72,6 +72,14 @@ func _build_surface() -> void:
 	_material = ShaderMaterial.new()
 	_material.shader = RAIN_SURFACE_SHADER
 	_material.set_shader_parameter("noise_texture", noise_texture)
+	_material.set_shader_parameter(
+		"wet_color",
+		PaletteDefinition.shared().color("vfx_rain_wet_surface")
+	)
+	_material.set_shader_parameter(
+		"ripple_color",
+		PaletteDefinition.shared().color("vfx_rain_ripple")
+	)
 	_surface = MeshInstance3D.new()
 	_surface.name = "RainWetSurface"
 	_surface.mesh = plane
@@ -114,7 +122,9 @@ func _build_foot_splashes() -> void:
 	droplet.radial_segments = 6
 	droplet.rings = 3
 	var droplet_material := StandardMaterial3D.new()
-	droplet_material.albedo_color = Color(0.72, 0.88, 0.92, 0.72)
+	droplet_material.albedo_color = PaletteDefinition.shared().color(
+		"vfx_water_droplet"
+	)
 	droplet_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	droplet_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	droplet.material = droplet_material

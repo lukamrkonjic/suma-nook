@@ -1,4 +1,6 @@
 extends RefCounted
+
+var _color_system := PaletteDefinition.shared()
 ## Chunked terrain backend used automatically by large worlds. It preserves
 ## the authored TileVisualFactory result, but flattens it once per visual state
 ## and renders repeated cells through MultiMesh. Structures remain behavioral
@@ -396,7 +398,7 @@ func _add_warm_light(chunk_root: Node3D, data: Dictionary) -> void:
 	var light := OmniLight3D.new()
 	light.name = "BatchedWarmLight"
 	light.position = data["position"]
-	light.light_color = Color(1.0, 0.72, 0.4)
+	light.light_color = _color_system.color("vfx_local_light")
 	light.omni_range = 4.5
 	light.light_energy = float(data["energy"])
 	light.set_meta("base_energy", float(data["energy"]))

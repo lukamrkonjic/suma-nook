@@ -182,7 +182,7 @@ func _recipe_row(recipe: Defs.RecipeDefinition) -> Control:
 		var need := int(recipe.inputs[input_id])
 		costs.append("%s %d/%d" % [item.display_name if item else input_id, have, need])
 	var cost_label := kit.label(", ".join(costs), 13)
-	cost_label.add_theme_color_override("font_color", Color(0.5, 0.46, 0.38))
+	cost_label.add_theme_color_override("font_color", kit.palette.color("ui_cost"))
 	col.add_child(cost_label)
 	var craft_button := kit.button("Craft", true)
 	craft_button.disabled = not core.crafting.can_craft(recipe.id)
@@ -241,11 +241,11 @@ func _activity_progress_card(
 ) -> Control:
 	var accent := kit.palette.color("ui_good")
 	if skill_id == "fishing":
-		accent = Color(0.30, 0.55, 0.70)
+		accent = kit.palette.color("ui_info")
 	elif skill_id == "mining":
-		accent = Color(0.52, 0.50, 0.46)
+		accent = kit.palette.color("ui_neutral")
 	if def.future:
-		accent = Color(0.58, 0.56, 0.51)
+		accent = kit.palette.color("ui_future")
 	var card := kit.progression_card(Vector2.ZERO, accent)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 10)
@@ -480,13 +480,13 @@ func _collection_panel() -> Dictionary:
 func _journal_accent(category: String) -> Color:
 	match category:
 		"tiles":
-			return Color(0.39, 0.51, 0.25)
+			return kit.palette.color("ui_journal_tiles")
 		"structures":
-			return Color(0.59, 0.40, 0.26)
+			return kit.palette.color("ui_journal_structures")
 		"fish":
-			return Color(0.29, 0.49, 0.67)
+			return kit.palette.color("ui_journal_fish")
 		"woodland":
-			return Color(0.31, 0.46, 0.28)
+			return kit.palette.color("ui_journal_woodland")
 	return kit.palette.color("ui_accent")
 
 
@@ -526,25 +526,36 @@ class _WorldMap:
 			var state := core.grid.cell(coord)
 			var def := core.grid.tile_def(coord)
 			var pos := origin + Vector2(coord - rect.position) * cell_px
-			var color := Color(0.7, 0.72, 0.3)
+			var color := kit.palette.color("ui_map_default")
 			if state.landmark_id != "":
-				color = Color(0.55, 0.5, 0.44)
+				color = kit.palette.color("ui_map_empty")
 			elif def != null:
 				match def.family:
-					"living_grove": color = Color(0.35, 0.42, 0.2)
-					"stonebound": color = Color(0.62, 0.57, 0.48)
-					"waterside": color = Color(0.47, 0.65, 0.65)
+					"living_grove": color = kit.palette.color("ui_map_grove")
+					"stonebound": color = kit.palette.color("ui_map_stone")
+					"waterside": color = kit.palette.color("ui_map_water")
 			draw_rect(Rect2(pos + Vector2.ONE, Vector2(cell_px - 2, cell_px - 2)), color)
 			if coord == core.grid.home_cell:
-				draw_circle(pos + Vector2(cell_px, cell_px) * 0.5, cell_px * 0.18, Color(0.9, 0.75, 0.3))
+				draw_circle(
+					pos + Vector2(cell_px, cell_px) * 0.5,
+					cell_px * 0.18,
+					kit.palette.color("ui_map_landmark")
+				)
 		for state in core.landmarks.active:
 			if state.phase == LandmarkManager.PHASE_SILHOUETTE:
 				for cell in core.landmarks.footprint_cells(state):
 					var pos := origin + Vector2(cell - rect.position) * cell_px
-					draw_rect(Rect2(pos + Vector2.ONE, Vector2(cell_px - 2, cell_px - 2)), Color(0.3, 0.32, 0.28, 0.6))
+					draw_rect(
+						Rect2(pos + Vector2.ONE, Vector2(cell_px - 2, cell_px - 2)),
+						kit.palette.color("ui_map_unexplored")
+					)
 		var player_cell := core.grid.world_to_cell(core.profile.position)
 		var player_pos := origin + (Vector2(player_cell - rect.position) + Vector2(0.5, 0.5)) * cell_px
-		draw_circle(player_pos, cell_px * 0.22, Color(0.85, 0.4, 0.3))
+		draw_circle(
+			player_pos,
+			cell_px * 0.22,
+			kit.palette.color("ui_map_player")
+		)
 
 
 # ------------------------------------------------------------------ settings
@@ -617,7 +628,7 @@ func show_catch_basket() -> void:
 	if basket.haul_count() == 0:
 		var empty := kit.progression_card(
 			Vector2(0, 110),
-			Color(0.58, 0.56, 0.51)
+			kit.palette.color("ui_future")
 		)
 		var note := kit.muted_label(
 			"The basket is empty. Fish from any exposed edge and the void's hauls will wait here.",
@@ -832,6 +843,6 @@ func show_landmark_choice(landmark_id: String) -> void:
 			close())
 		col.add_child(b)
 		var hint := kit.label(option[2], 13)
-		hint.add_theme_color_override("font_color", Color(0.5, 0.46, 0.38))
+		hint.add_theme_color_override("font_color", kit.palette.color("ui_cost"))
 		col.add_child(hint)
 	focus_default()

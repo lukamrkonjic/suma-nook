@@ -2,16 +2,15 @@
 """Verify that a capture's rendered surfaces land on the palette render targets.
 
 Samples hand-picked flat regions of a GGAssetQualityLab capture and reports
-Delta E 2000 against the named targets in the palette JSON. This is the
+Delta E 2000 against the named targets in the color design system. This is the
 acceptance test for a palette swap: change the targets, re-solve the source
 albedos, capture, and confirm the rendered pixels still land where intended.
 
 Usage:
   python3 tools/verify_palette_render.py docs/visual_rework/comparisons/pnw_full.png \
-      [assets/palettes/gg_pnw_mossy_v1.json]
+      [assets/palettes/gg_material_palette.tres]
 """
 
-import json
 import sys
 from pathlib import Path
 
@@ -19,6 +18,7 @@ import numpy as np
 from PIL import Image
 
 from compare_reference_render import delta_e2000, srgb_to_lab  # reuse the color math
+from palette_io import CANONICAL_PALETTE, read_color_hexes
 
 # region name -> (sample pixel in the 1920x1080 lab capture, palette key, tolerance)
 # Sunlit tops of large flat surfaces, sampled away from props and shadows.
@@ -41,9 +41,12 @@ def sample(img, xy, radius=6):
 
 def main():
     cap = Path(sys.argv[1] if len(sys.argv) > 1 else "docs/visual_rework/comparisons/pnw_full.png")
-    pal_path = Path(sys.argv[2] if len(sys.argv) > 2 else "assets/palettes/gg_pnw_mossy_v1.json")
+    pal_path = Path(sys.argv[2]) if len(sys.argv) > 2 else CANONICAL_PALETTE
     img = np.asarray(Image.open(cap).convert("RGB"), dtype=float)
-    targets = {k: v.lstrip("#") for k, v in json.loads(pal_path.read_text())["colors"].items()}
+    targets = {
+        key: value.lstrip("#")
+        for key, value in read_color_hexes(pal_path, "render_targets").items()
+    }
 
     print("capture: %s" % cap)
     print("%-22s %-9s %-9s %6s  %s" % ("region", "measured", "target", "dE00", "status"))

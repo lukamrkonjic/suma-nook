@@ -108,7 +108,7 @@ func _build() -> void:
 	))
 	form.add_child(_swatch_row(
 		"Skin",
-		palette.skin_tones,
+		(palette as PaletteDefinition).character_swatches("skin"),
 		profile.skin_index,
 		func(i): profile.skin_index = i
 	))
@@ -120,7 +120,7 @@ func _build() -> void:
 	))
 	form.add_child(_swatch_row(
 		"Hair color",
-		palette.hair_colors,
+		(palette as PaletteDefinition).character_swatches("hair"),
 		profile.hair_color_index,
 		func(i): profile.hair_color_index = i
 	))
@@ -144,7 +144,7 @@ func _build() -> void:
 	))
 	form.add_child(_swatch_row(
 		"Outfit",
-		palette.outfit_colors,
+		(palette as PaletteDefinition).character_swatches("outfit"),
 		profile.outfit_index,
 		func(i): profile.outfit_index = i
 	))
@@ -189,11 +189,11 @@ func _section_header(text: String) -> Control:
 
 
 func _style_text_field(field: LineEdit) -> void:
-	var normal := kit.surface_style(Color(0.88, 0.87, 0.81, 0.74), 12)
+	var normal := kit.surface_style(palette.color("ui_creator_surface"), 12)
 	normal.content_margin_left = 14
 	normal.content_margin_right = 14
 	var hover := normal.duplicate()
-	hover.bg_color = Color(0.92, 0.91, 0.85, 0.96)
+	hover.bg_color = palette.color("ui_creator_hover")
 	var focus := hover.duplicate()
 	focus.border_color = palette.color("ui_accent").lightened(0.15)
 	focus.set_border_width_all(3)
@@ -239,10 +239,10 @@ func _swatch_row(
 		style.bg_color = colors[i]
 		style.set_corner_radius_all(20)
 		style.set_border_width_all(2)
-		style.border_color = Color(0.2, 0.17, 0.13, 0.18)
+		style.border_color = palette.color("ui_creator_border")
 		b.add_theme_stylebox_override("normal", style)
 		var hover := style.duplicate()
-		hover.border_color = Color(1, 1, 1, 0.92)
+		hover.border_color = palette.color("ui_creator_selected")
 		hover.set_border_width_all(3)
 		b.add_theme_stylebox_override("hover", hover)
 		var selected := style.duplicate()
@@ -294,11 +294,11 @@ func _choice_dropdown(
 
 
 func _style_selector(selector: OptionButton) -> void:
-	var normal := kit.surface_style(Color(0.88, 0.87, 0.81, 0.74), 12)
+	var normal := kit.surface_style(palette.color("ui_creator_surface"), 12)
 	normal.content_margin_left = 14
 	normal.content_margin_right = 12
 	var hover := normal.duplicate()
-	hover.bg_color = Color(0.92, 0.91, 0.85, 0.96)
+	hover.bg_color = palette.color("ui_creator_hover")
 	var pressed := hover.duplicate()
 	pressed.bg_color = palette.color("ui_accent").lightened(0.34)
 	var focus := hover.duplicate()

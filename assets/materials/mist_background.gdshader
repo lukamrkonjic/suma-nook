@@ -4,10 +4,13 @@ shader_type canvas_item;
 // Clouds are NOT drawn here: the volumetric void-cloud ocean below the
 // island is world-space fog, so the backdrop stays a calm open wash.
 
-uniform vec4 top_color : source_color = vec4(0.7059, 0.7765, 0.7725, 1.0);
-uniform vec4 mid_color : source_color = vec4(0.7255, 0.8, 0.7765, 1.0);
-uniform vec4 bottom_color : source_color = vec4(0.7333, 0.8157, 0.7922, 1.0);
-uniform vec4 centre_glow_color : source_color = vec4(1.0, 0.9412, 0.8157, 1.0);
+uniform vec4 top_color : source_color = vec4(1.0);
+uniform vec4 mid_color : source_color = vec4(1.0);
+uniform vec4 bottom_color : source_color = vec4(1.0);
+uniform vec4 centre_glow_color : source_color = vec4(1.0);
+uniform vec3 shooting_star_trail_color : source_color = vec3(1.0);
+uniform vec3 shooting_star_head_color : source_color = vec3(1.0);
+uniform vec3 mist_star_color : source_color = vec3(1.0);
 uniform float mote_density : hint_range(0.0, 1.0) = 0.14;
 uniform float stars_amount : hint_range(0.0, 1.0) = 0.0;
 uniform float shooting_star_active = 0.0;
@@ -70,8 +73,8 @@ vec3 shooting_star_radiance(vec2 uv) {
 	);
 	float event_fade = smoothstep(0.0, 0.14, shooting_star_progress)
 		* (1.0 - smoothstep(0.72, 1.0, shooting_star_progress));
-	vec3 cool_trail = vec3(0.82, 0.91, 1.0) * (core + glow);
-	vec3 warm_head = vec3(1.0, 0.93, 0.76) * head * 0.55;
+	vec3 cool_trail = shooting_star_trail_color * (core + glow);
+	vec3 warm_head = shooting_star_head_color * head * 0.55;
 	return (cool_trail + warm_head)
 		* shooting_star_intensity
 		* event_fade;
@@ -133,7 +136,7 @@ void fragment() {
 		if (h > 1.0 - stars_amount * 0.12) {
 			vec2 star_pos = vec2(fract(h * 34.7), fract(h * 91.3)) * 0.6 + 0.2;
 			float d = length(f - star_pos);
-			col = mix(col, vec3(0.96, 0.98, 0.96), smoothstep(0.06, 0.0, d) * 0.75);
+			col = mix(col, mist_star_color, smoothstep(0.06, 0.0, d) * 0.75);
 		}
 	}
 	col += shooting_star_radiance(UV);

@@ -1,5 +1,7 @@
 class_name CatchBasketView
 extends Node3D
+
+var _color_system := PaletteDefinition.shared()
 ## The physical Catch Basket beside the fishing keeper. Pure presentation: it
 ## renders the basket and a miniature per haul (tied tile stacks, model
 ## minis, a glowing keepsake charm) and never makes gameplay decisions.
@@ -37,7 +39,7 @@ func _build_shell() -> void:
 	body.mesh = mesh
 	body.position.y = 0.1
 	var wood := StandardMaterial3D.new()
-	wood.albedo_color = Color(0.52, 0.38, 0.24)
+	wood.albedo_color = _color_system.color("basket_wood")
 	wood.roughness = 0.92
 	body.material_override = wood
 	add_child(body)
@@ -48,7 +50,7 @@ func _build_shell() -> void:
 	rim.mesh = rim_mesh
 	rim.position.y = 0.21
 	var rim_material := StandardMaterial3D.new()
-	rim_material.albedo_color = Color(0.62, 0.47, 0.3)
+	rim_material.albedo_color = _color_system.color("basket_rim")
 	rim_material.roughness = 0.9
 	rim.material_override = rim_material
 	add_child(rim)
@@ -98,7 +100,10 @@ func _tile_stack_mini(entry: FishingReward) -> Node3D:
 	mesh.size = Vector3(0.12, 0.02 + 0.012 * layers, 0.12)
 	mini.mesh = mesh
 	var material := StandardMaterial3D.new()
-	material.albedo_color = _rarity_tint(entry.rarity, Color(0.55, 0.66, 0.42))
+	material.albedo_color = _rarity_tint(
+		entry.rarity,
+		_color_system.color("basket_foliage")
+	)
 	material.roughness = 0.85
 	mini.material_override = material
 	return mini
@@ -114,7 +119,10 @@ func _model_mini(entry: FishingReward) -> Node3D:
 	mesh.height = 0.11
 	mini.mesh = mesh
 	var material := StandardMaterial3D.new()
-	material.albedo_color = _rarity_tint(entry.rarity, Color(0.72, 0.65, 0.5))
+	material.albedo_color = _rarity_tint(
+		entry.rarity,
+		_color_system.color("basket_stone")
+	)
 	material.roughness = 0.8
 	mini.material_override = material
 	return mini
@@ -128,9 +136,9 @@ func _keepsake_charm() -> Node3D:
 	charm.mesh = mesh
 	charm.position.y = 0.34
 	var material := StandardMaterial3D.new()
-	material.albedo_color = Color(1.0, 0.9, 0.55)
+	material.albedo_color = _color_system.color("basket_charm")
 	material.emission_enabled = true
-	material.emission = Color(1.0, 0.85, 0.45)
+	material.emission = _color_system.color("basket_charm_emission")
 	material.emission_energy_multiplier = 1.6
 	charm.material_override = material
 	charm.add_to_group("basket_keepsake_charm")
@@ -140,7 +148,7 @@ func _keepsake_charm() -> Node3D:
 func _rarity_tint(rarity: String, base: Color) -> Color:
 	match rarity:
 		"uncommon":
-			return base.lerp(Color(0.5, 0.7, 0.95), 0.35)
+			return base.lerp(_color_system.color("rarity_uncommon_tint"), 0.35)
 		"rare":
-			return base.lerp(Color(0.85, 0.6, 0.95), 0.45)
+			return base.lerp(_color_system.color("rarity_rare_tint"), 0.45)
 	return base

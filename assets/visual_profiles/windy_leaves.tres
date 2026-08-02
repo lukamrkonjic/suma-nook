@@ -5,14 +5,8 @@
 [resource]
 script = ExtResource("1")
 profile_id = "windy_leaves"
-background_color = Color(0.8, 0.7765, 0.6863, 1)
-ambient_color = Color(0.8471, 0.7725, 0.6941, 1)
 ambient_energy = 0.82
 ambient_gradient_enabled = true
-ambient_sky_color = Color(0.8, 0.741, 0.769, 1)
-ambient_equator_color = Color(0.651, 0.42, 0.373, 1)
-ambient_ground_color = Color(0.859, 0.8, 0.722, 1)
-sun_color = Color(1, 0.94, 0.82, 1)
 sun_energy = 0.92
 sun_pitch_deg = -54.0
 sun_yaw_deg = -65.0

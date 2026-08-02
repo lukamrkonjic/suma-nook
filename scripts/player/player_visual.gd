@@ -599,7 +599,7 @@ func _apply_authored_material_to(mesh_instance: MeshInstance3D) -> void:
 		styled.shader = _asset_profile.material_shader
 		styled.set_shader_parameter("albedo_texture", base.albedo_texture)
 		styled.set_shader_parameter("base_albedo", base.albedo_color)
-		styled.set_shader_parameter("palette_tint", _asset_profile.material_tint)
+		styled.set_shader_parameter("palette_tint", _asset_profile.material_tint())
 		styled.set_shader_parameter(
 			"saturation", _asset_profile.material_saturation
 		)
@@ -894,9 +894,13 @@ func apply_profile(profile: PlayerProfile) -> void:
 	if _uses_rigged_preview:
 		_apply_rigged_profile(profile)
 		return
-	var skin := palette.skin_tones[clampi(profile.skin_index, 0, palette.skin_tones.size() - 1)]
-	var hair := palette.hair_colors[clampi(profile.hair_color_index, 0, palette.hair_colors.size() - 1)]
-	var outfit := palette.outfit_colors[clampi(profile.outfit_index, 0, palette.outfit_colors.size() - 1)]
+	var design_palette := palette as PaletteDefinition
+	var skin_swatches := design_palette.character_swatches("skin")
+	var hair_swatches := design_palette.character_swatches("hair")
+	var outfit_swatches := design_palette.character_swatches("outfit")
+	var skin := skin_swatches[clampi(profile.skin_index, 0, skin_swatches.size() - 1)]
+	var hair := hair_swatches[clampi(profile.hair_color_index, 0, hair_swatches.size() - 1)]
+	var outfit := outfit_swatches[clampi(profile.outfit_index, 0, outfit_swatches.size() - 1)]
 	_tint_parts(["Head", "EarL", "EarR", "HandL", "HandR"], materials.tinted("skin", skin))
 	_tint_parts(["Nose"], materials.tinted("skin", skin.darkened(0.08)))
 	_tint_parts(["CheekL", "CheekR"], materials.tinted("petal_pink", skin.lerp(palette.color("petal_pink"), 0.34)))
@@ -924,11 +928,14 @@ func apply_profile(profile: PlayerProfile) -> void:
 
 func _apply_rigged_profile(profile: PlayerProfile) -> void:
 	_apply_catalog_parts(profile)
-	var skin := palette.skin_tones[
-		clampi(profile.skin_index, 0, palette.skin_tones.size() - 1)
+	var design_palette := palette as PaletteDefinition
+	var skin_swatches := design_palette.character_swatches("skin")
+	var hair_swatches := design_palette.character_swatches("hair")
+	var skin := skin_swatches[
+		clampi(profile.skin_index, 0, skin_swatches.size() - 1)
 	]
-	var hair := palette.hair_colors[
-		clampi(profile.hair_color_index, 0, palette.hair_colors.size() - 1)
+	var hair := hair_swatches[
+		clampi(profile.hair_color_index, 0, hair_swatches.size() - 1)
 	]
 	_active_hair_style = clampi(
 		profile.hair_style, 0, maxi(PART_CATALOG.hair.size() - 1, 0)
@@ -992,7 +999,10 @@ func _set_rigged_mesh_color(mesh_instance: MeshInstance3D, color: Color) -> void
 		if material is ShaderMaterial:
 			var styled := material as ShaderMaterial
 			styled.set_shader_parameter("base_albedo", color)
-			styled.set_shader_parameter("palette_tint", Color.WHITE)
+			styled.set_shader_parameter(
+				"palette_tint",
+				palette.color("neutral_white")
+			)
 			styled.set_shader_parameter("saturation", 1.0)
 			styled.set_shader_parameter("value_scale", 1.0)
 
@@ -1276,7 +1286,7 @@ func play(anim: String, cycle_duration := -1.0) -> void:
 			_action_tween.tween_property(_body, "rotation:x", 0.0, 0.2)
 		"hit":
 			animation_event.emit(anim, "flash")
-			_flash(Color(1.0, 0.5, 0.45))
+			_flash(palette.color("vfx_player_damage_flash"))
 			_action_tween.tween_property(_body, "position:x", 0.07, 0.05)
 			_action_tween.tween_property(_body, "position:x", -0.05, 0.05)
 			_action_tween.tween_property(_body, "position:x", 0.0, 0.08)
@@ -1390,7 +1400,7 @@ func _play_rigged_preview(anim: String, cycle_duration: float) -> void:
 			_action_tween.tween_callback(func(): _finish_rigged_action(anim))
 		"hit":
 			animation_event.emit(anim, "flash")
-			_flash(Color(1.0, 0.5, 0.45))
+			_flash(palette.color("vfx_player_damage_flash"))
 			_action_tween.tween_property(
 				_body, "position", _body_base_position + Vector3.RIGHT * 0.07, 0.05
 			)

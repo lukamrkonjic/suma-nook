@@ -68,13 +68,13 @@ uniform vec3 sun_direction = vec3(-0.35, 0.65, -0.30);
 // foundations, soft shadowed cavities, the warm cream body, ivory light
 // areas, and the bright sunlit highlight (spec palette 9F9189 / C4B5A7 /
 // E6D5BD / F5E8CF / FFF8E8, authored slightly hot for the tonemap).
-uniform vec3 deep_shadow_color : source_color = vec3(0.686, 0.626, 0.590);
-uniform vec3 shade_color : source_color = vec3(0.846, 0.781, 0.720);
-uniform vec3 mid_color : source_color = vec3(0.992, 0.919, 0.815);
-uniform vec3 crown_color : source_color = vec3(1.057, 1.001, 0.893);
-uniform vec3 light_color : source_color = vec3(1.10, 1.07, 1.001);
-uniform vec3 rim_color : source_color = vec3(1.0, 0.79, 0.50);
-uniform vec3 atmosphere_color : source_color = vec3(0.935, 0.90, 0.815);
+uniform vec3 deep_shadow_color : source_color = vec3(1.0);
+uniform vec3 shade_color : source_color = vec3(1.0);
+uniform vec3 mid_color : source_color = vec3(1.0);
+uniform vec3 crown_color : source_color = vec3(1.0);
+uniform vec3 light_color : source_color = vec3(1.0);
+uniform vec3 rim_color : source_color = vec3(1.0);
+uniform vec3 atmosphere_color : source_color = vec3(1.0);
 uniform float mist_opacity : hint_range(0.0, 1.0) = 0.97;
 uniform float sun_energy = 2.6;
 uniform float ambient_energy = 0.72;

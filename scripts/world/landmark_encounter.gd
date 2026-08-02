@@ -1,5 +1,7 @@
 class_name LandmarkEncounter
 extends Node3D
+
+var _color_system := PaletteDefinition.shared()
 ## Scene-side lifecycle of one revealed landmark: spawns surviving enemies +
 ## guardian from saved state, resets them when the player falls, and plants
 ## the reclaim prompt marker once the site turns peaceful.
@@ -77,9 +79,9 @@ func _plant_prompt() -> void:
 	orb.height = 0.28
 	glow.mesh = orb
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.91, 0.64, 0.24)
+	mat.albedo_color = _color_system.color("vfx_landmark_glow")
 	mat.emission_enabled = true
-	mat.emission = Color(0.91, 0.64, 0.24)
+	mat.emission = _color_system.color("vfx_landmark_glow")
 	mat.emission_energy_multiplier = 2.5
 	glow.material_override = mat
 	glow.position.y = 1.1

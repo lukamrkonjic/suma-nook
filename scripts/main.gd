@@ -1542,7 +1542,7 @@ func _on_health_changed(current: int, _maximum: int) -> void:
 func _on_player_defeated() -> void:
 	hud.toast("The world catches you. You wake at home, whole.", "warn")
 	var fade := ColorRect.new()
-	fade.color = Color(0.1, 0.1, 0.08, 0.0)
+	fade.color = palette.color("ui_scene_fade")
 	fade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	hud.add_child(fade)
 	var tween := fade.create_tween()

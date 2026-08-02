@@ -83,6 +83,5 @@ armor_region_bones = {
 material_shader = ExtResource("3_shader")
 material_saturation = 1.0
 material_value_scale = 1.0
-material_tint = Color(1, 1, 1, 1)
 material_roughness = 0.9
 material_specular = 0.14

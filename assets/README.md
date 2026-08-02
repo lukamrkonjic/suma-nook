@@ -5,7 +5,9 @@
 - `3d/proxies/` — Tier C stand-ins (character proxy). Replacing a proxy =
   dropping a hero GLB with the SAME asset id into `3d/final/` (AssetLibrary
   checks final/ first).
-- `palettes/cozy_diorama_palette.tres` — the one shared color vocabulary.
+- `palettes/gg_material_palette.tres` — the canonical color design system:
+  source colors, render targets, environment profiles, world themes, UI/VFX
+  tokens, and whole-game alteration presets.
 - `visual_profiles/` — day/rain lighting presets for the LightingRig.
 - `inbox/luka/` — drop zone for Modly/Blender deliveries before integration.
 - `fonts/` — Fredoka Medium and SemiBold ([Google Fonts](https://fonts.google.com/specimen/Fredoka), SIL Open Font License).

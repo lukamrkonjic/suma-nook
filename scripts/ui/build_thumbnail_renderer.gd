@@ -1,5 +1,7 @@
 class_name BuildThumbnailRenderer
 extends Node
+
+var _color_system := PaletteDefinition.shared()
 ## Renders owned build pieces through the production visual factories.
 ##
 ## One small viewport services a lazy queue and then switches itself off. The
@@ -103,9 +105,9 @@ func _build_viewport() -> void:
 	var environment := WorldEnvironment.new()
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0, 0, 0, 0)
+	env.background_color = _color_system.color("ui_transparent")
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.94, 0.97, 0.9)
+	env.ambient_light_color = _color_system.color("thumbnail_ambient")
 	env.ambient_light_energy = 1.05
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	environment.environment = env
@@ -113,14 +115,14 @@ func _build_viewport() -> void:
 
 	var key_light := DirectionalLight3D.new()
 	key_light.rotation_degrees = Vector3(-48, -32, 0)
-	key_light.light_color = Color(1.0, 0.91, 0.74)
+	key_light.light_color = _color_system.color("thumbnail_key")
 	key_light.light_energy = 1.35
 	key_light.shadow_enabled = false
 	_viewport.add_child(key_light)
 
 	var fill_light := DirectionalLight3D.new()
 	fill_light.rotation_degrees = Vector3(-28, 148, 0)
-	fill_light.light_color = Color(0.72, 0.83, 0.9)
+	fill_light.light_color = _color_system.color("thumbnail_fill")
 	fill_light.light_energy = 0.42
 	fill_light.shadow_enabled = false
 	_viewport.add_child(fill_light)

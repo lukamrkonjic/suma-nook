@@ -1,5 +1,7 @@
 class_name FishingRod
 extends Node3D
+
+var _color_system := PaletteDefinition.shared()
 ## Compact procedural rod used by the live character rig. Its LineOrigin
 ## marker is the authoritative endpoint for the viewport-space fishing line.
 
@@ -142,11 +144,11 @@ func _build() -> void:
 	_shaft_pivot.name = "ShaftPivot"
 	add_child(_shaft_pivot)
 
-	var wood := _material(Color("#9B633B"), 0.72)
-	var wood_tip := _material(Color("#B47A4B"), 0.68)
-	var grip := _material(Color("#4B3024"), 0.88)
-	var metal := _material(Color("#B98752"), 0.55)
-	var guide_material := _material(Color("#594030"), 0.62)
+	var wood := _material(_color_system.color("fishing_rod_wood"), 0.72)
+	var wood_tip := _material(_color_system.color("fishing_rod_wood_tip"), 0.68)
+	var grip := _material(_color_system.color("fishing_rod_grip"), 0.88)
+	var metal := _material(_color_system.color("fishing_rod_metal"), 0.55)
+	var guide_material := _material(_color_system.color("fishing_rod_guide"), 0.62)
 	# The shaft runs dead straight ahead (-Z) and rises toward the tip: the
 	# rod's forward axis IS the cast direction, so aiming the rod at an edge
 	# needs no compensation for any authored side-curve.

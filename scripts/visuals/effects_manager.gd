@@ -4,6 +4,7 @@ extends Node3D
 ## vegetation shakes, placement dust, and screen-space click confirmation.
 
 var assets: AssetLibrary
+var _color_system := PaletteDefinition.shared()
 var _bobber: Node3D
 var _bobber_tween: Tween
 var _click_layer: CanvasLayer
@@ -250,7 +251,7 @@ func fire_ignition(point: Vector3, fire_width := 0.56) -> void:
 
 func fire_extinguish(point: Vector3, fire_width := 0.56) -> void:
 	var smoke_material := StandardMaterial3D.new()
-	smoke_material.albedo_color = Color(0.48, 0.46, 0.42, 0.5)
+	smoke_material.albedo_color = _color_system.color("vfx_smoke_translucent")
 	smoke_material.transparency = (
 		BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS
 	)
@@ -361,22 +362,35 @@ func click_marker(screen_position: Vector2, interactive: bool) -> void:
 	var halo := Node2D.new()
 	halo.name = "Halo"
 	halo.scale = Vector2.ONE * 0.5
-	halo.add_child(_marker_ring(8.0, Color(1.0, 0.95, 0.82, 0.48 if interactive else 0.4), 1.25))
+	var halo_color := _color_system.color("vfx_marker_cream")
+	if not interactive:
+		halo_color.a = 0.4
+	halo.add_child(_marker_ring(8.0, halo_color, 1.25))
 	if interactive:
-		halo.add_child(_marker_ring(11.0, Color(1.0, 0.9, 0.7, 0.24), 0.9))
+		halo.add_child(
+			_marker_ring(
+				11.0,
+				_color_system.color("vfx_marker_gold"),
+				0.9
+			)
+		)
 	marker.add_child(halo)
 
 	var glyph := Node2D.new()
 	glyph.name = "Glyph"
 	glyph.scale = Vector2.ONE * 0.82
 	marker.add_child(glyph)
-	var ink := Color(1.0, 0.95, 0.84, 0.96)
-	var shadow := Color(0.12, 0.09, 0.05, 0.24)
+	var ink := _color_system.color("vfx_marker_ink_opaque")
+	var shadow := _color_system.color("vfx_marker_ink")
 	glyph.add_child(_marker_disc(3.7, shadow))
 	glyph.add_child(_marker_disc(2.65, ink))
 	if interactive:
-		glyph.add_child(_marker_ring(6.2, Color(0.12, 0.09, 0.05, 0.18), 3.0))
-		glyph.add_child(_marker_ring(6.0, Color(1.0, 0.9, 0.68, 0.94), 1.35))
+		glyph.add_child(
+			_marker_ring(6.2, _color_system.color("vfx_marker_shadow"), 3.0)
+		)
+		glyph.add_child(
+			_marker_ring(6.0, _color_system.color("vfx_marker_ring"), 1.35)
+		)
 
 	var halo_tween := halo.create_tween()
 	halo_tween.set_parallel()

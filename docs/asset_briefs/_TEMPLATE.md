@@ -5,7 +5,7 @@
 - **Target silhouette** (one sentence a modeler can verify at gameplay zoom):
 - **Dimensions**: (tile = 2.0 m; state size relative to a tile)
 - **Pivot**: bottom-center unless noted. **Forward**: -Z.
-- **Palette colors** (from `assets/palettes/cozy_diorama_palette.tres`):
+- **Semantic palette tokens** (from `assets/palettes/gg_material_palette.tres`):
 - **Material slots** (semantic names only — Godot rebinds them):
 - **Separate/movable parts**:
 - **Sockets** (named empties):

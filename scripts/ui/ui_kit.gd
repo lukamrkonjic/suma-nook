@@ -21,7 +21,7 @@ func _init(pal: CozyPalette) -> void:
 	theme.default_font = font
 	theme.default_font_size = 18
 	var focus := StyleBoxFlat.new()
-	focus.bg_color = Color(1.0, 0.93, 0.58, 0.12)
+	focus.bg_color = palette.color("ui_focus_glow")
 	focus.border_color = palette.color("ui_accent").lightened(0.18)
 	focus.set_border_width_all(3)
 	focus.set_corner_radius_all(10)
@@ -39,7 +39,10 @@ func _init(pal: CozyPalette) -> void:
 
 func panel_style(dark := false, radius := 12) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = palette.color("ui_panel_dark") if dark else Color(0.95, 0.94, 0.89, 0.96)
+	style.bg_color = (
+		palette.color("ui_panel_dark") if dark
+		else palette.color("ui_surface")
+	)
 	style.set_corner_radius_all(radius)
 	style.set_content_margin_all(16)
 	style.anti_aliasing = true
@@ -48,10 +51,10 @@ func panel_style(dark := false, radius := 12) -> StyleBoxFlat:
 
 func cloud_panel_style(radius := 30) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.965, 0.96, 0.925, 0.98)
+	style.bg_color = palette.color("ui_surface_raised")
 	style.set_corner_radius_all(radius)
 	style.set_content_margin_all(32)
-	style.shadow_color = Color(0.12, 0.12, 0.1, 0.18)
+	style.shadow_color = palette.color("ui_shadow")
 	style.shadow_size = 18
 	style.shadow_offset = Vector2(0, 7)
 	style.anti_aliasing = true
@@ -59,7 +62,7 @@ func cloud_panel_style(radius := 30) -> StyleBoxFlat:
 
 
 func text_color(dark_background := false) -> Color:
-	return Color(0.95, 0.94, 0.9) if dark_background else Color(0.23, 0.22, 0.19)
+	return palette.color("ui_text_inverse" if dark_background else "ui_text_primary")
 
 
 func label(text: String, size := 18, dark_background := false, strong := false) -> Label:
@@ -77,7 +80,10 @@ func button(text: String, accent := false) -> Button:
 	b.add_theme_font_override("font", font_bold)
 	b.add_theme_font_size_override("font_size", 18)
 	var normal := StyleBoxFlat.new()
-	normal.bg_color = palette.color("ui_accent").lightened(0.06) if accent else Color(0.88, 0.87, 0.82, 0.82)
+	normal.bg_color = (
+		palette.color("ui_accent").lightened(0.06) if accent
+		else palette.color("ui_surface_soft")
+	)
 	normal.set_corner_radius_all(12)
 	normal.set_content_margin_all(11)
 	normal.content_margin_left = 18
@@ -87,7 +93,7 @@ func button(text: String, accent := false) -> Button:
 	var pressed := normal.duplicate()
 	pressed.bg_color = normal.bg_color.darkened(0.08)
 	var disabled := normal.duplicate()
-	disabled.bg_color = Color(0.8, 0.78, 0.73, 0.6)
+	disabled.bg_color = palette.color("ui_surface_disabled")
 	var focus := normal.duplicate()
 	focus.bg_color = normal.bg_color.lightened(0.04)
 	focus.border_color = palette.color("ui_accent").lightened(0.2)
@@ -97,10 +103,10 @@ func button(text: String, accent := false) -> Button:
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("disabled", disabled)
 	b.add_theme_stylebox_override("focus", focus)
-	b.add_theme_color_override("font_color", Color.WHITE if accent else text_color())
-	b.add_theme_color_override("font_hover_color", Color.WHITE if accent else text_color())
-	b.add_theme_color_override("font_focus_color", Color.WHITE if accent else text_color())
-	b.add_theme_color_override("font_disabled_color", Color(0.5, 0.47, 0.42))
+	b.add_theme_color_override("font_color", palette.color("ui_white") if accent else text_color())
+	b.add_theme_color_override("font_hover_color", palette.color("ui_white") if accent else text_color())
+	b.add_theme_color_override("font_focus_color", palette.color("ui_white") if accent else text_color())
+	b.add_theme_color_override("font_disabled_color", palette.color("ui_text_disabled"))
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	return b
 
@@ -116,7 +122,7 @@ func choice_button(text: String, selected := false) -> Button:
 	selected_style.content_margin_left = 18
 	selected_style.content_margin_right = 18
 	b.add_theme_stylebox_override("pressed", selected_style)
-	b.add_theme_color_override("font_pressed_color", Color.WHITE)
+	b.add_theme_color_override("font_pressed_color", palette.color("ui_white"))
 	b.set_pressed_no_signal(selected)
 	return b
 
@@ -131,14 +137,14 @@ func library_category_button(text: String, selected := false) -> Button:
 	b.add_theme_font_size_override("font_size", 13)
 
 	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color(0.86, 0.85, 0.79, 0.62)
+	normal.bg_color = palette.color("ui_category")
 	normal.set_corner_radius_all(12)
 	normal.content_margin_left = 10
 	normal.content_margin_right = 10
 	normal.content_margin_top = 8
 	normal.content_margin_bottom = 8
 	var hover := normal.duplicate()
-	hover.bg_color = Color(0.82, 0.84, 0.75, 0.9)
+	hover.bg_color = palette.color("ui_category_hover")
 	var pressed := normal.duplicate()
 	pressed.bg_color = palette.color("ui_good").lightened(0.05)
 	var focus := pressed.duplicate()
@@ -148,10 +154,10 @@ func library_category_button(text: String, selected := false) -> Button:
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("focus", focus)
-	b.add_theme_color_override("font_color", Color(0.32, 0.31, 0.27))
-	b.add_theme_color_override("font_hover_color", Color(0.24, 0.27, 0.2))
-	b.add_theme_color_override("font_pressed_color", Color(0.98, 0.97, 0.91))
-	b.add_theme_color_override("font_focus_color", Color(0.98, 0.97, 0.91))
+	b.add_theme_color_override("font_color", palette.color("ui_text_primary").lightened(0.09))
+	b.add_theme_color_override("font_hover_color", palette.color("ui_text_primary"))
+	b.add_theme_color_override("font_pressed_color", palette.color("ui_text_inverse"))
+	b.add_theme_color_override("font_focus_color", palette.color("ui_text_inverse"))
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	b.set_pressed_no_signal(selected)
 	return b
@@ -165,15 +171,15 @@ func library_item_button(display_name: String, count: int) -> Button:
 	b.add_theme_font_size_override("font_size", 16)
 
 	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color(0.91, 0.9, 0.85, 0.92)
+	normal.bg_color = palette.color("ui_card")
 	normal.set_corner_radius_all(15)
 	normal.content_margin_left = 17
 	normal.content_margin_right = 17
 	normal.content_margin_top = 12
 	normal.content_margin_bottom = 12
 	var hover := normal.duplicate()
-	hover.bg_color = Color(0.95, 0.91, 0.82, 1.0)
-	hover.shadow_color = Color(0.25, 0.2, 0.14, 0.12)
+	hover.bg_color = palette.color("ui_card_hover")
+	hover.shadow_color = palette.color("ui_card_shadow")
 	hover.shadow_size = 5
 	hover.shadow_offset = Vector2(0, 2)
 	var pressed := normal.duplicate()
@@ -185,10 +191,10 @@ func library_item_button(display_name: String, count: int) -> Button:
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("focus", focus)
-	b.add_theme_color_override("font_color", Color(0.28, 0.27, 0.24))
-	b.add_theme_color_override("font_hover_color", Color(0.24, 0.23, 0.2))
-	b.add_theme_color_override("font_pressed_color", Color.WHITE)
-	b.add_theme_color_override("font_focus_color", Color(0.24, 0.23, 0.2))
+	b.add_theme_color_override("font_color", palette.color("ui_text_primary").lightened(0.05))
+	b.add_theme_color_override("font_hover_color", palette.color("ui_text_primary"))
+	b.add_theme_color_override("font_pressed_color", palette.color("ui_white"))
+	b.add_theme_color_override("font_focus_color", palette.color("ui_text_primary"))
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	return b
 
@@ -204,15 +210,15 @@ func library_visual_item_button(
 	button.focus_mode = Control.FOCUS_ALL
 
 	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color(0.91, 0.91, 0.85, 0.94)
+	normal.bg_color = palette.color("ui_visual_card")
 	normal.set_corner_radius_all(18)
 	normal.set_content_margin_all(0)
-	normal.border_color = Color(0.43, 0.5, 0.34, 0.0)
+	normal.border_color = palette.color("ui_border")
 	normal.set_border_width_all(2)
 	var hover := normal.duplicate()
-	hover.bg_color = Color(0.96, 0.94, 0.85, 1.0)
+	hover.bg_color = palette.color("ui_surface_selected")
 	hover.border_color = palette.color("ui_good").lightened(0.08)
-	hover.shadow_color = Color(0.16, 0.2, 0.12, 0.16)
+	hover.shadow_color = palette.color("ui_visual_card_shadow")
 	hover.shadow_size = 7
 	hover.shadow_offset = Vector2(0, 3)
 	var pressed := hover.duplicate()
@@ -268,7 +274,7 @@ func library_visual_item_button(
 		badge_style.content_margin_right = 8
 		badge_style.content_margin_top = 4
 		badge_style.content_margin_bottom = 4
-		badge_style.shadow_color = Color(0.08, 0.1, 0.06, 0.2)
+		badge_style.shadow_color = palette.color("ui_badge_shadow")
 		badge_style.shadow_size = 3
 		badge_style.shadow_offset = Vector2(0, 2)
 		badge.add_theme_stylebox_override("panel", badge_style)
@@ -291,7 +297,7 @@ func style_library_scrollbar(scroll: ScrollContainer) -> void:
 	horizontal.custom_minimum_size.y = 6
 	vertical.custom_minimum_size.x = 7
 	var track := StyleBoxFlat.new()
-	track.bg_color = Color(0.72, 0.72, 0.66, 0.28)
+	track.bg_color = palette.color("ui_track")
 	track.set_corner_radius_all(3)
 	var grabber := StyleBoxFlat.new()
 	grabber.bg_color = palette.color("ui_good").lightened(0.1)
@@ -315,14 +321,14 @@ func library_arrow_button(text: String) -> Button:
 	b.add_theme_font_override("font", font_bold)
 	b.add_theme_font_size_override("font_size", 22)
 	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color(0.84, 0.83, 0.77, 0.72)
+	normal.bg_color = palette.color("ui_arrow")
 	normal.set_corner_radius_all(16)
 	var hover := normal.duplicate()
-	hover.bg_color = Color(0.78, 0.81, 0.71, 0.95)
+	hover.bg_color = palette.color("ui_arrow_hover")
 	var pressed := normal.duplicate()
 	pressed.bg_color = palette.color("ui_good")
 	var disabled := normal.duplicate()
-	disabled.bg_color = Color(0.84, 0.83, 0.78, 0.28)
+	disabled.bg_color = palette.color("ui_arrow_disabled")
 	var focus := hover.duplicate()
 	focus.border_color = palette.color("ui_accent").lightened(0.2)
 	focus.set_border_width_all(3)
@@ -331,10 +337,13 @@ func library_arrow_button(text: String) -> Button:
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("focus", focus)
 	b.add_theme_stylebox_override("disabled", disabled)
-	b.add_theme_color_override("font_color", Color(0.33, 0.32, 0.28))
-	b.add_theme_color_override("font_hover_color", Color(0.25, 0.28, 0.21))
-	b.add_theme_color_override("font_pressed_color", Color.WHITE)
-	b.add_theme_color_override("font_disabled_color", Color(0.45, 0.44, 0.4, 0.3))
+	b.add_theme_color_override("font_color", palette.color("ui_text_primary").lightened(0.1))
+	b.add_theme_color_override("font_hover_color", palette.color("ui_text_primary"))
+	b.add_theme_color_override("font_pressed_color", palette.color("ui_white"))
+	b.add_theme_color_override(
+		"font_disabled_color",
+		Color(palette.color("ui_text_disabled"), 0.3)
+	)
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	return b
 
@@ -347,25 +356,25 @@ func menu_button(text: String, accent := false) -> Button:
 	b.add_theme_font_override("font", font_bold)
 	b.add_theme_font_size_override("font_size", 26)
 	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color(1, 1, 1, 0)
+	normal.bg_color = palette.color("ui_transparent")
 	normal.set_corner_radius_all(14)
 	normal.content_margin_left = 18
 	normal.content_margin_right = 18
 	normal.content_margin_top = 13
 	normal.content_margin_bottom = 13
 	var hover := normal.duplicate()
-	hover.bg_color = Color(1, 1, 1, 0.46)
+	hover.bg_color = palette.color("ui_menu_hover")
 	var pressed := normal.duplicate()
-	pressed.bg_color = Color(0.78, 0.8, 0.73, 0.46)
+	pressed.bg_color = palette.color("ui_surface_pressed")
 	var focus := normal.duplicate()
-	focus.bg_color = Color(1, 1, 1, 0.3)
+	focus.bg_color = palette.color("ui_menu_focus")
 	focus.border_color = palette.color("ui_accent").lightened(0.2)
 	focus.set_border_width_all(3)
 	b.add_theme_stylebox_override("normal", normal)
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("focus", focus)
-	var color := Color(0.93, 0.94, 0.89) if accent else text_color()
+	var color := palette.color("ui_text_inverse") if accent else text_color()
 	b.add_theme_color_override("font_color", color)
 	b.add_theme_color_override("font_hover_color", color)
 	b.add_theme_color_override("font_pressed_color", color)
@@ -388,13 +397,13 @@ func section_label(text: String) -> Label:
 func keycap(text: String, minimum_width := 42.0) -> PanelContainer:
 	var cap := PanelContainer.new()
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.31, 0.24, 0.2)
+	style.bg_color = palette.color("ui_tooltip")
 	style.set_corner_radius_all(7)
 	style.set_content_margin_all(5)
 	style.content_margin_left = 9
 	style.content_margin_right = 9
 	style.border_width_bottom = 3
-	style.border_color = Color(0.13, 0.09, 0.07, 0.7)
+	style.border_color = palette.color("ui_border_dark")
 	cap.add_theme_stylebox_override("panel", style)
 	cap.custom_minimum_size.x = minimum_width
 	var l := label(text, 16, true, true)
@@ -418,7 +427,7 @@ func window(title: String, size: Vector2) -> Dictionary:
 	root.theme = theme
 	var scrim := ColorRect.new()
 	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	scrim.color = Color(0.18, 0.17, 0.14, 0.22)
+	scrim.color = palette.color("ui_scrim")
 	scrim.mouse_filter = Control.MOUSE_FILTER_STOP
 	root.add_child(scrim)
 	var center := CenterContainer.new()
@@ -443,7 +452,7 @@ func window(title: String, size: Vector2) -> Dictionary:
 func surface_style(
 	background: Color,
 	radius := 16,
-	border := Color(0, 0, 0, 0),
+	border := Color.TRANSPARENT,
 	border_width := 0
 ) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
@@ -458,7 +467,7 @@ func surface_style(
 
 func progression_panel_style(accent: Color, radius := 18) -> StyleBoxFlat:
 	var style := surface_style(
-		Color(0.975, 0.967, 0.92, 0.98),
+		palette.color("ui_progression_surface"),
 		radius,
 		accent.darkened(0.08),
 		2
@@ -467,7 +476,7 @@ func progression_panel_style(accent: Color, radius := 18) -> StyleBoxFlat:
 	style.content_margin_right = 18
 	style.content_margin_top = 16
 	style.content_margin_bottom = 16
-	style.shadow_color = Color(0.13, 0.12, 0.09, 0.14)
+	style.shadow_color = palette.color("ui_shadow_soft")
 	style.shadow_size = 9
 	style.shadow_offset = Vector2(0, 4)
 	return style
@@ -480,7 +489,9 @@ func progression_card(minimum: Vector2, accent: Color) -> PanelContainer:
 	return panel
 
 
-func eyebrow(text: String, accent: Color = Color(0.35, 0.42, 0.24)) -> Label:
+func eyebrow(text: String, accent := Color.TRANSPARENT) -> Label:
+	if accent.a <= 0.0:
+		accent = palette.color("ui_eyebrow")
 	var l := label(text.to_upper(), 12, false, true)
 	l.add_theme_color_override("font_color", accent.darkened(0.08))
 	l.add_theme_constant_override("letter_spacing", 1)
@@ -489,7 +500,7 @@ func eyebrow(text: String, accent: Color = Color(0.35, 0.42, 0.24)) -> Label:
 
 func muted_label(text: String, size := 14) -> Label:
 	var l := label(text, size)
-	l.add_theme_color_override("font_color", Color(0.45, 0.43, 0.37))
+	l.add_theme_color_override("font_color", palette.color("ui_text_secondary"))
 	return l
 
 
@@ -513,7 +524,7 @@ func monogram(glyph: String, accent: Color, size := 42.0) -> PanelContainer:
 	panel.custom_minimum_size = Vector2(size, size)
 	var style := surface_style(accent, int(size * 0.5))
 	style.set_content_margin_all(0)
-	style.shadow_color = Color(0.08, 0.08, 0.06, 0.13)
+	style.shadow_color = palette.color("ui_monogram_shadow")
 	style.shadow_size = 4
 	style.shadow_offset = Vector2(0, 2)
 	panel.add_theme_stylebox_override("panel", style)
@@ -524,9 +535,9 @@ func monogram(glyph: String, accent: Color, size := 42.0) -> PanelContainer:
 	return panel
 
 
-func divider(color := Color(0.3, 0.28, 0.22, 0.14)) -> ColorRect:
+func divider(color := Color.TRANSPARENT) -> ColorRect:
 	var line := ColorRect.new()
-	line.color = color
+	line.color = palette.color("ui_divider") if color.a <= 0.0 else color
 	line.custom_minimum_size.y = 1
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return line
@@ -546,7 +557,7 @@ func progress_bar_colored(
 	holder.custom_minimum_size = Vector2(width, height)
 	holder.clip_contents = true
 	var back := StyleBoxFlat.new()
-	back.bg_color = Color(0.2, 0.18, 0.14, 0.13)
+	back.bg_color = palette.color("ui_progress_track")
 	back.set_corner_radius_all(height / 2)
 	holder.add_theme_stylebox_override("panel", back)
 	var fill := PanelContainer.new()
@@ -567,4 +578,4 @@ func rarity_color(rarity: String) -> Color:
 	match rarity:
 		"rare": return palette.color("ui_rare")
 		"uncommon": return palette.color("ui_good")
-		_: return Color(0.55, 0.5, 0.42)
+		_: return palette.color("ui_rarity_common")

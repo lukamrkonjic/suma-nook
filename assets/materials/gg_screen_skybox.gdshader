@@ -12,14 +12,14 @@ render_mode unshaded, cull_disabled, shadows_disabled;
 // geometry-composited fog, so this backdrop deliberately accepts fog (no
 // fog_disabled) and keeps the sky an open, calm wash.
 
-uniform vec3 color0 : source_color = vec3(0.906, 0.87623, 0.78265);
-uniform vec3 color1 : source_color = vec3(0.90588, 0.87059, 0.81569);
+uniform vec3 color0 : source_color = vec3(1.0);
+uniform vec3 color1 : source_color = vec3(1.0);
 // Per-time-of-day art direction pushed by the lighting rig alongside
 // color0/color1: a deeper tone crowning the very top of the sky and a
 // luminous accent band hugging the horizon. Together with the two theme
 // anchors they give each time slot a four-stop painted gradient.
-uniform vec3 zenith_color : source_color = vec3(0.86, 0.80, 0.70);
-uniform vec3 horizon_accent_color : source_color = vec3(1.0, 0.95, 0.84);
+uniform vec3 zenith_color : source_color = vec3(1.0);
+uniform vec3 horizon_accent_color : source_color = vec3(1.0);
 uniform float horizon_accent_strength : hint_range(0.0, 1.0) = 0.38;
 uniform float y_offset = 0.69;
 uniform float gradient_exponent = 0.25;
@@ -28,7 +28,10 @@ uniform float sparkle_intensity = 10.0;
 uniform float sparkle_threshold = 0.965;
 uniform float sparkle_softness = 0.01;
 uniform float sparkle_speed = 0.002;
-uniform vec3 centre_glow_color : source_color = vec3(1.0, 0.93, 0.80);
+uniform vec3 centre_glow_color : source_color = vec3(1.0);
+uniform vec3 shooting_star_trail_color : source_color = vec3(1.0);
+uniform vec3 shooting_star_head_color : source_color = vec3(1.0);
+uniform vec3 night_star_color : source_color = vec3(1.0);
 uniform float sky_motion_speed : hint_range(0.0, 0.03) = 0.006;
 uniform float sky_breath_strength : hint_range(0.0, 0.2) = 0.085;
 uniform float mote_density : hint_range(0.0, 1.0) = 0.2;
@@ -130,8 +133,8 @@ vec3 shooting_star_radiance(vec2 uv) {
 	);
 	float event_fade = smoothstep(0.0, 0.14, shooting_star_progress)
 		* (1.0 - smoothstep(0.72, 1.0, shooting_star_progress));
-	vec3 cool_trail = vec3(0.82, 0.91, 1.0) * (core + glow);
-	vec3 warm_head = vec3(1.0, 0.93, 0.76) * head * 0.55;
+	vec3 cool_trail = shooting_star_trail_color * (core + glow);
+	vec3 warm_head = shooting_star_head_color * head * 0.55;
 	return (cool_trail + warm_head)
 		* shooting_star_intensity
 		* event_fade;
@@ -261,7 +264,7 @@ void fragment() {
 		// The starfield blooms after dark: brighter, slightly cool-white,
 		// while daytime keeps only faint warm glints.
 		float night_amount = 1.0 - daylight;
-		vec3 star_tint = mix(vec3(1.0), vec3(0.90, 0.94, 1.0), night_amount);
+		vec3 star_tint = mix(vec3(1.0), night_star_color, night_amount);
 		float star_boost = mix(1.0, 2.2, night_amount);
 		color += star_tint * gate * twinkle * spot
 			* sparkle_intensity * 0.02 * sparkle_amount * star_boost;

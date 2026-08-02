@@ -13,12 +13,12 @@ render_mode blend_mix, cull_disabled, depth_draw_always, specular_schlick_ggx;
 // Alpha blending leaves those silhouettes in the original antialiased opaque
 // pass and composites the water over them without rebuilding their edges.
 
-uniform vec4 shallow_color : source_color = vec4(0.388, 0.757, 0.776, 1.0);   // #63C1C6
-uniform vec4 mid_color : source_color = vec4(0.235, 0.671, 0.761, 1.0);       // #3CABC2
-uniform vec4 deep_color : source_color = vec4(0.02, 0.416, 0.58, 1.0);        // #056A94
-uniform vec4 foam_color : source_color = vec4(0.918, 0.961, 0.945, 1.0);      // #EAF5F1
-uniform vec4 sky_color : source_color = vec4(0.906, 0.878, 0.792, 1.0);       // cream env
-uniform vec4 caustic_color : source_color = vec4(0.675, 0.808, 0.804, 1.0);
+uniform vec4 shallow_color : source_color = vec4(1.0);
+uniform vec4 mid_color : source_color = vec4(1.0);
+uniform vec4 deep_color : source_color = vec4(1.0);
+uniform vec4 foam_color : source_color = vec4(1.0);
+uniform vec4 sky_color : source_color = vec4(1.0);
+uniform vec4 caustic_color : source_color = vec4(1.0);
 uniform float wave_height = 0.048;
 uniform float wave_speed = 1.08;
 uniform float surface_shimmer = 0.16;
@@ -34,13 +34,13 @@ uniform float scene_lighting_response : hint_range(0.0, 1.0) = 1.0;
 uniform float fresnel_strength = 0.22;
 uniform float water_level = -0.14;
 // Jello block sides (see the GG reference): pale translucent aqua walls.
-uniform vec4 side_top_color : source_color = vec4(0.51, 0.8, 0.81, 1.0);
-uniform vec4 side_bottom_color : source_color = vec4(0.275, 0.737, 0.8, 1.0);
+uniform vec4 side_top_color : source_color = vec4(1.0);
+uniform vec4 side_bottom_color : source_color = vec4(1.0);
 uniform float side_opacity = 1.0;
 // Placement previews need to preserve the exact animated water silhouette.
 // A second static red mesh cannot follow this shader's displaced vertices, so
 // held water receives its invalid tint inside the water shader itself.
-uniform vec4 placement_invalid_tint : source_color = vec4(1.0, 0.08, 0.045, 1.0);
+uniform vec4 placement_invalid_tint : source_color = vec4(1.0);
 uniform float placement_invalid_strength : hint_range(0.0, 1.0) = 0.0;
 
 uniform sampler2D depth_tex : hint_depth_texture;

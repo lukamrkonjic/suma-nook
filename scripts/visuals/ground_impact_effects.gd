@@ -367,7 +367,7 @@ func _surface_colors(profile: String) -> Dictionary:
 
 
 func _color(key: String, alpha: float) -> Color:
-	var result := _palette.color(key, Color.WHITE)
+	var result := _palette.color(key, _palette.color("neutral_white"))
 	result.a = alpha
 	return result
 
@@ -537,7 +537,7 @@ func _fleck_mesh() -> BoxMesh:
 
 func _particle_material() -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
-	material.albedo_color = Color.WHITE
+	material.albedo_color = _palette.color("ui_white")
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.vertex_color_use_as_albedo = true
@@ -548,10 +548,10 @@ func _particle_fade_ramp() -> GradientTexture1D:
 	var gradient := Gradient.new()
 	gradient.offsets = PackedFloat32Array([0.0, 0.12, 0.72, 1.0])
 	gradient.colors = PackedColorArray([
-		Color(1.0, 1.0, 1.0, 0.0),
-		Color(1.0, 1.0, 1.0, 1.0),
-		Color(1.0, 1.0, 1.0, 0.72),
-		Color(1.0, 1.0, 1.0, 0.0),
+		Color(_palette.color("ui_white"), 0.0),
+		_palette.color("ui_white"),
+		Color(_palette.color("ui_white"), 0.72),
+		Color(_palette.color("ui_white"), 0.0),
 	])
 	var texture := GradientTexture1D.new()
 	texture.gradient = gradient

@@ -31,9 +31,9 @@ render_mode world_vertex_coords, cull_disabled, depth_draw_opaque;
 // two neighbours agree about how much they move or exactly what colour they
 // are either.
 
-uniform vec4 grass_deep : source_color = vec4(0.41, 0.55, 0.23, 1.0);
-uniform vec4 grass_main : source_color = vec4(0.50, 0.65, 0.29, 1.0);
-uniform vec4 grass_light : source_color = vec4(0.60, 0.72, 0.36, 1.0);
+uniform vec4 grass_deep : source_color = vec4(1.0);
+uniform vec4 grass_main : source_color = vec4(1.0);
+uniform vec4 grass_light : source_color = vec4(1.0);
 uniform vec2 wind_direction = vec2(0.82, 0.57);
 uniform float wind_speed = 0.72;
 uniform float wind_world_scale = 1.10;

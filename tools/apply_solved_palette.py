@@ -6,9 +6,9 @@ curve using the light factor of its dominant face orientation (sunlit top,
 ambient side, or curved mix). Render targets stay untouched — this only tunes
 SOURCE albedos, per the palette-enforcement rule.
 
-Usage: python3 tools/apply_solved_palette.py [probe_base] [palette.json]
+Usage: python3 tools/apply_solved_palette.py [probe_base] [palette.tres]
        defaults: docs/visual_rework/comparisons/ggday
-                 assets/palettes/gg_pnw_mossy_v1.json
+                 assets/palettes/gg_material_palette.tres
 """
 
 import json
@@ -17,6 +17,13 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
+
+from palette_io import (
+    CANONICAL_PALETTE,
+    read_color_hexes,
+    read_token_specs,
+    update_color_block,
+)
 
 SUN_COLOR = (1.0, 0.9451, 0.8235)
 SUN_ENERGY = 1.08
@@ -99,9 +106,11 @@ def hexstr(rgb01):
 
 def main():
     base = Path(sys.argv[1] if len(sys.argv) > 1 else "docs/visual_rework/comparisons/ggday")
-    pal_path = Path(sys.argv[2] if len(sys.argv) > 2 else "assets/palettes/gg_pnw_mossy_v1.json")
-    pal = json.loads(pal_path.read_text())
-    targets = {k: v.lstrip("#").upper() for k, v in pal["colors"].items()}
+    pal_path = Path(sys.argv[2]) if len(sys.argv) > 2 else CANONICAL_PALETTE
+    targets = {
+        key: value.lstrip("#").upper()
+        for key, value in read_color_hexes(pal_path, "render_targets").items()
+    }
     img = np.asarray(Image.open(str(base) + "_probe.png").convert("RGB"), float)
     man = json.loads(Path(str(base) + "_probe.json").read_text())
     lin_in, out = [], []
@@ -144,37 +153,30 @@ def main():
     for key, ref in LEGACY.items():
         solved[key] = solved[ref]
 
-    def color(hx):
-        r, g, b = (round(int(hx[i:i + 2], 16) / 255.0, 4) for i in (0, 2, 4))
-        return f"Color({r}, {g}, {b}, 1)"
-
-    col_lines = [f'"{k}": {color(v)}' for k, v in solved.items()]
-    col_lines.append('"ui_panel": Color(0.949, 0.929, 0.871, 0.96)')
-    col_lines.append('"ui_panel_dark": Color(0.271, 0.247, 0.196, 1)')
-    tgt_lines = [f'"{k}": {color(hx)}' for k, hx in targets.items()]
-
-    tres = """[gd_resource type="Resource" script_class="PaletteDefinition" load_steps=2 format=3]
-
-[ext_resource type="Script" path="res://scripts/resources/palette_definition.gd" id="1"]
-
-[resource]
-script = ExtResource("1")
-colors = {
-%s
-}
-render_targets = {
-%s
-}
-skin_tones = PackedColorArray(0.949, 0.8, 0.635, 1, 0.902, 0.702, 0.314, 1, 0.769, 0.553, 0.38, 1, 0.545, 0.365, 0.235, 1, 0.392, 0.267, 0.18, 1)
-hair_colors = PackedColorArray(0.314, 0.188, 0.09, 1, 0.176, 0.145, 0.11, 1, 0.788, 0.62, 0.31, 1, 0.494, 0.325, 0.227, 1, 0.78, 0.78, 0.741, 1, 0.475, 0.541, 0.353, 1)
-outfit_colors = PackedColorArray(0.745, 0.263, 0.157, 1, 0.302, 0.42, 0.365, 1, 0.42, 0.365, 0.541, 1, 0.847, 0.635, 0.259, 1, 0.361, 0.42, 0.549, 1)
-""" % (",\n".join(col_lines), ",\n".join(tgt_lines))
-    Path("assets/palettes/gg_material_palette.tres").write_text(tres)
-    print("palette: %s" % pal["palette_name"])
+    semantic_replacements = {
+        key: tuple(int(value[i:i + 2], 16) / 255.0 for i in (0, 2, 4)) + (1.0,)
+        for key, value in solved.items()
+    }
+    token_specs = read_token_specs(pal_path)
+    grouped: dict[str, list[tuple[float, float, float, float]]] = {}
+    for token, value in semantic_replacements.items():
+        spec = token_specs.get(token)
+        if spec is None:
+            continue
+        grouped.setdefault(str(spec["swatch"]), []).append(value)
+    replacements = {
+        swatch_id: tuple(float(component) for component in np.mean(values, axis=0))
+        for swatch_id, values in grouped.items()
+    }
+    update_color_block(pal_path, "swatches", replacements)
+    print("palette: %s" % pal_path)
     for k in ("grass_primary", "pine_medium", "stone_light", "wood_light",
               "earth_mid", "water_turquoise", "background_cream_01"):
         print("  %-20s target #%s  ->  source #%s" % (k, targets[k], solved[k]))
-    print("%d targets solved; wrote assets/palettes/gg_material_palette.tres" % len(targets))
+    print(
+        "%d targets solved into %d shared swatches; updated %s"
+        % (len(targets), len(replacements), pal_path)
+    )
     print("PROFILE BACKGROUND -> #%s" % solved["background_cream_01"])
 
 

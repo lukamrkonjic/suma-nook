@@ -1,5 +1,7 @@
 class_name BurningEffect3D
 extends Node3D
+
+var _color_system := PaletteDefinition.shared()
 ## Complete reusable presentation for a burning prop.
 ##
 ## The flame animation and the heated-fuel overlay share one visibility/state
@@ -108,7 +110,7 @@ func _default_fuel_profile(
 		"region_min_y": maxf(0.0, fire_base_y - height * 0.36),
 		"region_max_y": fire_base_y + height * 0.22,
 		"region_softness": maxf(0.018, width * 0.055),
-		"color": "#a53a29",
+		"color_token": "fuel_default",
 		"tint": 0.3,
 		"emission": 0.07,
 		"pulse": 0.03,
@@ -164,7 +166,7 @@ func _fuel_material(profile: Dictionary) -> ShaderMaterial:
 	material.shader = shader
 	material.set_shader_parameter(
 		"burn_color",
-		Color(String(profile.get("color", "#d94f2f")))
+		_color_system.color(String(profile.get("color_token", "fuel_default")))
 	)
 	material.set_shader_parameter(
 		"tint_strength",

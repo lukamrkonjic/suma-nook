@@ -78,6 +78,7 @@ const COPY_FIELDS := [
 
 var _lighting: LightingRig
 var _kit: UiKit
+var _palette := PaletteDefinition.shared()
 var _profile_label: Label
 var _status: Label
 var _sliders: Dictionary = {}
@@ -234,7 +235,7 @@ func _section(list: VBoxContainer, section: String, current: String) -> String:
 	if section == current:
 		return current
 	var label := _small_label(section.to_upper(), 12)
-	label.add_theme_color_override("font_color", Color(0.55, 0.53, 0.46))
+	label.add_theme_color_override("font_color", _palette.color("ui_text_muted"))
 	list.add_child(label)
 	return section
 
@@ -353,8 +354,14 @@ func _save_to_disk() -> void:
 	if profile.resource_path.is_empty():
 		_status.text = "Profile has no resource path — use Copy instead."
 		return
+	profile.commit_color_design_system(_palette)
+	var palette_result := ResourceSaver.save(
+		_palette,
+		PaletteDefinition.CANONICAL_PATH
+	)
 	var result := ResourceSaver.save(profile, profile.resource_path)
 	_status.text = (
-		"Saved to %s" % profile.resource_path if result == OK
-		else "Save failed (error %d)." % result
+		"Saved profile and color design system."
+		if result == OK and palette_result == OK
+		else "Save failed (profile %d, palette %d)." % [result, palette_result]
 	)

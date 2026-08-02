@@ -31,8 +31,8 @@ uniform float terrain_depth = 0.055;
 uniform float terrain_radius = 0.23;
 uniform float terrain_rim_height = 0.01;
 uniform float terrain_floor_height = 0.004;
-uniform vec4 terrain_compressed_tint : source_color = vec4(0.72, 0.68, 0.6, 1.0);
-uniform vec4 terrain_rim_tint : source_color = vec4(1.0, 0.98, 0.9, 1.0);
+uniform vec4 terrain_compressed_tint : source_color = vec4(1.0);
+uniform vec4 terrain_rim_tint : source_color = vec4(1.0);
 
 varying float object_height;
 varying vec3 world_pos;

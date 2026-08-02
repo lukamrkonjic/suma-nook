@@ -5,8 +5,8 @@ render_mode cull_back, depth_draw_opaque;
 // and luminance/depth fades keep the light lively without a scene-wide
 // projector or texture dependency.
 
-uniform vec4 albedo : source_color = vec4(0.784, 0.753, 0.682, 1.0);
-uniform vec4 caustic_color : source_color = vec4(0.675, 0.808, 0.804, 1.0);   // #ACCECD
+uniform vec4 albedo : source_color = vec4(1.0);
+uniform vec4 caustic_color : source_color = vec4(1.0);
 uniform float water_level = -0.14;
 uniform float caustic_strength = 0.4;
 uniform float depth_fade = 1.0;

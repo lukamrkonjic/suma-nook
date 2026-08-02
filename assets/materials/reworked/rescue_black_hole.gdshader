@@ -4,8 +4,8 @@ render_mode unshaded, blend_mix, depth_draw_never;
 // the surface. Depth testing stays on, so terrain in front occludes it and
 // anything below its plane (the swallowed player) hides behind it.
 
-uniform vec3 hole_color : source_color = vec3(0.055, 0.045, 0.05);
-uniform vec3 rim_color : source_color = vec3(0.22, 0.18, 0.19);
+uniform vec3 hole_color : source_color = vec3(1.0);
+uniform vec3 rim_color : source_color = vec3(1.0);
 uniform float rim_width = 0.1;
 
 void fragment() {
