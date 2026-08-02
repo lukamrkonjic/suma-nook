@@ -13,7 +13,7 @@ const EDGE_DIRECTIONS := [
 ]
 
 
-static func build(layer: TileKitLayer, _rng: RandomNumberGenerator,
+static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 		context: Dictionary) -> Dictionary:
 	var half: float = context.get("surface_half", KitBaseBuilder.HALF)
 	var level: float = layer.value("level", 0.012)
@@ -24,6 +24,14 @@ static func build(layer: TileKitLayer, _rng: RandomNumberGenerator,
 	TileKitMeshUtils.add_rect_cap(
 		batch, surface_key, half, corner, 6, inset, level, true
 	)
+	# The volume read: broad calm wave forms and a meniscus ring in the light
+	# water key. Connected water suppresses the ring (one shared surface).
+	var mask := int(context.get("neighbour_mask", 0))
+	var ripple_count := KitDressingBuilder._int_range(
+		rng, layer.value("ripple_count", [1, 2]))
+	TileKitMeshUtils.add_water_dressing(batch, rng, half, corner, inset, level,
+		String(layer.value("ripple_key", "water_light")), ripple_count,
+		float(layer.value("rim_width", 0.022)) if mask == 0 else 0.0)
 
 	var fall_edges: Array = layer.value("fall_edges", [])
 	var fall_depth: float = layer.value("fall_depth", 0.65)

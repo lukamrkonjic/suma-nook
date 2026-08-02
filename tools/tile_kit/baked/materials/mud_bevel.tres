@@ -2,6 +2,6 @@
 
 [resource]
 resource_name = "tilekit_mud_bevel"
-albedo_color = Color(0.56078434, 0.44705883, 0.32156864, 1)
+albedo_color = Color(0.5529412, 0.42352942, 0.28235295, 1)
 metallic_specular = 0.2
 roughness = 0.9

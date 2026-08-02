@@ -3,87 +3,41 @@
 [ext_resource type="Script" path="res://tools/tile_kit/tile_kit_layer.gd" id="1_qolo6"]
 [ext_resource type="Script" path="res://tools/tile_kit/tile_kit_preset.gd" id="2_8tmau"]
 
-[sub_resource type="Resource" id="Resource_qolo6"]
+[sub_resource type="Resource" id="Resource_6ovfb"]
 script = ExtResource("1_qolo6")
 kind = "base"
-locked = true
 params = {
+"basin_depth": 0.0,
+"basin_rim": 0.17,
 "bevel_key": "wood_medium",
 "bevel_segments": 6,
 "bottom_chamfer": 0.016,
 "corner_radius": 0.075,
 "lower_key": "wood_deep",
+"relief_amplitude": 0.0,
+"relief_bipolar": false,
+"relief_edge_feather": 0.2,
+"relief_frequency": 2.2,
+"relief_resolution": 24,
+"relief_style": "none",
 "side_key": "wood_medium",
 "top_bevel": 0.075,
 "top_key": "wood_deep"
 }
 
-[sub_resource type="Resource" id="Resource_8tmau"]
+[sub_resource type="Resource" id="Resource_yuhdp"]
 script = ExtResource("1_qolo6")
 kind = "dressing"
 enabled = false
 params = {
-"aspect": [0.7, 1.35],
-"color_weights": {
-"dressing_dark": 15.0,
-"dressing_light": 50.0,
-"dressing_medium": 35.0
-},
-"edge_margin": 0.02,
-"irregularity": [0.08, 0.14],
-"large_count": [3, 5],
-"large_radius": [0.17, 0.29],
-"medium_count": [4, 7],
-"medium_radius": [0.094, 0.17],
-"outline_points": 20,
-"region_count": [2, 3],
-"region_spread": 0.3,
+"allow_overlap": true,
+"edge_softness": 0.55,
+"height_scale": 1.0,
+"large_count": [2, 4],
+"medium_count": [3, 6],
+"patch_profile": "cushion",
 "scale_multiplier": 1.0,
-"small_count": [2, 5],
-"small_radius": [0.047, 0.094],
-"smoothing_passes": 3
-}
-
-[sub_resource type="Resource" id="Resource_6ovfb"]
-script = ExtResource("1_qolo6")
-kind = "clutter"
-enabled = false
-params = {
-"color_weights": {
-"clutter_light": 55.0,
-"clutter_medium": 45.0
-},
-"count": [3, 6],
-"diameter": [0.05, 0.11],
-"edge_margin": 0.03,
-"height": [0.008, 0.018],
-"min_spacing": 0.06,
-"on_dressing_fraction": 0.6,
-"scale_multiplier": 1.0
-}
-
-[sub_resource type="Resource" id="Resource_yuhdp"]
-script = ExtResource("1_qolo6")
-kind = "grass_clusters"
-enabled = false
-params = {
-"bend_multiplier": 0.75,
-"carpet_jitter": 0.3,
-"carpet_skip_fraction": 0.1,
-"carpet_spacing": 0.315,
-"coverage_mode": "carpet",
-"crown_radius": 0.02,
-"edge_margin": 0.02,
-"height_multiplier": 1.0,
-"leaf_height": [0.095, 0.15],
-"leaf_width": [0.058, 0.088],
-"root_sink": [0.008, 0.015],
-"rosette_footprint": [0.14, 0.2],
-"rosette_leaves": [3, 5],
-"secondary_fraction": 0.2,
-"splay_degrees": [16.0, 34.0],
-"thickness_ratio": [0.55, 0.72],
-"width_multiplier": 1.0
+"small_count": [2, 5]
 }
 
 [sub_resource type="Resource" id="Resource_x3nac"]
@@ -95,12 +49,56 @@ params = {
 "plank_length": [0.55, 0.95],
 "plank_width": 0.215,
 "slab_key": "wood_medium",
+"stone_cell": 0.55,
 "stone_corner": 0.024,
-"stone_height": [0.016, 0.024]
+"stone_height": [0.018, 0.026]
+}
+
+[sub_resource type="Resource" id="Resource_4l6hi"]
+script = ExtResource("1_qolo6")
+kind = "clutter"
+enabled = false
+params = {
+"cluster_fraction": 0.7,
+"cluster_radius": 0.24,
+"count": [7, 13],
+"diameter": [0.05, 0.11],
+"edge_margin": 0.03,
+"height": [0.008, 0.018],
+"min_spacing": 0.06,
+"on_dressing_fraction": 0.0,
+"placement_mode": "clusters",
+"scale_multiplier": 1.0,
+"shapes": ["pebble"]
+}
+
+[sub_resource type="Resource" id="Resource_v58w1"]
+script = ExtResource("1_qolo6")
+kind = "grass_clusters"
+enabled = false
+params = {
+"accent_clumps": [1, 2],
+"blade_fraction": 0.42,
+"blades_per_tuft": [2, 4],
+"carpet_jitter": 0.3,
+"carpet_skip_fraction": 0.1,
+"carpet_spacing": 0.315,
+"coverage_mode": "turf",
+"leaf_height": [0.095, 0.15],
+"leaf_width": [0.058, 0.088],
+"rosette_footprint": [0.14, 0.2],
+"rosette_leaves": [3, 5],
+"turf_footprint": [0.22, 0.34],
+"turf_height": [0.03, 0.055],
+"turf_lobe_depth": 0.2,
+"turf_overhang": 0.035,
+"turf_skip_fraction": 0.1,
+"turf_spacing": 0.26
 }
 
 [resource]
 script = ExtResource("2_8tmau")
 preset_name = "Wood Deck"
+master_seed = 20261338
 separate_tiles = true
-layers = Array[ExtResource("1_qolo6")]([SubResource("Resource_qolo6"), SubResource("Resource_8tmau"), SubResource("Resource_6ovfb"), SubResource("Resource_yuhdp"), SubResource("Resource_x3nac")])
+layers = Array[ExtResource("1_qolo6")]([SubResource("Resource_6ovfb"), SubResource("Resource_yuhdp"), SubResource("Resource_x3nac"), SubResource("Resource_4l6hi"), SubResource("Resource_v58w1")])

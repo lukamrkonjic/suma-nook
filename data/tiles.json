@@ -72,13 +72,13 @@
           "cover_behavior": "persist"
         },
         {
-          "role": "surface",
-          "asset_id": "tile_kit_grass_surface",
+          "role": "detail",
+          "asset_id": "tile_kit_grass_detail",
           "cover_behavior": "hide"
         },
         {
-          "role": "detail",
-          "asset_id": "tile_kit_grass_detail",
+          "role": "surface",
+          "asset_id": "tile_kit_grass_surface",
           "cover_behavior": "hide"
         }
       ],
@@ -114,7 +114,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_kit_grass.tres",
       "source_kind": "procedural",
-      "source_revision": 1
+      "source_revision": 2
     },
     {
       "id": "tile_grass_flower",
@@ -228,7 +228,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_flower_meadow.tres",
       "source_kind": "procedural",
-      "source_revision": 1
+      "source_revision": 2
     },
     {
       "id": "tile_master_grass",
@@ -344,7 +344,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_fenced_meadow.tres",
       "source_kind": "procedural",
-      "source_revision": 1
+      "source_revision": 2
     },
     {
       "id": "tile_grove_mature",
@@ -684,7 +684,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_mossy_forest_floor.tres",
       "source_kind": "procedural",
-      "source_revision": 1
+      "source_revision": 2
     },
     {
       "id": "tile_proc_autumn_litter",
@@ -742,7 +742,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_autumn_litter.tres",
       "source_kind": "procedural",
-      "source_revision": 1
+      "source_revision": 2
     },
     {
       "id": "tile_garden",
@@ -856,7 +856,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_mulch_dirt_floor.tres",
       "source_kind": "procedural",
-      "source_revision": 1
+      "source_revision": 2
     },
     {
       "id": "tile_path",
@@ -970,7 +970,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_garden_path.tres",
       "source_kind": "procedural",
-      "source_revision": 1
+      "source_revision": 2
     },
     {
       "id": "tile_plain_ground",
@@ -1154,6 +1154,11 @@
           "cover_behavior": "persist"
         },
         {
+          "role": "detail",
+          "asset_id": "tile_proc_tilled_field_detail",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_proc_tilled_field_surface",
           "cover_behavior": "hide"
@@ -1191,7 +1196,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_tilled_field.tres",
       "source_kind": "procedural",
-      "source_revision": 1
+      "source_revision": 2
     },
     {
       "id": "tile_dirt_road",
@@ -1423,7 +1428,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_pond_basin.tres",
       "source_kind": "procedural",
-      "source_revision": 1
+      "source_revision": 2
     },
     {
       "id": "tile_open_water",
@@ -1541,7 +1546,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_mud_bed.tres",
       "source_kind": "procedural",
-      "source_revision": 1
+      "source_revision": 2
     },
     {
       "id": "tile_mud",
@@ -1611,11 +1616,6 @@
           "role": "base",
           "asset_id": "tile_sand_base",
           "cover_behavior": "persist"
-        },
-        {
-          "role": "detail",
-          "asset_id": "tile_sand_detail",
-          "cover_behavior": "hide"
         },
         {
           "role": "surface",
@@ -1713,7 +1713,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_sandy_ground.tres",
       "source_kind": "procedural",
-      "source_revision": 1
+      "source_revision": 2
     },
     {
       "id": "tile_proc_sand_dunes_study",
@@ -1727,11 +1727,6 @@
           "role": "base",
           "asset_id": "tile_proc_sand_dunes_study_base",
           "cover_behavior": "persist"
-        },
-        {
-          "role": "detail",
-          "asset_id": "tile_proc_sand_dunes_study_detail",
-          "cover_behavior": "hide"
         },
         {
           "role": "surface",
@@ -1771,7 +1766,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_sand_dunes_study.tres",
       "source_kind": "procedural",
-      "source_revision": 1
+      "source_revision": 2
     },
     {
       "id": "tile_wooden_planks",
@@ -1938,7 +1933,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_snow_field.tres",
       "source_kind": "procedural",
-      "source_revision": 1
+      "source_revision": 2
     },
     {
       "id": "tile_snow_drift",
@@ -2047,7 +2042,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_snow_drifts_study.tres",
       "source_kind": "procedural",
-      "source_revision": 1
+      "source_revision": 2
     },
     {
       "id": "tile_snow_path",
@@ -2268,7 +2263,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_brick_court.tres",
       "source_kind": "procedural",
-      "source_revision": 1
+      "source_revision": 2
     },
     {
       "id": "tile_proc_checker_slabs",
@@ -2321,7 +2316,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_checker_slabs.tres",
       "source_kind": "procedural",
-      "source_revision": 1
+      "source_revision": 2
     },
     {
       "id": "tile_proc_wood_plank_deck",
@@ -2374,7 +2369,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_wood_plank_deck.tres",
       "source_kind": "procedural",
-      "source_revision": 1
+      "source_revision": 2
     },
     {
       "id": "tile_master_wood",
@@ -2541,7 +2536,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_cobblestone_paving.tres",
       "source_kind": "procedural",
-      "source_revision": 1
+      "source_revision": 2
     },
     {
       "id": "tile_master_pavers",
@@ -2652,7 +2647,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_concrete_slabs.tres",
       "source_kind": "procedural",
-      "source_revision": 1
+      "source_revision": 2
     },
     {
       "id": "tile_concrete_brutalist",
@@ -2824,7 +2819,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_gravel_yard.tres",
       "source_kind": "procedural",
-      "source_revision": 1
+      "source_revision": 2
     },
     {
       "id": "tile_proc_boulder_ground",
@@ -2882,7 +2877,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_boulder_ground.tres",
       "source_kind": "procedural",
-      "source_revision": 1
+      "source_revision": 2
     },
     {
       "id": "tile_stone_clearing",

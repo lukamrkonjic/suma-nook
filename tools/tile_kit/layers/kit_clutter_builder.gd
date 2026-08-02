@@ -18,7 +18,8 @@ extends RefCounted
 
 const ALL_SHAPES := ["dot", "oval", "leaf_pair", "lobed_clump", "nub",
 	"pebble", "stone_chip", "twig", "wood_chip", "leaf_litter", "mushroom",
-	"snow_lump", "bud", "boulder", "lily_pad", "crystal", "footprint"]
+	"snow_lump", "drift_mound", "bud", "boulder", "lily_pad", "crystal",
+	"footprint"]
 
 
 static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
@@ -51,11 +52,51 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 			rng.randf_range(-limit * 0.62, limit * 0.62)))
 	var cluster_fraction: float = layer.value("cluster_fraction", 0.7)
 	var cluster_radius: float = layer.value("cluster_radius", 0.24)
+
+	# Drift mode: pieces gather into one or two elongated wind-raked bands —
+	# the leaf-litter / debris composition — each with an optional low mound
+	# bed underneath so the drift reads as accumulated MASS, not confetti.
+	var drifts: Array[Dictionary] = []
+	if String(layer.value("placement_mode", "clusters")) == "drift":
+		var drift_count := 1 + (rng.randi() % 2)
+		for index in drift_count:
+			var yaw := rng.randf() * TAU
+			var drift_centre := Vector2(
+				rng.randf_range(-limit * 0.45, limit * 0.45),
+				rng.randf_range(-limit * 0.45, limit * 0.45))
+			var drift := {
+				"centre": drift_centre,
+				"axis": Vector2(cos(yaw), sin(yaw)),
+				"length": rng.randf_range(limit * 0.55, limit * 1.05),
+				"width": rng.randf_range(0.13, 0.24),
+			}
+			drifts.append(drift)
+			var bed_key := String(layer.value("drift_bed_key", ""))
+			if not bed_key.is_empty():
+				var axis: Vector2 = drift["axis"]
+				var bed_yaw := atan2(axis.y, axis.x)
+				var bed_centre: Vector2 = drift["centre"]
+				var ground := top
+				if cap_height.is_valid():
+					ground = top + float(cap_height.call(bed_centre))
+				TileKitMeshUtils.add_lobed_mound(batch, bed_key,
+					Vector3(bed_centre.x, ground - 0.006, bed_centre.y),
+					float(drift["length"]) * 0.58,
+					float(drift["width"]) * 1.15,
+					rng.randf_range(0.020, 0.034), bed_yaw, rng, 0.16)
+
 	var attempts := 0
 	while placed.size() < count and attempts < count * 12:
 		attempts += 1
 		var centre: Vector2
-		if not blobs.is_empty() and rng.randf() < on_blob:
+		if not drifts.is_empty():
+			var drift: Dictionary = drifts[rng.randi() % drifts.size()]
+			var axis: Vector2 = drift["axis"]
+			var across := Vector2(-axis.y, axis.x)
+			centre = (drift["centre"] as Vector2) \
+				+ axis * rng.randf_range(-1.0, 1.0) * float(drift["length"]) * 0.5 \
+				+ across * rng.randfn(0.0, float(drift["width"]) * 0.55)
+		elif not blobs.is_empty() and rng.randf() < on_blob:
 			var blob: Dictionary = blobs[rng.randi() % blobs.size()]
 			var blob_centre: Vector2 = blob["centre"]
 			var blob_radius: float = blob["radius"]
@@ -119,12 +160,12 @@ static func _add_shape(batch: TileKitMeshUtils.MeshBatch, layer: TileKitLayer,
 				diameter * 0.30, diameter * 0.20, piece_height * 0.85,
 				yaw + PI * 0.9)
 		"lobed_clump":
-			for lobe in 3:
-				var lobe_yaw := rng.randf() * TAU
-				TileKitMeshUtils.add_dome(batch, key,
-					origin + Vector3(cos(lobe_yaw), 0.0, sin(lobe_yaw)) * diameter * 0.22,
-					diameter * 0.30, diameter * 0.30,
-					piece_height * rng.randf_range(0.8, 1.25), lobe_yaw)
+			# One continuous lobed cushion — the old three intersecting domes
+			# showed their seams as creases at close zoom.
+			TileKitMeshUtils.add_lobed_mound(batch, key,
+				origin - Vector3(0.0, piece_height * 0.15, 0.0),
+				diameter * 0.55, diameter * 0.48,
+				piece_height * rng.randf_range(1.1, 1.6), yaw, rng, 0.26)
 		"nub":
 			TileKitMeshUtils.add_dome(batch, key, origin,
 				diameter * 0.42, diameter * 0.42, piece_height * 1.4, yaw)
@@ -191,11 +232,12 @@ static func _add_shape(batch: TileKitMeshUtils.MeshBatch, layer: TileKitLayer,
 				diameter * 0.30, diameter * 0.26,
 				diameter * rng.randf_range(0.22, 0.30), shoulder_yaw, 5, 12)
 		"lily_pad":
-			# A pond decal: flat rounded pad floating at the piece's origin
-			# height (the basin's water level via cap_height).
-			TileKitMeshUtils.add_dome(batch, key,
-				origin + Vector3.UP * 0.006,
-				diameter * 0.5, diameter * 0.46, 0.005, yaw, 2, 12)
+			# A floating pad with a softly rolled rim — a sculpted form that
+			# catches an edge highlight, not a painted disc on the water.
+			TileKitMeshUtils.add_lobed_mound(batch, key,
+				origin + Vector3.UP * 0.004,
+				diameter * 0.52, diameter * 0.46,
+				maxf(diameter * 0.07, 0.010), yaw, rng, 0.10)
 		"bud":
 			# A closed flower bud: slim stem dome with a small rounded head
 			# in the piece's own colour — floral without a single petal.
@@ -235,11 +277,21 @@ static func _add_shape(batch: TileKitMeshUtils.MeshBatch, layer: TileKitLayer,
 					diameter * 0.28, diameter * 0.13, 0.004,
 					yaw + PI * 0.5, 2, 10)
 		"snow_lump":
-			TileKitMeshUtils.add_dome(batch, key,
-				origin - Vector3(0.0, diameter * 0.04, 0.0),
-				diameter * rng.randf_range(0.5, 0.75),
-				diameter * rng.randf_range(0.5, 0.75),
-				diameter * rng.randf_range(0.28, 0.40), yaw, 5, 14)
+			# A settled pillow, not a marshmallow: lobed, wider than tall,
+			# sunk into the surface it fell on.
+			TileKitMeshUtils.add_lobed_mound(batch, key,
+				origin - Vector3(0.0, diameter * 0.06, 0.0),
+				diameter * rng.randf_range(0.55, 0.78),
+				diameter * rng.randf_range(0.50, 0.70),
+				diameter * rng.randf_range(0.22, 0.32), yaw, rng, 0.18)
+		"drift_mound":
+			# A broad directional accumulation — snow drift, sand bank, or
+			# raked leaf pile — one readable macro form per piece.
+			TileKitMeshUtils.add_lobed_mound(batch, key,
+				origin - Vector3(0.0, diameter * 0.05, 0.0),
+				diameter * rng.randf_range(0.85, 1.15),
+				diameter * rng.randf_range(0.42, 0.60),
+				diameter * rng.randf_range(0.20, 0.30), yaw, rng, 0.22)
 		_:
 			TileKitMeshUtils.add_dome(batch, key, origin,
 				diameter * 0.5, diameter * 0.5, piece_height, yaw)

@@ -102,7 +102,7 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 						basin_depth)},
 				{"role": "surface", "name": "tile_water",
 					"mesh": _basin_water(bevel, corner, rim, basin_depth,
-						String(layer.value("water_key", "water_blue")))},
+						String(layer.value("water_key", "water_blue")), rng)},
 			],
 		}
 
@@ -518,12 +518,18 @@ static func _basin_cap(bevel: float, corner: float, segments: int,
 	return batch.commit()
 
 
-## Still-water plane sitting a little below the rim.
+## Still-water plane sitting a little below the rim, dressed as a contained
+## volume: a lit surface with soft wave forms and a meniscus ring against the
+## pool wall — never a flat opaque square.
 static func _basin_water(bevel: float, corner: float, rim: float, depth: float,
-		water_key: String) -> ArrayMesh:
+		water_key: String, rng: RandomNumberGenerator) -> ArrayMesh:
 	var batch := TileKitMeshUtils.MeshBatch.new()
+	var inset := bevel + rim - 0.008
+	var level := -depth * 0.45
 	TileKitMeshUtils.add_rect_cap(batch, water_key, HALF, corner, 6,
-		bevel + rim - 0.008, -depth * 0.45, true)
+		inset, level, true)
+	TileKitMeshUtils.add_water_dressing(batch, rng, HALF, corner, inset, level,
+		"water_light", 1 + (rng.randi() % 2))
 	return batch.commit()
 
 

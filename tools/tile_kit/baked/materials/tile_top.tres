@@ -2,6 +2,6 @@
 
 [resource]
 resource_name = "tilekit_tile_top"
-albedo_color = Color(0.5686275, 0.6666667, 0.38039216, 1)
+albedo_color = Color(0.48235294, 0.65882355, 0.27058825, 1)
 metallic_specular = 0.2
 roughness = 0.9

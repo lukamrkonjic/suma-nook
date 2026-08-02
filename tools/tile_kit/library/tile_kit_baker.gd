@@ -54,7 +54,16 @@ func bake(preset: TileKitPreset, tile_id: String) -> Dictionary:
 			if mask > 0:
 				asset_id += "_n%02d" % mask
 			var path := "%s/%s.tscn" % [output_directory, asset_id]
+			# Retried save: rewriting ~1900 bake files back-to-back trips
+			# transient Windows locks (indexer/AV scanning the previous
+			# write). The same failure mode the material saves already
+			# handle — see _save_materials.
 			var error := ResourceSaver.save(scenes[role], path)
+			var attempts := 0
+			while error != OK and attempts < 4:
+				attempts += 1
+				OS.delay_msec(150 * attempts)
+				error = ResourceSaver.save(scenes[role], path)
 			if error == OK:
 				written.append(path)
 			else:

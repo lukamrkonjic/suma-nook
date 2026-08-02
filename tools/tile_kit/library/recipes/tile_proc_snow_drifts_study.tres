@@ -3,11 +3,12 @@
 [ext_resource type="Script" path="res://tools/tile_kit/tile_kit_layer.gd" id="1_1ueyc"]
 [ext_resource type="Script" path="res://tools/tile_kit/tile_kit_preset.gd" id="2_ilyoq"]
 
-[sub_resource type="Resource" id="Resource_1ueyc"]
+[sub_resource type="Resource" id="Resource_madq3"]
 script = ExtResource("1_1ueyc")
 kind = "base"
-locked = true
 params = {
+"basin_depth": 0.0,
+"basin_rim": 0.17,
 "bevel_key": "snow_bevel",
 "bevel_segments": 6,
 "bottom_chamfer": 0.016,
@@ -18,12 +19,12 @@ params = {
 "dune_irregularity": 0.52,
 "dune_lee_depth": 0.16,
 "dune_scale": 0.92,
-"dune_seed_offset": 0,
 "dune_softness": 0.88,
 "lower_key": "stone_deep",
 "relief_amplitude": 0.105,
+"relief_bipolar": false,
 "relief_edge_feather": 0.3,
-"relief_frequency": 1.1,
+"relief_frequency": 2.2,
 "relief_resolution": 64,
 "relief_style": "sculpted_dunes",
 "side_key": "snow_side",
@@ -31,75 +32,65 @@ params = {
 "top_key": "snow_top"
 }
 
-[sub_resource type="Resource" id="Resource_ilyoq"]
+[sub_resource type="Resource" id="Resource_h4nro"]
 script = ExtResource("1_1ueyc")
 kind = "dressing"
 enabled = false
 params = {
-"aspect": [0.7, 1.35],
-"color_weights": {
-"dressing_dark": 15.0,
-"dressing_light": 50.0,
-"dressing_medium": 35.0
-},
-"edge_margin": 0.02,
-"irregularity": [0.08, 0.14],
-"large_count": [3, 5],
-"large_radius": [0.17, 0.29],
-"medium_count": [4, 7],
-"medium_radius": [0.094, 0.17],
-"outline_points": 20,
-"region_count": [2, 3],
-"region_spread": 0.3,
+"allow_overlap": true,
+"edge_softness": 0.55,
+"height_scale": 1.0,
+"large_count": [2, 4],
+"medium_count": [3, 6],
+"patch_profile": "cushion",
 "scale_multiplier": 1.0,
-"small_count": [2, 5],
-"small_radius": [0.047, 0.094],
-"smoothing_passes": 3
+"small_count": [2, 5]
 }
 
-[sub_resource type="Resource" id="Resource_madq3"]
+[sub_resource type="Resource" id="Resource_j1qxd"]
 script = ExtResource("1_1ueyc")
 kind = "clutter"
 enabled = false
 params = {
-"color_weights": {
-"clutter_light": 55.0,
-"clutter_medium": 45.0
-},
-"count": [3, 6],
+"cluster_fraction": 0.7,
+"cluster_radius": 0.24,
+"count": [7, 13],
 "diameter": [0.05, 0.11],
 "edge_margin": 0.03,
 "height": [0.008, 0.018],
 "min_spacing": 0.06,
-"on_dressing_fraction": 0.6,
-"scale_multiplier": 1.0
+"on_dressing_fraction": 0.0,
+"placement_mode": "clusters",
+"scale_multiplier": 1.0,
+"shapes": ["pebble"]
 }
 
-[sub_resource type="Resource" id="Resource_h4nro"]
+[sub_resource type="Resource" id="Resource_3h0se"]
 script = ExtResource("1_1ueyc")
 kind = "grass_clusters"
 enabled = false
 params = {
-"bend_multiplier": 0.75,
+"accent_clumps": [1, 2],
+"blade_fraction": 0.42,
+"blades_per_tuft": [2, 4],
 "carpet_jitter": 0.3,
 "carpet_skip_fraction": 0.1,
 "carpet_spacing": 0.315,
-"coverage_mode": "carpet",
-"crown_radius": 0.02,
-"edge_margin": 0.02,
-"height_multiplier": 1.0,
+"coverage_mode": "turf",
 "leaf_height": [0.095, 0.15],
 "leaf_width": [0.058, 0.088],
-"root_sink": [0.008, 0.015],
 "rosette_footprint": [0.14, 0.2],
 "rosette_leaves": [3, 5],
-"secondary_fraction": 0.2,
-"splay_degrees": [16.0, 34.0],
-"thickness_ratio": [0.55, 0.72],
-"width_multiplier": 1.0
+"turf_footprint": [0.22, 0.34],
+"turf_height": [0.03, 0.055],
+"turf_lobe_depth": 0.2,
+"turf_overhang": 0.035,
+"turf_skip_fraction": 0.1,
+"turf_spacing": 0.26
 }
 
 [resource]
 script = ExtResource("2_ilyoq")
 preset_name = "Snow Drifts"
-layers = Array[ExtResource("1_1ueyc")]([SubResource("Resource_1ueyc"), SubResource("Resource_ilyoq"), SubResource("Resource_madq3"), SubResource("Resource_h4nro")])
+master_seed = 20268568
+layers = Array[ExtResource("1_1ueyc")]([SubResource("Resource_madq3"), SubResource("Resource_h4nro"), SubResource("Resource_j1qxd"), SubResource("Resource_3h0se")])

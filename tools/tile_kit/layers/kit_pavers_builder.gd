@@ -75,15 +75,24 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 		# rather than a manufactured piece with its own thickness. Floor it —
 		# trail pieces are the deliberate exception: nearly-flush worn tracks.
 		var minimum_height := 0.018 if pattern != "trail" else 0.006
+		var stone_height := maxf(minimum_height,
+			rng.randf_range(float(height_band[0]), float(height_band[1]))) + sink
+		var corner: float = layer.value("stone_corner", 0.028)
+		var bevel := 0.016
+		# Cushion profile: each stone becomes a fat rounded pillow — corner
+		# radius near its half-extent, bevel over half its height — the chunky
+		# tactile cobble read, from the same slab primitive.
+		if String(layer.value("stone_profile", "slab")) == "cushion":
+			corner = minf(half_x, half_z) * 0.72
+			bevel = stone_height * 0.55
 		TileKitMeshUtils.add_slab(batch,
 			stone_key if not stone_key.is_empty()
 				else TileKitPalette.weighted_key(rng, weights),
 			Vector3(centre.x, base_y - sink, centre.y),
 			half_x, half_z,
-			layer.value("stone_corner", 0.028),
-			maxf(minimum_height,
-				rng.randf_range(float(height_band[0]), float(height_band[1]))) + sink,
-			yaw)
+			corner,
+			stone_height,
+			yaw, bevel)
 
 	context["paver_stones"] = stones
 	return {

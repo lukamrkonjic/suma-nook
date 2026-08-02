@@ -57,26 +57,41 @@ func _build_rig() -> void:
 	environment.background_mode = Environment.BG_COLOR
 	environment.background_color = TileKitPalette.color("background")
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	# Warm-neutral fill, strong enough that grass roots and the shaded tile
-	# side stay readable — the reference has no crushed blacks anywhere.
-	environment.ambient_light_color = Color(0.94, 0.93, 0.88)
-	environment.ambient_light_energy = 0.92
-	# Fully colour-driven ambient: sky contribution would halve the fill with
-	# a flat background and crush the tile sides toward black.
+	# Cool restrained fill under a STRONG warm key. The old rig drowned the
+	# sun in flat ambient and every sculpted form rendered as pastel mush —
+	# the single biggest reason captures read as vector art instead of lit
+	# toys. Form must come from the key light; ambient only keeps shadow
+	# sides alive.
+	environment.ambient_light_color = Color(0.82, 0.87, 0.92)
+	environment.ambient_light_energy = 0.52
 	environment.ambient_light_sky_contribution = 0.0
-	environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+	# Filmic response: soft highlight rolloff and richer mid-tone contrast,
+	# close to the game's graded pipeline. The capture path's linear→sRGB
+	# conversion still applies — the tonemapper writes display-referred
+	# values into the linear buffer.
+	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	environment.tonemap_exposure = 1.12
+	# Contact depth between close forms — turf lobes, paver joints, drift
+	# beds — the same read the game gets from its SSAO pass.
+	environment.ssao_enabled = true
+	environment.ssao_intensity = 2.0
+	environment.ssao_radius = 0.35
+	environment.ssao_power = 1.4
 	var world := WorldEnvironment.new()
 	world.environment = environment
 	_render_host.add_child(world)
 
 	var key := DirectionalLight3D.new()
-	key.light_energy = 0.48
-	key.light_color = Color(1.0, 0.995, 0.97)
+	# Golden-hour key: strong and warm. Highlights must visibly roll across
+	# turf lobes and dune shoulders; sides must fall into believable shade.
+	key.light_energy = 1.18
+	key.light_color = Color(1.0, 0.93, 0.80)
 	key.shadow_enabled = true
-	key.shadow_blur = 2.4
+	key.shadow_blur = 1.6
 	key.directional_shadow_max_distance = 24.0
-	# Above, front-left, per the reference read.
-	key.rotation_degrees = Vector3(-52.0, -32.0, 0.0)
+	# Lower, front-left: a more grazing key so shallow sculpt — dunes, turf
+	# lobes, furrows — actually shades. The old high sun flattened relief.
+	key.rotation_degrees = Vector3(-40.0, -32.0, 0.0)
 	_render_host.add_child(key)
 
 	_stage = Node3D.new()
@@ -98,7 +113,34 @@ func _frame(extent: float, target := Vector3.ZERO) -> void:
 	_camera.look_at(target, Vector3.UP)
 
 
+## Empirical framing correction. Window mode, display scale, and stretch
+## settings have all bent the effective ortho extent on this rig before, and
+## the projection drifts over the first frames while the window maximizes —
+## so settle first, then iterate the measurement until it converges. The only
+## trustworthy contract is the projection itself: measure how many pixels one
+## ground unit spans, then scale the camera so `extent` world units exactly
+## fill the viewport width.
+func _calibrate_width(extent: float) -> void:
+	await get_tree().create_timer(0.4).timeout
+	for round in 3:
+		await get_tree().process_frame
+		var origin := _camera.unproject_position(Vector3.ZERO)
+		var step := _camera.unproject_position(
+			Vector3(1.0, 0.0, -1.0).normalized())
+		var pixels_per_unit := (step - origin).length()
+		if pixels_per_unit <= 0.001:
+			return
+		var width := _render_viewport.get_visible_rect().size.x
+		var correction := (pixels_per_unit * extent) / width
+		_camera.size *= correction
+		if absf(correction - 1.0) < 0.005:
+			break
+
+
 func _shoot(file_name: String) -> void:
+	print("shoot %s camera size=%s pos=%s viewport=%s" % [
+		file_name, _camera.size, _camera.position,
+		_render_viewport.get_visible_rect().size])
 	await get_tree().process_frame
 	await get_tree().create_timer(0.15).timeout
 	await RenderingServer.frame_post_draw
@@ -125,6 +167,7 @@ func _run() -> void:
 	hero.preset = TileKitPreset.reference_clean_grass()
 	_stage.add_child(hero)
 	_frame(2.6, Vector3(0.0, -0.1, 0.0))
+	await _calibrate_width(3.3)
 	await _shoot("01_reference_tile.png")
 	print("stats: %s" % JSON.stringify(hero.statistics()))
 
@@ -161,6 +204,7 @@ func _run() -> void:
 			generator.position = Vector3((x - 1) * 1.70, 0.0, (z - 1) * 1.70)
 			_stage.add_child(generator)
 	_frame(6.2, Vector3(0.0, -0.2, 0.0))
+	await _calibrate_width(8.2)
 	await _shoot("03_patch_3x3.png")
 
 	# The same topology supplied to a separated paving preset is deliberately
@@ -180,6 +224,7 @@ func _run() -> void:
 			generator.position = Vector3((x - 1) * 1.70, 0.0, (z - 1) * 1.70)
 			_stage.add_child(generator)
 	_frame(6.2, Vector3(0.0, -0.2, 0.0))
+	await _calibrate_width(8.2)
 	await _shoot("03b_separated_paving_3x3.png")
 
 	# 4. Layer breakdown of the hero seed: base only, +dressing, +clutter,
@@ -286,6 +331,7 @@ func _run_focus() -> void:
 		print("focus %s: %s" % [tile_id, JSON.stringify(generator.statistics())])
 	var rows := ceili(float(_focus_ids.size()) / float(columns))
 	_frame(maxf(3.0, maxf(columns, rows) * 2.35), Vector3(0.0, -0.2, 0.0))
+	await _calibrate_width(float(columns) * 2.45 + 0.9)
 	await _shoot("00_focus_tiles.png")
 
 
@@ -325,6 +371,7 @@ func _run_catalog() -> void:
 	# glued to their tiles under any projection behaviour. Only the sheet
 	# heading remains 2D.
 	_frame(30.0, Vector3(0.0, -0.15, 0.0))
+	await _calibrate_width(float(columns) * 2.60 + 1.6)
 	await get_tree().process_frame
 	_build_catalog_labels(entries, positions)
 	_build_catalog_heading()

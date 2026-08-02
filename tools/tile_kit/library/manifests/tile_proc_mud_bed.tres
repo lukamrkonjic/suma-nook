@@ -6,7 +6,7 @@
 script = ExtResource("1_rpw3v")
 tile_id = "tile_proc_mud_bed"
 display_name = "Mud Ground"
-revision = 1
+revision = 2
 lifecycle = "published"
 visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_proc_mud_bed.tres"
@@ -20,5 +20,6 @@ landmark_tags = PackedStringArray()
 dependencies = PackedStringArray()
 water_cells = PackedStringArray()
 created_at = "2026-08-01 00:00:00"
-updated_at = "2026-08-01 16:00:00"
+updated_at = "2026-08-02 12:00:00"
 published_at = "2026-08-01 14:38:51"
+notes = "Original Suma procedural composition. Stable ID retained for runtime references; no extracted source geometry is used."

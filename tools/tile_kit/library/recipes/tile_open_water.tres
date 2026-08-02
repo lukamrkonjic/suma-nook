@@ -6,15 +6,18 @@
 [sub_resource type="Resource" id="Resource_bhpv5"]
 script = ExtResource("1_bdosv")
 kind = "base"
-locked = true
 params = {
+"basin_depth": 0.0,
+"basin_rim": 0.17,
 "bevel_key": "water_blue",
 "bevel_segments": 6,
 "bottom_chamfer": 0.016,
 "corner_radius": 0.075,
 "lower_key": "stone_deep",
 "relief_amplitude": 0.01,
+"relief_bipolar": false,
 "relief_edge_feather": 0.2,
+"relief_frequency": 2.2,
 "relief_resolution": 24,
 "relief_style": "pillow",
 "side_key": "water_deep",
@@ -32,6 +35,8 @@ params = {
 "fall_width": 0.72,
 "inset": 0.0,
 "level": 0.018,
+"rim_width": 0.028,
+"ripple_count": [2, 3],
 "surface_key": "water_blue"
 }
 
@@ -40,41 +45,33 @@ script = ExtResource("1_bdosv")
 kind = "dressing"
 enabled = false
 params = {
-"aspect": [0.7, 1.35],
-"color_weights": {
-"dressing_dark": 15.0,
-"dressing_light": 50.0,
-"dressing_medium": 35.0
-},
-"edge_margin": 0.02,
-"irregularity": [0.08, 0.14],
-"large_count": [3, 5],
-"large_radius": [0.17, 0.29],
-"medium_count": [4, 7],
-"medium_radius": [0.094, 0.17],
-"outline_points": 20,
-"region_count": [2, 3],
-"region_spread": 0.3,
+"allow_overlap": true,
+"edge_softness": 0.55,
+"height_scale": 1.0,
+"large_count": [2, 4],
+"medium_count": [3, 6],
+"patch_profile": "cushion",
 "scale_multiplier": 1.0,
-"small_count": [2, 5],
-"small_radius": [0.047, 0.094],
-"smoothing_passes": 3
+"small_count": [2, 5]
 }
 
 [sub_resource type="Resource" id="Resource_3npdk"]
 script = ExtResource("1_bdosv")
 kind = "clutter"
 params = {
+"cluster_fraction": 0.7,
+"cluster_radius": 0.24,
 "color_weights": {
 "blossom_cream": 20.0,
 "lily_green": 80.0
 },
-"count": [3, 6],
-"diameter": [0.11, 0.22],
+"count": [2, 4],
+"diameter": [0.13, 0.24],
 "edge_margin": 0.035,
-"height": [0.008, 0.022],
+"height": [0.008, 0.014],
 "min_spacing": 0.055,
 "on_dressing_fraction": 0.55,
+"placement_mode": "clusters",
 "scale_multiplier": 1.0,
 "shapes": ["lily_pad", "lily_pad", "bud"]
 }
@@ -84,23 +81,23 @@ script = ExtResource("1_bdosv")
 kind = "grass_clusters"
 enabled = false
 params = {
-"bend_multiplier": 0.75,
+"accent_clumps": [1, 2],
+"blade_fraction": 0.42,
+"blades_per_tuft": [2, 4],
 "carpet_jitter": 0.3,
 "carpet_skip_fraction": 0.1,
 "carpet_spacing": 0.315,
-"coverage_mode": "carpet",
-"crown_radius": 0.02,
-"edge_margin": 0.02,
-"height_multiplier": 1.0,
+"coverage_mode": "turf",
 "leaf_height": [0.095, 0.15],
 "leaf_width": [0.058, 0.088],
-"root_sink": [0.008, 0.015],
 "rosette_footprint": [0.14, 0.2],
 "rosette_leaves": [3, 5],
-"secondary_fraction": 0.2,
-"splay_degrees": [16.0, 34.0],
-"thickness_ratio": [0.55, 0.72],
-"width_multiplier": 1.0
+"turf_footprint": [0.22, 0.34],
+"turf_height": [0.03, 0.055],
+"turf_lobe_depth": 0.2,
+"turf_overhang": 0.035,
+"turf_skip_fraction": 0.1,
+"turf_spacing": 0.26
 }
 
 [resource]

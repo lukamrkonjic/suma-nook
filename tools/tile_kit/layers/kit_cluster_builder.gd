@@ -48,7 +48,10 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 	# "clusters" — a few asymmetric feature clusters with open ground, for
 	# accent tiles where the grass is a subject rather than a surface.
 	var composition: Array
-	if String(layer.value("coverage_mode", "carpet")) == "carpet":
+	var mode := String(layer.value("coverage_mode", "carpet"))
+	if mode == "turf":
+		return _build_turf(layer, rng, context)
+	if mode == "carpet":
 		composition = _compose_carpet(layer, rng, half)
 	else:
 		composition = _compose(layer, rng, half)
@@ -131,6 +134,183 @@ static func _compose_carpet(layer: TileKitLayer, rng: RandomNumberGenerator,
 				"yaw": rng.randf() * TAU,
 			})
 	return result
+
+
+# --- turf: sculpted carpet mode ----------------------------------------------
+
+
+## The premium grass read: the top of the tile IS the vegetation. A dense bed
+## of low interlocking lobed mounds forms one continuous sculpted turf whose
+## silhouette is lumpy and alive; a fraction of mounds sprout a few short broad
+## blades rooted INSIDE the mound (tips breaking the surface, never hair plugs
+## on a board); one to three taller accent clumps give the tile a focal point.
+## Rim mounds push slightly outward so the carpet laps over the bevel the way
+## moss creeps over a wall — repetition then reads as one land mass.
+static func _build_turf(layer: TileKitLayer, rng: RandomNumberGenerator,
+		context: Dictionary) -> Dictionary:
+	var half: float = context.get("surface_half", 0.85)
+	var top: float = context.get("surface_top", 0.0)
+	var cap_height: Callable = context.get("cap_height", Callable())
+	var batch := TileKitMeshUtils.MeshBatch.new()
+
+	var spacing: float = layer.value("turf_spacing", 0.26)
+	var jitter: float = layer.value("carpet_jitter", 0.30)
+	var skip: float = layer.value("turf_skip_fraction", 0.10)
+	var footprint_band: Array = layer.value("turf_footprint", [0.22, 0.34])
+	var height_band: Array = layer.value("turf_height", [0.030, 0.055])
+	var lobe_depth: float = layer.value("turf_lobe_depth", 0.20)
+	var overhang: float = layer.value("turf_overhang", 0.035)
+	var blade_fraction: float = layer.value("blade_fraction", 0.42)
+	var blades_band: Array = layer.value("blades_per_tuft", [2, 4])
+	var accent_band: Array = layer.value("accent_clumps", [1, 2])
+	# Turf mounds live in the TOP's own colour family — the carpet must read
+	# as one thick material, never as patches shingled over a different green.
+	# Blades take a deliberately deeper tone so the sculpted tips punctuate.
+	var primary := String(layer.value("primary_key", "tile_top"))
+	var secondary := String(layer.value("secondary_key", "dressing_medium"))
+	var blade_key := String(layer.value("blade_key", "grass_primary"))
+	var secondary_fraction: float = layer.value("secondary_fraction", 0.24)
+	var height_multiplier: float = layer.value("height_multiplier", 1.0)
+
+	var stones: Array = context.get("paver_stones", [])
+	var mounds: Array = []
+	var columns := maxi(2, int(floor((half * 2.0) / spacing)))
+	var start := -(float(columns) - 1.0) * 0.5 * spacing
+	for row in columns:
+		for column in columns:
+			if rng.randf() < skip:
+				continue
+			var centre := Vector2(
+				start + column * spacing
+					+ rng.randf_range(-jitter, jitter) * spacing,
+				start + row * spacing
+					+ rng.randf_range(-jitter, jitter) * spacing
+			)
+			# Rim mounds migrate OUTWARD: the carpet overhangs the bevel a
+			# touch instead of stopping short of it with a bald strip.
+			var rim_distance := half - maxf(absf(centre.x), absf(centre.y))
+			if rim_distance < spacing * 0.8:
+				var push := (1.0 - rim_distance / (spacing * 0.8)) * overhang
+				centre += centre.normalized() * push if centre.length() > 0.01 \
+					else Vector2.ZERO
+			var limit := half + overhang
+			centre.x = clampf(centre.x, -limit, limit)
+			centre.y = clampf(centre.y, -limit, limit)
+			if _blocked_by_stone(centre, stones, 0.04):
+				continue
+			var footprint := rng.randf_range(float(footprint_band[0]),
+				float(footprint_band[1]))
+			mounds.append({
+				"centre": centre,
+				"footprint": footprint,
+				"height": rng.randf_range(float(height_band[0]),
+					float(height_band[1])) * height_multiplier,
+				"yaw": rng.randf() * TAU,
+				"aspect": rng.randf_range(0.78, 1.0),
+			})
+
+	for mound: Dictionary in mounds:
+		var centre: Vector2 = mound["centre"]
+		var surface_y := top
+		if cap_height.is_valid():
+			var clamped := Vector2(clampf(centre.x, -half, half),
+				clampf(centre.y, -half, half))
+			surface_y = top + float(cap_height.call(clamped))
+		var footprint: float = mound["footprint"]
+		var mound_height: float = mound["height"]
+		var key := secondary if rng.randf() < secondary_fraction else primary
+		# Sunk a whisker so every mound meets the ground in a soft contact
+		# line — turf grows FROM the tile, it is not shingled onto it.
+		TileKitMeshUtils.add_lobed_mound(batch, key,
+			Vector3(centre.x, surface_y - mound_height * 0.10, centre.y),
+			footprint * 0.5, footprint * 0.5 * float(mound["aspect"]),
+			mound_height, float(mound["yaw"]), rng, lobe_depth)
+		# A fraction of mounds sprout short broad blades from within the
+		# mound body — sculpted tips that break the carpet silhouette.
+		if rng.randf() < blade_fraction:
+			var blade_count := rng.randi_range(int(blades_band[0]),
+				int(blades_band[1]))
+			_add_tuft_blades(batch, layer, rng, centre, footprint,
+				surface_y + mound_height * 0.55, blade_count, 1.0,
+				blade_key, secondary)
+
+	# Accent clumps: the tile's few deliberate taller features, kept off the
+	# rim so their silhouette belongs to this tile alone.
+	var accents := rng.randi_range(int(accent_band[0]), int(accent_band[1]))
+	var accent_positions: Array[Vector2] = []
+	for accent in accents:
+		var position := Vector2(rng.randf_range(-half * 0.62, half * 0.62),
+			rng.randf_range(-half * 0.62, half * 0.62))
+		var clear := true
+		for existing in accent_positions:
+			if existing.distance_to(position) < half * 0.6:
+				clear = false
+				break
+		if not clear or _blocked_by_stone(position, stones, 0.08):
+			continue
+		accent_positions.append(position)
+		var surface_y := top
+		if cap_height.is_valid():
+			surface_y = top + float(cap_height.call(position))
+		var footprint := rng.randf_range(0.16, 0.24)
+		var mound_height := rng.randf_range(float(height_band[1]),
+			float(height_band[1]) * 1.5) * height_multiplier
+		TileKitMeshUtils.add_lobed_mound(batch, primary,
+			Vector3(position.x, surface_y - mound_height * 0.1, position.y),
+			footprint * 0.62, footprint * 0.55, mound_height,
+			rng.randf() * TAU, rng, lobe_depth * 1.2)
+		_add_tuft_blades(batch, layer, rng, position, footprint,
+			surface_y + mound_height * 0.6, rng.randi_range(4, 6), 1.35,
+			blade_key, secondary)
+
+	context["grass_clusters"] = mounds
+	return {
+		"meshes": [{"role": "detail", "name": "tile_grass",
+			"mesh": batch.commit()}],
+	}
+
+
+## Short broad curved blades rooted inside a turf mound. Roots start well
+## below the mound crown so every blade emerges from the mass — the exact
+## opposite of the retired hair-plug read.
+static func _add_tuft_blades(batch: TileKitMeshUtils.MeshBatch,
+		layer: TileKitLayer, rng: RandomNumberGenerator, centre: Vector2,
+		footprint: float, crown_y: float, blade_count: int,
+		scale: float, primary: String, secondary: String) -> void:
+	var height_band: Array = layer.value("leaf_height", [0.075, 0.130])
+	var width_band: Array = layer.value("leaf_width", [0.050, 0.080])
+	var thickness_band: Array = layer.value("thickness_ratio", [0.50, 0.68])
+	var base_yaw := rng.randf() * TAU
+	for blade in blade_count:
+		var yaw := base_yaw + TAU * float(blade) / float(blade_count) \
+			+ rng.randf_range(-0.5, 0.5)
+		var direction := Vector2(cos(yaw), sin(yaw))
+		var root := centre + direction * footprint * rng.randf_range(0.06, 0.22)
+		var blade_height := rng.randf_range(float(height_band[0]),
+			float(height_band[1])) * scale * rng.randf_range(0.8, 1.2)
+		var blade_width := minf(
+			rng.randf_range(float(width_band[0]), float(width_band[1])) * scale,
+			blade_height * 0.45)
+		var reach := blade_height * rng.randf_range(0.35, 0.75)
+		var lean := Vector3(direction.x, 0.0, direction.y)
+		var p0 := Vector3(root.x, crown_y - footprint * 0.28, root.y)
+		var p1 := p0 + Vector3.UP * (blade_height * 0.42) + lean * (reach * 0.10)
+		var p2 := p0 + Vector3.UP * (blade_height * 0.78) + lean * (reach * 0.52)
+		var p3 := p0 + Vector3.UP * blade_height + lean * reach
+		var key := secondary if rng.randf() < 0.3 else primary
+		TileKitMeshUtils.add_blade(batch, key, p0, p1, p2, p3, blade_width,
+			rng.randf_range(float(thickness_band[0]),
+				float(thickness_band[1])), 8, 10, 3)
+
+
+static func _blocked_by_stone(centre: Vector2, stones: Array,
+		clearance: float) -> bool:
+	for stone: Dictionary in stones:
+		var delta: Vector2 = centre - (stone["centre"] as Vector2)
+		if absf(delta.x) < float(stone["half_x"]) + clearance \
+				and absf(delta.y) < float(stone["half_z"]) + clearance:
+			return true
+	return false
 
 
 # --- composition -------------------------------------------------------------

@@ -6,7 +6,7 @@
 script = ExtResource("1_7i7qt")
 tile_id = "tile_proc_boulder_ground"
 display_name = "Boulder Field"
-revision = 1
+revision = 2
 lifecycle = "published"
 visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_proc_boulder_ground.tres"
@@ -20,5 +20,6 @@ landmark_tags = PackedStringArray()
 dependencies = PackedStringArray()
 water_cells = PackedStringArray()
 created_at = "2026-08-01 00:00:00"
-updated_at = "2026-08-01 16:00:00"
+updated_at = "2026-08-02 12:00:00"
 published_at = "2026-08-01 14:38:49"
+notes = "Original Suma procedural composition. Stable ID retained for runtime references; no extracted source geometry is used."

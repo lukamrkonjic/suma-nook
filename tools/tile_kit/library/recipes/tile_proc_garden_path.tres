@@ -3,98 +3,101 @@
 [ext_resource type="Script" path="res://tools/tile_kit/tile_kit_layer.gd" id="1_3geon"]
 [ext_resource type="Script" path="res://tools/tile_kit/tile_kit_preset.gd" id="2_278by"]
 
-[sub_resource type="Resource" id="Resource_3geon"]
+[sub_resource type="Resource" id="Resource_a28lr"]
 script = ExtResource("1_3geon")
 kind = "base"
-locked = true
 params = {
+"basin_depth": 0.0,
+"basin_rim": 0.17,
+"bevel_key": "tile_top_bevel",
 "bevel_segments": 6,
 "bottom_chamfer": 0.016,
 "corner_radius": 0.075,
-"top_bevel": 0.075
-}
-
-[sub_resource type="Resource" id="Resource_278by"]
-script = ExtResource("1_3geon")
-kind = "dressing"
-enabled = false
-params = {
-"aspect": [0.7, 1.35],
-"color_weights": {
-"dressing_dark": 15.0,
-"dressing_light": 50.0,
-"dressing_medium": 35.0
-},
-"edge_margin": 0.02,
-"irregularity": [0.08, 0.14],
-"large_count": [3, 5],
-"large_radius": [0.17, 0.29],
-"medium_count": [4, 7],
-"medium_radius": [0.094, 0.17],
-"outline_points": 20,
-"region_count": [2, 3],
-"region_spread": 0.3,
-"scale_multiplier": 1.0,
-"small_count": [2, 5],
-"small_radius": [0.047, 0.094],
-"smoothing_passes": 3
-}
-
-[sub_resource type="Resource" id="Resource_a28lr"]
-script = ExtResource("1_3geon")
-kind = "clutter"
-enabled = false
-params = {
-"color_weights": {
-"clutter_light": 55.0,
-"clutter_medium": 45.0
-},
-"count": [3, 6],
-"diameter": [0.05, 0.11],
-"edge_margin": 0.03,
-"height": [0.008, 0.018],
-"min_spacing": 0.06,
-"on_dressing_fraction": 0.6,
-"scale_multiplier": 1.0
+"lower_key": "tile_lower",
+"relief_amplitude": 0.014,
+"relief_bipolar": false,
+"relief_edge_feather": 0.2,
+"relief_frequency": 2.2,
+"relief_resolution": 24,
+"relief_style": "pillow",
+"side_key": "tile_side",
+"top_bevel": 0.075,
+"top_key": "tile_top"
 }
 
 [sub_resource type="Resource" id="Resource_wi6o1"]
 script = ExtResource("1_3geon")
-kind = "pavers"
+kind = "dressing"
+enabled = false
 params = {
-"pattern": "stepping",
-"slab_key": "stone_light",
-"stepping_count": [4, 6],
-"stepping_size": [0.26, 0.36],
-"stone_corner": 0.06,
-"stone_height": [0.022, 0.03]
+"allow_overlap": true,
+"edge_softness": 0.55,
+"height_scale": 1.0,
+"large_count": [2, 4],
+"medium_count": [3, 6],
+"patch_profile": "cushion",
+"scale_multiplier": 1.0,
+"small_count": [2, 5]
 }
 
 [sub_resource type="Resource" id="Resource_pim1c"]
 script = ExtResource("1_3geon")
+kind = "pavers"
+params = {
+"gap": 0.026,
+"pattern": "stepping",
+"slab_key": "stone_light",
+"stepping_count": [4, 6],
+"stepping_size": [0.28, 0.38],
+"stone_cell": 0.55,
+"stone_corner": 0.07,
+"stone_height": [0.024, 0.032]
+}
+
+[sub_resource type="Resource" id="Resource_qniet"]
+script = ExtResource("1_3geon")
+kind = "clutter"
+enabled = false
+params = {
+"cluster_fraction": 0.7,
+"cluster_radius": 0.24,
+"count": [7, 13],
+"diameter": [0.05, 0.11],
+"edge_margin": 0.03,
+"height": [0.008, 0.018],
+"min_spacing": 0.06,
+"on_dressing_fraction": 0.0,
+"placement_mode": "clusters",
+"scale_multiplier": 1.0,
+"shapes": ["pebble"]
+}
+
+[sub_resource type="Resource" id="Resource_7ruv0"]
+script = ExtResource("1_3geon")
 kind = "grass_clusters"
 params = {
-"bend_multiplier": 0.75,
+"accent_clumps": [1, 2],
+"blade_fraction": 0.36,
+"blades_per_tuft": [2, 4],
 "carpet_jitter": 0.3,
 "carpet_skip_fraction": 0.1,
 "carpet_spacing": 0.315,
-"coverage_mode": "carpet",
-"crown_radius": 0.02,
-"edge_margin": 0.02,
-"height_multiplier": 1.0,
+"coverage_mode": "turf",
 "leaf_height": [0.095, 0.15],
 "leaf_width": [0.058, 0.088],
-"root_sink": [0.008, 0.015],
 "rosette_footprint": [0.14, 0.2],
 "rosette_leaves": [3, 5],
-"secondary_fraction": 0.2,
-"splay_degrees": [16.0, 34.0],
-"thickness_ratio": [0.55, 0.72],
-"width_multiplier": 1.0
+"turf_footprint": [0.22, 0.32],
+"turf_height": [0.03, 0.046],
+"turf_lobe_depth": 0.2,
+"turf_overhang": 0.035,
+"turf_skip_fraction": 0.1,
+"turf_spacing": 0.27
 }
 
 [resource]
 script = ExtResource("2_278by")
 preset_name = "Meadow Path"
+master_seed = 20268595
 separate_tiles = true
-layers = Array[ExtResource("1_3geon")]([SubResource("Resource_3geon"), SubResource("Resource_278by"), SubResource("Resource_a28lr"), SubResource("Resource_wi6o1"), SubResource("Resource_pim1c")])
+layers = Array[ExtResource("1_3geon")]([SubResource("Resource_a28lr"), SubResource("Resource_wi6o1"), SubResource("Resource_pim1c"), SubResource("Resource_qniet"), SubResource("Resource_7ruv0")])

@@ -351,6 +351,82 @@ static func add_rect_cap(
 	batch.add(key, vertices, normals, indices)
 
 
+# --- water dressing ----------------------------------------------------------
+
+
+## Flat ring band following a rounded-rect outline: the water's meniscus
+## highlight — the thin lit line where a still surface meets its container.
+static func add_flat_ring(
+	batch: MeshBatch,
+	key: String,
+	half: float,
+	corner: float,
+	corner_segments: int,
+	inset: float,
+	width: float,
+	y: float
+) -> void:
+	var outline: Array = rounded_rect_outline(half, corner, corner_segments)
+	var points: PackedVector2Array = outline[0]
+	var outwards: PackedVector2Array = outline[1]
+	var count := points.size()
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var indices := PackedInt32Array()
+	for index in count:
+		var outer := points[index] - outwards[index] * inset
+		var inner := points[index] - outwards[index] * (inset + width)
+		vertices.append(Vector3(outer.x, y, outer.y))
+		normals.append(Vector3.UP)
+		vertices.append(Vector3(inner.x, y, inner.y))
+		normals.append(Vector3.UP)
+	for index in count:
+		var next := (index + 1) % count
+		var a := index * 2
+		var b := index * 2 + 1
+		var c := next * 2 + 1
+		var d := next * 2
+		indices.append_array([a, d, c, a, c, b])
+	batch.add(key, vertices, normals, indices)
+
+
+## The shared still-water treatment: one or two broad, softly modelled wave
+## ridges drifting across the surface, plus the meniscus ring. Geometry only —
+## calm and toy-like, readable in silhouette and lighting, no shader tricks.
+static func add_water_dressing(
+	batch: MeshBatch,
+	rng: RandomNumberGenerator,
+	region_half: float,
+	corner: float,
+	inset: float,
+	level: float,
+	ripple_key: String,
+	ripple_count: int = 2,
+	rim_width: float = 0.022
+) -> void:
+	if rim_width > 0.0:
+		add_flat_ring(batch, ripple_key, region_half, corner, 6, inset,
+			rim_width, level + 0.0025)
+	var reach := region_half - inset - rim_width - 0.10
+	if reach <= 0.12:
+		return
+	for ripple in ripple_count:
+		var yaw := rng.randf() * TAU
+		var axis := Vector3(cos(yaw), 0.0, sin(yaw))
+		var across := Vector3(-axis.z, 0.0, axis.x)
+		var centre3 := Vector3(
+			rng.randf_range(-reach * 0.5, reach * 0.5), level,
+			rng.randf_range(-reach * 0.5, reach * 0.5))
+		var length := rng.randf_range(reach * 0.7, reach * 1.4)
+		var bow := across * length * rng.randf_range(0.10, 0.22) \
+			* (1.0 if rng.randf() < 0.5 else -1.0)
+		var p0 := centre3 - axis * length * 0.5
+		var p3 := centre3 + axis * length * 0.5
+		add_ridge(batch, ripple_key,
+			p0, p0.lerp(centre3 + bow, 0.55), p3.lerp(centre3 + bow, 0.55), p3,
+			rng.randf_range(0.065, 0.100), rng.randf_range(0.010, 0.016))
+
+
 # --- free-standing slabs -----------------------------------------------------
 
 
@@ -452,6 +528,149 @@ static func _slab_outline(half_x: float, half_z: float, corner: float,
 
 
 # --- rounded organic solids --------------------------------------------------
+
+
+## A soft multi-lobed cushion mound: the turf-cluster / drift-bed primitive.
+##
+## One continuous parametric surface — never intersecting domes — whose plan
+## outline is a circle modulated by two low-frequency lobe waves and whose
+## height profile is a superellipse with a rolled edge, so the form reads as a
+## thick soft mass RESTING on the ground: wider than tall, lumpy in silhouette,
+## with a highlight that rolls over each lobe instead of snapping at a facet.
+## This is what lets grass read as sculpted turf, leaf litter as a raked drift,
+## and snow as a settled pillow, all from one primitive.
+static func add_lobed_mound(
+	batch: MeshBatch,
+	key: String,
+	centre: Vector3,
+	radius_x: float,
+	radius_z: float,
+	height: float,
+	yaw: float,
+	rng: RandomNumberGenerator,
+	lobe_depth := 0.20,
+	rings: int = 5,
+	segments: int = 18,
+	softness := 0.6
+) -> void:
+	# Two incommensurate angular waves give a hand-modelled outline; a single
+	# wave reads as a gear, pure jitter reads as noise.
+	var phase_a := rng.randf() * TAU
+	var phase_b := rng.randf() * TAU
+	var weight_a := rng.randf_range(0.55, 0.85)
+	var lobes_a := 2 + (rng.randi() % 2)
+	var lobes_b := 3 + (rng.randi() % 3)
+	var radius_at := func(angle: float) -> float:
+		return 1.0 + lobe_depth * (
+			weight_a * sin(angle * lobes_a + phase_a)
+			+ (1.0 - weight_a) * sin(angle * lobes_b + phase_b)
+		)
+	# Superellipse height profile with a rolled shoulder (see add_cushion_blob).
+	var a := lerpf(3.0, 2.2, softness)
+	var e := lerpf(0.55, 0.75, softness)
+	var profile := func(s: float) -> float:
+		return pow(maxf(0.0, 1.0 - pow(minf(s, 1.0), a)), e)
+	var basis := Basis(Vector3.UP, yaw)
+	var point_at := func(s: float, angle: float) -> Vector3:
+		var factor: float = radius_at.call(angle)
+		var local := Vector3(
+			cos(angle) * radius_x * factor * s,
+			height * float(profile.call(s)),
+			sin(angle) * radius_z * factor * s
+		)
+		return centre + basis * local
+
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var indices := PackedInt32Array()
+	vertices.append(centre + Vector3.UP * height)
+	normals.append(Vector3.UP)
+	# Ring spacing biased toward the rim, where the roll needs resolution.
+	for ring in rings:
+		var s := sin((float(ring + 1) / float(rings)) * PI * 0.5)
+		for segment in segments:
+			var angle := TAU * float(segment) / float(segments)
+			var position: Vector3 = point_at.call(s, angle)
+			# Numeric normal from the parametric tangents: exact enough at any
+			# lobe depth, and it keeps the surface reading as one soft form.
+			var ds: Vector3 = (point_at.call(minf(s + 0.04, 1.0), angle)
+				- point_at.call(maxf(s - 0.04, 0.0), angle))
+			var da: Vector3 = (point_at.call(maxf(s, 0.02), angle + 0.18)
+				- point_at.call(maxf(s, 0.02), angle - 0.18))
+			var normal := da.cross(ds)
+			if normal.length_squared() < 0.000001 or normal.y < 0.0:
+				normal = Vector3.UP
+			normals.append(normal.normalized())
+			vertices.append(position)
+	for segment in segments:
+		indices.append_array([0, 1 + segment, 1 + (segment + 1) % segments])
+	for ring in rings - 1:
+		var a0 := 1 + ring * segments
+		var b0 := 1 + (ring + 1) * segments
+		for segment in segments:
+			var next := (segment + 1) % segments
+			indices.append_array([
+				a0 + segment, b0 + segment, b0 + next,
+				a0 + segment, b0 + next, a0 + next,
+			])
+	batch.add(key, vertices, normals, indices)
+
+
+## A soft swept ridge: a half-elliptical cross-section carried along a ground
+## Bezier, tapering to nothing at both ends. Water gets its broad calm wave
+## forms from this; snow and sand get directional drift accents; forest floors
+## get half-buried roots. The profile stays broad and shallow by construction.
+static func add_ridge(
+	batch: MeshBatch,
+	key: String,
+	p0: Vector3,
+	p1: Vector3,
+	p2: Vector3,
+	p3: Vector3,
+	width: float,
+	height: float,
+	length_rings: int = 10,
+	arc_segments: int = 6
+) -> void:
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var indices := PackedInt32Array()
+	for ring in length_rings + 1:
+		var t := float(ring) / float(length_rings)
+		var centre := _bezier(p0, p1, p2, p3, t)
+		var tangent := _bezier_tangent(p0, p1, p2, p3, t)
+		tangent.y = 0.0
+		if tangent.length_squared() < 0.000001:
+			tangent = Vector3.RIGHT
+		tangent = tangent.normalized()
+		var side := tangent.cross(Vector3.UP).normalized()
+		# Sine taper along the sweep: full body mid-run, feathered ends.
+		var taper := sin(t * PI)
+		var half_width := width * 0.5 * lerpf(0.35, 1.0, taper)
+		var rise := height * taper
+		for segment in arc_segments + 1:
+			var arc := PI * float(segment) / float(arc_segments)
+			var across := cos(arc)
+			var lift := sin(arc)
+			vertices.append(centre + side * (across * half_width)
+				+ Vector3.UP * (lift * rise))
+			var normal := (side * across
+				+ Vector3.UP * (lift * maxf(half_width, 0.0001)
+					/ maxf(rise, 0.0001))).normalized() if rise > 0.0005 \
+				else Vector3.UP
+			# Pull toward UP so the ridge takes most light from the sky — the
+			# calm read; hard side shading made test waves look like hoses.
+			normals.append((normal * 0.55 + Vector3.UP * 0.45).normalized())
+	var stride := arc_segments + 1
+	for ring in length_rings:
+		var a0 := ring * stride
+		var b0 := (ring + 1) * stride
+		for segment in arc_segments:
+			indices.append_array([
+				a0 + segment, b0 + segment, b0 + segment + 1,
+				a0 + segment, b0 + segment + 1, a0 + segment + 1,
+			])
+	batch.add(key, vertices, normals, indices)
 
 
 ## Squashed hemisphere dome. `flatness` 0 = full half-sphere, 1 = nearly flat
