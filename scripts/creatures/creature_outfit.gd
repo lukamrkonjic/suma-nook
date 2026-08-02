@@ -101,6 +101,11 @@ func _build_hat(item: Dictionary, anchors: Dictionary) -> void:
 	var head_radius := float(anchors.get("head_radius", 0.1))
 	var color := _item_color(item, "color", "#D96F5E")
 	var accent := _item_color(item, "accent", "#F2E3C0")
+	# Wide ACNH-style heads stretch hats sideways to match.
+	_hat_root.scale = Vector3(
+		float(anchors.get("head_width", 1.0)), 1.0,
+		1.0 + (float(anchors.get("head_width", 1.0)) - 1.0) * 0.6
+	)
 	# Hats perch ON the crown (high dome centers, small dome radii) so they
 	# never swallow the face or clip the eyes.
 	match String(item.get("kind", "cap")):

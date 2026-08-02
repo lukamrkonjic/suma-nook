@@ -20,6 +20,9 @@ const PIGEON_MASCOT_SCENE := preload(
 const ProceduralOwlMascotScript := preload(
 	"res://scripts/characters/owl/procedural_owl_mascot.gd"
 )
+const DebugCreatureParadeScript := preload(
+	"res://scripts/debug/creature_parade.gd"
+)
 const DEBUG_WORLD_TILE_COUNT := 5000
 const DEBUG_WORLD_MODEL_COUNT := 1250
 const MAXED_WORLD_TILE_COUNT := 10000
@@ -221,6 +224,13 @@ func _build_world_scene() -> void:
 		owl_visual.call("build")
 		owl_visual.call("setup", pigeon_controller)
 		pigeon_controller.attach_procedural_visual(owl_visual)
+	# TEST-ONLY creature showcase; flip debug_creature_parade_enabled off in
+	# data/features.json to remove it entirely.
+	if core.registries.feature("debug_creature_parade_enabled", false):
+		var parade := DebugCreatureParadeScript.new() as Node3D
+		parade.name = "DebugCreatureParade"
+		world_root.add_child(parade)
+		parade.call("setup", core.grid, player.global_position)
 	effects.bind_water_interaction(core, player)
 	effects.bind_ground_impacts(core, player, audio)
 	effects.bind_soft_terrain(core, player)

@@ -215,6 +215,7 @@ func pose_anchors() -> Dictionary:
 	return {
 		"head": Transform3D(_head_basis(), _head_position),
 		"head_radius": float(_head.get("radius", 0.1)),
+		"head_width": 1.0 + clampf(float(_head.get("width", 0.0)), 0.0, 0.6),
 		"body": Transform3D(Basis.from_euler(_body_rotation), _body_position),
 		"torso_radius": _torso_radius(),
 		"torso_half": float(_torso.get("length", 0.09)) * 0.5,
@@ -796,10 +797,18 @@ func _update_shell(movement_amount: float, state: MotionState) -> void:
 		torso_radius * clampf(float(_torso.get("taper", 1.0)), 0.5, 1.5)
 	)
 	var head_radius := float(_head.get("radius", 0.1)) * (1.0 + squash * 0.08)
+	# head.width > 0 lays the head capsule sideways: a wider-than-tall
+	# rounded head (the Animal Crossing silhouette) instead of a ball.
+	var head_width := clampf(float(_head.get("width", 0.0)), 0.0, 0.6)
+	var head_axis := (
+		Vector3(head_radius * head_width, 0.006, 0.002)
+		if head_width > 0.0
+		else Vector3(0.0, 0.008, 0.003)
+	)
 	_append_shape(
 		shape_a, shape_b, colors,
-		_head_position + head_basis * Vector3(0.0, -0.008, -0.003),
-		_head_position + head_basis * Vector3(0.0, 0.008, 0.003),
+		_head_position + head_basis * -head_axis,
+		_head_position + head_basis * head_axis,
 		head_radius, float(_head.get("blend", 0.03)), _color_for("head")
 	)
 	if _head.has("snout"):
@@ -1136,20 +1145,24 @@ func _build_human_face(head_radius: float) -> void:
 		Color(String(_palette.get("hair")))
 		if _palette.has("hair") else _color("ink")
 	)
-	_add_sphere(_face_root, "HairCap", Vector3(0.0, head_radius * 0.3, head_radius * 0.12), Vector3(head_radius * 1.04, head_radius * 0.82, head_radius * 1.02), hair)
-	_add_sphere(_face_root, "HairFringe", Vector3(0.0, head_radius * 0.56, -head_radius * 0.62), Vector3(head_radius * 0.78, head_radius * 0.34, head_radius * 0.5), hair)
-	var eye_scale := Vector3(head_radius * 0.095, head_radius * 0.14, 0.007)
-	var eye_left := _add_sphere(_face_root, "EyeLeft", Vector3(-head_radius * 0.24, head_radius * 0.02, -head_radius - 0.004), eye_scale, _color("ink"), Vector3.ZERO, true)
-	var eye_right := _add_sphere(_face_root, "EyeRight", Vector3(head_radius * 0.24, head_radius * 0.02, -head_radius - 0.004), eye_scale, _color("ink"), Vector3.ZERO, true)
+	# The face spreads with head.width so features stay proportioned on the
+	# wide Animal Crossing head shape.
+	var spread := 1.0 + clampf(float(_head.get("width", 0.0)), 0.0, 0.6) * 0.9
+	_add_sphere(_face_root, "HairCap", Vector3(0.0, head_radius * 0.36, head_radius * 0.1), Vector3(head_radius * 1.0 * spread, head_radius * 0.72, head_radius * 0.96), hair)
+	_add_sphere(_face_root, "HairFringe", Vector3(0.0, head_radius * 0.62, -head_radius * 0.68), Vector3(head_radius * 0.7 * spread, head_radius * 0.24, head_radius * 0.36), hair)
+	var eye_scale := Vector3(head_radius * 0.09, head_radius * 0.13, 0.007)
+	var eye_x := head_radius * 0.26 * spread
+	var eye_left := _add_sphere(_face_root, "EyeLeft", Vector3(-eye_x, head_radius * 0.02, -head_radius - 0.004), eye_scale, _color("ink"), Vector3.ZERO, true)
+	var eye_right := _add_sphere(_face_root, "EyeRight", Vector3(eye_x, head_radius * 0.02, -head_radius - 0.004), eye_scale, _color("ink"), Vector3.ZERO, true)
 	_register_eyes(eye_left, eye_right)
-	_add_sphere(_face_root, "GlintLeft", Vector3(-head_radius * 0.28, head_radius * 0.07, -head_radius - 0.01), Vector3(0.004, 0.005, 0.003), Color("#FFF8E4"), Vector3.ZERO, true)
-	_add_sphere(_face_root, "GlintRight", Vector3(head_radius * 0.2, head_radius * 0.07, -head_radius - 0.01), Vector3(0.004, 0.005, 0.003), Color("#FFF8E4"), Vector3.ZERO, true)
-	_add_sphere(_face_root, "BrowLeft", Vector3(-head_radius * 0.24, head_radius * 0.22, -head_radius - 0.002), Vector3(head_radius * 0.1, head_radius * 0.035, 0.004), hair.darkened(0.1), Vector3.ZERO, true)
-	_add_sphere(_face_root, "BrowRight", Vector3(head_radius * 0.24, head_radius * 0.22, -head_radius - 0.002), Vector3(head_radius * 0.1, head_radius * 0.035, 0.004), hair.darkened(0.1), Vector3.ZERO, true)
-	_add_sphere(_face_root, "Nose", Vector3(0.0, -head_radius * 0.1, -head_radius - 0.008), Vector3(head_radius * 0.055, head_radius * 0.05, 0.01), _color_for("head").darkened(0.12), Vector3.ZERO, true)
-	_add_sphere(_face_root, "Mouth", Vector3(0.0, -head_radius * 0.3, -head_radius - 0.005), Vector3(head_radius * 0.08, head_radius * 0.035, 0.003), _color("ink"), Vector3.ZERO, true)
-	_add_sphere(_face_root, "CheekLeft", Vector3(-head_radius * 0.42, -head_radius * 0.18, -head_radius + 0.004), Vector3(head_radius * 0.11, head_radius * 0.06, 0.005), _color("accent"), Vector3(0.0, 0.45, 0.0), true)
-	_add_sphere(_face_root, "CheekRight", Vector3(head_radius * 0.42, -head_radius * 0.18, -head_radius + 0.004), Vector3(head_radius * 0.11, head_radius * 0.06, 0.005), _color("accent"), Vector3(0.0, -0.45, 0.0), true)
+	_add_sphere(_face_root, "GlintLeft", Vector3(-eye_x - head_radius * 0.035, head_radius * 0.07, -head_radius - 0.01), Vector3(0.004, 0.005, 0.003), Color("#FFF8E4"), Vector3.ZERO, true)
+	_add_sphere(_face_root, "GlintRight", Vector3(eye_x - head_radius * 0.035, head_radius * 0.07, -head_radius - 0.01), Vector3(0.004, 0.005, 0.003), Color("#FFF8E4"), Vector3.ZERO, true)
+	_add_sphere(_face_root, "BrowLeft", Vector3(-eye_x, head_radius * 0.22, -head_radius - 0.002), Vector3(head_radius * 0.1, head_radius * 0.035, 0.004), hair.darkened(0.1), Vector3.ZERO, true)
+	_add_sphere(_face_root, "BrowRight", Vector3(eye_x, head_radius * 0.22, -head_radius - 0.002), Vector3(head_radius * 0.1, head_radius * 0.035, 0.004), hair.darkened(0.1), Vector3.ZERO, true)
+	_add_sphere(_face_root, "Nose", Vector3(0.0, -head_radius * 0.08, -head_radius - 0.008), Vector3(head_radius * 0.05, head_radius * 0.045, 0.01), _color_for("head").darkened(0.12), Vector3.ZERO, true)
+	_add_sphere(_face_root, "Mouth", Vector3(0.0, -head_radius * 0.3, -head_radius - 0.005), Vector3(head_radius * 0.075, head_radius * 0.032, 0.003), _color("ink"), Vector3.ZERO, true)
+	_add_sphere(_face_root, "CheekLeft", Vector3(-head_radius * 0.46 * spread, -head_radius * 0.16, -head_radius + 0.004), Vector3(head_radius * 0.1, head_radius * 0.055, 0.005), _color("accent"), Vector3(0.0, 0.45, 0.0), true)
+	_add_sphere(_face_root, "CheekRight", Vector3(head_radius * 0.46 * spread, -head_radius * 0.16, -head_radius + 0.004), Vector3(head_radius * 0.1, head_radius * 0.055, 0.005), _color("accent"), Vector3(0.0, -0.45, 0.0), true)
 
 
 func _build_pup_face(head_radius: float) -> void:
