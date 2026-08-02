@@ -28,7 +28,7 @@ signal pose_advanced
 signal action_event(action_name: String, event_name: String)
 
 const ACTION_LIBRARY_PATH := "res://data/creature_actions.json"
-const ACTION_NEUTRAL_REACH := Vector3(0.72, -0.68, 0.0)
+const ACTION_NEUTRAL_REACH := Vector3(0.3, -0.92, 0.0)
 
 static var _action_library: Dictionary = {}
 
@@ -932,10 +932,12 @@ func _append_arm_shapes(
 				-arm_length * 0.7
 			)
 		else:
+			# Relaxed rest: hands hang straight down at the sides, close to
+			# the body — swing only carries them forward/back while walking.
 			hand_offset = Vector3(
-				lateral.x * arm_length * 0.75,
-				-arm_length * 0.72,
-				lateral.z * arm_length * 0.75 + swing * swing_sign * arm_length
+				lateral.x * arm_length * 0.3,
+				-arm_length * 0.92,
+				lateral.z * arm_length * 0.3 + swing * swing_sign * arm_length
 			)
 		# Idle drift: hands float on small slow circles instead of hanging
 		# frozen at the sides.

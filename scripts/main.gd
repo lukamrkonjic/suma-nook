@@ -164,10 +164,10 @@ func _build_world_scene() -> void:
 	)
 	var capsule := CollisionShape3D.new()
 	var shape := CapsuleShape3D.new()
-	shape.radius = 0.17 if procedural_critter_enabled else 0.3
-	shape.height = 0.64 if procedural_critter_enabled else 1.1
+	shape.radius = 0.16 if procedural_critter_enabled else 0.3
+	shape.height = 0.52 if procedural_critter_enabled else 1.1
 	capsule.shape = shape
-	capsule.position.y = 0.32 if procedural_critter_enabled else 0.56
+	capsule.position.y = 0.26 if procedural_critter_enabled else 0.56
 	player.add_child(capsule)
 	player_visual = PlayerVisual.new()
 	player_visual.name = "Visual"

@@ -14,6 +14,7 @@ var _hat_root: Node3D
 var _shirt_root: Node3D
 var _shirt_base_scale := Vector3.ONE
 var _scarf_root: Node3D
+var _scarf_drop := 0.1
 var _sleeve_roots: Array[Node3D] = []
 var _pants_roots: Array[Node3D] = []
 var _shoe_roots: Array[Node3D] = []
@@ -62,9 +63,8 @@ func _sync() -> void:
 		_shirt_root.transform = body
 		_shirt_root.scale = _shirt_base_scale * float(anchors.get("breath", 1.0))
 	if is_instance_valid(_scarf_root):
-		var head_radius := float(anchors.get("head_radius", 0.1))
 		_scarf_root.transform = Transform3D(
-			head.basis, head.origin - head.basis.y * head_radius * 1.18
+			head.basis, head.origin - head.basis.y * _scarf_drop
 		)
 	for pants_index in _pants_roots.size():
 		if pants_index >= legs.size():
@@ -126,12 +126,14 @@ func _build_shirt(item: Dictionary, anchors: Dictionary) -> void:
 		"scarf":
 			_scarf_root = _slot_root("Scarf")
 			var head_radius := float(anchors.get("head_radius", 0.1))
-			# Snug loop, knot and tails hanging on the chest — not a floating
-			# life ring.
-			_add_mesh(_scarf_root, "Loop", _torus_mesh(), Vector3(0.0, 0.0, head_radius * 0.04), Vector3(head_radius * 0.74, head_radius * 0.7, head_radius * 0.74), color)
-			_add_mesh(_scarf_root, "Knot", _sphere_mesh(), Vector3(head_radius * 0.18, -head_radius * 0.22, -head_radius * 0.58), Vector3(head_radius * 0.16, head_radius * 0.14, head_radius * 0.12), Color(color).darkened(0.08))
-			_add_mesh(_scarf_root, "TailA", _sphere_mesh(), Vector3(head_radius * 0.22, -head_radius * 0.52, -head_radius * 0.56), Vector3(head_radius * 0.13, head_radius * 0.34, head_radius * 0.08), color)
-			_add_mesh(_scarf_root, "TailB", _sphere_mesh(), Vector3(head_radius * 0.02, -head_radius * 0.44, -head_radius * 0.6), Vector3(head_radius * 0.11, head_radius * 0.26, head_radius * 0.07), Color(color).darkened(0.05))
+			# The loop wraps the NECK, so it sizes to the smaller of head and
+			# torso — a big chibi head must not inflate it down to the belly.
+			var neck := minf(head_radius, float(anchors.get("torso_radius", 0.1)) * 1.15)
+			_scarf_drop = head_radius * 0.8 + neck * 0.42
+			_add_mesh(_scarf_root, "Loop", _torus_mesh(), Vector3(0.0, 0.0, neck * 0.04), Vector3(neck * 0.86, neck * 0.72, neck * 0.86), color)
+			_add_mesh(_scarf_root, "Knot", _sphere_mesh(), Vector3(neck * 0.2, -neck * 0.26, -neck * 0.68), Vector3(neck * 0.18, neck * 0.15, neck * 0.13), Color(color).darkened(0.08))
+			_add_mesh(_scarf_root, "TailA", _sphere_mesh(), Vector3(neck * 0.24, -neck * 0.58, -neck * 0.64), Vector3(neck * 0.14, neck * 0.36, neck * 0.09), color)
+			_add_mesh(_scarf_root, "TailB", _sphere_mesh(), Vector3(neck * 0.02, -neck * 0.48, -neck * 0.68), Vector3(neck * 0.12, neck * 0.28, neck * 0.08), Color(color).darkened(0.05))
 		_:
 			_shirt_root = _slot_root("Shirt")
 			_shirt_base_scale = (
