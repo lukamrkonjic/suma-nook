@@ -8,5 +8,6 @@
   "wings": {"length": 0.05, "flap_hz": 5.0, "flap": 0.6},
   "ears": {"count": 1, "length": 0.03, "radius": 0.012, "style": "up", "blend": 0.007},
   "gait": {"reference_speed": 0.8, "cadence": 12.0, "stride": 0.03, "step_lift": 0.022, "body_bob": 0.008, "lean": 0.05},
-  "juice": {"squash": 0.26, "head_lag": 0.035, "head_snap": 12.0, "ear_spring": 42.0, "outline": 0.004}
+  "juice": {"squash": 0.26, "head_lag": 0.035, "head_snap": 12.0, "ear_spring": 42.0, "outline": 0.004},
+  "coat": {"style": "feathers", "pattern": "none", "ruffle": 0.0045, "strands": 0.5, "accent_color": "#FAE9AC", "sway": 0.16}
 }

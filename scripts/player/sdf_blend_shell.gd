@@ -77,6 +77,43 @@ func set_outline_width(width: float) -> void:
 		_outline_material.set_shader_parameter("outline_width", width)
 
 
+const PATTERN_MODES := {
+	"none": 0, "stripes": 1, "speckle": 2, "patches": 3, "bands": 4,
+}
+
+
+## Per-creature surface life: procedural pattern tint, wind ruffle,
+## fur strands, and gloss. See the coat uniforms in the shell shader.
+func set_coat(coat: Dictionary) -> void:
+	if _material == null:
+		return
+	_material.set_shader_parameter(
+		"pattern_mode",
+		int(PATTERN_MODES.get(String(coat.get("pattern", "none")), 0))
+	)
+	_material.set_shader_parameter(
+		"pattern_scale", float(coat.get("pattern_scale", 24.0))
+	)
+	_material.set_shader_parameter(
+		"pattern_color", Color(String(coat.get("pattern_color", "#FFFFFF")))
+	)
+	_material.set_shader_parameter(
+		"pattern_strength", float(coat.get("strength", 0.0))
+	)
+	_material.set_shader_parameter(
+		"ruffle_amount", float(coat.get("ruffle", 0.0))
+	)
+	_material.set_shader_parameter(
+		"ruffle_speed", float(coat.get("ruffle_speed", 2.2))
+	)
+	_material.set_shader_parameter(
+		"strand_strength", float(coat.get("strands", 0.0))
+	)
+	_material.set_shader_parameter(
+		"coat_gloss", float(coat.get("gloss", 0.0))
+	)
+
+
 func shape_count() -> int:
 	return _shape_count
 

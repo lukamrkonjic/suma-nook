@@ -8,5 +8,6 @@
   "arms": {"count": 2, "length": 0.16, "radius": 0.03},
   "ears": {"count": 2, "length": 0.06, "radius": 0.02, "style": "up", "ear": "#93BA7A"},
   "gait": {"reference_speed": 2.4, "cadence": 6.6, "stride": 0.095, "step_lift": 0.07, "body_bob": 0.019, "lean": 0.06},
-  "juice": {"squash": 0.2, "head_lag": 0.045, "ear_spring": 44.0, "outline": 0.006}
+  "juice": {"squash": 0.2, "head_lag": 0.045, "ear_spring": 44.0, "outline": 0.006},
+  "coat": {"style": "fur", "pattern": "speckle", "pattern_color": "#5E7A52", "pattern_scale": 30, "strength": 0.3, "ruffle": 0.0025, "strands": 0.35, "accent_color": "#93BA7A"}
 }

@@ -7,5 +7,6 @@
   "legs": {"count": 6, "length": 0.05, "stance": 0.095, "radius": 0.011, "foot_balls": false, "foot_radius": 0.013, "inset": 0.012},
   "ears": {"count": 2, "length": 0.045, "radius": 0.009, "style": "tuft", "blend": 0.006},
   "gait": {"reference_speed": 0.9, "cadence": 13.0, "stride": 0.035, "step_lift": 0.024, "body_bob": 0.006, "lean": 0.04},
-  "juice": {"squash": 0.16, "head_lag": 0.035, "head_snap": 11.0, "ear_spring": 48.0, "outline": 0.004}
+  "juice": {"squash": 0.16, "head_lag": 0.035, "head_snap": 11.0, "ear_spring": 48.0, "outline": 0.004},
+  "coat": {"pattern": "speckle", "pattern_color": "#3F3B44", "pattern_scale": 16, "strength": 0.8, "gloss": 0.35}
 }

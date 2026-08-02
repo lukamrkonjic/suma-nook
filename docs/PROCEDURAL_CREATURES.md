@@ -112,6 +112,27 @@ tail segments + ears ≤ 16. `build()` asserts it;
   (cheeks, disc halves) so their rims hug the head sphere — flat proud
   discs read as goggles from the side.
 
+## Coats — fur, feathers, scales, wool, and wind
+
+Every creature carries a `"coat"` (stamped by
+`tools/apply_creature_coats.py`, editable per JSON) that layers surface
+life on the shell:
+
+- **Patterns** (shader, no textures): `stripes` (tabby/raccoon), `speckle`
+  (fawn spots, ladybug dots, mushroom caps), `patches` (cow, panda),
+  `bands` (piñata paper strips, bee rings) — tinted by `pattern_color`,
+  sized by `pattern_scale`, mixed by `strength`.
+- **Wind ruffle**: animated noise displaces the skin along its normals
+  (`ruffle`, `ruffle_speed`) so fur and feathers stir; buried-chart verts
+  stay put so seams never reopen.
+- **Strands**: elongated streaks (`strands`) read as combed fur or
+  feather barbs.
+- **Gloss** (`gloss`): wet sheen for slimes, frogs, beetles, scales.
+- **Accents** (`CreatureCoat` node): style `fur` grows crown/chest/rump
+  tufts that sway; `feathers` a back crest plus head plumes that flutter;
+  `wool` cloud puffs; `scales` spine ridge plates. Accents ride the pose
+  anchors and add their own wind sway.
+
 ## Clothing & equipables
 
 `scripts/creatures/creature_outfit.gd` (`CreatureOutfit`) dresses any

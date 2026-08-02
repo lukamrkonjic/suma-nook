@@ -14,6 +14,9 @@ const SdfBlendShellScript := preload("res://scripts/player/sdf_blend_shell.gd")
 const CreatureOutfitScript := preload(
 	"res://scripts/creatures/creature_outfit.gd"
 )
+const CreatureCoatScript := preload(
+	"res://scripts/creatures/creature_coat.gd"
+)
 const MAX_SHAPES := 16
 
 ## Fired after every advance() once the shell and anchors are current;
@@ -151,6 +154,13 @@ func build(definition: Dictionary) -> void:
 	_shell.call("build", budget)
 	_shell.call("set_neighbors", _build_neighbors())
 	_shell.call("set_outline_width", float(_juice.get("outline", 0.006)))
+	var coat := definition.get("coat", {}) as Dictionary
+	if not coat.is_empty():
+		_shell.call("set_coat", coat)
+		var accents := CreatureCoatScript.new() as Node3D
+		accents.name = "CoatAccents"
+		add_child(accents)
+		accents.call("build", coat, self)
 	_build_overlays()
 	_reset_pose()
 	if definition.has("outfit"):

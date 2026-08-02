@@ -15,7 +15,75 @@ uniform vec4 shape_color[MAX_SHAPES];
 uniform vec4 shape_neighbors_a[MAX_SHAPES];
 uniform vec4 shape_neighbors_b[MAX_SHAPES];
 
+// Coat: per-creature surface life. Patterns tint the albedo procedurally
+// (0 none, 1 stripes, 2 speckle, 3 patches, 4 pinata paper bands), the
+// ruffle displaces the skin with animated noise so fur and feathers stir
+// in the wind, strands streak the color along the body, gloss wets scales
+// and slime. All of it is a handful of ALU — no textures, mobile-safe.
+uniform int pattern_mode : hint_range(0, 4) = 0;
+uniform float pattern_scale = 24.0;
+uniform vec4 pattern_color : source_color = vec4(1.0);
+uniform float pattern_strength : hint_range(0.0, 1.0) = 0.0;
+uniform float ruffle_amount = 0.0;
+uniform float ruffle_speed = 2.2;
+uniform float strand_strength : hint_range(0.0, 1.0) = 0.0;
+uniform float coat_gloss : hint_range(0.0, 1.0) = 0.0;
+
 varying vec3 blended_color;
+varying vec3 coat_position;
+
+
+float coat_hash(vec3 point) {
+	return fract(
+		sin(dot(point, vec3(127.1, 311.7, 74.7))) * 43758.5453
+	);
+}
+
+
+float coat_noise(vec3 point) {
+	vec3 cell = floor(point);
+	vec3 offset = fract(point);
+	offset = offset * offset * (3.0 - 2.0 * offset);
+	float c000 = coat_hash(cell);
+	float c100 = coat_hash(cell + vec3(1.0, 0.0, 0.0));
+	float c010 = coat_hash(cell + vec3(0.0, 1.0, 0.0));
+	float c110 = coat_hash(cell + vec3(1.0, 1.0, 0.0));
+	float c001 = coat_hash(cell + vec3(0.0, 0.0, 1.0));
+	float c101 = coat_hash(cell + vec3(1.0, 0.0, 1.0));
+	float c011 = coat_hash(cell + vec3(0.0, 1.0, 1.0));
+	float c111 = coat_hash(cell + vec3(1.0, 1.0, 1.0));
+	return mix(
+		mix(mix(c000, c100, offset.x), mix(c010, c110, offset.x), offset.y),
+		mix(mix(c001, c101, offset.x), mix(c011, c111, offset.x), offset.y),
+		offset.z
+	);
+}
+
+
+float coat_pattern_mask(vec3 point) {
+	if (pattern_mode == 1) {
+		// Tiger/tabby stripes wrapping the body with a wobble.
+		float wobble = coat_noise(point * pattern_scale * 0.35) * 2.2;
+		return smoothstep(
+			0.25, 0.75,
+			0.5 + 0.5 * sin((point.y + point.z * 0.8) * pattern_scale + wobble)
+		);
+	}
+	if (pattern_mode == 2) {
+		// Fawn speckles / ladybug dots.
+		return smoothstep(0.62, 0.78, coat_noise(point * pattern_scale));
+	}
+	if (pattern_mode == 3) {
+		// Big soft patches (cow, panda).
+		return smoothstep(0.48, 0.62, coat_noise(point * pattern_scale * 0.3));
+	}
+	if (pattern_mode == 4) {
+		// Pinata paper strips: crisp alternating rings.
+		float ring = fract(point.y * pattern_scale * 0.5);
+		return smoothstep(0.42, 0.5, ring) * smoothstep(1.0, 0.92, ring);
+	}
+	return 0.0;
+}
 
 
 vec3 safe_normalize(vec3 value, vec3 fallback) {
@@ -215,18 +283,41 @@ void vertex() {
 	float buried = clamp((own_distance - owner_distance - 0.002) / 0.012, 0.0, 1.0);
 	projected -= normal_value * buried * 0.005;
 
+	// Wind ruffle: fur and feathers stir with drifting noise. Buried chart
+	// verts stay still so the fuzz never re-opens tucked seams.
+	if (ruffle_amount > 0.0001) {
+		float stir = coat_noise(
+			projected * 16.0 + vec3(TIME * ruffle_speed)
+		) - 0.5;
+		projected += normal_value * stir * 2.0 * ruffle_amount * (1.0 - buried);
+	}
+
 	VERTEX = projected;
 	NORMAL = normal_value;
 	blended_color = shell_color(projected, source_index);
+	coat_position = projected;
 }
 
 
 void fragment() {
+	vec3 surface_color = blended_color;
+	if (pattern_strength > 0.001) {
+		surface_color = mix(
+			surface_color,
+			pattern_color.rgb,
+			coat_pattern_mask(coat_position) * pattern_strength
+		);
+	}
+	if (strand_strength > 0.001) {
+		// Elongated vertical streaks read as combed fur / feather barbs.
+		float strand = coat_noise(coat_position * vec3(90.0, 9.0, 90.0));
+		surface_color *= 1.0 + (strand - 0.5) * 0.24 * strand_strength;
+	}
 	float facing = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
 	float ink_rim = smoothstep(0.11, 0.015, facing);
-	ALBEDO = mix(blended_color, blended_color * 0.66, ink_rim * 0.28);
-	ROUGHNESS = 1.0;
-	SPECULAR = 0.0;
+	ALBEDO = mix(surface_color, surface_color * 0.66, ink_rim * 0.28);
+	ROUGHNESS = 1.0 - coat_gloss * 0.65;
+	SPECULAR = coat_gloss * 0.4;
 	METALLIC = 0.0;
 	// Uniform fill in place of ambient: the unlit side is one flat tone.
 	EMISSION = ALBEDO * 0.34;

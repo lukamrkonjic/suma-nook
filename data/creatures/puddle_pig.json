@@ -8,5 +8,6 @@
   "ears": {"count": 2, "length": 0.045, "radius": 0.022, "style": "side"},
   "tail": {"segments": 1, "length": 0.05, "radius": 0.012, "droop": 0.1, "wag": 0.7, "wag_rate": 4.5},
   "gait": {"reference_speed": 1.5, "cadence": 9.0, "stride": 0.06, "step_lift": 0.035, "body_bob": 0.014, "lean": 0.04, "waddle": 0.06},
-  "juice": {"squash": 0.24, "head_lag": 0.05, "head_snap": 9.0, "ear_spring": 32.0, "tail_drag": 0.86, "outline": 0.006}
+  "juice": {"squash": 0.24, "head_lag": 0.05, "head_snap": 9.0, "ear_spring": 32.0, "tail_drag": 0.86, "outline": 0.006},
+  "coat": {"pattern": "speckle", "pattern_color": "#F6C3CE", "pattern_scale": 20, "strength": 0.3, "gloss": 0.12, "ruffle": 0.0015}
 }

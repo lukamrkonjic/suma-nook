@@ -7,5 +7,6 @@
   "legs": {"count": 4, "length": 0.055, "stance": 0.125, "radius": 0.019, "foot_radius": 0.02},
   "tail": {"segments": 1, "length": 0.035, "radius": 0.016, "droop": 0.4, "wag": 0.2, "wag_rate": 1.2},
   "gait": {"reference_speed": 0.55, "cadence": 5.0, "stride": 0.035, "step_lift": 0.02, "body_bob": 0.005, "lean": 0.03},
-  "juice": {"squash": 0.14, "head_lag": 0.06, "head_snap": 6.0, "tail_drag": 0.85, "outline": 0.005}
+  "juice": {"squash": 0.14, "head_lag": 0.06, "head_snap": 6.0, "tail_drag": 0.85, "outline": 0.005},
+  "coat": {"style": "scales", "pattern": "patches", "pattern_color": "#66865C", "pattern_scale": 12, "strength": 0.5, "gloss": 0.15, "accent_color": "#66865C"}
 }

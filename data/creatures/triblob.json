@@ -8,5 +8,6 @@
   "arms": {"count": 3, "length": 0.15, "radius": 0.032},
   "ears": {"count": 1, "length": 0.09, "radius": 0.018, "style": "up", "ear": "#EFAF72"},
   "gait": {"reference_speed": 1.8, "cadence": 6.0, "stride": 0.08, "step_lift": 0.055, "body_bob": 0.016, "lean": 0.06, "waddle": 0.05},
-  "juice": {"squash": 0.24, "head_lag": 0.05, "ear_spring": 38.0, "outline": 0.006}
+  "juice": {"squash": 0.24, "head_lag": 0.05, "ear_spring": 38.0, "outline": 0.006},
+  "coat": {"pattern": "none", "gloss": 0.3, "ruffle": 0.002}
 }
