@@ -18,10 +18,20 @@ gradients at every join, for free). No raymarching, no skinning — cost is
 per-vertex, mobile-friendly, capped at **16 shapes** per character.
 
 The look is **flat cel**: ambient is disabled and replaced with a uniform
-emission fill, specular is zero, lighting is two hard toon bands, and part
-colors cross over inside a narrow band (35 % of the geometry blend) so
-every part reads as a solid painted color. Face/belly decals are unshaded
-stickers.
+emission fill, specular is zero, lighting is two hard toon bands plus
+counter-shading (dense backs, airy bellies), and part colors cross over
+inside a narrow band (35 % of the geometry blend) so every part reads as a
+solid painted color. Face/belly decals are unshaded stickers.
+
+Every shape carries **two radii** (one per endpoint) — capsules, spheres,
+and tapered cones are one primitive. That is what buys sculpted limbs,
+pear/egg torsos (`torso.taper`), pointed ears (`ears.taper`), tapering
+tails (`tail.taper`), real 3D **snouts** (`head.snout` — length/radius/
+drop/dip/taper in head-radius units; the elephant's trunk is just a long
+drooping snout), optional `arms.hand_balls`, and `legs.knee: "back"` for
+digitigrade hocks. `tools/apply_creature_shapes.py` stamps per-creature
+silhouettes. The playable character is `islander.json` — a human villager
+using the `human` face style (hair from the `hair` palette key).
 
 Robustness tricks living in the shader:
 

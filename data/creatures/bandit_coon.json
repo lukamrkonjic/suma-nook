@@ -3,10 +3,10 @@
   "body_plan": "legged",
   "palette": {"body": "#8D93A2", "body_light": "#9BA1AF", "limb": "#5E5866", "foot": "#48434F", "face": "#4A4454", "belly": "#E8E2D4", "accent": "#EFB7A6", "ink": "#2E2A38", "ear": "#5E5866"},
   "torso": {"length": 0.15, "radius": 0.075, "blend": 0.03},
-  "head": {"radius": 0.085, "face": "critter", "stabilize": 0.4},
+  "head": {"radius": 0.085, "face": "pup", "stabilize": 0.4, "snout": {"length": 0.45, "radius": 0.34, "drop": -0.16, "taper": 0.6}},
   "legs": {"count": 4, "length": 0.1, "stance": 0.095, "radius": 0.02, "foot_radius": 0.021},
   "ears": {"count": 2, "length": 0.05, "radius": 0.018, "style": "up"},
-  "tail": {"segments": 3, "length": 0.18, "radius": 0.03, "droop": 0.35, "wag": 0.35, "wag_rate": 1.8},
+  "tail": {"segments": 3, "length": 0.18, "radius": 0.03, "droop": 0.35, "wag": 0.35, "wag_rate": 1.8, "taper": 0.82},
   "gait": {"reference_speed": 1.7, "cadence": 10.0, "stride": 0.065, "step_lift": 0.045, "body_bob": 0.011, "lean": 0.05},
   "juice": {"squash": 0.2, "head_lag": 0.045, "head_snap": 11.0, "ear_spring": 44.0, "tail_drag": 0.9, "outline": 0.005},
   "coat": {"style": "fur", "pattern": "stripes", "pattern_color": "#5E5866", "pattern_scale": 12, "strength": 0.4, "ruffle": 0.003, "strands": 0.5, "accent_color": "#9BA1AF"}

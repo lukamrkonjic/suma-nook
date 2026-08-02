@@ -2,11 +2,11 @@
   "id": "moss_scuttler",
   "body_plan": "legged",
   "palette": {"body": "#6E9E8F", "body_light": "#82B2A0", "limb": "#54786D", "face": "#EFEAD2", "belly": "#E5DEC2", "accent": "#E8B266", "ink": "#343440"},
-  "torso": {"length": 0.16, "radius": 0.07, "blend": 0.028},
+  "torso": {"length": 0.16, "radius": 0.07, "blend": 0.028, "taper": 0.82},
   "head": {"radius": 0.08, "face": "critter", "stabilize": 0.4},
   "legs": {"count": 6, "length": 0.085, "stance": 0.125, "radius": 0.016, "foot_balls": false, "foot_radius": 0.018, "inset": 0.015},
   "ears": {"count": 2, "length": 0.07, "radius": 0.012, "style": "tuft", "ear": "#E8B266", "blend": 0.008},
-  "tail": {"segments": 1, "length": 0.06, "radius": 0.024, "droop": 0.3},
+  "tail": {"segments": 1, "length": 0.06, "radius": 0.024, "droop": 0.3, "taper": 0.6},
   "gait": {"reference_speed": 1.4, "cadence": 12.0, "stride": 0.05, "step_lift": 0.035, "body_bob": 0.008, "lean": 0.04},
   "juice": {"squash": 0.16, "head_lag": 0.04, "ear_spring": 46.0, "outline": 0.005},
   "coat": {"style": "scales", "pattern": "speckle", "pattern_color": "#54786D", "pattern_scale": 34, "strength": 0.4, "gloss": 0.25, "accent_color": "#54786D"}

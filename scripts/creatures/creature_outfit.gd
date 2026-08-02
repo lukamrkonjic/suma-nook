@@ -12,6 +12,7 @@ extends Node3D
 var _creature: Node3D
 var _hat_root: Node3D
 var _shirt_root: Node3D
+var _shirt_base_scale := Vector3.ONE
 var _scarf_root: Node3D
 var _sleeve_roots: Array[Node3D] = []
 var _pants_roots: Array[Node3D] = []
@@ -57,20 +58,13 @@ func _sync() -> void:
 	if is_instance_valid(_hat_root):
 		_hat_root.transform = head
 	if is_instance_valid(_shirt_root):
+		# The shirt breathes with the torso so the skin never pokes through.
 		_shirt_root.transform = body
+		_shirt_root.scale = _shirt_base_scale * float(anchors.get("breath", 1.0))
 	if is_instance_valid(_scarf_root):
 		var head_radius := float(anchors.get("head_radius", 0.1))
 		_scarf_root.transform = Transform3D(
-			head.basis, head.origin - head.basis.y * head_radius * 0.95
-		)
-	for sleeve_index in _sleeve_roots.size():
-		if sleeve_index >= arms.size():
-			break
-		var arm := arms[sleeve_index] as Dictionary
-		var shoulder := arm.get("shoulder") as Vector3
-		var hand := arm.get("hand") as Vector3
-		_sleeve_roots[sleeve_index].transform = _segment_transform(
-			shoulder, shoulder.lerp(hand, 0.42)
+			head.basis, head.origin - head.basis.y * head_radius * 1.18
 		)
 	for pants_index in _pants_roots.size():
 		if pants_index >= legs.size():
@@ -79,7 +73,7 @@ func _sync() -> void:
 		var hip := leg.get("hip") as Vector3
 		var knee := leg.get("knee") as Vector3
 		_pants_roots[pants_index].transform = _segment_transform(
-			hip.lerp(knee, -0.1), hip.lerp(knee, 0.72)
+			hip.lerp(knee, -0.08), hip.lerp(knee, 0.7)
 		)
 	for shoe_index in _shoe_roots.size():
 		if shoe_index >= legs.size():
@@ -107,18 +101,20 @@ func _build_hat(item: Dictionary, anchors: Dictionary) -> void:
 	var head_radius := float(anchors.get("head_radius", 0.1))
 	var color := _item_color(item, "color", "#D96F5E")
 	var accent := _item_color(item, "accent", "#F2E3C0")
+	# Hats perch ON the crown (high dome centers, small dome radii) so they
+	# never swallow the face or clip the eyes.
 	match String(item.get("kind", "cap")):
 		"straw":
-			_add_mesh(_hat_root, "Dome", _sphere_mesh(), Vector3(0.0, head_radius * 0.74, 0.0), Vector3(head_radius * 1.02, head_radius * 0.56, head_radius * 1.02), color)
-			_add_mesh(_hat_root, "Brim", _cylinder_mesh(), Vector3(0.0, head_radius * 0.6, 0.0), Vector3(head_radius * 1.62, 0.006, head_radius * 1.62), color)
-			_add_mesh(_hat_root, "Band", _cylinder_mesh(), Vector3(0.0, head_radius * 0.68, 0.0), Vector3(head_radius * 1.04, head_radius * 0.1, head_radius * 1.04), accent)
+			_add_mesh(_hat_root, "Dome", _sphere_mesh(), Vector3(0.0, head_radius * 0.92, 0.0), Vector3(head_radius * 0.86, head_radius * 0.46, head_radius * 0.86), color)
+			_add_mesh(_hat_root, "Brim", _cylinder_mesh(), Vector3(0.0, head_radius * 0.82, 0.0), Vector3(head_radius * 1.45, 0.006, head_radius * 1.45), color)
+			_add_mesh(_hat_root, "Band", _cylinder_mesh(), Vector3(0.0, head_radius * 0.9, 0.0), Vector3(head_radius * 0.88, head_radius * 0.09, head_radius * 0.88), accent)
 		"cone":
-			_add_mesh(_hat_root, "Cone", _cone_mesh(), Vector3(0.0, head_radius * 1.05, 0.0), Vector3(head_radius * 0.52, head_radius * 1.05, head_radius * 0.52), color)
-			_add_mesh(_hat_root, "Pom", _sphere_mesh(), Vector3(0.0, head_radius * 1.62, 0.0), Vector3(head_radius * 0.16, head_radius * 0.16, head_radius * 0.16), accent)
+			_add_mesh(_hat_root, "Cone", _cone_mesh(), Vector3(0.0, head_radius * 1.22, 0.0), Vector3(head_radius * 0.46, head_radius * 0.95, head_radius * 0.46), color)
+			_add_mesh(_hat_root, "Pom", _sphere_mesh(), Vector3(0.0, head_radius * 1.74, 0.0), Vector3(head_radius * 0.15, head_radius * 0.15, head_radius * 0.15), accent)
 		_:
-			_add_mesh(_hat_root, "Dome", _sphere_mesh(), Vector3(0.0, head_radius * 0.66, 0.0), Vector3(head_radius * 1.1, head_radius * 0.6, head_radius * 1.1), color)
-			_add_mesh(_hat_root, "Brim", _sphere_mesh(), Vector3(0.0, head_radius * 0.52, -head_radius * 0.88), Vector3(head_radius * 0.52, 0.008, head_radius * 0.6), color)
-			_add_mesh(_hat_root, "Button", _sphere_mesh(), Vector3(0.0, head_radius * 1.28, 0.0), Vector3(head_radius * 0.12, head_radius * 0.12, head_radius * 0.12), accent)
+			_add_mesh(_hat_root, "Dome", _sphere_mesh(), Vector3(0.0, head_radius * 0.88, 0.0), Vector3(head_radius * 0.88, head_radius * 0.5, head_radius * 0.88), color)
+			_add_mesh(_hat_root, "Brim", _sphere_mesh(), Vector3(0.0, head_radius * 0.78, -head_radius * 0.78), Vector3(head_radius * 0.46, 0.008, head_radius * 0.52), color)
+			_add_mesh(_hat_root, "Button", _sphere_mesh(), Vector3(0.0, head_radius * 1.4, 0.0), Vector3(head_radius * 0.11, head_radius * 0.11, head_radius * 0.11), accent)
 
 
 func _build_shirt(item: Dictionary, anchors: Dictionary) -> void:
@@ -130,33 +126,32 @@ func _build_shirt(item: Dictionary, anchors: Dictionary) -> void:
 		"scarf":
 			_scarf_root = _slot_root("Scarf")
 			var head_radius := float(anchors.get("head_radius", 0.1))
-			_add_mesh(_scarf_root, "Loop", _torus_mesh(), Vector3.ZERO, Vector3(head_radius * 0.92, head_radius * 0.92, head_radius * 0.92), color)
-			_add_mesh(_scarf_root, "TailA", _sphere_mesh(), Vector3(head_radius * 0.3, -head_radius * 0.42, head_radius * 0.62), Vector3(head_radius * 0.2, head_radius * 0.44, head_radius * 0.1), color)
-			_add_mesh(_scarf_root, "TailB", _sphere_mesh(), Vector3(head_radius * 0.34, -head_radius * 0.7, head_radius * 0.6), Vector3(head_radius * 0.16, head_radius * 0.3, head_radius * 0.09), color)
+			# Snug loop, knot and tails hanging on the chest — not a floating
+			# life ring.
+			_add_mesh(_scarf_root, "Loop", _torus_mesh(), Vector3(0.0, 0.0, head_radius * 0.04), Vector3(head_radius * 0.74, head_radius * 0.7, head_radius * 0.74), color)
+			_add_mesh(_scarf_root, "Knot", _sphere_mesh(), Vector3(head_radius * 0.18, -head_radius * 0.22, -head_radius * 0.58), Vector3(head_radius * 0.16, head_radius * 0.14, head_radius * 0.12), Color(color).darkened(0.08))
+			_add_mesh(_scarf_root, "TailA", _sphere_mesh(), Vector3(head_radius * 0.22, -head_radius * 0.52, -head_radius * 0.56), Vector3(head_radius * 0.13, head_radius * 0.34, head_radius * 0.08), color)
+			_add_mesh(_scarf_root, "TailB", _sphere_mesh(), Vector3(head_radius * 0.02, -head_radius * 0.44, -head_radius * 0.6), Vector3(head_radius * 0.11, head_radius * 0.26, head_radius * 0.07), Color(color).darkened(0.05))
 		_:
 			_shirt_root = _slot_root("Shirt")
-			var wrap_scale := (
-				Vector3(torso_radius * 1.13, torso_half + torso_radius * 0.6, torso_radius * 1.13)
+			_shirt_base_scale = (
+				Vector3(torso_radius * 1.16, torso_half + torso_radius * 0.58, torso_radius * 1.16)
 				if upright
-				else Vector3(torso_radius * 1.13, torso_radius * 1.13, torso_half + torso_radius * 0.6)
+				else Vector3(torso_radius * 1.16, torso_radius * 1.16, torso_half + torso_radius * 0.58)
 			)
-			_add_mesh(_shirt_root, "Wrap", _sphere_mesh(), Vector3.ZERO, wrap_scale, color)
-			var arms: Array = anchors.get("arms", [])
-			_sleeve_roots = []
-			for arm_index in arms.size():
-				var sleeve := _slot_root("Sleeve%d" % arm_index)
-				_add_mesh(sleeve, "Tube", _cylinder_mesh(), Vector3.ZERO, Vector3(torso_radius * 0.4, 0.62, torso_radius * 0.4), color)
-				_sleeve_roots.append(sleeve)
+			_add_mesh(_shirt_root, "Wrap", _sphere_mesh(), Vector3.ZERO, Vector3.ONE, color)
+			_shirt_root.scale = _shirt_base_scale
 
 
 func _build_pants(item: Dictionary, anchors: Dictionary) -> void:
 	var color := _item_color(item, "color", "#5E6E8A")
-	var torso_radius := float(anchors.get("torso_radius", 0.1))
+	# Pant legs wrap the actual leg radius instead of guessing from torso.
+	var leg_radius := float(anchors.get("leg_radius", 0.028))
 	var legs: Array = anchors.get("legs", [])
 	_pants_roots = []
 	for leg_index in legs.size():
 		var leg_root := _slot_root("PantLeg%d" % leg_index)
-		_add_mesh(leg_root, "Tube", _cylinder_mesh(), Vector3.ZERO, Vector3(torso_radius * 0.34, 0.62, torso_radius * 0.34), color)
+		_add_mesh(leg_root, "Tube", _cylinder_mesh(), Vector3.ZERO, Vector3(leg_radius * 1.55, 0.66, leg_radius * 1.55), color)
 		_pants_roots.append(leg_root)
 
 
@@ -167,8 +162,8 @@ func _build_shoes(item: Dictionary, anchors: Dictionary) -> void:
 	_shoe_roots = []
 	for leg_index in legs.size():
 		var shoe_root := _slot_root("Shoe%d" % leg_index)
-		_add_mesh(shoe_root, "Boot", _sphere_mesh(), Vector3(0.0, foot_radius * 0.05, -foot_radius * 0.12), Vector3(foot_radius * 1.28, foot_radius * 1.08, foot_radius * 1.44), color)
-		_add_mesh(shoe_root, "Cuff", _cylinder_mesh(), Vector3(0.0, foot_radius * 0.85, foot_radius * 0.15), Vector3(foot_radius * 0.85, foot_radius * 0.5, foot_radius * 0.85), Color(color).darkened(0.15))
+		_add_mesh(shoe_root, "Boot", _sphere_mesh(), Vector3(0.0, 0.0, -foot_radius * 0.14), Vector3(foot_radius * 1.38, foot_radius * 1.14, foot_radius * 1.52), color)
+		_add_mesh(shoe_root, "Cuff", _cylinder_mesh(), Vector3(0.0, foot_radius * 0.92, foot_radius * 0.12), Vector3(foot_radius * 0.9, foot_radius * 0.55, foot_radius * 0.9), Color(color).darkened(0.15))
 		_shoe_roots.append(shoe_root)
 
 

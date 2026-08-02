@@ -2,7 +2,7 @@
   "id": "shroomling",
   "body_plan": "legged",
   "palette": {"body": "#E8DCC8", "body_light": "#D96F5E", "limb": "#C9B99C", "foot": "#A8977A", "face": "#F6EDD8", "belly": "#EFE4CC", "accent": "#F0B7A0", "ink": "#37313C", "ear": "#EFE6D2"},
-  "torso": {"length": 0.07, "radius": 0.06, "blend": 0.028},
+  "torso": {"length": 0.07, "radius": 0.06, "blend": 0.028, "taper": 0.95},
   "head": {"radius": 0.115, "offset": [0.0, 0.115, 0.0], "face": "critter", "stabilize": 0.3},
   "legs": {"count": 2, "length": 0.1, "stance": 0.07, "radius": 0.02, "segments": 2, "foot_radius": 0.024},
   "arms": {"count": 2, "length": 0.08, "radius": 0.02},

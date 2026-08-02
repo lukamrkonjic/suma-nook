@@ -9,8 +9,9 @@ const int MAX_SHAPES = 16;
 const int PROJECTION_STEPS = 5;
 
 uniform int shape_count : hint_range(1, 16) = 1;
-uniform vec4 shape_a[MAX_SHAPES]; // endpoint A.xyz, radius
+uniform vec4 shape_a[MAX_SHAPES]; // endpoint A.xyz, radius at A
 uniform vec4 shape_b[MAX_SHAPES]; // endpoint B.xyz, blend radius
+uniform float shape_radius_b[MAX_SHAPES]; // radius at B — tapered limbs
 uniform vec4 shape_color[MAX_SHAPES];
 uniform vec4 shape_neighbors_a[MAX_SHAPES];
 uniform vec4 shape_neighbors_b[MAX_SHAPES];
@@ -95,35 +96,31 @@ vec3 safe_normalize(vec3 value, vec3 fallback) {
 }
 
 
-float capsule_distance(vec3 point, vec3 endpoint_a, vec3 endpoint_b, float radius) {
-	vec3 segment = endpoint_b - endpoint_a;
+// Radius interpolates from endpoint A to endpoint B: one primitive covers
+// capsules, spheres, AND tapered cones — sculpted limbs, snouts, and pear
+// bodies instead of uniform tubes.
+float shape_distance(vec3 point, int shape_index) {
+	vec3 endpoint_a = shape_a[shape_index].xyz;
+	vec3 segment = shape_b[shape_index].xyz - endpoint_a;
 	float segment_length_squared = dot(segment, segment);
-	if (segment_length_squared < 0.0000001) {
-		return length(point - endpoint_a) - radius;
+	float along = 0.0;
+	if (segment_length_squared >= 0.0000001) {
+		along = clamp(
+			dot(point - endpoint_a, segment) / segment_length_squared,
+			0.0,
+			1.0
+		);
 	}
-	float along = clamp(
-		dot(point - endpoint_a, segment) / segment_length_squared,
-		0.0,
-		1.0
+	float radius = mix(
+		shape_a[shape_index].w, shape_radius_b[shape_index], along
 	);
 	return length(point - (endpoint_a + segment * along)) - radius;
 }
 
 
-float shape_distance(vec3 point, int shape_index) {
-	return capsule_distance(
-		point,
-		shape_a[shape_index].xyz,
-		shape_b[shape_index].xyz,
-		shape_a[shape_index].w
-	);
-}
-
-
 vec4 capsule_sample(vec3 point, int shape_index) {
 	vec3 endpoint_a = shape_a[shape_index].xyz;
-	vec3 endpoint_b = shape_b[shape_index].xyz;
-	vec3 segment = endpoint_b - endpoint_a;
+	vec3 segment = shape_b[shape_index].xyz - endpoint_a;
 	float segment_length_squared = dot(segment, segment);
 	float along = 0.0;
 	if (segment_length_squared >= 0.0000001) {
@@ -135,10 +132,10 @@ vec4 capsule_sample(vec3 point, int shape_index) {
 	}
 	vec3 offset = point - (endpoint_a + segment * along);
 	float offset_length = max(length(offset), 0.00001);
-	return vec4(
-		offset / offset_length,
-		offset_length - shape_a[shape_index].w
+	float radius = mix(
+		shape_a[shape_index].w, shape_radius_b[shape_index], along
 	);
+	return vec4(offset / offset_length, offset_length - radius);
 }
 
 
@@ -217,7 +214,12 @@ vec3 shell_color(vec3 point, int source_index) {
 vec3 capsule_seed_position(vec3 seed, int source_index) {
 	vec3 endpoint_a = shape_a[source_index].xyz;
 	vec3 endpoint_b = shape_b[source_index].xyz;
-	float radius = shape_a[source_index].w;
+	float axial_fraction = clamp(seed.y, -1.0, 1.0) * 0.5 + 0.5;
+	float radius = mix(
+		shape_a[source_index].w,
+		shape_radius_b[source_index],
+		axial_fraction
+	);
 	vec3 axis = endpoint_b - endpoint_a;
 	float axis_length = length(axis);
 	if (axis_length < 0.0001) {

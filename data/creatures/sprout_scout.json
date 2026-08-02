@@ -2,7 +2,7 @@
   "id": "sprout_scout",
   "body_plan": "legged",
   "palette": {"body": "#7FA86A", "body_light": "#93BA7A", "limb": "#5E7A52", "foot": "#46543E", "face": "#F2E8CE", "belly": "#E9DCBE", "accent": "#E5B36A", "ink": "#37333F"},
-  "torso": {"length": 0.1, "radius": 0.092, "blend": 0.03},
+  "torso": {"length": 0.1, "radius": 0.092, "blend": 0.03, "taper": 0.9},
   "head": {"radius": 0.115, "face": "critter", "stabilize": 0.3},
   "legs": {"count": 2, "length": 0.23, "stance": 0.095, "radius": 0.027, "segments": 2, "foot_radius": 0.028},
   "arms": {"count": 2, "length": 0.16, "radius": 0.03},

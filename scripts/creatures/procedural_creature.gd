@@ -115,6 +115,7 @@ var _action_spread := 0.0
 var _action_body_pitch := 0.0
 var _action_head_pitch := 0.0
 
+var _radius_b_buffer: Array[float] = []
 var _breath_phase := 0.0
 var _weight_phase := 0.0
 var _idle_factor := 1.0
@@ -188,12 +189,20 @@ func set_outfit(outfit_path: String) -> void:
 	_outfit.name = "Outfit"
 	add_child(_outfit)
 	_outfit.call("build", parsed as Dictionary, self)
+	# A hat replaces any coat head plumage — feathers through a cap read
+	# as clipping, not style.
+	var coat_accents := get_node_or_null("CoatAccents/HeadAccents") as Node3D
+	if coat_accents != null:
+		coat_accents.visible = not (parsed as Dictionary).has("hat")
 
 
 func clear_outfit() -> void:
 	if is_instance_valid(_outfit):
 		_outfit.queue_free()
 	_outfit = null
+	var coat_accents := get_node_or_null("CoatAccents/HeadAccents") as Node3D
+	if coat_accents != null:
+		coat_accents.visible = true
 
 
 func outfit() -> Node3D:
@@ -211,6 +220,9 @@ func pose_anchors() -> Dictionary:
 		"torso_half": float(_torso.get("length", 0.09)) * 0.5,
 		"upright": _is_upright(),
 		"foot_radius": _foot_radius(),
+		"leg_radius": float(_legs.get("radius", 0.028)),
+		"arm_radius": float(_arms.get("radius", 0.032)),
+		"breath": 1.0 + sin(_breath_phase) * 0.016 * (0.4 + 0.6 * _idle_factor),
 		"arms": _anchor_arms,
 		"legs": _anchor_legs,
 	}
@@ -222,11 +234,16 @@ func definition_id() -> String:
 
 func shape_budget() -> int:
 	var total := 2  # torso + head
+	if _head.has("snout"):
+		total += 1
 	var segments := clampi(int(_legs.get("segments", _default_leg_segments())), 1, 2)
 	total += _leg_count * segments
 	if _has_foot_balls():
 		total += _leg_count
-	total += clampi(int(_arms.get("count", 0)), 0, 3)
+	var arm_count := clampi(int(_arms.get("count", 0)), 0, 3)
+	total += arm_count
+	if bool(_arms.get("hand_balls", false)):
+		total += arm_count
 	if _has_wings():
 		total += 4
 	total += clampi(int(_tail.get("segments", 0)), 0, 3)
@@ -753,6 +770,7 @@ func _update_shell(movement_amount: float, state: MotionState) -> void:
 	var shape_a: Array[Vector4] = []
 	var shape_b: Array[Vector4] = []
 	var colors: Array[Vector4] = []
+	_radius_b_buffer = []
 	var body_basis := Basis.from_euler(_body_rotation)
 	var head_basis := _head_basis()
 	var squash := _landing_squash * float(_juice.get("squash", 0.2))
@@ -768,11 +786,14 @@ func _update_shell(movement_amount: float, state: MotionState) -> void:
 		Vector3(0.0, 1.0, 0.0) if _is_upright() else Vector3(0.0, 0.0, 1.0)
 	)
 
+	# Torso taper sculpts the silhouette: <1 narrows the top/rear (pear
+	# chests), >1 swells it (round rumps). 1 is a plain capsule.
 	_append_shape(
 		shape_a, shape_b, colors,
 		_body_position + body_basis * (torso_axis * -torso_half),
 		_body_position + body_basis * (torso_axis * torso_half),
-		torso_radius, float(_torso.get("blend", 0.03)), _color_for("torso")
+		torso_radius, float(_torso.get("blend", 0.03)), _color_for("torso"),
+		torso_radius * clampf(float(_torso.get("taper", 1.0)), 0.5, 1.5)
 	)
 	var head_radius := float(_head.get("radius", 0.1)) * (1.0 + squash * 0.08)
 	_append_shape(
@@ -781,6 +802,27 @@ func _update_shell(movement_amount: float, state: MotionState) -> void:
 		_head_position + head_basis * Vector3(0.0, 0.008, 0.003),
 		head_radius, float(_head.get("blend", 0.03)), _color_for("head")
 	)
+	if _head.has("snout"):
+		# A real sculpted muzzle/snout/trunk instead of a flat decal. All
+		# dimensions are in head-radius units so it scales with the creature.
+		var snout := _head.get("snout") as Dictionary
+		var snout_length := float(snout.get("length", 0.55)) * head_radius
+		var snout_radius := float(snout.get("radius", 0.42)) * head_radius
+		var snout_drop := float(snout.get("drop", -0.12)) * head_radius
+		var snout_dip := float(snout.get("dip", 0.2)) * snout_length
+		_append_shape(
+			shape_a, shape_b, colors,
+			_head_position + head_basis * Vector3(0.0, snout_drop, -head_radius * 0.5),
+			_head_position + head_basis * Vector3(
+				0.0, snout_drop - snout_dip, -head_radius * 0.5 - snout_length
+			),
+			snout_radius, 0.02,
+			(
+				Color(String(_palette.get("snout")))
+				if _palette.has("snout") else _color_for("head")
+			),
+			snout_radius * clampf(float(snout.get("taper", 0.7)), 0.3, 1.2)
+		)
 
 	_append_leg_shapes(shape_a, shape_b, colors, body_basis)
 	_append_arm_shapes(shape_a, shape_b, colors, body_basis, movement_amount, state)
@@ -793,7 +835,8 @@ func _update_shell(movement_amount: float, state: MotionState) -> void:
 		"update_shapes",
 		PackedVector4Array(shape_a),
 		PackedVector4Array(shape_b),
-		PackedVector4Array(colors)
+		PackedVector4Array(colors),
+		PackedFloat32Array(_radius_b_buffer)
 	)
 
 
@@ -828,16 +871,16 @@ func _append_leg_shapes(
 			anchor_knee = knee
 			_append_shape(
 				shape_a, shape_b, colors, hip, knee,
-				leg_radius, 0.014, limb_color
+				leg_radius, 0.014, limb_color, leg_radius * 0.82
 			)
 			_append_shape(
 				shape_a, shape_b, colors, knee, foot + Vector3.UP * 0.01,
-				leg_radius * 0.9, 0.012, limb_color
+				leg_radius * 0.85, 0.012, limb_color, leg_radius * 0.62
 			)
 		else:
 			_append_shape(
 				shape_a, shape_b, colors, hip, foot + Vector3.UP * 0.01,
-				leg_radius, 0.012, limb_color
+				leg_radius, 0.012, limb_color, leg_radius * 0.66
 			)
 		if _has_foot_balls():
 			_append_shape(
@@ -921,8 +964,13 @@ func _append_arm_shapes(
 		var hand := shoulder + body_basis * hand_offset
 		_append_shape(
 			shape_a, shape_b, colors, shoulder, hand,
-			arm_radius, 0.018, _color_for("arm")
+			arm_radius, 0.018, _color_for("arm"), arm_radius * 0.72
 		)
+		if bool(_arms.get("hand_balls", false)):
+			_append_shape(
+				shape_a, shape_b, colors, hand, hand,
+				arm_radius * 1.18, 0.008, _color_for("arm")
+			)
 		_anchor_arms.append({"shoulder": shoulder, "hand": hand})
 
 
@@ -961,13 +1009,13 @@ func _append_wing_shapes(
 		_append_shape(
 			shape_a, shape_b, colors,
 			shoulder, folded_wrist.lerp(spread_wrist, spread),
-			upper_radius, 0.016, wing_color
+			upper_radius, 0.016, wing_color, upper_radius * 0.85
 		)
 		_append_shape(
 			shape_a, shape_b, colors,
 			folded_wrist.lerp(spread_wrist, spread),
 			folded_tip.lerp(spread_tip, spread),
-			tip_radius, 0.013, wing_color.darkened(0.08)
+			tip_radius, 0.013, wing_color.darkened(0.08), tip_radius * 0.55
 		)
 
 
@@ -983,13 +1031,21 @@ func _append_tail_shapes(
 	var anchor := _body_position + body_basis * _tail_base_offset()
 	var tail_radius := float(_tail.get("radius", 0.026))
 	var tail_color := _color_for("tail")
+	var tip_taper := clampf(float(_tail.get("taper", 0.55)), 0.2, 1.6)
 	for segment_index in segment_count:
-		var taper := 1.0 - 0.22 * float(segment_index)
+		var start_taper := lerpf(
+			1.0, tip_taper, float(segment_index) / maxf(float(segment_count), 1.0)
+		)
+		var end_taper := lerpf(
+			1.0, tip_taper,
+			float(segment_index + 1) / maxf(float(segment_count), 1.0)
+		)
 		_append_shape(
 			shape_a, shape_b, colors,
 			anchor, _tail_points[segment_index],
-			tail_radius * taper, 0.014,
-			tail_color if segment_index < segment_count - 1 else tail_color.darkened(0.08)
+			tail_radius * start_taper, 0.014,
+			tail_color if segment_index < segment_count - 1 else tail_color.darkened(0.08),
+			tail_radius * end_taper
 		)
 		anchor = _tail_points[segment_index]
 
@@ -1007,7 +1063,8 @@ func _append_ear_shapes(
 		_append_shape(
 			shape_a, shape_b, colors,
 			_ear_base(ear_index, head_basis), _ear_tips[ear_index],
-			ear_radius, float(_ears.get("blend", 0.01)), ear_color
+			ear_radius, float(_ears.get("blend", 0.01)), ear_color,
+			ear_radius * clampf(float(_ears.get("taper", 0.55)), 0.2, 1.4)
 		)
 
 
@@ -1024,6 +1081,8 @@ func _build_overlays() -> void:
 			_build_owl_face(head_radius)
 		"pup":
 			_build_pup_face(head_radius)
+		"human":
+			_build_human_face(head_radius)
 		_:
 			_build_critter_face(head_radius)
 
@@ -1068,7 +1127,57 @@ func _build_owl_face(head_radius: float) -> void:
 	_add_sphere(_face_root, "CheekRight", Vector3(head_radius * 0.59, -head_radius * 0.16, -head_radius + 0.008), Vector3(head_radius * 0.12, head_radius * 0.08, 0.005), _color("accent").lightened(0.22), Vector3(0.0, -0.5, 0.0), true)
 
 
+## A human-ish villager face: hair volume, brows, simple warm features and
+## no animal muzzle. Hair color comes from the "hair" palette key.
+func _build_human_face(head_radius: float) -> void:
+	var hair := (
+		Color(String(_palette.get("hair")))
+		if _palette.has("hair") else _color("ink")
+	)
+	_add_sphere(_face_root, "HairCap", Vector3(0.0, head_radius * 0.3, head_radius * 0.12), Vector3(head_radius * 1.04, head_radius * 0.82, head_radius * 1.02), hair)
+	_add_sphere(_face_root, "HairFringe", Vector3(0.0, head_radius * 0.56, -head_radius * 0.62), Vector3(head_radius * 0.78, head_radius * 0.34, head_radius * 0.5), hair)
+	var eye_scale := Vector3(head_radius * 0.095, head_radius * 0.14, 0.007)
+	var eye_left := _add_sphere(_face_root, "EyeLeft", Vector3(-head_radius * 0.24, head_radius * 0.02, -head_radius - 0.004), eye_scale, _color("ink"), Vector3.ZERO, true)
+	var eye_right := _add_sphere(_face_root, "EyeRight", Vector3(head_radius * 0.24, head_radius * 0.02, -head_radius - 0.004), eye_scale, _color("ink"), Vector3.ZERO, true)
+	_register_eyes(eye_left, eye_right)
+	_add_sphere(_face_root, "GlintLeft", Vector3(-head_radius * 0.28, head_radius * 0.07, -head_radius - 0.01), Vector3(0.004, 0.005, 0.003), Color("#FFF8E4"), Vector3.ZERO, true)
+	_add_sphere(_face_root, "GlintRight", Vector3(head_radius * 0.2, head_radius * 0.07, -head_radius - 0.01), Vector3(0.004, 0.005, 0.003), Color("#FFF8E4"), Vector3.ZERO, true)
+	_add_sphere(_face_root, "BrowLeft", Vector3(-head_radius * 0.24, head_radius * 0.22, -head_radius - 0.002), Vector3(head_radius * 0.1, head_radius * 0.035, 0.004), hair.darkened(0.1), Vector3.ZERO, true)
+	_add_sphere(_face_root, "BrowRight", Vector3(head_radius * 0.24, head_radius * 0.22, -head_radius - 0.002), Vector3(head_radius * 0.1, head_radius * 0.035, 0.004), hair.darkened(0.1), Vector3.ZERO, true)
+	_add_sphere(_face_root, "Nose", Vector3(0.0, -head_radius * 0.1, -head_radius - 0.008), Vector3(head_radius * 0.055, head_radius * 0.05, 0.01), _color_for("head").darkened(0.12), Vector3.ZERO, true)
+	_add_sphere(_face_root, "Mouth", Vector3(0.0, -head_radius * 0.3, -head_radius - 0.005), Vector3(head_radius * 0.08, head_radius * 0.035, 0.003), _color("ink"), Vector3.ZERO, true)
+	_add_sphere(_face_root, "CheekLeft", Vector3(-head_radius * 0.42, -head_radius * 0.18, -head_radius + 0.004), Vector3(head_radius * 0.11, head_radius * 0.06, 0.005), _color("accent"), Vector3(0.0, 0.45, 0.0), true)
+	_add_sphere(_face_root, "CheekRight", Vector3(head_radius * 0.42, -head_radius * 0.18, -head_radius + 0.004), Vector3(head_radius * 0.11, head_radius * 0.06, 0.005), _color("accent"), Vector3(0.0, -0.45, 0.0), true)
+
+
 func _build_pup_face(head_radius: float) -> void:
+	if _head.has("snout"):
+		# The sculpted SDF snout replaces the muzzle decal; the nose and
+		# mouth ride out to its tip.
+		var snout := _head.get("snout") as Dictionary
+		var tip_z := (
+			-head_radius * 0.5
+			- float(snout.get("length", 0.55)) * head_radius
+		)
+		var tip_y := (
+			float(snout.get("drop", -0.12)) * head_radius
+			- float(snout.get("dip", 0.2))
+			* float(snout.get("length", 0.55)) * head_radius
+		)
+		var snout_radius := float(snout.get("radius", 0.42)) * head_radius
+		var tip_radius := (
+			snout_radius * clampf(float(snout.get("taper", 0.7)), 0.3, 1.2)
+		)
+		var eye_scale_snouted := Vector3(head_radius * 0.11, head_radius * 0.15, 0.007)
+		var eye_left_snouted := _add_sphere(_face_root, "EyeLeft", Vector3(-head_radius * 0.3, head_radius * 0.12, -head_radius - 0.004), eye_scale_snouted, _color("ink"), Vector3.ZERO, true)
+		var eye_right_snouted := _add_sphere(_face_root, "EyeRight", Vector3(head_radius * 0.3, head_radius * 0.12, -head_radius - 0.004), eye_scale_snouted, _color("ink"), Vector3.ZERO, true)
+		_register_eyes(eye_left_snouted, eye_right_snouted)
+		_add_sphere(_face_root, "GlintLeft", Vector3(-head_radius * 0.34, head_radius * 0.18, -head_radius - 0.011), Vector3(0.005, 0.006, 0.003), Color("#FFF8E4"), Vector3.ZERO, true)
+		_add_sphere(_face_root, "GlintRight", Vector3(head_radius * 0.26, head_radius * 0.18, -head_radius - 0.011), Vector3(0.005, 0.006, 0.003), Color("#FFF8E4"), Vector3.ZERO, true)
+		_add_sphere(_face_root, "Nose", Vector3(0.0, tip_y + tip_radius * 0.35, tip_z - tip_radius * 0.72), Vector3(tip_radius * 0.5, tip_radius * 0.38, 0.008), _color("ink"), Vector3.ZERO, true)
+		_add_sphere(_face_root, "BrowLeft", Vector3(-head_radius * 0.3, head_radius * 0.34, -head_radius + 0.002), Vector3(head_radius * 0.11, head_radius * 0.045, 0.005), _color("accent"), Vector3.ZERO, true)
+		_add_sphere(_face_root, "BrowRight", Vector3(head_radius * 0.3, head_radius * 0.34, -head_radius + 0.002), Vector3(head_radius * 0.11, head_radius * 0.045, 0.005), _color("accent"), Vector3.ZERO, true)
+		return
 	_add_sphere(_face_root, "Muzzle", Vector3(0.0, -head_radius * 0.22, -head_radius - 0.006), Vector3(head_radius * 0.42, head_radius * 0.33, head_radius * 0.28), _color_for("face_patch"))
 	var eye_scale := Vector3(head_radius * 0.11, head_radius * 0.15, 0.007)
 	var eye_left := _add_sphere(_face_root, "EyeLeft", Vector3(-head_radius * 0.30, head_radius * 0.12, -head_radius - 0.004), eye_scale, _color("ink"), Vector3.ZERO, true)
@@ -1341,11 +1450,13 @@ func _append_shape(
 	endpoint_b: Vector3,
 	radius: float,
 	blend_radius: float,
-	color: Color
+	color: Color,
+	radius_b := -1.0
 ) -> void:
 	shape_a.append(Vector4(endpoint_a.x, endpoint_a.y, endpoint_a.z, radius))
 	shape_b.append(Vector4(endpoint_b.x, endpoint_b.y, endpoint_b.z, blend_radius))
 	colors.append(Vector4(color.r, color.g, color.b, color.a))
+	_radius_b_buffer.append(radius_b if radius_b > 0.0 else radius)
 
 
 func _register_eyes(eye_left: MeshInstance3D, eye_right: MeshInstance3D) -> void:

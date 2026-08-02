@@ -2,7 +2,7 @@
   "id": "cloud_sheep",
   "body_plan": "legged",
   "palette": {"body": "#F3EDE2", "body_light": "#6E6357", "limb": "#5E564C", "foot": "#4A443C", "face": "#8A7E6F", "belly": "#EAE2D2", "accent": "#E8A9A0", "ink": "#332F3A", "ear": "#6E6357"},
-  "torso": {"length": 0.15, "radius": 0.092, "blend": 0.034},
+  "torso": {"length": 0.15, "radius": 0.092, "blend": 0.034, "taper": 1.06},
   "head": {"radius": 0.075, "face": "critter", "stabilize": 0.35},
   "legs": {"count": 4, "length": 0.1, "stance": 0.105, "radius": 0.016, "foot_radius": 0.018},
   "ears": {"count": 2, "length": 0.05, "radius": 0.018, "style": "side"},

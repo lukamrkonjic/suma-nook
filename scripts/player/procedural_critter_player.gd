@@ -8,7 +8,7 @@ extends Node3D
 const ProceduralCreatureScript := preload(
 	"res://scripts/creatures/procedural_creature.gd"
 )
-const DEFAULT_DEFINITION := "res://data/creatures/nook_kit.json"
+const DEFAULT_DEFINITION := "res://data/creatures/islander.json"
 
 ## Re-broadcast of the creature action engine's phase events so PlayerVisual
 ## can keep its legacy animation_event contract.

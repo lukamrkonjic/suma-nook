@@ -37,12 +37,23 @@ func build(shape_count: int) -> void:
 func update_shapes(
 	shape_a: PackedVector4Array,
 	shape_b: PackedVector4Array,
-	shape_colors: PackedVector4Array
+	shape_colors: PackedVector4Array,
+	shape_radius_b := PackedFloat32Array()
 ) -> void:
 	if _material == null:
 		return
+	# Missing taper data degrades to classic capsules (radius B = radius A).
+	var radius_b := PackedFloat32Array()
+	for index in MAX_SHAPES:
+		if index < shape_radius_b.size() and shape_radius_b[index] > 0.0:
+			radius_b.append(shape_radius_b[index])
+		elif index < shape_a.size():
+			radius_b.append(shape_a[index].w)
+		else:
+			radius_b.append(0.0)
 	_material.set_shader_parameter("shape_a", _padded(shape_a))
 	_material.set_shader_parameter("shape_b", _padded(shape_b))
+	_material.set_shader_parameter("shape_radius_b", radius_b)
 	_material.set_shader_parameter("shape_color", _padded(shape_colors))
 	_outline_material.set_shader_parameter("shape_a", _padded(shape_a))
 	_outline_material.set_shader_parameter("shape_b", _padded(shape_b))

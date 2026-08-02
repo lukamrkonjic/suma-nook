@@ -2,7 +2,7 @@
   "id": "cactus_kid",
   "body_plan": "legged",
   "palette": {"body": "#7FAF74", "body_light": "#8FBB82", "limb": "#639458", "foot": "#C97B4E", "face": "#EFEAC8", "belly": "#E2E0AE", "accent": "#EFB7A6", "ink": "#333A36", "ear": "#639458"},
-  "torso": {"length": 0.1, "radius": 0.075, "blend": 0.03},
+  "torso": {"length": 0.1, "radius": 0.075, "blend": 0.03, "taper": 0.92},
   "head": {"radius": 0.09, "face": "critter", "stabilize": 0.3},
   "legs": {"count": 2, "length": 0.11, "stance": 0.085, "radius": 0.024, "segments": 2, "foot_radius": 0.028},
   "arms": {"count": 2, "length": 0.1, "radius": 0.026},
