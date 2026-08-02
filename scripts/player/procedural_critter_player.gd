@@ -29,6 +29,27 @@ func definition_id() -> String:
 	return String(_creature.call("definition_id"))
 
 
+## Runtime wardrobe: swap the whole outfit (hat/shirt/pants/shoes/held)
+## from a data/outfits JSON, e.g. the angler set when fishing starts.
+func equip_outfit(outfit_path: String) -> void:
+	if is_instance_valid(_creature):
+		_creature.call("set_outfit", outfit_path)
+
+
+func clear_outfit() -> void:
+	if is_instance_valid(_creature):
+		_creature.call("clear_outfit")
+
+
+## World-space tip of the held equipable (rod point) for line effects.
+func held_tip_world() -> Vector3:
+	if is_instance_valid(_creature):
+		var current_outfit: Variant = _creature.call("outfit")
+		if current_outfit is Node3D and is_instance_valid(current_outfit):
+			return (current_outfit as Node3D).call("held_tip_world")
+	return global_position
+
+
 func foot_world_positions() -> Array[Vector3]:
 	var result: Array[Vector3] = []
 	if is_instance_valid(_creature):

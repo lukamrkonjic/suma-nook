@@ -112,6 +112,25 @@ tail segments + ears ≤ 16. `build()` asserts it;
   (cheeks, disc halves) so their rims hug the head sphere — flat proud
   discs read as goggles from the side.
 
+## Clothing & equipables
+
+`scripts/creatures/creature_outfit.gd` (`CreatureOutfit`) dresses any
+creature from a tiny JSON in `data/outfits/`: slots `hat` (cap | straw |
+cone), `shirt` (tee | scarf), `pants` (shorts), `shoes` (boots), `held`
+(fishing_rod | stick), each with `color`/`accent`. Garments are unshaded
+primitive clusters re-seated on the creature's live **pose anchors**
+(head, torso, per-arm shoulder/hand, per-leg hip/knee/foot) via the
+`pose_advanced` signal, so they ride squash, waddle, hops, and flight on
+every body plan; slots skip gracefully when a plan lacks legs or arms.
+
+Wear it three ways: an `"outfit"` key in the creature JSON (the player's
+`nook_kit` wears `cozy_scout`), `ProceduralCreature.set_outfit(path)` at
+runtime, or `ProceduralCritterPlayer.equip_outfit(path)` /
+`clear_outfit()` on the player. `held_tip_world()` exposes the rod tip
+for future fishing-line wiring. The contract test dresses every creature
+in every outfit; `tests/creature_outfit_review.tscn` renders the fashion
+show.
+
 ## Review scenes & tests
 
 ```

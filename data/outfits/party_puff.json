@@ -1,0 +1,5 @@
+{
+  "id": "party_puff",
+  "hat": {"kind": "cone", "color": "#9B7FB5", "accent": "#F2C356"},
+  "shirt": {"kind": "scarf", "color": "#E8836B"}
+}

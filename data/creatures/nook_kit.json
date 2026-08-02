@@ -9,5 +9,6 @@
   "ears": {"count": 2, "length": 0.085, "radius": 0.026, "style": "up"},
   "tail": {"segments": 3, "length": 0.24, "radius": 0.036, "droop": 0.25, "wag": 0.35, "wag_rate": 2.0},
   "gait": {"reference_speed": 2.4, "cadence": 7.2, "stride": 0.105, "step_lift": 0.07, "body_bob": 0.02, "lean": 0.06},
-  "juice": {"squash": 0.22, "head_lag": 0.05, "head_snap": 11.0, "ear_spring": 40.0, "tail_drag": 0.88, "outline": 0.006}
+  "juice": {"squash": 0.22, "head_lag": 0.05, "head_snap": 11.0, "ear_spring": 40.0, "tail_drag": 0.88, "outline": 0.006},
+  "outfit": "res://data/outfits/cozy_scout.json"
 }

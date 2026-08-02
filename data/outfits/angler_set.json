@@ -1,0 +1,8 @@
+{
+  "id": "angler_set",
+  "hat": {"kind": "straw", "color": "#E8C87A", "accent": "#D96F5E"},
+  "shirt": {"kind": "tee", "color": "#7FA8D9"},
+  "pants": {"kind": "shorts", "color": "#5E6E8A"},
+  "shoes": {"kind": "boots", "color": "#8A5138"},
+  "held": {"kind": "fishing_rod", "color": "#8A6B48", "accent": "#D96F5E"}
+}

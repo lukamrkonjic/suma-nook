@@ -44,4 +44,18 @@ func _check_creature(path: String) -> void:
 	)
 	var identifier := String(creature.call("definition_id"))
 	assert(not identifier.is_empty(), "%s: definition needs an id" % path)
+	# Every outfit must dress every creature without erroring: hats/shirts
+	# seat on anchors that exist for all body plans, pants/shoes/held skip
+	# gracefully when a plan lacks legs or arms.
+	for outfit_path in [
+		"res://data/outfits/angler_set.json",
+		"res://data/outfits/cozy_scout.json",
+		"res://data/outfits/party_puff.json",
+	]:
+		creature.call("set_outfit", outfit_path)
+		assert(
+			creature.call("outfit") != null,
+			"%s: outfit %s failed to build" % [path, outfit_path]
+		)
+	creature.call("clear_outfit")
 	creature.free()

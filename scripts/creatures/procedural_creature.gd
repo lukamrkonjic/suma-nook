@@ -11,7 +11,14 @@ extends Node3D
 ## node owns everything visible.
 
 const SdfBlendShellScript := preload("res://scripts/player/sdf_blend_shell.gd")
+const CreatureOutfitScript := preload(
+	"res://scripts/creatures/creature_outfit.gd"
+)
 const MAX_SHAPES := 16
+
+## Fired after every advance() once the shell and anchors are current;
+## outfits and other attachments re-seat themselves on this.
+signal pose_advanced
 
 ## Per-tick motion inputs, expressed in the creature root's local space.
 class MotionState:
@@ -79,6 +86,10 @@ var _blink_timer := 1.5
 var _blink_phase := 0.0
 var _flap_rate := 0.0
 
+var _outfit: Node3D
+var _anchor_arms: Array[Dictionary] = []
+var _anchor_legs: Array[Dictionary] = []
+
 
 func build_from_path(definition_path: String) -> void:
 	var source := FileAccess.get_file_as_string(definition_path)
@@ -120,8 +131,48 @@ func build(definition: Dictionary) -> void:
 	_shell.call("set_outline_width", float(_juice.get("outline", 0.006)))
 	_build_overlays()
 	_reset_pose()
+	if definition.has("outfit"):
+		set_outfit(String(definition.get("outfit")))
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
 	reset_physics_interpolation()
+
+
+## Dress the creature from an outfit JSON path; replaces any current outfit.
+func set_outfit(outfit_path: String) -> void:
+	clear_outfit()
+	var source := FileAccess.get_file_as_string(outfit_path)
+	var parsed: Variant = JSON.parse_string(source)
+	assert(parsed is Dictionary, "Invalid outfit definition: %s" % outfit_path)
+	_outfit = CreatureOutfitScript.new() as Node3D
+	_outfit.name = "Outfit"
+	add_child(_outfit)
+	_outfit.call("build", parsed as Dictionary, self)
+
+
+func clear_outfit() -> void:
+	if is_instance_valid(_outfit):
+		_outfit.queue_free()
+	_outfit = null
+
+
+func outfit() -> Node3D:
+	return _outfit
+
+
+## Live world-space attachment frames for clothing and equipables, refreshed
+## by every advance()/_update_shell.
+func pose_anchors() -> Dictionary:
+	return {
+		"head": Transform3D(_head_basis(), _head_position),
+		"head_radius": float(_head.get("radius", 0.1)),
+		"body": Transform3D(Basis.from_euler(_body_rotation), _body_position),
+		"torso_radius": _torso_radius(),
+		"torso_half": float(_torso.get("length", 0.09)) * 0.5,
+		"upright": _is_upright(),
+		"foot_radius": _foot_radius(),
+		"arms": _anchor_arms,
+		"legs": _anchor_legs,
+	}
 
 
 func definition_id() -> String:
@@ -205,6 +256,7 @@ func advance(delta: float, state: MotionState) -> void:
 	_update_blink(delta)
 	_update_shell(movement_amount, state)
 	_update_overlays()
+	pose_advanced.emit()
 
 
 # ------------------------------------------------------------------ motion
@@ -472,16 +524,19 @@ func _append_leg_shapes(
 	var segments := clampi(int(_legs.get("segments", _default_leg_segments())), 1, 2)
 	var leg_radius := float(_legs.get("radius", 0.028))
 	var limb_color := _color_for("limb")
+	_anchor_legs = []
 	for leg_index in _leg_count:
 		var rest := _leg_rests[leg_index]
 		var hip := _body_position + body_basis * Vector3(
 			rest.x, _hip_drop(), rest.z
 		)
 		var foot := _feet[leg_index]
+		var anchor_knee := hip.lerp(foot, 0.5)
 		if segments == 2:
 			var bend_hint := body_basis * Vector3(rest.x * 1.5, 0.0, -1.0)
 			var half := float(_legs.get("length", 0.2)) * 0.5 + 0.01
 			var knee := _two_bone_joint(hip, foot, half, half, bend_hint)
+			anchor_knee = knee
 			_append_shape(
 				shape_a, shape_b, colors, hip, knee,
 				leg_radius, 0.014, limb_color
@@ -500,6 +555,7 @@ func _append_leg_shapes(
 				shape_a, shape_b, colors, foot, foot,
 				_foot_radius(), 0.006, _color_for("foot")
 			)
+		_anchor_legs.append({"hip": hip, "knee": anchor_knee, "foot": foot})
 
 
 func _append_arm_shapes(
@@ -511,6 +567,7 @@ func _append_arm_shapes(
 	state: MotionState
 ) -> void:
 	var arm_count := clampi(int(_arms.get("count", 0)), 0, 3)
+	_anchor_arms = []
 	if arm_count == 0:
 		return
 	var arm_length := float(_arms.get("length", 0.15))
@@ -553,6 +610,7 @@ func _append_arm_shapes(
 			shape_a, shape_b, colors, shoulder, hand,
 			arm_radius, 0.018, _color_for("arm")
 		)
+		_anchor_arms.append({"shoulder": shoulder, "hand": hand})
 
 
 func _append_wing_shapes(

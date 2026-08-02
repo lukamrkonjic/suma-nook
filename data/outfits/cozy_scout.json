@@ -1,0 +1,6 @@
+{
+  "id": "cozy_scout",
+  "hat": {"kind": "cap", "color": "#D96F5E", "accent": "#F2E3C0"},
+  "shirt": {"kind": "scarf", "color": "#F2C356"},
+  "shoes": {"kind": "boots", "color": "#6E4230"}
+}
