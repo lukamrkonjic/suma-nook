@@ -92,8 +92,10 @@ func _sync() -> void:
 	if is_instance_valid(_held_root) and not arms.is_empty():
 		var holding_arm := arms[arms.size() - 1] as Dictionary
 		var hand_position := holding_arm.get("hand") as Vector3
+		# Tools lean well forward of vertical so they clear the face and read
+		# at full length during swings and casts.
 		_held_root.transform = Transform3D(
-			body.basis * Basis.from_euler(Vector3(-0.62, -0.18, 0.0)),
+			body.basis * Basis.from_euler(Vector3(-1.02, -0.16, 0.0)),
 			hand_position
 		)
 
@@ -178,6 +180,17 @@ func _build_held(item: Dictionary, anchors: Dictionary) -> void:
 	var color := _item_color(item, "color", "#8A6B48")
 	var accent := _item_color(item, "accent", "#D96F5E")
 	match String(item.get("kind", "stick")):
+		"axe":
+			var handle_length := torso_radius * 2.9
+			_add_mesh(_held_root, "Handle", _cylinder_mesh(), Vector3(0.0, handle_length * 0.38, 0.0), Vector3(torso_radius * 0.075, handle_length, torso_radius * 0.075), color)
+			_add_mesh(_held_root, "Head", _box_mesh(), Vector3(0.0, handle_length * 0.82, -torso_radius * 0.3), Vector3(torso_radius * 0.14, torso_radius * 0.42, torso_radius * 0.52), accent)
+			_held_tip_local = Vector3(0.0, handle_length * 0.82, -torso_radius * 0.55)
+		"pickaxe":
+			var pick_handle := torso_radius * 3.1
+			_add_mesh(_held_root, "Handle", _cylinder_mesh(), Vector3(0.0, pick_handle * 0.38, 0.0), Vector3(torso_radius * 0.075, pick_handle, torso_radius * 0.075), color)
+			_add_mesh(_held_root, "SpikeFront", _cone_mesh(), Vector3(0.0, pick_handle * 0.8, -torso_radius * 0.46), Vector3(torso_radius * 0.14, torso_radius * 0.9, torso_radius * 0.14), accent, Vector3(-PI * 0.5, 0.0, 0.0))
+			_add_mesh(_held_root, "SpikeBack", _cone_mesh(), Vector3(0.0, pick_handle * 0.8, torso_radius * 0.46), Vector3(torso_radius * 0.14, torso_radius * 0.9, torso_radius * 0.14), accent, Vector3(PI * 0.5, 0.0, 0.0))
+			_held_tip_local = Vector3(0.0, pick_handle * 0.8, -torso_radius * 0.9)
 		"fishing_rod":
 			var rod_length := torso_radius * 5.2
 			_add_mesh(_held_root, "Rod", _cylinder_mesh(), Vector3(0.0, rod_length * 0.42, 0.0), Vector3(torso_radius * 0.055, rod_length, torso_radius * 0.055), color)
@@ -240,6 +253,12 @@ func _cone_mesh() -> CylinderMesh:
 	return mesh
 
 
+func _box_mesh() -> BoxMesh:
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3.ONE
+	return mesh
+
+
 func _torus_mesh() -> TorusMesh:
 	var mesh := TorusMesh.new()
 	mesh.inner_radius = 0.55
@@ -255,12 +274,14 @@ func _add_mesh(
 	mesh: Mesh,
 	position: Vector3,
 	scale_value: Vector3,
-	color: Color
+	color: Color,
+	rotation_value := Vector3.ZERO
 ) -> MeshInstance3D:
 	var instance := MeshInstance3D.new()
 	instance.name = node_name
 	instance.mesh = mesh
 	instance.position = position
+	instance.rotation = rotation_value
 	instance.scale = scale_value
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color

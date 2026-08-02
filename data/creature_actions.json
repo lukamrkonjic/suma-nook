@@ -1,0 +1,92 @@
+{
+  "chop": {
+    "seconds": 0.85, "impact_ratio": 0.47,
+    "phases": [
+      {"t": 0.32, "reach": [0.12, 0.85, -0.25], "spread": 0.22, "body_pitch": -0.22, "head_pitch": -0.15, "ease": "out"},
+      {"t": 0.47, "reach": [0.1, 0.15, -0.95], "spread": 0.1, "body_pitch": 0.3, "head_pitch": 0.18, "ease": "in", "event": "impact", "squash": 0.35},
+      {"t": 1.0, "reach": [0.3, -0.3, -0.35], "body_pitch": 0.05, "ease": "out"}
+    ]
+  },
+  "mine": {
+    "seconds": 1.0, "impact_ratio": 0.5,
+    "phases": [
+      {"t": 0.35, "reach": [0.1, 0.98, -0.05], "spread": 0.18, "body_pitch": -0.28, "head_pitch": -0.18, "ease": "out"},
+      {"t": 0.5, "reach": [0.08, -0.05, -0.8], "body_pitch": 0.34, "head_pitch": 0.2, "ease": "in", "event": "impact", "squash": 0.45},
+      {"t": 1.0, "reach": [0.3, -0.25, -0.3], "body_pitch": 0.04, "ease": "out"}
+    ]
+  },
+  "fish_cast": {
+    "seconds": 0.9, "impact_ratio": 0.42,
+    "phases": [
+      {"t": 0.3, "reach": [0.16, 0.6, 0.4], "body_pitch": -0.16, "head_pitch": -0.1, "ease": "out"},
+      {"t": 0.42, "reach": [0.12, 0.5, -0.85], "body_pitch": 0.18, "ease": "in", "event": "release", "squash": 0.15},
+      {"t": 1.0, "reach": [0.14, 0.24, -0.62], "body_pitch": 0.06, "head_pitch": 0.14, "ease": "out"}
+    ]
+  },
+  "fish_wait": {
+    "seconds": 2.6, "loop": true,
+    "phases": [
+      {"t": 0.5, "reach": [0.14, 0.26, -0.6], "body_pitch": 0.07, "head_pitch": 0.15, "ease": "inout"},
+      {"t": 1.0, "reach": [0.14, 0.2, -0.63], "body_pitch": 0.045, "head_pitch": 0.12, "ease": "inout"}
+    ]
+  },
+  "fish_catch": {
+    "seconds": 0.7, "loop": true,
+    "phases": [
+      {"t": 0.5, "reach": [0.13, 0.42, -0.45], "body_pitch": -0.14, "head_pitch": -0.05, "ease": "out", "event": "reel", "squash": 0.12},
+      {"t": 1.0, "reach": [0.14, 0.22, -0.6], "body_pitch": 0.04, "head_pitch": 0.1, "ease": "in"}
+    ]
+  },
+  "attack": {
+    "seconds": 0.6, "impact_ratio": 0.45,
+    "phases": [
+      {"t": 0.3, "reach": [0.24, 0.5, 0.2], "spread": 0.3, "body_pitch": -0.15, "ease": "out"},
+      {"t": 0.45, "reach": [0.08, 0.18, -0.98], "body_pitch": 0.26, "ease": "in", "event": "impact", "squash": 0.3},
+      {"t": 1.0, "reach": [0.3, -0.2, -0.3], "body_pitch": 0.03, "ease": "out"}
+    ]
+  },
+  "dodge": {
+    "seconds": 0.5,
+    "phases": [
+      {"t": 0.35, "reach": [0.5, -0.45, 0.1], "body_pitch": 0.1, "ease": "out", "squash": 0.5},
+      {"t": 1.0, "reach": [0.72, -0.68, 0.0], "body_pitch": 0.0, "ease": "out"}
+    ]
+  },
+  "hit": {
+    "seconds": 0.45,
+    "phases": [
+      {"t": 0.25, "reach": [0.55, 0.15, 0.35], "body_pitch": -0.32, "head_pitch": -0.22, "ease": "out", "squash": 0.3},
+      {"t": 1.0, "reach": [0.72, -0.68, 0.0], "body_pitch": 0.0, "ease": "out"}
+    ]
+  },
+  "celebrate": {
+    "seconds": 0.9, "loop": true,
+    "phases": [
+      {"t": 0.5, "reach": [0.42, 0.95, 0.05], "spread": 0.4, "body_pitch": -0.08, "head_pitch": -0.12, "ease": "out", "event": "hop", "squash": 0.28},
+      {"t": 1.0, "reach": [0.5, 0.7, 0.05], "spread": 0.35, "body_pitch": -0.03, "ease": "inout"}
+    ]
+  },
+  "dig": {
+    "seconds": 0.55, "loop": true,
+    "phases": [
+      {"t": 0.5, "reach": [0.16, -0.15, -0.72], "body_pitch": 0.26, "head_pitch": 0.22, "ease": "in", "event": "scuff", "squash": 0.15},
+      {"t": 1.0, "reach": [0.18, 0.18, -0.42], "body_pitch": 0.12, "head_pitch": 0.1, "ease": "out"}
+    ]
+  },
+  "peck": {
+    "seconds": 0.6, "loop": true,
+    "phases": [
+      {"t": 0.4, "reach": [0.0, 0.4, 0.1], "body_pitch": -0.12, "head_pitch": -0.3, "ease": "out"},
+      {"t": 0.62, "reach": [0.0, -0.3, -0.7], "body_pitch": 0.2, "head_pitch": 0.55, "ease": "in", "event": "impact", "squash": 0.2},
+      {"t": 1.0, "reach": [0.0, 0.1, -0.2], "body_pitch": 0.0, "head_pitch": 0.1, "ease": "out"}
+    ]
+  },
+  "gather": {
+    "seconds": 0.8, "impact_ratio": 0.55,
+    "phases": [
+      {"t": 0.4, "reach": [0.2, -0.55, -0.65], "body_pitch": 0.3, "head_pitch": 0.24, "ease": "out"},
+      {"t": 0.55, "reach": [0.18, -0.35, -0.5], "body_pitch": 0.22, "ease": "in", "event": "collect", "squash": 0.15},
+      {"t": 1.0, "reach": [0.3, 0.15, -0.25], "body_pitch": -0.04, "ease": "out"}
+    ]
+  }
+}

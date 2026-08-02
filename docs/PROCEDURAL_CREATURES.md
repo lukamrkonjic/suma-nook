@@ -131,6 +131,37 @@ for future fishing-line wiring. The contract test dresses every creature
 in every outfit; `tests/creature_outfit_review.tscn` renders the fashion
 show.
 
+## Action engine (woodcutting, mining, fishing, ...)
+
+`data/creature_actions.json` holds phase-based action clips: each phase is
+a normalized time `t` with an arm `reach` (in arm-length units, mirrored
+per side), `spread`, `body_pitch`, `head_pitch`, an `ease`, an optional
+`event` name, and an optional `squash` impulse. The engine lives inside
+`ProceduralCreature`:
+
+- `play_action(name, seconds := -1.0)` — layers the clip over locomotion;
+  `seconds` rescales the cycle (equipment speed). Looping clips
+  (`fish_wait`, `fish_catch`, `dig`, `peck`, `celebrate`) run until
+  `stop_action()`.
+- `action_event(action_name, event_name)` — fires at authored phase events
+  (`impact`, `release`, `collect`, ...) and `finished`; squash impulses
+  land on the same frame so hits feel weighty.
+- `action_impact_ratio(name, fallback)` — where the visible hit lands in
+  the cycle, for gameplay that awaits the impact moment.
+- Creatures **without arms** translate arm reach into a head lunge
+  automatically — a quadruped "chops" with a headbutt-peck.
+
+Library v1: `chop`, `mine`, `fish_cast`, `fish_wait`, `fish_catch`,
+`attack`, `dodge`, `hit`, `celebrate`, `dig`, `peck`, `gather`. Adding an
+interactable's animation = adding a JSON entry, no code.
+
+**Player wiring**: `PlayerVisual.play()` and `authored_action_impact_ratio()`
+route to the critter when the procedural player is enabled, and the
+critter's events re-emit through the same `animation_event` signal — so
+SkillActions' woodcutting/fishing/combat sequencing works unchanged. Held
+tools (`axe`, `pickaxe`, `fishing_rod`) ride the hand anchor through
+swings. `tests/creature_action_review.tscn` renders the work crew.
+
 ## Review scenes & tests
 
 ```

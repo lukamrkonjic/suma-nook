@@ -22,8 +22,53 @@ func _init() -> void:
 		file_name = directory.get_next()
 	directory.list_dir_end()
 	assert(built >= 30, "Expected the full menagerie, found %d creatures" % built)
+	_check_action_engine("res://data/creatures/sprout_scout.json")
+	_check_action_engine("res://data/creatures/meadow_pup.json")
 	print("CREATURE CORE CONTRACT PASSED — %d creatures built" % built)
 	quit(0)
+
+
+## Every library action must run to completion (or loop) headless and fire
+## its authored events — on armed AND armless creatures alike.
+func _check_action_engine(creature_path: String) -> void:
+	var creature := ProceduralCreatureScript.new() as Node3D
+	creature.call("build_from_path", creature_path)
+	var actions_source := FileAccess.get_file_as_string(
+		"res://data/creature_actions.json"
+	)
+	var library: Variant = JSON.parse_string(actions_source)
+	assert(library is Dictionary, "Action library must parse")
+	var events: Array[String] = []
+	creature.connect(
+		"action_event",
+		func(_action_name: String, event_name: String) -> void:
+			events.append(event_name)
+	)
+	var idle := ProceduralCreatureScript.MotionState.new()
+	for action_name: String in (library as Dictionary):
+		var definition := (library as Dictionary)[action_name] as Dictionary
+		events.clear()
+		creature.call("play_action", action_name)
+		# Two authored cycles at 60 Hz covers loop wraps and completion.
+		var ticks := int(float(definition.get("seconds", 0.8)) * 120.0) + 8
+		for _tick in ticks:
+			creature.call("advance", 1.0 / 60.0, idle)
+		var expects_events := false
+		for phase_value in definition.get("phases", []) as Array:
+			if (phase_value as Dictionary).has("event"):
+				expects_events = true
+		if expects_events:
+			assert(
+				not events.is_empty(),
+				"%s: action '%s' fired no events" % [creature_path, action_name]
+			)
+		if not bool(definition.get("loop", false)):
+			assert(
+				events.has("finished"),
+				"%s: action '%s' never finished" % [creature_path, action_name]
+			)
+		creature.call("stop_action")
+	creature.free()
 
 
 func _check_creature(path: String) -> void:

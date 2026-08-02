@@ -1,0 +1,7 @@
+{
+  "id": "logger_set",
+  "hat": {"kind": "cap", "color": "#C9642F", "accent": "#F2E3C0"},
+  "shirt": {"kind": "tee", "color": "#B5493A"},
+  "shoes": {"kind": "boots", "color": "#5E4632"},
+  "held": {"kind": "axe", "color": "#8A6B48", "accent": "#9FA8B5"}
+}

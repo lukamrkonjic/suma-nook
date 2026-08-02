@@ -1,0 +1,7 @@
+{
+  "id": "miner_set",
+  "hat": {"kind": "cap", "color": "#E8C34F", "accent": "#F6EBC8"},
+  "shirt": {"kind": "tee", "color": "#6E7B8A"},
+  "shoes": {"kind": "boots", "color": "#4A443C"},
+  "held": {"kind": "pickaxe", "color": "#8A6B48", "accent": "#8E99A8"}
+}

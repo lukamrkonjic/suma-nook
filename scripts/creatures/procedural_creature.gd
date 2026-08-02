@@ -20,6 +20,15 @@ const MAX_SHAPES := 16
 ## outfits and other attachments re-seat themselves on this.
 signal pose_advanced
 
+## Fired by the action engine at authored phase events ("impact", "release",
+## "collect", ...) and once with "finished" when a non-looping action ends.
+signal action_event(action_name: String, event_name: String)
+
+const ACTION_LIBRARY_PATH := "res://data/creature_actions.json"
+const ACTION_NEUTRAL_REACH := Vector3(0.72, -0.68, 0.0)
+
+static var _action_library: Dictionary = {}
+
 ## Per-tick motion inputs, expressed in the creature root's local space.
 class MotionState:
 	var local_velocity := Vector3.ZERO
@@ -89,6 +98,19 @@ var _flap_rate := 0.0
 var _outfit: Node3D
 var _anchor_arms: Array[Dictionary] = []
 var _anchor_legs: Array[Dictionary] = []
+
+var _action_name := ""
+var _action_phases: Array = []
+var _action_seconds := 1.0
+var _action_loop := false
+var _action_time := 0.0
+var _action_weight := 0.0
+var _action_active := false
+var _action_next_phase := 0
+var _action_reach := ACTION_NEUTRAL_REACH
+var _action_spread := 0.0
+var _action_body_pitch := 0.0
+var _action_head_pitch := 0.0
 
 
 func build_from_path(definition_path: String) -> void:
@@ -212,6 +234,171 @@ func notify_surprise() -> void:
 	_surprise = 1.0
 
 
+# ------------------------------------------------------------------ actions
+
+## Play a named action from data/creature_actions.json, layered on top of
+## locomotion. `seconds` rescales the authored cycle (SkillActions passes the
+## equipment-adjusted cycle time). Looping actions run until stop_action()
+## or the next play_action() replaces them.
+func play_action(action_name: String, seconds := -1.0) -> void:
+	var definition := _action_definition(action_name)
+	if definition.is_empty():
+		stop_action()
+		return
+	_action_name = action_name
+	_action_phases = definition.get("phases", []) as Array
+	_action_seconds = (
+		seconds if seconds > 0.05
+		else float(definition.get("seconds", 0.8))
+	)
+	_action_loop = bool(definition.get("loop", false))
+	_action_time = 0.0
+	_action_next_phase = 0
+	_action_active = true
+
+
+func stop_action() -> void:
+	_action_active = false
+
+
+func is_action_active() -> bool:
+	return _action_active
+
+
+## Where inside the cycle the visible hit lands, so gameplay can await it.
+func action_impact_ratio(action_name: String, fallback: float) -> float:
+	var definition := _action_definition(action_name)
+	return clampf(float(definition.get("impact_ratio", fallback)), 0.01, 0.99)
+
+
+func _action_definition(action_name: String) -> Dictionary:
+	if _action_library.is_empty():
+		var source := FileAccess.get_file_as_string(ACTION_LIBRARY_PATH)
+		var parsed: Variant = JSON.parse_string(source)
+		if parsed is Dictionary:
+			_action_library = parsed as Dictionary
+	return _action_library.get(action_name, {}) as Dictionary
+
+
+func _advance_action(delta: float) -> void:
+	var ramp := 1.0 - exp(-11.0 * delta)
+	_action_weight = lerpf(
+		_action_weight, 1.0 if _action_active else 0.0, ramp
+	)
+	if not _action_active:
+		if _action_weight < 0.001:
+			_action_name = ""
+		return
+	_action_time += delta
+	var cycle := _action_time / maxf(_action_seconds, 0.05)
+	if cycle >= 1.0:
+		if _action_loop:
+			_action_time = fmod(_action_time, _action_seconds)
+			cycle = _action_time / _action_seconds
+			_action_next_phase = 0
+		else:
+			_sample_action_pose(1.0)
+			_fire_action_events(1.01)
+			action_event.emit(_action_name, "finished")
+			_action_active = false
+			return
+	_fire_action_events(cycle)
+	_sample_action_pose(cycle)
+
+
+func _fire_action_events(cycle: float) -> void:
+	while _action_next_phase < _action_phases.size():
+		var phase := _action_phases[_action_next_phase] as Dictionary
+		if cycle < float(phase.get("t", 1.0)):
+			break
+		if phase.has("event"):
+			action_event.emit(_action_name, String(phase.get("event")))
+		if phase.has("squash"):
+			_landing_squash = maxf(
+				_landing_squash, float(phase.get("squash"))
+			)
+		_action_next_phase += 1
+
+
+func _sample_action_pose(cycle: float) -> void:
+	var previous_t := 0.0
+	var previous_pose := {
+		"reach": ACTION_NEUTRAL_REACH, "spread": 0.0,
+		"body_pitch": 0.0, "head_pitch": 0.0,
+	}
+	for phase_value in _action_phases:
+		var phase := phase_value as Dictionary
+		var phase_t := float(phase.get("t", 1.0))
+		var pose := {
+			"reach": _phase_reach(phase, previous_pose),
+			"spread": float(phase.get("spread", 0.0)),
+			"body_pitch": float(phase.get("body_pitch", 0.0)),
+			"head_pitch": float(phase.get("head_pitch", 0.0)),
+		}
+		if cycle <= phase_t or phase_t >= 1.0:
+			var span := maxf(phase_t - previous_t, 0.0001)
+			var alpha := _action_ease(
+				clampf((cycle - previous_t) / span, 0.0, 1.0),
+				String(phase.get("ease", "inout"))
+			)
+			_action_reach = (previous_pose["reach"] as Vector3).lerp(
+				pose["reach"] as Vector3, alpha
+			)
+			_action_spread = lerpf(
+				float(previous_pose["spread"]), float(pose["spread"]), alpha
+			)
+			_action_body_pitch = lerpf(
+				float(previous_pose["body_pitch"]),
+				float(pose["body_pitch"]),
+				alpha
+			)
+			_action_head_pitch = lerpf(
+				float(previous_pose["head_pitch"]),
+				float(pose["head_pitch"]),
+				alpha
+			)
+			return
+		previous_t = phase_t
+		previous_pose = pose
+
+
+func _phase_reach(phase: Dictionary, previous_pose: Dictionary) -> Vector3:
+	var reach: Variant = phase.get("reach")
+	if reach is Array and (reach as Array).size() >= 3:
+		return Vector3(
+			float((reach as Array)[0]),
+			float((reach as Array)[1]),
+			float((reach as Array)[2])
+		)
+	return previous_pose.get("reach", ACTION_NEUTRAL_REACH) as Vector3
+
+
+func _action_ease(alpha: float, kind: String) -> float:
+	match kind:
+		"linear":
+			return alpha
+		"in":
+			return alpha * alpha
+		"out":
+			return 1.0 - (1.0 - alpha) * (1.0 - alpha)
+	return alpha * alpha * (3.0 - 2.0 * alpha)
+
+
+## Creatures without arms translate arm reach into a head lunge, so a
+## quadruped "chops" with an adorable headbutt-peck instead of doing nothing.
+func _action_head_push() -> Vector3:
+	if _action_weight < 0.001:
+		return Vector3.ZERO
+	if clampi(int(_arms.get("count", 0)), 0, 3) > 0:
+		return Vector3.ZERO
+	var head_radius := float(_head.get("radius", 0.1))
+	return Vector3(
+		0.0,
+		(_action_reach.y - ACTION_NEUTRAL_REACH.y) * 0.16,
+		_action_reach.z * 0.4
+	) * head_radius * _action_weight
+
+
 ## The owner calls this once per physics tick; nothing animates without it.
 func advance(delta: float, state: MotionState) -> void:
 	if not visible or not is_instance_valid(_shell):
@@ -225,6 +412,7 @@ func advance(delta: float, state: MotionState) -> void:
 	_idle_time += delta
 	_landing_squash = move_toward(_landing_squash, 0.0, delta * 4.2)
 	_surprise = move_toward(_surprise, 0.0, delta * 1.2)
+	_advance_action(delta)
 	_gait_phase = fposmod(
 		_gait_phase + speed * delta * float(_gait.get("cadence", 6.4)), TAU
 	)
@@ -298,7 +486,11 @@ func _update_body(delta: float, state: MotionState, movement_amount: float) -> v
 		)
 	_pitch = lerpf(_pitch, pitch_target, 1.0 - exp(-7.0 * delta))
 	_bank = lerpf(_bank, roll_target, 1.0 - exp(-6.0 * delta))
-	_body_rotation = Vector3(_pitch + _torso_rest_pitch(), 0.0, _bank)
+	_body_rotation = Vector3(
+		_pitch + _torso_rest_pitch() + _action_body_pitch * _action_weight,
+		0.0,
+		_bank
+	)
 
 
 func _update_head(delta: float, state: MotionState, movement_amount: float) -> void:
@@ -313,6 +505,7 @@ func _update_head(delta: float, state: MotionState, movement_amount: float) -> v
 		Vector3(state.local_velocity.x, 0.0, state.local_velocity.z)
 		* -float(_juice.get("head_lag", 0.045)) * 0.02
 	)
+	target += body_basis * _action_head_push()
 	_head_spring_velocity += (target - _head_position) * 140.0 * delta
 	_head_spring_velocity *= exp(-13.0 * delta)
 	_head_position += _head_spring_velocity * delta
@@ -605,6 +798,23 @@ func _append_arm_shapes(
 				-arm_length * 0.72,
 				lateral.z * arm_length * 0.75 + swing * swing_sign * arm_length
 			)
+		if _action_weight > 0.001:
+			# Actions steer hands toward an authored reach point (in arm-length
+			# units); side arms mirror, a back arm follows straight behind.
+			var reach_offset: Vector3
+			if arm_index == 2:
+				reach_offset = Vector3(
+					0.0,
+					_action_reach.y * arm_length,
+					maxf(-_action_reach.z, 0.25) * arm_length
+				)
+			else:
+				reach_offset = Vector3(
+					lateral.x * (_action_reach.x + _action_spread) * arm_length,
+					_action_reach.y * arm_length,
+					_action_reach.z * arm_length
+				)
+			hand_offset = hand_offset.lerp(reach_offset, _action_weight)
 		var hand := shoulder + body_basis * hand_offset
 		_append_shape(
 			shape_a, shape_b, colors, shoulder, hand,
@@ -882,7 +1092,8 @@ func _two_bone_joint(
 func _head_basis() -> Basis:
 	return Basis.from_euler(
 		Vector3(
-			_body_rotation.x * 0.25 + _head_look.x,
+			_body_rotation.x * 0.25 + _head_look.x
+			+ _action_head_pitch * _action_weight,
 			_head_look.y,
 			_body_rotation.z * 0.25 + _head_tilt
 		)

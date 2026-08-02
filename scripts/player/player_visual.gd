@@ -278,6 +278,13 @@ func set_procedural_critter_enabled(enabled: bool) -> void:
 		_procedural_critter.name = "ProceduralCritterPlayer"
 		add_child(_procedural_critter)
 		_procedural_critter.call("build")
+		# The critter's action engine keeps the legacy animation contract:
+		# its phase events surface through the same animation_event signal.
+		_procedural_critter.connect(
+			"action_event",
+			func(action_name: String, event_name: String) -> void:
+				animation_event.emit(action_name, event_name)
+		)
 	_sync_procedural_critter_visibility()
 
 
@@ -1265,6 +1272,14 @@ func set_walk(amount: float, delta: float) -> void:
 func play(anim: String, cycle_duration := -1.0) -> void:
 	if not ANIMATION_MANIFEST.has(anim):
 		return
+	if _procedural_critter_enabled and is_instance_valid(_procedural_critter):
+		var previous := _current_anim
+		if previous != "idle" and previous != anim:
+			animation_finished.emit(previous)
+		_current_anim = anim
+		animation_started.emit(anim)
+		_procedural_critter.call("play_action", anim, cycle_duration)
+		return
 	if _uses_rigged_preview and _continue_authored_loop(anim, cycle_duration):
 		return
 	var previous_anim := _current_anim
@@ -1490,6 +1505,10 @@ func authored_action_duration(anim: String, fallback: float) -> float:
 
 
 func authored_action_impact_ratio(anim: String, fallback: float) -> float:
+	if _procedural_critter_enabled and is_instance_valid(_procedural_critter):
+		return float(
+			_procedural_critter.call("action_impact_ratio", anim, fallback)
+		)
 	return clampf(
 		float(_asset_profile.action_impact_ratios.get(anim, fallback)),
 		0.01,

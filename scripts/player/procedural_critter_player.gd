@@ -10,6 +10,10 @@ const ProceduralCreatureScript := preload(
 )
 const DEFAULT_DEFINITION := "res://data/creatures/nook_kit.json"
 
+## Re-broadcast of the creature action engine's phase events so PlayerVisual
+## can keep its legacy animation_event contract.
+signal action_event(action_name: String, event_name: String)
+
 var _creature: Node3D
 var _controller: CharacterBody3D
 var _was_grounded := true
@@ -23,6 +27,33 @@ func build(definition_path := DEFAULT_DEFINITION) -> void:
 	_creature.name = "Creature"
 	add_child(_creature)
 	_creature.call("build_from_path", definition_path)
+	_creature.connect(
+		"action_event",
+		func(action_name: String, event_name: String) -> void:
+			action_event.emit(action_name, event_name)
+	)
+
+
+## Action layer pass-throughs (chop, mine, fish_cast, ... from
+## data/creature_actions.json). "idle"/"walk" resolve to stopping.
+func play_action(action_name: String, seconds := -1.0) -> void:
+	if not is_instance_valid(_creature):
+		return
+	if action_name == "idle" or action_name == "walk":
+		_creature.call("stop_action")
+	else:
+		_creature.call("play_action", action_name, seconds)
+
+
+func stop_action() -> void:
+	if is_instance_valid(_creature):
+		_creature.call("stop_action")
+
+
+func action_impact_ratio(action_name: String, fallback: float) -> float:
+	if is_instance_valid(_creature):
+		return float(_creature.call("action_impact_ratio", action_name, fallback))
+	return fallback
 
 
 func definition_id() -> String:
