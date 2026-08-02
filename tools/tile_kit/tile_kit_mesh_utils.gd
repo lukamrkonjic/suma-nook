@@ -527,6 +527,85 @@ static func _slab_outline(half_x: float, half_z: float, corner: float,
 	return [points, outwards]
 
 
+# --- faceted chunks ----------------------------------------------------------
+
+
+## Appends one flat-shaded triangle: every corner carries the face normal.
+## The deliberately faceted read — soil clods, rough stones, chunky rock —
+## comes from this, exactly as in the audited reference geometry, where clod
+## and stone fields are pure per-face shading at very low triangle counts.
+static func add_flat_triangle(
+	batch: MeshBatch,
+	key: String,
+	a: Vector3,
+	b: Vector3,
+	c: Vector3
+) -> void:
+	# Godot front faces are CLOCKWISE: the right-hand normal of (b-a)x(c-a)
+	# points away from the viewer of the a→b→c winding.
+	var normal := (c - a).cross(b - a)
+	if normal.length_squared() < 0.0000001:
+		return
+	normal = normal.normalized()
+	batch.add(key, PackedVector3Array([a, b, c]),
+		PackedVector3Array([normal, normal, normal]),
+		PackedInt32Array([0, 1, 2]))
+
+
+## An irregular chunky low-poly lump, flat-shaded: the premium "hand-cut"
+## solid for soil clods, rough cobbles, rocks, and rubble. Construction:
+## a jittered convex bottom outline, a shrunken tilted top outline, quad
+## side facets and a fanned top facet — 20-40 triangles that read as one
+## confident sculpted chunk at any distance, never as a smooth blob.
+static func add_faceted_chunk(
+	batch: MeshBatch,
+	key: String,
+	centre: Vector3,
+	radius_x: float,
+	radius_z: float,
+	height: float,
+	yaw: float,
+	rng: RandomNumberGenerator,
+	points: int = 6,
+	top_scale: float = 0.62,
+	sink_fraction: float = 0.16
+) -> void:
+	var basis := Basis(Vector3.UP, yaw)
+	var bottom: Array[Vector3] = []
+	var top: Array[Vector3] = []
+	# Tilted top plane: the crown leans a little, so no two chunks present
+	# the same highlight facet.
+	var tilt := Vector2(rng.randf_range(-0.22, 0.22), rng.randf_range(-0.22, 0.22))
+	var top_shift := Vector2(rng.randf_range(-0.18, 0.18),
+		rng.randf_range(-0.18, 0.18))
+	var base_y := centre.y - height * sink_fraction
+	for index in points:
+		var angle := TAU * (float(index) + rng.randf_range(-0.22, 0.22)) \
+			/ float(points)
+		var radius := rng.randf_range(0.78, 1.18)
+		var local := Vector2(cos(angle) * radius_x * radius,
+			sin(angle) * radius_z * radius)
+		bottom.append(centre + basis * Vector3(local.x, base_y - centre.y, local.y))
+		var top_local := local * top_scale \
+			+ Vector2(top_shift.x * radius_x, top_shift.y * radius_z)
+		var top_y := height * (1.0 - sink_fraction) \
+			+ top_local.x * tilt.x + top_local.y * tilt.y
+		top.append(centre + basis * Vector3(top_local.x, top_y, top_local.y))
+	# Side facets.
+	for index in points:
+		var next := (index + 1) % points
+		add_flat_triangle(batch, key, bottom[index], bottom[next], top[next])
+		add_flat_triangle(batch, key, bottom[index], top[next], top[index])
+	# Top facets, fanned from the crown centroid.
+	var crown := Vector3.ZERO
+	for point in top:
+		crown += point
+	crown /= float(points)
+	for index in points:
+		var next := (index + 1) % points
+		add_flat_triangle(batch, key, top[index], top[next], crown)
+
+
 # --- rounded organic solids --------------------------------------------------
 
 

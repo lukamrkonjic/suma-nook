@@ -79,15 +79,26 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 			rng.randf_range(float(height_band[0]), float(height_band[1]))) + sink
 		var corner: float = layer.value("stone_corner", 0.028)
 		var bevel := 0.016
+		var profile := String(layer.value("stone_profile", "slab"))
+		var piece_key := stone_key if not stone_key.is_empty() \
+			else TileKitPalette.weighted_key(rng, weights)
+		# Faceted profile: each stone is a chunky flat-shaded lump — the
+		# audited cobble field is exactly this, a couple hundred triangles
+		# of confident hand-cut facets for the whole tile.
+		if profile == "faceted":
+			TileKitMeshUtils.add_faceted_chunk(batch, piece_key,
+				Vector3(centre.x, base_y - sink, centre.y),
+				half_x, half_z, stone_height + sink,
+				yaw + rng.randf_range(-0.1, 0.1), rng,
+				6, rng.randf_range(0.52, 0.68), 0.0)
+			continue
 		# Cushion profile: each stone becomes a fat rounded pillow — corner
 		# radius near its half-extent, bevel over half its height — the chunky
 		# tactile cobble read, from the same slab primitive.
-		if String(layer.value("stone_profile", "slab")) == "cushion":
+		if profile == "cushion":
 			corner = minf(half_x, half_z) * 0.72
 			bevel = stone_height * 0.55
-		TileKitMeshUtils.add_slab(batch,
-			stone_key if not stone_key.is_empty()
-				else TileKitPalette.weighted_key(rng, weights),
+		TileKitMeshUtils.add_slab(batch, piece_key,
 			Vector3(centre.x, base_y - sink, centre.y),
 			half_x, half_z,
 			corner,

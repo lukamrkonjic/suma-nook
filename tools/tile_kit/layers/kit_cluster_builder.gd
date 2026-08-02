@@ -49,6 +49,8 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 	# accent tiles where the grass is a subject rather than a surface.
 	var composition: Array
 	var mode := String(layer.value("coverage_mode", "carpet"))
+	if mode == "tufts":
+		return _build_tuft_composition(layer, rng, context)
 	if mode == "turf":
 		return _build_turf(layer, rng, context)
 	if mode == "carpet":
@@ -134,6 +136,197 @@ static func _compose_carpet(layer: TileKitLayer, rng: RandomNumberGenerator,
 				"yaw": rng.randf() * TAU,
 			})
 	return result
+
+
+# --- tufts: art-directed sparse grass ----------------------------------------
+
+## Handcrafted composition templates, in normalised tile space (−1..1).
+## Each entry: broad low turf masses (the MACRO form) plus tuft anchors with
+## size classes 0/1/2 (the MEDIUM forms). Placement mutates a template —
+## jitter, whole-template rotation, scale wobble — so randomness varies a
+## strong composition instead of inventing a weak one. Negative space is part
+## of every template by construction.
+const TUFT_TEMPLATES := [
+	{ # Open centre, growth gathered on two opposing edges.
+		"masses": [[-0.05, -0.74, 0.55, 0.24], [0.18, 0.76, 0.48, 0.20]],
+		"tufts": [[-0.52, -0.70, 2], [0.30, -0.78, 1], [-0.05, -0.55, 0],
+			[0.58, 0.68, 2], [-0.15, 0.72, 1], [0.72, 0.30, 0]],
+	},
+	{ # One large diagonal turf mass; the far corner stays open.
+		"masses": [[-0.22, -0.22, 0.78, 0.34]],
+		"tufts": [[-0.55, -0.48, 2], [-0.10, -0.15, 1], [0.28, 0.10, 1],
+			[-0.72, 0.05, 0], [0.62, 0.66, 0]],
+	},
+	{ # Quiet front, taller cluster at the rear.
+		"masses": [[0.02, -0.58, 0.62, 0.30]],
+		"tufts": [[-0.35, -0.62, 2], [0.25, -0.50, 2], [0.60, -0.70, 1],
+			[-0.68, -0.30, 1], [0.05, 0.25, 0]],
+	},
+	{ # Two unequal side clusters with a clear central channel.
+		"masses": [[-0.62, -0.10, 0.34, 0.44], [0.68, 0.35, 0.26, 0.30]],
+		"tufts": [[-0.60, -0.42, 2], [-0.55, 0.28, 1], [0.66, 0.10, 1],
+			[0.60, 0.62, 0], [-0.20, 0.75, 0]],
+	},
+	{ # Large corner mass balanced by one far small accent.
+		"masses": [[-0.48, -0.48, 0.52, 0.42]],
+		"tufts": [[-0.62, -0.62, 2], [-0.15, -0.42, 1], [-0.50, -0.05, 1],
+			[0.55, 0.55, 1], [0.20, 0.15, 0]],
+	},
+]
+
+
+## The premium grass construction: a calm top, one or two broad low turf
+## masses, and a handful of chunky directional blade tufts — each tuft one
+## designed silhouette. Never a carpet, never bubbles.
+static func _build_tuft_composition(layer: TileKitLayer,
+		rng: RandomNumberGenerator, context: Dictionary) -> Dictionary:
+	var half: float = context.get("surface_half", 0.85)
+	var top: float = context.get("surface_top", 0.0)
+	var cap_height: Callable = context.get("cap_height", Callable())
+	var stones: Array = context.get("paver_stones", [])
+	var batch := TileKitMeshUtils.MeshBatch.new()
+
+	var template: Dictionary = TUFT_TEMPLATES[rng.randi() % TUFT_TEMPLATES.size()]
+	# Whole-template rotation in quarter turns keeps compositions fresh
+	# across neighbouring tiles without ever mirroring one against another.
+	var quarter := rng.randi() % 4
+	var scale_wobble := rng.randf_range(0.9, 1.06)
+	var primary := String(layer.value("primary_key", "tile_top"))
+	var blade_dark := String(layer.value("blade_key", "grass_primary"))
+	var blade_light := String(layer.value("blade_light_key", "grass_secondary"))
+	var mass_height_band: Array = layer.value("mass_height", [0.026, 0.042])
+	var mass_scale: float = layer.value("mass_scale", 1.0)
+	var tuft_scale: float = layer.value("tuft_scale", 1.0)
+	var lean_strength: float = layer.value("tuft_lean", 0.55)
+	var extra_tufts := KitDressingBuilder._int_range(
+		rng, layer.value("extra_tufts", [0, 1]))
+	var prevailing := rng.randf() * TAU
+
+	# MACRO: broad low turf masses in the top's own colour — raised ground,
+	# not decoration. Their smooth lobed silhouette carries the tile edge.
+	for raw_mass: Array in template.get("masses", []):
+		var position := _template_point(
+			Vector2(raw_mass[0], raw_mass[1]), quarter, rng, half, scale_wobble)
+		var radius_x: float = raw_mass[2] * half * scale_wobble * mass_scale
+		var radius_z: float = raw_mass[3] * half * scale_wobble * mass_scale
+		if _blocked_by_stone(position, stones, 0.02):
+			continue
+		var surface_y := top
+		if cap_height.is_valid():
+			surface_y = top + float(cap_height.call(Vector2(
+				clampf(position.x, -half, half),
+				clampf(position.y, -half, half))))
+		var mass_height := rng.randf_range(float(mass_height_band[0]),
+			float(mass_height_band[1]))
+		TileKitMeshUtils.add_lobed_mound(batch, primary,
+			Vector3(position.x, surface_y - mass_height * 0.12, position.y),
+			radius_x, radius_z, mass_height,
+			rng.randf() * TAU, rng, 0.17, 4, 14, 0.7)
+		# A few blades rise from the mass itself so it reads as grass depth,
+		# not a plinth.
+		for sprout in rng.randi_range(2, 3):
+			var sprout_at := position + Vector2(
+				rng.randf_range(-radius_x, radius_x) * 0.55,
+				rng.randf_range(-radius_z, radius_z) * 0.55)
+			_build_tuft(batch, layer, rng, sprout_at,
+				surface_y + mass_height * 0.55, 0, tuft_scale,
+				prevailing, lean_strength, blade_dark, blade_light)
+
+	# MEDIUM: the tuft anchors — each one readable silhouette.
+	var placed: Array[Vector2] = []
+	for raw_tuft: Array in template.get("tufts", []):
+		var position := _template_point(
+			Vector2(raw_tuft[0], raw_tuft[1]), quarter, rng, half, scale_wobble)
+		if _blocked_by_stone(position, stones, 0.06):
+			continue
+		var surface_y := top
+		if cap_height.is_valid():
+			surface_y = top + float(cap_height.call(Vector2(
+				clampf(position.x, -half, half),
+				clampf(position.y, -half, half))))
+		_build_tuft(batch, layer, rng, position, surface_y,
+			int(raw_tuft[2]), tuft_scale, prevailing, lean_strength,
+			blade_dark, blade_light)
+		placed.append(position)
+	# Optional stray tufts, kept clear of existing ones.
+	for extra in extra_tufts:
+		var position := Vector2(rng.randf_range(-half * 0.7, half * 0.7),
+			rng.randf_range(-half * 0.7, half * 0.7))
+		var clear := true
+		for existing in placed:
+			if existing.distance_to(position) < 0.34:
+				clear = false
+				break
+		if not clear or _blocked_by_stone(position, stones, 0.06):
+			continue
+		var surface_y := top
+		if cap_height.is_valid():
+			surface_y = top + float(cap_height.call(position))
+		_build_tuft(batch, layer, rng, position, surface_y, 0, tuft_scale,
+			prevailing, lean_strength, blade_dark, blade_light)
+		placed.append(position)
+
+	context["grass_clusters"] = placed
+	return {
+		"meshes": [{"role": "detail", "name": "tile_grass",
+			"mesh": batch.commit()}],
+	}
+
+
+static func _template_point(normalised: Vector2, quarter: int,
+		rng: RandomNumberGenerator, half: float, scale: float) -> Vector2:
+	var rotated := normalised
+	for turn in quarter:
+		rotated = Vector2(-rotated.y, rotated.x)
+	var jittered := rotated * scale + Vector2(
+		rng.randf_range(-0.07, 0.07), rng.randf_range(-0.07, 0.07))
+	return jittered * half
+
+
+## One designed grass tuft: three to seven broad tapered blades emerging from
+## a shared crown, fanned around a shared lean direction with one or two
+## counter-leaning balances — a single readable silhouette, chunky enough to
+## survive the gameplay camera. Size class 0/1/2 scales count and height.
+static func _build_tuft(batch: TileKitMeshUtils.MeshBatch,
+		layer: TileKitLayer, rng: RandomNumberGenerator, centre: Vector2,
+		crown_y: float, size_class: int, scale: float, prevailing: float,
+		lean_strength: float, dark_key: String, light_key: String) -> void:
+	var blade_counts := [3, 4, 6]
+	var height_bands := [[0.085, 0.125], [0.115, 0.165], [0.150, 0.230]]
+	var blade_count: int = int(blade_counts[size_class]) + (rng.randi() % 2)
+	var height_band: Array = height_bands[size_class]
+	var tuft_yaw := prevailing + rng.randf_range(-0.9, 0.9)
+	var crown_radius := 0.022 * scale * (1.0 + 0.35 * size_class)
+	for blade in blade_count:
+		# Fan around the tuft direction; roughly one blade in four leans
+		# against the flow, which keeps the silhouette balanced.
+		var against: bool = (blade % 4) == 3
+		var yaw: float = tuft_yaw + (PI if against else 0.0)
+		yaw += rng.randf_range(-1.0, 1.0)
+		var direction := Vector2(cos(yaw), sin(yaw))
+		var blade_height := rng.randf_range(float(height_band[0]),
+			float(height_band[1])) * scale \
+			* float(layer.value("height_multiplier", 1.0))
+		var blade_width := clampf(blade_height * rng.randf_range(0.26, 0.34),
+			0.030, 0.085)
+		var reach := blade_height * lean_strength \
+			* rng.randf_range(0.5, 1.05) * (0.55 if against else 1.0)
+		var root := centre + direction * crown_radius \
+			* rng.randf_range(0.3, 1.0)
+		var lean := Vector3(direction.x, 0.0, direction.y)
+		var p0 := Vector3(root.x, crown_y - 0.014, root.y)
+		var p1 := p0 + Vector3.UP * (blade_height * 0.45) \
+			+ lean * (reach * 0.08)
+		var p2 := p0 + Vector3.UP * (blade_height * 0.82) \
+			+ lean * (reach * 0.45)
+		var p3 := p0 + Vector3.UP * blade_height + lean * reach
+		var key := dark_key
+		if rng.randf() < 0.22:
+			key = light_key
+		# Low ring counts keep the blade CHUNKY — a sculpted wedge with a
+		# soft diamond section, not a smooth capsule.
+		TileKitMeshUtils.add_blade(batch, key, p0, p1, p2, p3, blade_width,
+			rng.randf_range(0.42, 0.58), 5, 5, 2)
 
 
 # --- turf: sculpted carpet mode ----------------------------------------------

@@ -14,7 +14,7 @@ params = {
 "bottom_chamfer": 0.016,
 "corner_radius": 0.075,
 "lower_key": "earth_deep",
-"relief_amplitude": 0.036,
+"relief_amplitude": 0.03,
 "relief_bipolar": false,
 "relief_edge_feather": 0.2,
 "relief_frequency": 2.2,
@@ -44,22 +44,22 @@ params = {
 script = ExtResource("1_g3xmj")
 kind = "clutter"
 params = {
-"cluster_fraction": 0.82,
-"cluster_radius": 0.24,
+"cluster_fraction": 0.9,
+"cluster_radius": 0.22,
 "color_weights": {
-"earth_clump": 45.0,
-"stone_medium": 25.0,
-"wood_medium": 30.0
+"earth_clump": 40.0,
+"earth_deep": 35.0,
+"earth_side": 25.0
 },
-"count": [7, 10],
-"diameter": [0.09, 0.17],
+"count": [6, 9],
+"diameter": [0.12, 0.2],
 "edge_margin": 0.035,
-"height": [0.014, 0.03],
-"min_spacing": 0.055,
+"height": [0.016, 0.03],
+"min_spacing": 0.075,
 "on_dressing_fraction": 0.55,
 "placement_mode": "clusters",
 "scale_multiplier": 1.0,
-"shapes": ["pebble", "nub", "twig", "leaf_litter"]
+"shapes": ["clod", "clod", "clod", "pebble"]
 }
 
 [sub_resource type="Resource" id="Resource_u7fmx"]
@@ -73,11 +73,16 @@ params = {
 "carpet_jitter": 0.3,
 "carpet_skip_fraction": 0.1,
 "carpet_spacing": 0.315,
-"coverage_mode": "turf",
+"coverage_mode": "tufts",
+"extra_tufts": [0, 1],
 "leaf_height": [0.095, 0.15],
 "leaf_width": [0.058, 0.088],
+"mass_height": [0.026, 0.042],
+"mass_scale": 1.0,
 "rosette_footprint": [0.14, 0.2],
 "rosette_leaves": [3, 5],
+"tuft_lean": 0.55,
+"tuft_scale": 1.0,
 "turf_footprint": [0.22, 0.34],
 "turf_height": [0.03, 0.055],
 "turf_lobe_depth": 0.2,

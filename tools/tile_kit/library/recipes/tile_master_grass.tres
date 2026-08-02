@@ -14,7 +14,7 @@ params = {
 "bottom_chamfer": 0.016,
 "corner_radius": 0.075,
 "lower_key": "tile_lower",
-"relief_amplitude": 0.018,
+"relief_amplitude": 0.016,
 "relief_bipolar": false,
 "relief_edge_feather": 0.2,
 "relief_frequency": 2.2,
@@ -62,23 +62,28 @@ params = {
 script = ExtResource("1_qfr5k")
 kind = "grass_clusters"
 params = {
-"accent_clumps": [2, 3],
-"blade_fraction": 0.62,
-"blades_per_tuft": [3, 5],
+"accent_clumps": [1, 2],
+"blade_fraction": 0.42,
+"blades_per_tuft": [2, 4],
 "carpet_jitter": 0.3,
 "carpet_skip_fraction": 0.1,
 "carpet_spacing": 0.315,
-"coverage_mode": "turf",
-"leaf_height": [0.1, 0.17],
+"coverage_mode": "tufts",
+"extra_tufts": [1, 2],
+"leaf_height": [0.095, 0.15],
 "leaf_width": [0.058, 0.088],
+"mass_height": [0.034, 0.055],
+"mass_scale": 1.15,
 "rosette_footprint": [0.14, 0.2],
 "rosette_leaves": [3, 5],
-"turf_footprint": [0.28, 0.42],
-"turf_height": [0.052, 0.078],
-"turf_lobe_depth": 0.27,
+"tuft_lean": 0.9,
+"tuft_scale": 1.45,
+"turf_footprint": [0.22, 0.34],
+"turf_height": [0.03, 0.055],
+"turf_lobe_depth": 0.2,
 "turf_overhang": 0.035,
-"turf_skip_fraction": 0.05,
-"turf_spacing": 0.22
+"turf_skip_fraction": 0.1,
+"turf_spacing": 0.26
 }
 
 [resource]

@@ -525,7 +525,9 @@ static func _basin_water(bevel: float, corner: float, rim: float, depth: float,
 		water_key: String, rng: RandomNumberGenerator) -> ArrayMesh:
 	var batch := TileKitMeshUtils.MeshBatch.new()
 	var inset := bevel + rim - 0.008
-	var level := -depth * 0.45
+	# The reference basin sets its water well below the land top — the
+	# visible inner wall above the surface is what sells the volume.
+	var level := -depth * 0.62
 	TileKitMeshUtils.add_rect_cap(batch, water_key, HALF, corner, 6,
 		inset, level, true)
 	TileKitMeshUtils.add_water_dressing(batch, rng, HALF, corner, inset, level,
@@ -545,7 +547,7 @@ static func _basin_height_function(bevel: float, corner: float,
 		var inset := -(outside + minf(maxf(q.x, q.y), 0.0) - corner)
 		if inset >= bevel + rim:
 			# Inside the pool: the water surface is the effective ground.
-			return -depth * 0.45
+			return -depth * 0.62
 		return float(bevel_height.call(local))
 
 

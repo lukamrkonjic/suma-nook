@@ -9,20 +9,20 @@ kind = "base"
 params = {
 "basin_depth": 0.0,
 "basin_rim": 0.17,
-"bevel_key": "stone_light",
+"bevel_key": "stone_medium",
 "bevel_segments": 6,
 "bottom_chamfer": 0.016,
 "corner_radius": 0.075,
 "lower_key": "stone_deep",
-"relief_amplitude": 0.012,
+"relief_amplitude": 0.0,
 "relief_bipolar": false,
 "relief_edge_feather": 0.2,
 "relief_frequency": 2.2,
 "relief_resolution": 24,
-"relief_style": "pillow",
-"side_key": "stone_deep",
+"relief_style": "none",
+"side_key": "stone_medium",
 "top_bevel": 0.075,
-"top_key": "stone_medium"
+"top_key": "stone_deep"
 }
 
 [sub_resource type="Resource" id="Resource_ikc4o"]
@@ -45,18 +45,18 @@ script = ExtResource("1_to1kl")
 kind = "pavers"
 params = {
 "color_weights": {
-"stone_light": 48.0,
-"stone_medium": 52.0
+"stone_light": 50.0,
+"stone_medium": 50.0
 },
-"gap": 0.026,
+"gap": 0.03,
 "pattern": "cobbles",
 "slab_key": "",
-"stone_cell": 0.33,
-"stone_cell_z": 0.26,
-"stone_corner": 0.035,
-"stone_height": [0.028, 0.046],
+"stone_cell": 0.34,
+"stone_cell_z": 0.27,
+"stone_corner": 0.028,
+"stone_height": [0.034, 0.055],
 "stone_jitter": 0.09,
-"stone_profile": "cushion"
+"stone_profile": "faceted"
 }
 
 [sub_resource type="Resource" id="Resource_cfp73"]
@@ -66,18 +66,17 @@ params = {
 "cluster_fraction": 0.7,
 "cluster_radius": 0.24,
 "color_weights": {
-"autumn_amber": 30.0,
-"moss_clump": 70.0
+"moss_clump": 100.0
 },
-"count": [3, 5],
-"diameter": [0.06, 0.11],
+"count": [1, 3],
+"diameter": [0.08, 0.13],
 "edge_margin": 0.035,
-"height": [0.01, 0.018],
+"height": [0.012, 0.02],
 "min_spacing": 0.055,
 "on_dressing_fraction": 0.55,
 "placement_mode": "clusters",
 "scale_multiplier": 1.0,
-"shapes": ["lobed_clump", "leaf_litter"]
+"shapes": ["lobed_clump"]
 }
 
 [sub_resource type="Resource" id="Resource_bif7s"]
@@ -91,11 +90,16 @@ params = {
 "carpet_jitter": 0.3,
 "carpet_skip_fraction": 0.1,
 "carpet_spacing": 0.315,
-"coverage_mode": "turf",
+"coverage_mode": "tufts",
+"extra_tufts": [0, 1],
 "leaf_height": [0.095, 0.15],
 "leaf_width": [0.058, 0.088],
+"mass_height": [0.026, 0.042],
+"mass_scale": 1.0,
 "rosette_footprint": [0.14, 0.2],
 "rosette_leaves": [3, 5],
+"tuft_lean": 0.55,
+"tuft_scale": 1.0,
 "turf_footprint": [0.22, 0.34],
 "turf_height": [0.03, 0.055],
 "turf_lobe_depth": 0.2,

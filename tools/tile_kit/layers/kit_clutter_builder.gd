@@ -17,9 +17,9 @@ extends RefCounted
 ## scatter reaches the true tile edge and repetition shows no bald seams.
 
 const ALL_SHAPES := ["dot", "oval", "leaf_pair", "lobed_clump", "nub",
-	"pebble", "stone_chip", "twig", "wood_chip", "leaf_litter", "mushroom",
-	"snow_lump", "drift_mound", "bud", "boulder", "lily_pad", "crystal",
-	"footprint"]
+	"clod", "rock", "pebble", "stone_chip", "twig", "wood_chip",
+	"leaf_litter", "mushroom", "snow_lump", "drift_mound", "bud", "boulder",
+	"lily_pad", "crystal", "footprint"]
 
 
 static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
@@ -169,6 +169,25 @@ static func _add_shape(batch: TileKitMeshUtils.MeshBatch, layer: TileKitLayer,
 		"nub":
 			TileKitMeshUtils.add_dome(batch, key, origin,
 				diameter * 0.42, diameter * 0.42, piece_height * 1.4, yaw)
+		"clod":
+			# A chunky flat-shaded soil clod — the audited reference builds
+			# entire soil fields from a handful of these faceted prisms.
+			TileKitMeshUtils.add_faceted_chunk(batch, key, origin,
+				diameter * 0.52, diameter * 0.44,
+				diameter * rng.randf_range(0.34, 0.50), yaw, rng,
+				5 + (rng.randi() % 2), 0.55)
+		"rock":
+			# A hero faceted rock: one big crystal-cut mass with a shoulder.
+			TileKitMeshUtils.add_faceted_chunk(batch, key, origin,
+				diameter * 0.55, diameter * 0.46,
+				diameter * rng.randf_range(0.45, 0.65), yaw, rng, 7, 0.55)
+			var shoulder_yaw := yaw + rng.randf_range(1.5, 2.7)
+			TileKitMeshUtils.add_faceted_chunk(batch, key,
+				origin + Vector3(cos(shoulder_yaw), 0.0, sin(shoulder_yaw)) \
+					* diameter * 0.42,
+				diameter * 0.30, diameter * 0.26,
+				diameter * rng.randf_range(0.22, 0.34), shoulder_yaw, rng,
+				6, 0.55)
 		"pebble":
 			# A clay pebble is a fat squashed dome, slightly oval, sunk a
 			# touch so it sits IN the ground rather than on it.

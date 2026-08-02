@@ -28,71 +28,70 @@ const COLORS := {
 	# moss green, the bevel a clear sunlit lift, and the side the SAME hue a
 	# full value step (~25%) darker — the volume must read at gameplay zoom,
 	# not only in close renders. Lightest greens appear only as sunlit tips.
-	"tile_top": Color("#7BA845"),
-	"tile_top_bevel": Color("#92C154"),
-	"tile_side": Color("#537537"),
-	"tile_lower": Color("#3F5C2C"),
-	"dressing_light": Color("#8CB554"),
-	"dressing_medium": Color("#78A247"),
-	"dressing_dark": Color("#67903E"),
-	"clutter_light": Color("#9CBE62"),
-	"clutter_medium": Color("#7FA84C"),
-	# Blades sit DEEPER than the top they grow from, so vegetation reads as
-	# richer material, and the sunlit tone stays reserved for accents.
-	"grass_primary": Color("#527D38"),
-	"grass_secondary": Color("#659647"),
-	"grass_root": Color("#3A5A2B"),
-	# Moss family: deeper, cooler greens for forest-floor tops.
-	"moss_top": Color("#689545"),
-	"moss_bevel": Color("#78A751"),
-	"moss_deep": Color("#456636"),
-	"moss_clump": Color("#55823E"),
-	# Earth family: cedar-and-loam browns; sides drop a full step so the
-	# block reads as compacted soil under a lit top.
-	"earth_top": Color("#B08355"),
-	"earth_bevel": Color("#C29464"),
-	"earth_side": Color("#7C5938"),
-	"earth_deep": Color("#573F26"),
-	"earth_clump": Color("#9D7546"),
-	# Stone family: cool grey-greens (wet PNW stone, not warm beige).
-	"stone_light": Color("#C1BCA4"),
-	"stone_medium": Color("#9B9A80"),
-	"stone_deep": Color("#6A6D5C"),
-	# Wood family: cedar tans, less yellow than the old cut-timber set.
-	"wood_light": Color("#C59B64"),
-	"wood_medium": Color("#A07A47"),
-	"wood_deep": Color("#6E522C"),
-	# Snow family: warm off-white tops over cool grey-green shadow sides —
-	# never pure white, never a warm grey side.
-	"snow_top": Color("#F4EFDF"),
-	"snow_bevel": Color("#FAF6EA"),
-	"snow_side": Color("#B2BEB6"),
-	"snow_lump": Color("#E9E6D5"),
-	# Sand family: warm golden dunes with a clearly darker shaded side.
-	"sand_top": Color("#ECC98A"),
-	"sand_bevel": Color("#F6DA9F"),
-	"sand_side": Color("#B4925C"),
-	"sand_deep": Color("#87683C"),
-	"sand_patch": Color("#DFBC79"),
+	# Grass family: confident warm yellow-green in the reference register —
+	# the audited grass reads far yellower than a "grass green" — pulled a
+	# step mossier for Suma. Sides are earthy olive, a full value below.
+	"tile_top": Color("#A3B944"),
+	"tile_top_bevel": Color("#B5CA51"),
+	"tile_side": Color("#6E7C34"),
+	"tile_lower": Color("#57642A"),
+	"dressing_light": Color("#B0C24F"),
+	"dressing_medium": Color("#93A93E"),
+	"dressing_dark": Color("#7E9536"),
+	"clutter_light": Color("#C2D05E"),
+	"clutter_medium": Color("#9DB245"),
+	# Blade tones: tufts sit slightly darker OR lighter than the top, never
+	# a different hue family. Root shadow anchors the tuft bases.
+	"grass_primary": Color("#87A139"),
+	"grass_secondary": Color("#C3D45E"),
+	"grass_root": Color("#5C7029"),
+	# Moss / forest family: deeper cooler green, still lively.
+	"moss_top": Color("#71903B"),
+	"moss_bevel": Color("#81A146"),
+	"moss_deep": Color("#4B6329"),
+	"moss_clump": Color("#5E7C31"),
+	# Earth family: warm loam, clearly darker and redder than sand.
+	"earth_top": Color("#A06B3E"),
+	"earth_bevel": Color("#B37A49"),
+	"earth_side": Color("#7A4E2B"),
+	"earth_deep": Color("#59371D"),
+	"earth_clump": Color("#8A5A32"),
+	# Stone family: warm greys — reference stone never goes blue.
+	"stone_light": Color("#CDC5AB"),
+	"stone_medium": Color("#A69E83"),
+	"stone_deep": Color("#75705A"),
+	# Wood family: golden cedar tops over darker sides.
+	"wood_light": Color("#BE8D58"),
+	"wood_medium": Color("#96683A"),
+	"wood_deep": Color("#66451F"),
+	# Snow family: warm ivory tops, cool pale-blue shadow sides.
+	"snow_top": Color("#F6F1E1"),
+	"snow_bevel": Color("#FBF7EB"),
+	"snow_side": Color("#B7C4CB"),
+	"snow_lump": Color("#EDEADB"),
+	# Sand family: creamy golden dunes — brighter and yellower than dirt.
+	"sand_top": Color("#EFD08F"),
+	"sand_bevel": Color("#F8DFA4"),
+	"sand_side": Color("#C09A5F"),
+	"sand_deep": Color("#8F7040"),
+	"sand_patch": Color("#E2C17C"),
 	# Mud family: dark damp earth with a wet-patch accent.
-	"mud_top": Color("#7E5F3E"),
-	"mud_bevel": Color("#8D6C48"),
-	"mud_wet": Color("#523D28"),
-	# Brick family: confident terracotta, warm and toy-like.
-	"brick_light": Color("#CC8560"),
-	"brick_medium": Color("#AB6146"),
-	# Still-water family: teal read as a VOLUME — a lighter lit surface over
-	# a deep interior, with one bright key reserved for ripple crests and
-	# the meniscus ring, never for whole pools.
-	"water_blue": Color("#48A79B"),
-	"water_deep": Color("#1F5F58"),
-	"water_light": Color("#85D3C2"),
+	"mud_top": Color("#7A5B38"),
+	"mud_bevel": Color("#886745"),
+	"mud_wet": Color("#4E3A24"),
+	# Brick / clay family: confident warm terracotta.
+	"brick_light": Color("#C97E52"),
+	"brick_medium": Color("#A05A3C"),
+	# Water family: restrained pale blue-green, translucent in material.
+	"water_blue": Color("#7FB2AB"),
+	"water_deep": Color("#3E7570"),
+	"water_light": Color("#A8D3C6"),
 	"lily_green": Color("#6B934C"),
-	# Blossom and autumn accents, muted to sit inside the moss register.
-	"blossom_pink": Color("#E09AA8"),
-	"blossom_cream": Color("#F1E3C6"),
-	"autumn_amber": Color("#D19349"),
-	"autumn_rust": Color("#B5623B"),
+	# Blossom and autumn accents.
+	"blossom_pink": Color("#E39DAD"),
+	"blossom_cream": Color("#F2E6C8"),
+	"autumn_amber": Color("#D29140"),
+	"autumn_rust": Color("#B3653A"),
 	# Small whimsical accents (mushroom caps, buds).
 	"accent_terracotta": Color("#C97A54"),
 	"accent_cream": Color("#EFE3C8"),
@@ -106,9 +105,10 @@ static func color(key: String) -> Color:
 	return COLORS[key]
 
 
-## The one shared material per palette key. Solid colour, matte, opaque —
-## the reference's softness comes from lighting on smooth geometry, not from
-## maps or transparency.
+## The one shared material per palette key. Solid colour and matte across the
+## board — with the single sanctioned exception of still water, which is a
+## slightly translucent, slightly glossy plane exactly like the reference's
+## basin water. Everything else stays opaque toy clay.
 static func material(key: String) -> StandardMaterial3D:
 	if _materials.has(key):
 		return _materials[key]
@@ -119,6 +119,11 @@ static func material(key: String) -> StandardMaterial3D:
 	result.roughness = 0.9
 	result.metallic_specular = 0.2
 	result.vertex_color_use_as_albedo = false
+	if key in ["water_blue", "water_light"]:
+		result.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		result.albedo_color.a = 0.86
+		result.roughness = 0.18
+		result.metallic_specular = 0.55
 	_materials[key] = result
 	return result
 

@@ -200,11 +200,12 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 	match tile_id:
 		# ------------------------------------------------------------ meadow
 		"tile_grass":
-			# The calibration tile: sculpted turf carpet, quiet and confident.
-			_set_base(preset, GREEN_BASE, "pillow", 0.014)
-			_turf(preset, {"turf_spacing": 0.24, "turf_footprint": [0.26, 0.38],
-				"turf_height": [0.042, 0.062], "blade_fraction": 0.35,
-				"accent_clumps": [1, 1]})
+			# PROTOTYPE — Standard Grass: calm vivid top, one broad turf
+			# mass, a few chunky directional tufts, real open ground.
+			_set_base(preset, GREEN_BASE, "pillow", 0.012)
+			_grass(preset, {"coverage_mode": "tufts", "tuft_scale": 1.0,
+				"mass_scale": 1.0, "mass_height": [0.024, 0.038],
+				"tuft_lean": 0.5, "extra_tufts": [0, 1]})
 		"tile_kit_grass":
 			# Dense Grass: tighter interlock, thicker pile, more sculpted tips.
 			_set_base(preset, GREEN_BASE, "pillow", 0.016)
@@ -233,14 +234,12 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 				{"min_spacing": 0.13, "cluster_fraction": 0.9,
 					"cluster_radius": 0.17})
 		"tile_master_grass":
-			# Wild Grass: the shaggiest sibling — deeper pile, taller tips,
-			# strongest silhouette break.
-			_set_base(preset, GREEN_BASE, "pillow", 0.018)
-			_turf(preset, {"turf_spacing": 0.22, "turf_footprint": [0.28, 0.42],
-				"turf_height": [0.052, 0.078], "turf_skip_fraction": 0.05,
-				"turf_lobe_depth": 0.27, "blade_fraction": 0.62,
-				"blades_per_tuft": [3, 5], "accent_clumps": [2, 3],
-				"leaf_height": [0.10, 0.17]})
+			# PROTOTYPE — Wild Grass: tall dramatic wind-swept tufts over
+			# larger turf masses; the strongest grass silhouette.
+			_set_base(preset, GREEN_BASE, "pillow", 0.016)
+			_grass(preset, {"coverage_mode": "tufts", "tuft_scale": 1.45,
+				"mass_scale": 1.15, "mass_height": [0.034, 0.055],
+				"tuft_lean": 0.9, "extra_tufts": [1, 2]})
 		"tile_proc_fenced_meadow":
 			_set_base(preset, GREEN_BASE, "pillow", 0.014)
 			_turf(preset, {"turf_spacing": 0.24, "turf_footprint": [0.24, 0.35],
@@ -251,16 +250,21 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 
 		# ------------------------------------------------------------ forest
 		"tile_grove_mature":
-			# Forest Floor: mossy turf over loam with a few grounded features.
-			_set_base(preset, MOSS_BASE, "pillow", 0.022)
-			_turf(preset, {"turf_spacing": 0.30, "turf_footprint": [0.22, 0.32],
-				"turf_height": [0.026, 0.042], "turf_skip_fraction": 0.22,
-				"blade_fraction": 0.25, "primary_key": "moss_top", "blade_key": "moss_deep",
-				"secondary_key": "moss_clump"})
-			_scatter(preset, ["lobed_clump", "twig", "leaf_litter", "mushroom"],
-				[5, 8], [0.09, 0.17],
-				{"moss_clump": 50.0, "wood_medium": 30.0, "autumn_amber": 20.0},
-				[0.014, 0.028])
+			# PROTOTYPE — Forest Floor: one broad moss mass, one leaf-litter
+			# drift, sparse dark tufts, a mushroom accent, exposed loam as
+			# negative space.
+			_set_base(preset, MOSS_BASE, "pillow", 0.020)
+			_grass(preset, {"coverage_mode": "tufts", "tuft_scale": 0.85,
+				"mass_scale": 1.1, "mass_height": [0.026, 0.042],
+				"tuft_lean": 0.45, "extra_tufts": [0, 0],
+				"primary_key": "moss_top", "blade_key": "moss_deep",
+				"blade_light_key": "moss_clump"})
+			_scatter(preset, ["leaf_litter", "leaf_litter", "twig",
+				"mushroom"], [8, 12], [0.10, 0.17],
+				{"autumn_amber": 45.0, "autumn_rust": 30.0,
+					"wood_medium": 25.0}, [0.014, 0.026],
+				{"placement_mode": "drift", "drift_bed_key": "autumn_rust",
+					"min_spacing": 0.045})
 		"tile_grove_birch":
 			_set_base(preset, MOSS_BASE, "pillow", 0.020)
 			_turf(preset, {"turf_spacing": 0.33, "turf_footprint": [0.20, 0.30],
@@ -377,13 +381,16 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 
 		# -------------------------------------------------------------- farm
 		"tile_dirt":
-			# Sculpted ground plus a few readable fragments settling together.
-			_set_base(preset, EARTH_BASE, "pillow", 0.036)
-			_scatter(preset, ["pebble", "nub", "twig", "leaf_litter"], [7, 10],
-				[0.09, 0.17],
-				{"earth_clump": 45.0, "wood_medium": 30.0, "stone_medium": 25.0},
-				[0.014, 0.030],
-				{"cluster_fraction": 0.82, "cluster_radius": 0.24})
+			# PROTOTYPE — Dirt Ground: softly compressed loam with two
+			# clusters of chunky flat-shaded clods, exactly the reference
+			# soil language. No dots.
+			_set_base(preset, EARTH_BASE, "pillow", 0.030)
+			_scatter(preset, ["clod", "clod", "clod", "pebble"], [6, 9],
+				[0.12, 0.20],
+				{"earth_clump": 40.0, "earth_deep": 35.0, "earth_side": 25.0},
+				[0.016, 0.030],
+				{"cluster_fraction": 0.9, "cluster_radius": 0.22,
+					"min_spacing": 0.075})
 		"tile_clay":
 			_set_base(preset, EARTH_BASE, "heaps", 0.026,
 				{"relief_heap_count": [5, 8], "relief_heap_radius": [0.12, 0.23],
@@ -429,14 +436,17 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 				[0.008, 0.014])
 			preset.separate_tiles = true
 		"tile_proc_pond_basin":
+			# PROTOTYPE — Small Pond: a real water volume — grass-rimmed
+			# basin, translucent pale surface set well below the rim, one
+			# lily group and a reed tuft on the rim.
 			_set_base(preset, GREEN_BASE, "none", 0.0,
-				{"basin_depth": 0.11, "basin_rim": 0.17,
+				{"basin_depth": 0.13, "basin_rim": 0.16,
 					"water_key": "water_blue"})
-			_scatter(preset, ["lily_pad", "lily_pad", "bud"], [3, 5],
+			_scatter(preset, ["lily_pad", "lily_pad", "bud"], [2, 4],
 				[0.20, 0.30], {"lily_green": 78.0, "blossom_cream": 22.0},
 				[0.008, 0.014],
-				{"min_spacing": 0.16, "edge_margin": 0.28,
-					"cluster_fraction": 0.85, "cluster_radius": 0.18})
+				{"min_spacing": 0.16, "edge_margin": 0.30,
+					"cluster_fraction": 1.0, "cluster_radius": 0.15})
 			preset.separate_tiles = true
 		"tile_open_water":
 			_set_base(preset, {"top_key": "water_deep", "bevel_key": "water_blue",
@@ -484,13 +494,15 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 			_scatter(preset, ["pebble", "oval"], [3, 5], [0.07, 0.12],
 				{"stone_light": 55.0, "sand_side": 45.0}, [0.010, 0.020])
 		"tile_proc_sand_dunes_study":
-			# The strongest dune sculpt in the family — a hero surface.
-			_set_base(preset, SAND_BASE, "sculpted_dunes", 0.075,
-				{"relief_resolution": 64, "relief_edge_feather": 0.27,
-					"dune_scale": 0.70, "dune_amount": 0.48,
-					"dune_softness": 0.68, "dune_irregularity": 0.72,
-					"dune_lee_depth": 0.34, "dune_direction_degrees": 318.0,
-					"dune_height_exponent": 1.10})
+			# PROTOTYPE — Sand Dunes: few broad wind-swept ridges at LOW mesh
+			# resolution, so the sculpt reads as confident hand-modelled
+			# sweeps rather than simulation noise.
+			_set_base(preset, SAND_BASE, "sculpted_dunes", 0.105,
+				{"relief_resolution": 20, "relief_edge_feather": 0.24,
+					"dune_scale": 0.85, "dune_amount": 0.40,
+					"dune_softness": 0.62, "dune_irregularity": 0.55,
+					"dune_lee_depth": 0.50, "dune_direction_degrees": 318.0,
+					"dune_height_exponent": 1.25})
 		"tile_wooden_planks":
 			_set_base(preset, WOOD_BASE, "pillow", 0.010)
 			_pavers(preset, {"pattern": "planks", "plank_width": 0.20,
@@ -524,14 +536,16 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 					"dune_softness": 0.90, "dune_irregularity": 0.40,
 					"dune_lee_depth": 0.12, "dune_direction_degrees": 322.0})
 		"tile_snow_drift":
-			# Deep Snow: hero heaps plus broad drift mounds fusing into them.
-			_set_base(preset, SNOW_BASE, "heaps", 0.110,
-				{"relief_heap_count": [3, 5], "relief_heap_radius": [0.20, 0.38],
-					"relief_resolution": 44})
-			_scatter(preset, ["drift_mound", "snow_lump"], [3, 5],
-				[0.18, 0.30], {"snow_lump": 100.0}, [0.016, 0.028],
-				{"min_spacing": 0.10, "cluster_fraction": 0.9,
-					"cluster_radius": 0.22})
+			# PROTOTYPE — Deep Snow: a THICK sculpted snow volume (the
+			# audited full-snow cap rises ~18% of tile width) with two or
+			# three broad settled pillows fused into it.
+			_set_base(preset, SNOW_BASE, "heaps", 0.150,
+				{"relief_heap_count": [3, 4], "relief_heap_radius": [0.26, 0.44],
+					"relief_resolution": 22, "relief_micro": 0.010})
+			_scatter(preset, ["drift_mound", "snow_lump"], [2, 4],
+				[0.22, 0.34], {"snow_lump": 100.0}, [0.018, 0.030],
+				{"min_spacing": 0.12, "cluster_fraction": 0.9,
+					"cluster_radius": 0.24})
 			preset.separate_tiles = true
 		"tile_proc_snow_drifts_study":
 			_set_base(preset, SNOW_BASE, "sculpted_dunes", 0.105,
@@ -613,17 +627,19 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 
 		# ------------------------------------------------------------- urban
 		"tile_cobblestone":
-			# Chunky rounded cobbles with moss seams: the tactile street.
-			_set_base(preset, STONE_BASE, "pillow", 0.012)
-			_pavers(preset, {"pattern": "cobbles", "stone_cell": 0.33,
-				"stone_cell_z": 0.26, "gap": 0.026, "stone_jitter": 0.09,
-				"stone_height": [0.028, 0.046], "stone_corner": 0.035,
-				"stone_profile": "cushion",
-				"slab_key": "", "color_weights": {"stone_medium": 52.0,
-					"stone_light": 48.0}})
-			_scatter(preset, ["lobed_clump", "leaf_litter"], [3, 5],
-				[0.06, 0.11], {"moss_clump": 70.0, "autumn_amber": 30.0},
-				[0.010, 0.018])
+			# PROTOTYPE — Cobblestone: hand-cut faceted stones in a dark
+			# seam bed, one moss clump growing in a joint. The audited
+			# cobble field is exactly this language.
+			_set_base(preset, {"top_key": "stone_deep",
+				"bevel_key": "stone_medium", "side_key": "stone_medium",
+				"lower_key": "stone_deep"}, "none", 0.0)
+			_pavers(preset, {"pattern": "cobbles", "stone_cell": 0.34,
+				"stone_cell_z": 0.27, "gap": 0.030, "stone_jitter": 0.09,
+				"stone_height": [0.034, 0.055], "stone_profile": "faceted",
+				"slab_key": "", "color_weights": {"stone_medium": 50.0,
+					"stone_light": 50.0}})
+			_scatter(preset, ["lobed_clump"], [1, 3], [0.08, 0.13],
+				{"moss_clump": 100.0}, [0.012, 0.020])
 			preset.separate_tiles = true
 		"tile_proc_cobblestone_paving":
 			_set_base(preset, {"top_key": "stone_deep",
