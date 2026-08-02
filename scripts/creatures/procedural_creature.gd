@@ -115,6 +115,15 @@ var _action_spread := 0.0
 var _action_body_pitch := 0.0
 var _action_head_pitch := 0.0
 
+var _breath_phase := 0.0
+var _weight_phase := 0.0
+var _idle_factor := 1.0
+var _body_yaw := 0.0
+var _fidget_timer := 2.0
+var _tail_swish := 0.0
+var _wander_timer := 0.0
+var _wander_look := Vector3.ZERO
+
 
 func build_from_path(definition_path: String) -> void:
 	var source := FileAccess.get_file_as_string(definition_path)
@@ -423,6 +432,19 @@ func advance(delta: float, state: MotionState) -> void:
 	_landing_squash = move_toward(_landing_squash, 0.0, delta * 4.2)
 	_surprise = move_toward(_surprise, 0.0, delta * 1.2)
 	_advance_action(delta)
+
+	# Idle life: breathing, slow weight shifting, and occasional fidgets
+	# keep the whole body organic even when standing still.
+	_breath_phase += delta * TAU * float(_juice.get("breath_rate", 0.55))
+	_weight_phase += delta * TAU * float(_juice.get("weight_rate", 0.16))
+	_tail_swish = move_toward(_tail_swish, 0.0, delta * 1.1)
+	_idle_factor = (
+		(1.0 - clampf(movement_amount, 0.0, 1.0))
+		* (0.0 if state.flying else 1.0)
+	)
+	_fidget_timer -= delta
+	if _fidget_timer <= 0.0:
+		_fidget(movement_amount)
 	_gait_phase = fposmod(
 		_gait_phase + speed * delta * float(_gait.get("cadence", 6.4)), TAU
 	)
@@ -459,6 +481,29 @@ func advance(delta: float, state: MotionState) -> void:
 
 # ------------------------------------------------------------------ motion
 
+## Small involuntary moves on a loose timer — an ear flick, a tail swish,
+## a tiny weight bounce, a curious head tilt. Never during real motion.
+func _fidget(movement_amount: float) -> void:
+	_fidget_timer = _rng.randf_range(3.2, 7.5)
+	if movement_amount > 0.3:
+		return
+	match _rng.randi_range(0, 3):
+		0:
+			for ear_index in _ear_velocities.size():
+				_ear_velocities[ear_index] += Vector3(
+					_rng.randf_range(-0.5, 0.5),
+					_rng.randf_range(0.2, 0.6),
+					_rng.randf_range(-0.3, 0.3)
+				) * float(_ears.get("length", 0.1)) * 6.0
+		1:
+			_tail_swish = 1.0
+		2:
+			_landing_squash = maxf(_landing_squash, 0.15)
+		3:
+			_head_tilt_target = _rng.randf_range(-0.24, 0.24)
+			_head_tilt_timer = _rng.randf_range(1.6, 2.6)
+
+
 func _update_body(delta: float, state: MotionState, movement_amount: float) -> void:
 	var base_y := _body_rest_height()
 	var bob := 0.0
@@ -473,7 +518,13 @@ func _update_body(delta: float, state: MotionState, movement_amount: float) -> v
 			* float(_gait.get("body_bob", 0.018))
 			* clampf(movement_amount, 0.0, 1.0)
 		) + sin(_idle_time * 1.9) * base_y * 0.012
-	var target := Vector3(0.0, base_y + bob - _landing_squash * base_y * 0.16, 0.0)
+	# Breathing lifts the chest; slow weight shifting rocks the stance.
+	var scale_reference := _torso_radius()
+	bob += sin(_breath_phase) * scale_reference * 0.022 * (0.35 + 0.65 * _idle_factor)
+	var sway_x := sin(_weight_phase) * scale_reference * 0.07 * _idle_factor
+	var target := Vector3(
+		sway_x, base_y + bob - _landing_squash * base_y * 0.16, 0.0
+	)
 	_body_spring_velocity += (target - _body_position) * 120.0 * delta
 	_body_spring_velocity *= exp(-12.0 * delta)
 	_body_position += _body_spring_velocity * delta
@@ -494,11 +545,21 @@ func _update_body(delta: float, state: MotionState, movement_amount: float) -> v
 			clampf(-state.local_velocity.x * lean * 0.28, -0.15, 0.15)
 			+ sin(_gait_phase) * float(_gait.get("waddle", 0.03)) * movement_amount
 		)
+	if not state.flying:
+		# The stance rocks with the weight shift; the torso twists with the
+		# stride. Both are what make a body read as alive instead of rigid.
+		roll_target += sin(_weight_phase) * 0.038 * _idle_factor
+		pitch_target += cos(_weight_phase * 0.63) * 0.02 * _idle_factor
+	var yaw_target := (
+		sin(_weight_phase * 0.71) * 0.05 * _idle_factor
+		+ sin(_gait_phase) * float(_gait.get("gait_twist", 0.07)) * movement_amount
+	)
 	_pitch = lerpf(_pitch, pitch_target, 1.0 - exp(-7.0 * delta))
 	_bank = lerpf(_bank, roll_target, 1.0 - exp(-6.0 * delta))
+	_body_yaw = lerpf(_body_yaw, yaw_target, 1.0 - exp(-6.0 * delta))
 	_body_rotation = Vector3(
 		_pitch + _torso_rest_pitch() + _action_body_pitch * _action_weight,
-		0.0,
+		_body_yaw,
 		_bank
 	)
 
@@ -528,6 +589,19 @@ func _update_head(delta: float, state: MotionState, movement_amount: float) -> v
 		look_target.x = clampf(atan2(to_target.y, maxf(planar, 0.15)), -0.35, 0.4)
 	elif state.flying:
 		look_target.x = -_pitch * 0.7
+	else:
+		# Nothing to watch: the head wanders curiously on its own.
+		_wander_timer -= delta
+		if _wander_timer <= 0.0:
+			_wander_timer = _rng.randf_range(1.8, 4.5)
+			_wander_look = Vector3(
+				_rng.randf_range(-0.14, 0.1),
+				_rng.randf_range(-0.55, 0.55),
+				0.0
+			)
+		look_target = _wander_look * _idle_factor
+	look_target.x += sin(_breath_phase - 0.5) * 0.02
+	look_target.y -= _body_yaw * 0.7
 
 	_head_tilt_timer -= delta
 	if _head_tilt_timer <= 0.0:
@@ -624,8 +698,10 @@ func _update_tail(delta: float, state: MotionState) -> void:
 	if state.flying:
 		droop = clampf(droop - 0.3, 0.0, 1.0)
 	var segment_length := float(_tail.get("length", 0.12)) / float(segment_count)
-	var wag := sin(_idle_time * float(_tail.get("wag_rate", 1.6)))
-	var wag_amount := float(_tail.get("wag", 0.25))
+	# A fidget swish triples the wag briefly — pure happiness.
+	var swish := 1.0 + _tail_swish * 2.2
+	var wag := sin(_idle_time * float(_tail.get("wag_rate", 1.6)) * swish)
+	var wag_amount := float(_tail.get("wag", 0.25)) * swish
 	var drag := float(_juice.get("tail_drag", 0.85))
 	for segment_index in segment_count:
 		var progress := float(segment_index + 1) / float(segment_count)
@@ -680,7 +756,10 @@ func _update_shell(movement_amount: float, state: MotionState) -> void:
 	var body_basis := Basis.from_euler(_body_rotation)
 	var head_basis := _head_basis()
 	var squash := _landing_squash * float(_juice.get("squash", 0.2))
-	var torso_radius := _torso_radius() * (1.0 + squash * 0.35 - _stretch * 0.10)
+	var breath := 1.0 + sin(_breath_phase) * 0.016 * (0.4 + 0.6 * _idle_factor)
+	var torso_radius := (
+		_torso_radius() * (1.0 + squash * 0.35 - _stretch * 0.10) * breath
+	)
 	var torso_half := (
 		float(_torso.get("length", 0.09)) * 0.5
 		* (1.0 - squash * 0.45 + _stretch * 0.25)
@@ -736,7 +815,14 @@ func _append_leg_shapes(
 		var foot := _feet[leg_index]
 		var anchor_knee := hip.lerp(foot, 0.5)
 		if segments == 2:
-			var bend_hint := body_basis * Vector3(rest.x * 1.5, 0.0, -1.0)
+			# Knees bend forward by default; "back" gives digitigrade animal
+			# hocks (fox, cat) that read natural on beast-legged bipeds.
+			var knee_direction := (
+				1.0 if String(_legs.get("knee", "forward")) == "back" else -1.0
+			)
+			var bend_hint := body_basis * Vector3(
+				rest.x * 1.5, 0.0, knee_direction
+			)
 			var half := float(_legs.get("length", 0.2)) * 0.5 + 0.01
 			var knee := _two_bone_joint(hip, foot, half, half, bend_hint)
 			anchor_knee = knee
@@ -808,6 +894,13 @@ func _append_arm_shapes(
 				-arm_length * 0.72,
 				lateral.z * arm_length * 0.75 + swing * swing_sign * arm_length
 			)
+		# Idle drift: hands float on small slow circles instead of hanging
+		# frozen at the sides.
+		hand_offset += Vector3(
+			sin(_breath_phase * 0.8 + float(arm_index) * 2.1) * 0.05,
+			sin(_breath_phase + float(arm_index)) * 0.07,
+			cos(_weight_phase * 1.3 + float(arm_index) * 1.7) * 0.05
+		) * arm_length * _idle_factor
 		if _action_weight > 0.001:
 			# Actions steer hands toward an authored reach point (in arm-length
 			# units); side arms mirror, a back arm follows straight behind.
@@ -990,8 +1083,10 @@ func _build_pup_face(head_radius: float) -> void:
 
 func _update_overlays() -> void:
 	_face_root.transform = Transform3D(_head_basis(), _head_position)
+	var breath := 1.0 + sin(_breath_phase) * 0.016 * (0.4 + 0.6 * _idle_factor)
 	_belly_root.transform = Transform3D(
-		Basis.from_euler(_body_rotation), _body_position
+		Basis.from_euler(_body_rotation).scaled(Vector3.ONE * breath),
+		_body_position
 	)
 	_belly_root.visible = _is_upright()
 

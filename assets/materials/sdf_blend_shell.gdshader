@@ -313,6 +313,10 @@ void fragment() {
 		float strand = coat_noise(coat_position * vec3(90.0, 9.0, 90.0));
 		surface_color *= 1.0 + (strand - 0.5) * 0.24 * strand_strength;
 	}
+	// Counter-shading sculpts form even in flat light: backs sit denser,
+	// bellies airier — the classic creature-painting trick.
+	float top_facing = clamp(NORMAL.y * 0.5 + 0.5, 0.0, 1.0);
+	surface_color *= mix(1.05, 0.95, top_facing);
 	float facing = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
 	float ink_rim = smoothstep(0.11, 0.015, facing);
 	ALBEDO = mix(surface_color, surface_color * 0.66, ink_rim * 0.28);
@@ -320,7 +324,7 @@ void fragment() {
 	SPECULAR = coat_gloss * 0.4;
 	METALLIC = 0.0;
 	// Uniform fill in place of ambient: the unlit side is one flat tone.
-	EMISSION = ALBEDO * 0.34;
+	EMISSION = ALBEDO * 0.31;
 }
 
 
