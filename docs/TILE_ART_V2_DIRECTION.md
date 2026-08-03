@@ -82,3 +82,35 @@ Compositions are authored piece lists (positions/rotations/sizes fixed by
 hand, bounded jitter only), 10–40 pieces per tile, multiple height levels,
 clusters + deliberate gaps. Render beside cropped reference at thumbnail
 size for every iteration.
+
+## Round-9 failure measurements (do not repeat)
+
+Round 9 (first angular-slab attempt) failed as "thin plates on empty
+shared blocks". Concrete causes, measured:
+- Piece heights 0.03–0.10 with sink read as ≤2 cm plates. GG pieces have
+  REAL VOLUME: thickness ≈ 35–50% of min plan width, crowned tops, flared
+  bases (base 8–15% wider than top).
+- Coverage 30–50% with wide empty margins. GG coverage is 85–100%; pieces
+  TOUCH and OVERLAP (10–25% overlap), stacking in 2 layers.
+- All five tiles kept one identical body silhouette. Bodies must differ
+  structurally: snow = white fascia band with lobed lower edge + cap
+  pieces overhanging the rim; moss = green overhang band + clumps breaking
+  the rim; sand = visible strata bands + terraces running over the edge;
+  stone = heavy dark battered base (wider at bottom); forest = soil body
+  with bark pieces poking past the rim.
+- Moss bumps r 0.09–0.16 read as beads. Chunky florets need r 0.10–0.20
+  with h 0.10–0.16 and 8–14 bumps per clump, clumps covering ~80%.
+- Per-piece tone too uniform: draw from a 3-tone ramp with ±0.04 value
+  jitter; top-vs-side value contrast ≥ 0.12.
+
+## Round-10 build rules (binding)
+
+1. Every piece: height ≥ 0.35 × min(rx, rz); crown 15–25% of height;
+   base flare; contact shadow ring.
+2. Every tile top ≥ 85% covered by pieces (sand: terraces ARE the top).
+3. At least 2 height layers of pieces per tile; neighbouring piece heights
+   differ visibly.
+4. 2–3 tiles must have pieces crossing the rim so the five outer
+   silhouettes differ at thumbnail size.
+5. Compare against cropped GG reference tiles side by side BEFORE
+   accepting any render.

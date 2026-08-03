@@ -3,11 +3,16 @@ class_name TileV2Generator
 extends Node3D
 ## Preview/bake host for one V2 tile — the V2 sibling of TileKitGenerator.
 ##
+## GGP: the GG-reboot piece builders (preloaded so headless runs never
+## depend on class-name cache state).
+##
 ## Holds a TileV2Recipe, rebuilds two MeshInstance3D children (surface =
 ## sculpt + skirt + structures, base = the persistent below-seam body), and
 ## exposes the same bake_role_scenes()/statistics() contract the layered
 ## runtime pipeline consumes. Meshes are cached per recipe fingerprint so a
 ## 3×3 sheet of one recipe builds once.
+
+const GGP := preload("res://tools/tile_kit/v2/tile_v2_gg_pieces.gd")
 
 static var _mesh_cache: Dictionary = {}
 
@@ -87,6 +92,13 @@ static func build_meshes(for_recipe: TileV2Recipe) -> Dictionary:
 					piece["start"], piece["end"], float(piece["bow"]),
 					float(piece["width"]), float(piece["height"]),
 					piece["color"], piece["color_high"])
+			"gg_slab":
+				GGP.add_slab(result.surface_batch, field, piece["at"],
+					float(piece.get("yaw", 0.0)), piece["spec"], piece_rng)
+			"gg_tufts":
+				GGP.add_tuft_clump(result.surface_batch, field, piece["at"],
+					float(piece.get("yaw", 0.0)), piece["bumps"],
+					TileV2Palette.color(String(piece["tone"])), piece_rng)
 	var surface_triangles := result.surface_batch.triangle_count()
 	var base_triangles := result.base_batch.triangle_count()
 	var material := TileV2Palette.tile_material()

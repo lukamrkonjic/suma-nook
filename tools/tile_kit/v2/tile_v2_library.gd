@@ -14,6 +14,7 @@ extends RefCounted
 
 const F := preload("res://tools/tile_kit/v2/tile_v2_field.gd")
 const P := preload("res://tools/tile_kit/v2/tile_v2_palette.gd")
+const GG := preload("res://tools/tile_kit/v2/tile_v2_gg_library.gd")
 
 const FAMILIES: Array[String] = [
 	"forest_floor", "sand_dune", "snow_cap", "rock_slabs", "moss_cushion",
@@ -64,20 +65,9 @@ static func _walk_height(family: String) -> float:
 static func compose(recipe: TileV2Recipe) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash("tilev2|%s|%d|%d" % [recipe.family, recipe.seed, recipe.layout])
-	var composed: Dictionary
-	match recipe.family:
-		"forest_floor":
-			composed = _compose_forest(recipe, rng)
-		"sand_dune":
-			composed = _compose_sand(recipe, rng)
-		"snow_cap":
-			composed = _compose_snow(recipe, rng)
-		"rock_slabs":
-			composed = _compose_rock(recipe, rng)
-		"moss_cushion":
-			composed = _compose_moss(recipe, rng)
-		_:
-			composed = _compose_moss(recipe, rng)
+	# The GG construction reboot owns all five compositions
+	# (docs/TILE_ART_V2_DIRECTION.md); the composers below are retired.
+	var composed: Dictionary = GG.compose_gg(recipe.family, recipe, rng)
 	var field: TileV2Field = composed["field"]
 	if bool(composed.get("allow_mirror", true)) and rng.randf() < 0.5:
 		_mirror(field, composed["pieces"])
