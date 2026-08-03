@@ -77,14 +77,17 @@ static func add_slab(batch: TileV2Mesher.Batch, field: TileV2Field,
 	top_centre_local /= float(sides)
 	var top_centre: Vector3 = to_world.call(top_centre_local * 0.2,
 		float(top_y.call(top_centre_local * 0.2)) + crown)
+	var flare: float = spec.get("flare", 0.10)
 	for index in sides:
 		var next := (index + 1) % sides
 		var pa := plan[index]
 		var pb := plan[next]
 		var bevel_a := pa * (1.0 - bevel / maxf(pa.length(), 0.03))
 		var bevel_b := pb * (1.0 - bevel / maxf(pb.length(), 0.03))
-		var base_a: Vector3 = to_world.call(pa, 0.0)
-		var base_b: Vector3 = to_world.call(pb, 0.0)
+		# Flared base: the piece stands wider at its foot — grounded volume,
+		# never a plate.
+		var base_a: Vector3 = to_world.call(pa * (1.0 + flare), 0.0)
+		var base_b: Vector3 = to_world.call(pb * (1.0 + flare), 0.0)
 		var lip_a: Vector3 = to_world.call(pa,
 			float(top_y.call(pa)) - bevel * 0.9)
 		var lip_b: Vector3 = to_world.call(pb,
