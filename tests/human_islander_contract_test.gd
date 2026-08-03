@@ -89,6 +89,29 @@ func _init() -> void:
 	var right_color := (right_arm.material_override as StandardMaterial3D).albedo_color
 	assert(left_color == right_color, "hand/arm skin materials must match")
 
+	# Garments must sit outside the body as hollow, independently shaded shells.
+	# A center vertex at the lowest shirt row would recreate the old solid cap,
+	# which read as a bright skin-colored oval across the stomach under key light.
+	var shirt := body.get_node("BodyPivot/TorsoMotion/ShirtTorso") as MeshInstance3D
+	var torso_skin := body.get_node("BodyPivot/TorsoMotion/TorsoSkin") as MeshInstance3D
+	assert(
+		shirt.mesh.get_aabb().size.x > torso_skin.mesh.get_aabb().size.x,
+		"shirt shell must clear the torso instead of lying directly on the skin"
+	)
+	var shirt_arrays := shirt.mesh.surface_get_arrays(0)
+	var shirt_vertices := shirt_arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array
+	var hem_y := INF
+	for vertex in shirt_vertices:
+		hem_y = minf(hem_y, vertex.y)
+	var min_hem_radius := INF
+	for vertex in shirt_vertices:
+		if absf(vertex.y - hem_y) < 0.0001:
+			min_hem_radius = minf(min_hem_radius, Vector2(vertex.x, vertex.z).length())
+	assert(
+		min_hem_radius > 0.04,
+		"shirt hem must remain open; a center cap would recreate the stomach light ring"
+	)
+
 	# Grounding: at idle both shoe soles rest on the local floor plane.
 	for shoe_name in ["ShoeLeft", "ShoeRight"]:
 		var shoe := body.get_node(shoe_name) as Node3D

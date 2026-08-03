@@ -31,19 +31,19 @@ const TORSO_PROFILE := [
 	Vector2(0.040, 0.078), Vector2(0.020, 0.088), Vector2(0.000, 0.094),
 ]
 const SHIRT_PROFILE := [
-	Vector2(0.000, -0.042), Vector2(0.049, -0.0415), Vector2(0.048, -0.020),
-	Vector2(0.052, 0.030), Vector2(0.056, 0.058), Vector2(0.040, 0.076),
-	Vector2(0.026, 0.082), Vector2(0.000, 0.086),
+	Vector2(0.055, -0.052), Vector2(0.056, -0.043), Vector2(0.055, -0.018),
+	Vector2(0.058, 0.030), Vector2(0.061, 0.058), Vector2(0.046, 0.077),
+	Vector2(0.031, 0.084),
 ]
 const SEAT_PROFILE := [
-	Vector2(0.000, -0.095), Vector2(0.046, -0.088), Vector2(0.055, -0.060),
-	Vector2(0.052, -0.030), Vector2(0.050, -0.024), Vector2(0.000, -0.024),
+	Vector2(0.048, -0.091), Vector2(0.055, -0.081), Vector2(0.060, -0.058),
+	Vector2(0.059, -0.036), Vector2(0.057, -0.018),
 ]
 const ARM_RADII := [0.0235, 0.0215, 0.0195, 0.017, 0.0165, 0.023, 0.0235]
-const SLEEVE_RADII := [0.0285, 0.0275, 0.0255]
+const SLEEVE_RADII := [0.0325, 0.0310, 0.0285]
 const ARM_SKIN_RADII := [0.019, 0.0175, 0.0165, 0.023, 0.0235]
 const LEG_RADII := [0.0305, 0.026, 0.0225, 0.019]
-const TROUSER_RADII := [0.0345, 0.031, 0.029, 0.0315]
+const TROUSER_RADII := [0.0380, 0.0350, 0.0325, 0.0340]
 const SHIN_RADII := [0.0205, 0.019]
 const FOOT_OUT_ANGLE := deg_to_rad(9.0)
 const FOOT_REST_Y := 0.0187
@@ -419,12 +419,12 @@ func _build_face() -> void:
 func _build_garments() -> void:
 	var shirt := _add_static_mesh(
 		_torso_motion_pivot, "ShirtTorso",
-		Forge.lathe(SHIRT_PROFILE, 28, TORSO_SCALE),
+		Forge.lathe_shell(SHIRT_PROFILE, 28, TORSO_SCALE, 0.0045),
 		_soft_material(_token_color("shirt"))
 	)
 	var seat := _add_static_mesh(
 		_body_pivot, "OverallsSeat",
-		Forge.lathe(SEAT_PROFILE, 28, TORSO_SCALE * Vector3(1.03, 1.0, 1.03)),
+		Forge.lathe_shell(SEAT_PROFILE, 28, TORSO_SCALE, 0.0045),
 		_soft_material(_token_color("overalls"))
 	)
 	_dressed_parts.append_array([shirt, seat])

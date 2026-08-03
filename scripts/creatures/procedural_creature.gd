@@ -557,10 +557,15 @@ func _update_player_motion_envelope(
 ) -> void:
 	if not _uses_player_motion():
 		return
-	if movement_amount < 0.045 and _player_previous_motion > 0.22:
+	if (
+		movement_amount < 0.045
+		and maxf(_player_previous_motion, _player_motion_blend) > 0.16
+	):
 		_player_stop_settle = maxf(
 			_player_stop_settle,
-			clampf(_player_previous_motion, 0.25, 1.0)
+			clampf(
+				maxf(_player_previous_motion, _player_motion_blend), 0.25, 1.0
+			)
 		)
 	var response := 12.0 if movement_amount > _player_motion_blend else 7.5
 	_player_motion_blend = lerpf(
@@ -577,10 +582,10 @@ func _update_player_motion_envelope(
 	var moving := clampf(_player_motion_blend, 0.0, 1.0)
 	var idle := 1.0 - moving
 	_player_torso_motion = Vector3(
-		-cos(_gait_phase * 2.0) * 0.012 * moving
+		-cos(_gait_phase * 2.0) * 0.018 * moving
 			+ sin(_breath_phase) * 0.006 * idle,
-		-sin(_gait_phase) * 0.105 * moving - _player_turn_follow * 0.48,
-		-sin(_gait_phase) * 0.025 * moving
+		-sin(_gait_phase) * 0.120 * moving - _player_turn_follow * 0.48,
+		-sin(_gait_phase) * 0.034 * moving
 			- sin(_weight_phase) * 0.012 * idle
 	)
 	_player_previous_motion = movement_amount
@@ -622,6 +627,12 @@ func _update_body(delta: float, state: MotionState, movement_amount: float) -> v
 			gait_bob * float(_gait.get("body_bob", 0.018))
 			* clampf(movement_amount, 0.0, 1.0)
 		) + sin(_idle_time * 1.9) * base_y * 0.012
+		if _uses_player_motion():
+			# A small upbeat lilt lands between the two support beats.
+			bob += (
+				maxf(sin(_gait_phase * 2.0 + 0.35), 0.0) * 0.0035
+				* clampf(movement_amount, 0.0, 1.0)
+			)
 	# Breathing lifts the chest; slow weight shifting rocks the stance.
 	var scale_reference := _torso_radius()
 	bob += sin(_breath_phase) * scale_reference * 0.022 * (0.35 + 0.65 * _idle_factor)
@@ -629,7 +640,7 @@ func _update_body(delta: float, state: MotionState, movement_amount: float) -> v
 	var settle_z := 0.0
 	if _uses_player_motion():
 		sway_x += (
-			sin(_gait_phase) * scale_reference * 0.105
+			sin(_gait_phase) * scale_reference * 0.130
 			* clampf(movement_amount, 0.0, 1.0)
 		)
 		settle_z = -_player_stop_settle * scale_reference * 0.11
@@ -663,7 +674,7 @@ func _update_body(delta: float, state: MotionState, movement_amount: float) -> v
 		pitch_target += cos(_weight_phase * 0.63) * 0.02 * _idle_factor
 		if _uses_player_motion():
 			roll_target -= (
-				sin(_gait_phase) * 0.052
+				sin(_gait_phase) * 0.064
 				* clampf(movement_amount, 0.0, 1.0)
 			)
 			pitch_target += _player_stop_settle * 0.042
@@ -729,6 +740,10 @@ func _update_head(delta: float, state: MotionState, movement_amount: float) -> v
 	look_target.y -= _body_yaw * 0.7
 	if _uses_player_motion():
 		look_target.y -= _player_turn_follow * 0.55
+		look_target.z -= (
+			sin(_gait_phase) * 0.052
+			* clampf(movement_amount, 0.0, 1.0)
+		)
 
 	_head_tilt_timer -= delta
 	if _head_tilt_timer <= 0.0:
@@ -797,6 +812,10 @@ func _update_feet(
 				var eased := swing_t * swing_t * (3.0 - 2.0 * swing_t)
 				longitudinal = lerpf(-1.0, 1.0, eased)
 				target.y += sin(PI * swing_t) * lift
+				target.x += (
+					signf(rest.x) * sin(PI * swing_t) * 0.010
+					* clampf(movement_amount, 0.0, 1.0)
+				)
 				foot_pitch = lerpf(-0.16, 0.18, eased)
 			target += direction * longitudinal * stride
 			_player_foot_pitches[leg_index] = foot_pitch * clampf(
@@ -1129,6 +1148,14 @@ func _append_arm_shapes(
 			sin(_breath_phase + float(arm_index)) * 0.07,
 			cos(_weight_phase * 1.3 + float(arm_index) * 1.7) * 0.05
 		) * arm_length * _idle_factor
+		if _uses_player_motion() and movement_amount > 0.0:
+			# Hands lift gently at the extremes of their swing and drift a little
+			# away from the torso, giving the walk a buoyant storybook rhythm.
+			hand_offset.y += absf(swing) * arm_length * 0.095
+			hand_offset.x += (
+				lateral.x * arm_length * 0.035
+				* clampf(movement_amount, 0.0, 1.0)
+			)
 		if _uses_player_motion() and _idle_factor > 0.0:
 			# Deliberate asymmetry: one hand rests a touch forward and lower,
 			# preventing the idle pose from reading as mirrored mannequin arms.

@@ -21,6 +21,81 @@ static func lathe(
 	return _grid_mesh(rows, radial_segments, shape_scale, face_flatten)
 
 
+## Revolves a non-zero-radius profile into a real garment shell. Outer and
+## inner surfaces use opposite winding and are joined only by narrow rings at
+## the profile ends, leaving the neck/waist openings hollow instead of sealing
+## them with a light-catching disc.
+static func lathe_shell(
+	profile: Array,
+	radial_segments: int,
+	shape_scale: Vector3,
+	wall_thickness: float,
+	face_flatten := 1.0,
+	row_count := 22
+) -> ArrayMesh:
+	var outer_rows := _resample_profile(profile, row_count)
+	var inner_rows: Array = []
+	for point: Vector2 in outer_rows:
+		inner_rows.append(Vector2(
+			maxf(point.x - wall_thickness, 0.0004), point.y
+		))
+	var vertices := PackedVector3Array()
+	var indices := PackedInt32Array()
+	for rows: Array in [outer_rows, inner_rows]:
+		for row: Vector2 in rows:
+			for column in range(radial_segments + 1):
+				var phi := TAU * float(column) / float(radial_segments)
+				var point := Vector3(
+					row.x * cos(phi) * shape_scale.x,
+					row.y * shape_scale.y,
+					row.x * sin(phi) * shape_scale.z
+				)
+				if point.z < 0.0:
+					point.z *= face_flatten
+				vertices.append(point)
+
+	var columns := radial_segments + 1
+	var surface_size := (row_count + 1) * columns
+	for row_index in row_count:
+		for column in radial_segments:
+			var outer_a := row_index * columns + column
+			var outer_b := outer_a + 1
+			var outer_c := outer_a + columns
+			var outer_d := outer_c + 1
+			indices.append_array(PackedInt32Array([
+				outer_a, outer_c, outer_b, outer_b, outer_c, outer_d,
+			]))
+			var inner_a := surface_size + outer_a
+			var inner_b := surface_size + outer_b
+			var inner_c := surface_size + outer_c
+			var inner_d := surface_size + outer_d
+			indices.append_array(PackedInt32Array([
+				inner_a, inner_b, inner_c, inner_b, inner_d, inner_c,
+			]))
+
+	# Bottom rim faces down; top rim faces up. Neither closes toward the axis.
+	var top_outer_start := row_count * columns
+	var top_inner_start := surface_size + top_outer_start
+	for column in radial_segments:
+		var bottom_outer := column
+		var bottom_outer_next := column + 1
+		var bottom_inner := surface_size + column
+		var bottom_inner_next := bottom_inner + 1
+		indices.append_array(PackedInt32Array([
+			bottom_outer, bottom_outer_next, bottom_inner,
+			bottom_outer_next, bottom_inner_next, bottom_inner,
+		]))
+		var top_outer := top_outer_start + column
+		var top_outer_next := top_outer + 1
+		var top_inner := top_inner_start + column
+		var top_inner_next := top_inner + 1
+		indices.append_array(PackedInt32Array([
+			top_outer, top_inner, top_outer_next,
+			top_outer_next, top_inner, top_inner_next,
+		]))
+	return _finalize(vertices, indices)
+
+
 ## Partial lathe for hair: follows the same profile pushed outward by
 ## `thickness`, and each angular column stops at a hairline height blended
 ## between the front, side, and rear cut heights.
