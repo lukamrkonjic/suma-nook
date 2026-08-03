@@ -252,7 +252,10 @@ func sample_into(px: float, py: float) -> void:
 				var along_t := absf(lx) / length
 				if along_t < 1.55:
 					var across := ly - _p[base + 4] * lx * lx / length
-					var width := _p[base + 1] if across <= 0.0 else _p[base + 2]
+					# Windward and lee widths blend across the crest — a hard
+					# switch creases the ridge line into folded cloth.
+					var width := lerpf(_p[base + 1], _p[base + 2],
+						smoothstep(-0.06, 0.06, across))
 					var across_n := absf(across) / width
 					weight = exp(-pow(across_n, _p[base + 5])
 						- pow(along_t, _p[base + 6]))
@@ -484,7 +487,8 @@ func _weight_of(index: int, px: float, py: float) -> float:
 			if along_t >= 1.55:
 				return 0.0
 			var across := ly - _p[base + 4] * lx * lx / length
-			var width := _p[base + 1] if across <= 0.0 else _p[base + 2]
+			var width := lerpf(_p[base + 1], _p[base + 2],
+				smoothstep(-0.06, 0.06, across))
 			return exp(-pow(absf(across) / width, _p[base + 5])
 				- pow(along_t, _p[base + 6]))
 		KIND_PLATEAU:

@@ -78,8 +78,10 @@ static func tile_material() -> Material:
 		_tile_material.vertex_color_is_srgb = true
 		_tile_material.albedo_color = Color.WHITE
 		_tile_material.metallic = 0.0
-		_tile_material.roughness = 1.0
-		_tile_material.metallic_specular = 0.10
+		# Soft vinyl-toy sheen: broad gentle highlights that make smooth
+		# forms read as polished miniatures, never wet plastic.
+		_tile_material.roughness = 0.62
+		_tile_material.metallic_specular = 0.28
 	return _tile_material
 
 

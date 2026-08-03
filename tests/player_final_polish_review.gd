@@ -252,7 +252,15 @@ func _update_review_fishing_line() -> void:
 	if current_outfit == null:
 		return
 	var tip := current_outfit.call("held_tip_world") as Vector3
-	var release_progress := clampf((_fishing_review_time - 0.50) / 0.24, 0.0, 1.0)
+	var release_time := (
+		float(_player.call("action_duration", "fish_cast", 1.15))
+		* float(_player.call("action_impact_ratio", "fish_cast", 0.60))
+	)
+	var release_progress := clampf(
+		(_fishing_review_time - release_time) / 0.24,
+		0.0,
+		1.0
+	)
 	release_progress = 1.0 - pow(1.0 - release_progress, 3.0)
 	var visible_endpoint := tip.lerp(_fishing_line_target, release_progress)
 	var delta := visible_endpoint - tip

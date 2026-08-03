@@ -64,14 +64,22 @@ static func add_chip(batch: TileV2Mesher.Batch, color: Color,
 			p.x, height - bevel + p.x * tilt.x + p.y * tilt.y, p.y)
 
 	# Hard planar side facets (flat shading — deliberate, per the reference's
-	# angular litter), soft bevel band, flat top fan.
+	# angular litter) with baked contact darkening at the base, soft bevel
+	# band, flat top fan.
+	var contact := color.darkened(0.30)
 	for index in points:
 		var next := (index + 1) % points
 		var a := frame * Vector3(plan[index].x, 0.0, plan[index].y)
 		var b := frame * Vector3(plan[next].x, 0.0, plan[next].y)
 		var c: Vector3 = frame * bevel_at.call(next)
 		var d: Vector3 = frame * bevel_at.call(index)
-		_flat_quad(batch, color, a, b, c, d)
+		var normal := (c - a).cross(b - a)
+		if normal.length_squared() > 0.000000001:
+			normal = normal.normalized()
+			batch.add_triangle(a, b, c, normal, normal, normal,
+				contact, contact, color)
+			batch.add_triangle(a, c, d, normal, normal, normal,
+				contact, color, color)
 	var top_centre := Vector3.ZERO
 	for index in points:
 		top_centre += top_at.call(index)

@@ -66,19 +66,27 @@ static func build_meshes(for_recipe: TileV2Recipe) -> Dictionary:
 	var piece_rng := RandomNumberGenerator.new()
 	piece_rng.seed = hash("tilev2_pieces|%s|%d" % [for_recipe.family, for_recipe.seed])
 	for piece: Dictionary in composed["pieces"]:
-		var piece_color := TileV2Palette.color(String(piece["key"]))
 		match String(piece["type"]):
 			"chip":
 				TileV2Structures.add_chip(result.surface_batch,
-					piece_color, field, piece["at"],
-					float(piece["length"]), float(piece["width"]),
+					TileV2Palette.color(String(piece["key"])), field,
+					piece["at"], float(piece["length"]), float(piece["width"]),
 					float(piece["height"]), float(piece["yaw"]), piece_rng,
 					float(piece.get("sink", 0.38)))
 			"pebble":
 				TileV2Structures.add_pebble(result.surface_batch,
-					piece_color, field, piece["at"],
-					float(piece["radius"]), float(piece["height"]),
+					TileV2Palette.color(String(piece["key"])), field,
+					piece["at"], float(piece["radius"]), float(piece["height"]),
 					float(piece["yaw"]), piece_rng)
+			"solid":
+				TileV2Pieces.add_solid(result.surface_batch, field,
+					piece["at"], float(piece.get("yaw", 0.0)),
+					piece["spec"], piece_rng)
+			"stroke":
+				TileV2Pieces.add_stroke(result.surface_batch, field,
+					piece["start"], piece["end"], float(piece["bow"]),
+					float(piece["width"]), float(piece["height"]),
+					piece["color"], piece["color_high"])
 	var surface_triangles := result.surface_batch.triangle_count()
 	var base_triangles := result.base_batch.triangle_count()
 	var material := TileV2Palette.tile_material()

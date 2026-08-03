@@ -310,6 +310,13 @@ func _init() -> void:
 	# Fishing is a two-hand rod cast: lift behind the head, accelerate forward,
 	# and finish with the tip extended over the water. The rod tip must travel
 	# through both a visible apex and a substantial forward release.
+	assert(
+		is_equal_approx(
+			float(creature.call("action_duration", "fish_cast", 0.45)),
+			1.15
+		),
+		"presentation timing must use the authored procedural cast duration"
+	)
 	creature.call("set_held_tool", "rod")
 	creature.call("play_action", "fish_cast", 1.15)
 	var fishing_held := creature.find_child("Held", true, false) as Node3D

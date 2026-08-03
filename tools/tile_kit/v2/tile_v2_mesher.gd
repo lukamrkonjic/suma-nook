@@ -166,13 +166,33 @@ static func _build_top(field: TileV2Field, resolution: int,
 		ring_indices.append(cells * stride + column)
 	for row in range(cells - 1, 0, -1):
 		ring_indices.append(row * stride)
+	# Weld near-duplicate boundary verts (grid corners clip several verts
+	# onto almost the same outline point): duplicates make degenerate skirt
+	# quads and streaked corner normals.
+	var previous := Vector3(INF, INF, INF)
 	for ring_index in ring_indices:
 		var position := positions[ring_index]
+		if position.distance_squared_to(previous) < 0.000004:
+			continue
+		previous = position
 		var p2 := Vector2(position.x, position.z)
 		result.boundary_points.append(p2)
 		result.boundary_heights.append(position.y)
 		result.boundary_outwards.append(_outward_at(p2, field.corner_radius))
 		result.boundary_carries.append(field.carry_at(p2))
+	# The walk closes on itself; drop the tail if it welds onto the head.
+	if result.boundary_points.size() > 2:
+		var head := Vector3(result.boundary_points[0].x,
+			result.boundary_heights[0], result.boundary_points[0].y)
+		var tail_index := result.boundary_points.size() - 1
+		var tail := Vector3(result.boundary_points[tail_index].x,
+			result.boundary_heights[tail_index],
+			result.boundary_points[tail_index].y)
+		if head.distance_squared_to(tail) < 0.000004:
+			result.boundary_points.remove_at(tail_index)
+			result.boundary_heights.remove_at(tail_index)
+			result.boundary_outwards.remove_at(tail_index)
+			result.boundary_carries.remove_at(tail_index)
 
 
 static func _emit_top_triangle(batch: Batch, positions: PackedVector3Array,
