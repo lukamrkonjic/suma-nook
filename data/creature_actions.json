@@ -1,13 +1,14 @@
 {
   "chop": {
-    "seconds": 1.9, "impact_ratio": 0.52, "two_handed": true,
+    "seconds": 1.9, "impact_ratio": 0.56, "two_handed": true,
     "phases": [
-      {"t": 0.12, "reach": [0.18, -0.40, -0.25], "grip_axis": [0.25, 0.95, 0.15], "spread": 0.30, "body_pitch": 0.03, "body_yaw": 0.02, "body_roll": 0.0, "head_pitch": 0.02, "head_yaw": 0.0, "step": 0.0, "ease": "out"},
-      {"t": 0.34, "reach": [0.78, 0.52, 0.18], "grip_axis": [0.20, 0.90, 0.38], "spread": 0.34, "body_pitch": -0.12, "body_yaw": 0.48, "body_roll": -0.12, "head_pitch": -0.10, "head_yaw": -0.18, "step": 0.014, "ease": "out"},
-      {"t": 0.44, "reach": [0.62, 0.76, 0.26], "grip_axis": [0.12, 0.82, 0.56], "spread": 0.34, "body_pitch": -0.20, "body_yaw": 0.56, "body_roll": -0.14, "head_pitch": -0.14, "head_yaw": -0.20, "step": 0.022, "ease": "out"},
-      {"t": 0.52, "reach": [-0.32, 0.02, -0.46], "grip_axis": [-0.80, 0.18, -0.58], "spread": 0.30, "body_pitch": 0.34, "body_yaw": -0.34, "body_roll": 0.13, "head_pitch": 0.24, "head_yaw": 0.12, "step": -0.040, "ease": "in", "event": "impact", "squash": 0.28},
-      {"t": 0.61, "reach": [-0.38, -0.04, -0.50], "grip_axis": [-0.84, 0.12, -0.52], "spread": 0.30, "body_pitch": 0.30, "body_yaw": -0.30, "body_roll": 0.10, "head_pitch": 0.22, "head_yaw": 0.10, "step": -0.036, "ease": "out"},
-      {"t": 0.82, "reach": [0.22, -0.15, -0.22], "grip_axis": [0.55, 0.76, 0.34], "spread": 0.31, "body_pitch": 0.04, "body_yaw": 0.10, "body_roll": -0.03, "head_pitch": 0.03, "head_yaw": -0.05, "step": -0.010, "ease": "out"},
+      {"t": 0.10, "reach": [-0.10, -0.22, -0.60], "grip_axis": [-0.22, 0.72, -0.66], "spread": 0.31, "body_pitch": 0.04, "body_yaw": -0.04, "body_roll": 0.0, "head_pitch": 0.02, "head_yaw": 0.0, "step": 0.0, "ease": "out"},
+      {"t": 0.28, "reach": [0.26, 0.72, -0.42], "grip_axis": [-0.18, 0.97, -0.16], "spread": 0.34, "body_pitch": -0.10, "body_yaw": 0.18, "body_roll": -0.05, "head_pitch": -0.06, "head_yaw": -0.08, "step": 0.012, "ease": "out"},
+      {"t": 0.40, "reach": [0.18, 0.88, -0.38], "grip_axis": [-0.10, 0.98, -0.16], "spread": 0.35, "body_pitch": -0.15, "body_yaw": 0.12, "body_roll": -0.04, "head_pitch": -0.10, "head_yaw": -0.05, "step": 0.020, "ease": "out"},
+      {"t": 0.48, "reach": [-0.04, 0.46, -0.66], "grip_axis": [-0.04, 0.58, -0.81], "spread": 0.34, "body_pitch": 0.06, "body_yaw": -0.06, "body_roll": 0.02, "head_pitch": 0.04, "head_yaw": 0.02, "step": -0.008, "ease": "in"},
+      {"t": 0.56, "reach": [-0.12, 0.04, -1.32], "grip_axis": [-0.02, -0.35, -0.94], "spread": 0.32, "body_pitch": 0.32, "body_yaw": -0.16, "body_roll": 0.05, "head_pitch": 0.25, "head_yaw": 0.05, "step": -0.048, "ease": "in", "event": "impact", "squash": 0.30},
+      {"t": 0.66, "reach": [-0.14, -0.08, -1.20], "grip_axis": [-0.02, -0.55, -0.83], "spread": 0.31, "body_pitch": 0.27, "body_yaw": -0.14, "body_roll": 0.04, "head_pitch": 0.21, "head_yaw": 0.04, "step": -0.042, "ease": "out"},
+      {"t": 0.82, "reach": [-0.02, 0.08, -0.68], "grip_axis": [-0.08, 0.66, -0.74], "spread": 0.32, "body_pitch": 0.10, "body_yaw": -0.04, "body_roll": 0.01, "head_pitch": 0.08, "head_yaw": 0.0, "step": -0.012, "ease": "out"},
       {"t": 1.0, "reach": [0.30, -0.92, 0.0], "grip_axis": [0.25, 0.95, 0.15], "spread": 0.30, "body_pitch": 0.0, "body_yaw": 0.0, "body_roll": 0.0, "head_pitch": 0.0, "head_yaw": 0.0, "step": 0.0, "ease": "inout"}
     ]
   },
@@ -20,25 +21,31 @@
     ]
   },
   "fish_cast": {
-    "seconds": 0.9, "impact_ratio": 0.42,
+    "seconds": 1.15, "impact_ratio": 0.60, "two_handed": true,
     "phases": [
-      {"t": 0.3, "reach": [0.16, 0.6, 0.4], "body_pitch": -0.16, "head_pitch": -0.1, "ease": "out"},
-      {"t": 0.42, "reach": [0.12, 0.5, -0.85], "body_pitch": 0.18, "ease": "in", "event": "release", "squash": 0.15},
-      {"t": 1.0, "reach": [0.14, 0.24, -0.62], "body_pitch": 0.06, "head_pitch": 0.14, "ease": "out"}
+      {"t": 0.10, "reach": [0.0, -0.10, -0.55], "grip_axis": [-0.20, 0.78, -0.59], "spread": 0.24, "body_pitch": 0.03, "body_yaw": 0.0, "head_pitch": 0.04, "ease": "out"},
+      {"t": 0.30, "reach": [0.18, 0.60, 0.08], "grip_axis": [-0.12, 0.95, 0.28], "spread": 0.25, "body_pitch": -0.13, "body_yaw": 0.12, "body_roll": -0.04, "head_pitch": -0.09, "head_yaw": -0.06, "step": 0.012, "ease": "out"},
+      {"t": 0.46, "reach": [0.08, 0.78, -0.08], "grip_axis": [-0.06, 0.95, -0.30], "spread": 0.25, "body_pitch": -0.09, "body_yaw": 0.06, "body_roll": -0.02, "head_pitch": -0.06, "head_yaw": -0.03, "step": 0.014, "ease": "out"},
+      {"t": 0.60, "reach": [0.0, 0.30, -0.78], "grip_axis": [-0.02, 0.54, -0.84], "spread": 0.25, "body_pitch": 0.18, "body_yaw": -0.04, "body_roll": 0.02, "head_pitch": 0.08, "head_yaw": 0.02, "step": -0.018, "ease": "in", "event": "release", "squash": 0.15},
+      {"t": 0.74, "reach": [0.0, 0.16, -0.88], "grip_axis": [-0.02, 0.64, -0.77], "spread": 0.24, "body_pitch": 0.14, "body_yaw": -0.03, "body_roll": 0.01, "head_pitch": 0.13, "head_yaw": 0.02, "step": -0.012, "ease": "out"},
+      {"t": 1.0, "reach": [0.0, 0.12, -0.66], "grip_axis": [-0.04, 0.80, -0.60], "spread": 0.23, "body_pitch": 0.06, "body_yaw": 0.0, "body_roll": 0.0, "head_pitch": 0.14, "head_yaw": 0.0, "step": 0.0, "ease": "out"}
     ]
   },
   "fish_wait": {
-    "seconds": 2.6, "loop": true,
+    "seconds": 2.6, "loop": true, "two_handed": true,
     "phases": [
-      {"t": 0.5, "reach": [0.14, 0.26, -0.6], "body_pitch": 0.07, "head_pitch": 0.15, "ease": "inout"},
-      {"t": 1.0, "reach": [0.14, 0.2, -0.63], "body_pitch": 0.045, "head_pitch": 0.12, "ease": "inout"}
+      {"t": 0.0, "reach": [0.0, 0.12, -0.66], "grip_axis": [-0.04, 0.80, -0.60], "spread": 0.23, "body_pitch": 0.06, "head_pitch": 0.14, "ease": "inout"},
+      {"t": 0.5, "reach": [0.0, 0.15, -0.68], "grip_axis": [-0.03, 0.78, -0.62], "spread": 0.23, "body_pitch": 0.07, "body_roll": 0.012, "head_pitch": 0.16, "head_yaw": -0.025, "ease": "inout"},
+      {"t": 1.0, "reach": [0.0, 0.12, -0.66], "grip_axis": [-0.04, 0.80, -0.60], "spread": 0.23, "body_pitch": 0.06, "body_roll": 0.0, "head_pitch": 0.14, "head_yaw": 0.0, "ease": "inout"}
     ]
   },
   "fish_catch": {
-    "seconds": 0.7, "loop": true,
+    "seconds": 0.7, "two_handed": true,
     "phases": [
-      {"t": 0.5, "reach": [0.13, 0.42, -0.45], "body_pitch": -0.14, "head_pitch": -0.05, "ease": "out", "event": "reel", "squash": 0.12},
-      {"t": 1.0, "reach": [0.14, 0.22, -0.6], "body_pitch": 0.04, "head_pitch": 0.1, "ease": "in"}
+      {"t": 0.0, "reach": [0.0, 0.12, -0.66], "grip_axis": [-0.04, 0.80, -0.60], "spread": 0.23, "body_pitch": 0.06, "head_pitch": 0.14, "ease": "out"},
+      {"t": 0.34, "reach": [-0.04, 0.54, -0.42], "grip_axis": [-0.10, 0.94, -0.32], "spread": 0.24, "body_pitch": -0.16, "body_yaw": -0.08, "body_roll": 0.04, "head_pitch": -0.08, "head_yaw": 0.04, "step": 0.018, "ease": "out", "event": "reel", "squash": 0.12},
+      {"t": 0.62, "reach": [0.04, 0.30, -0.54], "grip_axis": [0.04, 0.86, -0.50], "spread": 0.23, "body_pitch": -0.04, "body_yaw": 0.05, "body_roll": -0.03, "head_pitch": 0.02, "head_yaw": -0.03, "step": 0.006, "ease": "in"},
+      {"t": 1.0, "reach": [0.0, 0.12, -0.66], "grip_axis": [-0.04, 0.80, -0.60], "spread": 0.23, "body_pitch": 0.06, "body_yaw": 0.0, "body_roll": 0.0, "head_pitch": 0.14, "head_yaw": 0.0, "step": 0.0, "ease": "out"}
     ]
   },
   "attack": {

@@ -31,7 +31,7 @@ const TORSO_PROFILE := [
 	Vector2(0.040, 0.078), Vector2(0.020, 0.088), Vector2(0.000, 0.094),
 ]
 const SHIRT_PROFILE := [
-	Vector2(0.068, -0.074), Vector2(0.066, -0.060), Vector2(0.061, -0.026),
+	Vector2(0.060, -0.068), Vector2(0.061, -0.055), Vector2(0.060, -0.026),
 	Vector2(0.058, 0.030), Vector2(0.061, 0.058), Vector2(0.046, 0.077),
 	Vector2(0.031, 0.084),
 ]
@@ -92,6 +92,8 @@ var _eye_look_timer := 0.8
 var _mouth_states: Dictionary = {}
 var _resolved_tokens: Dictionary = {}
 var _missing_tokens: PackedStringArray = []
+var _face_layer_shader: Shader
+var _face_layers: Array[MeshInstance3D] = []
 
 
 func build(
@@ -130,6 +132,7 @@ func build(
 func _process(delta: float) -> void:
 	_advance_blink(delta)
 	_advance_eye_look(delta)
+	_update_face_layer_visibility()
 
 
 func update_pose(pose: Dictionary) -> void:
@@ -375,11 +378,11 @@ func _build_face() -> void:
 		)
 		eye_white.rotation.z = side * 0.05
 		var pupil := _add_feature(
-			eye_anchor, "Pupil%s" % side_name, Vector3(0.0, -0.0015, 0.0105),
+			eye_anchor, "Pupil%s" % side_name, Vector3(0.0, -0.0015, 0.0130),
 			Vector3(
 				EYE_WHITE_HALF.x * PUPIL_RATIO,
 				EYE_WHITE_HALF.y * PUPIL_RATIO,
-				0.0025
+				0.0015
 			),
 			ink
 		)
@@ -389,14 +392,14 @@ func _build_face() -> void:
 		_pupil_base_positions.append(pupil.position)
 		var catchlight := _add_feature(
 			eye_anchor, "Catchlight%s" % side_name,
-			Vector3(-side * 0.0045, 0.0065, 0.0135),
-			Vector3(0.0035, 0.0042, 0.0018), white
+			Vector3(-side * 0.0045, 0.0065, 0.0160),
+			Vector3(0.0035, 0.0042, 0.002), white
 		)
 		_promote_face_layer(catchlight, 3)
 		var sparkle := _add_feature(
 			eye_anchor, "Sparkle%s" % side_name,
-			Vector3(side * 0.0035, -0.0075, 0.0135),
-			Vector3(0.0016, 0.0019, 0.0013), white
+			Vector3(side * 0.0035, -0.0075, 0.0160),
+			Vector3(0.0016, 0.0019, 0.0015), white
 		)
 		_promote_face_layer(sparkle, 3)
 
@@ -854,12 +857,42 @@ func _advance_eye_look(delta: float) -> void:
 
 
 func _promote_face_layer(feature: MeshInstance3D, priority: int) -> void:
-	var material := feature.material_override as StandardMaterial3D
-	# Keep ordinary depth testing: pupils must be visible over the eye whites
-	# from the front, but must be occluded by the skull and hair from behind.
-	# The authored local-Z separation above prevents front-facing z-fighting.
-	material.no_depth_test = false
+	var source := feature.material_override as StandardMaterial3D
+	if _face_layer_shader == null:
+		_face_layer_shader = Shader.new()
+		_face_layer_shader.code = """
+shader_type spatial;
+render_mode unshaded, depth_test_disabled, cull_disabled;
+uniform vec4 albedo_color : source_color = vec4(1.0);
+void fragment() {
+	ALBEDO = albedo_color.rgb;
+	ALPHA = albedo_color.a;
+}
+"""
+	var material := ShaderMaterial.new()
+	material.shader = _face_layer_shader
+	material.set_shader_parameter("albedo_color", source.albedo_color)
 	material.render_priority = priority
+	feature.material_override = material
+	_face_layers.append(feature)
+
+
+func _update_face_layer_visibility() -> void:
+	if _face_layers.is_empty() or _eye_anchors.size() < 2 or not is_inside_tree():
+		return
+	var camera := get_viewport().get_camera_3d()
+	if camera == null:
+		return
+	# The pupils move within their whites, so their own mesh axes are not a
+	# reliable definition of face-forward. Derive it from both eye anchors and
+	# the head center instead; this remains stable through gait, turns, and tool
+	# actions while still hiding no-depth eye ink whenever the camera is behind.
+	var eye_center := (_eye_anchors[0].global_position + _eye_anchors[1].global_position) * 0.5
+	var outward := (eye_center - _head_pivot.global_position).normalized()
+	var to_camera := (camera.global_position - eye_center).normalized()
+	var front_visible := outward.dot(to_camera) > 0.04
+	for feature in _face_layers:
+		feature.visible = front_visible
 
 
 # -------------------------------------------------------------- helpers

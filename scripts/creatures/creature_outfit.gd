@@ -51,6 +51,14 @@ func held_tip_world() -> Vector3:
 	return global_position
 
 
+## Creature-local tip position for deterministic action contracts and effects
+## that already operate in the procedural body's coordinate space.
+func held_tip_position() -> Vector3:
+	if is_instance_valid(_held_root):
+		return _held_root.transform * _held_tip_local
+	return Vector3.ZERO
+
+
 ## Replace only the held item while preserving the player's native clothing.
 ## An empty dictionary clears the hand, which lets the equipment system keep
 ## the visible procedural hierarchy in sync with gameplay state.
@@ -104,7 +112,7 @@ func _sync() -> void:
 		)
 	if is_instance_valid(_held_root) and not arms.is_empty():
 		var uses_two_hands := (
-			_held_kind in ["axe", "pickaxe"]
+			_held_kind in ["axe", "pickaxe", "fishing_rod"]
 			and arms.size() >= 2
 			and _creature.has_method("two_handed_action_active")
 			and bool(_creature.call("two_handed_action_active"))
@@ -231,10 +239,22 @@ func _build_held(item: Dictionary, anchors: Dictionary) -> void:
 	)
 	match _held_kind:
 		"axe":
-			var handle_length := torso_radius * 2.9
+			var handle_length := torso_radius * 3.6
 			_add_mesh(_held_root, "Handle", _cylinder_mesh(), Vector3(0.0, handle_length * 0.38, 0.0), Vector3(torso_radius * 0.075, handle_length, torso_radius * 0.075), color)
-			_add_mesh(_held_root, "Head", _box_mesh(), Vector3(0.0, handle_length * 0.82, -torso_radius * 0.3), Vector3(torso_radius * 0.14, torso_radius * 0.42, torso_radius * 0.52), accent)
-			_held_tip_local = Vector3(0.0, handle_length * 0.82, -torso_radius * 0.55)
+			var head := _add_mesh(
+				_held_root, "Head", _axe_head_mesh(),
+				Vector3(0.0, handle_length * 0.82, -torso_radius * 0.10),
+				Vector3(torso_radius * 0.30, torso_radius * 0.55, torso_radius * 0.76),
+				accent
+			)
+			(head.material_override as StandardMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED
+			_add_mesh(
+				_held_root, "Poll", _box_mesh(),
+				Vector3(0.0, handle_length * 0.82, torso_radius * 0.20),
+				Vector3(torso_radius * 0.22, torso_radius * 0.28, torso_radius * 0.28),
+				accent.darkened(0.16)
+			)
+			_held_tip_local = Vector3(0.0, handle_length * 0.82, -torso_radius * 0.64)
 		"pickaxe":
 			var pick_handle := torso_radius * 3.1
 			_add_mesh(_held_root, "Handle", _cylinder_mesh(), Vector3(0.0, pick_handle * 0.38, 0.0), Vector3(torso_radius * 0.075, pick_handle, torso_radius * 0.075), color)
@@ -352,6 +372,31 @@ func _box_mesh() -> BoxMesh:
 	var mesh := BoxMesh.new()
 	mesh.size = Vector3.ONE
 	return mesh
+
+
+## Broad flared wedge rather than a symmetric cube: even at gameplay scale
+## the silhouette reads as an axe blade, not a hammer head or red paddle.
+func _axe_head_mesh() -> ArrayMesh:
+	var points := PackedVector3Array([
+		Vector3(-0.5, -0.25, 0.20), Vector3(-0.5, 0.25, 0.20),
+		Vector3(-0.5, 0.50, -0.70), Vector3(-0.5, -0.50, -0.70),
+		Vector3(0.5, -0.25, 0.20), Vector3(0.5, 0.25, 0.20),
+		Vector3(0.5, 0.50, -0.70), Vector3(0.5, -0.50, -0.70),
+	])
+	var triangles := PackedInt32Array([
+		0, 3, 2, 0, 2, 1,
+		4, 5, 6, 4, 6, 7,
+		0, 1, 5, 0, 5, 4,
+		3, 7, 6, 3, 6, 2,
+		1, 2, 6, 1, 6, 5,
+		0, 4, 7, 0, 7, 3,
+	])
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for index in triangles:
+		surface.add_vertex(points[index])
+	surface.generate_normals()
+	return surface.commit()
 
 
 func _torus_mesh() -> TorusMesh:

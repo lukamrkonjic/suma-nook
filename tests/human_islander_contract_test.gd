@@ -82,9 +82,9 @@ func _init() -> void:
 	assert(absf((face.get("NoseAnchor") as Vector3).x) < 0.0001, "nose must be centered")
 	assert(absf((face.get("MouthAnchor") as Vector3).x) < 0.0001, "mouth must be centered")
 
-	# Eye ink is a real surface layer, never an always-on-top decal. It must
-	# clear the eye white from the front while the skull/hair can occlude it
-	# from side and rear views. Natural blinking closes and reopens both eyes.
+	# Eye ink clears the eye-white surface from valid face views. The body uses
+	# a head-facing camera gate so the no-depth layer never leaks through hair
+	# from behind. Natural blinking closes and reopens both eyes.
 	for side_name in ["Left", "Right"]:
 		var eye_anchor := body.find_child(
 			"Eye%sAnchor" % side_name, true, false
@@ -94,8 +94,13 @@ func _init() -> void:
 			"EyeWhite%s" % side_name, true, false
 		) as MeshInstance3D
 		assert(eye_anchor != null and pupil != null and eye_white != null, "eye layers must build")
-		var pupil_material := pupil.material_override as StandardMaterial3D
-		assert(not pupil_material.no_depth_test, "pupils must be hidden by the skull from rear views")
+		var pupil_material := pupil.material_override as ShaderMaterial
+		assert(pupil_material != null, "pupil must use the face-gated layer material")
+		assert(
+			"depth_test_disabled" in pupil_material.shader.code
+			and body.has_method("_update_face_layer_visibility"),
+			"pupil layer must pair clean front compositing with a rear-view gate"
+		)
 		assert(
 			pupil.position.z - pupil.scale.z > eye_white.position.z + eye_white.scale.z,
 			"pupil must clear the eye-white surface without z-fighting"
@@ -171,6 +176,7 @@ func _init() -> void:
 	var max_torso_yaw := 0.0
 	var max_torso_pitch := 0.0
 	var max_neck_pitch := 0.0
+	var max_head_attachment_error := 0.0
 	var min_body_sway := INF
 	var max_body_sway := -INF
 	var walk_legs: Array = []
@@ -193,6 +199,9 @@ func _init() -> void:
 		max_torso_yaw = maxf(max_torso_yaw, absf(torso_motion.rotation.y))
 		max_torso_pitch = maxf(max_torso_pitch, absf(torso_motion.rotation.x))
 		max_neck_pitch = maxf(max_neck_pitch, absf(neck_motion.rotation.x))
+		max_head_attachment_error = maxf(
+			max_head_attachment_error, float(creature.call("head_attachment_error"))
+		)
 		min_body_sway = minf(min_body_sway, body_pivot.position.x)
 		max_body_sway = maxf(max_body_sway, body_pivot.position.x)
 	assert(walk_legs.size() == 2, "player walk must expose two leg anchors")
@@ -204,6 +213,10 @@ func _init() -> void:
 	)
 	assert(max_torso_pitch > 0.008, "walk must flex the chest")
 	assert(max_neck_pitch > 0.004, "walk must articulate the neck")
+	assert(
+		max_head_attachment_error < 0.0001,
+		"head center must remain locked to the animated collar frame"
+	)
 	assert(
 		min_body_sway < -0.0002 and max_body_sway > 0.0002,
 		"center of mass must transfer over both support feet"
@@ -231,14 +244,26 @@ func _init() -> void:
 		"jump feet must remain separated instead of crossing"
 	)
 
-	# The woodcut action carries a visible axe in both hands through a lateral
-	# load-to-contact arc; a stationary forward jab fails this displacement.
+	# The woodcut action carries a visible axe in both hands through a raised
+	# load-to-contact arc; a stationary forward poke fails the vertical drop.
 	for _frame in 15:
 		creature.call("advance", 1.0 / 30.0, ProceduralCreatureScript.MotionState.new())
 	creature.call("set_held_tool", "axe")
 	creature.call("play_action", "chop", 1.9)
-	for _frame in 25:
-		creature.call("advance", 1.0 / 30.0, ProceduralCreatureScript.MotionState.new())
+	var swing_state := ProceduralCreatureScript.MotionState.new()
+	var maximum_hand_depth := -INF
+	for frame_index in 25:
+		creature.call("advance", 1.0 / 30.0, swing_state)
+		var frame_anchors: Dictionary = creature.call("pose_anchors")
+		var frame_body := frame_anchors.get("body") as Transform3D
+		# The first few ticks blend naturally out of the relaxed side pose. Once
+		# the authored load begins, neither hand may pass behind the torso plane.
+		if frame_index >= 4:
+			for arm in frame_anchors.get("arms", []) as Array:
+				var local_hand := frame_body.affine_inverse() * (
+					(arm as Dictionary).get("hand") as Vector3
+				)
+				maximum_hand_depth = maxf(maximum_hand_depth, local_hand.z)
 	var held := creature.find_child("Held", true, false) as Node3D
 	assert(held != null and held.get_node_or_null("Head") != null, "chop must show the axe")
 	var load_anchors: Dictionary = creature.call("pose_anchors")
@@ -249,14 +274,76 @@ func _init() -> void:
 		)
 	)
 	assert(load_hand_gap > 0.02 and load_hand_gap < 0.065, "both hands must grip the axe handle")
+	assert(
+		maximum_hand_depth < -0.025,
+		"both axe hands must remain visibly in front of the torso throughout the load (max z=%f)"
+		% maximum_hand_depth
+	)
 	var axe_head := held.get_node("Head") as MeshInstance3D
 	var load_tip := held.transform * axe_head.position
 	for _frame in 7:
 		creature.call("advance", 1.0 / 30.0, ProceduralCreatureScript.MotionState.new())
 	var impact_tip := held.transform * axe_head.position
+	var impact_blade_tip := (creature.call("outfit") as Node3D).call(
+		"held_tip_position"
+	) as Vector3
 	assert(
-		load_tip.distance_to(impact_tip) > 0.10,
-		"axe head must swing through a broad arc instead of jabbing in place"
+		load_tip.distance_to(impact_tip) > 0.06,
+		"axe head must swing through a broad arc instead of poking in place (travel=%f)"
+		% load_tip.distance_to(impact_tip)
+	)
+	assert(
+		load_tip.y - impact_tip.y > 0.08,
+		"axe head must descend decisively from a raised load into the tree (drop=%f)"
+		% (load_tip.y - impact_tip.y)
+	)
+	assert(
+		impact_blade_tip.y < load_tip.y - 0.10,
+		"axe blade must rotate below its raised load instead of translating like a spear"
+	)
+	assert(
+		impact_blade_tip.z < -0.34,
+		"axe blade must enter the forward trunk-contact zone (z=%f)"
+		% impact_blade_tip.z
+	)
+
+	# Fishing is a two-hand rod cast: lift behind the head, accelerate forward,
+	# and finish with the tip extended over the water. The rod tip must travel
+	# through both a visible apex and a substantial forward release.
+	creature.call("set_held_tool", "rod")
+	creature.call("play_action", "fish_cast", 1.15)
+	var fishing_held := creature.find_child("Held", true, false) as Node3D
+	var fishing_tip := fishing_held.get_node("Tip") as MeshInstance3D
+	var cast_tip_start := fishing_held.transform * fishing_tip.position
+	var cast_tip_highest := cast_tip_start.y
+	var cast_tip_farthest_forward := cast_tip_start.z
+	var cast_tip_farthest_back := cast_tip_start.z
+	var fishing_hand_gap := 0.0
+	for _frame in 34:
+		creature.call("advance", 1.0 / 30.0, ProceduralCreatureScript.MotionState.new())
+		var cast_tip := fishing_held.transform * fishing_tip.position
+		cast_tip_highest = maxf(cast_tip_highest, cast_tip.y)
+		cast_tip_farthest_forward = minf(cast_tip_farthest_forward, cast_tip.z)
+		cast_tip_farthest_back = maxf(cast_tip_farthest_back, cast_tip.z)
+		var cast_arms: Array = (creature.call("pose_anchors") as Dictionary).get("arms", [])
+		fishing_hand_gap = (
+			((cast_arms[0] as Dictionary).get("hand") as Vector3).distance_to(
+				(cast_arms[1] as Dictionary).get("hand") as Vector3
+			)
+		)
+	assert(
+		cast_tip_highest - cast_tip_start.y > 0.08,
+		"fishing rod must rise into a readable casting apex (rise=%f)"
+		% (cast_tip_highest - cast_tip_start.y)
+	)
+	assert(
+		cast_tip_farthest_back - cast_tip_farthest_forward > 0.10,
+		"fishing rod must whip forward over the water (travel=%f)"
+		% (cast_tip_farthest_back - cast_tip_farthest_forward)
+	)
+	assert(
+		fishing_hand_gap > 0.018 and fishing_hand_gap < 0.055,
+		"both hands must remain separated along the fishing-rod grip"
 	)
 	for _frame in 45:
 		creature.call("advance", 1.0 / 30.0, ProceduralCreatureScript.MotionState.new())

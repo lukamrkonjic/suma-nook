@@ -91,6 +91,7 @@ var _body_spring_velocity := Vector3.ZERO
 var _body_rotation := Vector3.ZERO
 var _head_position := Vector3.ZERO
 var _head_spring_velocity := Vector3.ZERO
+var _head_attachment_target := Vector3.ZERO
 var _head_look := Vector3.ZERO
 var _head_tilt := 0.0
 var _head_tilt_target := 0.0
@@ -287,6 +288,12 @@ func two_handed_action_active() -> bool:
 	return _action_two_handed and _action_weight > 0.02
 
 
+## Player heads are locked to the animated collar frame. Exposing the residual
+## makes the no-floating contract deterministic without depending on pixels.
+func head_attachment_error() -> float:
+	return _head_position.distance_to(_head_attachment_target)
+
+
 ## Live world-space attachment frames for clothing and equipables, refreshed
 ## by every advance()/_update_shell.
 func pose_anchors() -> Dictionary:
@@ -391,6 +398,14 @@ func is_action_active() -> bool:
 func action_impact_ratio(action_name: String, fallback: float) -> float:
 	var definition := _action_definition(action_name)
 	return clampf(float(definition.get("impact_ratio", fallback)), 0.01, 0.99)
+
+
+## Authored cycle length used by presentation effects that must synchronize
+## with a procedural action (for example, releasing a fishing line exactly
+## when the rod whips forward).
+func action_duration(action_name: String, fallback: float) -> float:
+	var definition := _action_definition(action_name)
+	return maxf(float(definition.get("seconds", fallback)), 0.05)
 
 
 func _action_definition(action_name: String) -> Dictionary:
@@ -820,26 +835,24 @@ func _update_head(delta: float, state: MotionState, movement_amount: float) -> v
 	var body_basis := Basis.from_euler(_body_rotation)
 	var neck_basis := body_basis
 	if _uses_player_motion():
-		neck_basis *= Basis.from_euler(Vector3(
-			_player_torso_motion.x * 0.68,
-			_player_torso_motion.y * 0.42,
-			_player_torso_motion.z * 0.62
-		))
+		neck_basis *= _player_neck_motion_basis()
 	var squash := _landing_squash * float(_juice.get("squash", 0.2))
 	var offset := _head_offset() * (1.0 - squash * 0.4)
 	var target := _body_position + neck_basis * offset
 	if _uses_player_motion():
-		# Rotate the skull around the collar instead of orbiting it around the
-		# pelvis. The scarf uses this same hinge, so the seam stays sealed.
+		# Use the exact same body-space collar frame as HumanIslanderBodyV2's
+		# NeckMotion node. The old target used different rotation multipliers and
+		# a separately stabilized spring, so the collar moved while the skull
+		# lagged behind and appeared detached during every support change.
 		target = (
 			_body_position
-			+ body_basis * PLAYER_NECK_LOCAL
+			+ body_basis * (PLAYER_NECK_LOCAL + _player_chest_offset * 0.45)
 			+ neck_basis * (offset - PLAYER_NECK_LOCAL)
-			+ body_basis * _player_chest_offset * 0.55
 		)
 	var stabilize := clampf(float(_head.get("stabilize", 0.35)), 0.0, 1.0)
 	if state.grounded and not state.flying:
-		target.y = lerpf(target.y, _body_rest_height() + offset.y, stabilize)
+		var attached_rest_y := _body_position.y + offset.y
+		target.y = lerpf(target.y, attached_rest_y, stabilize)
 	target += (
 		Vector3(state.local_velocity.x, 0.0, state.local_velocity.z)
 		* -float(_juice.get("head_lag", 0.045)) * 0.02
@@ -851,9 +864,17 @@ func _update_head(delta: float, state: MotionState, movement_amount: float) -> v
 			sin(_gait_phase * 2.0 + 0.35) * 0.0028
 			* clampf(movement_amount, 0.0, 1.0)
 		)
-	_head_spring_velocity += (target - _head_position) * 140.0 * delta
-	_head_spring_velocity *= exp(-13.0 * delta)
-	_head_position += _head_spring_velocity * delta
+	_head_attachment_target = target
+	if _uses_player_motion():
+		# Positional lag belongs in local head look, not between the neck and the
+		# skull. Locking the center prevents every child head part from appearing
+		# to float while preserving expressive rotational follow-through.
+		_head_position = target
+		_head_spring_velocity = Vector3.ZERO
+	else:
+		_head_spring_velocity += (target - _head_position) * 140.0 * delta
+		_head_spring_velocity *= exp(-13.0 * delta)
+		_head_position += _head_spring_velocity * delta
 
 	var look_target := Vector3.ZERO
 	if state.look_target is Vector3 and not state.flying:
@@ -1183,11 +1204,7 @@ func _update_shell(movement_amount: float, state: MotionState) -> void:
 				Basis.from_euler(_player_torso_motion), _player_chest_offset
 			),
 			"neck_motion": Transform3D(
-				Basis.from_euler(Vector3(
-					_player_torso_motion.x * 0.62,
-					_player_torso_motion.y * 0.48,
-					_player_torso_motion.z * 0.58
-				)),
+				_player_neck_motion_basis(),
 				_player_chest_offset * 0.45
 			),
 			"head": Transform3D(head_basis, _head_position),
@@ -1646,6 +1663,7 @@ func _update_overlays() -> void:
 func _reset_pose() -> void:
 	_body_position = Vector3(0.0, _body_rest_height(), 0.0)
 	_head_position = _body_position + _head_offset()
+	_head_attachment_target = _head_position
 	_leg_rests = _compute_leg_rests()
 	_leg_phases = _compute_leg_phases()
 	_feet = []
@@ -1747,6 +1765,19 @@ func _two_bone_joint(
 
 
 func _head_basis() -> Basis:
+	if _uses_player_motion():
+		# The skull inherits the complete collar frame first, then adds local
+		# look/tilt. Previously it inherited only fractions of body rotation,
+		# which made the whole head assembly slide visually across the neckline.
+		var collar_basis := (
+			Basis.from_euler(_body_rotation) * _player_neck_motion_basis()
+		)
+		var local_look := Basis.from_euler(Vector3(
+			_head_look.x + _action_head_pitch * _action_weight,
+			_head_look.y + _action_head_yaw * _action_weight,
+			_head_tilt
+		))
+		return (collar_basis * local_look).orthonormalized()
 	var chest_pitch := 0.0
 	var chest_yaw := 0.0
 	var chest_roll := 0.0
@@ -1762,6 +1793,14 @@ func _head_basis() -> Basis:
 			_body_rotation.z * 0.25 + chest_roll + _head_tilt
 		)
 	)
+
+
+func _player_neck_motion_basis() -> Basis:
+	return Basis.from_euler(Vector3(
+		_player_torso_motion.x * 0.62,
+		_player_torso_motion.y * 0.48,
+		_player_torso_motion.z * 0.58
+	))
 
 
 ## A lone ear (antenna) sits centered; a pair sits mirrored.

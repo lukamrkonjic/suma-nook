@@ -8,6 +8,10 @@ const ProceduralCreatureScript := preload(
 var _camera: Camera3D
 var _player: Node3D
 var _chop_target: MeshInstance3D
+var _fishing_water: MeshInstance3D
+var _fishing_line: MeshInstance3D
+var _fishing_line_target := Vector3(0.0, 0.012, -0.82)
+var _fishing_review_time := -1.0
 var _output_dir := "res://artifacts/player_final_polish/final"
 
 
@@ -19,6 +23,7 @@ func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(_output_dir.path_join("walk_cycle"))
 	DirAccess.make_dir_recursive_absolute(_output_dir.path_join("jump_cycle"))
 	DirAccess.make_dir_recursive_absolute(_output_dir.path_join("chop_cycle"))
+	DirAccess.make_dir_recursive_absolute(_output_dir.path_join("fishing_cycle"))
 	_build_stage()
 
 	var idle := ProceduralCreatureScript.MotionState.new()
@@ -96,12 +101,39 @@ func _ready() -> void:
 		match frame_index:
 			16:
 				await _capture("chop_cycle/01_load.png")
-			19:
+			21:
 				await _capture("chop_cycle/02_impact.png")
-			22:
+			24:
 				await _capture("chop_cycle/03_hold.png")
 			30:
 				await _capture("chop_cycle/04_recovery.png")
+
+	# Readable fishing silhouette: both hands lift the rod into a backswing,
+	# whip the tip over the water, then settle into a quiet forward hold. The
+	# review line is anchored to the same live procedural tip used by gameplay.
+	await _step(40, idle)
+	_chop_target.visible = false
+	_fishing_water.visible = true
+	_fishing_line.visible = true
+	_set_camera(Vector3(1.46, 0.82, -0.30))
+	_player.call("set_held_tool", "rod")
+	_player.call("play_action", "fish_cast", 1.15)
+	_fishing_review_time = 0.0
+	for frame_index in 24:
+		await _step(3, idle)
+		await _capture("fishing_cycle/frame_%02d.png" % frame_index)
+		match frame_index:
+			5:
+				await _capture("fishing_cycle/01_backswing.png")
+			9:
+				await _capture("fishing_cycle/02_apex.png")
+			13:
+				await _capture("fishing_cycle/03_release.png")
+			18:
+				await _capture("fishing_cycle/04_follow_through.png")
+	_player.call("play_action", "fish_wait", 2.6)
+	await _step(32, idle)
+	await _capture("fishing_cycle/05_wait.png")
 
 	print("PLAYER_FINAL_POLISH_REVIEW_DONE")
 	get_tree().quit(0)
@@ -110,6 +142,9 @@ func _ready() -> void:
 func _step(frame_count: int, state: ProceduralCreatureScript.MotionState) -> void:
 	for _frame in frame_count:
 		_player.call("advance", 1.0 / 60.0, state)
+		if _fishing_review_time >= 0.0:
+			_fishing_review_time += 1.0 / 60.0
+		_update_review_fishing_line()
 		await get_tree().process_frame
 
 
@@ -151,13 +186,41 @@ func _build_stage() -> void:
 	trunk.height = 0.62
 	trunk.radial_segments = 14
 	_chop_target.mesh = trunk
-	_chop_target.position = Vector3(-0.18, 0.31, -0.48)
+	_chop_target.position = Vector3(0.0, 0.31, -0.45)
 	var trunk_material := StandardMaterial3D.new()
 	trunk_material.albedo_color = Color("#91613f")
 	trunk_material.roughness = 1.0
 	_chop_target.material_override = trunk_material
 	_chop_target.visible = false
 	add_child(_chop_target)
+
+	_fishing_water = MeshInstance3D.new()
+	_fishing_water.name = "FishingWater"
+	var water := PlaneMesh.new()
+	water.size = Vector2(1.25, 0.85)
+	_fishing_water.mesh = water
+	_fishing_water.position = Vector3(0.0, 0.004, -0.76)
+	var water_material := StandardMaterial3D.new()
+	water_material.albedo_color = Color("#76c9ca")
+	water_material.roughness = 0.82
+	_fishing_water.material_override = water_material
+	_fishing_water.visible = false
+	add_child(_fishing_water)
+
+	_fishing_line = MeshInstance3D.new()
+	_fishing_line.name = "FishingLine"
+	var line_mesh := CylinderMesh.new()
+	line_mesh.top_radius = 0.0022
+	line_mesh.bottom_radius = 0.0022
+	line_mesh.height = 1.0
+	line_mesh.radial_segments = 6
+	_fishing_line.mesh = line_mesh
+	var line_material := StandardMaterial3D.new()
+	line_material.albedo_color = Color("#f6f1d9")
+	line_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_fishing_line.material_override = line_material
+	_fishing_line.visible = false
+	add_child(_fishing_line)
 
 	_player = ProceduralCreatureScript.new() as Node3D
 	_player.name = "FinalPolishPlayer"
@@ -180,6 +243,32 @@ func _set_camera(camera_position: Vector3) -> void:
 	_camera.look_at(Vector3(0.0, 0.31, 0.0))
 	for _frame in 2:
 		await get_tree().process_frame
+
+
+func _update_review_fishing_line() -> void:
+	if not is_instance_valid(_fishing_line) or not _fishing_line.visible:
+		return
+	var current_outfit := _player.call("outfit") as Node3D
+	if current_outfit == null:
+		return
+	var tip := current_outfit.call("held_tip_world") as Vector3
+	var release_progress := clampf((_fishing_review_time - 0.50) / 0.24, 0.0, 1.0)
+	release_progress = 1.0 - pow(1.0 - release_progress, 3.0)
+	var visible_endpoint := tip.lerp(_fishing_line_target, release_progress)
+	var delta := visible_endpoint - tip
+	var length := delta.length()
+	if length <= 0.001:
+		_fishing_line.scale = Vector3.ZERO
+		return
+	var basis := Basis.IDENTITY
+	basis.y = delta / length
+	basis.x = basis.y.cross(Vector3.FORWARD).normalized()
+	if basis.x.length_squared() < 0.001:
+		basis.x = basis.y.cross(Vector3.RIGHT).normalized()
+	basis.z = basis.x.cross(basis.y).normalized()
+	_fishing_line.transform = Transform3D(
+		basis.scaled(Vector3(1.0, length, 1.0)), tip.lerp(visible_endpoint, 0.5)
+	)
 
 
 func _capture(file_name: String) -> void:

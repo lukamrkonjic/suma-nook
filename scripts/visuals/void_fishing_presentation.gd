@@ -126,10 +126,15 @@ func begin_cast(point: Vector3) -> void:
 	_active = true
 	_pulling_reward = false
 	_set_effect_visible(true)
-	# The line leaves the tip on the rod's forward whip, then drops fast.
+	# Keep the line collapsed through the backswing. It leaves the live rod tip
+	# on the authored forward release, then drops fast toward the rift.
 	player_visual.cast_fishing_rod()
+	var release_seconds := (
+		player_visual.authored_action_duration("fish_cast", 1.15)
+		* player_visual.authored_action_impact_ratio("fish_cast", 0.60)
+	)
 	_line_tween = create_tween()
-	_line_tween.tween_interval(0.12)
+	_line_tween.tween_interval(release_seconds)
 	_line_tween.tween_property(
 		self,
 		"_cast_progress",

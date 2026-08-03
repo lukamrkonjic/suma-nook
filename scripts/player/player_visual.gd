@@ -1143,6 +1143,10 @@ func apply_equipment(equipment: EquipmentManager, held_tool_type := "") -> void:
 ## remains free to change; the line follows the active hand mount and extends
 ## toward the cast instead of depending on a particular mesh or bone name.
 func fishing_line_origin(cast_point: Vector3) -> Vector3:
+	if _procedural_critter_enabled and is_instance_valid(_procedural_critter):
+		# The production procedural body owns the visible rod. Route the line to
+		# its animated tip instead of the hidden legacy hand mount.
+		return _procedural_critter.call("held_tip_world") as Vector3
 	if is_instance_valid(_fishing_rod):
 		var marker := _fishing_rod.line_origin()
 		if is_instance_valid(marker):
@@ -1165,6 +1169,10 @@ func fishing_line_origin(cast_point: Vector3) -> Vector3:
 ## positioning the rod, but its orientation is world-exact: the shaft always
 ## points straight over the cast edge no matter how the hands animate.
 func align_fishing_rod(yaw: float) -> void:
+	if _procedural_critter_enabled:
+		# The two-hand pose supplies the rod's complete basis. A world-yaw pin
+		# would erase the backswing and forward follow-through every frame.
+		return
 	if is_instance_valid(_fishing_rod):
 		_fishing_rod.global_rotation = Vector3(0.0, yaw, 0.0)
 
@@ -1172,6 +1180,15 @@ func align_fishing_rod(yaw: float) -> void:
 ## Relays the cast to the held rod: a wrist flick that visibly throws the
 ## line out in the direction the keeper faces.
 func cast_fishing_rod() -> void:
+	if _procedural_critter_enabled and is_instance_valid(_procedural_critter):
+		# Edge fishing reaches this hook after its seated setup. Start the same
+		# full two-hand cast used by pond fishing instead of leaving the player
+		# frozen in fish_wait while the line deploys.
+		play(
+			"fish_cast",
+			authored_action_duration("fish_cast", 1.15)
+		)
+		return
 	if is_instance_valid(_fishing_rod):
 		_fishing_rod.cast_flick()
 
@@ -1504,6 +1521,10 @@ func _continue_authored_loop(anim: String, cycle_duration: float) -> bool:
 
 
 func authored_action_duration(anim: String, fallback: float) -> float:
+	if _procedural_critter_enabled and is_instance_valid(_procedural_critter):
+		return float(
+			_procedural_critter.call("action_duration", anim, fallback)
+		)
 	return float(
 		_asset_profile.action_playback_seconds.get(anim, fallback)
 	)
