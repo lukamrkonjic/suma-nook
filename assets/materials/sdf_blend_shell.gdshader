@@ -325,14 +325,19 @@ void fragment() {
 	ROUGHNESS = 1.0 - coat_gloss * 0.65;
 	SPECULAR = coat_gloss * 0.4;
 	METALLIC = 0.0;
-	// Uniform fill in place of ambient: the unlit side is one flat tone.
-	EMISSION = ALBEDO * 0.31;
+	// Fill in place of ambient, weighted toward the camera: the gameplay key
+	// light often sits behind characters, and without this bounce term every
+	// camera-facing face and limb collapses to one muddy unlit tone.
+	EMISSION = ALBEDO * (0.30 + 0.22 * facing);
 }
 
 
 void light() {
 	float diffuse = max(dot(NORMAL, LIGHT), 0.0);
-	float toon_band = 0.30 * smoothstep(0.10, 0.18, diffuse);
-	toon_band += 0.42 * smoothstep(0.52, 0.60, diffuse);
-	DIFFUSE_LIGHT += ALBEDO * LIGHT_COLOR * ATTENUATION * toon_band;
+	float toon_band = 0.22 * smoothstep(0.10, 0.18, diffuse);
+	toon_band += 0.33 * smoothstep(0.52, 0.60, diffuse);
+	// Received shadows only deepen the painted tone; a full shadow term
+	// crushes faces and limb joints to the emission fill on toy-scale bodies.
+	float shade = mix(0.62, 1.0, ATTENUATION);
+	DIFFUSE_LIGHT += ALBEDO * LIGHT_COLOR * shade * toon_band;
 }

@@ -1,0 +1,81 @@
+{
+  "target": "Suma Nook procedural human islander",
+  "revision": 1,
+  "coordinateFrame": {
+    "up": "+Y",
+    "forward": "-Z (existing Suma Nook runtime convention)",
+    "right": "+X"
+  },
+  "scope": "shape, proportions, hierarchy, attachment, and facial placement; existing game palette and lighting remain authoritative",
+  "observations": [
+    "The current rendered head, torso, limbs, hands, legs, and feet share one SDF surface.",
+    "The shared surface visibly blends unrelated colors across the face and torso.",
+    "The current solid hair ellipsoid covers most of the forehead and side silhouette.",
+    "The current feet and legs lose their independent silhouettes in front and side views."
+  ],
+  "inferences": [
+    "Rear head and hair-shell shape are authored symmetrically because no dedicated rear reference was supplied.",
+    "The existing game uses -Z as character forward, so the written +Z convention is adapted without changing gameplay orientation."
+  ],
+  "proportions": {
+    "headWidth": 0.29,
+    "headHeightInHeadWidths": 0.92,
+    "headDepthInHeadWidths": 0.80,
+    "targetTotalHeightInHeadWidths": [2.0, 2.1],
+    "torsoWidthInHeadWidths": 0.44,
+    "torsoHeightInHeadWidths": 0.60,
+    "armLengthInHeadWidths": 0.55,
+    "handWidthInHeadWidths": 0.15,
+    "legLengthInHeadWidths": 0.35,
+    "footLengthInHeadWidths": 0.23
+  },
+  "componentTree": [
+    {"id": "Pelvis", "parent": "HumanBodyParts", "surface": false},
+    {"id": "Torso", "parent": "Pelvis", "surface": "single-part tapered SDF"},
+    {"id": "Head", "parent": "Torso", "surface": "two-volume same-material SDF", "maxBlendRadiusInHeadWidths": 0.05},
+    {"id": "EarLeft", "parent": "Head", "surface": "ellipsoid"},
+    {"id": "EarRight", "parent": "Head", "surface": "mirrored ellipsoid"},
+    {"id": "Hair", "parent": "Head", "surface": "thin scalp cap plus three broad fringe masses"},
+    {"id": "FaceAnchor", "parent": "Head", "surface": false},
+    {"id": "EyeLeftAnchor", "parent": "FaceAnchor", "surface": "projected shallow ellipsoid"},
+    {"id": "EyeRightAnchor", "parent": "FaceAnchor", "surface": "mirrored projected shallow ellipsoid"},
+    {"id": "NoseAnchor", "parent": "FaceAnchor", "surface": "projected low-profile ellipsoid"},
+    {"id": "MouthAnchor", "parent": "FaceAnchor", "surface": "single projected graphic mark"},
+    {"id": "BlushLeftAnchor", "parent": "FaceAnchor", "surface": "projected shallow ellipsoid"},
+    {"id": "BlushRightAnchor", "parent": "FaceAnchor", "surface": "mirrored projected shallow ellipsoid"},
+    {"id": "UpperArmLeft", "parent": "Torso", "surface": "single-part tapered SDF"},
+    {"id": "LowerArmLeft", "parent": "UpperArmLeft", "surface": "single-part tapered SDF"},
+    {"id": "HandLeft", "parent": "LowerArmLeft", "surface": "single-part mitten SDF"},
+    {"id": "UpperArmRight", "parent": "Torso", "surface": "mirrored single-part tapered SDF"},
+    {"id": "LowerArmRight", "parent": "UpperArmRight", "surface": "mirrored single-part tapered SDF"},
+    {"id": "HandRight", "parent": "LowerArmRight", "surface": "mirrored single-part mitten SDF"},
+    {"id": "UpperLegLeft", "parent": "Pelvis", "surface": "single-part tapered SDF"},
+    {"id": "LowerLegLeft", "parent": "UpperLegLeft", "surface": "single-part tapered SDF"},
+    {"id": "FootLeft", "parent": "LowerLegLeft", "surface": "forward capsule SDF"},
+    {"id": "UpperLegRight", "parent": "Pelvis", "surface": "mirrored single-part tapered SDF"},
+    {"id": "LowerLegRight", "parent": "UpperLegRight", "surface": "mirrored single-part tapered SDF"},
+    {"id": "FootRight", "parent": "LowerLegRight", "surface": "mirrored forward capsule SDF"}
+  ],
+  "attachmentContract": {
+    "limbs": "Every lower segment is parented to its upper-segment pivot; every hand/foot is parented to its lower-segment pivot.",
+    "face": "All face anchors are children of FaceAnchor and are projected onto one analytic head ellipsoid before receiving a shallow normal offset.",
+    "hair": "Hair is an independent Head child and never participates in the skin SDF.",
+    "clothing": "Outfit, hat, scarf, pants, shoes, and held equipment remain separate CreatureOutfit geometry driven by pose anchors."
+  },
+  "materials": [
+    {"id": "skin", "parts": ["Head", "EarLeft", "EarRight", "UpperArmLeft", "LowerArmLeft", "HandLeft", "UpperArmRight", "LowerArmRight", "HandRight"], "rule": "one explicit palette color; no cross-part distance blending"},
+    {"id": "body", "parts": ["Torso"], "rule": "existing Suma palette color"},
+    {"id": "trouser", "parts": ["UpperLegLeft", "LowerLegLeft", "UpperLegRight", "LowerLegRight"], "rule": "existing Suma palette color"},
+    {"id": "foot", "parts": ["FootLeft", "FootRight"], "rule": "existing Suma palette color"},
+    {"id": "hair", "parts": ["Hair"], "rule": "independent matte/unshaded game-style material"},
+    {"id": "face-graphic", "parts": ["EyeLeftAnchor", "EyeRightAnchor", "NoseAnchor", "MouthAnchor", "BlushLeftAnchor", "BlushRightAnchor"], "rule": "independent unshaded graphic materials"}
+  ],
+  "acceptance": [
+    "No visible human body is rendered by CreatureSdfShell.",
+    "Only the two same-material head volumes share an SDF blend domain.",
+    "Eyes and blush anchors are mathematically mirrored.",
+    "Nose and mouth remain centered on X=0.",
+    "Head, torso, arms, hands, legs, feet, hair, and outfit retain independent semantic nodes and materials.",
+    "Bare front, three-quarter, and side captures preserve distinct hands, legs, and feet."
+  ]
+}

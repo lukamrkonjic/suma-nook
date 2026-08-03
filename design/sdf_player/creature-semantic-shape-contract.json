@@ -1,0 +1,56 @@
+{
+  "target": "Suma Nook procedural creature menagerie",
+  "revision": 1,
+  "reference": "codex-clipboard-ce40841f-580e-4a33-b45d-cb435e77678e.png",
+  "scope": "shape boundaries, solidity, facial scale, and runtime hierarchy; existing Suma palette, species data, animation, and lighting remain authoritative",
+  "observations": [
+    "The current non-human renderer smooth-unions torso, head, muzzle, limbs, feet, wings, tail, and ears into one SDF surface.",
+    "Unrelated parts visibly melt together at their contacts and their colors cross-fade through the shared distance field.",
+    "Overlapping seed charts create doubled contour and interior-looking artifacts that make some creatures read as hollow or translucent.",
+    "The generic muzzle patch and owl face discs occupy most of the face, producing mask-like expressions.",
+    "The generic and owl eye shapes are tall and large relative to the head, increasing the uncanny expression."
+  ],
+  "inferences": [
+    "Species-specific rear and side silhouettes remain driven by their existing JSON definitions because the supplied reference is a single gameplay view.",
+    "The complaint about opacity is treated as a solidity and surface-ownership problem rather than a request for transparent materials."
+  ],
+  "componentRules": [
+    {"id": "Torso", "surface": "one bounded closed procedural mesh"},
+    {"id": "Head", "surface": "one bounded closed procedural mesh, never fused with torso"},
+    {"id": "Snout", "surface": "independent closed tapered mesh when authored"},
+    {"id": "Legs", "surface": "one closed native tapered-capsule mesh per source segment, grouped under the Legs semantic node"},
+    {"id": "Feet", "surface": "one closed native sphere mesh per foot, grouped under the Feet semantic node"},
+    {"id": "Arms", "surface": "one closed native tapered-capsule mesh per arm, grouped under the Arms semantic node"},
+    {"id": "Hands", "surface": "one closed native sphere mesh per hand, grouped under the Hands semantic node"},
+    {"id": "Wings", "surface": "one closed native tapered-capsule mesh per wing segment, grouped under the Wings semantic node"},
+    {"id": "Tail", "surface": "one closed native tapered-capsule mesh per tail segment"},
+    {"id": "Ears", "surface": "one closed native tapered-capsule mesh per ear, grouped under the Ears semantic node"},
+    {"id": "CreatureFace", "surface": "independent matte graphic geometry parented to the head frame"},
+    {"id": "CreatureBelly", "surface": "independent matte graphic geometry parented to the torso frame"}
+  ],
+  "materialRules": [
+    "Every semantic mesh is closed, opaque, and uses its explicitly assigned palette color.",
+    "No distance-color interpolation may cross semantic-part boundaries.",
+    "Non-touching peers share only a semantic parent and material; they retain independent closed geometry.",
+    "Coat patterns may be evaluated on every body shell, but gloss remains bounded by the existing shader's rough painted-surface response.",
+    "Face and belly graphics remain unshaded, matte, and independent from the body distance field."
+  ],
+  "facialTargets": {
+    "genericMuzzleWidthInHeadRadii": 0.96,
+    "genericMuzzleHeightInHeadRadii": 0.70,
+    "genericEyeWidthInHeadRadii": 0.16,
+    "genericEyeHeightInHeadRadii": 0.24,
+    "owlDiscWidthInHeadRadii": 0.78,
+    "owlDiscHeightInHeadRadii": 0.84,
+    "owlEyeWidthInHeadRadii": 0.28,
+    "owlEyeHeightInHeadRadii": 0.38
+  },
+  "acceptance": [
+    "CreatureSdfShell remains only as a hidden compatibility node for every non-human creature.",
+    "Every visible non-human creature has a CreatureParts native procedural-mesh hierarchy.",
+    "No visible semantic surface contains shapes from two unrelated body parts.",
+    "Every source shape is assigned exactly once and the assigned total equals shape_budget().",
+    "All creature definitions build and animate without changing their JSON schema.",
+    "Front and three-quarter menagerie captures read as solid characters with distinct head, body, limbs, and face graphics."
+  ]
+}

@@ -1,13 +1,14 @@
 {
   "id": "islander",
   "body_plan": "legged",
+  "body_version": 2,
   "palette": {"body": "#6E8FB5", "body_light": "#F2C9A0", "limb": "#4E5E7A", "foot": "#6E4A36", "face": "#F6D4AC", "belly": "#7FA0C4", "accent": "#E8907A", "ink": "#38323E", "hair": "#6E4A36", "ear": "#F2C9A0"},
-  "torso": {"length": 0.085, "radius": 0.082, "height": 0.24, "taper": 0.92, "belly": false, "blend": 0.03},
-  "head": {"radius": 0.105, "width": 0.32, "offset": [0.0, 0.145, -0.004], "face": "human", "stabilize": 0.3},
-  "legs": {"count": 2, "length": 0.135, "stance": 0.08, "radius": 0.027, "segments": 2, "foot_radius": 0.033},
-  "arms": {"count": 2, "length": 0.125, "radius": 0.023, "hand_balls": true},
-  "gait": {"reference_speed": 2.4, "cadence": 7.4, "stride": 0.09, "step_lift": 0.055, "body_bob": 0.016, "lean": 0.06, "gait_twist": 0.09},
+  "torso": {"length": 0.10, "radius": 0.070, "height": 0.261, "taper": 1.0, "belly": false, "blend": 0.02},
+  "head": {"radius": 0.095, "offset": [0.0, 0.200, -0.004], "face": "human", "stabilize": 0.42},
+  "legs": {"count": 2, "length": 0.135, "stance": 0.084, "radius": 0.024, "segments": 2, "foot_radius": 0.022},
+  "arms": {"count": 2, "length": 0.138, "radius": 0.020, "height": 0.070, "shoulder_scale": 1.04, "hand_balls": true},
+  "gait": {"reference_speed": 2.4, "cadence": 7.4, "stride": 0.085, "step_lift": 0.045, "body_bob": 0.014, "lean": 0.06, "gait_twist": 0.09},
   "juice": {"squash": 0.22, "head_lag": 0.05, "head_snap": 10.0, "breath_rate": 0.5, "outline": 0.006},
-  "coat": {"pattern": "none", "strands": 0.12, "ruffle": 0.0012},
+  "coat": {"pattern": "none", "strands": 0.0, "ruffle": 0.0},
   "outfit": "res://data/outfits/cozy_scout.json"
 }

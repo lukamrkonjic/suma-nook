@@ -25,13 +25,16 @@ var _held_tip_local := Vector3.ZERO
 func build(outfit: Dictionary, creature: Node3D) -> void:
 	_creature = creature
 	var anchors: Dictionary = creature.call("pose_anchors")
+	# The V2 human body owns shirt/trousers/scarf/shoes as native layers;
+	# outfits then only contribute headwear and held equipment.
+	var body_owns_clothing := bool(anchors.get("human_v2", false))
 	if outfit.has("hat"):
 		_build_hat(outfit.get("hat") as Dictionary, anchors)
-	if outfit.has("shirt"):
+	if outfit.has("shirt") and not body_owns_clothing:
 		_build_shirt(outfit.get("shirt") as Dictionary, anchors)
-	if outfit.has("pants"):
+	if outfit.has("pants") and not body_owns_clothing:
 		_build_pants(outfit.get("pants") as Dictionary, anchors)
-	if outfit.has("shoes"):
+	if outfit.has("shoes") and not body_owns_clothing:
 		_build_shoes(outfit.get("shoes") as Dictionary, anchors)
 	if outfit.has("held"):
 		_build_held(outfit.get("held") as Dictionary, anchors)
@@ -117,9 +120,14 @@ func _build_hat(item: Dictionary, anchors: Dictionary) -> void:
 			_add_mesh(_hat_root, "Cone", _cone_mesh(), Vector3(0.0, head_radius * 1.22, 0.0), Vector3(head_radius * 0.46, head_radius * 0.95, head_radius * 0.46), color)
 			_add_mesh(_hat_root, "Pom", _sphere_mesh(), Vector3(0.0, head_radius * 1.74, 0.0), Vector3(head_radius * 0.15, head_radius * 0.15, head_radius * 0.15), accent)
 		_:
-			_add_mesh(_hat_root, "Dome", _sphere_mesh(), Vector3(0.0, head_radius * 0.88, 0.0), Vector3(head_radius * 0.88, head_radius * 0.5, head_radius * 0.88), color)
-			_add_mesh(_hat_root, "Brim", _sphere_mesh(), Vector3(0.0, head_radius * 0.78, -head_radius * 0.78), Vector3(head_radius * 0.46, 0.008, head_radius * 0.52), color)
-			_add_mesh(_hat_root, "Button", _sphere_mesh(), Vector3(0.0, head_radius * 1.4, 0.0), Vector3(head_radius * 0.11, head_radius * 0.11, head_radius * 0.11), accent)
+			# Low-profile cap that sits on top of the hair: a wide shallow
+			# crown, a clear forward brim, and a matching button. It must
+			# never engulf the head or hide the fringe.
+			_add_mesh(_hat_root, "Dome", _dome_mesh(), Vector3(0.0, head_radius * 0.55, head_radius * 0.04), Vector3(head_radius * 1.10, head_radius * 0.60, head_radius * 1.12), color)
+			_add_mesh(_hat_root, "Brim", _sphere_mesh(), Vector3(0.0, head_radius * 0.60, -head_radius * 1.02), Vector3(head_radius * 0.72, 0.006, head_radius * 0.50), color)
+			# The button stays in the cap's own family — a light accent dot up
+			# there reads as a specular error at gameplay scale.
+			_add_mesh(_hat_root, "Button", _sphere_mesh(), Vector3(0.0, head_radius * 1.26, head_radius * 0.04), Vector3(head_radius * 0.09, head_radius * 0.09, head_radius * 0.09), color.darkened(0.22))
 
 
 func _build_shirt(item: Dictionary, anchors: Dictionary) -> void:
@@ -237,6 +245,51 @@ func _sphere_mesh() -> SphereMesh:
 	return mesh
 
 
+func _dome_mesh() -> ArrayMesh:
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var indices := PackedInt32Array()
+	var segments := 24
+	var rings := 8
+	vertices.append(Vector3.UP)
+	normals.append(Vector3.UP)
+	for ring in range(1, rings + 1):
+		var theta := PI * 0.5 * float(ring) / float(rings)
+		for segment in range(segments + 1):
+			var phi := TAU * float(segment) / float(segments)
+			var point := Vector3(
+				sin(theta) * cos(phi), cos(theta), sin(theta) * sin(phi)
+			)
+			vertices.append(point)
+			normals.append(point.normalized())
+	for segment in segments:
+		indices.append(0)
+		indices.append(1 + segment)
+		indices.append(2 + segment)
+	for ring in range(1, rings):
+		var row := 1 + (ring - 1) * (segments + 1)
+		var next_row := row + segments + 1
+		for segment in segments:
+			var a := row + segment
+			var b := a + 1
+			var c := next_row + segment
+			var d := c + 1
+			indices.append(a)
+			indices.append(c)
+			indices.append(b)
+			indices.append(b)
+			indices.append(c)
+			indices.append(d)
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
+
 func _cylinder_mesh() -> CylinderMesh:
 	var mesh := CylinderMesh.new()
 	mesh.top_radius = 1.0
@@ -290,6 +343,9 @@ func _add_mesh(
 	material.disable_receive_shadows = true
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	instance.material_override = material
+	# Garments are tight decorative shells; the body underneath owns the
+	# ground shadow, and garment shadows carve dark bands into faces and limbs.
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(instance)
 	return instance
 

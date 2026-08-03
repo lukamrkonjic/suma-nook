@@ -1,7 +1,8 @@
 extends SceneTree
 ## Builds every creature definition headless and asserts the core contract:
-## a valid parse, one ArrayMesh surface, and a shape count within the
-## 16-shape mobile budget. Guards the "any body plan from JSON" promise.
+## a valid parse, a complete bounded semantic hierarchy, and a source shape
+## count within the 16-shape pose budget. Guards the "any body plan from JSON"
+## promise without allowing unrelated anatomy to fuse into one surface.
 
 const ProceduralCreatureScript := preload(
 	"res://scripts/creatures/procedural_creature.gd"
@@ -83,10 +84,40 @@ func _check_creature(path: String) -> void:
 	assert(shell != null, "%s: creature must build its SDF shell" % path)
 	var shell_mesh := shell.mesh as ArrayMesh
 	assert(shell_mesh != null, "%s: shell must be an ArrayMesh" % path)
-	assert(
-		shell_mesh.get_surface_count() == 1,
-		"%s: shell must stay one draw surface" % path
-	)
+	assert(shell_mesh.get_surface_count() == 1, "%s: compatibility shell invalid" % path)
+	var is_human := creature.has_node("HumanBodyParts")
+	if is_human:
+		assert(not shell.visible, "%s: human compatibility shell must be hidden" % path)
+	else:
+		assert(not shell.visible, "%s: fused compatibility shell must be hidden" % path)
+		var parts := creature.get_node_or_null("CreatureParts") as Node3D
+		assert(parts != null, "%s: semantic CreatureParts hierarchy missing" % path)
+		assert(
+			int(parts.call("source_shape_count")) == budget,
+			"%s: semantic hierarchy did not assign every source shape" % path
+		)
+		assert(
+			int(parts.call("max_shapes_per_part")) <= 6,
+			"%s: a semantic part contains unrelated source shapes" % path
+		)
+		var part_names := parts.call("part_names") as PackedStringArray
+		assert(part_names.has("Torso"), "%s: semantic torso missing" % path)
+		assert(part_names.has("Head"), "%s: semantic head missing" % path)
+		for child in parts.get_children():
+			var surface := child.get_node_or_null("Surface") as MeshInstance3D
+			assert(surface != null, "%s/%s: surface missing" % [path, child.name])
+			assert(
+				(surface.mesh as ArrayMesh).get_surface_count() == 1,
+				"%s/%s: semantic surface invalid" % [path, child.name]
+			)
+		var first_surface := parts.get_child(0).get_node("Surface") as MeshInstance3D
+		var stable_mesh := first_surface.mesh
+		var idle := ProceduralCreatureScript.MotionState.new()
+		creature.call("advance", 1.0 / 60.0, idle)
+		assert(
+			first_surface.mesh == stable_mesh,
+			"%s: animation rebuilt native geometry instead of updating transforms" % path
+		)
 	var identifier := String(creature.call("definition_id"))
 	assert(not identifier.is_empty(), "%s: definition needs an id" % path)
 	# Every outfit must dress every creature without erroring: hats/shirts

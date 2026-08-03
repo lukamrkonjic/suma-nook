@@ -1,9 +1,9 @@
 class_name ProceduralCreature
 extends Node3D
-## One JSON definition in, one seamless animated critter out.
+## One JSON definition in, one articulated animated critter out.
 ##
-## Builds a single SDF blend-shell draw call from a compact creature
-## definition and animates it procedurally for any body plan: legged
+## Builds bounded semantic procedural meshes from a compact creature definition
+## and animates them procedurally for any body plan: legged
 ## creatures with 1, 2, 4, or 6 legs and 0..3 arms, hoppers, and flyers
 ## with wings. The node is driver-agnostic — whoever owns it (player
 ## controller adapter, mascot AI adapter, review harness) feeds a
@@ -11,6 +11,15 @@ extends Node3D
 ## node owns everything visible.
 
 const SdfBlendShellScript := preload("res://scripts/player/sdf_blend_shell.gd")
+const HumanIslanderBodyScript := preload(
+	"res://scripts/player/human_islander_body.gd"
+)
+const HumanIslanderBodyV2Script := preload(
+	"res://scripts/player/human_islander_body_v2.gd"
+)
+const CreatureSemanticShellsScript := preload(
+	"res://scripts/creatures/creature_semantic_shells.gd"
+)
 const CreatureOutfitScript := preload(
 	"res://scripts/creatures/creature_outfit.gd"
 )
@@ -56,6 +65,8 @@ var _gait: Dictionary
 var _juice: Dictionary
 
 var _shell: MeshInstance3D
+var _human_body: Node3D
+var _semantic_shells: Node3D
 var _face_root: Node3D
 var _belly_root: Node3D
 var _eye_nodes: Array[MeshInstance3D] = []
@@ -165,8 +176,32 @@ func build(definition: Dictionary) -> void:
 	_shell.call("set_neighbors", _build_neighbors())
 	_shell.call("set_outline_width", float(_juice.get("outline", 0.006)))
 	var coat := definition.get("coat", {}) as Dictionary
-	if not coat.is_empty():
-		_shell.call("set_coat", coat)
+	if _uses_semantic_human_body():
+		# Preserve the generic shell node as a compatibility/debug contract, but
+		# render the human from the authored V2 morphology (connected blend
+		# shells + readable face). The rejected V1 per-segment construction
+		# stays reachable via "body_version": 1 for comparison only.
+		_shell.visible = false
+		if int(_definition.get("body_version", 2)) == 1:
+			_human_body = HumanIslanderBodyScript.new() as Node3D
+		else:
+			_human_body = HumanIslanderBodyV2Script.new() as Node3D
+		_human_body.name = "HumanBodyParts"
+		add_child(_human_body)
+		_human_body.call("build", _palette, _head, _torso, _legs, _arms)
+	else:
+		# Keep the legacy all-in-one shell as a compatibility/debug surface only.
+		# Visible anatomy is split by semantic ownership, preventing unrelated
+		# parts from melting together or exposing overlapping seed charts.
+		_shell.visible = false
+		_semantic_shells = CreatureSemanticShellsScript.new() as Node3D
+		_semantic_shells.name = "CreatureParts"
+		add_child(_semantic_shells)
+		_semantic_shells.call(
+			"build", _build_semantic_layout(), coat,
+			float(_juice.get("outline", 0.006))
+		)
+	if not coat.is_empty() and not is_instance_valid(_human_body):
 		var accents := CreatureCoatScript.new() as Node3D
 		accents.name = "CoatAccents"
 		add_child(accents)
@@ -226,6 +261,12 @@ func pose_anchors() -> Dictionary:
 		"breath": 1.0 + sin(_breath_phase) * 0.016 * (0.4 + 0.6 * _idle_factor),
 		"arms": _anchor_arms,
 		"legs": _anchor_legs,
+		# The V2 human owns its shirt/trousers/scarf/shoes natively; the
+		# outfit system then only contributes hats and held equipment.
+		"human_v2": (
+			is_instance_valid(_human_body)
+			and _human_body.has_method("set_dressed")
+		),
 	}
 
 
@@ -835,10 +876,27 @@ func _update_shell(movement_amount: float, state: MotionState) -> void:
 
 	_append_leg_shapes(shape_a, shape_b, colors, body_basis)
 	_append_arm_shapes(shape_a, shape_b, colors, body_basis, movement_amount, state)
+	if is_instance_valid(_human_body):
+		_human_body.call("update_pose", {
+			"body": Transform3D(body_basis, _body_position),
+			"head": Transform3D(head_basis, _head_position),
+			"arms": _anchor_arms,
+			"legs": _anchor_legs,
+		})
+		return
 	if _has_wings():
 		_append_wing_shapes(shape_a, shape_b, colors, body_basis)
 	_append_tail_shapes(shape_a, shape_b, colors)
 	_append_ear_shapes(shape_a, shape_b, colors, head_basis)
+	if is_instance_valid(_semantic_shells):
+		_semantic_shells.call(
+			"update_shapes",
+			PackedVector4Array(shape_a),
+			PackedVector4Array(shape_b),
+			PackedVector4Array(colors),
+			PackedFloat32Array(_radius_b_buffer)
+		)
+		return
 
 	_shell.call(
 		"update_shapes",
@@ -927,7 +985,7 @@ func _append_arm_shapes(
 			angle = PI
 		var lateral := Vector3(sin(angle), 0.0, cos(angle))
 		var shoulder := _body_position + body_basis * (
-			lateral * _torso_radius() * 0.82
+			lateral * _torso_radius() * float(_arms.get("shoulder_scale", 0.82))
 			+ Vector3(0.0, shoulder_height, 0.0)
 		)
 		var swing_sign := 1.0 if arm_index == 0 else -1.0
@@ -973,6 +1031,11 @@ func _append_arm_shapes(
 				)
 			hand_offset = hand_offset.lerp(reach_offset, _action_weight)
 		var hand := shoulder + body_basis * hand_offset
+		var elbow := shoulder.lerp(hand, 0.52) + body_basis * Vector3(
+			lateral.x * arm_length * 0.035,
+			0.0,
+			-arm_length * 0.075
+		)
 		_append_shape(
 			shape_a, shape_b, colors, shoulder, hand,
 			arm_radius, 0.018, _color_for("arm"), arm_radius * 0.72
@@ -982,7 +1045,7 @@ func _append_arm_shapes(
 				shape_a, shape_b, colors, hand, hand,
 				arm_radius * 1.18, 0.008, _color_for("arm")
 			)
-		_anchor_arms.append({"shoulder": shoulder, "hand": hand})
+		_anchor_arms.append({"shoulder": shoulder, "elbow": elbow, "hand": hand})
 
 
 func _append_wing_shapes(
@@ -1093,7 +1156,9 @@ func _build_overlays() -> void:
 		"pup":
 			_build_pup_face(head_radius)
 		"human":
-			_build_human_face(head_radius)
+			# Human face/hair live under the semantic Head/FaceAnchor hierarchy.
+			# Keeping this root empty preserves the generic attachment contract.
+			pass
 		_:
 			_build_critter_face(head_radius)
 
@@ -1111,8 +1176,8 @@ func _build_overlays() -> void:
 
 
 func _build_critter_face(head_radius: float) -> void:
-	_add_sphere(_face_root, "Muzzle", Vector3(0.0, -head_radius * 0.09, -head_radius + 0.011), Vector3(head_radius * 0.62, head_radius * 0.51, 0.014), _color_for("face_patch"))
-	var eye_scale := Vector3(head_radius * 0.1, head_radius * 0.165, 0.007)
+	_add_sphere(_face_root, "Muzzle", Vector3(0.0, -head_radius * 0.13, -head_radius + 0.011), Vector3(head_radius * 0.48, head_radius * 0.35, 0.014), _color_for("face_patch"))
+	var eye_scale := Vector3(head_radius * 0.08, head_radius * 0.12, 0.007)
 	var eye_left := _add_sphere(_face_root, "EyeLeft", Vector3(-head_radius * 0.26, head_radius * 0.04, -head_radius - 0.005), eye_scale, _color("ink"), Vector3.ZERO, true)
 	var eye_right := _add_sphere(_face_root, "EyeRight", Vector3(head_radius * 0.26, head_radius * 0.04, -head_radius - 0.005), eye_scale, _color("ink"), Vector3.ZERO, true)
 	_register_eyes(eye_left, eye_right)
@@ -1125,14 +1190,14 @@ func _build_critter_face(head_radius: float) -> void:
 
 
 func _build_owl_face(head_radius: float) -> void:
-	_add_sphere(_face_root, "FaceDiscLeft", Vector3(-head_radius * 0.27, head_radius * 0.1, -head_radius + 0.026), Vector3(head_radius * 0.47, head_radius * 0.51, 0.024), _color_for("face_patch"), Vector3(0.0, 0.34, 0.0))
-	_add_sphere(_face_root, "FaceDiscRight", Vector3(head_radius * 0.27, head_radius * 0.1, -head_radius + 0.026), Vector3(head_radius * 0.47, head_radius * 0.51, 0.024), _color_for("face_patch"), Vector3(0.0, -0.34, 0.0))
-	var eye_scale := Vector3(head_radius * 0.2, head_radius * 0.27, 0.008)
-	var eye_left := _add_sphere(_face_root, "EyeLeft", Vector3(-head_radius * 0.38, head_radius * 0.1, -head_radius - 0.005), eye_scale, _color("ink"), Vector3.ZERO, true)
-	var eye_right := _add_sphere(_face_root, "EyeRight", Vector3(head_radius * 0.38, head_radius * 0.1, -head_radius - 0.005), eye_scale, _color("ink"), Vector3.ZERO, true)
+	_add_sphere(_face_root, "FaceDiscLeft", Vector3(-head_radius * 0.24, head_radius * 0.08, -head_radius + 0.026), Vector3(head_radius * 0.39, head_radius * 0.42, 0.024), _color_for("face_patch"), Vector3(0.0, 0.28, 0.0))
+	_add_sphere(_face_root, "FaceDiscRight", Vector3(head_radius * 0.24, head_radius * 0.08, -head_radius + 0.026), Vector3(head_radius * 0.39, head_radius * 0.42, 0.024), _color_for("face_patch"), Vector3(0.0, -0.28, 0.0))
+	var eye_scale := Vector3(head_radius * 0.14, head_radius * 0.19, 0.008)
+	var eye_left := _add_sphere(_face_root, "EyeLeft", Vector3(-head_radius * 0.31, head_radius * 0.1, -head_radius - 0.005), eye_scale, _color("ink"), Vector3.ZERO, true)
+	var eye_right := _add_sphere(_face_root, "EyeRight", Vector3(head_radius * 0.31, head_radius * 0.1, -head_radius - 0.005), eye_scale, _color("ink"), Vector3.ZERO, true)
 	_register_eyes(eye_left, eye_right)
-	_add_sphere(_face_root, "GlintLeft", Vector3(-head_radius * 0.44, head_radius * 0.19, -head_radius - 0.015), Vector3(0.0062, 0.0082, 0.004), Color("#FFF8E4"), Vector3.ZERO, true)
-	_add_sphere(_face_root, "GlintRight", Vector3(head_radius * 0.32, head_radius * 0.19, -head_radius - 0.015), Vector3(0.0062, 0.0082, 0.004), Color("#FFF8E4"), Vector3.ZERO, true)
+	_add_sphere(_face_root, "GlintLeft", Vector3(-head_radius * 0.35, head_radius * 0.16, -head_radius - 0.015), Vector3(0.0052, 0.0072, 0.004), Color("#FFF8E4"), Vector3.ZERO, true)
+	_add_sphere(_face_root, "GlintRight", Vector3(head_radius * 0.27, head_radius * 0.16, -head_radius - 0.015), Vector3(0.0052, 0.0072, 0.004), Color("#FFF8E4"), Vector3.ZERO, true)
 	_add_sphere(_face_root, "Beak", Vector3(0.0, -head_radius * 0.13, -head_radius - 0.007), Vector3(head_radius * 0.13, head_radius * 0.19, 0.012), _color("accent").lightened(0.12), Vector3.ZERO, true)
 	_add_sphere(_face_root, "CheekLeft", Vector3(-head_radius * 0.59, -head_radius * 0.16, -head_radius + 0.008), Vector3(head_radius * 0.12, head_radius * 0.08, 0.005), _color("accent").lightened(0.22), Vector3(0.0, 0.5, 0.0), true)
 	_add_sphere(_face_root, "CheekRight", Vector3(head_radius * 0.59, -head_radius * 0.16, -head_radius + 0.008), Vector3(head_radius * 0.12, head_radius * 0.08, 0.005), _color("accent").lightened(0.22), Vector3(0.0, -0.5, 0.0), true)
@@ -1183,7 +1248,7 @@ func _build_pup_face(head_radius: float) -> void:
 		var tip_radius := (
 			snout_radius * clampf(float(snout.get("taper", 0.7)), 0.3, 1.2)
 		)
-		var eye_scale_snouted := Vector3(head_radius * 0.11, head_radius * 0.15, 0.007)
+		var eye_scale_snouted := Vector3(head_radius * 0.09, head_radius * 0.13, 0.007)
 		var eye_left_snouted := _add_sphere(_face_root, "EyeLeft", Vector3(-head_radius * 0.3, head_radius * 0.12, -head_radius - 0.004), eye_scale_snouted, _color("ink"), Vector3.ZERO, true)
 		var eye_right_snouted := _add_sphere(_face_root, "EyeRight", Vector3(head_radius * 0.3, head_radius * 0.12, -head_radius - 0.004), eye_scale_snouted, _color("ink"), Vector3.ZERO, true)
 		_register_eyes(eye_left_snouted, eye_right_snouted)
@@ -1194,7 +1259,7 @@ func _build_pup_face(head_radius: float) -> void:
 		_add_sphere(_face_root, "BrowRight", Vector3(head_radius * 0.3, head_radius * 0.34, -head_radius + 0.002), Vector3(head_radius * 0.11, head_radius * 0.045, 0.005), _color("accent"), Vector3.ZERO, true)
 		return
 	_add_sphere(_face_root, "Muzzle", Vector3(0.0, -head_radius * 0.22, -head_radius - 0.006), Vector3(head_radius * 0.42, head_radius * 0.33, head_radius * 0.28), _color_for("face_patch"))
-	var eye_scale := Vector3(head_radius * 0.11, head_radius * 0.15, 0.007)
+	var eye_scale := Vector3(head_radius * 0.09, head_radius * 0.13, 0.007)
 	var eye_left := _add_sphere(_face_root, "EyeLeft", Vector3(-head_radius * 0.30, head_radius * 0.12, -head_radius - 0.004), eye_scale, _color("ink"), Vector3.ZERO, true)
 	var eye_right := _add_sphere(_face_root, "EyeRight", Vector3(head_radius * 0.30, head_radius * 0.12, -head_radius - 0.004), eye_scale, _color("ink"), Vector3.ZERO, true)
 	_register_eyes(eye_left, eye_right)
@@ -1427,6 +1492,10 @@ func _is_upright() -> bool:
 	return _leg_count <= 2 or stance == "upright"
 
 
+func _uses_semantic_human_body() -> bool:
+	return String(_head.get("face", "")) == "human"
+
+
 func _is_hop_plan() -> bool:
 	return _plan == "hopper"
 
@@ -1445,6 +1514,75 @@ func _default_leg_segments() -> int:
 
 func _wing_scale() -> float:
 	return float(_wings.get("thickness", 1.0))
+
+
+func _build_semantic_layout() -> Array[Dictionary]:
+	var layout: Array[Dictionary] = []
+	var cursor := 0
+	_append_semantic_part(layout, "Torso", [cursor])
+	cursor += 1
+	_append_semantic_part(layout, "Head", [cursor])
+	cursor += 1
+	if _head.has("snout"):
+		_append_semantic_part(layout, "Snout", [cursor])
+		cursor += 1
+
+	var leg_segments := clampi(
+		int(_legs.get("segments", _default_leg_segments())), 1, 2
+	)
+	var leg_indices: Array[int] = []
+	var foot_indices: Array[int] = []
+	for _leg_index in _leg_count:
+		for _segment_index in leg_segments:
+			leg_indices.append(cursor)
+			cursor += 1
+		if _has_foot_balls():
+			foot_indices.append(cursor)
+			cursor += 1
+	if not leg_indices.is_empty():
+		_append_semantic_part(layout, "Legs", leg_indices)
+	if not foot_indices.is_empty():
+		_append_semantic_part(layout, "Feet", foot_indices)
+
+	var arm_count := clampi(int(_arms.get("count", 0)), 0, 3)
+	var arm_indices: Array[int] = []
+	var hand_indices: Array[int] = []
+	for _arm_index in arm_count:
+		arm_indices.append(cursor)
+		cursor += 1
+		if bool(_arms.get("hand_balls", false)):
+			hand_indices.append(cursor)
+			cursor += 1
+	if not arm_indices.is_empty():
+		_append_semantic_part(layout, "Arms", arm_indices)
+	if not hand_indices.is_empty():
+		_append_semantic_part(layout, "Hands", hand_indices)
+
+	if _has_wings():
+		_append_semantic_part(layout, "Wings", range(cursor, cursor + 4))
+		cursor += 4
+	var tail_segments := clampi(int(_tail.get("segments", 0)), 0, 3)
+	if tail_segments > 0:
+		_append_semantic_part(
+			layout, "Tail", range(cursor, cursor + tail_segments)
+		)
+		cursor += tail_segments
+	var ear_count := clampi(int(_ears.get("count", 0)), 0, 2)
+	if ear_count > 0:
+		_append_semantic_part(layout, "Ears", range(cursor, cursor + ear_count))
+		cursor += ear_count
+	assert(
+		cursor == shape_budget(),
+		"Semantic layout assigned %d of %d creature shapes"
+		% [cursor, shape_budget()]
+	)
+	return layout
+
+
+func _append_semantic_part(
+	layout: Array[Dictionary], part_name: String, source_indices: Array
+) -> void:
+	layout.append({"name": part_name, "indices": source_indices})
 
 
 func _build_neighbors() -> Array:
@@ -1508,6 +1646,9 @@ func _add_sphere(
 	material.disable_receive_shadows = true
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	instance.material_override = material
+	# Stickers also never cast: the body volume owns the ground shadow, and
+	# decal shadows draw false dark marks across the face they sit on.
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(instance)
 	return instance
 

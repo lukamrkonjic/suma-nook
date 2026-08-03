@@ -25,7 +25,7 @@ func _ready() -> void:
 	_main.debug_build_mock_world()
 	_main.renderer.rebuild_all()
 	_main.player.global_position = (
-		_main.core.grid.cell_to_world(Vector2i(-1, 2))
+		_main.core.grid.cell_to_world(Vector2i(3, 0))
 		+ Vector3(0.0, 0.05, 0.0)
 	)
 	_main.player.rotation.y = PI
@@ -98,6 +98,11 @@ func _enter_gameplay() -> void:
 	creator._name_edit.text = "Suma Keeper"
 	creator._finish()
 	await get_tree().create_timer(0.7).timeout
+	if _main.arrival_picker != null and _main.arrival_picker.is_open():
+		_main.arrival_picker.select("tile_sand")
+		# Land rise (0.72 s) and keeper landing (0.54 s) must both finish;
+		# otherwise the arrival tween overwrites the review-room teleport.
+		await get_tree().create_timer(1.5).timeout
 
 
 func _settle(frame_count: int) -> void:

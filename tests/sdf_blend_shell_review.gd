@@ -6,6 +6,7 @@ const ProceduralCritterScript := preload(
 )
 
 var _camera: Camera3D
+var _critter: Node3D
 var _output_dir := "res://artifacts/sdf_blend_shell_review"
 
 
@@ -28,6 +29,12 @@ func _ready() -> void:
 	for _frame in 3:
 		await get_tree().process_frame
 	await _capture("sdf_side.png")
+	_critter.call("equip_outfit", "res://data/outfits/cozy_scout.json")
+	_camera.position = Vector3(0.78, 1.02, -1.70)
+	_camera.look_at(Vector3(0.0, 0.42, 0.0))
+	for _frame in 3:
+		await get_tree().process_frame
+	await _capture("sdf_styled.png")
 	get_tree().quit(0)
 
 
@@ -66,10 +73,12 @@ func _build_stage() -> void:
 	var visual_root := Node3D.new()
 	visual_root.name = "ReviewVisual"
 	controller.add_child(visual_root)
-	var critter := ProceduralCritterScript.new()
-	critter.name = "ProceduralCritterPlayer"
-	visual_root.add_child(critter)
-	critter.call("build")
+	_critter = ProceduralCritterScript.new()
+	_critter.name = "ProceduralCritterPlayer"
+	visual_root.add_child(_critter)
+	_critter.call("build")
+	# Geometry review stays bare so accessories cannot hide silhouette defects.
+	_critter.call("clear_outfit")
 
 	_camera = Camera3D.new()
 	_camera.fov = 32.0

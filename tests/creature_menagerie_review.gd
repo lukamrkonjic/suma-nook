@@ -16,30 +16,39 @@ var _camera: Camera3D
 var _creatures: Array[Node3D] = []
 var _walking := false
 var _output_dir := "res://artifacts/creature_menagerie_review"
+var _review_limit := 0
+var _review_offset := 0
+var _quick_review := false
 
 
 func _ready() -> void:
 	for argument: String in OS.get_cmdline_user_args():
 		if argument.begins_with("--shot-dir="):
 			_output_dir = argument.trim_prefix("--shot-dir=")
+		elif argument.begins_with("--limit="):
+			_review_limit = maxi(argument.trim_prefix("--limit=").to_int(), 0)
+		elif argument.begins_with("--offset="):
+			_review_offset = maxi(argument.trim_prefix("--offset=").to_int(), 0)
+		elif argument == "--quick":
+			_quick_review = true
 	DirAccess.make_dir_recursive_absolute(_output_dir)
 	_build_stage()
 
-	for _frame in 14:
+	for _frame in (4 if _quick_review else 14):
 		await get_tree().process_frame
 	await _capture("menagerie_idle_front.png")
 
 	_camera.position = Vector3(1.7, 0.72, -1.9)
 	_camera.look_at(Vector3(0.0, 0.22, 0.0))
-	for _frame in 4:
+	for _frame in (2 if _quick_review else 4):
 		await get_tree().process_frame
 	await _capture("menagerie_idle_quarter.png")
 
 	_walking = true
-	for _frame in 30:
+	for _frame in (8 if _quick_review else 30):
 		await get_tree().process_frame
 	await _capture("menagerie_walk_a.png")
-	for _frame in 9:
+	for _frame in (3 if _quick_review else 9):
 		await get_tree().process_frame
 	await _capture("menagerie_walk_b.png")
 	_camera.position = Vector3(0.0, 0.62, -2.75)
@@ -127,6 +136,10 @@ func _discover_creatures() -> Array[String]:
 		file_name = directory.get_next()
 	directory.list_dir_end()
 	result.sort()
+	for _removed in mini(_review_offset, result.size()):
+		result.remove_at(0)
+	if _review_limit > 0:
+		result.resize(mini(result.size(), _review_limit))
 	return result
 
 
