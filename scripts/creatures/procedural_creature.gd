@@ -38,6 +38,9 @@ signal action_event(action_name: String, event_name: String)
 
 const ACTION_LIBRARY_PATH := "res://data/creature_actions.json"
 const ACTION_NEUTRAL_REACH := Vector3(0.3, -0.92, 0.0)
+## Local hinge shared by the authored collar and head chain. Rotating from the
+## torso origin made the whole head orbit and forced the scarf through it.
+const PLAYER_NECK_LOCAL := Vector3(0.0, 0.081, 0.0)
 
 static var _action_library: Dictionary = {}
 
@@ -124,7 +127,13 @@ var _action_next_phase := 0
 var _action_reach := ACTION_NEUTRAL_REACH
 var _action_spread := 0.0
 var _action_body_pitch := 0.0
+var _action_body_yaw := 0.0
+var _action_body_roll := 0.0
 var _action_head_pitch := 0.0
+var _action_head_yaw := 0.0
+var _action_step := 0.0
+var _action_two_handed := false
+var _action_grip_axis := Vector3(0.16, 1.0, 0.08).normalized()
 
 var _radius_b_buffer: Array[float] = []
 var _breath_phase := 0.0
@@ -142,6 +151,7 @@ var _player_previous_motion := 0.0
 var _player_stop_settle := 0.0
 var _player_turn_follow := 0.0
 var _player_torso_motion := Vector3.ZERO
+var _player_chest_offset := Vector3.ZERO
 var _player_foot_pitches: Array[float] = []
 
 
@@ -252,6 +262,31 @@ func outfit() -> Node3D:
 	return _outfit
 
 
+## Equip a procedural held item on the visible creature hierarchy. PlayerVisual
+## calls this instead of mounting tools on its hidden legacy body.
+func set_held_tool(tool_type: String) -> void:
+	if not is_instance_valid(_outfit):
+		return
+	var held_kind := ""
+	match tool_type:
+		"axe":
+			held_kind = "axe"
+		"pick", "pickaxe":
+			held_kind = "pickaxe"
+		"rod", "fishing_rod":
+			held_kind = "fishing_rod"
+		"weapon", "sword":
+			held_kind = "stick"
+	_outfit.call(
+		"set_held",
+		({} if held_kind.is_empty() else {"kind": held_kind})
+	)
+
+
+func two_handed_action_active() -> bool:
+	return _action_two_handed and _action_weight > 0.02
+
+
 ## Live world-space attachment frames for clothing and equipables, refreshed
 ## by every advance()/_update_shell.
 func pose_anchors() -> Dictionary:
@@ -333,6 +368,7 @@ func play_action(action_name: String, seconds := -1.0) -> void:
 		return
 	_action_name = action_name
 	_action_phases = definition.get("phases", []) as Array
+	_action_two_handed = bool(definition.get("two_handed", false))
 	_action_seconds = (
 		seconds if seconds > 0.05
 		else float(definition.get("seconds", 0.8))
@@ -410,16 +446,25 @@ func _sample_action_pose(cycle: float) -> void:
 	var previous_t := 0.0
 	var previous_pose := {
 		"reach": ACTION_NEUTRAL_REACH, "spread": 0.0,
-		"body_pitch": 0.0, "head_pitch": 0.0,
+		"body_pitch": 0.0, "body_yaw": 0.0, "body_roll": 0.0,
+		"head_pitch": 0.0, "head_yaw": 0.0, "step": 0.0,
+		"grip_axis": Vector3(0.16, 1.0, 0.08).normalized(),
 	}
 	for phase_value in _action_phases:
 		var phase := phase_value as Dictionary
 		var phase_t := float(phase.get("t", 1.0))
 		var pose := {
 			"reach": _phase_reach(phase, previous_pose),
+			"grip_axis": _phase_vector3(
+				phase, "grip_axis", previous_pose["grip_axis"] as Vector3
+			),
 			"spread": float(phase.get("spread", 0.0)),
 			"body_pitch": float(phase.get("body_pitch", 0.0)),
+			"body_yaw": float(phase.get("body_yaw", 0.0)),
+			"body_roll": float(phase.get("body_roll", 0.0)),
 			"head_pitch": float(phase.get("head_pitch", 0.0)),
+			"head_yaw": float(phase.get("head_yaw", 0.0)),
+			"step": float(phase.get("step", 0.0)),
 		}
 		if cycle <= phase_t or phase_t >= 1.0:
 			var span := maxf(phase_t - previous_t, 0.0001)
@@ -438,10 +483,33 @@ func _sample_action_pose(cycle: float) -> void:
 				float(pose["body_pitch"]),
 				alpha
 			)
+			_action_body_yaw = lerpf(
+				float(previous_pose["body_yaw"]),
+				float(pose["body_yaw"]),
+				alpha
+			)
+			_action_body_roll = lerpf(
+				float(previous_pose["body_roll"]),
+				float(pose["body_roll"]),
+				alpha
+			)
 			_action_head_pitch = lerpf(
 				float(previous_pose["head_pitch"]),
 				float(pose["head_pitch"]),
 				alpha
+			)
+			_action_head_yaw = lerpf(
+				float(previous_pose["head_yaw"]),
+				float(pose["head_yaw"]),
+				alpha
+			)
+			_action_step = lerpf(
+				float(previous_pose["step"]), float(pose["step"]), alpha
+			)
+			_action_grip_axis = (
+				(previous_pose["grip_axis"] as Vector3).lerp(
+					pose["grip_axis"] as Vector3, alpha
+				).normalized()
 			)
 			return
 		previous_t = phase_t
@@ -457,6 +525,19 @@ func _phase_reach(phase: Dictionary, previous_pose: Dictionary) -> Vector3:
 			float((reach as Array)[2])
 		)
 	return previous_pose.get("reach", ACTION_NEUTRAL_REACH) as Vector3
+
+
+func _phase_vector3(
+	phase: Dictionary, key: String, fallback: Vector3
+) -> Vector3:
+	var value: Variant = phase.get(key)
+	if value is Array and (value as Array).size() >= 3:
+		return Vector3(
+			float((value as Array)[0]),
+			float((value as Array)[1]),
+			float((value as Array)[2])
+		).normalized()
+	return fallback
 
 
 func _action_ease(alpha: float, kind: String) -> float:
@@ -516,8 +597,14 @@ func advance(delta: float, state: MotionState) -> void:
 	_fidget_timer -= delta
 	if _fidget_timer <= 0.0:
 		_fidget(movement_amount)
+	# A planted human foot keeps its phase while airborne; continuing the walk
+	# clock through a jump made the legs snap to an arbitrary crossing pose on
+	# landing. Animal body plans retain their continuous procedural cycle.
+	var gait_speed := speed
+	if _uses_player_motion() and not state.grounded:
+		gait_speed = 0.0
 	_gait_phase = fposmod(
-		_gait_phase + speed * delta * float(_gait.get("cadence", 6.4)), TAU
+		_gait_phase + gait_speed * delta * float(_gait.get("cadence", 6.4)), TAU
 	)
 	_hop_phase = fposmod(
 		_hop_phase
@@ -581,12 +668,28 @@ func _update_player_motion_envelope(
 	)
 	var moving := clampf(_player_motion_blend, 0.0, 1.0)
 	var idle := 1.0 - moving
-	_player_torso_motion = Vector3(
-		-cos(_gait_phase * 2.0) * 0.018 * moving
+	var torso_target := Vector3(
+		-cos(_gait_phase * 2.0 + 0.18) * 0.036 * moving
 			+ sin(_breath_phase) * 0.006 * idle,
-		-sin(_gait_phase) * 0.120 * moving - _player_turn_follow * 0.48,
+		cos(_gait_phase) * 0.092 * moving - _player_turn_follow * 0.42,
 		-sin(_gait_phase) * 0.034 * moving
 			- sin(_weight_phase) * 0.012 * idle
+	)
+	var chest_target := Vector3(
+		-sin(_gait_phase) * 0.0022,
+		maxf(sin(_gait_phase * 2.0 + 0.35), 0.0) * 0.0028,
+		-cos(_gait_phase * 2.0 + 0.18) * 0.0032
+	) * moving
+	if not state.grounded:
+		# Rise opens the chest, apex gathers it, and descent reaches the feet
+		# toward the floor. This replaces the walking oscillation during a jump.
+		var vertical_phase := clampf(state.local_velocity.y / 5.4, -1.0, 1.0)
+		torso_target = Vector3(-vertical_phase * 0.075, 0.0, vertical_phase * 0.018)
+		chest_target = Vector3(0.0, 0.003 + absf(vertical_phase) * 0.001, 0.002 * vertical_phase)
+	var torso_response := 1.0 - exp(-8.5 * delta)
+	_player_torso_motion = _player_torso_motion.lerp(torso_target, torso_response)
+	_player_chest_offset = _player_chest_offset.lerp(
+		chest_target, 1.0 - exp(-10.0 * delta)
 	)
 	_player_previous_motion = movement_amount
 
@@ -640,12 +743,14 @@ func _update_body(delta: float, state: MotionState, movement_amount: float) -> v
 	var settle_z := 0.0
 	if _uses_player_motion():
 		sway_x += (
-			sin(_gait_phase) * scale_reference * 0.130
+			-sin(_gait_phase) * scale_reference * 0.105
 			* clampf(movement_amount, 0.0, 1.0)
 		)
 		settle_z = -_player_stop_settle * scale_reference * 0.11
 	var target := Vector3(
-		sway_x, base_y + bob - _landing_squash * base_y * 0.16, settle_z
+		sway_x,
+		base_y + bob - _landing_squash * base_y * 0.16,
+		settle_z + _action_step * _action_weight
 	)
 	_body_spring_velocity += (target - _body_position) * 120.0 * delta
 	_body_spring_velocity *= exp(-12.0 * delta)
@@ -672,16 +777,33 @@ func _update_body(delta: float, state: MotionState, movement_amount: float) -> v
 		# stride. Both are what make a body read as alive instead of rigid.
 		roll_target += sin(_weight_phase) * 0.038 * _idle_factor
 		pitch_target += cos(_weight_phase * 0.63) * 0.02 * _idle_factor
-		if _uses_player_motion():
-			roll_target -= (
-				sin(_gait_phase) * 0.064
+		if _uses_player_motion() and state.grounded:
+			pitch_target += (
+				0.035 + cos(_gait_phase * 2.0 - 0.20) * 0.018
+			) * clampf(movement_amount, 0.0, 1.0)
+			roll_target += (
+				sin(_gait_phase) * 0.046
 				* clampf(movement_amount, 0.0, 1.0)
 			)
 			pitch_target += _player_stop_settle * 0.042
-	var yaw_target := (
-		sin(_weight_phase * 0.71) * 0.05 * _idle_factor
-		+ sin(_gait_phase) * float(_gait.get("gait_twist", 0.07)) * movement_amount
-	)
+		elif _uses_player_motion():
+			var vertical_phase := clampf(
+				state.local_velocity.y / 5.4, -1.0, 1.0
+			)
+			pitch_target += -vertical_phase * 0.085
+			roll_target *= 0.35
+	var yaw_target := sin(_weight_phase * 0.71) * 0.05 * _idle_factor
+	if _uses_player_motion():
+		if state.grounded:
+			yaw_target -= (
+				cos(_gait_phase) * float(_gait.get("gait_twist", 0.07))
+				* movement_amount
+			)
+	else:
+		yaw_target += (
+			sin(_gait_phase) * float(_gait.get("gait_twist", 0.07))
+			* movement_amount
+		)
 	if _uses_player_motion():
 		yaw_target += _player_turn_follow
 	_pitch = lerpf(_pitch, pitch_target, 1.0 - exp(-7.0 * delta))
@@ -689,16 +811,32 @@ func _update_body(delta: float, state: MotionState, movement_amount: float) -> v
 	_body_yaw = lerpf(_body_yaw, yaw_target, 1.0 - exp(-6.0 * delta))
 	_body_rotation = Vector3(
 		_pitch + _torso_rest_pitch() + _action_body_pitch * _action_weight,
-		_body_yaw,
-		_bank
+		_body_yaw + _action_body_yaw * _action_weight,
+		_bank + _action_body_roll * _action_weight
 	)
 
 
 func _update_head(delta: float, state: MotionState, movement_amount: float) -> void:
 	var body_basis := Basis.from_euler(_body_rotation)
+	var neck_basis := body_basis
+	if _uses_player_motion():
+		neck_basis *= Basis.from_euler(Vector3(
+			_player_torso_motion.x * 0.68,
+			_player_torso_motion.y * 0.42,
+			_player_torso_motion.z * 0.62
+		))
 	var squash := _landing_squash * float(_juice.get("squash", 0.2))
 	var offset := _head_offset() * (1.0 - squash * 0.4)
-	var target := _body_position + body_basis * offset
+	var target := _body_position + neck_basis * offset
+	if _uses_player_motion():
+		# Rotate the skull around the collar instead of orbiting it around the
+		# pelvis. The scarf uses this same hinge, so the seam stays sealed.
+		target = (
+			_body_position
+			+ body_basis * PLAYER_NECK_LOCAL
+			+ neck_basis * (offset - PLAYER_NECK_LOCAL)
+			+ body_basis * _player_chest_offset * 0.55
+		)
 	var stabilize := clampf(float(_head.get("stabilize", 0.35)), 0.0, 1.0)
 	if state.grounded and not state.flying:
 		target.y = lerpf(target.y, _body_rest_height() + offset.y, stabilize)
@@ -784,39 +922,84 @@ func _update_feet(
 		var target: Vector3
 		if state.flying or not state.grounded:
 			var body_basis := Basis.from_euler(_body_rotation)
-			target = _body_position + body_basis * Vector3(
-				rest.x, -_torso_radius() * 1.1, rest.z * 0.5 + _torso_radius() * 0.3
-			)
+			if _uses_player_motion() and not state.flying:
+				# The former target placed the feet above the hip on takeoff,
+				# inverting the knee solver. Keep both feet below the hips, tuck
+				# them asymmetrically on ascent, then extend for landing.
+				var vertical_phase := clampf(
+					state.local_velocity.y / 5.4, -1.0, 1.0
+				)
+				var descent := clampf(-vertical_phase, 0.0, 1.0)
+				var apex := 1.0 - absf(vertical_phase)
+				var leg_drop := lerpf(
+					0.072, 0.122, maxf(descent, apex * 0.42)
+				)
+				var side := -1.0 if leg_index == 0 else 1.0
+				var air_local := Vector3(
+					rest.x + side * 0.004,
+					_hip_drop() - leg_drop + side * 0.004 * (1.0 - descent),
+					0.030 + side * 0.014 * (1.0 - descent)
+				)
+				target = _body_position + body_basis * air_local
+				_player_foot_pitches[leg_index] = lerpf(
+					-0.28, 0.12, descent
+				)
+			else:
+				target = _body_position + body_basis * Vector3(
+					rest.x,
+					_hip_drop() - float(_legs.get("length", 0.2)) * 0.70,
+					rest.z * 0.5 + _torso_radius() * 0.3
+				)
 		elif _is_hop_plan():
 			var hop_lift := _hop_height() * movement_amount
 			target = Vector3(rest.x, rest_y + hop_lift * 0.8, rest.z)
 			target += direction * sin(_hop_phase) * stride * 0.5
+		elif _uses_player_motion() and _action_two_handed and _action_weight > 0.01:
+			# A woodcutting swing uses a real split stance: the lead foot steps
+			# toward the target while the rear foot braces the torso twist.
+			var action_cycle := clampf(
+				_action_time / maxf(_action_seconds, 0.05), 0.0, 1.0
+			)
+			var lead := 1.0 if leg_index == 0 else -1.0
+			target = Vector3(
+				rest.x + lead * 0.008 * _action_weight,
+				rest_y,
+				rest.z - lead * 0.030 * _action_weight
+			)
+			if leg_index == 0 and action_cycle < 0.47:
+				target.y += sin(PI * action_cycle / 0.47) * 0.012
+			_player_foot_pitches[leg_index] = 0.0
 		elif _uses_player_motion():
 			var phase := _gait_phase + _leg_phases[leg_index]
 			var cycle := fposmod(phase, TAU) / TAU
-			var stance_end := 0.58
+			# Normal gait spends about 60% in support and 40% in swing. The
+			# contact foot travels backward in character space while planted;
+			# the swing foot clears early, passes, then eases into heel strike.
+			var stance_end := 0.60
 			var longitudinal := 0.0
 			var foot_pitch := 0.0
 			target = Vector3(rest.x, rest_y, rest.z)
 			if cycle < stance_end:
 				var stance_t := cycle / stance_end
-				longitudinal = lerpf(1.0, -1.0, stance_t)
-				if stance_t < 0.18:
-					foot_pitch = lerpf(0.20, 0.0, stance_t / 0.18)
-				elif stance_t > 0.80:
+				var support_ease := smoothstep(0.0, 1.0, stance_t)
+				longitudinal = lerpf(1.0, -1.0, support_ease)
+				if stance_t < 0.16:
+					foot_pitch = lerpf(0.16, 0.0, stance_t / 0.16)
+				elif stance_t > 0.82:
 					foot_pitch = lerpf(
-						0.0, -0.16, (stance_t - 0.80) / 0.20
+						0.0, -0.14, (stance_t - 0.82) / 0.18
 					)
 			else:
 				var swing_t := (cycle - stance_end) / (1.0 - stance_end)
-				var eased := swing_t * swing_t * (3.0 - 2.0 * swing_t)
+				var eased := smoothstep(0.0, 1.0, swing_t)
 				longitudinal = lerpf(-1.0, 1.0, eased)
-				target.y += sin(PI * swing_t) * lift
+				var clearance := sin(PI * swing_t)
+				target.y += pow(clearance, 0.82) * lift
 				target.x += (
-					signf(rest.x) * sin(PI * swing_t) * 0.010
+					signf(rest.x) * clearance * 0.004
 					* clampf(movement_amount, 0.0, 1.0)
 				)
-				foot_pitch = lerpf(-0.16, 0.18, eased)
+				foot_pitch = lerpf(-0.14, 0.16, eased)
 			target += direction * longitudinal * stride
 			_player_foot_pitches[leg_index] = foot_pitch * clampf(
 				movement_amount, 0.0, 1.0
@@ -828,8 +1011,8 @@ func _update_feet(
 				direction * sin(phase) * stride
 				+ Vector3.UP * maxf(sin(phase), 0.0) * lift
 			)
-		var foot_stiffness := 245.0 if _uses_player_motion() else 190.0
-		var foot_damping := 23.0 if _uses_player_motion() else 18.0
+		var foot_stiffness := 220.0 if _uses_player_motion() else 190.0
+		var foot_damping := 24.0 if _uses_player_motion() else 18.0
 		_feet_velocities[leg_index] += (
 			(target - _feet[leg_index]) * foot_stiffness * delta
 		)
@@ -997,7 +1180,15 @@ func _update_shell(movement_amount: float, state: MotionState) -> void:
 		_human_body.call("update_pose", {
 			"body": Transform3D(body_basis, _body_position),
 			"torso_motion": Transform3D(
-				Basis.from_euler(_player_torso_motion), Vector3.ZERO
+				Basis.from_euler(_player_torso_motion), _player_chest_offset
+			),
+			"neck_motion": Transform3D(
+				Basis.from_euler(Vector3(
+					_player_torso_motion.x * 0.62,
+					_player_torso_motion.y * 0.48,
+					_player_torso_motion.z * 0.58
+				)),
+				_player_chest_offset * 0.45
 			),
 			"head": Transform3D(head_basis, _head_position),
 			"arms": _anchor_arms,
@@ -1102,7 +1293,7 @@ func _append_arm_shapes(
 	var shoulder_height := float(_arms.get("height", _torso_radius() * 0.45))
 	var swing_amount := 0.62 if _uses_player_motion() else 0.5
 	var swing := (
-		sin(_gait_phase) * swing_amount
+		cos(_gait_phase) * swing_amount
 		* clampf(movement_amount, 0.0, 1.0)
 	)
 	if not state.grounded and not _is_hop_plan():
@@ -1168,7 +1359,26 @@ func _append_arm_shapes(
 			# Actions steer hands toward an authored reach point (in arm-length
 			# units); side arms mirror, a back arm follows straight behind.
 			var reach_offset: Vector3
-			if arm_index == 2:
+			if _action_two_handed and arm_count >= 2 and arm_index < 2:
+				# Both hands share one body-space grip center. Their small axial
+				# separation gives the held axe a stable orientation while the
+				# shoulders and elbows remain independent.
+				var grip_sign := 0.5 if arm_index == 0 else -0.5
+				var grip_center := Vector3(
+					_action_reach.x * arm_length,
+					shoulder_height + _action_reach.y * arm_length,
+					_action_reach.z * arm_length
+				)
+				var shoulder_local := shoulder_basis.inverse() * (
+					shoulder - _body_position
+				)
+				reach_offset = (
+					grip_center
+					+ _action_grip_axis * arm_length
+					* maxf(_action_spread, 0.18) * grip_sign
+					- shoulder_local
+				)
+			elif arm_index == 2:
 				reach_offset = Vector3(
 					0.0,
 					_action_reach.y * arm_length,
@@ -1537,12 +1747,19 @@ func _two_bone_joint(
 
 
 func _head_basis() -> Basis:
+	var chest_pitch := 0.0
+	var chest_yaw := 0.0
+	var chest_roll := 0.0
+	if _uses_player_motion():
+		chest_pitch = _player_torso_motion.x * 0.58
+		chest_yaw = _player_torso_motion.y * 0.24
+		chest_roll = _player_torso_motion.z * 0.52
 	return Basis.from_euler(
 		Vector3(
 			_body_rotation.x * 0.25 + _head_look.x
-			+ _action_head_pitch * _action_weight,
-			_head_look.y,
-			_body_rotation.z * 0.25 + _head_tilt
+			+ chest_pitch + _action_head_pitch * _action_weight,
+			_head_look.y + chest_yaw + _action_head_yaw * _action_weight,
+			_body_rotation.z * 0.25 + chest_roll + _head_tilt
 		)
 	)
 

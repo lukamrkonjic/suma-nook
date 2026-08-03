@@ -7,7 +7,7 @@ const ProceduralCreatureScript := preload(
 )
 
 const REQUIRED_COMPONENTS := [
-	"BodyPivot", "TorsoMotion", "HeadPivot", "TorsoSkin", "HeadMesh", "Hair", "FaceAnchor",
+	"BodyPivot", "TorsoMotion", "NeckMotion", "HeadPivot", "TorsoSkin", "HeadMesh", "Hair", "FaceAnchor",
 	"ContactShadow", "ScalpCap",
 	"FrontSweep", "TempleLeft", "TempleRight", "BackVolume", "CrownLock",
 	"EyeLeftAnchor", "EyeRightAnchor", "NoseAnchor", "MouthAnchor",
@@ -82,6 +82,32 @@ func _init() -> void:
 	assert(absf((face.get("NoseAnchor") as Vector3).x) < 0.0001, "nose must be centered")
 	assert(absf((face.get("MouthAnchor") as Vector3).x) < 0.0001, "mouth must be centered")
 
+	# Eye ink is a real surface layer, never an always-on-top decal. It must
+	# clear the eye white from the front while the skull/hair can occlude it
+	# from side and rear views. Natural blinking closes and reopens both eyes.
+	for side_name in ["Left", "Right"]:
+		var eye_anchor := body.find_child(
+			"Eye%sAnchor" % side_name, true, false
+		) as Node3D
+		var pupil := body.find_child("Pupil%s" % side_name, true, false) as MeshInstance3D
+		var eye_white := body.find_child(
+			"EyeWhite%s" % side_name, true, false
+		) as MeshInstance3D
+		assert(eye_anchor != null and pupil != null and eye_white != null, "eye layers must build")
+		var pupil_material := pupil.material_override as StandardMaterial3D
+		assert(not pupil_material.no_depth_test, "pupils must be hidden by the skull from rear views")
+		assert(
+			pupil.position.z - pupil.scale.z > eye_white.position.z + eye_white.scale.z,
+			"pupil must clear the eye-white surface without z-fighting"
+		)
+	body.call("set_expression", "normal")
+	body.call("blink")
+	body.call("_advance_blink", 0.07)
+	var blinking_eye := body.find_child("EyeLeftAnchor", true, false) as Node3D
+	assert(blinking_eye.scale.y < 0.20, "blink must visibly close the eyes")
+	body.call("_advance_blink", 0.08)
+	assert(blinking_eye.scale.y > 0.99, "blink must restore naturally open eyes")
+
 	# Both arm skin surfaces resolve to the identical skin material color.
 	var left_arm := body.get_node("ArmSkinLeft") as MeshInstance3D
 	var right_arm := body.get_node("ArmSkinRight") as MeshInstance3D
@@ -93,7 +119,12 @@ func _init() -> void:
 	# A center vertex at the lowest shirt row would recreate the old solid cap,
 	# which read as a bright skin-colored oval across the stomach under key light.
 	var shirt := body.get_node("BodyPivot/TorsoMotion/ShirtTorso") as MeshInstance3D
+	var seat := body.get_node("BodyPivot/TorsoMotion/OverallsSeat") as MeshInstance3D
 	var torso_skin := body.get_node("BodyPivot/TorsoMotion/TorsoSkin") as MeshInstance3D
+	assert(
+		shirt.get_parent() == seat.get_parent(),
+		"shirt and overalls seat must share a pivot so walking cannot shear their seam"
+	)
 	assert(
 		shirt.mesh.get_aabb().size.x > torso_skin.mesh.get_aabb().size.x,
 		"shirt shell must clear the torso instead of lying directly on the skin"
@@ -131,29 +162,104 @@ func _init() -> void:
 	# as a rigid block.
 	var walk := ProceduralCreatureScript.MotionState.new()
 	walk.grounded = true
-	walk.local_velocity = Vector3(0.0, 0.0, -1.65)
-	for _frame in 12:
-		creature.call("advance", 1.0 / 60.0, walk)
-	var walk_anchors: Dictionary = creature.call("pose_anchors")
-	var walk_legs: Array = walk_anchors.get("legs", [])
-	assert(walk_legs.size() == 2, "player walk must expose two leg anchors")
-	var foot_height_delta := absf(
-		((walk_legs[0] as Dictionary).get("foot") as Vector3).y
-		- ((walk_legs[1] as Dictionary).get("foot") as Vector3).y
-	)
-	assert(foot_height_delta > 0.004, "walk must separate stance and swing feet")
-	var max_foot_pitch := maxf(
-		absf(float((walk_legs[0] as Dictionary).get("foot_pitch", 0.0))),
-		absf(float((walk_legs[1] as Dictionary).get("foot_pitch", 0.0)))
-	)
-	assert(max_foot_pitch > 0.025, "walk shoes must articulate heel/toe pitch")
+	walk.local_velocity = Vector3(0.0, 0.0, -1.10)
 	var torso_motion := body.get_node("BodyPivot/TorsoMotion") as Node3D
+	var neck_motion := body.get_node("BodyPivot/NeckMotion") as Node3D
+	var body_pivot := body.get_node("BodyPivot") as Node3D
+	var max_foot_height_delta := 0.0
+	var max_foot_pitch := 0.0
+	var max_torso_yaw := 0.0
+	var max_torso_pitch := 0.0
+	var max_neck_pitch := 0.0
+	var min_body_sway := INF
+	var max_body_sway := -INF
+	var walk_legs: Array = []
+	for _frame in 38:
+		creature.call("advance", 1.0 / 30.0, walk)
+		walk_legs = (creature.call("pose_anchors") as Dictionary).get("legs", [])
+		if walk_legs.size() == 2:
+			max_foot_height_delta = maxf(
+				max_foot_height_delta,
+				absf(
+					((walk_legs[0] as Dictionary).get("foot") as Vector3).y
+					- ((walk_legs[1] as Dictionary).get("foot") as Vector3).y
+				)
+			)
+			for leg in walk_legs:
+				max_foot_pitch = maxf(
+					max_foot_pitch,
+					absf(float((leg as Dictionary).get("foot_pitch", 0.0)))
+				)
+		max_torso_yaw = maxf(max_torso_yaw, absf(torso_motion.rotation.y))
+		max_torso_pitch = maxf(max_torso_pitch, absf(torso_motion.rotation.x))
+		max_neck_pitch = maxf(max_neck_pitch, absf(neck_motion.rotation.x))
+		min_body_sway = minf(min_body_sway, body_pivot.position.x)
+		max_body_sway = maxf(max_body_sway, body_pivot.position.x)
+	assert(walk_legs.size() == 2, "player walk must expose two leg anchors")
+	assert(max_foot_height_delta > 0.004, "walk must separate stance and swing feet")
+	assert(max_foot_pitch > 0.025, "walk shoes must articulate heel/toe pitch")
 	assert(
-		absf(torso_motion.rotation.y) > 0.01,
+		max_torso_yaw > 0.01,
 		"walk must counter-rotate the upper body"
 	)
-	for _frame in 90:
-		creature.call("advance", 1.0 / 60.0, ProceduralCreatureScript.MotionState.new())
+	assert(max_torso_pitch > 0.008, "walk must flex the chest")
+	assert(max_neck_pitch > 0.004, "walk must articulate the neck")
+	assert(
+		min_body_sway < -0.0002 and max_body_sway > 0.0002,
+		"center of mass must transfer over both support feet"
+	)
+
+	# Airborne posing keeps feet below their hips and separated. The old pose
+	# placed both feet above the hip joint, which inverted/crossed the legs.
+	var jump := ProceduralCreatureScript.MotionState.new()
+	jump.grounded = false
+	jump.local_velocity = Vector3(0.0, 4.4, -0.6)
+	for _frame in 6:
+		creature.call("advance", 1.0 / 30.0, jump)
+	var jump_legs: Array = (creature.call("pose_anchors") as Dictionary).get("legs", [])
+	assert(jump_legs.size() == 2, "jump must preserve two leg anchors")
+	for leg in jump_legs:
+		var hip := (leg as Dictionary).get("hip") as Vector3
+		var foot := (leg as Dictionary).get("foot") as Vector3
+		assert(foot.y < hip.y - 0.035, "jump foot must remain below its hip")
+		assert(foot.distance_to(hip) < 0.154, "jump leg must stay inside solver reach")
+	assert(
+		absf(
+			((jump_legs[0] as Dictionary).get("foot") as Vector3).x
+			- ((jump_legs[1] as Dictionary).get("foot") as Vector3).x
+		) > 0.045,
+		"jump feet must remain separated instead of crossing"
+	)
+
+	# The woodcut action carries a visible axe in both hands through a lateral
+	# load-to-contact arc; a stationary forward jab fails this displacement.
+	for _frame in 15:
+		creature.call("advance", 1.0 / 30.0, ProceduralCreatureScript.MotionState.new())
+	creature.call("set_held_tool", "axe")
+	creature.call("play_action", "chop", 1.9)
+	for _frame in 25:
+		creature.call("advance", 1.0 / 30.0, ProceduralCreatureScript.MotionState.new())
+	var held := creature.find_child("Held", true, false) as Node3D
+	assert(held != null and held.get_node_or_null("Head") != null, "chop must show the axe")
+	var load_anchors: Dictionary = creature.call("pose_anchors")
+	var load_arms: Array = load_anchors.get("arms", [])
+	var load_hand_gap := (
+		((load_arms[0] as Dictionary).get("hand") as Vector3).distance_to(
+			(load_arms[1] as Dictionary).get("hand") as Vector3
+		)
+	)
+	assert(load_hand_gap > 0.02 and load_hand_gap < 0.065, "both hands must grip the axe handle")
+	var axe_head := held.get_node("Head") as MeshInstance3D
+	var load_tip := held.transform * axe_head.position
+	for _frame in 7:
+		creature.call("advance", 1.0 / 30.0, ProceduralCreatureScript.MotionState.new())
+	var impact_tip := held.transform * axe_head.position
+	assert(
+		load_tip.distance_to(impact_tip) > 0.10,
+		"axe head must swing through a broad arc instead of jabbing in place"
+	)
+	for _frame in 45:
+		creature.call("advance", 1.0 / 30.0, ProceduralCreatureScript.MotionState.new())
 	for shoe_name in ["ShoeLeft", "ShoeRight"]:
 		var settled_shoe := body.get_node(shoe_name) as Node3D
 		assert(
@@ -187,8 +293,8 @@ func _build_creature(definition: Dictionary) -> Node3D:
 	creature.call("build", definition)
 	var state := ProceduralCreatureScript.MotionState.new()
 	state.grounded = true
-	for _frame in 30:
-		creature.call("advance", 1.0 / 60.0, state)
+	for _frame in 15:
+		creature.call("advance", 1.0 / 30.0, state)
 	return creature
 
 

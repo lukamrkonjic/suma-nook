@@ -31,13 +31,13 @@ const TORSO_PROFILE := [
 	Vector2(0.040, 0.078), Vector2(0.020, 0.088), Vector2(0.000, 0.094),
 ]
 const SHIRT_PROFILE := [
-	Vector2(0.055, -0.052), Vector2(0.056, -0.043), Vector2(0.055, -0.018),
+	Vector2(0.068, -0.074), Vector2(0.066, -0.060), Vector2(0.061, -0.026),
 	Vector2(0.058, 0.030), Vector2(0.061, 0.058), Vector2(0.046, 0.077),
 	Vector2(0.031, 0.084),
 ]
 const SEAT_PROFILE := [
-	Vector2(0.048, -0.091), Vector2(0.055, -0.081), Vector2(0.060, -0.058),
-	Vector2(0.059, -0.036), Vector2(0.057, -0.018),
+	Vector2(0.047, -0.091), Vector2(0.053, -0.081), Vector2(0.058, -0.060),
+	Vector2(0.052, -0.044), Vector2(0.046, -0.034),
 ]
 const ARM_RADII := [0.0235, 0.0215, 0.0195, 0.017, 0.0165, 0.023, 0.0235]
 const SLEEVE_RADII := [0.0325, 0.0310, 0.0285]
@@ -47,6 +47,7 @@ const TROUSER_RADII := [0.0380, 0.0350, 0.0325, 0.0340]
 const SHIN_RADII := [0.0205, 0.019]
 const FOOT_OUT_ANGLE := deg_to_rad(9.0)
 const FOOT_REST_Y := 0.0187
+const NECK_PIVOT_Y := 0.081
 const EYE_CENTER_X := 0.036
 const EYE_CENTER_Y := -0.022
 const EYE_WHITE_HALF := Vector2(0.017, 0.0265)
@@ -69,6 +70,7 @@ const PALETTE_TOKENS := {
 
 var _body_pivot: Node3D
 var _torso_motion_pivot: Node3D
+var _neck_motion_pivot: Node3D
 var _head_pivot: Node3D
 var _face_anchor: Node3D
 var _hair_root: Node3D
@@ -79,10 +81,14 @@ var _sweeps: Dictionary = {}
 var _shoes: Array[Node3D] = []
 var _naked_feet: Array[MeshInstance3D] = []
 var _expression := "normal"
-var _blink_timer := 2.6
+var _blink_timer := 1.4
 var _blink_phase := 0.0
 var _eye_anchors: Array[Node3D] = []
 var _pupils: Array[MeshInstance3D] = []
+var _pupil_base_positions: Array[Vector3] = []
+var _eye_look := Vector2.ZERO
+var _eye_look_target := Vector2.ZERO
+var _eye_look_timer := 0.8
 var _mouth_states: Dictionary = {}
 var _resolved_tokens: Dictionary = {}
 var _missing_tokens: PackedStringArray = []
@@ -103,6 +109,9 @@ func build(
 	_torso_motion_pivot = Node3D.new()
 	_torso_motion_pivot.name = "TorsoMotion"
 	_body_pivot.add_child(_torso_motion_pivot)
+	_neck_motion_pivot = Node3D.new()
+	_neck_motion_pivot.name = "NeckMotion"
+	_body_pivot.add_child(_neck_motion_pivot)
 	_head_pivot = Node3D.new()
 	_head_pivot.name = "HeadPivot"
 	add_child(_head_pivot)
@@ -120,6 +129,7 @@ func build(
 
 func _process(delta: float) -> void:
 	_advance_blink(delta)
+	_advance_eye_look(delta)
 
 
 func update_pose(pose: Dictionary) -> void:
@@ -129,6 +139,13 @@ func update_pose(pose: Dictionary) -> void:
 	_body_pivot.transform = body
 	_torso_motion_pivot.transform = pose.get(
 		"torso_motion", Transform3D.IDENTITY
+	)
+	var neck_motion: Transform3D = pose.get(
+		"neck_motion", Transform3D.IDENTITY
+	)
+	_neck_motion_pivot.transform = Transform3D(
+		neck_motion.basis,
+		Vector3(0.0, NECK_PIVOT_Y, 0.0) + neck_motion.origin
 	)
 	_head_pivot.transform = pose.get("head", Transform3D.IDENTITY)
 	_update_arms(body, pose.get("arms", []))
@@ -181,6 +198,11 @@ func expression() -> String:
 	return _expression
 
 
+func blink() -> void:
+	if _expression == "normal":
+		_blink_phase = 0.14
+
+
 func measurements() -> Dictionary:
 	return {
 		"total_height": 0.56,
@@ -198,7 +220,7 @@ func measurements() -> Dictionary:
 
 func component_names() -> PackedStringArray:
 	var names := PackedStringArray([
-		"BodyPivot", "TorsoMotion", "HeadPivot", "TorsoSkin", "HeadMesh", "Hair",
+		"BodyPivot", "TorsoMotion", "NeckMotion", "HeadPivot", "TorsoSkin", "HeadMesh", "Hair",
 		"FaceAnchor", "ContactShadow",
 	])
 	for child in _hair_root.get_children():
@@ -353,26 +375,30 @@ func _build_face() -> void:
 		)
 		eye_white.rotation.z = side * 0.05
 		var pupil := _add_feature(
-			eye_anchor, "Pupil%s" % side_name, Vector3(0.0, -0.0015, 0.0058),
+			eye_anchor, "Pupil%s" % side_name, Vector3(0.0, -0.0015, 0.0105),
 			Vector3(
 				EYE_WHITE_HALF.x * PUPIL_RATIO,
 				EYE_WHITE_HALF.y * PUPIL_RATIO,
-				0.004
+				0.0025
 			),
 			ink
 		)
 		pupil.set_meta("base_scale", pupil.scale)
+		_promote_face_layer(pupil, 2)
 		_pupils.append(pupil)
-		_add_feature(
+		_pupil_base_positions.append(pupil.position)
+		var catchlight := _add_feature(
 			eye_anchor, "Catchlight%s" % side_name,
-			Vector3(-side * 0.0045, 0.0065, 0.0102),
-			Vector3(0.0035, 0.0042, 0.002), white
+			Vector3(-side * 0.0045, 0.0065, 0.0135),
+			Vector3(0.0035, 0.0042, 0.0018), white
 		)
-		_add_feature(
+		_promote_face_layer(catchlight, 3)
+		var sparkle := _add_feature(
 			eye_anchor, "Sparkle%s" % side_name,
-			Vector3(side * 0.0035, -0.0075, 0.0102),
-			Vector3(0.0016, 0.0019, 0.0015), white
+			Vector3(side * 0.0035, -0.0075, 0.0135),
+			Vector3(0.0016, 0.0019, 0.0013), white
 		)
+		_promote_face_layer(sparkle, 3)
 
 	var nose_anchor := _surface_anchor("NoseAnchor", Vector2(0.0, -0.034), 0.003)
 	_add_feature(
@@ -419,12 +445,14 @@ func _build_face() -> void:
 func _build_garments() -> void:
 	var shirt := _add_static_mesh(
 		_torso_motion_pivot, "ShirtTorso",
-		Forge.lathe_shell(SHIRT_PROFILE, 28, TORSO_SCALE, 0.0045),
+		Forge.lathe_shell(
+			SHIRT_PROFILE, 48, TORSO_SCALE, 0.0045, 1.0, 24, false, true
+		),
 		_soft_material(_token_color("shirt"))
 	)
 	var seat := _add_static_mesh(
-		_body_pivot, "OverallsSeat",
-		Forge.lathe_shell(SEAT_PROFILE, 28, TORSO_SCALE, 0.0045),
+		_torso_motion_pivot, "OverallsSeat",
+		Forge.lathe_shell(SEAT_PROFILE, 48, TORSO_SCALE, 0.0045),
 		_soft_material(_token_color("overalls"))
 	)
 	_dressed_parts.append_array([shirt, seat])
@@ -432,29 +460,29 @@ func _build_garments() -> void:
 	# Scarf: a snug wrap tucked under the chin, with a small knot and two
 	# short hanging tails on the chest.
 	var wrap := _add_static_mesh(
-		_torso_motion_pivot, "ScarfWrap", _scarf_torus_mesh(),
+		_neck_motion_pivot, "ScarfWrap", _scarf_torus_mesh(),
 		_soft_material(_token_color("scarf"))
 	)
-	wrap.position = Vector3(0.0, 0.086, -0.002)
-	wrap.scale = Vector3(1.02, 0.72, 1.0)
+	wrap.position = Vector3(0.0, -0.001, -0.002)
+	wrap.scale = Vector3(1.02, 0.54, 1.0)
 	var knot := _add_static_mesh(
-		_torso_motion_pivot, "ScarfKnot", _unit_sphere_mesh(),
+		_neck_motion_pivot, "ScarfKnot", _unit_sphere_mesh(),
 		_soft_material(_token_color("scarf"))
 	)
-	knot.position = Vector3(0.006, 0.070, -0.043)
+	knot.position = Vector3(0.006, -0.017, -0.043)
 	knot.scale = Vector3.ONE * 0.0105
 	var tail_a := _add_static_mesh(
-		_torso_motion_pivot, "ScarfTailA", _unit_sphere_mesh(),
+		_neck_motion_pivot, "ScarfTailA", _unit_sphere_mesh(),
 		_soft_material(_token_color("scarf"))
 	)
-	tail_a.position = Vector3(0.014, 0.053, -0.047)
+	tail_a.position = Vector3(0.014, -0.034, -0.047)
 	tail_a.scale = Vector3(0.009, 0.017, 0.006)
 	tail_a.rotation.z = -0.18
 	var tail_b := _add_static_mesh(
-		_torso_motion_pivot, "ScarfTailB", _unit_sphere_mesh(),
+		_neck_motion_pivot, "ScarfTailB", _unit_sphere_mesh(),
 		_soft_material(_token_color("scarf"))
 	)
-	tail_b.position = Vector3(0.000, 0.050, -0.048)
+	tail_b.position = Vector3(0.000, -0.037, -0.048)
 	tail_b.scale = Vector3(0.0075, 0.014, 0.005)
 	tail_b.rotation.z = 0.14
 	_dressed_parts.append_array([wrap, knot, tail_a, tail_b])
@@ -805,6 +833,35 @@ func _advance_blink(delta: float) -> void:
 		eye_anchor.scale = Vector3(1.0, 1.0 - 0.93 * closed, 1.0)
 
 
+func _advance_eye_look(delta: float) -> void:
+	if _pupils.is_empty():
+		return
+	_eye_look_timer -= delta
+	if _eye_look_timer <= 0.0:
+		_eye_look_timer = randf_range(1.1, 2.8)
+		_eye_look_target = Vector2(
+			randf_range(-0.75, 0.75), randf_range(-0.42, 0.38)
+		)
+	_eye_look = _eye_look.lerp(
+		_eye_look_target, 1.0 - exp(-5.2 * delta)
+	)
+	var offset := Vector2(_eye_look.x * 0.0032, _eye_look.y * 0.0040)
+	for pupil_index in _pupils.size():
+		var base := _pupil_base_positions[pupil_index]
+		_pupils[pupil_index].position = Vector3(
+			base.x + offset.x, base.y + offset.y, base.z
+		)
+
+
+func _promote_face_layer(feature: MeshInstance3D, priority: int) -> void:
+	var material := feature.material_override as StandardMaterial3D
+	# Keep ordinary depth testing: pupils must be visible over the eye whites
+	# from the front, but must be occluded by the skull and hair from behind.
+	# The authored local-Z separation above prevents front-facing z-fighting.
+	material.no_depth_test = false
+	material.render_priority = priority
+
+
 # -------------------------------------------------------------- helpers
 
 func _add_hair_lock(
@@ -884,8 +941,8 @@ func _flat_material(color: Color) -> StandardMaterial3D:
 
 func _scarf_torus_mesh() -> TorusMesh:
 	var torus := TorusMesh.new()
-	torus.inner_radius = 0.023
-	torus.outer_radius = 0.045
+	torus.inner_radius = 0.022
+	torus.outer_radius = 0.042
 	torus.rings = 32
 	torus.ring_segments = 16
 	return torus

@@ -1086,6 +1086,11 @@ func apply_equipment(equipment: EquipmentManager, held_tool_type := "") -> void:
 				if held_tool_type == "weapon"
 				else equipment.equipped_in("tool")
 			)
+	if _procedural_critter_enabled and is_instance_valid(_procedural_critter):
+		_procedural_critter.call(
+			"set_held_tool", (held.tool_type if held != null else "")
+		)
+		return
 	if held_tool_type == "rod" and _tool_mount != null:
 		_fishing_rod = FishingRodScript.new()
 		_fishing_rod.name = "FishingRod"

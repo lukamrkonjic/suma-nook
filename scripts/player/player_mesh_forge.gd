@@ -22,16 +22,19 @@ static func lathe(
 
 
 ## Revolves a non-zero-radius profile into a real garment shell. Outer and
-## inner surfaces use opposite winding and are joined only by narrow rings at
-## the profile ends, leaving the neck/waist openings hollow instead of sealing
-## them with a light-catching disc.
+## inner surfaces use opposite winding and can be joined by narrow rings at
+## the profile ends, leaving neck/waist openings hollow instead of sealing
+## them with a light-catching disc. Open hems may omit the lower ring so a
+## horizontal underside cannot reintroduce the bright stomach line.
 static func lathe_shell(
 	profile: Array,
 	radial_segments: int,
 	shape_scale: Vector3,
 	wall_thickness: float,
 	face_flatten := 1.0,
-	row_count := 22
+	row_count := 22,
+	close_bottom := true,
+	close_top := true
 ) -> ArrayMesh:
 	var outer_rows := _resample_profile(profile, row_count)
 	var inner_rows: Array = []
@@ -81,18 +84,20 @@ static func lathe_shell(
 		var bottom_outer_next := column + 1
 		var bottom_inner := surface_size + column
 		var bottom_inner_next := bottom_inner + 1
-		indices.append_array(PackedInt32Array([
-			bottom_outer, bottom_outer_next, bottom_inner,
-			bottom_outer_next, bottom_inner_next, bottom_inner,
-		]))
+		if close_bottom:
+			indices.append_array(PackedInt32Array([
+				bottom_outer, bottom_outer_next, bottom_inner,
+				bottom_outer_next, bottom_inner_next, bottom_inner,
+			]))
 		var top_outer := top_outer_start + column
 		var top_outer_next := top_outer + 1
 		var top_inner := top_inner_start + column
 		var top_inner_next := top_inner + 1
-		indices.append_array(PackedInt32Array([
-			top_outer, top_inner, top_outer_next,
-			top_outer_next, top_inner, top_inner_next,
-		]))
+		if close_top:
+			indices.append_array(PackedInt32Array([
+				top_outer, top_inner, top_outer_next,
+				top_outer_next, top_inner, top_inner_next,
+			]))
 	return _finalize(vertices, indices)
 
 

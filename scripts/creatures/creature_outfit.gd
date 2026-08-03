@@ -20,6 +20,7 @@ var _pants_roots: Array[Node3D] = []
 var _shoe_roots: Array[Node3D] = []
 var _held_root: Node3D
 var _held_tip_local := Vector3.ZERO
+var _held_kind := ""
 
 
 func build(outfit: Dictionary, creature: Node3D) -> void:
@@ -48,6 +49,21 @@ func held_tip_world() -> Vector3:
 	if is_instance_valid(_held_root):
 		return _held_root.to_global(_held_tip_local)
 	return global_position
+
+
+## Replace only the held item while preserving the player's native clothing.
+## An empty dictionary clears the hand, which lets the equipment system keep
+## the visible procedural hierarchy in sync with gameplay state.
+func set_held(item: Dictionary) -> void:
+	if is_instance_valid(_held_root):
+		_held_root.free()
+	_held_root = null
+	_held_kind = ""
+	_held_tip_local = Vector3.ZERO
+	if item.is_empty() or _creature == null:
+		return
+	_build_held(item, _creature.call("pose_anchors") as Dictionary)
+	_sync()
 
 
 func _sync() -> void:
@@ -87,14 +103,33 @@ func _sync() -> void:
 			leg.get("foot") as Vector3
 		)
 	if is_instance_valid(_held_root) and not arms.is_empty():
-		var holding_arm := arms[arms.size() - 1] as Dictionary
-		var hand_position := holding_arm.get("hand") as Vector3
-		# Tools lean well forward of vertical so they clear the face and read
-		# at full length during swings and casts.
-		_held_root.transform = Transform3D(
-			body.basis * Basis.from_euler(Vector3(-1.02, -0.16, 0.0)),
-			hand_position
+		var uses_two_hands := (
+			_held_kind in ["axe", "pickaxe"]
+			and arms.size() >= 2
+			and _creature.has_method("two_handed_action_active")
+			and bool(_creature.call("two_handed_action_active"))
 		)
+		if uses_two_hands:
+			var upper_hand := (arms[0] as Dictionary).get("hand") as Vector3
+			var lower_hand := (arms[1] as Dictionary).get("hand") as Vector3
+			var axis_y := (upper_hand - lower_hand).normalized()
+			var axis_z := body.basis.z - axis_y * body.basis.z.dot(axis_y)
+			if axis_z.length_squared() < 0.001:
+				axis_z = body.basis.x - axis_y * body.basis.x.dot(axis_y)
+			axis_z = axis_z.normalized()
+			var axis_x := axis_y.cross(axis_z).normalized()
+			_held_root.transform = Transform3D(
+				Basis(axis_x, axis_y, axis_z).orthonormalized(), lower_hand
+			)
+		else:
+			var holding_arm := arms[arms.size() - 1] as Dictionary
+			var hand_position := holding_arm.get("hand") as Vector3
+			# Tools lean well forward of vertical so they clear the face and read
+			# at full length during swings and casts.
+			_held_root.transform = Transform3D(
+				body.basis * Basis.from_euler(Vector3(-1.02, -0.16, 0.0)),
+				hand_position
+			)
 
 
 # ------------------------------------------------------------------ builders
@@ -186,10 +221,15 @@ func _build_held(item: Dictionary, anchors: Dictionary) -> void:
 	if (anchors.get("arms", []) as Array).is_empty():
 		return
 	_held_root = _slot_root("Held")
+	_held_kind = String(item.get("kind", "stick"))
 	var torso_radius := float(anchors.get("torso_radius", 0.1))
 	var color := _item_color(item, "color", "#8A6B48")
-	var accent := _item_color(item, "accent", "#D96F5E")
-	match String(item.get("kind", "stick")):
+	var accent := _item_color(
+		item,
+		"accent",
+		("#747A80" if _held_kind in ["axe", "pickaxe"] else "#D96F5E")
+	)
+	match _held_kind:
 		"axe":
 			var handle_length := torso_radius * 2.9
 			_add_mesh(_held_root, "Handle", _cylinder_mesh(), Vector3(0.0, handle_length * 0.38, 0.0), Vector3(torso_radius * 0.075, handle_length, torso_radius * 0.075), color)

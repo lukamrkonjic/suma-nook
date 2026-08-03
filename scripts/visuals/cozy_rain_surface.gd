@@ -10,7 +10,7 @@ const RAIN_SURFACE_SHADER: Shader = preload(
 )
 const FOOTSTEP_COUNT := 4
 const FOOTSTEP_INTERVAL := 0.27
-const WALK_SPEED_REFERENCE := 2.2
+const WALK_SPEED_REFERENCE := 1.1
 
 var _surface: MeshInstance3D
 var _material: ShaderMaterial

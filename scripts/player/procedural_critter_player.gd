@@ -74,6 +74,11 @@ func clear_outfit() -> void:
 		_creature.call("clear_outfit")
 
 
+func set_held_tool(tool_type: String) -> void:
+	if is_instance_valid(_creature):
+		_creature.call("set_held_tool", tool_type)
+
+
 ## World-space tip of the held equipable (rod point) for line effects.
 func held_tip_world() -> Vector3:
 	if is_instance_valid(_creature):

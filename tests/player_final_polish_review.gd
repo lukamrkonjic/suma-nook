@@ -7,6 +7,7 @@ const ProceduralCreatureScript := preload(
 
 var _camera: Camera3D
 var _player: Node3D
+var _chop_target: MeshInstance3D
 var _output_dir := "res://artifacts/player_final_polish/final"
 
 
@@ -16,6 +17,8 @@ func _ready() -> void:
 			_output_dir = argument.trim_prefix("--shot-dir=")
 	DirAccess.make_dir_recursive_absolute(_output_dir)
 	DirAccess.make_dir_recursive_absolute(_output_dir.path_join("walk_cycle"))
+	DirAccess.make_dir_recursive_absolute(_output_dir.path_join("jump_cycle"))
+	DirAccess.make_dir_recursive_absolute(_output_dir.path_join("chop_cycle"))
 	_build_stage()
 
 	var idle := ProceduralCreatureScript.MotionState.new()
@@ -28,6 +31,8 @@ func _ready() -> void:
 	await _capture("02_player_hatless_34.png")
 	_set_camera(Vector3(1.52, 0.66, 0.0))
 	await _capture("03_player_hatless_side.png")
+	_set_camera(Vector3(-1.05, 1.18, 1.34))
+	await _capture("03b_player_gameplay_back.png")
 
 	_set_camera(Vector3(0.68, 0.76, -1.43))
 	await _step(55, idle)
@@ -35,7 +40,7 @@ func _ready() -> void:
 
 	var walk := ProceduralCreatureScript.MotionState.new()
 	walk.grounded = true
-	walk.local_velocity = Vector3(0.0, 0.0, -1.65)
+	walk.local_velocity = Vector3(0.0, 0.0, -1.10)
 	walk.look_target = Vector3(0.0, 0.38, -2.0)
 	await _step(9, walk)
 	await _capture("05_player_walk_frame_a.png")
@@ -44,7 +49,7 @@ func _ready() -> void:
 
 	var turn := ProceduralCreatureScript.MotionState.new()
 	turn.grounded = true
-	turn.local_velocity = Vector3(0.0, 0.0, -1.45)
+	turn.local_velocity = Vector3(0.0, 0.0, -0.95)
 	turn.yaw_rate = 2.8
 	turn.look_target = Vector3(-1.4, 0.40, -1.3)
 	await _step(8, turn)
@@ -55,11 +60,48 @@ func _ready() -> void:
 	# First let the captured turn follow-through settle back into locomotion so
 	# the loop starts and ends on the same forward-facing motion envelope.
 	await _step(30, walk)
-	for frame_index in 16:
+	for frame_index in 30:
 		await _step(2, walk)
 		await _capture(
 			"walk_cycle/frame_%02d.png" % frame_index
 		)
+
+	# A complete airborne leg contract: tuck below the hips on ascent, gather
+	# at the apex, extend for landing, then return to the planted stance.
+	await _step(30, idle)
+	var jump := ProceduralCreatureScript.MotionState.new()
+	jump.grounded = false
+	jump.local_velocity = Vector3(0.0, 4.4, -0.60)
+	await _step(8, jump)
+	await _capture("jump_cycle/01_ascent.png")
+	jump.local_velocity = Vector3(0.0, 0.0, -0.60)
+	await _step(12, jump)
+	await _capture("jump_cycle/02_apex.png")
+	jump.local_velocity = Vector3(0.0, -3.8, -0.60)
+	await _step(10, jump)
+	await _capture("jump_cycle/03_descent.png")
+	await _step(20, idle)
+	await _capture("jump_cycle/04_landed.png")
+
+	# Reference-shaped chop: settle, equip the visible procedural axe, then
+	# sample the full side-loaded arc against a visible trunk contact target.
+	await _step(40, idle)
+	_chop_target.visible = true
+	_set_camera(Vector3(0.88, 0.92, -1.34))
+	_player.call("set_held_tool", "axe")
+	_player.call("play_action", "chop", 1.9)
+	for frame_index in 38:
+		await _step(3, idle)
+		await _capture("chop_cycle/frame_%02d.png" % frame_index)
+		match frame_index:
+			16:
+				await _capture("chop_cycle/01_load.png")
+			19:
+				await _capture("chop_cycle/02_impact.png")
+			22:
+				await _capture("chop_cycle/03_hold.png")
+			30:
+				await _capture("chop_cycle/04_recovery.png")
 
 	print("PLAYER_FINAL_POLISH_REVIEW_DONE")
 	get_tree().quit(0)
@@ -100,6 +142,22 @@ func _build_stage() -> void:
 	ground_material.roughness = 1.0
 	ground.material_override = ground_material
 	add_child(ground)
+
+	_chop_target = MeshInstance3D.new()
+	_chop_target.name = "ChopTarget"
+	var trunk := CylinderMesh.new()
+	trunk.top_radius = 0.105
+	trunk.bottom_radius = 0.12
+	trunk.height = 0.62
+	trunk.radial_segments = 14
+	_chop_target.mesh = trunk
+	_chop_target.position = Vector3(-0.18, 0.31, -0.48)
+	var trunk_material := StandardMaterial3D.new()
+	trunk_material.albedo_color = Color("#91613f")
+	trunk_material.roughness = 1.0
+	_chop_target.material_override = trunk_material
+	_chop_target.visible = false
+	add_child(_chop_target)
 
 	_player = ProceduralCreatureScript.new() as Node3D
 	_player.name = "FinalPolishPlayer"

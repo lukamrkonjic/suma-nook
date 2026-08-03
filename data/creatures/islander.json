@@ -8,7 +8,7 @@
   "head": {"radius": 0.095, "offset": [0.0, 0.200, -0.004], "face": "human", "stabilize": 0.42},
   "legs": {"count": 2, "length": 0.135, "stance": 0.084, "radius": 0.024, "segments": 2, "foot_radius": 0.022},
   "arms": {"count": 2, "length": 0.138, "radius": 0.020, "height": 0.070, "shoulder_scale": 1.04, "hand_balls": true},
-  "gait": {"reference_speed": 2.4, "cadence": 7.4, "stride": 0.085, "step_lift": 0.045, "body_bob": 0.014, "lean": 0.06, "gait_twist": 0.09},
+  "gait": {"reference_speed": 1.1, "cadence": 4.65, "stride": 0.060, "step_lift": 0.029, "body_bob": 0.010, "lean": 0.075, "gait_twist": 0.075},
   "juice": {"squash": 0.22, "head_lag": 0.05, "head_snap": 10.0, "breath_rate": 0.5, "outline": 0.006},
   "coat": {"pattern": "none", "strands": 0.0, "ruffle": 0.0},
   "outfit": "res://data/outfits/keeper_default.json"
