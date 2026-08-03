@@ -7,10 +7,9 @@ const ProceduralCreatureScript := preload(
 )
 
 const REQUIRED_COMPONENTS := [
-	"BodyPivot", "HeadPivot", "TorsoSkin", "HeadMesh", "Hair", "FaceAnchor",
+	"BodyPivot", "TorsoMotion", "HeadPivot", "TorsoSkin", "HeadMesh", "Hair", "FaceAnchor",
 	"ContactShadow", "ScalpCap",
-	"FringeLeft", "FringeCenter", "FringeRight",
-	"SideLockLeft", "SideLockRight", "RearVolume", "RearTuft", "CrownSwirl",
+	"FrontSweep", "TempleLeft", "TempleRight", "BackVolume", "CrownLock",
 	"EyeLeftAnchor", "EyeRightAnchor", "NoseAnchor", "MouthAnchor",
 	"BlushLeftAnchor", "BlushRightAnchor",
 	"ArmLeft", "ArmRight", "LegLeft", "LegRight",
@@ -33,6 +32,12 @@ func _init() -> void:
 	assert(generic_shell != null, "compatibility shell must remain addressable")
 	assert(not generic_shell.visible, "human must not render the shared creature SDF")
 	assert(body != null, "human must build the V2 semantic body hierarchy")
+	var outfit := creature.get_node_or_null("Outfit") as Node3D
+	assert(outfit != null, "default keeper outfit must build")
+	assert(
+		outfit.get_node_or_null("Hat") == null,
+		"default keeper outfit must remain hatless"
+	)
 
 	var names: PackedStringArray = body.call("component_names")
 	for component_name in REQUIRED_COMPONENTS:
@@ -96,6 +101,41 @@ func _init() -> void:
 		assert(
 			absf(sole_bottom) < 0.005,
 			"%s sole must touch the floor (bottom=%f)" % [shoe_name, sole_bottom]
+		)
+
+	# Locomotion: opposing feet must separate into stance/swing, shoes must
+	# articulate, and the upper body must counter the pelvis rather than moving
+	# as a rigid block.
+	var walk := ProceduralCreatureScript.MotionState.new()
+	walk.grounded = true
+	walk.local_velocity = Vector3(0.0, 0.0, -1.65)
+	for _frame in 12:
+		creature.call("advance", 1.0 / 60.0, walk)
+	var walk_anchors: Dictionary = creature.call("pose_anchors")
+	var walk_legs: Array = walk_anchors.get("legs", [])
+	assert(walk_legs.size() == 2, "player walk must expose two leg anchors")
+	var foot_height_delta := absf(
+		((walk_legs[0] as Dictionary).get("foot") as Vector3).y
+		- ((walk_legs[1] as Dictionary).get("foot") as Vector3).y
+	)
+	assert(foot_height_delta > 0.004, "walk must separate stance and swing feet")
+	var max_foot_pitch := maxf(
+		absf(float((walk_legs[0] as Dictionary).get("foot_pitch", 0.0))),
+		absf(float((walk_legs[1] as Dictionary).get("foot_pitch", 0.0)))
+	)
+	assert(max_foot_pitch > 0.025, "walk shoes must articulate heel/toe pitch")
+	var torso_motion := body.get_node("BodyPivot/TorsoMotion") as Node3D
+	assert(
+		absf(torso_motion.rotation.y) > 0.01,
+		"walk must counter-rotate the upper body"
+	)
+	for _frame in 90:
+		creature.call("advance", 1.0 / 60.0, ProceduralCreatureScript.MotionState.new())
+	for shoe_name in ["ShoeLeft", "ShoeRight"]:
+		var settled_shoe := body.get_node(shoe_name) as Node3D
+		assert(
+			absf(settled_shoe.position.y) < 0.006,
+			"%s must settle back onto the floor after stopping" % shoe_name
 		)
 
 	# Expression states switch without errors and toggle the mouth meshes.

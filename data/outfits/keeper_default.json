@@ -1,0 +1,5 @@
+{
+  "id": "keeper_default",
+  "shirt": {"kind": "scarf", "color": "#F2C356"},
+  "shoes": {"kind": "boots", "color": "#6E4230"}
+}

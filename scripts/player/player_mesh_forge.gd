@@ -66,7 +66,9 @@ static func scalp(
 			var b := a + 1
 			var c := next_start + step
 			var d := c + 1
-			indices.append_array(PackedInt32Array([a, c, b, b, c, d]))
+			# Scalp rows run from crown down to hairline, opposite the lathe
+			# builder's bottom-to-top order, so the outward winding is reversed.
+			indices.append_array(PackedInt32Array([a, b, c, b, d, c]))
 	return _finalize(vertices, indices)
 
 
@@ -77,7 +79,8 @@ static func sweep(
 	points: Array,
 	radii: Array,
 	radial_segments := 10,
-	samples := 14
+	samples := 14,
+	section_scale := Vector2.ONE
 ) -> ArrayMesh:
 	var vertices := PackedVector3Array()
 	var indices := PackedInt32Array()
@@ -140,8 +143,8 @@ static func sweep(
 			vertices.append(
 				(row.center as Vector3)
 				+ (
-					(row.normal as Vector3) * cos(phi)
-					+ (row.binormal as Vector3) * sin(phi)
+					(row.normal as Vector3) * cos(phi) * section_scale.x
+					+ (row.binormal as Vector3) * sin(phi) * section_scale.y
 				) * maxf(float(row.radius), 0.0004)
 			)
 	for row_index in range(all_rows.size() - 1):

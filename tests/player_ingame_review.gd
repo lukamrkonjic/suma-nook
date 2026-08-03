@@ -9,9 +9,15 @@ const SAVE_PATH := "user://player_ingame_review_save.json"
 
 var _main: Main
 var _output_dir := "res://artifacts/player_ingame"
+var _final_polish_only := false
 
 
 func _ready() -> void:
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--shot-dir="):
+			_output_dir = argument.trim_prefix("--shot-dir=")
+		elif argument == "--final-polish":
+			_final_polish_only = true
 	for path in [SAVE_PATH, SAVE_PATH + ".backup"]:
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
@@ -28,6 +34,13 @@ func _ready() -> void:
 		_main.core.grid.cell_to_world(Vector2i(3, 0))
 		+ Vector3(0.0, 0.05, 0.0)
 	)
+	if _final_polish_only:
+		# The mock renderer has no authoritative gameplay floor collider. Keep
+		# this capture-only controller on its photographed tile while the child
+		# procedural visual continues receiving a grounded motion state.
+		_main.player.set_physics_process(false)
+		_main.player.set_meta("procedural_review_grounded", true)
+		_main.player.velocity = Vector3(0.0, 0.0, -1.65)
 	_main.player.rotation.y = PI
 	_main.camera_rig._yaw_target = 45.0
 	_main.camera_rig.rotation_degrees.y = 45.0
@@ -36,6 +49,14 @@ func _ready() -> void:
 
 	await _settle(60)
 	_print_grounding()
+	if _final_polish_only:
+		await _settle(24)
+		await _capture("08_player_ingame.png")
+		_main.player.velocity = Vector3.ZERO
+		await _settle(24)
+		print("PLAYER_FINAL_POLISH_INGAME_DONE")
+		await _finish(0)
+		return
 	await _capture("player_ingame_idle.png")
 	await _settle(75)
 	await _capture("player_ingame_idle_late.png")
@@ -71,6 +92,13 @@ func _ready() -> void:
 func _print_grounding() -> void:
 	var player := _main.player
 	var visual := _main.player_visual
+	if visual.procedural_critter_enabled():
+		var feet: Array[Vector3] = (
+			visual._procedural_critter.call("foot_world_positions")
+		)
+		print("INGAME_GROUND player_y=", player.global_position.y)
+		print("INGAME_GROUND procedural_feet=", feet)
+		return
 	var skeleton: Skeleton3D = visual._skeleton
 	var toe_index := skeleton.find_bone("mixamorigLeftToeBase")
 	var toe_world := (

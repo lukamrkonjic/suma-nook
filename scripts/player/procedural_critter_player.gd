@@ -18,6 +18,8 @@ var _creature: Node3D
 var _controller: CharacterBody3D
 var _was_grounded := true
 var _previous_velocity_y := 0.0
+var _previous_controller_yaw := 0.0
+var _has_previous_controller_yaw := false
 
 
 func build(definition_path := DEFAULT_DEFINITION) -> void:
@@ -110,6 +112,13 @@ func _physics_process(delta: float) -> void:
 	var state := ProceduralCreature.MotionState.new()
 	state.local_velocity = local_velocity
 	state.grounded = grounded
+	var controller_yaw := _controller.global_rotation.y
+	if _has_previous_controller_yaw:
+		state.yaw_rate = angle_difference(
+			_previous_controller_yaw, controller_yaw
+		) / maxf(delta, 0.0001)
+	_previous_controller_yaw = controller_yaw
+	_has_previous_controller_yaw = true
 	_creature.call("advance", delta, state)
 
 

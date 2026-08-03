@@ -135,6 +135,14 @@ var _fidget_timer := 2.0
 var _tail_swish := 0.0
 var _wander_timer := 0.0
 var _wander_look := Vector3.ZERO
+## The authored player has an extra locomotion envelope. It is opt-in through
+## the definition so no animal/NPC gait inherits these human-specific choices.
+var _player_motion_blend := 0.0
+var _player_previous_motion := 0.0
+var _player_stop_settle := 0.0
+var _player_turn_follow := 0.0
+var _player_torso_motion := Vector3.ZERO
+var _player_foot_pitches: Array[float] = []
 
 
 func build_from_path(definition_path: String) -> void:
@@ -486,6 +494,10 @@ func advance(delta: float, state: MotionState) -> void:
 	var speed := horizontal.length()
 	var reference_speed := float(_gait.get("reference_speed", 2.4))
 	var movement_amount := clampf(speed / maxf(reference_speed, 0.05), 0.0, 1.35)
+	_update_player_motion_envelope(delta, state, movement_amount)
+	var pose_movement := (
+		_player_motion_blend if _uses_player_motion() else movement_amount
+	)
 
 	_idle_time += delta
 	_landing_squash = move_toward(_landing_squash, 0.0, delta * 4.2)
@@ -527,18 +539,51 @@ func advance(delta: float, state: MotionState) -> void:
 		_flap_amplitude = lerpf(_flap_amplitude, 0.0, blend_rate)
 	_flap_phase = fposmod(_flap_phase + delta * TAU * _flap_rate, TAU)
 
-	_update_body(delta, state, movement_amount)
-	_update_head(delta, state, movement_amount)
-	_update_feet(delta, state, horizontal, movement_amount)
-	_update_ears(delta, state, movement_amount)
+	_update_body(delta, state, pose_movement)
+	_update_head(delta, state, pose_movement)
+	_update_feet(delta, state, horizontal, pose_movement)
+	_update_ears(delta, state, pose_movement)
 	_update_tail(delta, state)
 	_update_blink(delta)
-	_update_shell(movement_amount, state)
+	_update_shell(pose_movement, state)
 	_update_overlays()
 	pose_advanced.emit()
 
 
 # ------------------------------------------------------------------ motion
+
+func _update_player_motion_envelope(
+	delta: float, state: MotionState, movement_amount: float
+) -> void:
+	if not _uses_player_motion():
+		return
+	if movement_amount < 0.045 and _player_previous_motion > 0.22:
+		_player_stop_settle = maxf(
+			_player_stop_settle,
+			clampf(_player_previous_motion, 0.25, 1.0)
+		)
+	var response := 12.0 if movement_amount > _player_motion_blend else 7.5
+	_player_motion_blend = lerpf(
+		_player_motion_blend,
+		movement_amount,
+		1.0 - exp(-response * delta)
+	)
+	_player_stop_settle = move_toward(_player_stop_settle, 0.0, delta * 2.7)
+	var turn_target := clampf(-state.yaw_rate * 0.045, -0.16, 0.16)
+	turn_target *= 0.30 + 0.70 * clampf(_player_motion_blend, 0.0, 1.0)
+	_player_turn_follow = lerpf(
+		_player_turn_follow, turn_target, 1.0 - exp(-8.0 * delta)
+	)
+	var moving := clampf(_player_motion_blend, 0.0, 1.0)
+	var idle := 1.0 - moving
+	_player_torso_motion = Vector3(
+		-cos(_gait_phase * 2.0) * 0.012 * moving
+			+ sin(_breath_phase) * 0.006 * idle,
+		-sin(_gait_phase) * 0.105 * moving - _player_turn_follow * 0.48,
+		-sin(_gait_phase) * 0.025 * moving
+			- sin(_weight_phase) * 0.012 * idle
+	)
+	_player_previous_motion = movement_amount
 
 ## Small involuntary moves on a loose timer — an ear flick, a tail swish,
 ## a tiny weight bounce, a curious head tilt. Never during real motion.
@@ -572,17 +617,24 @@ func _update_body(delta: float, state: MotionState, movement_amount: float) -> v
 		bob = _hop_height() * movement_amount
 		_stretch = maxf(sin(_hop_phase), 0.0) * 0.35 * movement_amount
 	elif state.grounded:
+		var gait_bob := (1.0 - cos(_gait_phase * 2.0)) * 0.5
 		bob = (
-			(1.0 - cos(_gait_phase * 2.0)) * 0.5
-			* float(_gait.get("body_bob", 0.018))
+			gait_bob * float(_gait.get("body_bob", 0.018))
 			* clampf(movement_amount, 0.0, 1.0)
 		) + sin(_idle_time * 1.9) * base_y * 0.012
 	# Breathing lifts the chest; slow weight shifting rocks the stance.
 	var scale_reference := _torso_radius()
 	bob += sin(_breath_phase) * scale_reference * 0.022 * (0.35 + 0.65 * _idle_factor)
 	var sway_x := sin(_weight_phase) * scale_reference * 0.07 * _idle_factor
+	var settle_z := 0.0
+	if _uses_player_motion():
+		sway_x += (
+			sin(_gait_phase) * scale_reference * 0.105
+			* clampf(movement_amount, 0.0, 1.0)
+		)
+		settle_z = -_player_stop_settle * scale_reference * 0.11
 	var target := Vector3(
-		sway_x, base_y + bob - _landing_squash * base_y * 0.16, 0.0
+		sway_x, base_y + bob - _landing_squash * base_y * 0.16, settle_z
 	)
 	_body_spring_velocity += (target - _body_position) * 120.0 * delta
 	_body_spring_velocity *= exp(-12.0 * delta)
@@ -609,10 +661,18 @@ func _update_body(delta: float, state: MotionState, movement_amount: float) -> v
 		# stride. Both are what make a body read as alive instead of rigid.
 		roll_target += sin(_weight_phase) * 0.038 * _idle_factor
 		pitch_target += cos(_weight_phase * 0.63) * 0.02 * _idle_factor
+		if _uses_player_motion():
+			roll_target -= (
+				sin(_gait_phase) * 0.052
+				* clampf(movement_amount, 0.0, 1.0)
+			)
+			pitch_target += _player_stop_settle * 0.042
 	var yaw_target := (
 		sin(_weight_phase * 0.71) * 0.05 * _idle_factor
 		+ sin(_gait_phase) * float(_gait.get("gait_twist", 0.07)) * movement_amount
 	)
+	if _uses_player_motion():
+		yaw_target += _player_turn_follow
 	_pitch = lerpf(_pitch, pitch_target, 1.0 - exp(-7.0 * delta))
 	_bank = lerpf(_bank, roll_target, 1.0 - exp(-6.0 * delta))
 	_body_yaw = lerpf(_body_yaw, yaw_target, 1.0 - exp(-6.0 * delta))
@@ -636,6 +696,12 @@ func _update_head(delta: float, state: MotionState, movement_amount: float) -> v
 		* -float(_juice.get("head_lag", 0.045)) * 0.02
 	)
 	target += body_basis * _action_head_push()
+	if _uses_player_motion():
+		# The head is quieter than the pelvis, but not frozen in space.
+		target.y += (
+			sin(_gait_phase * 2.0 + 0.35) * 0.0028
+			* clampf(movement_amount, 0.0, 1.0)
+		)
 	_head_spring_velocity += (target - _head_position) * 140.0 * delta
 	_head_spring_velocity *= exp(-13.0 * delta)
 	_head_position += _head_spring_velocity * delta
@@ -661,6 +727,8 @@ func _update_head(delta: float, state: MotionState, movement_amount: float) -> v
 		look_target = _wander_look * _idle_factor
 	look_target.x += sin(_breath_phase - 0.5) * 0.02
 	look_target.y -= _body_yaw * 0.7
+	if _uses_player_motion():
+		look_target.y -= _player_turn_follow * 0.55
 
 	_head_tilt_timer -= delta
 	if _head_tilt_timer <= 0.0:
@@ -708,6 +776,32 @@ func _update_feet(
 			var hop_lift := _hop_height() * movement_amount
 			target = Vector3(rest.x, rest_y + hop_lift * 0.8, rest.z)
 			target += direction * sin(_hop_phase) * stride * 0.5
+		elif _uses_player_motion():
+			var phase := _gait_phase + _leg_phases[leg_index]
+			var cycle := fposmod(phase, TAU) / TAU
+			var stance_end := 0.58
+			var longitudinal := 0.0
+			var foot_pitch := 0.0
+			target = Vector3(rest.x, rest_y, rest.z)
+			if cycle < stance_end:
+				var stance_t := cycle / stance_end
+				longitudinal = lerpf(1.0, -1.0, stance_t)
+				if stance_t < 0.18:
+					foot_pitch = lerpf(0.20, 0.0, stance_t / 0.18)
+				elif stance_t > 0.80:
+					foot_pitch = lerpf(
+						0.0, -0.16, (stance_t - 0.80) / 0.20
+					)
+			else:
+				var swing_t := (cycle - stance_end) / (1.0 - stance_end)
+				var eased := swing_t * swing_t * (3.0 - 2.0 * swing_t)
+				longitudinal = lerpf(-1.0, 1.0, eased)
+				target.y += sin(PI * swing_t) * lift
+				foot_pitch = lerpf(-0.16, 0.18, eased)
+			target += direction * longitudinal * stride
+			_player_foot_pitches[leg_index] = foot_pitch * clampf(
+				movement_amount, 0.0, 1.0
+			)
 		else:
 			var phase := _gait_phase + _leg_phases[leg_index]
 			target = Vector3(rest.x, rest_y, rest.z)
@@ -715,8 +809,12 @@ func _update_feet(
 				direction * sin(phase) * stride
 				+ Vector3.UP * maxf(sin(phase), 0.0) * lift
 			)
-		_feet_velocities[leg_index] += (target - _feet[leg_index]) * 190.0 * delta
-		_feet_velocities[leg_index] *= exp(-18.0 * delta)
+		var foot_stiffness := 245.0 if _uses_player_motion() else 190.0
+		var foot_damping := 23.0 if _uses_player_motion() else 18.0
+		_feet_velocities[leg_index] += (
+			(target - _feet[leg_index]) * foot_stiffness * delta
+		)
+		_feet_velocities[leg_index] *= exp(-foot_damping * delta)
 		_feet[leg_index] += _feet_velocities[leg_index] * delta
 
 
@@ -879,6 +977,9 @@ func _update_shell(movement_amount: float, state: MotionState) -> void:
 	if is_instance_valid(_human_body):
 		_human_body.call("update_pose", {
 			"body": Transform3D(body_basis, _body_position),
+			"torso_motion": Transform3D(
+				Basis.from_euler(_player_torso_motion), Vector3.ZERO
+			),
 			"head": Transform3D(head_basis, _head_position),
 			"arms": _anchor_arms,
 			"legs": _anchor_legs,
@@ -954,7 +1055,15 @@ func _append_leg_shapes(
 				shape_a, shape_b, colors, foot, foot,
 				_foot_radius(), 0.006, _color_for("foot")
 			)
-		_anchor_legs.append({"hip": hip, "knee": anchor_knee, "foot": foot})
+		var foot_pitch := 0.0
+		if leg_index < _player_foot_pitches.size():
+			foot_pitch = _player_foot_pitches[leg_index]
+		_anchor_legs.append({
+			"hip": hip,
+			"knee": anchor_knee,
+			"foot": foot,
+			"foot_pitch": foot_pitch,
+		})
 
 
 func _append_arm_shapes(
@@ -972,19 +1081,26 @@ func _append_arm_shapes(
 	var arm_length := float(_arms.get("length", 0.15))
 	var arm_radius := float(_arms.get("radius", 0.032))
 	var shoulder_height := float(_arms.get("height", _torso_radius() * 0.45))
-	var swing := sin(_gait_phase) * 0.5 * clampf(movement_amount, 0.0, 1.0)
+	var swing_amount := 0.62 if _uses_player_motion() else 0.5
+	var swing := (
+		sin(_gait_phase) * swing_amount
+		* clampf(movement_amount, 0.0, 1.0)
+	)
 	if not state.grounded and not _is_hop_plan():
 		swing = -0.45
 	if _is_hop_plan():
 		# Hoppers hold little paws tucked in front — no swing.
 		swing = 0.0
+	var shoulder_basis := body_basis
+	if _uses_player_motion():
+		shoulder_basis = body_basis * Basis.from_euler(_player_torso_motion)
 	for arm_index in arm_count:
 		# 2 arms → left/right; a third arm grows from the back.
 		var angle := PI * 0.5 if arm_index == 0 else -PI * 0.5
 		if arm_index == 2:
 			angle = PI
 		var lateral := Vector3(sin(angle), 0.0, cos(angle))
-		var shoulder := _body_position + body_basis * (
+		var shoulder := _body_position + shoulder_basis * (
 			lateral * _torso_radius() * float(_arms.get("shoulder_scale", 0.82))
 			+ Vector3(0.0, shoulder_height, 0.0)
 		)
@@ -1013,6 +1129,14 @@ func _append_arm_shapes(
 			sin(_breath_phase + float(arm_index)) * 0.07,
 			cos(_weight_phase * 1.3 + float(arm_index) * 1.7) * 0.05
 		) * arm_length * _idle_factor
+		if _uses_player_motion() and _idle_factor > 0.0:
+			# Deliberate asymmetry: one hand rests a touch forward and lower,
+			# preventing the idle pose from reading as mirrored mannequin arms.
+			var asymmetry := -1.0 if arm_index == 0 else 1.0
+			hand_offset += Vector3(
+				0.0, asymmetry * arm_length * 0.025,
+				asymmetry * arm_length * 0.045
+			) * _idle_factor
 		if _action_weight > 0.001:
 			# Actions steer hands toward an authored reach point (in arm-length
 			# units); side arms mirror, a back arm follows straight behind.
@@ -1030,8 +1154,8 @@ func _append_arm_shapes(
 					_action_reach.z * arm_length
 				)
 			hand_offset = hand_offset.lerp(reach_offset, _action_weight)
-		var hand := shoulder + body_basis * hand_offset
-		var elbow := shoulder.lerp(hand, 0.52) + body_basis * Vector3(
+		var hand := shoulder + shoulder_basis * hand_offset
+		var elbow := shoulder.lerp(hand, 0.52) + shoulder_basis * Vector3(
 			lateral.x * arm_length * 0.035,
 			0.0,
 			-arm_length * 0.075
@@ -1289,9 +1413,11 @@ func _reset_pose() -> void:
 	_leg_phases = _compute_leg_phases()
 	_feet = []
 	_feet_velocities = []
+	_player_foot_pitches = []
 	for rest in _leg_rests:
 		_feet.append(Vector3(rest.x, _foot_radius() * 0.85, rest.z))
 		_feet_velocities.append(Vector3.ZERO)
+		_player_foot_pitches.append(0.0)
 	var ear_count := clampi(int(_ears.get("count", 0)), 0, 2)
 	_ear_tips = []
 	_ear_velocities = []
@@ -1494,6 +1620,10 @@ func _is_upright() -> bool:
 
 func _uses_semantic_human_body() -> bool:
 	return String(_head.get("face", "")) == "human"
+
+
+func _uses_player_motion() -> bool:
+	return bool(_definition.get("player_motion", false))
 
 
 func _is_hop_plan() -> bool:

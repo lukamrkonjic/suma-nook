@@ -68,6 +68,7 @@ const PALETTE_TOKENS := {
 }
 
 var _body_pivot: Node3D
+var _torso_motion_pivot: Node3D
 var _head_pivot: Node3D
 var _face_anchor: Node3D
 var _hair_root: Node3D
@@ -99,6 +100,9 @@ func build(
 	_body_pivot = Node3D.new()
 	_body_pivot.name = "BodyPivot"
 	add_child(_body_pivot)
+	_torso_motion_pivot = Node3D.new()
+	_torso_motion_pivot.name = "TorsoMotion"
+	_body_pivot.add_child(_torso_motion_pivot)
 	_head_pivot = Node3D.new()
 	_head_pivot.name = "HeadPivot"
 	add_child(_head_pivot)
@@ -123,6 +127,9 @@ func update_pose(pose: Dictionary) -> void:
 		return
 	var body: Transform3D = pose.get("body", Transform3D.IDENTITY)
 	_body_pivot.transform = body
+	_torso_motion_pivot.transform = pose.get(
+		"torso_motion", Transform3D.IDENTITY
+	)
 	_head_pivot.transform = pose.get("head", Transform3D.IDENTITY)
 	_update_arms(body, pose.get("arms", []))
 	_update_legs(body, pose.get("legs", []))
@@ -191,7 +198,7 @@ func measurements() -> Dictionary:
 
 func component_names() -> PackedStringArray:
 	var names := PackedStringArray([
-		"BodyPivot", "HeadPivot", "TorsoSkin", "HeadMesh", "Hair",
+		"BodyPivot", "TorsoMotion", "HeadPivot", "TorsoSkin", "HeadMesh", "Hair",
 		"FaceAnchor", "ContactShadow",
 	])
 	for child in _hair_root.get_children():
@@ -226,7 +233,7 @@ func missing_palette_tokens() -> PackedStringArray:
 
 func _build_torso() -> void:
 	var torso := _add_static_mesh(
-		_body_pivot, "TorsoSkin",
+		_torso_motion_pivot, "TorsoSkin",
 		Forge.lathe(TORSO_PROFILE, 28, TORSO_SCALE),
 		_soft_material(_token_color("skin"))
 	)
@@ -257,38 +264,71 @@ func _build_hair() -> void:
 	_head_pivot.add_child(_hair_root)
 	var hair_material := _soft_material(_token_color("hair"))
 
+	# A high, clean hairline leaves the forehead and ears visible. The scalp is
+	# only the connective crown/rear mass; the readable silhouette comes from
+	# five deliberately authored tapered locks below, never repeated spheres.
 	var cap := _add_static_mesh(
 		_hair_root, "ScalpCap",
 		Forge.scalp(
-			HEAD_PROFILE, 0.0065, 28, HEAD_SCALE, FACE_FLATTEN,
-			0.024, -0.012, -0.062
+			HEAD_PROFILE, 0.0055, 30, HEAD_SCALE, FACE_FLATTEN,
+			0.052, 0.014, -0.038
 		),
 		hair_material
 	)
 	cap.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
-	# Front fringe: three overlapping lobes of deliberately different size
-	# and tilt; their lower edges stay above the eyes so the forehead reads
-	# as skin, and together they cover the scalp cap's front cut.
-	_add_clump("FringeLeft", Vector3(-0.034, 0.034, -0.077),
-		Vector3(0.032, 0.019, 0.014), hair_material, Vector3(0.0, 0.0, -0.22))
-	_add_clump("FringeCenter", Vector3(0.002, 0.033, -0.081),
-		Vector3(0.028, 0.017, 0.013), hair_material, Vector3(0.0, 0.0, 0.06))
-	_add_clump("FringeRight", Vector3(0.038, 0.037, -0.075),
-		Vector3(0.035, 0.021, 0.014), hair_material, Vector3(0.0, 0.0, 0.20))
-	# Side locks stay high at the temples so the skin ears show below them.
-	_add_clump("SideLockLeft", Vector3(-0.092, 0.022, -0.004),
-		Vector3(0.010, 0.022, 0.018), hair_material, Vector3(0.0, 0.0, 0.08))
-	_add_clump("SideLockRight", Vector3(0.092, 0.022, -0.004),
-		Vector3(0.010, 0.022, 0.018), hair_material, Vector3(0.0, 0.0, -0.08))
-	# Rear volume keeps the back of the skull full in side views.
-	_add_clump("RearVolume", Vector3(0.0, 0.004, 0.080),
-		Vector3(0.052, 0.044, 0.023), hair_material, Vector3(0.14, 0.0, 0.0))
-	_add_clump("RearTuft", Vector3(-0.034, 0.030, 0.070),
-		Vector3(0.028, 0.028, 0.018), hair_material, Vector3(0.1, 0.0, 0.14))
-	# A small crown swirl breaks the cap's smooth top silhouette.
-	_add_clump("CrownSwirl", Vector3(0.014, 0.100, 0.008),
-		Vector3(0.026, 0.011, 0.020), hair_material, Vector3(0.0, 0.0, 0.30))
+	_add_hair_lock(
+		"FrontSweep",
+		[
+			Vector3(0.054, 0.091, -0.050),
+			Vector3(0.032, 0.073, -0.070),
+			Vector3(-0.004, 0.057, -0.080),
+			Vector3(-0.038, 0.044, -0.078),
+			Vector3(-0.052, 0.036, -0.072),
+		],
+		[0.015, 0.023, 0.025, 0.016, 0.0035], hair_material, 0.56, 1.20
+	)
+	_add_hair_lock(
+		"TempleLeft",
+		[
+			Vector3(-0.060, 0.076, -0.047),
+			Vector3(-0.081, 0.057, -0.040),
+			Vector3(-0.091, 0.030, -0.025),
+			Vector3(-0.090, 0.011, -0.010),
+		],
+		[0.015, 0.018, 0.013, 0.0035], hair_material, 0.62, 0.92
+	)
+	_add_hair_lock(
+		"TempleRight",
+		[
+			Vector3(0.073, 0.075, -0.038),
+			Vector3(0.087, 0.054, -0.028),
+			Vector3(0.093, 0.031, -0.012),
+			Vector3(0.090, 0.016, 0.002),
+		],
+		[0.014, 0.017, 0.012, 0.0035], hair_material, 0.60, 0.90
+	)
+	_add_hair_lock(
+		"BackVolume",
+		[
+			Vector3(-0.050, 0.073, 0.052),
+			Vector3(-0.024, 0.052, 0.081),
+			Vector3(0.018, 0.024, 0.088),
+			Vector3(0.045, -0.004, 0.076),
+			Vector3(0.031, -0.021, 0.067),
+		],
+		[0.016, 0.023, 0.024, 0.016, 0.0035], hair_material, 0.76, 1.16
+	)
+	_add_hair_lock(
+		"CrownLock",
+		[
+			Vector3(-0.038, 0.091, 0.012),
+			Vector3(-0.012, 0.106, 0.006),
+			Vector3(0.019, 0.104, -0.002),
+			Vector3(0.040, 0.095, -0.011),
+		],
+		[0.008, 0.011, 0.009, 0.003], hair_material, 0.60, 1.02
+	)
 
 
 func _build_face() -> void:
@@ -378,7 +418,7 @@ func _build_face() -> void:
 
 func _build_garments() -> void:
 	var shirt := _add_static_mesh(
-		_body_pivot, "ShirtTorso",
+		_torso_motion_pivot, "ShirtTorso",
 		Forge.lathe(SHIRT_PROFILE, 28, TORSO_SCALE),
 		_soft_material(_token_color("shirt"))
 	)
@@ -392,26 +432,26 @@ func _build_garments() -> void:
 	# Scarf: a snug wrap tucked under the chin, with a small knot and two
 	# short hanging tails on the chest.
 	var wrap := _add_static_mesh(
-		_body_pivot, "ScarfWrap", _scarf_torus_mesh(),
+		_torso_motion_pivot, "ScarfWrap", _scarf_torus_mesh(),
 		_soft_material(_token_color("scarf"))
 	)
 	wrap.position = Vector3(0.0, 0.086, -0.002)
 	wrap.scale = Vector3(1.02, 0.72, 1.0)
 	var knot := _add_static_mesh(
-		_body_pivot, "ScarfKnot", _unit_sphere_mesh(),
+		_torso_motion_pivot, "ScarfKnot", _unit_sphere_mesh(),
 		_soft_material(_token_color("scarf"))
 	)
 	knot.position = Vector3(0.006, 0.070, -0.043)
 	knot.scale = Vector3.ONE * 0.0105
 	var tail_a := _add_static_mesh(
-		_body_pivot, "ScarfTailA", _unit_sphere_mesh(),
+		_torso_motion_pivot, "ScarfTailA", _unit_sphere_mesh(),
 		_soft_material(_token_color("scarf"))
 	)
 	tail_a.position = Vector3(0.014, 0.053, -0.047)
 	tail_a.scale = Vector3(0.009, 0.017, 0.006)
 	tail_a.rotation.z = -0.18
 	var tail_b := _add_static_mesh(
-		_body_pivot, "ScarfTailB", _unit_sphere_mesh(),
+		_torso_motion_pivot, "ScarfTailB", _unit_sphere_mesh(),
 		_soft_material(_token_color("scarf"))
 	)
 	tail_b.position = Vector3(0.000, 0.050, -0.048)
@@ -594,13 +634,18 @@ func _update_legs(body: Transform3D, leg_anchors: Array) -> void:
 				[knee.lerp(ankle, 0.30), ankle], SHIN_RADII
 			)
 		var lift := maxf(foot.y - FOOT_REST_Y, 0.0)
+		var foot_pitch := float(anchor.get("foot_pitch", 0.0))
 		var shoe := _shoes[leg_index] as Node3D
 		shoe.position = Vector3(foot.x, lift, foot.z)
-		shoe.rotation = Vector3(0.0, yaw + side * FOOT_OUT_ANGLE, 0.0)
+		shoe.rotation = Vector3(
+			foot_pitch, yaw + side * FOOT_OUT_ANGLE, 0.0
+		)
 		if not _naked_feet.is_empty():
 			var naked_foot := _naked_feet[leg_index]
 			naked_foot.position = Vector3(foot.x, lift + 0.013, foot.z - 0.008)
-			naked_foot.rotation = Vector3(0.0, yaw + side * FOOT_OUT_ANGLE, 0.0)
+			naked_foot.rotation = Vector3(
+				foot_pitch, yaw + side * FOOT_OUT_ANGLE, 0.0
+			)
 
 
 func _set_sweep(sweep_name: String, points: Array, radii: Array) -> void:
@@ -762,22 +807,22 @@ func _advance_blink(delta: float) -> void:
 
 # -------------------------------------------------------------- helpers
 
-func _add_clump(
-	clump_name: String,
-	position_value: Vector3,
-	size_value: Vector3,
+func _add_hair_lock(
+	lock_name: String,
+	points: Array,
+	radii: Array,
 	material: Material,
-	rotation_value := Vector3.ZERO
+	depth_scale: float,
+	width_scale: float
 ) -> void:
-	var clump := MeshInstance3D.new()
-	clump.name = clump_name
-	clump.mesh = _unit_sphere_mesh()
-	clump.position = position_value
-	clump.rotation = rotation_value
-	clump.scale = size_value
-	clump.material_override = material
-	clump.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_hair_root.add_child(clump)
+	var lock := _add_static_mesh(
+		_hair_root, lock_name,
+		Forge.sweep(
+			points, radii, 12, 18, Vector2(depth_scale, width_scale)
+		),
+		material
+	)
+	lock.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 func _add_static_mesh(

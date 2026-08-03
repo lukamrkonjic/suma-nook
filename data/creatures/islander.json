@@ -2,6 +2,7 @@
   "id": "islander",
   "body_plan": "legged",
   "body_version": 2,
+  "player_motion": true,
   "palette": {"body": "#6E8FB5", "body_light": "#F2C9A0", "limb": "#4E5E7A", "foot": "#6E4A36", "face": "#F6D4AC", "belly": "#7FA0C4", "accent": "#E8907A", "ink": "#38323E", "hair": "#6E4A36", "ear": "#F2C9A0"},
   "torso": {"length": 0.10, "radius": 0.070, "height": 0.261, "taper": 1.0, "belly": false, "blend": 0.02},
   "head": {"radius": 0.095, "offset": [0.0, 0.200, -0.004], "face": "human", "stabilize": 0.42},
@@ -10,5 +11,5 @@
   "gait": {"reference_speed": 2.4, "cadence": 7.4, "stride": 0.085, "step_lift": 0.045, "body_bob": 0.014, "lean": 0.06, "gait_twist": 0.09},
   "juice": {"squash": 0.22, "head_lag": 0.05, "head_snap": 10.0, "breath_rate": 0.5, "outline": 0.006},
   "coat": {"pattern": "none", "strands": 0.0, "ruffle": 0.0},
-  "outfit": "res://data/outfits/cozy_scout.json"
+  "outfit": "res://data/outfits/keeper_default.json"
 }
