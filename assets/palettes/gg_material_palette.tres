@@ -520,7 +520,7 @@ colors = {
 "grass_field_tuft_light": Color(0.807843, 0.811765, 0.564706, 1.0),
 "tilekit_background": Color(0.647059, 0.596078, 0.486275, 1.0),
 "tilekit_clay_berry": Color(0.722, 0.424, 0.314, 1.0),
-"tilekit_clay_flower_cream": Color(0.784, 0.769, 0.682, 1.0),
+"tilekit_clay_flower_cream": Color(0.925, 0.906, 0.808, 1.0),
 "tilekit_clay_flower_gold": Color(0.725, 0.596, 0.208, 1.0),
 "tilekit_clay_leaf": Color(0.318, 0.443, 0.161, 1.0),
 "tilekit_grass_gg_lower": Color(0.302, 0.357, 0.129, 1.0),

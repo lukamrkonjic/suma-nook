@@ -2,6 +2,6 @@
 
 [resource]
 resource_name = "tilekit_clay_flower_cream"
-albedo_color = Color(0.784, 0.769, 0.682, 1)
+albedo_color = Color(0.925, 0.906, 0.808, 1)
 metallic_specular = 0.2
 roughness = 0.9

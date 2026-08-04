@@ -9,6 +9,11 @@ extends RefCounted
 ## spheroid normals and real contact shadows, is what reads as pressed
 ## plasticine rather than modelled grass.
 ##
+## SHAPE RULE — leaves must stay ROUND in cross-section (depth_ratio 1.0).
+## A flattened leaf in a radial fan always turns some of its siblings
+## edge-on to the fixed camera, and those render as thin dark slivers, so
+## every cluster reads as a dark spider instead of a plant.
+##
 ## AUTHORING GOTCHA — the runtime scales X/Z to the live cell but leaves Y
 ## alone (authored 1.70 m footprint → 1.00 m cell, factor ~0.588). Widths
 ## here are therefore authored ~1.7× their intended in-game size while
@@ -160,9 +165,13 @@ static func _pick_spot(rng: RandomNumberGenerator, placed: Array[Vector2],
 ## meet the flat plane at a hard line and read as props dropped on top.
 static func _add_mound(batch: TileKitMeshUtils.MeshBatch, key: String,
 		base: Vector3, radius: float, height: float) -> void:
+	# Ring resolution matters more here than anywhere else in the tile: a
+	# low-poly dome poking through a FLAT plane shows its polygon rim as a
+	# hard faceted outline, which reads as dark legs radiating from every
+	# cluster. Keep it round enough that the intersection stays a soft curve.
 	TileKitMeshUtils.add_egg(batch, key,
 		base - Vector3(0.0, height * 0.75, 0.0), Vector3.UP,
-		height * 1.75, radius, 4, 9)
+		height * 1.75, radius, 6, 28)
 
 
 ## One sprout: a fan of blunt teardrop leaves sharing a base. The centre
@@ -197,7 +206,7 @@ static func _add_sprout(batch: TileKitMeshUtils.MeshBatch,
 		var sibling_height := height * rng.randf_range(0.62, 0.84)
 		var sibling_width := width * rng.randf_range(0.80, 0.96)
 		TileKitMeshUtils.add_egg(batch, leaf_key,
-			base + outward * width * 0.16
+			base + outward * width * 0.30
 				+ Vector3(0.0, -sibling_height * 0.07, 0.0),
 			axis, sibling_height, sibling_width * 0.5, 5, 7,
 			depth_ratio, Vector3(-outward.z, 0.0, outward.x))
@@ -216,7 +225,8 @@ static func _add_flower(batch: TileKitMeshUtils.MeshBatch,
 		var angle := yaw + TAU * float(petal) / 5.0
 		var outward := Vector3(cos(angle), 0.0, sin(angle))
 		TileKitMeshUtils.add_egg(batch, petal_key,
-			base + lift + outward * size * 0.30,
-			Vector3.UP, size * 0.15, size * 0.27, 4, 7)
+			base + lift + outward * size * 0.34,
+			Vector3.UP, size * 0.18, size * 0.34, 5, 12)
 	TileKitMeshUtils.add_egg(batch, centre_key,
-		base + lift, Vector3.UP, size * 0.20, size * 0.18, 4, 7)
+		base + lift + Vector3(0.0, size * 0.03, 0.0),
+		Vector3.UP, size * 0.22, size * 0.20, 5, 12)
