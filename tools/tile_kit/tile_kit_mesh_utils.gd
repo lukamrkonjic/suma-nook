@@ -150,6 +150,10 @@ static func add_flat_blob(
 ## of the axis scaling) are what keep it reading as one pinched clay piece
 ## instead of a faceted ball. `base_point` is the axis start (where the egg
 ## attaches); the solid extends `length` along `axis`.
+## `depth_ratio` below 1 flattens the solid across `broad_dir`, turning the
+## egg into a clay LEAF: broad when seen face-on, thin edge-on. `broad_dir`
+## is projected perpendicular to the axis, so callers can pass any handy
+## direction (a leaf's outward lean, say) without pre-orthogonalising.
 static func add_egg(
 	batch: MeshBatch,
 	key: String,
@@ -158,13 +162,21 @@ static func add_egg(
 	length: float,
 	radius: float,
 	lat_steps := 5,
-	lon_steps := 6
+	lon_steps := 6,
+	depth_ratio := 1.0,
+	broad_dir := Vector3.ZERO
 ) -> void:
 	var y_axis := axis.normalized()
-	var helper := Vector3.UP if absf(y_axis.dot(Vector3.UP)) < 0.99 \
-		else Vector3.RIGHT
-	var x_axis := helper.cross(y_axis).normalized()
+	var x_axis: Vector3
+	if broad_dir.length_squared() > 0.000001:
+		x_axis = broad_dir - y_axis * broad_dir.dot(y_axis)
+	if x_axis.length_squared() < 0.000001:
+		var helper := Vector3.UP if absf(y_axis.dot(Vector3.UP)) < 0.99 \
+			else Vector3.RIGHT
+		x_axis = helper.cross(y_axis)
+	x_axis = x_axis.normalized()
 	var z_axis := y_axis.cross(x_axis)
+	var depth := radius * maxf(depth_ratio, 0.05)
 	var half := length * 0.5
 	var centre := base_point + y_axis * half
 	var vertices := PackedVector3Array()
@@ -183,13 +195,13 @@ static func add_egg(
 				centre
 				+ x_axis * local.x * radius
 				+ y_axis * local.y * half
-				+ z_axis * local.z * radius
+				+ z_axis * local.z * depth
 			)
 			# Spheroid normal: unit-sphere normal over the per-axis scale.
 			var scaled := Vector3(
 				local.x / maxf(radius, 0.0001),
 				local.y / maxf(half, 0.0001),
-				local.z / maxf(radius, 0.0001)
+				local.z / maxf(depth, 0.0001)
 			).normalized()
 			normals.append(
 				x_axis * scaled.x + y_axis * scaled.y + z_axis * scaled.z

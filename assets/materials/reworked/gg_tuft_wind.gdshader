@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode cull_back, alpha_to_coverage, specular_disabled;
+render_mode cull_back, alpha_to_coverage;
 
 // Wind-swaying tuft card: the sprite carpet's material with a gentle
 // travelling wave. The sprite's white gradient carries form, `tint`
@@ -14,9 +14,12 @@ render_mode cull_back, alpha_to_coverage, specular_disabled;
 uniform sampler2D albedo_tex : source_color, filter_linear_mipmap;
 uniform vec4 tint : source_color = vec4(1.0);
 // The exact ground-plane colour: card bases dissolve into it so tufts
-// grow OUT of the tile instead of sitting on it as stickers.
+// grow OUT of the tile instead of sitting on it as stickers. The blend
+// COMPLETES at ground_blend_end — everything below that line is
+// literally the ground colour, not a partial mix that reads as a skirt.
 uniform vec4 ground_color : source_color = vec4(0.455, 0.522, 0.306, 1.0);
-uniform float ground_blend_start = 0.45;
+uniform float ground_blend_start = 0.30;
+uniform float ground_blend_end = 0.68;
 uniform float wind_amplitude = 0.026;
 uniform float wind_speed = 1.35;
 uniform vec2 wind_direction = vec2(0.82, 0.57);
@@ -36,13 +39,20 @@ void vertex() {
 
 void fragment() {
 	vec4 albedo_sample = texture(albedo_tex, UV) * tint;
-	// UV.y = 1 at the card base: fully ground-coloured there, fading to
-	// the pure tuft tint by `ground_blend_start` so the lower gradient IS
-	// the ground and every tuft blends into the plane it stands on.
-	float ground_mix = smoothstep(ground_blend_start, 1.0, UV.y);
+	// UV.y = 1 at the card base: everything below ground_blend_end IS the
+	// ground colour; the tuft tint only survives above ground_blend_start.
+	float ground_mix = smoothstep(
+		ground_blend_start, ground_blend_end, UV.y);
 	ALBEDO = mix(albedo_sample.rgb, ground_color.rgb, ground_mix);
 	ALPHA = albedo_sample.a;
 	ALPHA_SCISSOR_THRESHOLD = 0.45;
 	ALPHA_ANTIALIASING_EDGE = 0.30;
-	ROUGHNESS = 1.0;
+	// Match the kit's standard palette material EXACTLY (roughness 0.9,
+	// specular 0.2, metallic 0): with up normals, cards then take the
+	// identical lighting response as the plane, so blended bases land on
+	// the same screen colour — a specular-free card under a specular
+	// plane diverges even with identical albedo.
+	ROUGHNESS = 0.9;
+	SPECULAR = 0.2;
+	METALLIC = 0.0;
 }

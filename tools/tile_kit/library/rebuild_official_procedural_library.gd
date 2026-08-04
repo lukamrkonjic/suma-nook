@@ -101,7 +101,7 @@ func _init() -> void:
 			failures.append("Missing official manifest: %s" % tile_id)
 			continue
 		var preset := _make_recipe(tile_id)
-		if not _has_authored_detail(preset):
+		if tile_id not in CLEAN_SURFACE_IDS and not _has_authored_detail(preset):
 			failures.append("%s produced no authored surface detail" % tile_id)
 			continue
 		var recipe_path := "%s/%s.tres" % [
@@ -134,11 +134,11 @@ func _init() -> void:
 		manifest.updated_at = STAMP
 		if tile_id == "tile_grass":
 			manifest.notes = (
-				"Clay sprout redesign: softly rounded warm chartreuse toy block "
-				+ "under a dense offset-grid carpet of solid clay rosettes — "
-				+ "crown mound plus blunt egg lobes, smooth normals, real "
-				+ "shadows. Own composition in the researched style family; no "
-				+ "extracted source geometry, texture, or material is used."
+				"Clean meadow slab: a quiet sage clay block with a softly "
+				+ "rounded shell and the faintest broad undulation. No detail "
+				+ "layer by design — the style keeps ground planes clean and "
+				+ "lets colour carry the grass; decoration belongs to props. "
+				+ "No extracted source geometry, texture, or material is used."
 			)
 		elif tile_id == "tile_dirt":
 			manifest.notes = (
@@ -239,40 +239,32 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 	match tile_id:
 		# ------------------------------------------------------------ meadow
 		"tile_grass":
-			# SOFT SPROUT MEADOW — Standard Grass. The judged sweet spot
-			# after the whole exploration ladder: the researched carpet
-			# composition (offset grid, measured tuft sizing, tone-on-tone
-			# chartreuse, slight rim overhang) rendered with Suma's own
-			# five-finger sprout sprite on a SOFTLY ROUNDED clay block —
-			# like the reference family, never a copy of it. Solid-geometry
-			# rosettes (bigger/denser/sparser) all read as clutter or noise;
-			# the soft gradient cards are what keep the carpet calm.
+			# CLEAN MEADOW SLAB — Standard Grass. The style references all
+			# agree on one thing the whole detail exploration kept missing:
+			# their ground planes are CLEAN. Grass identity is the sage
+			# colour and the block's own soft clay form, not scattered
+			# objects. Every added detail layer — sprite carpets, solid
+			# rosettes, nub piles, sparse blade tufts — was rejected as
+			# clutter. So the tile is a quiet slab with the faintest broad
+			# undulation, which catches the key light and keeps the top
+			# from reading as a flat CG rectangle.
+			#
+			# NOTE for future edits: detail layers on THIS tile are the
+			# rejected direction. Decoration belongs to placeable props.
+			# Clay comes from the BLOCK: generous corner rounding and a fat
+			# soft top bevel in one bright clay-green hue ramp. The top is
+			# exactly flat — any relief has to feather out at the cell rim,
+			# which creases a visible line along every boundary of a
+			# connected meadow. Detail layers are OFF pending art direction;
+			# see the rejected-directions note in docs/TILE_AUTHORING.md.
 			_set_base(preset, {"top_key": "grass_gg_top",
 				"bevel_key": "grass_gg_bevel", "side_key": "grass_gg_side",
 				"lower_key": "grass_gg_lower", "turf_side_key": "grass_gg_side"},
 				"none", 0.0,
-				{"relief_resolution": 12, "relief_edge_feather": 0.18,
-					"turf_cap": false, "top_bevel": 0.035,
-					"corner_radius": 0.045, "bevel_segments": 4,
-					"bottom_chamfer": 0.012})
-			# Cards sit just under the audited tuft size range (smaller and
-			# squatter per direction), spacing tightened to keep coverage.
-			# Yaw 135° faces the fixed diagonal camera.
-			_sprite_carpet(preset, {
-				"sprite": "tuft_sprout",
-				"tint_key": "grass_gg_tuft",
-				"ground_blend_key": "grass_gg_top",
-				"cards_per_tuft": 1,
-				"grid_spacing": 0.34,
-				"row_offset_fraction": 0.5,
-				"card_size": [0.32, 0.44],
-				"height_ratio": 0.8,
-				"position_jitter": 0.07,
-				"yaw_degrees": 135.0,
-				"yaw_jitter_degrees": 0.0,
-				"edge_margin": 0.055,
-				"root_sink": 0.02,
-				"skip_fraction": 0.0})
+				{"relief_resolution": 20, "relief_edge_feather": 0.2,
+					"turf_cap": false, "top_bevel": 0.045,
+					"corner_radius": 0.05, "bevel_segments": 6,
+					"bottom_chamfer": 0.018})
 		"tile_kit_grass":
 			# Dense Grass: tighter interlock, thicker pile, more sculpted tips.
 			_set_base(preset, GREEN_BASE, "pillow", 0.016)
@@ -1011,6 +1003,12 @@ func _layer(preset: TileKitPreset, kind: String) -> TileKitLayer:
 	var index := TileLayerParameterSchema.ordered_insertion_index(preset.layers, kind)
 	preset.layers.insert(index, created)
 	return created
+
+
+## Tiles whose art direction is a deliberately clean plane — no relief and
+## no detail layer. Exempt from the authored-detail guard, which exists to
+## catch recipes that lost their composition by accident.
+const CLEAN_SURFACE_IDS := ["tile_grass"]
 
 
 func _has_authored_detail(preset: TileKitPreset) -> bool:

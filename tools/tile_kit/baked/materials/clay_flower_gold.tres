@@ -1,7 +1,7 @@
 [gd_resource type="StandardMaterial3D" format=3]
 
 [resource]
-resource_name = "tilekit_grass_gg_top"
-albedo_color = Color(0.43900004, 0.51, 0.17599998, 1)
+resource_name = "tilekit_clay_flower_gold"
+albedo_color = Color(0.725, 0.596, 0.20799999, 1)
 metallic_specular = 0.2
 roughness = 0.9

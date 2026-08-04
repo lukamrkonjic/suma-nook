@@ -14,11 +14,6 @@
           "cover_behavior": "persist"
         },
         {
-          "role": "detail",
-          "asset_id": "tile_grass_detail",
-          "cover_behavior": "hide"
-        },
-        {
           "role": "surface",
           "asset_id": "tile_grass_surface",
           "cover_behavior": "hide"

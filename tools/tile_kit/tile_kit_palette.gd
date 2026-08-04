@@ -31,6 +31,13 @@ const MOSS_VELVET_SHADER: Shader = preload(
 const TUFT_WIND_SHADER: Shader = preload(
 	"res://assets/materials/reworked/gg_tuft_wind.gdshader"
 )
+const BLADE_WIND_SHADER: Shader = preload(
+	"res://assets/materials/reworked/gg_blade_wind.gdshader"
+)
+
+## Palette roles whose geometry sways in the wind. Still palette-bound —
+## the shader only ever receives a colour this class resolved.
+const WIND_BLADE_KEYS := ["clay_leaf"]
 
 const COLORS := {
 	"background": "tilekit_background",
@@ -79,6 +86,13 @@ const COLORS := {
 	"grass_gg_side": "tilekit_grass_gg_side",
 	"grass_gg_lower": "tilekit_grass_gg_lower",
 	"grass_gg_tuft": "tilekit_grass_gg_tuft",
+	# Plasticine garden dressing: leaves sit a small step lighter and
+	# yellower than the turf so clusters read as separate clay pieces,
+	# while flowers and berries are the only warm accents on the tile.
+	"clay_leaf": "tilekit_clay_leaf",
+	"clay_flower_cream": "tilekit_clay_flower_cream",
+	"clay_flower_gold": "tilekit_clay_flower_gold",
+	"clay_berry": "tilekit_clay_berry",
 	# Moss / forest family: deeper cooler green, still lively.
 	"moss_top": "tilekit_moss_top",
 	"moss_bevel": "tilekit_tile_top",
@@ -235,6 +249,13 @@ static func color(key: String) -> Color:
 static func material(key: String) -> Material:
 	if _materials.has(key):
 		return _materials[key]
+	if key in WIND_BLADE_KEYS:
+		var blades := ShaderMaterial.new()
+		blades.resource_name = "tilekit_%s" % key
+		blades.shader = BLADE_WIND_SHADER
+		blades.set_shader_parameter("albedo", color(key))
+		_materials[key] = blades
+		return blades
 	if key in ["moss_contour_top", "moss_plush_base", "moss_plush_body",
 			"moss_plush_light", "moss_plush_deep"]:
 		var velvet := ShaderMaterial.new()
