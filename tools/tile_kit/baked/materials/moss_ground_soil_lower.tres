@@ -1,0 +1,7 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "tilekit_moss_ground_soil_lower"
+albedo_color = Color(0.318132, 0.21922901, 0.20246801, 1)
+metallic_specular = 0.08
+roughness = 0.98

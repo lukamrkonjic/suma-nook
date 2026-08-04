@@ -137,6 +137,7 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 ## Deterministic single-colour height relief for the cap top. Styles:
 ##   "none"    flat walkable plane (grass, paving)
 ##   "pillow"  soft rounded undulation — moss, mulch
+##   "contour_moss" broad organic clay shelves — quiet, smooth moss strata
 ##   "dunes"   directional waves with noise breakup — sand
 ##   "sculpted_dunes" staggered asymmetric wind strokes — source-like sand
 ##             dunes and broad snow drifts, periodic across the tile footprint
@@ -171,6 +172,9 @@ static func _relief_function(layer: TileKitLayer, rng: RandomNumberGenerator,
 	var sculpted_dunes: Callable
 	if style == "sculpted_dunes":
 		sculpted_dunes = _sculpted_dune_function(layer, rng)
+	var contour_moss: Callable
+	if style == "contour_moss":
+		contour_moss = _contour_moss_function(layer)
 
 	# Heap centres are drawn once, deterministically, and kept far enough
 	# inside that the rim feather never slices a mound in half — a cut heap
@@ -217,6 +221,8 @@ static func _relief_function(layer: TileKitLayer, rng: RandomNumberGenerator,
 			return 0.0
 		if style == "sculpted_dunes":
 			return feather * float(sculpted_dunes.call(local)) * amplitude
+		if style == "contour_moss":
+			return feather * float(contour_moss.call(local)) * amplitude
 		if style == "furrows":
 			# Parallel tilled ridges: shaped |sin| crests along one axis,
 			# axis-aligned so the field reads as deliberately worked rows.
@@ -252,6 +258,46 @@ static func _relief_function(layer: TileKitLayer, rng: RandomNumberGenerator,
 		if bool(layer.value("relief_bipolar", false)):
 			return feather * clampf(value, -1.0, 1.0) * amplitude
 		return feather * maxf(0.0, value * 0.5 + 0.5) * amplitude
+
+
+## A periodic field of broad, softly rolled terraces. It is intentionally
+## analytic rather than noise-driven: the surface reads as a few deliberate
+## clay landforms, not grit or dozens of moss blobs. Integer sine harmonics
+## make both height and slope agree at opposite tile edges.
+static func _contour_moss_function(layer: TileKitLayer) -> Callable:
+	var bands := clampi(int(layer.value("contour_bands", 3)), 2, 5)
+	var edge_roll := clampf(
+		float(layer.value("contour_edge_roll", 0.055)), 0.015, 0.18
+	)
+	var warp := clampf(float(layer.value("contour_warp", 0.42)), 0.0, 1.0)
+	var axis := clampi(int(layer.value("contour_axis", 0)), 0, 1)
+	return func(world: Vector2) -> float:
+		var across_coordinate := world.x if axis == 0 else world.y
+		var flow_coordinate := world.y if axis == 0 else world.x
+		var across := TAU * across_coordinate / TILE
+		var flow := TAU * flow_coordinate / TILE
+		# A broad two-dimensional landform, not parallel sine bands. The
+		# dominant flow bends through a slow cross-slope; quieter integer
+		# harmonics turn the level sets into unequal organic shelves.
+		var bent_flow := flow + warp * (
+			sin(across + 0.38) * 0.62
+			+ sin(across * 2.0 - 1.17) * 0.14
+		)
+		var field := 0.5
+		field += sin(bent_flow) * 0.255
+		field += sin(across - 0.74) * 0.145 * warp
+		field += cos(flow + across + 0.41) * 0.085 * warp
+		field += sin(across * 2.0 - flow + 0.73) * 0.035 * warp
+		field = clampf(field, 0.0, 1.0)
+		var stepped := 0.0
+		for band in bands:
+			var threshold := float(band + 1) / float(bands + 1)
+			stepped += smoothstep(
+				threshold - edge_roll,
+				threshold + edge_roll,
+				field
+			)
+		return stepped / float(bands)
 
 
 ## Periodic field of hand-brushed dune strokes. Each stroke has a long curved

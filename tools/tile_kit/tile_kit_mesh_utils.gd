@@ -16,6 +16,7 @@ extends RefCounted
 class SurfacePool:
 	var vertices := PackedVector3Array()
 	var normals := PackedVector3Array()
+	var colors := PackedColorArray()
 	var indices := PackedInt32Array()
 
 
@@ -34,9 +35,23 @@ class MeshBatch:
 	## Appends an indexed patch. `vertices` and `normals` must be equal length;
 	## `indices` reference into the appended patch (0-based).
 	func add(key: String, vertices: PackedVector3Array,
-			normals: PackedVector3Array, indices: PackedInt32Array) -> void:
+			normals: PackedVector3Array, indices: PackedInt32Array,
+			colors: PackedColorArray = PackedColorArray()) -> void:
 		var pool := _pool(key)
 		var offset := pool.vertices.size()
+		assert(colors.is_empty() or colors.size() == vertices.size(),
+			"TileKitMeshUtils: vertex colour count must match vertices")
+		# A surface may receive several primitives. Once any primitive supplies
+		# colours, pad every uncoloured primitive with white so ARRAY_COLOR stays
+		# aligned with ARRAY_VERTEX across the complete material surface.
+		if not colors.is_empty():
+			if pool.colors.is_empty() and offset > 0:
+				pool.colors.resize(offset)
+				pool.colors.fill(Color.WHITE)
+			pool.colors.append_array(colors)
+		elif not pool.colors.is_empty():
+			for _index in vertices.size():
+				pool.colors.append(Color.WHITE)
 		pool.vertices.append_array(vertices)
 		pool.normals.append_array(normals)
 		for index in indices:
@@ -52,6 +67,8 @@ class MeshBatch:
 			arrays.resize(Mesh.ARRAY_MAX)
 			arrays[Mesh.ARRAY_VERTEX] = pool.vertices
 			arrays[Mesh.ARRAY_NORMAL] = pool.normals
+			if pool.colors.size() == pool.vertices.size():
+				arrays[Mesh.ARRAY_COLOR] = pool.colors
 			arrays[Mesh.ARRAY_INDEX] = pool.indices
 			var surface := mesh.get_surface_count()
 			mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
@@ -671,7 +688,8 @@ static func add_lobed_mound(
 	lobe_depth := 0.20,
 	rings: int = 5,
 	segments: int = 18,
-	softness := 0.6
+	softness := 0.6,
+	gradient_colors: Array = []
 ) -> void:
 	# Two incommensurate angular waves give a hand-modelled outline; a single
 	# wave reads as a gear, pure jitter reads as noise.
@@ -702,12 +720,25 @@ static func add_lobed_mound(
 
 	var vertices := PackedVector3Array()
 	var normals := PackedVector3Array()
+	var colors := PackedColorArray()
 	var indices := PackedInt32Array()
 	vertices.append(centre + Vector3.UP * height)
 	normals.append(Vector3.UP)
+	var has_gradient := gradient_colors.size() >= 2
+	var centre_color := Color.WHITE
+	var edge_color := Color.WHITE
+	if has_gradient:
+		centre_color = gradient_colors[0]
+		edge_color = gradient_colors[1]
+		colors.append(centre_color)
 	# Ring spacing biased toward the rim, where the roll needs resolution.
 	for ring in rings:
 		var s := sin((float(ring + 1) / float(rings)) * PI * 0.5)
+		# Let the surrounding colour begin entering immediately instead of
+		# preserving a hard inner disc. The eased radial ramp keeps the centre
+		# legible while giving even small inlaid patches several rings of blend.
+		var radial_blend := smoothstep(0.0, 0.96, pow(s, 0.82))
+		var ring_color := centre_color.lerp(edge_color, radial_blend)
 		for segment in segments:
 			var angle := TAU * float(segment) / float(segments)
 			var position: Vector3 = point_at.call(s, angle)
@@ -722,6 +753,8 @@ static func add_lobed_mound(
 				normal = Vector3.UP
 			normals.append(normal.normalized())
 			vertices.append(position)
+			if has_gradient:
+				colors.append(ring_color)
 	for segment in segments:
 		indices.append_array([0, 1 + segment, 1 + (segment + 1) % segments])
 	for ring in rings - 1:
@@ -733,7 +766,7 @@ static func add_lobed_mound(
 				a0 + segment, b0 + segment, b0 + next,
 				a0 + segment, b0 + next, a0 + next,
 			])
-	batch.add(key, vertices, normals, indices)
+	batch.add(key, vertices, normals, indices, colors)
 
 
 ## A soft swept ridge: a half-elliptical cross-section carried along a ground

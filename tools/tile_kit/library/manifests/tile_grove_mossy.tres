@@ -6,7 +6,7 @@
 script = ExtResource("1_0fnge")
 tile_id = "tile_grove_mossy"
 display_name = "Mossy Forest Floor"
-revision = 3
+revision = 4
 lifecycle = "published"
 visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_grove_mossy.tres"
@@ -24,4 +24,4 @@ water_cells = PackedStringArray()
 created_at = "2026-08-01 00:00:00"
 updated_at = "2026-08-04 11:10:00"
 published_at = "2026-08-01 00:00:00"
-notes = "Selected GG-aligned cushion-moss baseline: moss covers the entire top with overlapping, irregular hummocks and no exposed soil, stone, leaves, or litter. Blanket and rolling studies remain editable through the Moss composition control. Stable ID retained; no extracted source geometry is used."
+notes = "Mossy garden-ground redesign: a continuous soft moss skin hugs the soil block, with one primary earth reveal and three differently sized supporting dirt spots. Vertex-colour gradients feather every reveal back into the moss; two rounded stones and three short grass tufts add contained character. Clean sides; no overhang, voxel noise, litter, or grit. Stable ID retained; no extracted source geometry is used."

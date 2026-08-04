@@ -627,7 +627,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_grove_mossy.tres",
       "source_kind": "procedural",
-      "source_revision": 3,
+      "source_revision": 4,
       "detail_rotation_variants": 4
     },
     {

@@ -1,0 +1,16 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://assets/materials/reworked/gg_moss_velvet.gdshader" id="1_iwr5c"]
+
+[resource]
+resource_name = "tilekit_moss_plush_light"
+render_priority = 0
+shader = ExtResource("1_iwr5c")
+shader_parameter/albedo = Color(0.30452, 0.44332, 0.266234, 1)
+shader_parameter/roughness_val = 0.98
+shader_parameter/specular_val = 0.1
+shader_parameter/nap_strength = 0.012
+shader_parameter/nap_scale = 1.65
+shader_parameter/nap_speed = 0.075
+shader_parameter/rim_amount = 0.16
+shader_parameter/rim_tint_amount = 0.72

@@ -41,6 +41,12 @@ var _tile_size := 1.35
 
 
 func _ready() -> void:
+	# macOS may restore the previous maximized application window even when the
+	# process was launched with --windowed. The gallery is an unattended capture
+	# tool, so enforce a small deterministic window before creating the camera.
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_size(Vector2i(1280, 720))
+	DisplayServer.window_set_position(Vector2i(80, 80))
 	_options = _parse_options()
 	_out_dir = _absolute_dir(String(_options.get("out", "docs/tile_gallery")))
 	_frames = maxi(2, int(_options.get("frames", 40)))

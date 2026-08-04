@@ -520,12 +520,314 @@ static func _build_moss_pads(layer: TileKitLayer,
 		rng: RandomNumberGenerator, context: Dictionary) -> Dictionary:
 	var style := String(layer.value("moss_patch_style", "gg_sheet_moss"))
 	match style:
+		"gg_rosette_moss":
+			return _build_gg_rosette_moss(layer, rng, context)
+		"gg_cloud_bank_moss":
+			return _build_gg_cloud_bank_moss(layer, rng, context)
+		"gg_mossy_garden_ground":
+			return _build_gg_mossy_garden_ground(layer, rng, context)
+		"gg_chenille_moss":
+			return _build_gg_chenille_moss(layer, rng, context)
 		"gg_cushion_moss":
 			return _build_gg_cushion_moss(layer, rng, context)
 		"gg_rolling_moss", "gg_brushed_moss":
 			return _build_gg_rolling_moss(layer, rng, context)
 		_:
 			return _build_gg_sheet_moss(layer, rng, context)
+
+
+## Direction A — botanical pincushion moss. Each low clay bun carries a chunky
+## radial crown, the stylised equivalent of an acrocarp moss rosette. The
+## authored scale hierarchy and empty pockets keep it from becoming a flower
+## grid, while the moss foundation guarantees the whole tile remains ground.
+static func _build_gg_rosette_moss(layer: TileKitLayer,
+		rng: RandomNumberGenerator, context: Dictionary) -> Dictionary:
+	var top: float = context.get("surface_top", 0.0)
+	var cap_height: Callable = context.get("cap_height", Callable())
+	var batch := TileKitMeshUtils.MeshBatch.new()
+	var body := String(layer.value("primary_key", "moss_plush_body"))
+	var light := String(layer.value("blade_key", "moss_plush_light"))
+	var deep := String(layer.value("secondary_key", "moss_plush_deep"))
+	var scale: float = layer.value("moss_detail_scale", 1.0)
+	var height_scale: float = layer.value("moss_detail_height", 1.0)
+	var rosettes := [
+		[Vector2(-0.36, -0.18), 1.90, 7],
+		[Vector2(0.26, 0.24), 1.62, 6],
+		[Vector2(0.46, -0.39), 1.38, 6],
+		[Vector2(-0.48, 0.43), 1.30, 5],
+		[Vector2(0.00, -0.56), 1.18, 6],
+		[Vector2(0.53, 0.55), 1.05, 5],
+		[Vector2(-0.04, 0.59), 0.96, 5],
+		[Vector2(-0.62, -0.55), 0.86, 5],
+		[Vector2(0.62, 0.03), 0.82, 4],
+		[Vector2(-0.62, 0.05), 0.74, 4],
+	]
+	var density: float = layer.value("moss_detail_density", 1.0)
+	var count := clampi(roundi(float(rosettes.size()) * density), 7,
+		rosettes.size())
+	var placed: Array[Vector2] = []
+	for index in count:
+		var spec: Array = rosettes[index]
+		var centre: Vector2 = spec[0]
+		var size: float = float(spec[1]) * scale
+		centre += Vector2(rng.randf_range(-0.022, 0.022),
+			rng.randf_range(-0.022, 0.022))
+		var surface_y := _surface_y(centre, top, cap_height)
+		var bun_radius := 0.115 * size
+		var bun_height := 0.052 * size * height_scale
+		TileKitMeshUtils.add_lobed_mound(batch, deep,
+			Vector3(centre.x, surface_y - 0.004, centre.y),
+			bun_radius * 1.18, bun_radius, bun_height, rng.randf() * TAU,
+			rng, 0.08, 6, 24, 0.94)
+		_add_gg_moss_fan(batch, rng, centre,
+			surface_y + bun_height * 0.62, size, height_scale,
+			body, light, int(spec[2]))
+		placed.append(centre)
+	context["grass_clusters"] = placed
+	return {
+		"meshes": [{"role": "detail", "name": "tile_moss",
+			"mesh": batch.commit()}],
+	}
+
+
+## Direction B — asymmetric cloud-bank moss. Each bank has one soft hero mass
+## and a few rounded shoulder puffs, like a clay toy cloud settled into the
+## blanket. Six strongly different scales make a family without a repeated
+## stamp, while deliberate open moss keeps the composition calm.
+static func _build_gg_cloud_bank_moss(layer: TileKitLayer,
+		rng: RandomNumberGenerator, context: Dictionary) -> Dictionary:
+	var top: float = context.get("surface_top", 0.0)
+	var cap_height: Callable = context.get("cap_height", Callable())
+	var batch := TileKitMeshUtils.MeshBatch.new()
+	var body := String(layer.value("primary_key", "moss_plush_body"))
+	var light := String(layer.value("blade_key", "moss_plush_light"))
+	var deep := String(layer.value("secondary_key", "moss_plush_deep"))
+	var scale: float = layer.value("moss_detail_scale", 1.0)
+	var height_scale: float = layer.value("moss_detail_height", 1.0)
+	var banks := [
+		[Vector2(-0.26, -0.10), 1.28, 0, 6],
+		[Vector2(0.33, 0.31), 0.96, 1, 5],
+		[Vector2(0.39, -0.43), 0.70, 2, 4],
+		[Vector2(-0.49, 0.45), 0.72, 0, 4],
+		[Vector2(-0.08, 0.56), 0.55, 0, 3],
+		[Vector2(0.59, 0.04), 0.48, 2, 3],
+	]
+	var density: float = layer.value("moss_detail_density", 1.0)
+	var bank_count := clampi(roundi(float(banks.size()) * density), 3,
+		banks.size())
+	var placed: Array[Vector2] = []
+	for bank_index in bank_count:
+		var spec: Array = banks[bank_index]
+		var centre: Vector2 = spec[0]
+		centre += Vector2(rng.randf_range(-0.016, 0.016),
+			rng.randf_range(-0.016, 0.016))
+		var size: float = float(spec[1]) * scale
+		var surface_y := _surface_y(centre, top, cap_height)
+		var hero_height := 0.080 * size * height_scale
+		var tone := int(spec[2])
+		var key := light if tone == 1 else deep if tone == 2 else body
+		TileKitMeshUtils.add_lobed_mound(batch, key,
+			Vector3(centre.x, surface_y - hero_height * 0.12, centre.y),
+			0.27 * size, 0.23 * size, hero_height, rng.randf() * TAU,
+			rng, 0.08, 8, 34, 0.98)
+		var shoulder_count := int(spec[3])
+		for shoulder in shoulder_count:
+			var angle := TAU * float(shoulder) / float(shoulder_count) \
+				+ float(bank_index) * 0.79 + 0.24
+			var reach := 0.205 * size * rng.randf_range(0.78, 1.08)
+			var point := centre + Vector2(cos(angle), sin(angle)) * reach
+			var point_y := _surface_y(point, top, cap_height)
+			var puff_size := size * rng.randf_range(0.68, 1.02)
+			var puff_key := deep if (shoulder + bank_index) % 5 == 0 else body
+			TileKitMeshUtils.add_dome(batch, puff_key,
+				Vector3(point.x, point_y - 0.009, point.y),
+				0.090 * puff_size, 0.080 * puff_size,
+				0.046 * puff_size * height_scale,
+				rng.randf() * TAU, 7, 22)
+		placed.append(centre)
+	context["grass_clusters"] = placed
+	return {"meshes": [{"role": "detail", "name": "tile_moss",
+		"mesh": batch.commit()}]}
+
+
+## Mossy garden ground — one continuous moss skin hugs the tile shell while a
+## few pressed soil windows reveal the earth underneath. Broad rises sink into
+## that skin instead of sitting on it as separate green props. Two stones and
+## three short tufts give the miniature habitat character without turning each
+## tile into a repeated centrepiece. All detail stays inside the top silhouette.
+static func _build_gg_mossy_garden_ground(layer: TileKitLayer,
+		rng: RandomNumberGenerator, context: Dictionary) -> Dictionary:
+	var half: float = context.get("surface_half", 0.85)
+	var top: float = context.get("surface_top", 0.0)
+	var cap_height: Callable = context.get("cap_height", Callable())
+	var batch := TileKitMeshUtils.MeshBatch.new()
+	var body := String(layer.value("primary_key", "moss_plush_body"))
+	var light := String(layer.value("blade_key", "moss_plush_light"))
+	var deep := String(layer.value("secondary_key", "moss_plush_deep"))
+	var stone := String(layer.value("moss_stone_key", "stone_medium"))
+	var stone_light := String(layer.value("moss_stone_light_key", "stone_light"))
+	var soil := String(layer.value("moss_soil_key", "moss_ground_soil_top"))
+	var soil_gradient := String(layer.value("moss_soil_gradient_key",
+		"moss_ground_soil_gradient"))
+	var soil_gradient_colors := [TileKitPalette.color(soil),
+		TileKitPalette.color(body)]
+	var scale: float = layer.value("moss_detail_scale", 1.0)
+	var height_scale: float = layer.value("moss_detail_height", 1.0)
+	var density: float = layer.value("moss_detail_density", 1.0)
+
+	# One calm, irregular earth reveal gives the eye a focal area instead of a
+	# chain of unrelated brown decals. Its rolled edge is mostly submerged.
+	var reveal_point := Vector2(-0.14, 0.035)
+	var reveal_height := 0.030 * height_scale
+	var reveal_y := _surface_y(reveal_point, top, cap_height)
+	TileKitMeshUtils.add_lobed_mound(batch, soil_gradient,
+		Vector3(reveal_point.x, reveal_y - reveal_height * 0.74,
+			reveal_point.y),
+		0.31 * scale, 0.175 * scale, reveal_height, -0.18, rng,
+		0.16, 8, 38, 0.98, soil_gradient_colors)
+	# A smaller overlapping shoulder turns the opening into one asymmetric bean
+	# shape rather than the procedural oval this primitive produces alone.
+	var reveal_shoulder := Vector2(0.075, 0.095)
+	var shoulder_y := _surface_y(reveal_shoulder, top, cap_height)
+	TileKitMeshUtils.add_lobed_mound(batch, soil_gradient,
+		Vector3(reveal_shoulder.x, shoulder_y - reveal_height * 0.76,
+			reveal_shoulder.y),
+		0.16 * scale, 0.105 * scale, reveal_height * 0.88, 0.28, rng,
+		0.12, 8, 34, 0.98, soil_gradient_colors)
+	# Secondary wear marks use a clear large-to-small hierarchy. They are
+	# authored as quiet supporting beats, not an even scatter, and remain at
+	# least 0.25 units inside the tile boundary at the largest editor scale.
+	var soil_spots := [
+		[Vector2(0.35, -0.22), 0.125, 0.078, 0.024, -0.18, 0.12],
+		[Vector2(-0.42, 0.29), 0.078, 0.050, 0.019, 0.26, 0.10],
+		[Vector2(0.25, 0.43), 0.048, 0.031, 0.015, -0.34, 0.08],
+	]
+	for spec: Array in soil_spots:
+		var point: Vector2 = spec[0]
+		var spot_height := float(spec[3]) * height_scale
+		var point_y := _surface_y(point, top, cap_height)
+		TileKitMeshUtils.add_lobed_mound(batch, soil_gradient,
+			Vector3(point.x, point_y - spot_height * 0.78, point.y),
+			float(spec[1]) * scale, float(spec[2]) * scale, spot_height,
+			float(spec[4]), rng, float(spec[5]), 8, 30, 0.98,
+			soil_gradient_colors)
+
+	# Two cohesive cushion banks frame the reveal. Every crown is held inside a
+	# conservative 0.60-unit safe zone—far inside the 0.85-unit tile boundary—
+	# so rotation and lobe wobble cannot create an overhang.
+	var crown_specs := [
+		[Vector2(-0.34, -0.27), 0.23, 0.17, 0.066, 0, -0.12, 0.065],
+		[Vector2(-0.20, -0.39), 0.13, 0.095, 0.044, 0, 0.18, 0.045],
+		[Vector2(-0.47, -0.17), 0.10, 0.078, 0.037, 0, -0.24, 0.040],
+		[Vector2(0.29, 0.25), 0.25, 0.18, 0.070, 0, 0.14, 0.060],
+		[Vector2(0.43, 0.15), 0.12, 0.09, 0.041, 0, -0.16, 0.040],
+		[Vector2(0.24, 0.40), 0.105, 0.080, 0.038, 0, 0.20, 0.040],
+		[Vector2(0.36, -0.34), 0.11, 0.082, 0.040, 0, -0.10, 0.040],
+	]
+	var crown_count := clampi(roundi(float(crown_specs.size()) * density), 5,
+		crown_specs.size())
+	var placed: Array[Vector2] = []
+	for index in crown_count:
+		var spec: Array = crown_specs[index]
+		var point: Vector2 = spec[0]
+		var radius_x := float(spec[1]) * scale
+		var radius_z := float(spec[2]) * scale
+		# The authored values already fit, but this second guard also contains
+		# editor scaling and future parameter changes.
+		var safe_half := minf(0.60, half - 0.20)
+		point.x = clampf(point.x, -safe_half + radius_x,
+			safe_half - radius_x)
+		point.y = clampf(point.y, -safe_half + radius_z,
+			safe_half - radius_z)
+		var crown_height := float(spec[3]) * height_scale
+		var tone := int(spec[4])
+		var key := light if tone == 1 else deep if tone == 2 else body
+		var point_y := _surface_y(point, top, cap_height)
+		TileKitMeshUtils.add_lobed_mound(batch, key,
+			Vector3(point.x, point_y - crown_height * 0.55, point.y),
+			radius_x, radius_z, crown_height, float(spec[5]), rng,
+			float(spec[6]), 8, 34, 0.98)
+		placed.append(point)
+
+	# A deliberately small stone pair sits in the main soil opening. Keeping it
+	# off-centre avoids the repeated emblem visible in a connected grid.
+	var stones := [
+		[Vector2(-0.105, 0.020), 0.082, 0.058, 0.033, -0.22, stone_light],
+		[Vector2(0.015, 0.082), 0.043, 0.032, 0.023, 0.31, stone],
+	]
+	for spec: Array in stones:
+		var point: Vector2 = spec[0]
+		var point_y := _surface_y(point, top, cap_height)
+		var half_x := float(spec[1]) * scale
+		var half_z := float(spec[2]) * scale
+		TileKitMeshUtils.add_slab(batch, String(spec[5]),
+			Vector3(point.x, point_y + 0.002, point.y), half_x, half_z,
+			minf(half_x, half_z) * 0.58, float(spec[3]) * height_scale,
+			float(spec[4]), 0.012, 6)
+
+	# Sparse grass rises from the moss skin. The roots are well inset and the
+	# blades are short enough that their lean cannot cross the tile silhouette.
+	var tuft_specs := [
+		[Vector2(-0.35, -0.29), 1, 0.96],
+		[Vector2(0.30, 0.27), 1, 0.90],
+		[Vector2(0.36, -0.34), 0, 0.78],
+	]
+	var prevailing := -0.55
+	var tuft_points: Array[Vector2] = []
+	for spec: Array in tuft_specs:
+		var point: Vector2 = spec[0]
+		var point_y := _surface_y(point, top, cap_height) + 0.024 * height_scale
+		_build_tuft(batch, layer, rng, point, point_y, int(spec[1]),
+			float(spec[2]) * scale, prevailing, 0.48, body, light)
+		tuft_points.append(point)
+	context["grass_clusters"] = tuft_points
+	return {"meshes": [{"role": "detail", "name": "tile_mossy_ground",
+		"mesh": batch.commit()}]}
+
+
+## Direction C — chenille moss. A heavily jittered full-footprint weave of low
+## rounded fibres creates a plush rug silhouette. A broad size field disrupts
+## the lattice, and the fibres are wider than tall so they read soft, never as
+## eggs, spikes, gravel, or a sparse group of props.
+static func _build_gg_chenille_moss(layer: TileKitLayer,
+		rng: RandomNumberGenerator, context: Dictionary) -> Dictionary:
+	var top: float = context.get("surface_top", 0.0)
+	var cap_height: Callable = context.get("cap_height", Callable())
+	var batch := TileKitMeshUtils.MeshBatch.new()
+	var body := String(layer.value("primary_key", "moss_plush_body"))
+	var light := String(layer.value("blade_key", "moss_plush_light"))
+	var deep := String(layer.value("secondary_key", "moss_plush_deep"))
+	var scale: float = layer.value("moss_detail_scale", 1.0)
+	var height_scale: float = layer.value("moss_detail_height", 1.0)
+	var density: float = layer.value("moss_detail_density", 1.0)
+	var placed: Array[Vector2] = []
+	var columns := clampi(roundi(8.0 * density), 7, 9)
+	var spacing := 1.46 / float(columns - 1)
+	for row in columns:
+		for column in columns:
+			if rng.randf() < 0.055:
+				continue
+			var point := Vector2(-0.73 + column * spacing,
+				-0.73 + row * spacing)
+			point += Vector2(rng.randf_range(-spacing * 0.34, spacing * 0.34),
+				rng.randf_range(-spacing * 0.34, spacing * 0.34))
+			point.x = clampf(point.x, -0.76, 0.76)
+			point.y = clampf(point.y, -0.76, 0.76)
+			var surface_y := _surface_y(point, top, cap_height)
+			var broad_scale := 1.0 + sin(point.x * 3.7 + point.y * 2.1) * 0.18 \
+				+ cos(point.y * 4.3 - 0.6) * 0.12
+			var fibre_scale := rng.randf_range(0.82, 1.18) * scale * broad_scale
+			var chance := rng.randf()
+			var key := light if chance < 0.08 else deep if chance < 0.18 else body
+			TileKitMeshUtils.add_dome(batch, key,
+				Vector3(point.x, surface_y - 0.008, point.y),
+				0.083 * fibre_scale, 0.073 * fibre_scale,
+				0.052 * fibre_scale * height_scale,
+				rng.randf() * TAU, 6, 16)
+			placed.append(point)
+	context["grass_clusters"] = placed
+	return {"meshes": [{"role": "detail", "name": "tile_moss",
+		"mesh": batch.commit()}]}
 
 
 ## A — sheet moss. The whole foundation is moss, then a few very broad, barely

@@ -128,7 +128,9 @@ func _init() -> void:
 			manifest.landmark_tags.append("pond")
 		_apply_runtime_semantics(manifest)
 		manifest.revision = maxi(manifest.revision,
-			3 if tile_id in ["tile_grass", "tile_dirt", "tile_grove_mossy"] else 2)
+			4 if tile_id == "tile_grove_mossy"
+			else 3 if tile_id in ["tile_grass", "tile_dirt"]
+			else 2)
 		manifest.updated_at = STAMP
 		if tile_id == "tile_grass":
 			manifest.notes = (
@@ -145,8 +147,12 @@ func _init() -> void:
 			)
 		elif tile_id == "tile_grove_mossy":
 			manifest.notes = (
-				"GG-aligned full-ground moss study: moss covers the entire top, with "
-				+ "broad smooth variation and no exposed soil, stone, leaves, or litter. "
+				"Mossy garden-ground redesign: a continuous soft moss skin hugs the "
+				+ "soil block, with one primary earth reveal and three differently "
+				+ "sized supporting dirt spots. Vertex-colour gradients feather every "
+				+ "reveal back into the moss; two rounded stones and three short grass "
+				+ "tufts add contained character. Clean sides; no overhang, voxel noise, "
+				+ "litter, or grit. "
 				+ "Stable ID retained; no extracted source geometry is used."
 			)
 		else:
@@ -342,22 +348,31 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 				{"placement_mode": "drift", "drift_bed_key": "autumn_amber",
 					"min_spacing": 0.035})
 		"tile_grove_mossy":
-			# Selected full-ground cushion moss. A moss foundation plus overlapping
-			# moss hummocks; no exposed substrate or litter details.
-			_set_base(preset, {"top_key": "moss_cushion_base",
-				"bevel_key": "moss_cushion_base", "side_key": "moss_cushion_side",
-				"lower_key": "moss_cushion_lower",
-				"turf_side_key": "moss_cushion_side"},
-				"none", 0.0,
-				{"relief_resolution": 12, "top_bevel": 0.052,
-					"corner_radius": 0.085, "bevel_segments": 6,
-					"turf_cap": false, "turf_thickness": 0.070})
+			# A continuous moss skin with restrained soil windows, stones, and
+			# sparse grass. The heap relief and detail placement remain safely
+			# inside the shell so connected tiles keep one unbroken top surface.
+			_set_base(preset, {"top_key": "moss_plush_base",
+				"bevel_key": "moss_plush_edge",
+				"side_key": "moss_ground_soil_side",
+				"lower_key": "moss_ground_soil_lower"},
+				"heaps", 0.036,
+				{"relief_resolution": 32, "relief_frequency": 1.15,
+					"relief_heap_count": [4, 5],
+					"relief_heap_radius": [0.24, 0.36],
+					"relief_edge_feather": 0.25, "top_bevel": 0.055,
+					"bottom_chamfer": 0.024, "corner_radius": 0.11,
+					"bevel_segments": 6})
 			_grass(preset, {"coverage_mode": "moss_pads",
-				"primary_key": "moss_cushion_body",
-				"blade_key": "moss_cushion_light",
-				"secondary_key": "moss_cushion_body",
-				"moss_patch_style": "gg_cushion_moss",
-				"moss_detail_scale": 1.0, "moss_detail_height": 1.0,
+				"moss_patch_style": "gg_mossy_garden_ground",
+				"primary_key": "moss_plush_body",
+				"blade_key": "moss_plush_light",
+				"secondary_key": "moss_plush_deep",
+				"moss_stone_key": "stone_medium",
+				"moss_stone_light_key": "stone_light",
+				"moss_soil_key": "moss_ground_soil_top",
+				"moss_soil_gradient_key": "moss_ground_soil_gradient",
+				"height_multiplier": 1.05,
+				"moss_detail_scale": 1.06, "moss_detail_height": 1.0,
 				"moss_detail_density": 1.0})
 		"tile_proc_mossy_forest_floor":
 			_set_base(preset, MOSS_BASE, "pillow", 0.024)
@@ -848,7 +863,9 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 
 func _apply_runtime_semantics(manifest: TileLibraryManifest) -> void:
 	match manifest.tile_id:
-		"tile_grass", "tile_dirt", "tile_grove_mossy":
+		"tile_grass", "tile_dirt":
+			manifest.detail_rotation_variants = 4
+		"tile_grove_mossy":
 			manifest.detail_rotation_variants = 4
 		"tile_garden":
 			manifest.unlock_level = {"fishing": 10.0}

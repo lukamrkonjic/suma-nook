@@ -25,6 +25,9 @@ extends RefCounted
 const DESIGN_SYSTEM: PaletteDefinition = preload(
 	"res://assets/palettes/gg_material_palette.tres"
 )
+const MOSS_VELVET_SHADER: Shader = preload(
+	"res://assets/materials/reworked/gg_moss_velvet.gdshader"
+)
 
 const COLORS := {
 	"background": "tilekit_background",
@@ -94,6 +97,31 @@ const COLORS := {
 	"moss_gg_carpet_lower": "earth_deep",
 	"moss_gg_carpet_detail": "grass_shade",
 	"moss_gg_carpet_highlight": "grass_primary",
+	# The contour tile is intentionally more olive than the vegetation ramp.
+	# Broad smooth lighting gradients carry its identity; a dedicated role keeps
+	# that quieter clay body from recolouring every existing moss asset.
+	"moss_contour_top": "earthy_olive",
+	"moss_contour_bevel": "earthy_olive",
+	"moss_contour_side": "earth_shadow",
+	"moss_contour_lower": "earth_deep",
+	# Plush clay blanket: close moss values separate the puffs through broad
+	# lighting without returning to neon spots or hard high-contrast blobs.
+	"moss_plush_base": "leaf_olive",
+	"moss_plush_bevel": "leaf_olive",
+	"moss_plush_edge": "olive_shadow",
+	"moss_plush_body": "leaf_olive",
+	"moss_plush_light": "moss_primary",
+	"moss_plush_deep": "olive_shadow",
+	"moss_plush_soil_side": "earth_shadow",
+	"moss_plush_soil_lower": "earth_deep",
+	# Mossy garden ground uses a deeper, quieter soil cake than the standalone
+	# dirt tile so exposed channels support the greenery instead of reading as
+	# a bright orange plastic board.
+	"moss_ground_soil_top": "earth_shadow",
+	"moss_ground_soil_gradient": "earth_shadow",
+	"moss_ground_soil_bevel": "earth_shadow",
+	"moss_ground_soil_side": "earth_shadow",
+	"moss_ground_soil_lower": "earth_deep",
 	# Full-ground moss studies: coherent monochrome ramps with no exposed
 	# stone, soil, or leaf-litter layer.
 	"moss_sheet_top": "leaf_olive",
@@ -177,12 +205,27 @@ static func color(key: String) -> Color:
 
 
 ## The one shared material per palette key. Solid colour and matte across the
-## board — with the single sanctioned exception of still water, which is a
-## slightly translucent, slightly glossy plane exactly like the reference's
-## basin water. Everything else stays opaque toy clay.
-static func material(key: String) -> StandardMaterial3D:
+## board, with two narrow material exceptions: still water gets restrained
+## translucency, and the dedicated contour-moss top gets a matte velvet nap.
+## Both remain palette-bound; neither introduces image texture or colour noise.
+static func material(key: String) -> Material:
 	if _materials.has(key):
 		return _materials[key]
+	if key in ["moss_contour_top", "moss_plush_base", "moss_plush_body",
+			"moss_plush_light", "moss_plush_deep"]:
+		var velvet := ShaderMaterial.new()
+		velvet.resource_name = "tilekit_%s" % key
+		velvet.shader = MOSS_VELVET_SHADER
+		velvet.set_shader_parameter("albedo", color(key))
+		velvet.set_shader_parameter("roughness_val", 0.98)
+		velvet.set_shader_parameter("specular_val", 0.10)
+		velvet.set_shader_parameter("nap_strength", 0.012)
+		velvet.set_shader_parameter("nap_scale", 1.65)
+		velvet.set_shader_parameter("nap_speed", 0.075)
+		velvet.set_shader_parameter("rim_amount", 0.16)
+		velvet.set_shader_parameter("rim_tint_amount", 0.72)
+		_materials[key] = velvet
+		return velvet
 	var result := StandardMaterial3D.new()
 	result.resource_name = "tilekit_%s" % key
 	result.albedo_color = color(key)
@@ -190,6 +233,19 @@ static func material(key: String) -> StandardMaterial3D:
 	result.roughness = 0.9
 	result.metallic_specular = 0.2
 	result.vertex_color_use_as_albedo = false
+	if key in ["moss_ground_soil_top", "moss_ground_soil_gradient",
+			"moss_ground_soil_bevel",
+			"moss_ground_soil_side", "moss_ground_soil_lower"]:
+		result.roughness = 0.98
+		result.metallic_specular = 0.08
+	if key == "moss_ground_soil_gradient":
+		# The reveal meshes carry an authored moss→earth ramp in vertex colour.
+		# White albedo preserves that exact palette-bound gradient. Palette values
+		# are display-space swatches, so request the same sRGB decode that regular
+		# material albedo colours receive; otherwise the ramp is washed toward white.
+		result.albedo_color = Color.WHITE
+		result.vertex_color_use_as_albedo = true
+		result.vertex_color_is_srgb = true
 	if key in ["water_blue", "water_light"]:
 		result.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		result.albedo_color.a = 0.86
