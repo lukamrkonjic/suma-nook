@@ -37,7 +37,7 @@ _surfaces = [{
 "vertex_data": PackedByteArray("AAAAAAAAAAAAAAAAexROPwAAAADXo1C/Rg9PPwAAAAD1cVC/5ONPPwAAAADk40+/9XFQPwAAAABGD0+/16NQPwAAAAB7FE6/16NQPwAAAAB7FE4/9XFQPwAAAABGD08/5ONPPwAAAADk408/Rg9PPwAAAAD1cVA/exROPwAAAADXo1A/exROvwAAAADXo1A/Rg9PvwAAAAD1cVA/5ONPvwAAAADk408/9XFQvwAAAABGD08/16NQvwAAAAB7FE4/16NQvwAAAAB7FE6/9XFQvwAAAABGD0+/5ONPvwAAAADk40+/Rg9PvwAAAAD1cVC/exROvwAAAADXo1C//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+/")
 }]
 
-[node name="tile_kit_surface" type="Node3D" unique_id=1090367332]
+[node name="tile_kit_surface" type="Node3D" unique_id=160437976]
 
-[node name="tile_cap" type="MeshInstance3D" parent="." unique_id=1811061636]
+[node name="tile_cap" type="MeshInstance3D" parent="." unique_id=1381121951]
 mesh = SubResource("ArrayMesh_3arlo")

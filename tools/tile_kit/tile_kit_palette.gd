@@ -28,6 +28,9 @@ const DESIGN_SYSTEM: PaletteDefinition = preload(
 const MOSS_VELVET_SHADER: Shader = preload(
 	"res://assets/materials/reworked/gg_moss_velvet.gdshader"
 )
+const TUFT_WIND_SHADER: Shader = preload(
+	"res://assets/materials/reworked/gg_tuft_wind.gdshader"
+)
 
 const COLORS := {
 	"background": "tilekit_background",
@@ -280,32 +283,24 @@ static func material(key: String) -> Material:
 
 ## The shared material for one (sprite, tint) pair: the sprite's white
 ## gradient carries form, the palette tint carries ALL hue — the audited
-## reference card technique. Alpha scissor + alpha-to-coverage rides the
-## project's MSAA for soft silhouettes without any transparency sorting;
-## specular is fully killed so cards can never catch a plastic glint.
+## reference card technique — plus a gentle vertex-stage wind sway (tips
+## lean, roots pinned, world-phased so the whole meadow rides one wave).
+## Alpha scissor + alpha-to-coverage rides the project's MSAA for soft
+## silhouettes without transparency sorting; specular is fully disabled so
+## cards can never catch a plastic glint. Culling stays ON: the card
+## builder emits wound front/back pairs, which avoids Godot's back-face
+## normal flip (it shaded half of every pair as if lit from below).
 static func sprite_material(sprite: String, tint_key: String) -> Material:
 	var cache_key := "%s|%s" % [sprite, tint_key]
 	if _sprite_materials.has(cache_key):
 		return _sprite_materials[cache_key]
 	assert(SPRITE_TEXTURES.has(sprite),
 		"TileKitPalette: unknown sprite %s" % sprite)
-	var result := StandardMaterial3D.new()
+	var result := ShaderMaterial.new()
 	result.resource_name = "tilekit_sprite_%s_%s" % [sprite, tint_key]
-	result.albedo_color = color(tint_key)
-	result.albedo_texture = load(SPRITE_TEXTURES[sprite])
-	result.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
-	result.alpha_scissor_threshold = 0.45
-	result.alpha_antialiasing_mode = \
-		BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE
-	result.alpha_antialiasing_edge = 0.30
-	# Culling stays ON: the card builder emits wound front/back pairs, which
-	# avoids Godot's back-face normal flip (it shaded half of every crossed
-	# pair as if lit from below).
-	result.cull_mode = BaseMaterial3D.CULL_BACK
-	result.texture_repeat = false
-	result.metallic = 0.0
-	result.roughness = 1.0
-	result.metallic_specular = 0.0
+	result.shader = TUFT_WIND_SHADER
+	result.set_shader_parameter("albedo_tex", load(SPRITE_TEXTURES[sprite]))
+	result.set_shader_parameter("tint", color(tint_key))
 	_sprite_materials[cache_key] = result
 	return result
 

@@ -255,17 +255,17 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 					"turf_cap": false, "top_bevel": 0.035,
 					"corner_radius": 0.045, "bevel_segments": 4,
 					"bottom_chamfer": 0.012})
-			# Card size 0.375–0.53 is the audited tuft size range scaled to
-			# the authored 1.70 m footprint. Yaw 135° faces the fixed
-			# diagonal camera.
+			# Cards sit just under the audited tuft size range (smaller and
+			# squatter per direction), spacing tightened to keep coverage.
+			# Yaw 135° faces the fixed diagonal camera.
 			_sprite_carpet(preset, {
 				"sprite": "tuft_sprout",
 				"tint_key": "grass_gg_tuft",
 				"cards_per_tuft": 1,
-				"grid_spacing": 0.365,
+				"grid_spacing": 0.34,
 				"row_offset_fraction": 0.5,
-				"card_size": [0.375, 0.53],
-				"height_ratio": 1.0,
+				"card_size": [0.32, 0.44],
+				"height_ratio": 0.8,
 				"position_jitter": 0.07,
 				"yaw_degrees": 135.0,
 				"yaw_jitter_degrees": 0.0,

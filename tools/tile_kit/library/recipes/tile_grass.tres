@@ -66,11 +66,11 @@ params = {
 script = ExtResource("1_7at4q")
 kind = "sprite_tufts"
 params = {
-"card_size": [0.375, 0.53],
+"card_size": [0.32, 0.44],
 "cards_per_tuft": 1,
 "edge_margin": 0.055,
-"grid_spacing": 0.365,
-"height_ratio": 1.0,
+"grid_spacing": 0.34,
+"height_ratio": 0.8,
 "position_jitter": 0.07,
 "root_sink": 0.02,
 "row_offset_fraction": 0.5,
