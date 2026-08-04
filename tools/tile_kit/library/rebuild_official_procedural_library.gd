@@ -13,7 +13,7 @@ extends SceneTree
 ## micro accents — and rebuilding re-derives recipes, bakes, and the compiled
 ## catalog in one pass.
 
-const STAMP := "2026-08-02 12:00:00"
+const STAMP := "2026-08-04 11:10:00"
 const CatalogTaxonomy := preload("res://tools/tile_kit/library/tile_catalog_taxonomy.gd")
 
 ## Human-facing names, scenery groups, and order live in
@@ -127,12 +127,33 @@ func _init() -> void:
 		if tile_id == "tile_grass_pond_edge" and not manifest.landmark_tags.has("pond"):
 			manifest.landmark_tags.append("pond")
 		_apply_runtime_semantics(manifest)
-		manifest.revision = maxi(manifest.revision, 2)
+		manifest.revision = maxi(manifest.revision,
+			3 if tile_id in ["tile_grass", "tile_dirt", "tile_grove_mossy"] else 2)
 		manifest.updated_at = STAMP
-		manifest.notes = (
-			"Original Suma procedural composition. Stable ID retained for runtime "
-			+ "references; no extracted source geometry is used."
-		)
+		if tile_id == "tile_grass":
+			manifest.notes = (
+				"Clay-style redesign: muted sage block, clean rounded shell, noise-free "
+				+ "top, four broad-leaf clusters, and deterministic per-cell detail "
+				+ "rotations. Stable ID retained; no extracted source geometry is used."
+			)
+		elif tile_id == "tile_dirt":
+			manifest.notes = (
+				"Clay-style redesign: warm terracotta block, clean rounded shell, "
+				+ "noise-free top, sparse hand-cut clay chips, and deterministic "
+				+ "per-cell detail rotations. Stable ID retained; no extracted source "
+				+ "geometry is used."
+			)
+		elif tile_id == "tile_grove_mossy":
+			manifest.notes = (
+				"GG-aligned full-ground moss study: moss covers the entire top, with "
+				+ "broad smooth variation and no exposed soil, stone, leaves, or litter. "
+				+ "Stable ID retained; no extracted source geometry is used."
+			)
+		else:
+			manifest.notes = (
+				"Original Suma procedural composition. Stable ID retained for runtime "
+				+ "references; no extracted source geometry is used."
+			)
 		if ResourceSaver.save(manifest, manifest.resource_path) != OK:
 			failures.append("Could not save manifest: %s" % tile_id)
 			continue
@@ -210,20 +231,36 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 	match tile_id:
 		# ------------------------------------------------------------ meadow
 		"tile_grass":
-			# GOLD MASTER 01 — Standard Grass. Thin soil body, distinct turf
-			# cap with a wobbled perimeter, hand-directed cluster layout,
-			# partial fringe. The library's quality contract derives from
-			# this tile; nothing else ships until it passes.
-			_set_base(preset, {"top_key": "tile_top",
-				"bevel_key": "tile_top_bevel", "side_key": "earth_side",
-				"lower_key": "earth_deep", "turf_side_key": "tile_side"},
-				"pillow", 0.026,
-				{"relief_frequency": 1.3, "relief_resolution": 16,
-					"relief_edge_feather": 0.14,
-					"turf_cap": true, "turf_thickness": 0.078,
-					"turf_wobble": 0.013, "top_bevel": 0.034,
-					"corner_radius": 0.05, "bevel_segments": 4})
-			_grass(preset, {"coverage_mode": "gold_grass", "tuft_scale": 1.0})
+			# CLAY MASTER 01 — Standard Grass. A crisp, quiet turf slab with
+			# generous rounding and a few authored broad-leaf silhouettes.
+			# Personality comes from the tuft composition, never surface noise,
+			# pebble scatter, lobed blobs, or a bright all-over carpet.
+			_set_base(preset, {"top_key": "grass_clay_top",
+				"bevel_key": "grass_clay_bevel", "side_key": "grass_clay_side",
+				"lower_key": "grass_clay_lower", "turf_side_key": "grass_clay_side"},
+				"none", 0.0,
+				{"relief_resolution": 12, "relief_edge_feather": 0.18,
+					"turf_cap": false, "top_bevel": 0.052,
+					"corner_radius": 0.085, "bevel_segments": 6})
+			_grass(preset, {"coverage_mode": "clusters",
+				"primary_key": "grass_clay_blade",
+				"secondary_key": "grass_clay_tip",
+				"secondary_fraction": 0.18,
+				"large_clusters": 1, "medium_clusters": 3,
+				"small_clusters": 0,
+				"large_footprint": [0.31, 0.35],
+				"medium_footprint": [0.21, 0.24],
+				"rosette_leaves": [3, 4],
+				"leaf_height": [0.07, 0.10],
+				"leaf_width": [0.05, 0.07],
+				"splay_degrees": [18.0, 34.0],
+				"thickness_ratio": [0.58, 0.72],
+				"bend_multiplier": 0.58, "width_multiplier": 1.12,
+				"crown_radius": 0.038, "root_sink": [0.045, 0.06],
+				"root_width_factor": 0.28,
+				"cluster_spread": 0.72,
+				"preferred_edge_margin": 0.11,
+				"open_space_target": 0.82})
 		"tile_kit_grass":
 			# Dense Grass: tighter interlock, thicker pile, more sculpted tips.
 			_set_base(preset, GREEN_BASE, "pillow", 0.016)
@@ -305,17 +342,23 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 				{"placement_mode": "drift", "drift_bed_key": "autumn_amber",
 					"min_spacing": 0.035})
 		"tile_grove_mossy":
-			_set_base(preset, MOSS_BASE, "heaps", 0.032,
-				{"relief_heap_count": [4, 7], "relief_heap_radius": [0.14, 0.28],
-					"relief_resolution": 30})
-			_turf(preset, {"turf_spacing": 0.26, "turf_footprint": [0.24, 0.36],
-				"turf_height": [0.028, 0.046], "turf_skip_fraction": 0.12,
-				"blade_fraction": 0.28, "primary_key": "moss_top", "blade_key": "moss_deep",
-				"secondary_key": "moss_clump"})
-			_scatter(preset, ["lobed_clump", "nub", "mushroom"], [4, 7],
-				[0.10, 0.18],
-				{"moss_clump": 60.0, "moss_deep": 22.0, "wood_medium": 18.0},
-				[0.016, 0.030])
+			# Selected full-ground cushion moss. A moss foundation plus overlapping
+			# moss hummocks; no exposed substrate or litter details.
+			_set_base(preset, {"top_key": "moss_cushion_base",
+				"bevel_key": "moss_cushion_base", "side_key": "moss_cushion_side",
+				"lower_key": "moss_cushion_lower",
+				"turf_side_key": "moss_cushion_side"},
+				"none", 0.0,
+				{"relief_resolution": 12, "top_bevel": 0.052,
+					"corner_radius": 0.085, "bevel_segments": 6,
+					"turf_cap": false, "turf_thickness": 0.070})
+			_grass(preset, {"coverage_mode": "moss_pads",
+				"primary_key": "moss_cushion_body",
+				"blade_key": "moss_cushion_light",
+				"secondary_key": "moss_cushion_body",
+				"moss_patch_style": "gg_cushion_moss",
+				"moss_detail_scale": 1.0, "moss_detail_height": 1.0,
+				"moss_detail_density": 1.0})
 		"tile_proc_mossy_forest_floor":
 			_set_base(preset, MOSS_BASE, "pillow", 0.024)
 			_turf(preset, {"turf_spacing": 0.29, "turf_footprint": [0.22, 0.33],
@@ -394,16 +437,19 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 
 		# -------------------------------------------------------------- farm
 		"tile_dirt":
-			# Dirt Ground, matched to the measured reference soil: a thin
-			# quiet cap carrying 9-10 LARGE deeply-embedded faceted clods
-			# (each 12-29% of tile width) spread across the whole top.
-			_set_base(preset, EARTH_BASE, "pillow", 0.016,
-				{"relief_frequency": 1.1})
-			_scatter(preset, ["clod"], [9, 10], [0.22, 0.46],
-				{"earth_clump": 42.0, "earth_deep": 33.0, "earth_bevel": 25.0},
-				[0.020, 0.036],
-				{"cluster_fraction": 0.55, "cluster_radius": 0.30,
-					"min_spacing": 0.15, "edge_margin": 0.07})
+			# CLAY MASTER 02 — Dirt Ground. A warm, quiet loam slab with a few
+			# deliberate angular flakes and shallow pressed marks. Surface noise,
+			# scattered pebbles, giant clods, and grain are explicitly excluded.
+			_set_base(preset, {"top_key": "dirt_clay_top",
+				"bevel_key": "dirt_clay_bevel", "side_key": "dirt_clay_side",
+				"lower_key": "dirt_clay_lower"}, "none", 0.0,
+				{"relief_resolution": 12, "top_bevel": 0.052,
+					"corner_radius": 0.085, "bevel_segments": 6})
+			_scatter(preset, ["clay_chip"], [6, 8], [0.085, 0.17],
+				{"dirt_clay_chip_light": 48.0, "dirt_clay_top": 30.0,
+					"dirt_clay_chip_dark": 22.0}, [0.008, 0.014],
+				{"cluster_fraction": 0.28, "cluster_radius": 0.24,
+					"min_spacing": 0.18, "edge_margin": 0.22})
 		"tile_clay":
 			_set_base(preset, EARTH_BASE, "heaps", 0.026,
 				{"relief_heap_count": [5, 8], "relief_heap_radius": [0.12, 0.23],
@@ -802,6 +848,8 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 
 func _apply_runtime_semantics(manifest: TileLibraryManifest) -> void:
 	match manifest.tile_id:
+		"tile_grass", "tile_dirt", "tile_grove_mossy":
+			manifest.detail_rotation_variants = 4
 		"tile_garden":
 			manifest.unlock_level = {"fishing": 10.0}
 		"tile_grass_pond_edge", "tile_proc_pond_basin":

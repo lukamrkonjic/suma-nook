@@ -188,6 +188,12 @@ Use this intake flow:
   seam review justify it; the active sand and snow surfaces do not.
    - A `detail` should have its origin at the tile centre and its contact plane
      at y = 0. Do not add a backing plane or block.
+   - Sparse organic detail that exposes a repeated grid may opt into
+     `detail_rotation_variants = 4` on its Tile Library manifest. Runtime and
+     scalable rendering then choose a deterministic quarter-turn plus a small
+     rim-safe offset from the cell coordinate. This varies only the detail;
+     the structural shell, authored tile rotation, and connection topology do
+     not change.
    - Meaningful recesses, plank steps, seams, and large relief belong in mesh
      geometry. Use albedo texture variation for fine visual lines only; do not
      pretend major depth exists solely through a height/normal map.

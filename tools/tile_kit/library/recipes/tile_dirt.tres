@@ -9,20 +9,20 @@ kind = "base"
 params = {
 "basin_depth": 0.0,
 "basin_rim": 0.17,
-"bevel_key": "earth_bevel",
+"bevel_key": "dirt_clay_bevel",
 "bevel_segments": 6,
 "bottom_chamfer": 0.016,
-"corner_radius": 0.075,
-"lower_key": "earth_deep",
-"relief_amplitude": 0.016,
+"corner_radius": 0.085,
+"lower_key": "dirt_clay_lower",
+"relief_amplitude": 0.0,
 "relief_bipolar": false,
 "relief_edge_feather": 0.2,
-"relief_frequency": 1.1,
-"relief_resolution": 24,
-"relief_style": "pillow",
-"side_key": "earth_side",
-"top_bevel": 0.075,
-"top_key": "earth_top",
+"relief_frequency": 1.0,
+"relief_resolution": 12,
+"relief_style": "none",
+"side_key": "dirt_clay_side",
+"top_bevel": 0.052,
+"top_key": "dirt_clay_top",
 "turf_cap": false,
 "turf_thickness": 0.078,
 "turf_wobble": 0.013
@@ -47,22 +47,22 @@ params = {
 script = ExtResource("1_g3xmj")
 kind = "clutter"
 params = {
-"cluster_fraction": 0.55,
-"cluster_radius": 0.3,
+"cluster_fraction": 0.28,
+"cluster_radius": 0.24,
 "color_weights": {
-"earth_bevel": 25.0,
-"earth_clump": 42.0,
-"earth_deep": 33.0
+"dirt_clay_chip_dark": 22.0,
+"dirt_clay_chip_light": 48.0,
+"dirt_clay_top": 30.0
 },
-"count": [9, 10],
-"diameter": [0.22, 0.46],
-"edge_margin": 0.07,
-"height": [0.02, 0.036],
-"min_spacing": 0.15,
+"count": [6, 8],
+"diameter": [0.085, 0.17],
+"edge_margin": 0.22,
+"height": [0.008, 0.014],
+"min_spacing": 0.18,
 "on_dressing_fraction": 0.55,
 "placement_mode": "clusters",
 "scale_multiplier": 1.0,
-"shapes": ["clod"]
+"shapes": ["clay_chip"]
 }
 
 [sub_resource type="Resource" id="Resource_u7fmx"]

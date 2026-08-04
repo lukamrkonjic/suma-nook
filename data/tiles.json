@@ -56,7 +56,8 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_grass.tres",
       "source_kind": "procedural",
-      "source_revision": 2
+      "source_revision": 3,
+      "detail_rotation_variants": 4
     },
     {
       "id": "tile_kit_grass",
@@ -626,7 +627,8 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_grove_mossy.tres",
       "source_kind": "procedural",
-      "source_revision": 2
+      "source_revision": 3,
+      "detail_rotation_variants": 4
     },
     {
       "id": "tile_proc_mossy_forest_floor",
@@ -1082,7 +1084,8 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_dirt.tres",
       "source_kind": "procedural",
-      "source_revision": 2
+      "source_revision": 3,
+      "detail_rotation_variants": 4
     },
     {
       "id": "tile_clay",

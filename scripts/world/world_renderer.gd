@@ -207,7 +207,8 @@ func _build_cell(coord: Vector2i, elevation: int, animate := false) -> void:
 	var visual := _tile_visual_factory.instantiate_visual(
 		def,
 		false,
-		neighbour_mask
+		neighbour_mask,
+		TileVisualFactory.detail_variant_for_coord(def, coord, elevation)
 	)
 	visual.rotation.y = state.rotation * PI * 0.5
 	holder.add_child(visual)

@@ -50,17 +50,83 @@ const COLORS := {
 	"grass_primary": "tilekit_tile_top_bevel",
 	"grass_secondary": "tilekit_clutter_light",
 	"grass_root": "tilekit_tile_side",
+	# Clay-grass redesign: a quieter sage ramp from the canonical GG palette.
+	# These roles are intentionally tile-specific so the standard grass can
+	# establish the new art direction without recolouring every legacy meadow
+	# asset at once. Top and bevel share one calm mid-value so the shell reads
+	# as a single clay piece; sides and leaf bodies supply the darker step.
+	"grass_clay_top": "leaf_medium",
+	"grass_clay_bevel": "leaf_medium",
+	"grass_clay_side": "leaf_olive",
+	"grass_clay_lower": "leaf_olive",
+	"grass_clay_blade": "leaf_olive",
+	"grass_clay_tip": "leaf_medium",
 	# Moss / forest family: deeper cooler green, still lively.
 	"moss_top": "tilekit_moss_top",
 	"moss_bevel": "tilekit_tile_top",
 	"moss_deep": "tilekit_moss_deep",
 	"moss_clump": "tilekit_moss_clump",
+	# Clay-moss redesign: a deep olive floor with a restrained, slightly
+	# lighter pad and shoot ramp. The brown body ties it to the redesigned
+	# dirt tile; these targeted roles avoid recolouring legacy forest assets.
+	"moss_clay_top": "moss_primary",
+	"moss_clay_bevel": "moss_primary",
+	"moss_clay_side": "leaf_olive",
+	"moss_clay_lower": "leaf_olive",
+	"moss_clay_pad": "leaf_medium",
+	"moss_clay_shoot": "leaf_medium",
+	# GG-aligned moss studies. Moss is paired with a contrasting substrate or
+	# becomes the surface itself; none of these place light-green decals over a
+	# green slab. Stone stays warm, soil stays terracotta, and vegetation uses
+	# the yellow-olive family that ties into Suma's established grass palette.
+	"moss_gg_stone_top": "stone_light",
+	"moss_gg_stone_bevel": "stone_mid_light",
+	"moss_gg_stone_side": "stone_warm_shadow",
+	"moss_gg_stone_lower": "stone_shadow",
+	"moss_gg_stone_growth": "grass_secondary",
+	"moss_gg_stone_edge": "leaf_olive",
+	"moss_gg_stone_chip": "stone_mid",
+	"moss_gg_earth_growth": "grass_primary",
+	"moss_gg_earth_highlight": "grass_sunlit",
+	"moss_gg_carpet_top": "grass_secondary",
+	"moss_gg_carpet_bevel": "grass_secondary",
+	"moss_gg_carpet_side": "earth_shadow",
+	"moss_gg_carpet_lower": "earth_deep",
+	"moss_gg_carpet_detail": "grass_shade",
+	"moss_gg_carpet_highlight": "grass_primary",
+	# Full-ground moss studies: coherent monochrome ramps with no exposed
+	# stone, soil, or leaf-litter layer.
+	"moss_sheet_top": "leaf_olive",
+	"moss_sheet_bevel": "moss_primary",
+	"moss_sheet_side": "leaf_olive",
+	"moss_sheet_lower": "deep_grass",
+	"moss_cushion_base": "moss_primary",
+	"moss_cushion_body": "moss_primary",
+	"moss_cushion_light": "leaf_medium",
+	"moss_cushion_side": "leaf_olive",
+	"moss_cushion_lower": "deep_grass",
+	"moss_shag_base": "moss_primary",
+	"moss_shag_body": "leaf_medium",
+	"moss_shag_light": "grass_secondary",
+	"moss_shag_side": "grass_shade",
+	"moss_shag_lower": "deep_grass",
 	# Earth family: warm loam, clearly darker and redder than sand.
 	"earth_top": "tilekit_earth_top",
 	"earth_bevel": "tilekit_earth_bevel",
 	"earth_side": "tilekit_earth_side",
 	"earth_deep": "tilekit_earth_deep",
 	"earth_clump": "tilekit_earth_clump",
+	# Clay-dirt redesign: use the canonical warm loam ramp instead of the old
+	# yellow Tile Kit earth tokens. Like the grass master, this is deliberately
+	# tile-specific while the new art direction is rolled through the library.
+	# The shell stays one calm terracotta piece; light/dark chips are sparse
+	# modelling accents, not an all-over texture treatment.
+	"dirt_clay_top": "earth_mid",
+	"dirt_clay_bevel": "earth_mid",
+	"dirt_clay_side": "earth_shadow",
+	"dirt_clay_lower": "earth_deep",
+	"dirt_clay_chip_light": "earth_primary",
+	"dirt_clay_chip_dark": "earth_deep",
 	# Stone family: warm greys — reference stone never goes blue.
 	"stone_light": "tilekit_stone_light",
 	"stone_medium": "tilekit_stone_medium",

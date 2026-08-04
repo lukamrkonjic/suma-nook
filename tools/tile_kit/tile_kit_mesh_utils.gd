@@ -606,6 +606,47 @@ static func add_faceted_chunk(
 		add_flat_triangle(batch, key, top[index], top[next], crown)
 
 
+## A thin, irregular low-poly patch with one crisp top plane and a narrow
+## bevel. The outline is deliberately unequal rather than circular, matching
+## the broad angular moss silhouettes used on hand-modelled rocks.
+static func add_moss_patch(
+	batch: MeshBatch,
+	key: String,
+	centre: Vector3,
+	radius_x: float,
+	radius_z: float,
+	height: float,
+	yaw: float,
+	rng: RandomNumberGenerator,
+	points: int = 8,
+	irregularity: float = 0.22,
+	top_scale: float = 0.90
+) -> void:
+	var basis := Basis(Vector3.UP, yaw)
+	var bottom: Array[Vector3] = []
+	var top: Array[Vector3] = []
+	for index in points:
+		var angle := TAU * (float(index) + rng.randf_range(-0.15, 0.15)) \
+			/ float(points)
+		var radius := rng.randf_range(1.0 - irregularity, 1.0 + irregularity)
+		var local := Vector2(cos(angle) * radius_x * radius,
+			sin(angle) * radius_z * radius)
+		bottom.append(centre + basis * Vector3(local.x, -height * 0.22, local.y))
+		top.append(centre + basis * Vector3(
+			local.x * top_scale, height * 0.78, local.y * top_scale))
+	for index in points:
+		var next := (index + 1) % points
+		add_flat_triangle(batch, key, bottom[index], bottom[next], top[next])
+		add_flat_triangle(batch, key, bottom[index], top[next], top[index])
+	var crown := Vector3.ZERO
+	for point in top:
+		crown += point
+	crown /= float(points)
+	for index in points:
+		var next := (index + 1) % points
+		add_flat_triangle(batch, key, top[index], top[next], crown)
+
+
 # --- rounded organic solids --------------------------------------------------
 
 
@@ -815,7 +856,8 @@ static func add_blade(
 	thickness_ratio: float,
 	length_rings: int = 8,
 	ring_segments: int = 9,
-	tip_rings: int = 2
+	tip_rings: int = 2,
+	root_width_factor: float = 0.86
 ) -> void:
 	var vertices := PackedVector3Array()
 	var normals := PackedVector3Array()
@@ -834,7 +876,7 @@ static func add_blade(
 		if ring <= length_rings:
 			var body := float(ring) / float(length_rings)
 			if body < 0.32:
-				width_factor = lerpf(0.86, 1.0, body / 0.32)
+				width_factor = lerpf(root_width_factor, 1.0, body / 0.32)
 			else:
 				width_factor = lerpf(1.0, 0.52, pow((body - 0.32) / 0.68, 1.15))
 		else:

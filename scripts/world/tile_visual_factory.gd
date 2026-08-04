@@ -18,6 +18,12 @@ const COVER_TWEEN_META := "covered_surface_tween"
 const COVER_STATE_META := "covered_surface_state"
 const STACK_SEAM_HEIGHT := 0.028
 const STACK_SEAM_OVERLAP := 0.003
+const DETAIL_VARIANT_OFFSETS := [
+	Vector2(-0.10, -0.06),
+	Vector2(0.08, -0.11),
+	Vector2(0.11, 0.07),
+	Vector2(-0.06, 0.12),
+]
 
 var assets: AssetLibrary
 var grid: WorldGrid
@@ -32,7 +38,8 @@ func _init(asset_library: AssetLibrary, world_grid: WorldGrid) -> void:
 func instantiate_visual(
 	def: Defs.TileDefinition,
 	preview := false,
-	neighbour_mask := 0
+	neighbour_mask := 0,
+	detail_variant := 0
 ) -> Node3D:
 	# Production GLBs were authored to the former 1.70 m footprint. Keep their
 	# vertical profile intact while normalizing only X/Z to the live grid size.
@@ -43,7 +50,9 @@ func instantiate_visual(
 	if def.render_profile == "continuous_water":
 		authored_visual = _continuous_water_bed()
 	elif def.uses_layered_visual():
-		authored_visual = _instantiate_layered_visual(def, neighbour_mask)
+		authored_visual = _instantiate_layered_visual(
+			def, neighbour_mask, detail_variant
+		)
 	else:
 		authored_visual = assets.instantiate(def.asset_id)
 	if not def.uses_layered_visual():
@@ -65,17 +74,19 @@ func batch_mesh(
 	def: Defs.TileDefinition,
 	covered: bool,
 	stack_seam: bool,
-	neighbour_mask := 0
+	neighbour_mask := 0,
+	detail_variant := 0
 ) -> ArrayMesh:
-	var key := "%s|%d|%d|%d" % [
+	var key := "%s|%d|%d|%d|%d" % [
 		def.id,
 		int(covered),
 		int(stack_seam),
 		neighbour_mask,
+		detail_variant,
 	]
 	if _batch_mesh_cache.has(key):
 		return _batch_mesh_cache[key]
-	var visual := instantiate_visual(def, false, neighbour_mask)
+	var visual := instantiate_visual(def, false, neighbour_mask, detail_variant)
 	set_stack_seam_visible(visual, stack_seam)
 	if def.supports_tiles:
 		set_surface_covered(visual, covered, false)
@@ -92,7 +103,8 @@ func clear_asset_edit_cache() -> void:
 
 func _instantiate_layered_visual(
 	def: Defs.TileDefinition,
-	neighbour_mask: int
+	neighbour_mask: int,
+	detail_variant: int
 ) -> Node3D:
 	var root := Node3D.new()
 	root.name = "LayeredTileVisual"
@@ -120,6 +132,14 @@ func _instantiate_layered_visual(
 		if layer.scale_mode == "tile_xz":
 			layer_visual.scale = Vector3(horizontal_scale, 1.0, horizontal_scale)
 		layer_visual.position = layer.offset
+		if layer.role == "detail" and def.detail_rotation_variants > 1:
+			var variants := def.detail_rotation_variants
+			var resolved_variant := posmod(detail_variant, variants)
+			layer_visual.rotation.y = TAU * float(resolved_variant) / float(variants)
+			var offset: Vector2 = DETAIL_VARIANT_OFFSETS[
+				resolved_variant % DETAIL_VARIANT_OFFSETS.size()
+			]
+			layer_visual.position += Vector3(offset.x, 0.0, offset.y)
 		root.add_child(layer_visual)
 		for child in layer_visual.find_children("*", "MeshInstance3D", true, false):
 			var mesh := child as MeshInstance3D
@@ -138,6 +158,27 @@ func _instantiate_layered_visual(
 			assets.edits.profile(layer.asset_id)
 		)
 	return root
+
+
+## Stable spatial variation for authored detail. Mixing the full coordinate
+## through a seeded RNG avoids the diagonal bands produced by simple
+## `(x + y) % variants` patterns.
+static func detail_variant_for_coord(
+	def: Defs.TileDefinition,
+	coord: Vector2i,
+	elevation := 0
+) -> int:
+	var variants := maxi(1, def.detail_rotation_variants)
+	if variants == 1:
+		return 0
+	var rng := RandomNumberGenerator.new()
+	rng.seed = (
+		hash(def.id)
+		^ (int(coord.x) * 73856093)
+		^ (int(coord.y) * 19349663)
+		^ (int(elevation) * 83492791)
+	)
+	return rng.randi_range(0, variants - 1)
 
 
 ## Tile Kit baking emits one scene per cardinal topology. Other layered assets

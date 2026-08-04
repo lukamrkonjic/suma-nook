@@ -1418,7 +1418,12 @@ func _rebuild_tile_kit_preview() -> void:
 		for z in 3:
 			for x in 3:
 				var tile := _tile_factory.instantiate_visual(
-					imported_definition, false
+					imported_definition,
+					false,
+					0,
+					TileVisualFactory.detail_variant_for_coord(
+						imported_definition, Vector2i(x - 1, z - 1)
+					)
 				)
 				tile.position = Vector3(
 					(x - 1) * tile_size, 0.0, (z - 1) * tile_size
@@ -1550,7 +1555,12 @@ func _rebuild_preview() -> void:
 						x, z, TILE_PATCH_RADIUS
 					)
 				var tile := _tile_factory.instantiate_visual(
-					selected_tile, false, neighbour_mask
+					selected_tile,
+					false,
+					neighbour_mask,
+					TileVisualFactory.detail_variant_for_coord(
+						selected_tile, Vector2i(x, z)
+					)
 				)
 				tile.position = Vector3(x * tile_size, 0.0, z * tile_size)
 				_content_root.add_child(tile)

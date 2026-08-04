@@ -1,0 +1,7 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "tilekit_moss_gg_earth_growth"
+albedo_color = Color(0.438158, 0.546838, 0.265294, 1)
+metallic_specular = 0.2
+roughness = 0.9

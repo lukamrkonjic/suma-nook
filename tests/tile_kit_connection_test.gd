@@ -110,6 +110,36 @@ func _run() -> void:
 		)) == "tile_kit_grass_surface_n02",
 		"runtime resolver selects the matching baked topology"
 	)
+	definition.detail_rotation_variants = 4
+	var detail_variants := {}
+	var first_row: Array[int] = []
+	var second_row: Array[int] = []
+	for y in 5:
+		for x in 5:
+			var detail_variant := TileVisualFactory.detail_variant_for_coord(
+				definition, Vector2i(x, y)
+			)
+			detail_variants[detail_variant] = true
+			if y == 0:
+				first_row.append(detail_variant)
+			elif y == 1:
+				second_row.append(detail_variant)
+	_check(
+		detail_variants.size() == 4,
+		"spatial detail variation exercises every authored quarter turn"
+	)
+	_check(
+		first_row != second_row,
+		"spatial detail variation does not repeat identical grid rows"
+	)
+	_check(
+		TileVisualFactory.detail_variant_for_coord(
+			definition, Vector2i(3, -7), 2
+		) == TileVisualFactory.detail_variant_for_coord(
+			definition, Vector2i(3, -7), 2
+		),
+		"spatial detail variation is deterministic for a saved cell"
+	)
 
 	if _failures.is_empty():
 		print("TILE KIT CONNECTION TEST PASSED — %d checks" % _checks)

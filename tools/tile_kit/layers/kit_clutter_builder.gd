@@ -17,7 +17,7 @@ extends RefCounted
 ## scatter reaches the true tile edge and repetition shows no bald seams.
 
 const ALL_SHAPES := ["dot", "oval", "leaf_pair", "lobed_clump", "nub",
-	"clod", "rock", "pebble", "stone_chip", "twig", "wood_chip",
+	"clod", "clay_chip", "rock", "pebble", "stone_chip", "twig", "wood_chip",
 	"leaf_litter", "mushroom", "snow_lump", "drift_mound", "bud", "boulder",
 	"lily_pad", "crystal", "footprint"]
 
@@ -177,6 +177,31 @@ static func _add_shape(batch: TileKitMeshUtils.MeshBatch, layer: TileKitLayer,
 				diameter * 0.52, diameter * 0.44,
 				diameter * rng.randf_range(0.45, 0.70), yaw, rng,
 				5, 0.52, rng.randf_range(0.18, 0.34))
+		"clay_chip":
+			# An intentional hand-cut clay mark, not a pebble or noisy clod.
+			# Light pieces are paper-thin polygonal flakes with a tiny modelled
+			# edge. Dark pieces sit almost flush and read as shallow pressed chips.
+			if key == "dirt_clay_chip_dark":
+				var basis := Basis(Vector3.UP, yaw)
+				var points: Array[Vector3] = []
+				var point_count := 4 + (rng.randi() % 2)
+				for index in point_count:
+					var angle := TAU * (float(index) + rng.randf_range(-0.12, 0.12)) \
+						/ float(point_count)
+					var radius := rng.randf_range(0.78, 1.08)
+					points.append(origin + basis * Vector3(
+						cos(angle) * diameter * 0.52 * radius,
+						0.0015,
+						sin(angle) * diameter * 0.34 * radius))
+				var centre := origin + Vector3.UP * 0.0015
+				for index in point_count:
+					TileKitMeshUtils.add_flat_triangle(batch, key,
+						points[index], points[(index + 1) % point_count], centre)
+			else:
+				TileKitMeshUtils.add_faceted_chunk(batch, key,
+					origin - Vector3.UP * piece_height * 0.22,
+					diameter * 0.52, diameter * 0.36, piece_height,
+					yaw, rng, 5, 0.78, 0.24)
 		"rock":
 			# A hero faceted rock: one big crystal-cut mass with a shoulder.
 			TileKitMeshUtils.add_faceted_chunk(batch, key, origin,

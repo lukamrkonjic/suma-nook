@@ -396,6 +396,9 @@ class TileDefinition:
 	# It may rise above y=0, but is hidden (along with the authored top cap)
 	# whenever another tile covers this elevation.
 	var surface_detail_profile: String = ""       # ""|grass_speckles
+	# Authored detail may opt into deterministic per-cell rotations to break
+	# visible repetition without rotating its structural shell or topology.
+	var detail_rotation_variants := 1             # 1|2|4
 	# Soft raised terrain can opt into bounded world-space deformation and an
 	# authored walk plane. The latter aligns physics with the median visual
 	# surface; the shader then compresses the relief locally beneath each foot.
@@ -470,6 +473,9 @@ class TileDefinition:
 			"pond_basin" if t.water_cells.has("pond") else ("flat" if t.walkable else "none")
 		)
 		t.surface_detail_profile = d.get("surface_detail_profile", "")
+		t.detail_rotation_variants = clampi(
+			int(d.get("detail_rotation_variants", 1)), 1, 4
+		)
 		t.soft_surface_profile = d.get("soft_surface_profile", "")
 		t.walk_surface_height = float(d.get("walk_surface_height", 0.0))
 		return t

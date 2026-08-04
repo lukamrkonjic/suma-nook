@@ -30,6 +30,10 @@ const VISIBILITY_HIDDEN := "hidden"
 @export var source_kind := SOURCE_PROCEDURAL
 @export_file("*.tres") var recipe_path := ""
 @export var separate_tiles := false
+## Optional deterministic rotations of the detail layer across placed cells.
+## One keeps authored orientation; four supplies quarter-turn variation while
+## leaving the structural shell and connection topology untouched.
+@export_range(1, 4, 1) var detail_rotation_variants := 1
 ## External/imported tiles keep their full authored definition here. It remains
 ## editable and compilable even before their geometry is replaced by Tile Kit.
 @export var runtime_definition: Dictionary = {}
@@ -129,6 +133,8 @@ func validation_errors() -> PackedStringArray:
 		errors.append("Catalog weight cannot be negative.")
 	if walk_surface_height < 0.0 or walk_surface_height > 0.15:
 		errors.append("Walk surface height must remain between 0 and 0.15 metres.")
+	if detail_rotation_variants not in [1, 2, 4]:
+		errors.append("Detail rotation variants must be 1, 2, or 4.")
 	if is_official() and revision < 1:
 		errors.append("Published or archived manifests require revision 1 or newer.")
 	return errors
@@ -159,6 +165,8 @@ func to_tile_dictionary() -> Dictionary:
 	definition["source_manifest"] = resource_path
 	definition["source_kind"] = source_kind
 	definition["source_revision"] = revision
+	if detail_rotation_variants > 1:
+		definition["detail_rotation_variants"] = detail_rotation_variants
 	return definition
 
 

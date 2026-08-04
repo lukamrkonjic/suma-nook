@@ -1,0 +1,7 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "tilekit_moss_clay_pad"
+albedo_color = Color(0.34438804, 0.455826, 0.29332203, 1)
+metallic_specular = 0.2
+roughness = 0.9

@@ -53,6 +53,8 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 		return _build_gold_grass(layer, rng, context)
 	if mode == "tufts":
 		return _build_tuft_composition(layer, rng, context)
+	if mode == "moss_pads":
+		return _build_moss_pads(layer, rng, context)
 	if mode == "turf":
 		return _build_turf(layer, rng, context)
 	if mode == "carpet":
@@ -508,6 +510,397 @@ static func _build_tuft(batch: TileKitMeshUtils.MeshBatch,
 			rng.randf_range(0.42, 0.58), 5, 5, 2)
 
 
+# --- GG moss compositions ---------------------------------------------------
+
+
+## Moss is a MATERIAL RELATIONSHIP, not a family of green blobs. Each style
+## owns a different substrate/coverage contract; the recipe supplies the
+## matching palette keys while this builder owns the authored composition.
+static func _build_moss_pads(layer: TileKitLayer,
+		rng: RandomNumberGenerator, context: Dictionary) -> Dictionary:
+	var style := String(layer.value("moss_patch_style", "gg_sheet_moss"))
+	match style:
+		"gg_cushion_moss":
+			return _build_gg_cushion_moss(layer, rng, context)
+		"gg_rolling_moss", "gg_brushed_moss":
+			return _build_gg_rolling_moss(layer, rng, context)
+		_:
+			return _build_gg_sheet_moss(layer, rng, context)
+
+
+## A — sheet moss. The whole foundation is moss, then a few very broad, barely
+## raised moss sheets change the nap and value. Their low overlapping edges
+## read as one thick living carpet rather than coloured decals on bare ground.
+static func _build_gg_sheet_moss(layer: TileKitLayer,
+		rng: RandomNumberGenerator, context: Dictionary) -> Dictionary:
+	var half: float = context.get("surface_half", 0.85)
+	var cap_height: Callable = context.get("cap_height", Callable())
+	var batch := TileKitMeshUtils.MeshBatch.new()
+	var primary := String(layer.value("primary_key", "moss_sheet_top"))
+	var secondary := String(layer.value("secondary_key", "moss_sheet_bevel"))
+	var scale: float = layer.value("moss_detail_scale", 1.0)
+	var height_scale: float = layer.value("moss_detail_height", 1.0)
+	var density: float = layer.value("moss_detail_density", 1.0)
+	var count := clampi(roundi(5.0 * density), 4, 7)
+	var placed: Array[Vector2] = []
+	for index in count:
+		# The first sheets are deliberately dominant; later sheets fill the
+		# negative spaces at another scale so no repeated polka-dot rhythm forms.
+		var major := rng.randf_range(0.47, 0.72) * scale
+		if index >= 3:
+			major *= rng.randf_range(0.66, 0.86)
+		var minor := major * rng.randf_range(0.58, 0.86)
+		var reach := maxf(0.12, half - major * 0.54)
+		var centre := Vector2(rng.randf_range(-reach, reach),
+			rng.randf_range(-reach, reach))
+		# Bias alternate sheets toward different quadrants without pinning them
+		# to a grid. Runtime quarter-turn variants break the repeated orientation.
+		if index < 3:
+			var angle := rng.randf() * TAU + float(index) * TAU / 3.0
+			centre += Vector2(cos(angle), sin(angle)) * rng.randf_range(0.12, 0.30)
+			centre.x = clampf(centre.x, -half * 0.82, half * 0.82)
+			centre.y = clampf(centre.y, -half * 0.82, half * 0.82)
+		var outline := TileKitMeshUtils.soft_blob_outline(rng, 26, 0.22, 4)
+		TileKitMeshUtils.add_cushion_blob(batch,
+			secondary if index == count - 1 else primary,
+			centre, 0.002, major, minor, rng.randf() * TAU, outline,
+			cap_height, rng.randf_range(0.014, 0.026) * height_scale, 0.92)
+		placed.append(centre)
+	context["grass_clusters"] = placed
+	return {
+		"meshes": [{"role": "detail", "name": "tile_moss",
+			"mesh": batch.commit()}],
+	}
+
+
+## B — cushion moss. Uneven families of broad rounded hummocks grow directly
+## out of a moss foundation. There is deliberately no row/column lattice: size,
+## spacing, overlap and tone all vary, while the high segment count keeps the
+## forms soft and clay-like instead of jagged or bean-shaped.
+static func _build_gg_cushion_moss(layer: TileKitLayer,
+		rng: RandomNumberGenerator, context: Dictionary) -> Dictionary:
+	var half: float = context.get("surface_half", 0.85)
+	var top: float = context.get("surface_top", 0.0)
+	var cap_height: Callable = context.get("cap_height", Callable())
+	var batch := TileKitMeshUtils.MeshBatch.new()
+	var primary := String(layer.value("primary_key", "moss_cushion_body"))
+	var light := String(layer.value("blade_key", "moss_cushion_light"))
+	var scale: float = layer.value("moss_detail_scale", 1.0)
+	var height_scale: float = layer.value("moss_detail_height", 1.0)
+	var density: float = layer.value("moss_detail_density", 1.0)
+	var placed: Array[Vector2] = []
+	var count := clampi(roundi(16.0 * density), 13, 20)
+	for index in count:
+		var large := index < 5
+		var radius_x := rng.randf_range(0.50, 0.69) if large \
+			else rng.randf_range(0.21, 0.41)
+		radius_x *= scale
+		var radius_z := radius_x * rng.randf_range(0.78, 1.08)
+		var reach_x := maxf(0.08, half - radius_x * 0.48)
+		var reach_z := maxf(0.08, half - radius_z * 0.48)
+		var position := Vector2(rng.randf_range(-reach_x, reach_x),
+			rng.randf_range(-reach_z, reach_z))
+		var surface_y := _surface_y(position, top, cap_height)
+		var height := (rng.randf_range(0.034, 0.058) if large \
+			else rng.randf_range(0.025, 0.050)) * height_scale
+		var key := light if rng.randf() < 0.10 else primary
+		TileKitMeshUtils.add_lobed_mound(batch, key,
+			Vector3(position.x, surface_y - height * 0.16, position.y),
+			radius_x, radius_z, height, rng.randf() * TAU, rng,
+			rng.randf_range(0.12, 0.18), 7, 28, 0.92)
+		placed.append(position)
+	context["grass_clusters"] = placed
+	return {
+		"meshes": [{"role": "detail", "name": "tile_moss",
+			"mesh": batch.commit()}],
+	}
+
+
+## C — rolling moss. A few huge, shallow swells share the foundation colour,
+## so the change is sculpted into the moss itself. This is the quietest option:
+## broad terrain-like variation without elongated strips, separate objects, or
+## a repeated cushion-cell pattern.
+static func _build_gg_rolling_moss(layer: TileKitLayer,
+		rng: RandomNumberGenerator, context: Dictionary) -> Dictionary:
+	var half: float = context.get("surface_half", 0.85)
+	var top: float = context.get("surface_top", 0.0)
+	var cap_height: Callable = context.get("cap_height", Callable())
+	var batch := TileKitMeshUtils.MeshBatch.new()
+	var primary := String(layer.value("primary_key", "moss_shag_body"))
+	var light := String(layer.value("blade_key", "moss_shag_light"))
+	var scale: float = layer.value("moss_detail_scale", 1.0)
+	var height_scale: float = layer.value("moss_detail_height", 1.0)
+	var density: float = layer.value("moss_detail_density", 1.0)
+	var count := clampi(roundi(7.0 * density), 6, 9)
+	var placed: Array[Vector2] = []
+	for index in count:
+		var dominant := index < 3
+		var radius_x := (rng.randf_range(0.62, 0.82) if dominant \
+			else rng.randf_range(0.36, 0.56)) * scale
+		var radius_z := radius_x * rng.randf_range(0.76, 1.08)
+		var position := Vector2(rng.randf_range(-half * 0.62, half * 0.62),
+			rng.randf_range(-half * 0.62, half * 0.62))
+		var surface_y := _surface_y(position, top, cap_height)
+		var height := (rng.randf_range(0.025, 0.043) if dominant \
+			else rng.randf_range(0.018, 0.034)) * height_scale
+		TileKitMeshUtils.add_lobed_mound(batch,
+			light if index == count - 1 else primary,
+			Vector3(position.x, surface_y - height * 0.18, position.y),
+			radius_x, radius_z, height, rng.randf() * TAU, rng,
+			rng.randf_range(0.10, 0.16), 7, 30, 0.94)
+		placed.append(position)
+	context["grass_clusters"] = placed
+	return {
+		"meshes": [{"role": "detail", "name": "tile_moss",
+			"mesh": batch.commit()}],
+	}
+
+
+## C — shag moss. The base is still moss; chunky rounded stems create the
+## plush nap. Stems gather in broad regularised clusters so the result reads
+## as one material rather than granular scatter or leaf litter.
+static func _build_gg_shag_moss(layer: TileKitLayer,
+		rng: RandomNumberGenerator, context: Dictionary) -> Dictionary:
+	var half: float = context.get("surface_half", 0.85)
+	var top: float = context.get("surface_top", 0.0)
+	var cap_height: Callable = context.get("cap_height", Callable())
+	var batch := TileKitMeshUtils.MeshBatch.new()
+	var primary := String(layer.value("primary_key", "moss_shag_body"))
+	var light := String(layer.value("blade_key", "moss_shag_light"))
+	var scale: float = layer.value("moss_detail_scale", 1.0)
+	var height_scale: float = layer.value("moss_detail_height", 1.0)
+	var density: float = layer.value("moss_detail_density", 1.0)
+	var columns := clampi(int(round(5.0 * density)), 4, 6)
+	var spacing := (half * 1.72) / float(columns - 1)
+	var start := -spacing * float(columns - 1) * 0.5
+	var placed: Array[Vector2] = []
+	for row in columns:
+		for column in columns:
+			var centre := Vector2(start + column * spacing,
+				start + row * spacing) + Vector2(
+				rng.randf_range(-0.045, 0.045),
+				rng.randf_range(-0.045, 0.045))
+			for stem in 3:
+				var angle := rng.randf() * TAU
+				var position := centre + Vector2(cos(angle), sin(angle)) \
+					* rng.randf_range(0.018, 0.055) * scale
+				var surface_y := _surface_y(position, top, cap_height)
+				var radius := rng.randf_range(0.042, 0.058) * scale
+				TileKitMeshUtils.add_dome(batch,
+					light if stem == 0 and rng.randf() < 0.22 else primary,
+					Vector3(position.x, surface_y - 0.006, position.y),
+					radius, radius * rng.randf_range(0.86, 1.08),
+					rng.randf_range(0.060, 0.088) * height_scale,
+					rng.randf() * TAU, 4, 10)
+			placed.append(centre)
+	context["grass_clusters"] = placed
+	return {
+		"meshes": [{"role": "detail", "name": "tile_moss",
+			"mesh": batch.commit()}],
+	}
+
+
+## A — warm stone with one moss sheet growing in from a corner. The boundary
+## is a smooth cubic sweep with a narrow darker lip; a single stone chip on the
+## open face gives the tile one restrained piece of personality.
+static func _build_gg_stone_creep(layer: TileKitLayer,
+		rng: RandomNumberGenerator, context: Dictionary) -> Dictionary:
+	var half: float = context.get("surface_half", 0.85)
+	var top: float = context.get("surface_top", 0.0)
+	var cap_height: Callable = context.get("cap_height", Callable())
+	var batch := TileKitMeshUtils.MeshBatch.new()
+	var growth := String(layer.value("primary_key", "moss_gg_stone_growth"))
+	var lip := String(layer.value("blade_key", "moss_gg_stone_edge"))
+	var chip := String(layer.value("secondary_key", "moss_gg_stone_chip"))
+	var scale: float = layer.value("moss_detail_scale", 1.0)
+	var height: float = layer.value("moss_detail_height", 1.0)
+	var quarter := rng.randi() % 4
+	_add_gg_corner_sheet(batch, growth, lip, half, top, quarter, rng,
+		cap_height, scale, height)
+	var chip_local := _rotate_quarter(Vector2(0.42, 0.36) * half, quarter)
+	var chip_y := _surface_y(chip_local, top, cap_height)
+	TileKitMeshUtils.add_faceted_chunk(batch, chip,
+		Vector3(chip_local.x, chip_y + 0.002, chip_local.y),
+		0.085, 0.055, 0.018, rng.randf() * TAU, rng, 6, 0.10, 0.82)
+	context["grass_clusters"] = [chip_local]
+	return {
+		"meshes": [{"role": "detail", "name": "tile_moss",
+			"mesh": batch.commit()}],
+	}
+
+
+## B — the moss is a single dense bank of short, broad GG-style leaf wedges
+## growing over warm soil. Open ground remains deliberate; two dark clods sit
+## opposite the bank rather than distributing noise over the whole surface.
+static func _build_gg_earth_bank(layer: TileKitLayer,
+		rng: RandomNumberGenerator, context: Dictionary) -> Dictionary:
+	var half: float = context.get("surface_half", 0.85)
+	var top: float = context.get("surface_top", 0.0)
+	var cap_height: Callable = context.get("cap_height", Callable())
+	var batch := TileKitMeshUtils.MeshBatch.new()
+	var primary := String(layer.value("primary_key", "moss_gg_earth_growth"))
+	var highlight := String(layer.value("blade_key", "moss_gg_earth_highlight"))
+	var clod := String(layer.value("secondary_key", "dirt_clay_chip_dark"))
+	var scale: float = layer.value("moss_detail_scale", 1.0)
+	var height: float = layer.value("moss_detail_height", 1.0)
+	var density: float = layer.value("moss_detail_density", 1.0)
+	var quarter := rng.randi() % 4
+	var template := [Vector2(-0.58, -0.48), Vector2(-0.25, -0.61),
+		Vector2(0.10, -0.56), Vector2(-0.53, -0.17),
+		Vector2(-0.22, -0.31), Vector2(0.10, -0.29),
+		Vector2(-0.39, 0.05), Vector2(0.29, -0.48)]
+	var sizes := [1.18, 0.82, 0.62, 0.96, 0.72, 0.52, 0.58, 0.48]
+	var count := clampi(int(round(template.size() * density)), 3, template.size())
+	var placed: Array[Vector2] = []
+	for index in count:
+		var position := _template_point(template[index], quarter, rng, half, 1.0)
+		var surface_y := _surface_y(position, top, cap_height)
+		_add_gg_moss_fan(batch, rng, position, surface_y,
+			float(sizes[index]) * scale, height, primary, highlight,
+			3 + (rng.randi() % 2))
+		placed.append(position)
+	for clod_point in [Vector2(0.43, 0.34), Vector2(0.58, 0.08)]:
+		var position := _rotate_quarter(clod_point * half, quarter)
+		var surface_y := _surface_y(position, top, cap_height)
+		TileKitMeshUtils.add_faceted_chunk(batch, clod,
+			Vector3(position.x, surface_y + 0.001, position.y),
+			rng.randf_range(0.045, 0.070), rng.randf_range(0.032, 0.050),
+			rng.randf_range(0.010, 0.018), rng.randf() * TAU, rng, 5, 0.12, 0.78)
+	context["grass_clusters"] = placed
+	return {
+		"meshes": [{"role": "detail", "name": "tile_moss",
+			"mesh": batch.commit()}],
+	}
+
+
+## C — the entire top is moss; detail is only a handful of low cross-sprouts
+## in a deeper tone. There is no second moss layer and therefore no blob read.
+static func _build_gg_living_carpet(layer: TileKitLayer,
+		rng: RandomNumberGenerator, context: Dictionary) -> Dictionary:
+	var half: float = context.get("surface_half", 0.85)
+	var top: float = context.get("surface_top", 0.0)
+	var cap_height: Callable = context.get("cap_height", Callable())
+	var batch := TileKitMeshUtils.MeshBatch.new()
+	var primary := String(layer.value("primary_key", "moss_gg_carpet_detail"))
+	var highlight := String(layer.value("blade_key", "moss_gg_carpet_highlight"))
+	var scale: float = layer.value("moss_detail_scale", 1.0)
+	var height: float = layer.value("moss_detail_height", 1.0)
+	var density: float = layer.value("moss_detail_density", 1.0)
+	var quarter := rng.randi() % 4
+	var template := [Vector2(-0.56, -0.27), Vector2(0.28, -0.52),
+		Vector2(0.50, 0.18), Vector2(-0.17, 0.45),
+		Vector2(-0.06, -0.02), Vector2(0.55, 0.52)]
+	var sizes := [0.72, 0.48, 0.62, 0.42, 0.55, 0.38]
+	var count := clampi(int(round(template.size() * density)), 2, template.size())
+	var placed: Array[Vector2] = []
+	for index in count:
+		var position := _template_point(template[index], quarter, rng, half, 1.0)
+		var surface_y := _surface_y(position, top, cap_height)
+		_add_gg_moss_fan(batch, rng, position, surface_y,
+			float(sizes[index]) * scale, height * 0.72,
+			primary, highlight, 3)
+		placed.append(position)
+	context["grass_clusters"] = placed
+	return {
+		"meshes": [{"role": "detail", "name": "tile_moss",
+			"mesh": batch.commit()}],
+	}
+
+
+static func _surface_y(position: Vector2, top: float,
+		cap_height: Callable) -> float:
+	return top + (float(cap_height.call(position)) if cap_height.is_valid() else 0.0)
+
+
+static func _rotate_quarter(point: Vector2, quarter: int) -> Vector2:
+	var result := point
+	for turn in quarter:
+		result = Vector2(-result.y, result.x)
+	return result
+
+
+## Smooth corner sheet: two tile edges and one cubic inner boundary. The top
+## uses sky-facing normals; only the exposed inner curve receives a darker lip.
+static func _add_gg_corner_sheet(batch: TileKitMeshUtils.MeshBatch,
+		top_key: String, lip_key: String, half: float, top: float, quarter: int,
+		rng: RandomNumberGenerator, cap_height: Callable,
+		scale: float, height_scale: float) -> void:
+	var reach_x := half * rng.randf_range(0.42, 0.56) * scale
+	var reach_z := half * rng.randf_range(0.12, 0.28) * scale
+	var p0 := Vector2(reach_x, -half + 0.010)
+	var p1 := Vector2(half * rng.randf_range(0.26, 0.40),
+		-half * rng.randf_range(0.38, 0.50))
+	var p2 := Vector2(-half * rng.randf_range(0.30, 0.44),
+		half * rng.randf_range(0.06, 0.20))
+	var p3 := Vector2(-half + 0.010, reach_z)
+	var outline: Array[Vector2] = [_rotate_quarter(
+		Vector2(-half + 0.010, -half + 0.010), quarter),
+		_rotate_quarter(p0, quarter)]
+	for step in 16:
+		var t := float(step + 1) / 16.0
+		var inverse := 1.0 - t
+		var point := p0 * pow(inverse, 3.0) \
+			+ p1 * (3.0 * pow(inverse, 2.0) * t) \
+			+ p2 * (3.0 * inverse * t * t) + p3 * pow(t, 3.0)
+		outline.append(_rotate_quarter(point, quarter))
+	var thickness := 0.024 * height_scale
+	var centre := Vector2.ZERO
+	for point in outline:
+		centre += point
+	centre /= float(outline.size())
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var indices := PackedInt32Array()
+	vertices.append(Vector3(centre.x,
+		_surface_y(centre, top, cap_height) + thickness, centre.y))
+	normals.append(Vector3.UP)
+	for point in outline:
+		vertices.append(Vector3(point.x,
+			_surface_y(point, top, cap_height) + thickness, point.y))
+		normals.append(Vector3.UP)
+	for index in outline.size():
+		indices.append_array([0, 1 + index, 1 + (index + 1) % outline.size()])
+	batch.add(top_key, vertices, normals, indices)
+	# Outline index 1 is p0; every following edge through the last point is
+	# the exposed cubic boundary. The two tile-boundary legs stay open/flush.
+	for index in range(1, outline.size() - 1):
+		var a := outline[index]
+		var b := outline[index + 1]
+		var bottom_a := Vector3(a.x, _surface_y(a, top, cap_height) + 0.002, a.y)
+		var bottom_b := Vector3(b.x, _surface_y(b, top, cap_height) + 0.002, b.y)
+		var top_a := bottom_a + Vector3.UP * (thickness - 0.002)
+		var top_b := bottom_b + Vector3.UP * (thickness - 0.002)
+		TileKitMeshUtils.add_flat_triangle(batch, lip_key,
+			bottom_a, top_b, top_a)
+		TileKitMeshUtils.add_flat_triangle(batch, lip_key,
+			bottom_a, bottom_b, top_b)
+
+
+## Short, broad, nearly horizontal leaves: chunky enough for GG's toy-clay
+## read, but low enough to read as moss rather than meadow grass.
+static func _add_gg_moss_fan(batch: TileKitMeshUtils.MeshBatch,
+		rng: RandomNumberGenerator, centre: Vector2, surface_y: float,
+		scale: float, height_scale: float, primary: String, highlight: String,
+		leaf_count: int) -> void:
+	var base_yaw := rng.randf() * TAU
+	for leaf in leaf_count:
+		var yaw := base_yaw + TAU * float(leaf) / float(leaf_count) \
+			+ rng.randf_range(-0.24, 0.24)
+		var direction := Vector2(cos(yaw), sin(yaw))
+		var height := rng.randf_range(0.052, 0.072) * scale * height_scale
+		var reach := height * rng.randf_range(0.82, 1.05)
+		var root := centre + direction * rng.randf_range(0.004, 0.014) * scale
+		var lean := Vector3(direction.x, 0.0, direction.y)
+		var p0 := Vector3(root.x, surface_y - 0.006, root.y)
+		var p1 := p0 + Vector3.UP * (height * 0.34) + lean * (reach * 0.10)
+		var p2 := p0 + Vector3.UP * (height * 0.72) + lean * (reach * 0.58)
+		var p3 := p0 + Vector3.UP * (height * 0.56) + lean * reach
+		TileKitMeshUtils.add_blade(batch,
+			highlight if leaf == 0 and rng.randf() < 0.34 else primary,
+			p0, p1, p2, p3, rng.randf_range(0.044, 0.060) * scale,
+			0.62, 5, 6, 2, 0.58)
+
+
 # --- turf: sculpted carpet mode ----------------------------------------------
 
 
@@ -926,4 +1319,4 @@ static func _add_leaf(batch: TileKitMeshUtils.MeshBatch, layer: TileKitLayer,
 	TileKitMeshUtils.add_blade(batch, key, p0, p1, p2, p3,
 		leaf_width, rng.randf_range(float(thickness_band[0]),
 			float(thickness_band[1])),
-		10, 14, 4)
+		10, 14, 4, float(layer.value("root_width_factor", 0.86)))
