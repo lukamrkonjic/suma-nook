@@ -290,8 +290,9 @@ static func material(key: String) -> Material:
 ## cards can never catch a plastic glint. Culling stays ON: the card
 ## builder emits wound front/back pairs, which avoids Godot's back-face
 ## normal flip (it shaded half of every pair as if lit from below).
-static func sprite_material(sprite: String, tint_key: String) -> Material:
-	var cache_key := "%s|%s" % [sprite, tint_key]
+static func sprite_material(sprite: String, tint_key: String,
+		ground_key := "grass_gg_top") -> Material:
+	var cache_key := "%s|%s|%s" % [sprite, tint_key, ground_key]
 	if _sprite_materials.has(cache_key):
 		return _sprite_materials[cache_key]
 	assert(SPRITE_TEXTURES.has(sprite),
@@ -301,6 +302,9 @@ static func sprite_material(sprite: String, tint_key: String) -> Material:
 	result.shader = TUFT_WIND_SHADER
 	result.set_shader_parameter("albedo_tex", load(SPRITE_TEXTURES[sprite]))
 	result.set_shader_parameter("tint", color(tint_key))
+	# Card bases dissolve into the exact plane colour they stand on — the
+	# palette token is the single source of truth for both surfaces.
+	result.set_shader_parameter("ground_color", color(ground_key))
 	_sprite_materials[cache_key] = result
 	return result
 

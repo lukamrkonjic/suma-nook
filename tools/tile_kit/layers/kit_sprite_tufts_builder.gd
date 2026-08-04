@@ -23,6 +23,7 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 	var cap_height: Callable = context.get("cap_height", Callable())
 	var sprite := String(layer.value("sprite", "tuft_sprout"))
 	var tint_key := String(layer.value("tint_key", "grass_gg_tuft"))
+	var ground_key := String(layer.value("ground_blend_key", "grass_gg_top"))
 	var spacing := maxf(0.12, float(layer.value("grid_spacing", 0.365)))
 	var row_offset := float(layer.value("row_offset_fraction", 0.5))
 	var card_size: Array = layer.value("card_size", [0.44, 0.50])
@@ -85,7 +86,7 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 		arrays[Mesh.ARRAY_INDEX] = indices
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 		mesh.surface_set_material(
-			0, TileKitPalette.sprite_material(sprite, tint_key))
+			0, TileKitPalette.sprite_material(sprite, tint_key, ground_key))
 	return {
 		"meshes": [{
 			"role": "detail",

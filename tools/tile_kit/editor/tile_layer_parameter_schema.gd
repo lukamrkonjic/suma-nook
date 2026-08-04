@@ -399,6 +399,7 @@ const DEFINITIONS := {
 		"label": "Sprite Tuft Carpet",
 		"description": "Crossed gradient-sprite cards on an offset grid — the reference tuft construction.",
 		"defaults": {"sprite": "tuft_sprout", "tint_key": "grass_gg_tuft",
+			"ground_blend_key": "grass_gg_top",
 			"cards_per_tuft": 1, "grid_spacing": 0.34,
 			"row_offset_fraction": 0.5,
 			"card_size": [0.32, 0.44], "height_ratio": 0.8,

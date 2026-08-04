@@ -261,6 +261,7 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 			_sprite_carpet(preset, {
 				"sprite": "tuft_sprout",
 				"tint_key": "grass_gg_tuft",
+				"ground_blend_key": "grass_gg_top",
 				"cards_per_tuft": 1,
 				"grid_spacing": 0.34,
 				"row_offset_fraction": 0.5,

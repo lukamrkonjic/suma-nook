@@ -70,6 +70,7 @@ params = {
 "cards_per_tuft": 1,
 "edge_margin": 0.055,
 "grid_spacing": 0.34,
+"ground_blend_key": "grass_gg_top",
 "height_ratio": 0.8,
 "position_jitter": 0.07,
 "root_sink": 0.02,

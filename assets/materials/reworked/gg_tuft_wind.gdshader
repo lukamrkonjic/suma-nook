@@ -13,6 +13,10 @@ render_mode cull_back, alpha_to_coverage, specular_disabled;
 
 uniform sampler2D albedo_tex : source_color, filter_linear_mipmap;
 uniform vec4 tint : source_color = vec4(1.0);
+// The exact ground-plane colour: card bases dissolve into it so tufts
+// grow OUT of the tile instead of sitting on it as stickers.
+uniform vec4 ground_color : source_color = vec4(0.455, 0.522, 0.306, 1.0);
+uniform float ground_blend_start = 0.45;
 uniform float wind_amplitude = 0.026;
 uniform float wind_speed = 1.35;
 uniform vec2 wind_direction = vec2(0.82, 0.57);
@@ -32,7 +36,11 @@ void vertex() {
 
 void fragment() {
 	vec4 albedo_sample = texture(albedo_tex, UV) * tint;
-	ALBEDO = albedo_sample.rgb;
+	// UV.y = 1 at the card base: fully ground-coloured there, fading to
+	// the pure tuft tint by `ground_blend_start` so the lower gradient IS
+	// the ground and every tuft blends into the plane it stands on.
+	float ground_mix = smoothstep(ground_blend_start, 1.0, UV.y);
+	ALBEDO = mix(albedo_sample.rgb, ground_color.rgb, ground_mix);
 	ALPHA = albedo_sample.a;
 	ALPHA_SCISSOR_THRESHOLD = 0.45;
 	ALPHA_ANTIALIASING_EDGE = 0.30;

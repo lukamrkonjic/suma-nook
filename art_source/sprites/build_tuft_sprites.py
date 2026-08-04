@@ -33,7 +33,9 @@ CANVAS = SIZE * SS
 
 # Value gradient across the sprite CONTENT (not the padded canvas).
 GRADIENT_TOP = 1.00
-GRADIENT_BASE = 0.81
+# Gentle: the material's ground blend now owns the base; a strong baked
+# darkening would fight it and leave a murky band above the blend line.
+GRADIENT_BASE = 0.90
 
 
 def lobe_circles(draw: ImageDraw.ImageDraw, base: tuple, tip: tuple,
