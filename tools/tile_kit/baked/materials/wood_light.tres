@@ -2,6 +2,6 @@
 
 [resource]
 resource_name = "tilekit_wood_light"
-albedo_color = Color(0.77254903, 0.60784316, 0.39215687, 1)
+albedo_color = Color(0.658824, 0.34117606, 0.13333304, 1)
 metallic_specular = 0.2
 roughness = 0.9

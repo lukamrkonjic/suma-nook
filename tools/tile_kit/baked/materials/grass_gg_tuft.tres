@@ -1,0 +1,7 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "tilekit_grass_gg_tuft"
+albedo_color = Color(0.518, 0.588, 0.235, 1)
+metallic_specular = 0.2
+roughness = 0.9

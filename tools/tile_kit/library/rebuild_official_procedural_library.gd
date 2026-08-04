@@ -128,15 +128,17 @@ func _init() -> void:
 			manifest.landmark_tags.append("pond")
 		_apply_runtime_semantics(manifest)
 		manifest.revision = maxi(manifest.revision,
-			4 if tile_id == "tile_grove_mossy"
-			else 3 if tile_id in ["tile_grass", "tile_dirt"]
+			4 if tile_id in ["tile_grove_mossy", "tile_grass"]
+			else 3 if tile_id == "tile_dirt"
 			else 2)
 		manifest.updated_at = STAMP
 		if tile_id == "tile_grass":
 			manifest.notes = (
-				"Clay-style redesign: muted sage block, clean rounded shell, noise-free "
-				+ "top, four broad-leaf clusters, and deterministic per-cell detail "
-				+ "rotations. Stable ID retained; no extracted source geometry is used."
+				"GG-construction redesign: near-sharp warm chartreuse block (one "
+				+ "albedo family, lighting owns top/side separation) under a dense "
+				+ "offset-grid carpet of crossed gradient-sprite tufts with an "
+				+ "original five-leaf sprout sprite. Stable ID retained; no "
+				+ "extracted source geometry, texture, or material is used."
 			)
 		elif tile_id == "tile_dirt":
 			manifest.notes = (
@@ -237,36 +239,37 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 	match tile_id:
 		# ------------------------------------------------------------ meadow
 		"tile_grass":
-			# CLAY MASTER 01 — Standard Grass. A crisp, quiet turf slab with
-			# generous rounding and a few authored broad-leaf silhouettes.
-			# Personality comes from the tuft composition, never surface noise,
-			# pebble scatter, lobed blobs, or a bright all-over carpet.
-			_set_base(preset, {"top_key": "grass_clay_top",
-				"bevel_key": "grass_clay_bevel", "side_key": "grass_clay_side",
-				"lower_key": "grass_clay_lower", "turf_side_key": "grass_clay_side"},
+			# GG-CONSTRUCTION 01 — Standard Grass. The audited reference
+			# construction verbatim: a near-sharp cube in ONE warm chartreuse
+			# family (scene lighting owns all top/side separation) under a
+			# dense offset-grid carpet of crossed gradient-sprite tufts.
+			# The sprite silhouette, palette values, and grid are Suma
+			# originals; only the technique is reproduced.
+			_set_base(preset, {"top_key": "grass_gg_top",
+				"bevel_key": "grass_gg_bevel", "side_key": "grass_gg_side",
+				"lower_key": "grass_gg_lower", "turf_side_key": "grass_gg_side"},
 				"none", 0.0,
 				{"relief_resolution": 12, "relief_edge_feather": 0.18,
-					"turf_cap": false, "top_bevel": 0.052,
-					"corner_radius": 0.085, "bevel_segments": 6})
-			_grass(preset, {"coverage_mode": "clusters",
-				"primary_key": "grass_clay_blade",
-				"secondary_key": "grass_clay_tip",
-				"secondary_fraction": 0.18,
-				"large_clusters": 1, "medium_clusters": 3,
-				"small_clusters": 0,
-				"large_footprint": [0.31, 0.35],
-				"medium_footprint": [0.21, 0.24],
-				"rosette_leaves": [3, 4],
-				"leaf_height": [0.07, 0.10],
-				"leaf_width": [0.05, 0.07],
-				"splay_degrees": [18.0, 34.0],
-				"thickness_ratio": [0.58, 0.72],
-				"bend_multiplier": 0.58, "width_multiplier": 1.12,
-				"crown_radius": 0.038, "root_sink": [0.045, 0.06],
-				"root_width_factor": 0.28,
-				"cluster_spread": 0.72,
-				"preferred_edge_margin": 0.11,
-				"open_space_target": 0.82})
+					"turf_cap": false, "top_bevel": 0.018,
+					"corner_radius": 0.015, "bevel_segments": 2,
+					"bottom_chamfer": 0.01})
+			# Card size 0.375–0.53 is the audited particle start_size range
+			# (0.22–0.31 on the 1.0 reference cell) scaled to the authored
+			# 1.70 m footprint. Yaw 135° faces the fixed diagonal camera.
+			_sprite_carpet(preset, {
+				"sprite": "tuft_sprout",
+				"tint_key": "grass_gg_tuft",
+				"cards_per_tuft": 1,
+				"grid_spacing": 0.365,
+				"row_offset_fraction": 0.5,
+				"card_size": [0.375, 0.53],
+				"height_ratio": 1.0,
+				"position_jitter": 0.07,
+				"yaw_degrees": 135.0,
+				"yaw_jitter_degrees": 0.0,
+				"edge_margin": 0.055,
+				"root_sink": 0.02,
+				"skip_fraction": 0.0})
 		"tile_kit_grass":
 			# Dense Grass: tighter interlock, thicker pile, more sculpted tips.
 			_set_base(preset, GREEN_BASE, "pillow", 0.016)
@@ -863,7 +866,13 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 
 func _apply_runtime_semantics(manifest: TileLibraryManifest) -> void:
 	match manifest.tile_id:
-		"tile_grass", "tile_dirt":
+		"tile_grass":
+			# Camera-facing sprite cards must never quarter-turn: a rotated
+			# variant puts every card edge-on to the fixed camera and the
+			# carpet vanishes. The reference repeats one identical detail
+			# prefab per cell, which is exactly this.
+			manifest.detail_rotation_variants = 1
+		"tile_dirt":
 			manifest.detail_rotation_variants = 4
 		"tile_grove_mossy":
 			manifest.detail_rotation_variants = 4
@@ -948,6 +957,11 @@ func _turf(preset: TileKitPreset, params: Dictionary) -> void:
 	var merged := {"coverage_mode": "turf"}
 	merged.merge(params, true)
 	_enable(preset, "grass_clusters", merged)
+
+
+## The reference sprite-card tuft carpet (see KitSpriteTuftsBuilder).
+func _sprite_carpet(preset: TileKitPreset, params: Dictionary) -> void:
+	_enable(preset, "sprite_tufts", params)
 
 
 func _liquid(preset: TileKitPreset, params: Dictionary) -> void:

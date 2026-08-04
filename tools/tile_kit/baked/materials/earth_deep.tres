@@ -2,6 +2,6 @@
 
 [resource]
 resource_name = "tilekit_earth_deep"
-albedo_color = Color(0.34117648, 0.24705882, 0.14901961, 1)
+albedo_color = Color(0.392157, 0.203922, 0.12548998, 1)
 metallic_specular = 0.2
 roughness = 0.9

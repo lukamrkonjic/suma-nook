@@ -2,6 +2,6 @@
 
 [resource]
 resource_name = "tilekit_blossom_pink"
-albedo_color = Color(0.8784314, 0.6039216, 0.65882355, 1)
+albedo_color = Color(0.788235, 0.576471, 0.564706, 1)
 metallic_specular = 0.2
 roughness = 0.9

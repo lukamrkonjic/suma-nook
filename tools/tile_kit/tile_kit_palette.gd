@@ -64,6 +64,18 @@ const COLORS := {
 	"grass_clay_lower": "leaf_olive",
 	"grass_clay_blade": "leaf_olive",
 	"grass_clay_tip": "leaf_medium",
+	# GG-construction grass: one warm chartreuse family. The reference keeps
+	# near-equal top/side ALBEDO and lets its harder sun darken the walls;
+	# Suma's soft daylight doesn't deliver that step, so the side and lower
+	# tokens carry it explicitly (side ≈ −20%, lower ≈ −30% of top — the
+	# audit's terrain-side rule). The tuft tint sits a step deeper than the
+	# top so sprite tips melt into the plane while their gradient bases
+	# anchor them. Values are Suma picks, not sampled pixels.
+	"grass_gg_top": "tilekit_grass_gg_top",
+	"grass_gg_bevel": "tilekit_grass_gg_top",
+	"grass_gg_side": "tilekit_grass_gg_side",
+	"grass_gg_lower": "tilekit_grass_gg_lower",
+	"grass_gg_tuft": "tilekit_grass_gg_tuft",
 	# Moss / forest family: deeper cooler green, still lively.
 	"moss_top": "tilekit_moss_top",
 	"moss_bevel": "tilekit_tile_top",
@@ -196,7 +208,16 @@ const COLORS := {
 	"accent_cream": "tilekit_accent_cream",
 }
 
+## Generated sprite sheets used by the sprite-card detail layers. Every entry
+## is an original Suma texture authored by art_source/sprites/*.py — white
+## luminance with a baked top-to-base gradient, tinted by a palette colour at
+## material level, exactly like the audited reference technique.
+const SPRITE_TEXTURES := {
+	"tuft_sprout": "res://assets/textures/tile_kit/tuft_sprout.png",
+}
+
 static var _materials: Dictionary = {}
+static var _sprite_materials: Dictionary = {}
 
 
 static func color(key: String) -> Color:
@@ -254,6 +275,38 @@ static func material(key: String) -> Material:
 		result.roughness = 0.34
 		result.metallic_specular = 0.32
 	_materials[key] = result
+	return result
+
+
+## The shared material for one (sprite, tint) pair: the sprite's white
+## gradient carries form, the palette tint carries ALL hue — the audited
+## reference card technique. Alpha scissor + alpha-to-coverage rides the
+## project's MSAA for soft silhouettes without any transparency sorting;
+## specular is fully killed so cards can never catch a plastic glint.
+static func sprite_material(sprite: String, tint_key: String) -> Material:
+	var cache_key := "%s|%s" % [sprite, tint_key]
+	if _sprite_materials.has(cache_key):
+		return _sprite_materials[cache_key]
+	assert(SPRITE_TEXTURES.has(sprite),
+		"TileKitPalette: unknown sprite %s" % sprite)
+	var result := StandardMaterial3D.new()
+	result.resource_name = "tilekit_sprite_%s_%s" % [sprite, tint_key]
+	result.albedo_color = color(tint_key)
+	result.albedo_texture = load(SPRITE_TEXTURES[sprite])
+	result.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	result.alpha_scissor_threshold = 0.45
+	result.alpha_antialiasing_mode = \
+		BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE
+	result.alpha_antialiasing_edge = 0.30
+	# Culling stays ON: the card builder emits wound front/back pairs, which
+	# avoids Godot's back-face normal flip (it shaded half of every crossed
+	# pair as if lit from below).
+	result.cull_mode = BaseMaterial3D.CULL_BACK
+	result.texture_repeat = false
+	result.metallic = 0.0
+	result.roughness = 1.0
+	result.metallic_specular = 0.0
+	_sprite_materials[cache_key] = result
 	return result
 
 

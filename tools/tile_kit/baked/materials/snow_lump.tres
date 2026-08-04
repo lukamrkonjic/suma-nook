@@ -2,6 +2,6 @@
 
 [resource]
 resource_name = "tilekit_snow_lump"
-albedo_color = Color(0.9137255, 0.9019608, 0.8352941, 1)
+albedo_color = Color(0.752941, 0.729412, 0.678431, 1)
 metallic_specular = 0.2
 roughness = 0.9

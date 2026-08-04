@@ -1,0 +1,7 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "tilekit_grass_gg_bevel"
+albedo_color = Color(0.664, 0.733, 0.329, 1)
+metallic_specular = 0.2
+roughness = 0.9

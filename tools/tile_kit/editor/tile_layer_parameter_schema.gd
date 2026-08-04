@@ -10,7 +10,7 @@ extends RefCounted
 
 const KIND_ORDER := [
 	"base", "liquid", "dressing", "pavers", "clutter", "grass_clusters",
-	"fringe", "fence",
+	"sprite_tufts", "fringe", "fence",
 ]
 
 const SHAPES := [
@@ -393,6 +393,44 @@ const DEFINITIONS := {
 				"min": 0.10, "max": 3.0, "step": 0.05},
 			{"key": "fall_width", "label": "Fall width", "type": "float",
 				"min": 0.08, "max": 1.0, "step": 0.01},
+		],
+	},
+	"sprite_tufts": {
+		"label": "Sprite Tuft Carpet",
+		"description": "Crossed gradient-sprite cards on an offset grid — the reference tuft construction.",
+		"defaults": {"sprite": "tuft_sprout", "tint_key": "grass_gg_tuft",
+			"cards_per_tuft": 1, "grid_spacing": 0.365,
+			"row_offset_fraction": 0.5,
+			"card_size": [0.375, 0.53], "height_ratio": 1.0,
+			"position_jitter": 0.07, "yaw_degrees": 135.0,
+			"yaw_jitter_degrees": 0.0, "edge_margin": 0.055,
+			"root_sink": 0.02, "skip_fraction": 0.0},
+		"parameters": [
+			{"section": "CARPET GRID", "key": "grid_spacing", "label": "Tuft spacing",
+				"type": "float", "min": 0.18, "max": 0.70, "step": 0.005},
+			{"key": "row_offset_fraction", "label": "Row offset", "type": "float",
+				"min": 0.0, "max": 0.5, "step": 0.05},
+			{"key": "position_jitter", "label": "Placement jitter", "type": "float",
+				"min": 0.0, "max": 0.12, "step": 0.005},
+			{"key": "skip_fraction", "label": "Open ground", "type": "float",
+				"min": 0.0, "max": 0.6, "step": 0.01},
+			{"key": "edge_margin", "label": "Rim margin", "type": "float",
+				"min": 0.0, "max": 0.30, "step": 0.005},
+			{"section": "CARD SHAPE", "key": "cards_per_tuft",
+				"label": "Cards per tuft", "type": "enum", "values": [1, 2],
+				"value_labels": ["Camera-facing", "Crossed pair"],
+				"randomize": false},
+			{"key": "card_size", "label": "Tuft size",
+				"type": "range_float", "min": 0.20, "max": 0.75, "step": 0.005,
+				"fallback": [0.375, 0.53]},
+			{"key": "height_ratio", "label": "Height ratio", "type": "float",
+				"min": 0.55, "max": 1.6, "step": 0.01},
+			{"key": "yaw_degrees", "label": "Card angle", "type": "float",
+				"min": 0.0, "max": 90.0, "step": 1.0, "randomize": false},
+			{"key": "yaw_jitter_degrees", "label": "Angle jitter", "type": "float",
+				"min": 0.0, "max": 45.0, "step": 1.0},
+			{"key": "root_sink", "label": "Root sink", "type": "float",
+				"min": 0.0, "max": 0.08, "step": 0.005},
 		],
 	},
 	"fringe": {

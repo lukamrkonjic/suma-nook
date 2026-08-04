@@ -2,6 +2,6 @@
 
 [resource]
 resource_name = "tilekit_earth_side"
-albedo_color = Color(0.4862745, 0.34901962, 0.21960784, 1)
+albedo_color = Color(0.592157, 0.36470604, 0.21960801, 1)
 metallic_specular = 0.2
 roughness = 0.9
