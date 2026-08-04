@@ -66,25 +66,25 @@ params = {
 script = ExtResource("1_7at4q")
 kind = "clay_sprouts"
 params = {
-"berry_count": [1, 2],
+"berry_count": [0, 0],
 "berry_key": "clay_berry",
-"edge_margin": 0.16,
+"edge_margin": 0.1,
 "flower_centre_key": "clay_flower_gold",
-"flower_count": [2, 3],
-"leaf_depth_ratio": 1.0,
-"leaf_height": [0.17, 0.21],
+"flower_count": [0, 0],
+"leaf_depth_ratio": 0.58,
+"leaf_height": [0.17, 0.22],
 "leaf_key": "clay_leaf",
-"leaf_width": [0.135, 0.165],
-"leaves_per_sprout": [3, 5],
-"min_spacing": 0.42,
-"mound_height": 0.05,
+"leaf_width": [0.17, 0.21],
+"leaves_per_sprout": [4, 6],
+"min_spacing": 0.21,
+"mound_height": 0.0,
 "mound_key": "grass_gg_top",
-"mound_spread": 1.05,
+"mound_spread": 0.9,
 "petal_key": "clay_flower_cream",
-"root_sink": 0.032,
-"shoot_count": [2, 3],
-"splay_degrees": [17.0, 26.0],
-"sprout_count": [5, 7]
+"root_sink": 0.03,
+"shoot_count": [0, 0],
+"splay_degrees": [8.0, 15.0],
+"sprout_count": [17, 21]
 }
 
 [resource]

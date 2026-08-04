@@ -522,7 +522,7 @@ colors = {
 "tilekit_clay_berry": Color(0.722, 0.424, 0.314, 1.0),
 "tilekit_clay_flower_cream": Color(0.925, 0.906, 0.808, 1.0),
 "tilekit_clay_flower_gold": Color(0.725, 0.596, 0.208, 1.0),
-"tilekit_clay_leaf": Color(0.318, 0.443, 0.161, 1.0),
+"tilekit_clay_leaf": Color(0.384, 0.451, 0.153, 1.0),
 "tilekit_grass_gg_lower": Color(0.302, 0.357, 0.129, 1.0),
 "tilekit_grass_gg_side": Color(0.361, 0.424, 0.151, 1.0),
 "tilekit_grass_gg_top": Color(0.439, 0.51, 0.176, 1.0),

@@ -239,24 +239,13 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 	match tile_id:
 		# ------------------------------------------------------------ meadow
 		"tile_grass":
-			# CLEAN MEADOW SLAB — Standard Grass. The style references all
-			# agree on one thing the whole detail exploration kept missing:
-			# their ground planes are CLEAN. Grass identity is the sage
-			# colour and the block's own soft clay form, not scattered
-			# objects. Every added detail layer — sprite carpets, solid
-			# rosettes, nub piles, sparse blade tufts — was rejected as
-			# clutter. So the tile is a quiet slab with the faintest broad
-			# undulation, which catches the key light and keeps the top
-			# from reading as a flat CG rectangle.
-			#
-			# NOTE for future edits: detail layers on THIS tile are the
-			# rejected direction. Decoration belongs to placeable props.
-			# Clay comes from the BLOCK: generous corner rounding and a fat
-			# soft top bevel in one bright clay-green hue ramp. The top is
-			# exactly flat — any relief has to feather out at the cell rim,
-			# which creases a visible line along every boundary of a
-			# connected meadow. Detail layers are OFF pending art direction;
-			# see the rejected-directions note in docs/TILE_AUTHORING.md.
+			# CLAY TUFT MEADOW — Standard Grass. The block is one bright
+			# clay-green hue ramp with generous corner rounding and a fat
+			# soft top bevel; the top is exactly flat, because any relief
+			# feathers out at the cell rim and creases a visible line along
+			# every boundary of a connected meadow. Tufts are dense, even,
+			# and tone-on-tone: the audited reference's density and value
+			# step, built as soft single-surface clay clumps.
 			_set_base(preset, {"top_key": "grass_gg_top",
 				"bevel_key": "grass_gg_bevel", "side_key": "grass_gg_side",
 				"lower_key": "grass_gg_lower", "turf_side_key": "grass_gg_side"},
@@ -265,6 +254,23 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 					"turf_cap": false, "top_bevel": 0.045,
 					"corner_radius": 0.05, "bevel_segments": 6,
 					"bottom_chamfer": 0.018})
+			# Widths are authored ~1.7x their in-game size because the
+			# runtime scales X/Z to the live cell but never Y. No flowers,
+			# berries, shoots, or root mounds: each was tried and read as
+			# clutter, or printed a visible disc into the flat plane.
+			_clay_sprouts(preset, {
+				"leaf_key": "clay_leaf",
+				"sprout_count": [17, 21],
+				"min_spacing": 0.21,
+				"edge_margin": 0.10,
+				"leaf_height": [0.17, 0.22],
+				"leaf_width": [0.17, 0.21],
+				"leaf_depth_ratio": 0.58,
+				"root_sink": 0.03,
+				"mound_height": 0.0,
+				"shoot_count": [0, 0],
+				"flower_count": [0, 0],
+				"berry_count": [0, 0]})
 		"tile_kit_grass":
 			# Dense Grass: tighter interlock, thicker pile, more sculpted tips.
 			_set_base(preset, GREEN_BASE, "pillow", 0.016)
@@ -959,9 +965,9 @@ func _sprite_carpet(preset: TileKitPreset, params: Dictionary) -> void:
 	_enable(preset, "sprite_tufts", params)
 
 
-## The solid clay sprout carpet (see KitClayTuftsBuilder).
-func _clay_carpet(preset: TileKitPreset, params: Dictionary) -> void:
-	_enable(preset, "clay_tufts", params)
+## The soft clay tuft field (see KitClaySproutsBuilder).
+func _clay_sprouts(preset: TileKitPreset, params: Dictionary) -> void:
+	_enable(preset, "clay_sprouts", params)
 
 
 func _liquid(preset: TileKitPreset, params: Dictionary) -> void:

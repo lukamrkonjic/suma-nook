@@ -42,7 +42,9 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 	var leaves: Array = layer.value("leaves_per_sprout", [3, 5])
 	var leaf_height: Array = layer.value("leaf_height", [0.15, 0.20])
 	var leaf_width: Array = layer.value("leaf_width", [0.075, 0.10])
-	var depth_ratio := float(layer.value("leaf_depth_ratio", 0.5))
+	# Reused as the lobe depth of the single-surface clump: how deeply the
+	# skin is pinched between leaf lobes.
+	var depth_ratio := float(layer.value("leaf_depth_ratio", 0.38))
 	var splay: Array = layer.value("splay_degrees", [15.0, 28.0])
 	var margin := float(layer.value("edge_margin", 0.16))
 	var min_spacing := float(layer.value("min_spacing", 0.34))
@@ -165,6 +167,11 @@ static func _pick_spot(rng: RandomNumberGenerator, placed: Array[Vector2],
 ## meet the flat plane at a hard line and read as props dropped on top.
 static func _add_mound(batch: TileKitMeshUtils.MeshBatch, key: String,
 		base: Vector3, radius: float, height: float) -> void:
+	# Height 0 disables the mound. A dome resting in a flat plane always
+	# prints a faint disc where the two surfaces meet, however smooth it
+	# is, because a curved surface and a flat one never shade identically.
+	if height <= 0.0005:
+		return
 	# Ring resolution matters more here than anywhere else in the tile: a
 	# low-poly dome poking through a FLAT plane shows its polygon rim as a
 	# hard faceted outline, which reads as dark legs radiating from every
@@ -174,42 +181,23 @@ static func _add_mound(batch: TileKitMeshUtils.MeshBatch, key: String,
 		height * 1.75, radius, 6, 28)
 
 
-## One sprout: a fan of blunt teardrop leaves sharing a base. The centre
-## leaf stands tallest and the siblings splay outward, each turned so its
-## BROAD face points away from the cluster — the reference's leaf-pair read.
+## One sprout: a SINGLE continuous lobed clay clump.
+##
+## Earlier versions assembled each tuft from separate egg leaves. Every
+## variant of that failed the same way: overlapping solids leave dark
+## crevices where they meet and stray tips poke out at the base, so the
+## cluster reads as a claw or a spider rather than a plant. One parametric
+## surface cannot do that — its lobes are modulations of a single skin, so
+## the highlight rolls across the whole clump and the silhouette stays a
+## soft, hand-pinched clay form.
 static func _add_sprout(batch: TileKitMeshUtils.MeshBatch,
 		rng: RandomNumberGenerator, leaf_key: String, base: Vector3,
-		leaves: int, height: float, width: float, depth_ratio: float,
+		leaves: int, height: float, width: float, lobe_depth: float,
 		splay: float, yaw: float) -> void:
-	# Centre leaf: near-vertical, the tallest of the cluster. Only the very
-	# bottom is buried — a deeply sunk leaf loses its teardrop base and the
-	# whole cluster collapses into one lumpy mound.
-	var lean := rng.randf_range(0.0, deg_to_rad(7.0))
-	var lean_dir := Vector3(cos(yaw), 0.0, sin(yaw))
-	# broad_dir is TANGENTIAL (perpendicular to the lean), never radial: a
-	# leaf whose wide face points outward presents its thin edge to the
-	# camera, and the cluster reads as dark radiating spider legs.
-	TileKitMeshUtils.add_egg(batch, leaf_key,
-		base + Vector3(0.0, -height * 0.06, 0.0),
-		(Vector3.UP + lean_dir * sin(lean)).normalized(),
-		height, width * 0.5, 5, 7, depth_ratio,
-		Vector3(-lean_dir.z, 0.0, lean_dir.x))
-	# Siblings: splayed outward, shorter, bases nudged toward their lean so
-	# the cluster fuses at the root instead of radiating from one point.
-	var siblings := maxi(leaves - 1, 0)
-	for index in siblings:
-		var angle := yaw + PI + TAU * float(index) / float(maxi(siblings, 1)) \
-			+ rng.randf_range(-0.3, 0.3)
-		var outward := Vector3(cos(angle), 0.0, sin(angle))
-		var tilt := splay + rng.randf_range(-deg_to_rad(4.0), deg_to_rad(4.0))
-		var axis := (Vector3.UP + outward * tan(tilt)).normalized()
-		var sibling_height := height * rng.randf_range(0.62, 0.84)
-		var sibling_width := width * rng.randf_range(0.80, 0.96)
-		TileKitMeshUtils.add_egg(batch, leaf_key,
-			base + outward * width * 0.30
-				+ Vector3(0.0, -sibling_height * 0.07, 0.0),
-			axis, sibling_height, sibling_width * 0.5, 5, 7,
-			depth_ratio, Vector3(-outward.z, 0.0, outward.x))
+	var radius := width * 0.5
+	TileKitMeshUtils.add_lobed_mound(batch, leaf_key, base,
+		radius, radius * rng.randf_range(0.88, 1.12), height, yaw, rng,
+		lobe_depth, 6, 20, 0.5)
 
 
 ## One flower: five ROUND petal discs in a ring around a centre bead, lying

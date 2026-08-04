@@ -25,4 +25,4 @@ water_cells = PackedStringArray()
 created_at = "2026-08-01 00:00:00"
 updated_at = "2026-08-04 22:00:00"
 published_at = "2026-08-01 00:00:00"
-notes = "Clean meadow slab: a quiet sage clay block with a softly rounded shell and the faintest broad undulation. No detail layer by design — the style keeps ground planes clean and lets colour carry the grass; decoration belongs to props. No extracted source geometry, texture, or material is used."
+notes = "Clay tuft meadow: a bright clay-green block with a softly rounded shell under a dense, even field of soft single-surface lobed clay clumps, tone-on-tone with the plane. Calibrated against the audited reference's density and value step; geometry, palette, and generator are Suma's own. No extracted source geometry, texture, or material is used."
