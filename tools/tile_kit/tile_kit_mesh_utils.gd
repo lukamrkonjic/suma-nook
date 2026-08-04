@@ -145,6 +145,66 @@ static func add_flat_blob(
 	batch.add(key, vertices, normals, indices)
 
 
+## A solid blunt egg: a prolate spheroid swept along an arbitrary axis, the
+## clay-toy leaf/lobe primitive. Smooth spheroid normals (inverse-transpose
+## of the axis scaling) are what keep it reading as one pinched clay piece
+## instead of a faceted ball. `base_point` is the axis start (where the egg
+## attaches); the solid extends `length` along `axis`.
+static func add_egg(
+	batch: MeshBatch,
+	key: String,
+	base_point: Vector3,
+	axis: Vector3,
+	length: float,
+	radius: float,
+	lat_steps := 5,
+	lon_steps := 6
+) -> void:
+	var y_axis := axis.normalized()
+	var helper := Vector3.UP if absf(y_axis.dot(Vector3.UP)) < 0.99 \
+		else Vector3.RIGHT
+	var x_axis := helper.cross(y_axis).normalized()
+	var z_axis := y_axis.cross(x_axis)
+	var half := length * 0.5
+	var centre := base_point + y_axis * half
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var indices := PackedInt32Array()
+	for lat in lat_steps + 1:
+		# theta 0 = tip (along +axis), PI = attachment end.
+		var theta := PI * float(lat) / float(lat_steps)
+		var ring_y := cos(theta)
+		var ring_r := sin(theta)
+		for lon in lon_steps:
+			var phi := TAU * float(lon) / float(lon_steps)
+			var local := Vector3(
+				cos(phi) * ring_r, ring_y, sin(phi) * ring_r)
+			vertices.append(
+				centre
+				+ x_axis * local.x * radius
+				+ y_axis * local.y * half
+				+ z_axis * local.z * radius
+			)
+			# Spheroid normal: unit-sphere normal over the per-axis scale.
+			var scaled := Vector3(
+				local.x / maxf(radius, 0.0001),
+				local.y / maxf(half, 0.0001),
+				local.z / maxf(radius, 0.0001)
+			).normalized()
+			normals.append(
+				x_axis * scaled.x + y_axis * scaled.y + z_axis * scaled.z
+			)
+	for lat in lat_steps:
+		for lon in lon_steps:
+			var a := lat * lon_steps + lon
+			var b := lat * lon_steps + (lon + 1) % lon_steps
+			var c := (lat + 1) * lon_steps + (lon + 1) % lon_steps
+			var d := (lat + 1) * lon_steps + lon
+			# Clockwise from outside (see add_flat_blob's winding note).
+			indices.append_array([a, d, c, a, c, b])
+	batch.add(key, vertices, normals, indices)
+
+
 ## Soft raised patch draped over the cap surface: a shallow organic cushion
 ## with a rolled edge, not a painted circle. Every rim vertex takes its height
 ## from the cap function so the patch hugs relief and bevels; interior rings

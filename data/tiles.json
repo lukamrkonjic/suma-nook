@@ -56,7 +56,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_grass.tres",
       "source_kind": "procedural",
-      "source_revision": 4
+      "source_revision": 5
     },
     {
       "id": "tile_kit_grass",

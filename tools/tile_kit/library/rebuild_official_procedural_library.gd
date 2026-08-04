@@ -134,10 +134,10 @@ func _init() -> void:
 		manifest.updated_at = STAMP
 		if tile_id == "tile_grass":
 			manifest.notes = (
-				"GG-construction redesign: near-sharp warm chartreuse block (one "
-				+ "albedo family, lighting owns top/side separation) under a dense "
-				+ "offset-grid carpet of crossed gradient-sprite tufts with an "
-				+ "original five-leaf sprout sprite. Stable ID retained; no "
+				"Clay sprout redesign: softly rounded warm chartreuse toy block "
+				+ "under a dense offset-grid carpet of solid clay rosettes — "
+				+ "crown mound plus blunt egg lobes, smooth normals, real "
+				+ "shadows. Own composition in the researched style family; no "
 				+ "extracted source geometry, texture, or material is used."
 			)
 		elif tile_id == "tile_dirt":
@@ -239,23 +239,25 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 	match tile_id:
 		# ------------------------------------------------------------ meadow
 		"tile_grass":
-			# GG-CONSTRUCTION 01 — Standard Grass. The audited reference
-			# construction verbatim: a near-sharp cube in ONE warm chartreuse
-			# family (scene lighting owns all top/side separation) under a
-			# dense offset-grid carpet of crossed gradient-sprite tufts.
-			# The sprite silhouette, palette values, and grid are Suma
-			# originals; only the technique is reproduced.
+			# SOFT SPROUT MEADOW — Standard Grass. The judged sweet spot
+			# after the whole exploration ladder: the researched carpet
+			# composition (offset grid, measured tuft sizing, tone-on-tone
+			# chartreuse, slight rim overhang) rendered with Suma's own
+			# five-finger sprout sprite on a SOFTLY ROUNDED clay block —
+			# like the reference family, never a copy of it. Solid-geometry
+			# rosettes (bigger/denser/sparser) all read as clutter or noise;
+			# the soft gradient cards are what keep the carpet calm.
 			_set_base(preset, {"top_key": "grass_gg_top",
 				"bevel_key": "grass_gg_bevel", "side_key": "grass_gg_side",
 				"lower_key": "grass_gg_lower", "turf_side_key": "grass_gg_side"},
 				"none", 0.0,
 				{"relief_resolution": 12, "relief_edge_feather": 0.18,
-					"turf_cap": false, "top_bevel": 0.018,
-					"corner_radius": 0.015, "bevel_segments": 2,
-					"bottom_chamfer": 0.01})
-			# Card size 0.375–0.53 is the audited particle start_size range
-			# (0.22–0.31 on the 1.0 reference cell) scaled to the authored
-			# 1.70 m footprint. Yaw 135° faces the fixed diagonal camera.
+					"turf_cap": false, "top_bevel": 0.035,
+					"corner_radius": 0.045, "bevel_segments": 4,
+					"bottom_chamfer": 0.012})
+			# Card size 0.375–0.53 is the audited tuft size range scaled to
+			# the authored 1.70 m footprint. Yaw 135° faces the fixed
+			# diagonal camera.
 			_sprite_carpet(preset, {
 				"sprite": "tuft_sprout",
 				"tint_key": "grass_gg_tuft",
@@ -869,8 +871,8 @@ func _apply_runtime_semantics(manifest: TileLibraryManifest) -> void:
 		"tile_grass":
 			# Camera-facing sprite cards must never quarter-turn: a rotated
 			# variant puts every card edge-on to the fixed camera and the
-			# carpet vanishes. The reference repeats one identical detail
-			# prefab per cell, which is exactly this.
+			# carpet vanishes. One identical detail per cell also keeps the
+			# carpet rhythm continuous across neighbours.
 			manifest.detail_rotation_variants = 1
 		"tile_dirt":
 			manifest.detail_rotation_variants = 4
@@ -962,6 +964,11 @@ func _turf(preset: TileKitPreset, params: Dictionary) -> void:
 ## The reference sprite-card tuft carpet (see KitSpriteTuftsBuilder).
 func _sprite_carpet(preset: TileKitPreset, params: Dictionary) -> void:
 	_enable(preset, "sprite_tufts", params)
+
+
+## The solid clay sprout carpet (see KitClayTuftsBuilder).
+func _clay_carpet(preset: TileKitPreset, params: Dictionary) -> void:
+	_enable(preset, "clay_tufts", params)
 
 
 func _liquid(preset: TileKitPreset, params: Dictionary) -> void:

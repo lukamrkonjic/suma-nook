@@ -30,6 +30,8 @@ static func builder_for(kind: String) -> Object:
 			return KitClusterBuilder
 		"sprite_tufts":
 			return KitSpriteTuftsBuilder
+		"clay_tufts":
+			return KitClayTuftsBuilder
 		"pavers":
 			return KitPaversBuilder
 		"fence":
