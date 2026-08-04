@@ -135,6 +135,7 @@ func _run() -> void:
 	_test_build_library_categories()
 	_test_content_assets()
 	_test_tile_slot_fill()
+	_test_world_model_scale_contract()
 	_test_catalog_expansion()
 	_test_gg_render_contract()
 	_test_game_preferences()
@@ -1048,9 +1049,10 @@ func _test_registries() -> void:
 	check(regs.load_all(), "registry loads every current definition")
 	check(regs.load_errors.is_empty(), "registry reports no content errors")
 	check(
-		is_equal_approx(regs.tunef("tile_size", 0.0), 1.35)
-		and is_equal_approx(regs.tunef("block_depth", 0.0), 0.5),
-		"tile dimensions use the audited footprint and stacking step"
+		is_equal_approx(regs.tunef("tile_size", 0.0), 1.0)
+		and is_equal_approx(regs.tunef("block_depth", 0.0), 0.5)
+		and is_equal_approx(regs.tunef("world_model_scale", 0.0), 1.0 / 1.35),
+		"tiles and catalog models use the audited GG scale calibration"
 	)
 	check(
 		regs.tile("tile_open_water").render_profile == "continuous_water"
@@ -1302,7 +1304,7 @@ func _test_tile_slot_fill() -> void:
 		# Slot width depends on the layer's declared scale mode. The shipped GLB
 		# catalog is authored at 1.70 m and normalized by `tile_xz` at runtime; a
 		# layer declaring `none` is authored at the live grid size and receives
-		# no scaling, so it must measure 1.35 m in the source file.
+		# no scaling, so it must measure 1.00 m in the source file.
 		var slot := TILE_SLOT
 		if def.uses_layered_visual():
 			var authored := false
@@ -1467,6 +1469,70 @@ func _test_content_assets() -> void:
 	check(regs.load_all(), "content asset validation registry loads")
 	var errors := ContentValidator.validate(regs)
 	check(errors.is_empty(), "every production definition resolves its visual asset: " + ", ".join(errors))
+
+
+func _test_world_model_scale_contract() -> void:
+	var core := fresh_core(404)
+	var palette := load(
+		"res://assets/palettes/gg_material_palette.tres"
+	) as CozyPalette
+	var assets := AssetLibrary.new(MaterialLibrary.new(palette))
+	var factory := StructureVisualFactory.new(assets, core.grid)
+	var expected_scale := 1.0 / 1.35
+	check(
+		is_equal_approx(core.grid.world_model_scale, expected_scale),
+		"the live model catalog uses the same 1.00 / 1.35 GG calibration as the grid"
+	)
+	for definition: Defs.StructureDefinition in core.registries.structures.values():
+		var raw_wrapper := Node3D.new()
+		var raw := assets.instantiate(definition.asset_id)
+		raw_wrapper.add_child(raw)
+		var raw_data := StructureVisualFactory.local_mesh_bounds(raw_wrapper)
+		var visual := factory.instantiate_visual(definition, false)
+		var scaled_data := StructureVisualFactory.local_mesh_bounds(visual)
+		check(
+			bool(raw_data.get("found", false))
+			and bool(scaled_data.get("found", false)),
+			"model %s exposes bounds for global scale validation" % definition.id
+		)
+		if (
+			bool(raw_data.get("found", false))
+			and bool(scaled_data.get("found", false))
+		):
+			var raw_bounds: AABB = raw_data["bounds"]
+			var scaled_bounds: AABB = scaled_data["bounds"]
+			if definition.grid_fit_profile == "tile_span":
+				check(
+					is_equal_approx(
+						scaled_bounds.size.y,
+						raw_bounds.size.y * expected_scale
+					)
+					and maxf(scaled_bounds.size.x, scaled_bounds.size.z)
+					<= core.grid.tile_size - StructureVisualFactory.GRID_FIT_MARGIN + 0.005,
+					"grid-fitted model %s keeps its exact tile span and calibrated height"
+					% definition.id
+				)
+			else:
+				check(
+					scaled_bounds.size.is_equal_approx(
+						raw_bounds.size * expected_scale
+					),
+					"catalog model %s scales uniformly by the GG calibration"
+					% definition.id
+				)
+		raw_wrapper.free()
+		visual.free()
+	for fire_id in ["struct_campfire", "struct_firepit_polished"]:
+		var fire_definition := core.registries.structure(fire_id)
+		var effect := factory.instantiate_fire_effect(fire_definition)
+		check(
+			is_equal_approx(
+				effect.scale.x,
+				factory.effective_model_scale(fire_definition)
+			),
+			"%s fire geometry follows its complete effective model scale" % fire_id
+		)
+		effect.free()
 
 
 func _test_catalog_expansion() -> void:
@@ -2216,6 +2282,17 @@ func _test_object_support_graph() -> void:
 		chest_transform.origin.y > table_transform.origin.y
 		and pot_transform.origin.y > chest_transform.origin.y,
 		"support transforms compose upward without floating gaps from tile elevation"
+	)
+	check(
+		is_equal_approx(
+			chest_transform.origin.y - table_transform.origin.y,
+			0.61 * core.grid.world_model_scale
+		)
+		and is_equal_approx(
+			pot_transform.origin.y - chest_transform.origin.y,
+			0.51 * core.grid.world_model_scale
+		),
+		"stacked model support slots follow the shared world-model calibration"
 	)
 
 	var detached := core.grid.detach_structure_stack(table.instance_id)

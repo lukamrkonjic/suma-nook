@@ -111,7 +111,10 @@ var home_cell := Vector2i.ZERO
 var _structure_locations: Dictionary = {}
 
 var tile_size: float:
-	get: return registries.tunef("tile_size", 1.35)
+	get: return registries.tunef("tile_size", 1.0)
+
+var world_model_scale: float:
+	get: return maxf(0.01, registries.tunef("world_model_scale", 1.0))
 
 var block_depth: float:
 	get: return registries.tunef("block_depth", 0.5)
@@ -339,6 +342,13 @@ func socket_offset(_socket_index: int) -> Vector3:
 	return Vector3.ZERO
 
 
+## Converts authored placeable-space coordinates into the live model scale.
+## Tile-root sockets remain centered; only coordinates owned by a model (for
+## example a tabletop support slot) pass through this conversion.
+func model_space_offset(authored_offset: Vector3) -> Vector3:
+	return authored_offset * world_model_scale
+
+
 func free_socket(coord: Vector2i, socket_type: String, elevation: int = 0) -> int:
 	var state := cell_at(coord, elevation)
 	var def := tile_def_at(coord, elevation)
@@ -555,7 +565,10 @@ func _structure_local_transform_in_state(
 		visiting
 	)
 	visiting.erase(instance_id)
-	return parent_transform * Transform3D(local_basis, slot.offset)
+	return parent_transform * Transform3D(
+		local_basis,
+		model_space_offset(slot.offset)
+	)
 
 
 func support_slot_local_transform(parent_instance_id: int, slot_id: String) -> Transform3D:
@@ -569,7 +582,7 @@ func support_slot_local_transform(parent_instance_id: int, slot_id: String) -> T
 		return structure_local_transform(parent_instance_id)
 	return structure_local_transform(parent_instance_id) * Transform3D(
 		Basis.IDENTITY,
-		slot.offset
+		model_space_offset(slot.offset)
 	)
 
 

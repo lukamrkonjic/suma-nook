@@ -2,9 +2,9 @@ class_name StructureVisualFactory
 extends RefCounted
 ## Instantiates placeable visuals through their presentation contract.
 ##
-## Most props retain authored dimensions. Grid-spanning structures such as the
-## dock opt into a horizontal fit profile so a grid-size tuning change cannot
-## leave their geometry overlapping neighbouring tile caps.
+## Every catalog model receives the shared world-model calibration. Grid-
+## spanning structures such as the dock already derive their X/Z footprint
+## from the live tile and therefore receive the shared scale vertically only.
 
 const GRID_FIT_MARGIN := 0.02
 const AmbientMotionScript := preload("res://scripts/visuals/ambient_motion.gd")
@@ -32,9 +32,7 @@ func instantiate_visual(
 	var authored := assets.instantiate(definition.asset_id)
 	authored.name = "AuthoredVisual"
 	visual.add_child(authored)
-	match definition.grid_fit_profile:
-		"tile_span":
-			_fit_authored_xz_to_tile(authored)
+	_prepare_authored_visual(authored, definition)
 	if definition.has_capability("fire"):
 		_hide_authored_fire(authored, definition.capability("fire"))
 		if include_effects:
@@ -57,12 +55,13 @@ func instantiate_fire_effect(
 	var owns_authored := authored_visual == null
 	if owns_authored:
 		authored_visual = assets.instantiate(definition.asset_id)
-		match definition.grid_fit_profile:
-			"tile_span":
-				_fit_authored_xz_to_tile(authored_visual)
+		_prepare_authored_visual(authored_visual, definition)
 	var effect := BurningEffectScript.new()
 	effect.name = "BurningEffect"
 	effect.configure(assets.materials, profile, authored_visual)
+	# Fire geometry is a sibling of the authored model. Scale it explicitly so
+	# flame dimensions, offsets, and duplicated fuel overlays stay registered.
+	effect.scale = Vector3.ONE * effective_model_scale(definition)
 	if owns_authored:
 		authored_visual.free()
 	return effect
@@ -91,6 +90,29 @@ func batch_mesh(definition: Defs.StructureDefinition) -> ArrayMesh:
 
 func clear_asset_edit_cache() -> void:
 	_batch_mesh_cache.clear()
+
+
+func effective_model_scale(definition: Defs.StructureDefinition) -> float:
+	if definition == null:
+		return grid.world_model_scale
+	return (
+		grid.world_model_scale
+		* assets.edits.model_scale_for(definition.asset_id)
+	)
+
+
+func _prepare_authored_visual(
+	authored: Node3D,
+	definition: Defs.StructureDefinition
+) -> void:
+	if definition.grid_fit_profile == "tile_span":
+		# Tile-span models were already reduced horizontally when tile_size moved
+		# from 1.35 m to 1.00 m. Preserve that exact live fit and scale only the
+		# remaining authored (vertical) dimension here.
+		_fit_authored_xz_to_tile(authored)
+		authored.scale.y *= grid.world_model_scale
+		return
+	authored.scale *= grid.world_model_scale
 
 
 func _fit_authored_xz_to_tile(authored: Node3D) -> void:

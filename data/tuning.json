@@ -1,6 +1,7 @@
 {
   "save_path": "user://suma_nook_world.json",
-  "tile_size": 1.35,
+  "tile_size": 1.0,
+  "world_model_scale": 0.74074074,
   "block_depth": 0.5,
   "max_stack_elevation": 6.0,
   "max_object_stack_depth": 6.0,

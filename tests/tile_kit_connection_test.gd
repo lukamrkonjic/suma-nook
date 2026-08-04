@@ -72,7 +72,7 @@ func _run() -> void:
 			"surface variant %d is baked" % mask
 		)
 	var registries := Registries.new()
-	registries.tuning = {"tile_size": 1.35, "block_depth": 0.5}
+	registries.tuning = {"tile_size": 1.0, "block_depth": 0.5}
 	var definition := Defs.TileDefinition.new()
 	definition.id = "tile_kit_grass"
 	definition.family = "tile_kit"

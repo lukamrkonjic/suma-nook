@@ -18,11 +18,14 @@ const COVER_TWEEN_META := "covered_surface_tween"
 const COVER_STATE_META := "covered_surface_state"
 const STACK_SEAM_HEIGHT := 0.028
 const STACK_SEAM_OVERLAP := 0.003
-const DETAIL_VARIANT_OFFSETS := [
-	Vector2(-0.10, -0.06),
-	Vector2(0.08, -0.11),
-	Vector2(0.11, 0.07),
-	Vector2(-0.06, 0.12),
+## Coordinate variation is stored as a fraction of the live cell. Keeping
+## these as absolute metres made dressing drift proportionally farther toward
+## the rim when the GG-calibrated grid became smaller.
+const DETAIL_VARIANT_OFFSET_FRACTIONS := [
+	Vector2(-0.074074, -0.044444),
+	Vector2(0.059259, -0.081481),
+	Vector2(0.081481, 0.051852),
+	Vector2(-0.044444, 0.088889),
 ]
 
 var assets: AssetLibrary
@@ -136,10 +139,14 @@ func _instantiate_layered_visual(
 			var variants := def.detail_rotation_variants
 			var resolved_variant := posmod(detail_variant, variants)
 			layer_visual.rotation.y = TAU * float(resolved_variant) / float(variants)
-			var offset: Vector2 = DETAIL_VARIANT_OFFSETS[
-				resolved_variant % DETAIL_VARIANT_OFFSETS.size()
+			var offset: Vector2 = DETAIL_VARIANT_OFFSET_FRACTIONS[
+				resolved_variant % DETAIL_VARIANT_OFFSET_FRACTIONS.size()
 			]
-			layer_visual.position += Vector3(offset.x, 0.0, offset.y)
+			layer_visual.position += Vector3(
+				offset.x * grid.tile_size,
+				0.0,
+				offset.y * grid.tile_size
+			)
 		root.add_child(layer_visual)
 		for child in layer_visual.find_children("*", "MeshInstance3D", true, false):
 			var mesh := child as MeshInstance3D

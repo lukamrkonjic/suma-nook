@@ -653,9 +653,10 @@ func _step_build_library_ui() -> void:
 func _step_tile_geometry_contract() -> void:
 	print("STEP compact tile geometry and coverable surface relief")
 	check(
-		is_equal_approx(main.core.grid.tile_size, 1.35)
-		and is_equal_approx(main.core.grid.block_depth, 0.5),
-		"runtime grid uses GG-like 1.35 x 0.50 x 1.35 m blocks"
+		is_equal_approx(main.core.grid.tile_size, 1.0)
+		and is_equal_approx(main.core.grid.block_depth, 0.5)
+		and is_equal_approx(main.core.grid.world_model_scale, 1.0 / 1.35),
+		"runtime grid and model catalog match the GG scale calibration"
 	)
 	var all_fit := true
 	var all_structural_shells_end_at_surface := true
@@ -2228,7 +2229,7 @@ func _step_woodcutting() -> void:
 		+ main.core.grid.structure_local_transform(tree.instance_id).origin
 	)
 	# Keep the scripted interaction close to the exact tree. With the compact
-	# 1.35 m grid, the former offset could enter a neighboring cell's focus
+	# 1.00 m grid, a fixed offset could enter a neighboring cell's focus
 	# neighborhood even though the tree itself remained in range.
 	main.player.position = tree_point + Vector3(
 		main.core.grid.tile_size * 0.2,

@@ -355,7 +355,7 @@ func _stack_relative_transform(
 	visiting.erase(instance_id)
 	return parent_transform * Transform3D(
 		Basis(Vector3.UP, structure.rotation * PI * 0.5),
-		slot.offset
+		core.grid.model_space_offset(slot.offset)
 	)
 
 

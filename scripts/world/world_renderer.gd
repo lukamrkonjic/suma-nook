@@ -365,7 +365,9 @@ func _build_structure(holder: Node3D, s: WorldGrid.StructureState) -> void:
 			_add_walkable_structure_surface(visual)
 	var is_firepit := def.has_capability("fire")
 	if def.has_capability("light"):
-		var model_scale := assets.edits.model_scale_for(def.asset_id)
+		var model_scale: float = (
+			_structure_visual_factory.effective_model_scale(def)
+		)
 		_add_warm_light(
 			visual,
 			1.1 if is_firepit else 0.6,

@@ -7,9 +7,10 @@ and future grass/fern/snow/sand GLB intake are specified in
 
 ## Technical contract
 
-- 1 Godot unit = 1 m. Tiles use a compact 1.70 m horizontal footprint; the land
-  block top sits at y = 0.0 and extends to y = -0.50. Every elevation step is
-  exactly 0.50 m so stacked visuals and collision touch without a gap.
+- 1 Godot unit = 1 m. Tile sources retain the 1.70 m authoring frame and are
+  normalized in X/Z to the exact 1.00 m Garden Galaxy logical cell at runtime.
+  The land block top sits at y = 0.0 and extends to y = -0.50. Every elevation
+  step is exactly 0.50 m so stacked visuals and collision touch without a gap.
 - New tiles are layered, not fused: one required `base`, one required
   `surface`, and optional `detail`/`edge` GLBs form one logical tile at
   runtime. The base owns the exact -0.50 m structural depth; the surface owns
@@ -124,10 +125,14 @@ the useful layer. For props, use the nearest existing processor.
      surface contact plane at z = 0 (Blender) / y = 0 (Godot). Do not add or
      copy a 0.50 m body. The shared base supplies it. Use
      `tile_layer_surface_*`, `tile_layer_detail_*`, or `tile_layer_edge_*`.
-   - *Prop/structure*: ground at z = 0, footprint inside ~1.5 m (structures
-     with `grid_fit_profile: "tile_span"` are auto-fitted; a 10 cm inset per
-     edge reads best). Name animated subtrees explicitly (e.g. the water
-     wheel's `WaterWheelRotor` targeted by the `ambient_motion` capability).
+   - *Prop/structure*: ground at z = 0, footprint inside ~1.5 m. Keep source
+     models at their established authored scale; the complete runtime model
+     catalog is calibrated by `world_model_scale = 1.00 / 1.35`. This shared
+     factor also drives support slots, blockers, lights, and effects. Structures
+     with `grid_fit_profile: "tile_span"` remain auto-fitted in X/Z and receive
+     the catalog calibration vertically (a 10 cm authored inset per edge reads
+     best). Name animated subtrees explicitly (e.g. the water wheel's
+     `WaterWheelRotor` targeted by the `ambient_motion` capability).
    - *Character*: follow `docs/PLAYER_ASSET_PIPELINE.md` (rig via
      `assets/player/current_player_profile.tres`; semantic animation names) —
      do not route characters through this tile/prop recipe.

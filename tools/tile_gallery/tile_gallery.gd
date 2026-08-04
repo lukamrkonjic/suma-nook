@@ -37,7 +37,7 @@ var _options: Dictionary = {}
 var _tile_ids: PackedStringArray = PackedStringArray()
 var _out_dir := ""
 var _frames := 40
-var _tile_size := 1.35
+var _tile_size := 1.0
 
 
 func _ready() -> void:

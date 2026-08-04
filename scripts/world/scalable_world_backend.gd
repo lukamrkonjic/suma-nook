@@ -315,7 +315,10 @@ func _append_structure(
 		Transform3D(Basis.IDENTITY, world_position) * local_transform
 	)
 	var source_mesh := structure_factory.batch_mesh(definition)
-	var model_scale := assets.edits.model_scale_for(definition.asset_id)
+	var authored_model_scale: float = assets.edits.model_scale_for(
+		definition.asset_id
+	)
+	var model_scale: float = structure_factory.effective_model_scale(definition)
 	if source_mesh != null:
 		for surface in source_mesh.get_surface_count():
 			var active_material := source_mesh.surface_get_material(surface)
@@ -345,12 +348,12 @@ func _append_structure(
 			_append_box_faces(
 				collision_faces,
 				world_transform.origin
-				+ Vector3(0.0, -0.08 * model_scale, 0.0),
+				+ Vector3(0.0, -0.08 * authored_model_scale, 0.0),
 				Vector3(
 					core.grid.tile_size * 0.94,
 					0.10,
 					core.grid.tile_size * 0.94
-				) * model_scale
+				) * authored_model_scale
 			)
 	if definition.has_capability("light"):
 		var burning: bool = bool(

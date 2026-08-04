@@ -15,7 +15,7 @@ signal closed
 const TILE_PATCH_RADIUS := 1
 const CatalogTaxonomy := preload("res://tools/tile_kit/library/tile_catalog_taxonomy.gd")
 const DEFAULT_TILE_ID := "tile_sand"
-const MODEL_BASE_ASSET := "tile_plain_ground"
+const MODEL_BASE_TILE_ID := "tile_plain_ground"
 const WEATHER_PRESETS := [
 	["Day", "day"],
 	["Mist", "mist"],
@@ -192,6 +192,7 @@ var _kit: UiKit
 var _input_service: InputDeviceService
 var _assets: AssetLibrary
 var _tile_factory: TileVisualFactory
+var _structure_factory: StructureVisualFactory
 
 var _root: Control
 var _preview_input: Control
@@ -278,6 +279,7 @@ func setup(game: Main) -> void:
 	_input_service = InputDeviceService.shared()
 	_assets = game.assets
 	_tile_factory = TileVisualFactory.new(game.assets, game.core.grid)
+	_structure_factory = StructureVisualFactory.new(game.assets, game.core.grid)
 	layer = 70
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_build_preview_stage()
@@ -1456,7 +1458,7 @@ func _rebuild_tile_kit_preview() -> void:
 				| (8 if x > 0 else 0)
 			)
 			# Preview at live scale, exactly as TileVisualFactory will show it:
-			# X/Z squeezed to the 1.35 m cell, verticals untouched.
+			# X/Z normalized to the 1.00 m live cell, verticals untouched.
 			generator.scale = Vector3(scale, 1.0, scale)
 			generator.position = Vector3((x - 1) * tile_size, 0.0, (z - 1) * tile_size)
 			_content_root.add_child(generator)
@@ -1565,12 +1567,19 @@ func _rebuild_preview() -> void:
 				tile.position = Vector3(x * tile_size, 0.0, z * tile_size)
 				_content_root.add_child(tile)
 	else:
-		_content_root.add_child(_assets.instantiate(MODEL_BASE_ASSET))
-		var model := _assets.instantiate(_selected_asset_id)
-		_content_root.add_child(model)
+		var base_definition := _main.core.registries.tile(MODEL_BASE_TILE_ID)
+		_content_root.add_child(
+			_tile_factory.instantiate_visual(base_definition, true)
+		)
 		var definition := _main.core.registries.structure(
 			_selected_content_id
 		)
+		var model := (
+			_structure_factory.instantiate_visual(definition)
+			if definition != null
+			else _assets.instantiate(_selected_asset_id)
+		)
+		_content_root.add_child(model)
 		if definition != null and definition.has_capability("light"):
 			_add_production_warm_light(model, definition)
 	_title.text = _display_name(_selected_content_id)
@@ -2317,7 +2326,10 @@ func _add_production_warm_light(
 	light.name = "AssetViewerProductionLight"
 	light.light_color = _kit.palette.color("vfx_local_light")
 	light.omni_range = 4.5
-	light.position.y = definition.light_height
+	light.position.y = (
+		definition.light_height
+		* _structure_factory.effective_model_scale(definition)
+	)
 	light.light_energy = _main.lighting.local_light_energy(base_energy)
 	light.set_meta("base_energy", base_energy)
 	light.add_to_group("warm_lights")

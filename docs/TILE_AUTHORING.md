@@ -47,7 +47,7 @@ Asset source files use Blender Z-up; values below are shown in Godot Y-up.
 | Part | Authored bounds/plane | Rule |
 |---|---:|---|
 | footprint | 1.70 × 1.70 m | centred on X/Z; exact slot boundary |
-| live footprint | 1.35 × 1.35 m | runtime scales X/Z only |
+| live footprint | 1.00 × 1.00 m | exact Garden Galaxy logical cell; runtime scales X/Z only |
 | walk/collision plane | y = 0.0 | gameplay stays planar unless the definition says otherwise |
 | base bottom | y = -0.50 | exact stack step |
 | standard base top / surface bottom | y = -0.055 | thin terrain shared seam |
@@ -59,7 +59,8 @@ Asset source files use Blender Z-up; values below are shown in Godot Y-up.
 The authored 1.70 m footprint is retained because the existing art catalog was
 built at that size. `TileVisualFactory` applies
 `live_tile_size / 1.70` to X/Z while leaving vertical measurements unchanged.
-Do not pre-scale a new source to 1.35 m.
+The live size is 1.00 m because Garden Galaxy's logical horizontal cell is
+confirmed as 1 × 1 world units. Do not pre-scale a new source to 1.00 m.
 
 The standard `-0.055` seam is not a universal depth limit. It is only the
 profile for thin terrain skins. Constructed materials with readable thickness,
