@@ -98,9 +98,25 @@ func _run() -> void:
 	mixed_grid.place_tile(Vector2i.ZERO, definition.id)
 	mixed_grid.place_tile(Vector2i.RIGHT, other_definition.id)
 	var mixed_factory := TileVisualFactory.new(assets, mixed_grid)
+	var mixed_mask := mixed_factory.connection_mask(
+		definition, Vector2i.ZERO, 0, 0)
 	_check(
-		mixed_factory.connection_mask(definition, Vector2i.ZERO, 0, 0) == 0,
-		"different recipes in one broad family do not fuse their heightfields"
+		mixed_mask == (2 | TileVisualFactory.MIXED_SURFACE_FLAG),
+		"unlike full-flush terrain removes its shared rim with transition topology"
+	)
+	var modular_definition := Defs.TileDefinition.new()
+	modular_definition.id = "tile_wooden_planks"
+	modular_definition.family = "home_meadow"
+	modular_definition.connection_group = "home_meadow"
+	modular_definition.connection_mode = "tiny_individual_seam"
+	registries.tiles[modular_definition.id] = modular_definition
+	var modular_grid := WorldGrid.new(registries)
+	modular_grid.place_tile(Vector2i.ZERO, definition.id)
+	modular_grid.place_tile(Vector2i.RIGHT, modular_definition.id)
+	var modular_factory := TileVisualFactory.new(assets, modular_grid)
+	_check(
+		modular_factory.connection_mask(definition, Vector2i.ZERO, 0, 0) == 0,
+		"deliberately modular planks preserve the shared bevel seam"
 	)
 	_check(
 		String(factory.call(
@@ -109,6 +125,14 @@ func _run() -> void:
 			2
 		)) == "tile_kit_grass_surface_n02",
 		"runtime resolver selects the matching baked topology"
+	)
+	_check(
+		String(factory.call(
+			"_connected_layer_asset_id",
+			"tile_kit_grass_surface",
+			2 | TileVisualFactory.MIXED_SURFACE_FLAG
+		)) == "tile_kit_grass_surface_x02",
+		"mixed terrain selects the relief-safe transition topology"
 	)
 	definition.detail_rotation_variants = 4
 	var detail_variants := {}
@@ -141,6 +165,55 @@ func _run() -> void:
 		"spatial detail variation is deterministic for a saved cell"
 	)
 
+	# Rotation is the only allowed runtime spatial variation. Translating an
+	# authored detail layer can push otherwise-contained foliage beyond the cap
+	# and make it appear to float beside the block.
+	definition.render_profile = "layered"
+	var detail_layer := Defs.TileVisualLayerDefinition.new()
+	detail_layer.role = "detail"
+	detail_layer.asset_id = "tile_grass_detail"
+	detail_layer.offset = Vector3(0.0, 0.017, 0.0)
+	definition.visual_layers.append(detail_layer)
+	for detail_variant in 4:
+		var visual := factory.instantiate_visual(
+			definition, false, 0, detail_variant)
+		var runtime_detail: Node3D = null
+		for candidate: Node in visual.find_children("*", "Node3D", true, false):
+			if String(candidate.get_meta(
+				TileVisualFactory.LAYER_ROLE_META, "")) == "detail":
+				runtime_detail = candidate as Node3D
+				break
+		_check(runtime_detail != null,
+			"runtime variant %d instantiates its detail layer" % detail_variant)
+		if runtime_detail != null:
+			_check(runtime_detail.position.is_equal_approx(detail_layer.offset),
+				"runtime variant %d rotates without translating contained detail"
+				% detail_variant)
+		visual.free()
+
+	# These are the clutter-bearing redesigned tiles. Their complete authored
+	# detail footprint must remain inside the 1.70 m cap before any rotation.
+	for detail_asset_id in [
+		"tile_grass_detail",
+		"tile_dirt_detail",
+		"tile_grove_mossy_detail",
+		"tile_grove_mature_detail",
+	]:
+		var detail_path := AssetLibrary.resolve_path(detail_asset_id)
+		var packed := load(detail_path) as PackedScene
+		var detail_root := packed.instantiate() as Node3D
+		var bounds := _visual_bounds(detail_root)
+		var inside_cap := (
+			bounds.position.x >= -0.8501
+			and bounds.position.z >= -0.8501
+			and bounds.end.x <= 0.8501
+			and bounds.end.z <= 0.8501
+		)
+		_check(inside_cap,
+			"%s detail stays inside the authored cap (bounds %s)"
+			% [detail_asset_id, bounds])
+		detail_root.free()
+
 	if _failures.is_empty():
 		print("TILE KIT CONNECTION TEST PASSED — %d checks" % _checks)
 		quit(0)
@@ -152,3 +225,25 @@ func _run() -> void:
 		_checks,
 	])
 	quit(1)
+
+
+func _visual_bounds(root: Node3D) -> AABB:
+	var result := AABB()
+	var has_bounds := false
+	for child: Node in root.find_children("*", "MeshInstance3D", true, false):
+		var mesh_instance := child as MeshInstance3D
+		if mesh_instance.mesh == null:
+			continue
+		var relative := Transform3D.IDENTITY
+		var current: Node = mesh_instance
+		while current != null and current != root:
+			if current is Node3D:
+				relative = (current as Node3D).transform * relative
+			current = current.get_parent()
+		var mesh_bounds := relative * mesh_instance.get_aabb()
+		if not has_bounds:
+			result = mesh_bounds
+			has_bounds = true
+		else:
+			result = result.merge(mesh_bounds)
+	return result

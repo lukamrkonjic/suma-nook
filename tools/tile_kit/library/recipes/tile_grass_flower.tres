@@ -9,21 +9,22 @@ kind = "base"
 params = {
 "basin_depth": 0.0,
 "basin_rim": 0.17,
-"bevel_key": "tile_top_bevel",
+"bevel_key": "grass_gg_bevel",
 "bevel_segments": 6,
-"bottom_chamfer": 0.016,
-"corner_radius": 0.075,
-"lower_key": "tile_lower",
-"relief_amplitude": 0.014,
+"bottom_chamfer": 0.018,
+"corner_radius": 0.05,
+"lower_key": "grass_gg_lower",
+"relief_amplitude": 0.0,
 "relief_bipolar": false,
 "relief_edge_feather": 0.2,
 "relief_frequency": 2.2,
-"relief_resolution": 24,
-"relief_style": "pillow",
-"side_key": "tile_side",
-"top_bevel": 0.075,
-"top_key": "tile_top",
+"relief_resolution": 20,
+"relief_style": "none",
+"side_key": "grass_gg_side",
+"top_bevel": 0.045,
+"top_key": "grass_gg_top",
 "turf_cap": false,
+"turf_side_key": "grass_gg_side",
 "turf_thickness": 0.078,
 "turf_wobble": 0.013
 }
@@ -46,28 +47,27 @@ params = {
 [sub_resource type="Resource" id="Resource_aeh3i"]
 script = ExtResource("1_xpmb5")
 kind = "clutter"
+enabled = false
 params = {
-"cluster_fraction": 0.85,
-"cluster_radius": 0.2,
-"color_weights": {
-"accent_terracotta": 18.0,
-"blossom_cream": 32.0,
-"blossom_pink": 50.0
-},
-"count": [5, 8],
-"diameter": [0.1, 0.15],
-"edge_margin": 0.035,
-"height": [0.018, 0.028],
-"min_spacing": 0.14,
-"on_dressing_fraction": 0.55,
+"cluster_fraction": 0.7,
+"cluster_radius": 0.24,
+"corner_fraction": 0.0,
+"count": [7, 13],
+"diameter": [0.05, 0.11],
+"edge_fraction": 0.0,
+"edge_margin": 0.03,
+"height": [0.008, 0.018],
+"min_spacing": 0.06,
+"on_dressing_fraction": 0.0,
 "placement_mode": "clusters",
 "scale_multiplier": 1.0,
-"shapes": ["bud"]
+"shapes": ["pebble"]
 }
 
 [sub_resource type="Resource" id="Resource_2jvmj"]
 script = ExtResource("1_xpmb5")
 kind = "grass_clusters"
+enabled = false
 params = {
 "accent_clumps": [1, 2],
 "blade_fraction": 0.42,
@@ -75,26 +75,49 @@ params = {
 "carpet_jitter": 0.3,
 "carpet_skip_fraction": 0.1,
 "carpet_spacing": 0.315,
-"coverage_mode": "turf",
+"coverage_mode": "tufts",
 "extra_tufts": [0, 1],
 "leaf_height": [0.095, 0.15],
 "leaf_width": [0.058, 0.088],
 "mass_height": [0.026, 0.042],
 "mass_scale": 1.0,
+"moss_detail_density": 1.0,
+"moss_detail_height": 1.0,
+"moss_detail_scale": 1.0,
+"moss_patch_style": "gg_cushion_moss",
 "rosette_footprint": [0.14, 0.2],
 "rosette_leaves": [3, 5],
 "tuft_lean": 0.55,
 "tuft_scale": 1.0,
-"turf_footprint": [0.26, 0.38],
-"turf_height": [0.044, 0.064],
+"turf_footprint": [0.22, 0.34],
+"turf_height": [0.03, 0.055],
 "turf_lobe_depth": 0.2,
 "turf_overhang": 0.035,
 "turf_skip_fraction": 0.1,
-"turf_spacing": 0.23
+"turf_spacing": 0.26
+}
+
+[sub_resource type="Resource" id="Resource_0t3d5"]
+script = ExtResource("1_xpmb5")
+kind = "rooted_meadow"
+params = {
+"accent_flower_chance": 0.45,
+"blade_width": [0.078, 0.103],
+"blades_per_turf": [3, 5],
+"clover_count": [4, 5],
+"clover_size": [0.054, 0.064],
+"edge_margin": 0.022,
+"fern_count": [1, 2],
+"flower_count": [7, 8],
+"four_leaf_chance": 0.28,
+"grass_height": [0.12, 0.215],
+"min_spacing": 0.115,
+"root_sink": 0.01,
+"turf_count": [10, 12]
 }
 
 [resource]
 script = ExtResource("2_8ho76")
 preset_name = "Flowering Grass"
 master_seed = 20262121
-layers = Array[ExtResource("1_xpmb5")]([SubResource("Resource_137e6"), SubResource("Resource_xsn8t"), SubResource("Resource_aeh3i"), SubResource("Resource_2jvmj")])
+layers = Array[ExtResource("1_xpmb5")]([SubResource("Resource_137e6"), SubResource("Resource_xsn8t"), SubResource("Resource_aeh3i"), SubResource("Resource_2jvmj"), SubResource("Resource_0t3d5")])

@@ -2,7 +2,6 @@
 
 [resource]
 resource_name = "tilekit_water_light"
-transparency = 1
-albedo_color = Color(0.592157, 0.741176, 0.764706, 0.86)
-metallic_specular = 0.32
-roughness = 0.34
+albedo_color = Color(0.42, 0.59, 0.55, 1)
+metallic_specular = 0.18
+roughness = 0.42

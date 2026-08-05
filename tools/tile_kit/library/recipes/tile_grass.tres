@@ -17,7 +17,7 @@ params = {
 "relief_amplitude": 0.0,
 "relief_bipolar": false,
 "relief_edge_feather": 0.2,
-"relief_frequency": 0.7,
+"relief_frequency": 2.2,
 "relief_resolution": 20,
 "relief_style": "none",
 "side_key": "grass_gg_side",
@@ -25,8 +25,8 @@ params = {
 "top_key": "grass_gg_top",
 "turf_cap": false,
 "turf_side_key": "grass_gg_side",
-"turf_thickness": 0.1,
-"turf_wobble": 0.024
+"turf_thickness": 0.078,
+"turf_wobble": 0.013
 }
 
 [sub_resource type="Resource" id="Resource_4c3bp"]
@@ -51,8 +51,10 @@ enabled = false
 params = {
 "cluster_fraction": 0.7,
 "cluster_radius": 0.24,
+"corner_fraction": 0.0,
 "count": [7, 13],
 "diameter": [0.05, 0.11],
+"edge_fraction": 0.0,
 "edge_margin": 0.03,
 "height": [0.008, 0.018],
 "min_spacing": 0.06,
@@ -64,31 +66,58 @@ params = {
 
 [sub_resource type="Resource" id="Resource_5wkl4"]
 script = ExtResource("1_7at4q")
-kind = "clay_sprouts"
+kind = "grass_clusters"
+enabled = false
 params = {
-"berry_count": [0, 0],
-"berry_key": "clay_berry",
-"edge_margin": 0.1,
-"flower_centre_key": "clay_flower_gold",
+"accent_clumps": [1, 2],
+"blade_fraction": 0.42,
+"blades_per_tuft": [2, 4],
+"carpet_jitter": 0.3,
+"carpet_skip_fraction": 0.1,
+"carpet_spacing": 0.315,
+"coverage_mode": "tufts",
+"extra_tufts": [0, 1],
+"leaf_height": [0.095, 0.15],
+"leaf_width": [0.058, 0.088],
+"mass_height": [0.026, 0.042],
+"mass_scale": 1.0,
+"moss_detail_density": 1.0,
+"moss_detail_height": 1.0,
+"moss_detail_scale": 1.0,
+"moss_patch_style": "gg_cushion_moss",
+"rosette_footprint": [0.14, 0.2],
+"rosette_leaves": [3, 5],
+"tuft_lean": 0.55,
+"tuft_scale": 1.0,
+"turf_footprint": [0.22, 0.34],
+"turf_height": [0.03, 0.055],
+"turf_lobe_depth": 0.2,
+"turf_overhang": 0.035,
+"turf_skip_fraction": 0.1,
+"turf_spacing": 0.26
+}
+
+[sub_resource type="Resource" id="Resource_bqkbi"]
+script = ExtResource("1_7at4q")
+kind = "rooted_meadow"
+params = {
+"accent_flower_chance": 0.0,
+"blade_width": [0.082411676, 0.106563553],
+"blades_per_turf": [3, 5],
+"clover_count": [3, 3],
+"clover_size": [0.05724, 0.063],
+"edge_margin": 0.025,
+"fern_count": [1, 1],
 "flower_count": [0, 0],
-"leaf_depth_ratio": 0.58,
-"leaf_height": [0.17, 0.22],
-"leaf_key": "clay_leaf",
-"leaf_width": [0.17, 0.21],
-"leaves_per_sprout": [4, 6],
-"min_spacing": 0.21,
-"mound_height": 0.0,
-"mound_key": "grass_gg_top",
-"mound_spread": 0.9,
-"petal_key": "clay_flower_cream",
-"root_sink": 0.03,
-"shoot_count": [0, 0],
-"splay_degrees": [8.0, 15.0],
-"sprout_count": [17, 21]
+"four_leaf_chance": 0.28,
+"grass_height": [0.1257, 0.2214],
+"min_spacing": 0.15,
+"root_sink": 0.01,
+"turf_count": [9, 9]
 }
 
 [resource]
 script = ExtResource("2_p7oil")
 preset_name = "Grass"
 master_seed = 20263963
-layers = Array[ExtResource("1_7at4q")]([SubResource("Resource_nhmsp"), SubResource("Resource_4c3bp"), SubResource("Resource_exlb2"), SubResource("Resource_5wkl4")])
+layers = Array[ExtResource("1_7at4q")]([SubResource("Resource_nhmsp"), SubResource("Resource_4c3bp"), SubResource("Resource_exlb2"), SubResource("Resource_5wkl4"), SubResource("Resource_bqkbi")])

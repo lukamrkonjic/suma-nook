@@ -6,7 +6,7 @@
 resource_name = "tilekit_moss_plush_deep"
 render_priority = 0
 shader = ExtResource("1_w2drk")
-shader_parameter/albedo = Color(0.21397698, 0.325667, 0.190537, 1)
+shader_parameter/albedo = Color(0.19000001, 0.265, 0.12000001, 1)
 shader_parameter/roughness_val = 0.98
 shader_parameter/specular_val = 0.1
 shader_parameter/nap_strength = 0.012

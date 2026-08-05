@@ -37,7 +37,9 @@ const BLADE_WIND_SHADER: Shader = preload(
 
 ## Palette roles whose geometry sways in the wind. Still palette-bound —
 ## the shader only ever receives a colour this class resolved.
-const WIND_BLADE_KEYS := ["clay_leaf"]
+const WIND_BLADE_KEYS := [
+	"clay_leaf", "grass_rooted_gradient", "forest_rooted_gradient",
+]
 
 const COLORS := {
 	"background": "tilekit_background",
@@ -86,6 +88,25 @@ const COLORS := {
 	"grass_gg_side": "tilekit_grass_gg_side",
 	"grass_gg_lower": "tilekit_grass_gg_lower",
 	"grass_gg_tuft": "tilekit_grass_gg_tuft",
+	# One white-albedo, vertex-tinted wind surface for the production rooted
+	# meadow. Individual vertices stay inside the canonical palette while the
+	# entire grass/fern/clover/flower composition remains one material surface.
+	"grass_rooted_gradient": "tilekit_grass_gg_top",
+	# Forest-floor redesign: a deep quiet shell supporting a brighter clover
+	# carpet and large fern crowns. All raised greenery is vertex-coloured on
+	# one wind material, keeping the lush composition to one detail surface.
+	"forest_floor_top": "deep_grass",
+	"forest_floor_bevel": "deep_grass",
+	"forest_floor_side": "pine_deep",
+	"forest_floor_lower": "earth_deep",
+	"forest_rooted_gradient": "deep_grass",
+	"forest_clover": "moss_primary",
+	"forest_clover_light": "leaf_medium",
+	"forest_fern": "pine_medium",
+	"forest_fern_light": "pine_light",
+	"forest_litter_leaf": "earthy_olive",
+	"forest_litter_leaf_light": "earth_shadow",
+	"forest_litter_twig": "wood_deep",
 	# Plasticine garden dressing: leaves sit a small step lighter and
 	# yellower than the turf so clusters read as separate clay pieces,
 	# while flowers and berries are the only warm accents on the tile.
@@ -176,14 +197,14 @@ const COLORS := {
 	# Clay-dirt redesign: use the canonical warm loam ramp instead of the old
 	# yellow Tile Kit earth tokens. Like the grass master, this is deliberately
 	# tile-specific while the new art direction is rolled through the library.
-	# The shell stays one calm terracotta piece; light/dark chips are sparse
-	# modelling accents, not an all-over texture treatment.
+	# The shell stays one calm terracotta piece; light/dark chips use neighbouring
+	# ramp steps so chunky fragments remain readable without harsh pepper noise.
 	"dirt_clay_top": "earth_mid",
 	"dirt_clay_bevel": "earth_mid",
 	"dirt_clay_side": "earth_shadow",
 	"dirt_clay_lower": "earth_deep",
 	"dirt_clay_chip_light": "earth_primary",
-	"dirt_clay_chip_dark": "earth_deep",
+	"dirt_clay_chip_dark": "earth_shadow",
 	# Stone family: warm greys — reference stone never goes blue.
 	"stone_light": "tilekit_stone_light",
 	"stone_medium": "tilekit_stone_medium",
@@ -243,9 +264,9 @@ static func color(key: String) -> Color:
 
 
 ## The one shared material per palette key. Solid colour and matte across the
-## board, with two narrow material exceptions: still water gets restrained
-## translucency, and the dedicated contour-moss top gets a matte velvet nap.
-## Both remain palette-bound; neither introduces image texture or colour noise.
+## board, with two narrow finish exceptions: still water gets a restrained soft
+## sheen, and the dedicated contour-moss top gets a matte velvet nap. Both
+## remain palette-bound; neither introduces image texture or colour noise.
 static func material(key: String) -> Material:
 	if _materials.has(key):
 		return _materials[key]
@@ -253,7 +274,11 @@ static func material(key: String) -> Material:
 		var blades := ShaderMaterial.new()
 		blades.resource_name = "tilekit_%s" % key
 		blades.shader = BLADE_WIND_SHADER
-		blades.set_shader_parameter("albedo", color(key))
+		blades.set_shader_parameter(
+			"albedo", Color.WHITE \
+				if key in ["grass_rooted_gradient", "forest_rooted_gradient"] \
+				else color(key)
+		)
 		_materials[key] = blades
 		return blades
 	if key in ["moss_contour_top", "moss_plush_base", "moss_plush_body",
@@ -292,12 +317,14 @@ static func material(key: String) -> Material:
 		result.vertex_color_use_as_albedo = true
 		result.vertex_color_is_srgb = true
 	if key in ["water_blue", "water_light"]:
-		result.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		result.albedo_color.a = 0.86
-		# Soft sheen only: a tight glossy highlight interpolates visibly
-		# across the water plane's long fan triangles and draws an X.
-		result.roughness = 0.34
-		result.metallic_specular = 0.32
+		# GG's basin water reads as one pastel clay-glass colour, not as a
+		# nearly invisible film showing the cream void through it. Keep Tile Kit
+		# ponds opaque and let the value ramp, broad ripples, and a soft sheen
+		# carry the water read. The production world-water shader remains the
+		# separate depth-aware exception.
+		result.albedo_color.a = 1.0
+		result.roughness = 0.42
+		result.metallic_specular = 0.18
 	_materials[key] = result
 	return result
 

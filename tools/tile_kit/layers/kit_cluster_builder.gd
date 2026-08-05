@@ -694,13 +694,13 @@ static func _build_gg_mossy_garden_ground(layer: TileKitLayer,
 			reveal_shoulder.y),
 		0.16 * scale, 0.105 * scale, reveal_height * 0.88, 0.28, rng,
 		0.12, 8, 34, 0.98, soil_gradient_colors)
-	# Secondary wear marks use a clear large-to-small hierarchy. They are
-	# authored as quiet supporting beats, not an even scatter, and remain at
-	# least 0.25 units inside the tile boundary at the largest editor scale.
+	# Secondary wear marks use a clear large-to-small hierarchy. One small mark
+	# approaches a corner so repeated tiles do not form a pristine cross, while
+	# its full rolled footprint remains inside the cap.
 	var soil_spots := [
 		[Vector2(0.35, -0.22), 0.125, 0.078, 0.024, -0.18, 0.12],
 		[Vector2(-0.42, 0.29), 0.078, 0.050, 0.019, 0.26, 0.10],
-		[Vector2(0.25, 0.43), 0.048, 0.031, 0.015, -0.34, 0.08],
+		[Vector2(0.70, 0.71), 0.048, 0.031, 0.015, -0.34, 0.08],
 	]
 	for spec: Array in soil_spots:
 		var point: Vector2 = spec[0]
@@ -712,17 +712,30 @@ static func _build_gg_mossy_garden_ground(layer: TileKitLayer,
 			float(spec[4]), rng, float(spec[5]), 8, 30, 0.98,
 			soil_gradient_colors)
 
-	# Two cohesive cushion banks frame the reveal. Every crown is held inside a
-	# conservative 0.60-unit safe zone—far inside the 0.85-unit tile boundary—
-	# so rotation and lobe wobble cannot create an overhang.
+	# Two cohesive cushion banks frame the reveal, with one quiet shoulder near
+	# a corner and several edge-adjacent beats. Shape-aware clamps replace the
+	# old 0.60-unit inner box, which created a conspicuous bald cross in grids.
 	var crown_specs := [
 		[Vector2(-0.34, -0.27), 0.23, 0.17, 0.066, 0, -0.12, 0.065],
 		[Vector2(-0.20, -0.39), 0.13, 0.095, 0.044, 0, 0.18, 0.045],
 		[Vector2(-0.47, -0.17), 0.10, 0.078, 0.037, 0, -0.24, 0.040],
 		[Vector2(0.29, 0.25), 0.25, 0.18, 0.070, 0, 0.14, 0.060],
 		[Vector2(0.43, 0.15), 0.12, 0.09, 0.041, 0, -0.16, 0.040],
-		[Vector2(0.24, 0.40), 0.105, 0.080, 0.038, 0, 0.20, 0.040],
-		[Vector2(0.36, -0.34), 0.11, 0.082, 0.040, 0, -0.10, 0.040],
+		[Vector2(0.24, 0.52), 0.105, 0.080, 0.038, 0, 0.20, 0.040],
+		[Vector2(0.52, -0.49), 0.11, 0.082, 0.040, 0, -0.10, 0.040],
+		# Unequal, low corner cushions keep the moss visually continuous at every
+		# four-tile intersection. Their complete rolled footprints remain inside
+		# the cap, even after any of the four runtime quarter-turns.
+		[Vector2(-0.70, -0.69), 0.115, 0.085, 0.034, 0, -0.20, 0.036],
+		[Vector2(0.67, -0.69), 0.130, 0.085, 0.039, 0, 0.14, 0.040],
+		[Vector2(-0.70, 0.67), 0.085, 0.125, 0.034, 0, 0.24, 0.036],
+		[Vector2(0.69, 0.68), 0.120, 0.100, 0.037, 0, -0.12, 0.038],
+		# Asymmetric edge cushions stop the corners from becoming a repeated
+		# four-dot motif and carry the plush relief through long connected seams.
+		[Vector2(-0.70, 0.18), 0.120, 0.090, 0.035, 0, 0.08, 0.036],
+		[Vector2(0.69, -0.09), 0.105, 0.140, 0.038, 0, -0.18, 0.040],
+		[Vector2(-0.12, -0.70), 0.140, 0.105, 0.037, 0, 0.16, 0.038],
+		[Vector2(0.20, 0.69), 0.105, 0.120, 0.035, 0, -0.10, 0.036],
 	]
 	var crown_count := clampi(roundi(float(crown_specs.size()) * density), 5,
 		crown_specs.size())
@@ -734,7 +747,7 @@ static func _build_gg_mossy_garden_ground(layer: TileKitLayer,
 		var radius_z := float(spec[2]) * scale
 		# The authored values already fit, but this second guard also contains
 		# editor scaling and future parameter changes.
-		var safe_half := minf(0.60, half - 0.20)
+		var safe_half := half - 0.035
 		point.x = clampf(point.x, -safe_half + radius_x,
 			safe_half - radius_x)
 		point.y = clampf(point.y, -safe_half + radius_z,

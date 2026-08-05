@@ -2,6 +2,6 @@
 
 [resource]
 resource_name = "tilekit_grass_gg_tuft"
-albedo_color = Color(0.40400004, 0.478, 0.165, 1)
+albedo_color = Color(0.39000002, 0.41, 0.14000002, 1)
 metallic_specular = 0.2
 roughness = 0.9

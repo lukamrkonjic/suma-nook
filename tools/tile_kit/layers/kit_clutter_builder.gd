@@ -36,10 +36,28 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 	var shapes: Array = layer.value("shapes", ["dot", "oval", "leaf_pair",
 		"lobed_clump", "nub"])
 	var count := KitDressingBuilder._int_range(rng, layer.value("count", [7, 13]))
+	var edge_fraction: float = layer.value("edge_fraction", 0.0)
+	var corner_fraction: float = layer.value("corner_fraction", 0.0)
 
 	var batch := TileKitMeshUtils.MeshBatch.new()
 	var placed: Array[Vector2] = []
-	var limit := half - margin
+	var diameter_band: Array = layer.value("diameter", [0.05, 0.11])
+	var shape_radius_scale := 0.60
+	for raw_shape in shapes:
+		shape_radius_scale = maxf(shape_radius_scale,
+			_shape_radius_scale(String(raw_shape)))
+	var boundary_clearance := margin
+	if edge_fraction > 0.0 or corner_fraction > 0.0:
+		boundary_clearance = maxf(boundary_clearance,
+			float(diameter_band[1]) * scale * shape_radius_scale + 0.010)
+	var limit := half - boundary_clearance
+	var corner_target := clampi(roundi(float(count) * corner_fraction), 0, count)
+	var edge_target := clampi(roundi(float(count) * edge_fraction), 0,
+		count - corner_target)
+	# Walk the corners once before repeating any. Randomly picking a corner for
+	# every piece could leave a connected four-tile intersection completely
+	# bare even when the recipe explicitly reserved four corner details.
+	var corner_start := rng.randi_range(0, 3)
 	# Clustered even without dressing: a few deterministic anchors gather most
 	# pieces into small compositions with genuinely open ground between them.
 	# Uniform scatter — any piece anywhere — is the machine tell the reference
@@ -89,7 +107,24 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 	while placed.size() < count and attempts < count * 12:
 		attempts += 1
 		var centre: Vector2
-		if not drifts.is_empty():
+		var placement_index := placed.size()
+		if placement_index < corner_target:
+			var corner := (corner_start + placement_index) % 4
+			var inset_x := rng.randf_range(0.0, minf(0.065, limit * 0.14))
+			var inset_y := rng.randf_range(0.0, minf(0.105, limit * 0.20))
+			centre = Vector2(
+				(-1.0 if corner in [0, 2] else 1.0) * (limit - inset_x),
+				(-1.0 if corner in [0, 1] else 1.0) * (limit - inset_y))
+		elif placement_index < corner_target + edge_target:
+			var side := rng.randi_range(0, 3)
+			var edge := limit - rng.randf_range(0.0, minf(0.075, limit * 0.15))
+			var along := rng.randf_range(-limit, limit)
+			match side:
+				0: centre = Vector2(-edge, along)
+				1: centre = Vector2(edge, along)
+				2: centre = Vector2(along, -edge)
+				_: centre = Vector2(along, edge)
+		elif not drifts.is_empty():
 			var drift: Dictionary = drifts[rng.randi() % drifts.size()]
 			var axis: Vector2 = drift["axis"]
 			var across := Vector2(-axis.y, axis.x)
@@ -122,7 +157,6 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 			continue
 		placed.append(centre)
 
-		var diameter_band: Array = layer.value("diameter", [0.05, 0.11])
 		var diameter := rng.randf_range(diameter_band[0], diameter_band[1]) * scale
 		var height_band: Array = layer.value("height", [0.008, 0.018])
 		var piece_height := rng.randf_range(height_band[0], height_band[1]) * scale
@@ -139,6 +173,22 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 		"meshes": [{"role": "detail", "name": "tile_clutter",
 			"mesh": batch.commit(), "cast_shadow": false}],
 	}
+
+
+static func _shape_radius_scale(shape: String) -> float:
+	match shape:
+		"twig":
+			return 1.25
+		"rock":
+			return 0.95
+		"stone_chip":
+			return 0.78
+		"leaf_pair", "mushroom", "bud":
+			return 0.72
+		"clay_chip", "lobed_clump", "oval", "pebble":
+			return 0.58
+		_:
+			return 0.62
 
 
 static func _add_shape(batch: TileKitMeshUtils.MeshBatch, layer: TileKitLayer,
@@ -178,30 +228,15 @@ static func _add_shape(batch: TileKitMeshUtils.MeshBatch, layer: TileKitLayer,
 				diameter * rng.randf_range(0.45, 0.70), yaw, rng,
 				5, 0.52, rng.randf_range(0.18, 0.34))
 		"clay_chip":
-			# An intentional hand-cut clay mark, not a pebble or noisy clod.
-			# Light pieces are paper-thin polygonal flakes with a tiny modelled
-			# edge. Dark pieces sit almost flush and read as shallow pressed chips.
-			if key == "dirt_clay_chip_dark":
-				var basis := Basis(Vector3.UP, yaw)
-				var points: Array[Vector3] = []
-				var point_count := 4 + (rng.randi() % 2)
-				for index in point_count:
-					var angle := TAU * (float(index) + rng.randf_range(-0.12, 0.12)) \
-						/ float(point_count)
-					var radius := rng.randf_range(0.78, 1.08)
-					points.append(origin + basis * Vector3(
-						cos(angle) * diameter * 0.52 * radius,
-						0.0015,
-						sin(angle) * diameter * 0.34 * radius))
-				var centre := origin + Vector3.UP * 0.0015
-				for index in point_count:
-					TileKitMeshUtils.add_flat_triangle(batch, key,
-						points[index], points[(index + 1) % point_count], centre)
-			else:
-				TileKitMeshUtils.add_faceted_chunk(batch, key,
-					origin - Vector3.UP * piece_height * 0.22,
-					diameter * 0.52, diameter * 0.36, piece_height,
-					yaw, rng, 5, 0.78, 0.24)
+			# Broad, hand-cut fragments with a real rolled edge. Both tones use
+			# geometry: the old almost-zero-thickness dark marks disappeared at the
+			# gameplay camera and read as printed noise rather than clay pieces.
+			var chip_height := piece_height * (
+				0.78 if key == "dirt_clay_chip_dark" else 1.0)
+			TileKitMeshUtils.add_faceted_chunk(batch, key,
+				origin - Vector3.UP * chip_height * 0.24,
+				diameter * 0.54, diameter * 0.38, chip_height,
+				yaw, rng, 5, 0.80, 0.22)
 		"rock":
 			# A hero faceted rock: one big crystal-cut mass with a shoulder.
 			TileKitMeshUtils.add_faceted_chunk(batch, key, origin,

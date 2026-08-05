@@ -1,0 +1,15 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://assets/materials/reworked/gg_blade_wind.gdshader" id="1_bpg88"]
+
+[resource]
+resource_name = "tilekit_forest_rooted_gradient"
+render_priority = 0
+shader = ExtResource("1_bpg88")
+shader_parameter/albedo = Color(1, 1, 1, 1)
+shader_parameter/sway_reference_height = null
+shader_parameter/wind_amplitude = null
+shader_parameter/wind_speed = null
+shader_parameter/wind_direction = null
+shader_parameter/wind_spatial_scale = null
+shader_parameter/wind_second_amount = null

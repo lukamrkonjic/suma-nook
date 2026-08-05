@@ -9,21 +9,22 @@ kind = "base"
 params = {
 "basin_depth": 0.0,
 "basin_rim": 0.17,
-"bevel_key": "tile_top_bevel",
+"bevel_key": "grass_gg_bevel",
 "bevel_segments": 6,
-"bottom_chamfer": 0.016,
-"corner_radius": 0.075,
-"lower_key": "tile_lower",
-"relief_amplitude": 0.016,
+"bottom_chamfer": 0.018,
+"corner_radius": 0.05,
+"lower_key": "grass_gg_lower",
+"relief_amplitude": 0.0,
 "relief_bipolar": false,
 "relief_edge_feather": 0.2,
 "relief_frequency": 2.2,
-"relief_resolution": 24,
-"relief_style": "pillow",
-"side_key": "tile_side",
-"top_bevel": 0.075,
-"top_key": "tile_top",
+"relief_resolution": 20,
+"relief_style": "none",
+"side_key": "grass_gg_side",
+"top_bevel": 0.045,
+"top_key": "grass_gg_top",
 "turf_cap": false,
+"turf_side_key": "grass_gg_side",
 "turf_thickness": 0.078,
 "turf_wobble": 0.013
 }
@@ -50,8 +51,10 @@ enabled = false
 params = {
 "cluster_fraction": 0.7,
 "cluster_radius": 0.24,
+"corner_fraction": 0.0,
 "count": [7, 13],
 "diameter": [0.05, 0.11],
+"edge_fraction": 0.0,
 "edge_margin": 0.03,
 "height": [0.008, 0.018],
 "min_spacing": 0.06,
@@ -64,33 +67,57 @@ params = {
 [sub_resource type="Resource" id="Resource_se1wv"]
 script = ExtResource("1_guku3")
 kind = "grass_clusters"
+enabled = false
 params = {
 "accent_clumps": [1, 2],
-"blade_fraction": 0.55,
+"blade_fraction": 0.42,
 "blades_per_tuft": [2, 4],
 "carpet_jitter": 0.3,
 "carpet_skip_fraction": 0.1,
 "carpet_spacing": 0.315,
-"coverage_mode": "turf",
+"coverage_mode": "tufts",
 "extra_tufts": [0, 1],
 "leaf_height": [0.095, 0.15],
 "leaf_width": [0.058, 0.088],
 "mass_height": [0.026, 0.042],
 "mass_scale": 1.0,
+"moss_detail_density": 1.0,
+"moss_detail_height": 1.0,
+"moss_detail_scale": 1.0,
+"moss_patch_style": "gg_cushion_moss",
 "rosette_footprint": [0.14, 0.2],
 "rosette_leaves": [3, 5],
 "tuft_lean": 0.55,
 "tuft_scale": 1.0,
-"turf_footprint": [0.27, 0.4],
-"turf_height": [0.05, 0.072],
+"turf_footprint": [0.22, 0.34],
+"turf_height": [0.03, 0.055],
 "turf_lobe_depth": 0.2,
 "turf_overhang": 0.035,
-"turf_skip_fraction": 0.05,
-"turf_spacing": 0.21
+"turf_skip_fraction": 0.1,
+"turf_spacing": 0.26
+}
+
+[sub_resource type="Resource" id="Resource_pcncc"]
+script = ExtResource("1_guku3")
+kind = "rooted_meadow"
+params = {
+"accent_flower_chance": 0.0,
+"blade_width": [0.07, 0.096],
+"blades_per_turf": [4, 6],
+"clover_count": [6, 8],
+"clover_size": [0.052, 0.064],
+"edge_margin": 0.02,
+"fern_count": [2, 3],
+"flower_count": [0, 0],
+"four_leaf_chance": 0.25,
+"grass_height": [0.115, 0.205],
+"min_spacing": 0.095,
+"root_sink": 0.01,
+"turf_count": [17, 19]
 }
 
 [resource]
 script = ExtResource("2_oajhk")
 preset_name = "Dense Grass"
 master_seed = 20269426
-layers = Array[ExtResource("1_guku3")]([SubResource("Resource_5ejib"), SubResource("Resource_0wldu"), SubResource("Resource_2ow8h"), SubResource("Resource_se1wv")])
+layers = Array[ExtResource("1_guku3")]([SubResource("Resource_5ejib"), SubResource("Resource_0wldu"), SubResource("Resource_2ow8h"), SubResource("Resource_se1wv"), SubResource("Resource_pcncc")])

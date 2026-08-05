@@ -6,7 +6,7 @@
 resource_name = "tilekit_moss_contour_top"
 render_priority = 0
 shader = ExtResource("1_lg0ig")
-shader_parameter/albedo = Color(0.324866, 0.352793, 0.17739101, 1)
+shader_parameter/albedo = Color(0.32, 0.33, 0.11500001, 1)
 shader_parameter/roughness_val = 0.98
 shader_parameter/specular_val = 0.1
 shader_parameter/nap_strength = 0.012

@@ -56,7 +56,8 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_grass.tres",
       "source_kind": "procedural",
-      "source_revision": 5
+      "source_revision": 6,
+      "detail_rotation_variants": 4
     },
     {
       "id": "tile_kit_grass",
@@ -378,7 +379,7 @@
       "render_profile": "layered",
       "collision_profile": "flat",
       "soft_surface_profile": "",
-      "walk_surface_height": 0.0,
+      "walk_surface_height": 0.03,
       "water_cells": [],
       "anchor": "",
       "decor_sockets": 3,
@@ -397,12 +398,13 @@
       "rarity": "common",
       "weight": 3.0,
       "placement_sound": "grass",
-      "collection_hint": "",
+      "collection_hint": "A deep clover carpet where broad ferns unfurl.",
       "special_trait": "",
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_grove_mature.tres",
       "source_kind": "procedural",
-      "source_revision": 3
+      "source_revision": 4,
+      "detail_rotation_variants": 4
     },
     {
       "id": "tile_grove_birch",
@@ -1657,7 +1659,7 @@
       "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_sand.tres",
       "source_kind": "procedural",
-      "source_revision": 2
+      "source_revision": 3
     },
     {
       "id": "tile_proc_sandy_ground",

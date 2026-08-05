@@ -72,7 +72,8 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 	if mask != 0:
 		var world_origin: Vector2 = context.get("world_origin", Vector2.ZERO)
 		var connected_height := _connected_height_function(bevel, mask,
-			relief, world_origin, relief_edge_feather)
+			relief, world_origin, relief_edge_feather,
+			bool(context.get("flatten_connected_relief", false)))
 		context["cap_height"] = connected_height
 		return {
 			"meshes": [
@@ -141,6 +142,8 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 ##   "dunes"   directional waves with noise breakup — sand
 ##   "sculpted_dunes" staggered asymmetric wind strokes — source-like sand
 ##             dunes and broad snow drifts, periodic across the tile footprint
+##   "natural_dunes" a few broad asymmetric sand bodies — no visible wave or
+##             S-stroke paths, periodic across the tile footprint
 ##   "heaps"   distinct rounded mounds with textured ground between — snow
 ##             drifts and mud piles, the "mini mountains" read
 ## The feather to the rim is part of the function, so every consumer (mesh,
@@ -172,6 +175,9 @@ static func _relief_function(layer: TileKitLayer, rng: RandomNumberGenerator,
 	var sculpted_dunes: Callable
 	if style == "sculpted_dunes":
 		sculpted_dunes = _sculpted_dune_function(layer, rng)
+	var natural_dunes: Callable
+	if style == "natural_dunes":
+		natural_dunes = _natural_dune_function(layer)
 	var contour_moss: Callable
 	if style == "contour_moss":
 		contour_moss = _contour_moss_function(layer)
@@ -221,6 +227,8 @@ static func _relief_function(layer: TileKitLayer, rng: RandomNumberGenerator,
 			return 0.0
 		if style == "sculpted_dunes":
 			return feather * float(sculpted_dunes.call(local)) * amplitude
+		if style == "natural_dunes":
+			return feather * float(natural_dunes.call(local)) * amplitude
 		if style == "contour_moss":
 			return feather * float(contour_moss.call(local)) * amplitude
 		if style == "furrows":
@@ -414,13 +422,112 @@ static func _sculpted_dune_function(
 		return pow(value, maxf(0.35, height_exponent))
 
 
+## A periodic field of broad dune bodies rather than ridge strokes. Each dune
+## is an elongated, gently bent clay mass: a long windward slope, a somewhat
+## shorter lee slope, and no subtractive groove. The result reads through
+## large lighting gradients instead of graphic S-shaped lines.
+static func _natural_dune_function(layer: TileKitLayer) -> Callable:
+	var seed_offset := int(layer.value("dune_seed_offset", 0))
+	var pattern_rng := RandomNumberGenerator.new()
+	pattern_rng.seed = hash("tilekit|natural_dunes|%d" % seed_offset)
+	var scale: float = layer.value("dune_scale", 1.0)
+	var amount: float = clampf(layer.value("dune_amount", 0.34), 0.0, 1.0)
+	var softness: float = clampf(layer.value("dune_softness", 0.88), 0.0, 1.0)
+	var irregularity: float = clampf(
+		layer.value("dune_irregularity", 0.68), 0.0, 1.0
+	)
+	var lee_depth: float = clampf(layer.value("dune_lee_depth", 0.18), 0.0, 1.0)
+	var direction_degrees: float = layer.value(
+		"dune_direction_degrees", pattern_rng.randf_range(0.0, 360.0)
+	)
+	var prevailing_yaw := deg_to_rad(direction_degrees)
+	var height_exponent: float = layer.value("dune_height_exponent", 0.86)
+	var dune_count := clampi(roundi(lerpf(2.0, 4.0, amount)), 2, 4)
+	var dunes: Array[Dictionary] = []
+	for _index in dune_count:
+		var yaw := prevailing_yaw + pattern_rng.randf_range(
+			-0.42 * irregularity, 0.42 * irregularity)
+		dunes.append({
+			"centre": Vector2(
+				pattern_rng.randf_range(-HALF, HALF),
+				pattern_rng.randf_range(-HALF, HALF)),
+			"wind": Vector2(cos(yaw), sin(yaw)),
+			# Dunes spread farther across the wind than along it. Both radii are
+			# intentionally large enough to form land masses, never thin strokes.
+			"wind_radius": scale * pattern_rng.randf_range(
+				0.38 - irregularity * 0.020,
+				0.54 + irregularity * 0.040),
+			"cross_radius": scale * pattern_rng.randf_range(
+				0.48 - irregularity * 0.025,
+				0.68 + irregularity * 0.055),
+			"bend": pattern_rng.randf_range(-0.16, 0.16) * irregularity,
+			"shoulder_along": pattern_rng.randf_range(-0.18, 0.16),
+			"shoulder_across": pattern_rng.randf_range(-0.24, 0.24),
+			"shoulder_scale": pattern_rng.randf_range(0.48, 0.68),
+			"height": pattern_rng.randf_range(
+				0.76 - irregularity * 0.08, 1.0),
+		})
+	var falloff_power := lerpf(1.70, 1.10, softness)
+	return func(world: Vector2) -> float:
+		var local := Vector2(
+			fposmod(world.x + HALF, TILE) - HALF,
+			fposmod(world.y + HALF, TILE) - HALF)
+		var accumulation := 0.0
+		for dune: Dictionary in dunes:
+			var wind: Vector2 = dune["wind"]
+			var across_axis := Vector2(-wind.y, wind.x)
+			for copy_y in range(-1, 2):
+				for copy_x in range(-1, 2):
+					var centre: Vector2 = dune["centre"] + Vector2(
+						copy_x * TILE, copy_y * TILE)
+					var relative := local - centre
+					var along := relative.dot(wind)
+					var across := relative.dot(across_axis)
+					var wind_radius: float = dune["wind_radius"]
+					var cross_radius: float = dune["cross_radius"]
+					# A tiny broad bend prevents perfect ellipses without drawing a
+					# readable curve through the surface.
+					across -= float(dune["bend"]) * along * along \
+						/ maxf(wind_radius, 0.001)
+					# Sand builds gradually on the windward side and drops a little
+					# faster on the lee side, but both remain rounded clay slopes.
+					var directional_radius := wind_radius * (
+						lerpf(1.24, 1.08, lee_depth) if along < 0.0
+						else lerpf(0.98, 0.78, lee_depth))
+					var ellipse := pow(absf(along) \
+						/ maxf(directional_radius, 0.001), 2.0) \
+						+ pow(absf(across) / maxf(cross_radius, 0.001), 2.0)
+					var body := exp(-pow(ellipse, falloff_power)) \
+						* float(dune["height"])
+					# A smaller offset shoulder breaks the perfect oval into one
+					# lopsided accumulated mass. It is still part of the same smooth
+					# dune, never a separate pebble-like bump.
+					var shoulder_scale: float = dune["shoulder_scale"]
+					var shoulder_along := along \
+						- float(dune["shoulder_along"]) * wind_radius
+					var shoulder_across := across \
+						- float(dune["shoulder_across"]) * cross_radius
+					var shoulder_ellipse := pow(absf(shoulder_along) \
+						/ maxf(wind_radius * shoulder_scale, 0.001), 2.0) \
+						+ pow(absf(shoulder_across) \
+						/ maxf(cross_radius * shoulder_scale, 0.001), 2.0)
+					var shoulder := exp(-pow(shoulder_ellipse, falloff_power)) \
+						* float(dune["height"]) * 0.24
+					accumulation += body + shoulder
+		# A smooth union produces two or three overlapping dune masses, not
+		# additive peaks or winner-change seams.
+		var value := 1.0 - exp(-accumulation * lerpf(0.82, 1.12, amount))
+		return pow(clampf(value, 0.0, 1.0), maxf(0.45, height_exponent))
+
+
 ## Height function for a connected tile: the bevel drop applies only near
 ## OPEN edges (no neighbour), measured per-edge, so fused edges sit at the
 ## walk plane right up to the boundary and match their neighbour exactly.
 ## Relief rides on top, sampled in WORLD space so its texture continues
 ## across the seam, and feathered only against open edges.
 static func _connected_height_function(bevel: float, mask: int,
-		relief: Callable, world_origin: Vector2, edge_feather := 0.16) -> Callable:
+		relief: Callable, world_origin: Vector2, edge_feather := 0.16,
+		flatten_connected_relief := false) -> Callable:
 	var open_north := (mask & 1) == 0
 	var open_east := (mask & 2) == 0
 	var open_south := (mask & 4) == 0
@@ -443,6 +550,16 @@ static func _connected_height_function(bevel: float, mask: int,
 		# height on both sides of a fused seam.
 		var feather := 1.0 if inset == INF \
 			else smoothstep(0.0, edge_feather, inset - bevel)
+		# Unlike materials may use unrelated sculpt functions. Their transition
+		# bake therefore returns to the one invariant both surfaces share: y=0 at
+		# the exact tile boundary. The fade is deliberately narrow, so a dune or
+		# moss cushion keeps its character without opening a crack at the join.
+		if flatten_connected_relief:
+			var boundary_inset := minf(
+				minf(local.x + HALF, HALF - local.x),
+				minf(local.y + HALF, HALF - local.y)
+			)
+			feather *= smoothstep(0.0, 0.065, boundary_inset)
 		var sculpt := float(relief.call(world_origin + local)) * feather
 		return drop + sculpt
 

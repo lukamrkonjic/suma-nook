@@ -37,21 +37,31 @@ func bake(preset: TileKitPreset, tile_id: String) -> Dictionary:
 		}
 	_save_materials(errors, written)
 	var stats: Dictionary = {}
-	for mask in 16:
+	# Canonical same-surface topology plus a second compact transition family.
+	# The latter has identical rim removal but flattens relief at boundaries so
+	# unlike natural materials can meet cleanly. This remains 31 states per tile
+	# rather than multiplying every same/mixed edge combination.
+	var bake_state_count := 16 if preset.separate_tiles else 31
+	for bake_state in bake_state_count:
+		var transition := bake_state >= 16
+		var mask := bake_state - 15 if transition else bake_state
 		var generator := TileKitGenerator.new()
 		generator.preset = preset
 		generator.neighbour_mask = mask
+		generator.flatten_connected_relief = transition
 		generator.rebuild()
 		var scenes := generator.bake_role_scenes()
-		if mask == 0:
+		if not transition and mask == 0:
 			stats = generator.statistics()
 			for role in scenes:
 				baked_roles.append(String(role))
 		for role: String in scenes:
-			if mask > 0 and role == "detail":
+			if (mask > 0 or transition) and role == "detail":
 				continue
 			var asset_id := "%s_%s" % [tile_id, role]
-			if mask > 0:
+			if transition:
+				asset_id += "_x%02d" % mask
+			elif mask > 0:
 				asset_id += "_n%02d" % mask
 			var path := "%s/%s.tscn" % [output_directory, asset_id]
 			# Retried save: rewriting ~1900 bake files back-to-back trips

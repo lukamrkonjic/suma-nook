@@ -16,7 +16,10 @@ uniform vec2 wind_direction = vec2(0.82, 0.57);
 uniform float wind_spatial_scale = 1.4;
 uniform float wind_second_amount = 0.35;
 
+varying vec4 vertex_tint;
+
 void vertex() {
+	vertex_tint = COLOR;
 	vec3 world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	float weight = clamp(VERTEX.y / sway_reference_height, 0.0, 1.0);
 	weight = pow(weight, 1.6);
@@ -28,7 +31,11 @@ void vertex() {
 }
 
 void fragment() {
-	ALBEDO = albedo.rgb;
+	// Vertex colour lets a complete meadow share this one wind material:
+	// grass gradients, fern leaves, clovers, and flowers stay one draw call.
+	// Mesh colour attributes arrive in display space, so decode them just as
+	// StandardMaterial3D decodes an albedo swatch.
+	ALBEDO = albedo.rgb * pow(vertex_tint.rgb, vec3(2.2));
 	// Matches the kit's standard palette material so blades sit in the
 	// same lighting response as every other tile surface.
 	ROUGHNESS = 0.9;

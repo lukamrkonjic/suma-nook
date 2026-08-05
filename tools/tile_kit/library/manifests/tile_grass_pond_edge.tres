@@ -11,7 +11,7 @@ lifecycle = "published"
 visibility = "active"
 recipe_path = "res://tools/tile_kit/library/recipes/tile_grass_pond_edge.tres"
 separate_tiles = true
-baked_roles = PackedStringArray("base", "detail", "edge", "surface")
+baked_roles = PackedStringArray("base", "detail", "surface")
 family = "home_meadow"
 catalog_category = "swamp"
 catalog_order = 10
@@ -31,6 +31,6 @@ unlock_level = {
 "fishing": 6.0
 }
 created_at = "2026-08-01 00:00:00"
-updated_at = "2026-08-02 12:00:00"
+updated_at = "2026-08-04 11:10:00"
 published_at = "2026-08-01 00:00:00"
 notes = "Original Suma procedural composition. Stable ID retained for runtime references; no extracted source geometry is used."

@@ -11,7 +11,7 @@ extends Node3D
 ##
 ## Options:
 ##   --out=DIR       output directory (res:// or absolute)
-##   --mode=         sheet | closeups | both      (default both)
+##   --mode=         sheet | closeups | mixed | both (default both)
 ##   --tiles=a,b,c   explicit tile ids            (default every catalog tile)
 ##   --cols=N        contact-sheet columns        (default 8)
 ##   --frames=N      frames to settle before capture (default 40)
@@ -20,6 +20,11 @@ extends Node3D
 ##   --sheet-patch=N connected patch size per sheet cell (default 3)
 ##   --gutter=N      empty tile widths between sheet cells (default 0.4)
 ##   --patch=N       closeup patch size in tiles  (default 3)
+##   --mixed-size=N  square mixed-grid size       (default 3)
+##   --labels=1      label every contact-sheet patch by display name
+##   --width=N       capture viewport width (default 1280)
+##   --height=N      capture viewport height (default 720)
+##   --hidden=1      keep the capture window off-screen (default 0)
 
 const LIGHTING_SCENE := "res://scenes/visual/SumaSoftDaylight.tscn"
 
@@ -32,6 +37,7 @@ var _factory: TileVisualFactory
 var _lighting: LightingRig
 var _camera: Camera3D
 var _stage: Node3D
+var _overlay: CanvasLayer
 
 var _options: Dictionary = {}
 var _tile_ids: PackedStringArray = PackedStringArray()
@@ -41,13 +47,20 @@ var _tile_size := 1.0
 
 
 func _ready() -> void:
+	_options = _parse_options()
 	# macOS may restore the previous maximized application window even when the
 	# process was launched with --windowed. The gallery is an unattended capture
 	# tool, so enforce a small deterministic window before creating the camera.
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
-	DisplayServer.window_set_size(Vector2i(1280, 720))
-	DisplayServer.window_set_position(Vector2i(80, 80))
-	_options = _parse_options()
+	DisplayServer.window_set_size(Vector2i(
+		clampi(int(_options.get("width", 1280)), 640, 4096),
+		clampi(int(_options.get("height", 720)), 480, 4096)
+	))
+	DisplayServer.window_set_position(
+		Vector2i(-10000, -10000)
+		if String(_options.get("hidden", "0")) == "1"
+		else Vector2i(80, 80)
+	)
 	_out_dir = _absolute_dir(String(_options.get("out", "docs/tile_gallery")))
 	_frames = maxi(2, int(_options.get("frames", 40)))
 	DirAccess.make_dir_recursive_absolute(_out_dir)
@@ -89,6 +102,9 @@ func _ready() -> void:
 	_stage = Node3D.new()
 	_stage.name = "Stage"
 	add_child(_stage)
+	_overlay = CanvasLayer.new()
+	_overlay.name = "GalleryLabels"
+	add_child(_overlay)
 
 	_camera = Camera3D.new()
 	_camera.name = "GalleryCamera"
@@ -127,6 +143,10 @@ func _run(mode: String) -> void:
 			var ok := await _capture_closeup(tile_id, path)
 			manifest["tiles"].append({"id": tile_id, "path": path, "ok": ok})
 			print("SHOT %s -> %s" % [tile_id, path])
+	if mode == "mixed":
+		var mixed_path := _out_dir.path_join("mixed_grid.png")
+		await _capture_mixed_grid(mixed_path)
+		manifest["mixed"] = mixed_path
 	var f := FileAccess.open(_out_dir.path_join("manifest.json"), FileAccess.WRITE)
 	if f != null:
 		f.store_string(JSON.stringify(manifest, "  "))
@@ -144,11 +164,20 @@ func _capture_sheet(path: String) -> bool:
 	var gutter := maxf(0.0, float(_options.get("gutter", 0.4)))
 	var pitch := _tile_size * (patch + gutter)
 	var rows := int(ceil(float(_tile_ids.size()) / float(cols)))
+	var label_entries: Array[Dictionary] = []
 	for i in _tile_ids.size():
 		var col := i % cols
 		var row := i / cols
 		var origin := Vector3(col * pitch, 0.0, row * pitch)
 		_add_patch(_tile_ids[i], origin, patch)
+		label_entries.append({
+			"tile_id": _tile_ids[i],
+			"position": origin + Vector3(
+				float(patch - 1) * _tile_size * 0.5,
+				0.0,
+				float(patch - 1) * _tile_size * 0.5
+			),
+		})
 	var last_cell_offset := (patch - 1) * _tile_size
 	var centre := Vector3(
 		((cols - 1) * pitch + last_cell_offset) * 0.5,
@@ -158,7 +187,38 @@ func _capture_sheet(path: String) -> bool:
 	var width := (cols - 1) * pitch + patch * _tile_size
 	var depth := (rows - 1) * pitch + patch * _tile_size
 	_frame(centre, maxf(width, depth) * 1.15)
+	if String(_options.get("labels", "0")) == "1":
+		# Camera projection and the resized viewport settle on the next frame.
+		# Projecting earlier can place every label outside the captured viewport.
+		await get_tree().process_frame
+		_add_sheet_labels(label_entries, cols, rows)
 	return await _shoot(path)
+
+
+func _add_sheet_labels(entries: Array[Dictionary], cols: int, rows: int) -> void:
+	var viewport_size := Vector2(get_viewport().get_visible_rect().size)
+	var label_width := viewport_size.x / float(maxi(1, cols)) * 0.86
+	var label_height := maxf(38.0, viewport_size.y / float(maxi(1, rows)) * 0.18)
+	var font_size := clampi(roundi(viewport_size.x / float(maxi(1, cols)) * 0.060),
+		14, 28)
+	var lift := viewport_size.y / float(maxi(1, rows)) * 0.29
+	for entry: Dictionary in entries:
+		var tile_id := String(entry["tile_id"])
+		var def = _registries.tiles.get(tile_id)
+		var label := Label.new()
+		label.text = def.display_name if def != null else tile_id
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		label.add_theme_font_size_override("font_size", font_size)
+		label.add_theme_color_override("font_color", Color("39352b"))
+		label.add_theme_color_override("font_outline_color", Color(0.94, 0.92, 0.84, 0.96))
+		label.add_theme_constant_override("outline_size", maxi(3, font_size / 5))
+		label.size = Vector2(label_width, label_height)
+		var screen_point := _camera.unproject_position(entry["position"])
+		label.position = screen_point - Vector2(label_width * 0.5,
+			label_height * 0.5 + lift)
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_overlay.add_child(label)
 
 
 func _capture_closeup(tile_id: String, path: String) -> bool:
@@ -167,6 +227,39 @@ func _capture_closeup(tile_id: String, path: String) -> bool:
 	_add_patch(tile_id, Vector3.ZERO, patch)
 	var extent := (patch - 1) * _tile_size * 0.5
 	_frame(Vector3(extent, 0.0, extent), patch * _tile_size * 2.6)
+	return await _shoot(path)
+
+
+## A true connected checker of unlike surfaces. Requested IDs repeat across
+## the square, exercising the same cross-type topology as an authored world
+## instead of framing each tile family as an isolated gallery island.
+func _capture_mixed_grid(path: String) -> bool:
+	_clear_stage()
+	var size := maxi(2, int(_options.get("mixed-size", 3)))
+	var cells: Array = []
+	for z in size:
+		var row: Array = []
+		for x in size:
+			var tile_id := _tile_ids[(z * size + x) % _tile_ids.size()]
+			row.append(_registries.tiles.get(tile_id))
+		cells.append(row)
+	for z in size:
+		for x in size:
+			var def = cells[z][x]
+			if def == null:
+				continue
+			var mask := _mixed_grid_neighbour_mask(cells, x, z, size)
+			var coord := Vector2i(x, z)
+			var visual := _factory.instantiate_visual(
+				def,
+				false,
+				mask,
+				TileVisualFactory.detail_variant_for_coord(def, coord)
+			)
+			visual.position = Vector3(x * _tile_size, 0.0, z * _tile_size)
+			_stage.add_child(visual)
+	var extent := (size - 1) * _tile_size * 0.5
+	_frame(Vector3(extent, 0.0, extent), size * _tile_size * 2.6)
 	return await _shoot(path)
 
 
@@ -191,6 +284,39 @@ func _add_patch(tile_id: String, origin: Vector3, size: int) -> void:
 			)
 			visual.position = origin + Vector3(x * _tile_size, 0.0, z * _tile_size)
 			_stage.add_child(visual)
+	if def.render_profile == "continuous_water":
+		_add_joined_water_surface(origin, size)
+
+
+## Gameplay renders a connected water region as one shared mesh. Tile visuals
+## intentionally contain only the underwater bed, so a gallery patch must add
+## the same joined surface or water appears as an ivory empty basin. Building
+## one region here also avoids the false cross-shaped seams produced by four
+## independent placement-preview surfaces.
+func _add_joined_water_surface(origin: Vector3, size: int) -> void:
+	var water_material := _assets.materials.material("water")
+	var water_level := -0.14
+	if water_material is ShaderMaterial:
+		var configured_level: Variant = (
+			water_material as ShaderMaterial
+		).get_shader_parameter("water_level")
+		if configured_level is float or configured_level is int:
+			water_level = float(configured_level)
+	var cells: Array = []
+	for x in size:
+		for z in size:
+			cells.append(Vector2i(x, z))
+	var surface := WaterSurface.new()
+	surface.name = "gallery_joined_water_surface"
+	surface.rebuild(
+		cells,
+		func(coord: Vector2i) -> Vector3:
+			return origin + Vector3(coord.x * _tile_size, 0.0, coord.y * _tile_size),
+		_tile_size,
+		water_level,
+		water_material
+	)
+	_stage.add_child(surface)
 
 
 ## Cardinal neighbours available inside one square patch. This is deliberately
@@ -204,6 +330,32 @@ static func _patch_neighbour_mask(x: int, z: int, size: int) -> int:
 		| (4 if z < size - 1 else 0)
 		| (8 if x > 0 else 0)
 	)
+
+
+static func _mixed_grid_neighbour_mask(cells: Array, x: int, z: int,
+		size: int) -> int:
+	var definition = cells[z][x]
+	if definition == null or definition.connection_mode != "full_flush":
+		return 0
+	var topology := 0
+	var mixed := false
+	var directions := [
+		[1, Vector2i(0, -1)], [2, Vector2i(1, 0)],
+		[4, Vector2i(0, 1)], [8, Vector2i(-1, 0)],
+	]
+	for entry: Array in directions:
+		var neighbour_x := x + int((entry[1] as Vector2i).x)
+		var neighbour_z := z + int((entry[1] as Vector2i).y)
+		if neighbour_x < 0 or neighbour_x >= size \
+				or neighbour_z < 0 or neighbour_z >= size:
+			continue
+		var neighbour = cells[neighbour_z][neighbour_x]
+		if neighbour == null or neighbour.connection_mode != "full_flush":
+			continue
+		topology |= int(entry[0])
+		if neighbour.connection_group != definition.connection_group:
+			mixed = true
+	return topology | (TileVisualFactory.MIXED_SURFACE_FLAG if mixed else 0)
 
 
 func _frame(target: Vector3, span: float) -> void:
@@ -239,6 +391,10 @@ func _clear_stage() -> void:
 	for child in _stage.get_children():
 		_stage.remove_child(child)
 		child.queue_free()
+	if _overlay != null:
+		for child in _overlay.get_children():
+			_overlay.remove_child(child)
+			child.queue_free()
 
 
 func _requested_tile_ids() -> PackedStringArray:

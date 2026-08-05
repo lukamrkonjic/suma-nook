@@ -164,7 +164,8 @@ static func add_egg(
 	lat_steps := 5,
 	lon_steps := 6,
 	depth_ratio := 1.0,
-	broad_dir := Vector3.ZERO
+	broad_dir := Vector3.ZERO,
+	vertex_color := Color.WHITE
 ) -> void:
 	var y_axis := axis.normalized()
 	var x_axis: Vector3
@@ -181,6 +182,7 @@ static func add_egg(
 	var centre := base_point + y_axis * half
 	var vertices := PackedVector3Array()
 	var normals := PackedVector3Array()
+	var colors := PackedColorArray()
 	var indices := PackedInt32Array()
 	for lat in lat_steps + 1:
 		# theta 0 = tip (along +axis), PI = attachment end.
@@ -197,6 +199,7 @@ static func add_egg(
 				+ y_axis * local.y * half
 				+ z_axis * local.z * depth
 			)
+			colors.append(vertex_color)
 			# Spheroid normal: unit-sphere normal over the per-axis scale.
 			var scaled := Vector3(
 				local.x / maxf(radius, 0.0001),
@@ -214,7 +217,7 @@ static func add_egg(
 			var d := (lat + 1) * lon_steps + lon
 			# Clockwise from outside (see add_flat_blob's winding note).
 			indices.append_array([a, d, c, a, c, b])
-	batch.add(key, vertices, normals, indices)
+	batch.add(key, vertices, normals, indices, colors)
 
 
 ## Soft raised patch draped over the cap surface: a shallow organic cushion
@@ -962,10 +965,12 @@ static func add_blade(
 	length_rings: int = 8,
 	ring_segments: int = 9,
 	tip_rings: int = 2,
-	root_width_factor: float = 0.86
+	root_width_factor: float = 0.86,
+	gradient_colors: PackedColorArray = PackedColorArray()
 ) -> void:
 	var vertices := PackedVector3Array()
 	var normals := PackedVector3Array()
+	var colors := PackedColorArray()
 	var indices := PackedInt32Array()
 	var total_rings := length_rings + tip_rings
 
@@ -1009,6 +1014,8 @@ static func add_blade(
 			var local := side * (cos(angle) * half_width) \
 				+ binormal * (sin(angle) * half_thickness)
 			vertices.append(centre + local)
+			if gradient_colors.size() >= 2:
+				colors.append(gradient_colors[0].lerp(gradient_colors[1], t))
 			# Ellipse normal blended toward UP. True surface normals give each
 			# leaf a hard lit-and-shaded split that reads as plastic; pulling
 			# them upward makes every leaf take most of its light from the sky,
@@ -1033,12 +1040,14 @@ static func add_blade(
 	var tip_index := vertices.size()
 	vertices.append(tip_centre + tip_tangent * width * 0.02)
 	normals.append(tip_tangent)
+	if gradient_colors.size() >= 2:
+		colors.append(gradient_colors[1])
 	var last0 := total_rings * ring_segments
 	for segment in ring_segments:
 		var next := (segment + 1) % ring_segments
 		indices.append_array([last0 + segment, last0 + next, tip_index])
 
-	batch.add(key, vertices, normals, indices)
+	batch.add(key, vertices, normals, indices, colors)
 
 
 static func _bezier(p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3,

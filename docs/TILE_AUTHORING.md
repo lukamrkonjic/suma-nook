@@ -191,10 +191,11 @@ Use this intake flow:
      at y = 0. Do not add a backing plane or block.
    - Sparse organic detail that exposes a repeated grid may opt into
      `detail_rotation_variants = 4` on its Tile Library manifest. Runtime and
-     scalable rendering then choose a deterministic quarter-turn plus a small
-     rim-safe offset from the cell coordinate. This varies only the detail;
-     the structural shell, authored tile rotation, and connection topology do
-     not change.
+     scalable rendering then choose a deterministic quarter-turn from the cell
+     coordinate. Detail is never translated: containment is established while
+     authoring and must remain valid in every runtime variant. This varies only
+     the detail; the structural shell, authored tile rotation, and connection
+     topology do not change.
    - Meaningful recesses, plank steps, seams, and large relief belong in mesh
      geometry. Use albedo texture variation for fine visual lines only; do not
      pretend major depth exists solely through a height/normal map.
@@ -268,12 +269,18 @@ Apply these questions in order:
    - An `edge` uses `persist` only when it is genuinely part of the remaining
      block wall rather than the removable top.
 7. **How do equal neighbours meet?**
-   - `full_flush`: continuous terrain should visually merge at the boundary.
-   - `tiny_individual_seam`: deliberately separate slabs, boards, pavers, or
-     manufactured modules.
+	- `full_flush`: continuous terrain should visually merge at the boundary.
+	- `tiny_individual_seam`: deliberately separate slabs, boards, pavers, or
+	  manufactured modules.
    - `soft_isolated`: a mound, bed, patch, or soft inset deliberately stops
      before the boundary.
-   - `merged_surface`: region-level rendering such as connected water.
+	- `merged_surface`: region-level rendering such as connected water.
+	- The seam choice is authoritative across tile types: two `full_flush`
+	  surfaces consume their shared bevel even when their materials differ.
+	  Matching `connection_group` values use the continuous-relief topology;
+	  differing groups use the transition topology, which eases both sculpts
+	  back to the shared walk plane at the boundary. Only an explicit separated
+	  mode may draw a per-cell trench.
 8. **Where is the highest usable top?**
    - `flush`: the main walk/support plane is `y = 0`, even when joints descend
      deeply below it. Brutalist Concrete is `flush`.

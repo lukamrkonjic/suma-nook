@@ -2,6 +2,6 @@
 
 [resource]
 resource_name = "tilekit_dirt_clay_chip_light"
-albedo_color = Color(0.564324, 0.37548298, 0.269492, 1)
+albedo_color = Color(0.565, 0.35000002, 0.23500003, 1)
 metallic_specular = 0.2
 roughness = 0.9

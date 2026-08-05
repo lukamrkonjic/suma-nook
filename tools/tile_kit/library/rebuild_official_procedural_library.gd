@@ -92,9 +92,12 @@ func _init() -> void:
 	# Fast iteration for visual tuning: recipes and manifests update, the
 	# 16-mask bake is skipped. Ship only after a FULL run.
 	var skip_bake := OS.get_cmdline_user_args().has("--skip-bake")
+	var requested_ids := _requested_ids()
 	var failures := CatalogTaxonomy.validation_errors()
 	var converted := 0
 	var conversion_ids: Array = [] if metadata_only else CONVERTED_IDS
+	if not requested_ids.is_empty() and not metadata_only:
+		conversion_ids = requested_ids
 	for tile_id: String in conversion_ids:
 		var manifest := service.official_manifest(tile_id)
 		if manifest == null:
@@ -128,17 +131,39 @@ func _init() -> void:
 			manifest.landmark_tags.append("pond")
 		_apply_runtime_semantics(manifest)
 		manifest.revision = maxi(manifest.revision,
-			4 if tile_id in ["tile_grove_mossy", "tile_grass"]
+			4 if tile_id in ["tile_grove_mature", "tile_grove_mossy", "tile_grass"]
 			else 3 if tile_id == "tile_dirt"
 			else 2)
 		manifest.updated_at = STAMP
 		if tile_id == "tile_grass":
 			manifest.notes = (
-				"Clean meadow slab: a quiet sage clay block with a softly "
-				+ "rounded shell and the faintest broad undulation. No detail "
-				+ "layer by design — the style keeps ground planes clean and "
-				+ "lets colour carry the grass; decoration belongs to props. "
-				+ "No extracted source geometry, texture, or material is used."
+				"Rooted clay meadow: a seamless rounded green shell with varied "
+				+ "grass fans, a slim fern, and short round three/four-leaf clovers. "
+				+ "Flowers are deliberately excluded. All dressing shares one vertex-coloured "
+				+ "GPU wind surface with height-pinned roots and deterministic "
+				+ "per-cell rotations. No extracted source geometry, texture, or "
+				+ "material is used."
+			)
+		elif tile_id == "tile_kit_grass":
+			manifest.notes = (
+				"Extra-dense rooted clay meadow: abundant varied grass fans, small "
+				+ "ferns, and low clovers fill the surface without flowers. It shares "
+				+ "the standard grass shell and inexpensive vertex-coloured wind surface."
+			)
+		elif tile_id == "tile_grass_flower":
+			manifest.notes = (
+				"Flowering rooted clay meadow: the standard grass language enriched "
+				+ "with cream daisies and chunky rose-pink cupped blooms. Flower mix, "
+				+ "density, height, and spacing remain editable in Tile Kit."
+			)
+		elif tile_id == "tile_grove_mature":
+			manifest.notes = (
+				"Lush forest-floor redesign: a seamless deep-green clay shell, "
+				+ "dense low three/four-leaf clover carpet, and a few large radial "
+				+ "fern crowns. All raised greenery shares one vertex-coloured GPU "
+				+ "wind surface, stays contained inside the tile, and supports "
+				+ "deterministic detail rotations. Stable ID retained; no extracted "
+				+ "source geometry, texture, or material is used."
 			)
 		elif tile_id == "tile_dirt":
 			manifest.notes = (
@@ -174,6 +199,9 @@ func _init() -> void:
 	# Every official composition receives the current human-facing taxonomy.
 	service.reload()
 	for manifest in service.official_manifests():
+		if not requested_ids.is_empty() \
+				and manifest.tile_id not in requested_ids:
+			continue
 		if manifest.tile_id == "tile_proc_fenced_meadow":
 			# Retired by art direction. Archived, never deleted: worlds that
 			# placed it keep resolving the ID, but it leaves the catalog,
@@ -216,6 +244,28 @@ func _init() -> void:
 	quit(0)
 
 
+## Optional focused rebuild for visual iteration:
+##   --only=tile_grass,tile_kit_grass,tile_grass_flower
+## The final catalog compile still sees every manifest, but recipes, bakes,
+## and metadata writes are limited to the requested stable IDs.
+func _requested_ids() -> Array:
+	for argument in OS.get_cmdline_user_args():
+		var text := String(argument)
+		if not text.begins_with("--only="):
+			continue
+		var result: Array = []
+		for raw_id in text.trim_prefix("--only=").split(",", false):
+			var tile_id := String(raw_id).strip_edges()
+			if tile_id.is_empty() or tile_id in result:
+				continue
+			if tile_id not in CONVERTED_IDS:
+				push_warning("Ignoring unknown official tile ID: %s" % tile_id)
+				continue
+			result.append(tile_id)
+		return result
+	return []
+
+
 func _apply_catalog_taxonomy(manifest: TileLibraryManifest) -> void:
 	manifest.display_name = CatalogTaxonomy.display_name(manifest.tile_id)
 	manifest.family = CatalogTaxonomy.runtime_family(manifest.tile_id)
@@ -239,13 +289,12 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 	match tile_id:
 		# ------------------------------------------------------------ meadow
 		"tile_grass":
-			# CLAY TUFT MEADOW — Standard Grass. The block is one bright
-			# clay-green hue ramp with generous corner rounding and a fat
-			# soft top bevel; the top is exactly flat, because any relief
-			# feathers out at the cell rim and creases a visible line along
-			# every boundary of a connected meadow. Tufts are dense, even,
-			# and tone-on-tone: the audited reference's density and value
-			# step, built as soft single-surface clay clumps.
+			# ROOTED CLAY MEADOW — Standard Grass. The connected shell remains
+			# exactly flat and seamless; character comes from a restrained mix
+			# of rooted grass fans, one fern, and round clovers. Flowers belong
+			# exclusively to the flowering variants.
+			# Every raised piece is vertex-coloured on one shared wind surface,
+			# keeping the toy-clay composition lively without per-plant scripts.
 			_set_base(preset, {"top_key": "grass_gg_top",
 				"bevel_key": "grass_gg_bevel", "side_key": "grass_gg_side",
 				"lower_key": "grass_gg_lower", "turf_side_key": "grass_gg_side"},
@@ -254,38 +303,62 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 					"turf_cap": false, "top_bevel": 0.045,
 					"corner_radius": 0.05, "bevel_segments": 6,
 					"bottom_chamfer": 0.018})
-			# Widths are authored ~1.7x their in-game size because the
-			# runtime scales X/Z to the live cell but never Y. No flowers,
-			# berries, shoots, or root mounds: each was tried and read as
-			# clutter, or printed a visible disc into the flat plane.
-			_clay_sprouts(preset, {
-				"leaf_key": "clay_leaf",
-				"sprout_count": [17, 21],
-				"min_spacing": 0.21,
-				"edge_margin": 0.10,
-				"leaf_height": [0.17, 0.22],
-				"leaf_width": [0.17, 0.21],
-				"leaf_depth_ratio": 0.58,
-				"root_sink": 0.03,
-				"mound_height": 0.0,
-				"shoot_count": [0, 0],
+			_rooted_meadow(preset, {
+				"turf_count": [9, 9],
+				"fern_count": [1, 1],
+				"clover_count": [3, 3],
 				"flower_count": [0, 0],
-				"berry_count": [0, 0]})
+				"accent_flower_chance": 0.0,
+				"blades_per_turf": [3, 5],
+				"grass_height": [0.1257, 0.2214],
+				"blade_width": [0.082411676, 0.106563553],
+				"clover_size": [0.05724, 0.063],
+				"four_leaf_chance": 0.28,
+				"min_spacing": 0.15,
+				"edge_margin": 0.025,
+				"root_sink": 0.010})
 		"tile_kit_grass":
-			# Dense Grass: tighter interlock, thicker pile, more sculpted tips.
-			_set_base(preset, GREEN_BASE, "pillow", 0.016)
-			_turf(preset, {"turf_spacing": 0.21, "turf_footprint": [0.27, 0.40],
-				"turf_height": [0.050, 0.072], "turf_skip_fraction": 0.05,
-				"blade_fraction": 0.55, "accent_clumps": [1, 2]})
+			# Dense Grass: the same rooted-clay language, pushed into a thick,
+			# interlocking carpet without borrowing Flowering Grass's accents.
+			_set_base(preset, {"top_key": "grass_gg_top",
+				"bevel_key": "grass_gg_bevel", "side_key": "grass_gg_side",
+				"lower_key": "grass_gg_lower", "turf_side_key": "grass_gg_side"},
+				"none", 0.0,
+				{"relief_resolution": 20, "relief_edge_feather": 0.2,
+					"turf_cap": false, "top_bevel": 0.045,
+					"corner_radius": 0.05, "bevel_segments": 6,
+					"bottom_chamfer": 0.018})
+			_rooted_meadow(preset, {
+				"turf_count": [17, 19], "fern_count": [2, 3],
+				"clover_count": [6, 8], "flower_count": [0, 0],
+				"accent_flower_chance": 0.0,
+				"blades_per_turf": [4, 6],
+				"grass_height": [0.115, 0.205],
+				"blade_width": [0.070, 0.096],
+				"clover_size": [0.052, 0.064],
+				"four_leaf_chance": 0.25, "min_spacing": 0.095,
+				"edge_margin": 0.020, "root_sink": 0.010})
 		"tile_grass_flower":
-			_set_base(preset, GREEN_BASE, "pillow", 0.014)
-			_turf(preset, {"turf_spacing": 0.23, "turf_footprint": [0.26, 0.38],
-				"turf_height": [0.044, 0.064], "blade_fraction": 0.42})
-			_scatter(preset, ["bud"], [5, 8], [0.10, 0.15],
-				{"blossom_pink": 50.0, "blossom_cream": 32.0,
-					"accent_terracotta": 18.0}, [0.018, 0.028],
-				{"min_spacing": 0.14, "cluster_fraction": 0.85,
-					"cluster_radius": 0.20})
+			# Flowering Grass starts from the same rooted meadow rather than an
+			# unrelated turf carpet. Cream daisies and rose-pink cups are its read.
+			_set_base(preset, {"top_key": "grass_gg_top",
+				"bevel_key": "grass_gg_bevel", "side_key": "grass_gg_side",
+				"lower_key": "grass_gg_lower", "turf_side_key": "grass_gg_side"},
+				"none", 0.0,
+				{"relief_resolution": 20, "relief_edge_feather": 0.2,
+					"turf_cap": false, "top_bevel": 0.045,
+					"corner_radius": 0.05, "bevel_segments": 6,
+					"bottom_chamfer": 0.018})
+			_rooted_meadow(preset, {
+				"turf_count": [10, 12], "fern_count": [1, 2],
+				"clover_count": [4, 5], "flower_count": [7, 8],
+				"accent_flower_chance": 0.45,
+				"blades_per_turf": [3, 5],
+				"grass_height": [0.120, 0.215],
+				"blade_width": [0.078, 0.103],
+				"clover_size": [0.054, 0.064],
+				"four_leaf_chance": 0.28, "min_spacing": 0.115,
+				"edge_margin": 0.022, "root_sink": 0.010})
 		"tile_proc_flower_meadow":
 			# The meadow reads as grass FIRST; flowers are two deliberate
 			# drifts of large closed buds, never one of every colour.
@@ -307,21 +380,39 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 				"tuft_lean": 0.9, "extra_tufts": [1, 2]})
 		# ------------------------------------------------------------ forest
 		"tile_grove_mature":
-			# PROTOTYPE — Forest Floor: one broad moss mass, one leaf-litter
-			# drift, sparse dark tufts, a mushroom accent, exposed loam as
-			# negative space.
-			_set_base(preset, MOSS_BASE, "pillow", 0.020)
-			_grass(preset, {"coverage_mode": "tufts", "tuft_scale": 0.85,
-				"mass_scale": 1.1, "mass_height": [0.026, 0.042],
-				"tuft_lean": 0.45, "extra_tufts": [0, 0],
-				"primary_key": "moss_top", "blade_key": "moss_deep",
-				"blade_light_key": "moss_clump"})
-			_scatter(preset, ["leaf_litter", "leaf_litter", "twig",
-				"mushroom"], [8, 12], [0.10, 0.17],
-				{"autumn_amber": 45.0, "autumn_rust": 30.0,
-					"wood_medium": 25.0}, [0.014, 0.026],
-				{"placement_mode": "drift", "drift_bed_key": "autumn_rust",
-					"min_spacing": 0.045})
+			# CLOVER FERN FLOOR — a deep, seamless clay shell carrying one lush
+			# understory: dense low clover below a few broad radial fern crowns.
+			# No litter or prop noise; silhouette and overlapping foliage do the work.
+			_set_base(preset, {"top_key": "forest_floor_top",
+				"bevel_key": "forest_floor_bevel",
+				"side_key": "forest_floor_side",
+				"lower_key": "forest_floor_lower"}, "none", 0.0,
+				{"relief_resolution": 20, "relief_edge_feather": 0.2,
+					"turf_cap": false, "top_bevel": 0.045,
+					"corner_radius": 0.05, "bevel_segments": 6,
+					"bottom_chamfer": 0.018})
+			_forest_floor(preset, {
+				"clover_count": [20, 28],
+				"fern_count": [2, 4],
+				"clover_size": [0.040, 0.085],
+				"clover_height": [0.018, 0.032],
+				"four_leaf_chance": 0.22,
+				"fern_scale": [0.72, 1.30],
+				"fern_height": [0.17, 0.25],
+				"fern_reach": [0.25, 0.34],
+				"fronds_per_fern": [5, 7],
+				"leaflet_pairs": [4, 5],
+				"edge_margin": 0.06,
+				"clover_spacing": 0.095,
+				"fern_spacing": 0.30,
+				"root_sink": 0.010,
+				"leaf_litter_count": [5, 8],
+				"twig_count": [2, 3],
+				"leaf_litter_size": [0.080, 0.140],
+				"twig_length": [0.17, 0.28],
+				"branch_forks": [1, 2],
+				"raised_offshoot_chance": 0.48,
+				"litter_spacing": 0.075})
 		"tile_grove_birch":
 			_set_base(preset, MOSS_BASE, "pillow", 0.020)
 			_turf(preset, {"turf_spacing": 0.33, "turf_footprint": [0.20, 0.30],
@@ -456,7 +547,7 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 
 		# -------------------------------------------------------------- farm
 		"tile_dirt":
-			# CLAY MASTER 02 — Dirt Ground. A warm, quiet loam slab with a few
+			# CLAY MASTER 02 — Dirt Ground. A warm, quiet loam slab with abundant
 			# deliberate angular flakes and shallow pressed marks. Surface noise,
 			# scattered pebbles, giant clods, and grain are explicitly excluded.
 			_set_base(preset, {"top_key": "dirt_clay_top",
@@ -464,11 +555,12 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 				"lower_key": "dirt_clay_lower"}, "none", 0.0,
 				{"relief_resolution": 12, "top_bevel": 0.052,
 					"corner_radius": 0.085, "bevel_segments": 6})
-			_scatter(preset, ["clay_chip"], [6, 8], [0.085, 0.17],
-				{"dirt_clay_chip_light": 48.0, "dirt_clay_top": 30.0,
-					"dirt_clay_chip_dark": 22.0}, [0.008, 0.014],
-				{"cluster_fraction": 0.28, "cluster_radius": 0.24,
-					"min_spacing": 0.18, "edge_margin": 0.22})
+			_scatter(preset, ["clay_chip"], [20, 24], [0.12, 0.24],
+				{"dirt_clay_chip_light": 60.0,
+					"dirt_clay_chip_dark": 40.0}, [0.012, 0.024],
+				{"cluster_fraction": 0.12, "cluster_radius": 0.28,
+					"min_spacing": 0.13, "edge_margin": 0.10,
+					"edge_fraction": 0.35, "corner_fraction": 0.20})
 		"tile_clay":
 			_set_base(preset, EARTH_BASE, "heaps", 0.026,
 				{"relief_heap_count": [5, 8], "relief_heap_radius": [0.12, 0.23],
@@ -564,12 +656,12 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 		# ------------------------------------------------------------- beach
 		"tile_sand":
 			# Pure sculpt: one colour, one beautiful wind-shaped surface.
-			_set_base(preset, SAND_BASE, "sculpted_dunes", 0.105,
-				{"relief_resolution": 60, "relief_edge_feather": 0.22,
-					"dune_scale": 0.76, "dune_amount": 0.46,
-					"dune_softness": 0.55, "dune_irregularity": 0.62,
-					"dune_lee_depth": 0.52, "dune_direction_degrees": 307.0,
-					"dune_height_exponent": 1.30})
+			_set_base(preset, SAND_BASE, "natural_dunes", 0.100,
+				{"relief_resolution": 42, "relief_edge_feather": 0.20,
+					"dune_scale": 0.72, "dune_amount": 0.18,
+					"dune_softness": 0.82, "dune_irregularity": 0.72,
+					"dune_lee_depth": 0.20, "dune_direction_degrees": 307.0,
+					"dune_height_exponent": 1.00})
 		"tile_proc_sandy_ground":
 			_set_base(preset, SAND_BASE, "dunes", 0.045,
 				{"relief_frequency": 1.8, "relief_resolution": 24})
@@ -868,15 +960,17 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 func _apply_runtime_semantics(manifest: TileLibraryManifest) -> void:
 	match manifest.tile_id:
 		"tile_grass":
-			# Camera-facing sprite cards must never quarter-turn: a rotated
-			# variant puts every card edge-on to the fixed camera and the
-			# carpet vanishes. One identical detail per cell also keeps the
-			# carpet rhythm continuous across neighbours.
-			manifest.detail_rotation_variants = 1
+			# The new dressing is fully modelled 3D geometry. Stable per-cell
+			# quarter turns and tiny offsets break repetition across a meadow
+			# while every blade continues to share the same world-space wind.
+			manifest.detail_rotation_variants = 4
 		"tile_dirt":
 			manifest.detail_rotation_variants = 4
 		"tile_grove_mossy":
 			manifest.detail_rotation_variants = 4
+		"tile_grove_mature":
+			manifest.detail_rotation_variants = 4
+			manifest.walk_surface_height = 0.03
 		"tile_garden":
 			manifest.unlock_level = {"fishing": 10.0}
 		"tile_grass_pond_edge", "tile_proc_pond_basin":
@@ -968,6 +1062,16 @@ func _sprite_carpet(preset: TileKitPreset, params: Dictionary) -> void:
 ## The soft clay tuft field (see KitClaySproutsBuilder).
 func _clay_sprouts(preset: TileKitPreset, params: Dictionary) -> void:
 	_enable(preset, "clay_sprouts", params)
+
+
+## The production rooted clay meadow (see KitRootedMeadowBuilder).
+func _rooted_meadow(preset: TileKitPreset, params: Dictionary) -> void:
+	_enable(preset, "rooted_meadow", params)
+
+
+## Dense clover carpet with large radial fern crowns (see KitForestFloorBuilder).
+func _forest_floor(preset: TileKitPreset, params: Dictionary) -> void:
+	_enable(preset, "forest_floor", params)
 
 
 func _liquid(preset: TileKitPreset, params: Dictionary) -> void:

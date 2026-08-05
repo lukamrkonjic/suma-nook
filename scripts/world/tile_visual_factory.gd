@@ -18,15 +18,11 @@ const COVER_TWEEN_META := "covered_surface_tween"
 const COVER_STATE_META := "covered_surface_state"
 const STACK_SEAM_HEIGHT := 0.028
 const STACK_SEAM_OVERLAP := 0.003
-## Coordinate variation is stored as a fraction of the live cell. Keeping
-## these as absolute metres made dressing drift proportionally farther toward
-## the rim when the GG-calibrated grid became smaller.
-const DETAIL_VARIANT_OFFSET_FRACTIONS := [
-	Vector2(-0.074074, -0.044444),
-	Vector2(0.059259, -0.081481),
-	Vector2(0.081481, 0.051852),
-	Vector2(-0.044444, 0.088889),
-]
+## Low four bits remain the cardinal connection topology. This extra flag
+## selects a transition bake whose relief returns to the shared walk plane at
+## the cell boundary, allowing unlike natural materials to meet without a
+## bevel trench or mismatched sculpted heights.
+const MIXED_SURFACE_FLAG := 16
 
 var assets: AssetLibrary
 var grid: WorldGrid
@@ -139,14 +135,6 @@ func _instantiate_layered_visual(
 			var variants := def.detail_rotation_variants
 			var resolved_variant := posmod(detail_variant, variants)
 			layer_visual.rotation.y = TAU * float(resolved_variant) / float(variants)
-			var offset: Vector2 = DETAIL_VARIANT_OFFSET_FRACTIONS[
-				resolved_variant % DETAIL_VARIANT_OFFSET_FRACTIONS.size()
-			]
-			layer_visual.position += Vector3(
-				offset.x * grid.tile_size,
-				0.0,
-				offset.y * grid.tile_size
-			)
 		root.add_child(layer_visual)
 		for child in layer_visual.find_children("*", "MeshInstance3D", true, false):
 			var mesh := child as MeshInstance3D
@@ -191,14 +179,23 @@ static func detail_variant_for_coord(
 ## Tile Kit baking emits one scene per cardinal topology. Other layered assets
 ## have no suffixed scene, so they transparently keep their canonical asset.
 func _connected_layer_asset_id(asset_id: String, neighbour_mask: int) -> String:
-	if neighbour_mask == 0:
+	var topology := neighbour_mask & 0x0F
+	if topology == 0:
 		return asset_id
-	var candidate := "%s_n%02d" % [asset_id, neighbour_mask]
+	if (neighbour_mask & MIXED_SURFACE_FLAG) != 0:
+		var transition_candidate := "%s_x%02d" % [asset_id, topology]
+		if assets.exists(transition_candidate):
+			return transition_candidate
+	var candidate := "%s_n%02d" % [asset_id, topology]
 	return candidate if assets.exists(candidate) else asset_id
 
 
-## Same-family full-flush cells consume each other's shared rim. The result is
-## transformed into the tile's unrotated local space because the complete
+## Every full-flush surface consumes the shared rim of every neighbouring
+## full-flush surface. Matching connection groups may carry compatible relief
+## straight across; a mixed-group edge raises MIXED_SURFACE_FLAG so the bake
+## returns relief to the common walk plane before the material boundary.
+## Deliberately modular surfaces opt out with tiny_individual_seam. The result
+## is transformed into the tile's unrotated local space because the complete
 ## visual is rotated after instantiation.
 func connection_mask(
 	def: Defs.TileDefinition,
@@ -209,6 +206,7 @@ func connection_mask(
 	if def == null or def.connection_mode != "full_flush":
 		return 0
 	var world_mask := 0
+	var has_mixed_surface := false
 	var directions := [
 		[1, Vector2i(0, -1)],
 		[2, Vector2i(1, 0)],
@@ -219,11 +217,13 @@ func connection_mask(
 		var neighbour := grid.tile_def_at(coord + entry[1], elevation)
 		if (
 			neighbour != null
-			and neighbour.connection_group == def.connection_group
 			and neighbour.connection_mode == "full_flush"
 		):
 			world_mask |= int(entry[0])
-	return _world_mask_to_local(world_mask, rotation_quarters)
+			if neighbour.connection_group != def.connection_group:
+				has_mixed_surface = true
+	var local_mask := _world_mask_to_local(world_mask, rotation_quarters)
+	return local_mask | (MIXED_SURFACE_FLAG if has_mixed_surface else 0)
 
 
 static func _world_mask_to_local(world_mask: int, rotation_quarters: int) -> int:

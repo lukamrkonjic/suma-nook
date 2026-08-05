@@ -34,8 +34,8 @@ func _run() -> void:
 
 
 func _check_schema() -> void:
-	_check(TileLayerParameterSchema.KIND_ORDER.size() == 8,
-		"all eight reusable capability families are registered")
+	_check(TileLayerParameterSchema.KIND_ORDER.size() == 12,
+		"all twelve reusable capability families are registered")
 	var scatter := TileLayerParameterSchema.new_layer("clutter")
 	scatter.params["shapes"] = ["leaf_litter", "twig"]
 	var rng := RandomNumberGenerator.new()

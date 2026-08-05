@@ -14,6 +14,10 @@ extends Node3D
 ## collects the already-built layer meshes into plain scenes, so what ships is
 ## byte-identical to what was approved on screen.
 
+const FOREST_FLOOR_BUILDER := preload(
+	"res://tools/tile_kit/layers/kit_forest_floor_builder.gd"
+)
+
 ## The layer-kind registry. A new brick = a new builder class and one entry
 ## here; presets can then stack it into any tile.
 static func builder_for(kind: String) -> Object:
@@ -32,6 +36,10 @@ static func builder_for(kind: String) -> Object:
 			return KitSpriteTuftsBuilder
 		"clay_sprouts":
 			return KitClaySproutsBuilder
+		"rooted_meadow":
+			return KitRootedMeadowBuilder
+		"forest_floor":
+			return FOREST_FLOOR_BUILDER
 		"pavers":
 			return KitPaversBuilder
 		"fence":
@@ -52,6 +60,15 @@ var preset: TileKitPreset:
 var neighbour_mask := 0:
 	set(value):
 		neighbour_mask = value
+		if is_inside_tree():
+			rebuild()
+
+## Transition bakes use the same connected footprint while easing any sculpted
+## relief back to the shared y=0 boundary. This is what lets grass meet soil,
+## moss, or snow without either a bevel trench or a height crack.
+var flatten_connected_relief := false:
+	set(value):
+		flatten_connected_relief = value
 		if is_inside_tree():
 			rebuild()
 
@@ -117,6 +134,7 @@ func rebuild() -> void:
 	)
 	_context = {
 		"neighbour_mask": effective_neighbour_mask,
+		"flatten_connected_relief": flatten_connected_relief,
 		"world_origin": Vector2(world_cell) * KitBaseBuilder.TILE,
 	}
 	_layer_results.clear()

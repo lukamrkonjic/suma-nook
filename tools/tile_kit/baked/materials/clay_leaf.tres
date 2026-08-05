@@ -6,7 +6,7 @@
 resource_name = "tilekit_clay_leaf"
 render_priority = 0
 shader = ExtResource("1_no8tc")
-shader_parameter/albedo = Color(0.38399997, 0.451, 0.153, 1)
+shader_parameter/albedo = Color(0.37, 0.41, 0.16, 1)
 shader_parameter/sway_reference_height = null
 shader_parameter/wind_amplitude = null
 shader_parameter/wind_speed = null
