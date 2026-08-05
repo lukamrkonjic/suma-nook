@@ -2,6 +2,6 @@
 
 [resource]
 resource_name = "tilekit_forest_floor_lower"
-albedo_color = Color(0.28, 0.15499999, 0.09999999, 1)
-metallic_specular = 0.2
-roughness = 0.9
+albedo_color = Color(0.4, 0.24499999, 0.16, 1)
+metallic_specular = 0.05
+roughness = 0.98

@@ -163,6 +163,80 @@ func controller_cursor_cell() -> Vector2i:
 	return _controller_cell
 
 
+## Resolves the keeper-dock drag against the same authored tile/structure
+## colliders used by build selection. Returning an empty dictionary keeps the
+## UI preview and the authoritative drop decision on one validity contract.
+func player_drop_target(screen_position: Vector2) -> Dictionary:
+	var hit := world_renderer.pick_placeable_at_screen(
+		camera_rig.camera,
+		screen_position
+	)
+	if hit.is_empty():
+		return {}
+	var coord: Vector2i = hit.get("coord", Vector2i(9999, 9999))
+	var elevation := int(hit.get("elevation", core.grid.top_elevation(coord)))
+	if hit.get("kind", "") == "structure":
+		var found := core.grid.find_structure(int(hit.get("instance_id", 0)))
+		if found.is_empty():
+			return {}
+		var structure := found.get("structure") as WorldGrid.StructureState
+		var definition := (
+			core.registries.structure(structure.structure_id)
+			if structure != null else null
+		)
+		if definition == null or definition.collision_profile != "walkable_surface":
+			return {}
+	return player_drop_target_at_cell(
+		coord,
+		elevation,
+		hit.get("point", null)
+	)
+
+
+## Testable cell form of player_drop_target(). It deliberately rejects water,
+## landmarks, and blocking center props while accepting authored walkable
+## structure surfaces such as docks.
+func player_drop_target_at_cell(
+	coord: Vector2i,
+	elevation := -1,
+	surface_point: Variant = null
+) -> Dictionary:
+	var top := core.grid.top_elevation(coord)
+	if top < 0:
+		return {}
+	var target_elevation := top if elevation < 0 else elevation
+	if target_elevation != top:
+		return {}
+	var state := core.grid.cell_at(coord, target_elevation)
+	var tile_definition := core.grid.tile_def_at(coord, target_elevation)
+	if state == null or tile_definition == null or state.landmark_id != "":
+		return {}
+	var walkable := tile_definition.walkable
+	if target_elevation == 0 and core.grid.has_walkable_structure_surface(coord):
+		walkable = true
+	if not walkable:
+		return {}
+	for structure: WorldGrid.StructureState in state.structures:
+		if structure.parent_instance_id != 0:
+			continue
+		var definition := core.registries.structure(structure.structure_id)
+		if definition != null and definition.blocks_movement:
+			return {}
+	var center := core.grid.cell_to_world(coord, target_elevation)
+	var target := center
+	if surface_point is Vector3:
+		var point := surface_point as Vector3
+		var inset := core.grid.tile_size * 0.28
+		target.x = clampf(point.x, center.x - inset, center.x + inset)
+		target.z = clampf(point.z, center.z - inset, center.z + inset)
+		target.y = maxf(center.y, point.y)
+	return {
+		"coord": coord,
+		"elevation": target_elevation,
+		"position": target + Vector3.UP * 0.025,
+	}
+
+
 func move_controller_cursor(screen_direction: Vector2i) -> void:
 	if not active or not controller_cursor_active():
 		return

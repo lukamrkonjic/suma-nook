@@ -533,19 +533,48 @@ static func _connected_height_function(bevel: float, mask: int,
 	var open_south := (mask & 4) == 0
 	var open_west := (mask & 8) == 0
 	return func(local: Vector2) -> float:
+		var north_inset := local.y + HALF
+		var east_inset := HALF - local.x
+		var south_inset := HALF - local.y
+		var west_inset := local.x + HALF
 		var inset := INF
 		if open_north:
-			inset = minf(inset, local.y + HALF)
+			inset = minf(inset, north_inset)
 		if open_south:
-			inset = minf(inset, HALF - local.y)
+			inset = minf(inset, south_inset)
 		if open_west:
-			inset = minf(inset, local.x + HALF)
+			inset = minf(inset, west_inset)
 		if open_east:
-			inset = minf(inset, HALF - local.x)
+			inset = minf(inset, east_inset)
+		# Turn each exposed-edge bevel back up to the walk plane where it meets
+		# a fused perpendicular edge. Without this corner turn, the three tiles
+		# around an L junction disagree at their shared endpoint: one is at y=0
+		# while the other two are at y=-bevel, exposing a black V-shaped crack.
 		var drop := 0.0
-		if inset < bevel:
-			var t := 1.0 - clampf(inset, 0.0, bevel) / bevel
-			drop = -bevel * (1.0 - sqrt(maxf(0.0, 1.0 - t * t)))
+		if open_north:
+			drop = minf(drop, _connected_edge_drop(
+				north_inset, bevel,
+				west_inset, open_west,
+				east_inset, open_east
+			))
+		if open_south:
+			drop = minf(drop, _connected_edge_drop(
+				south_inset, bevel,
+				west_inset, open_west,
+				east_inset, open_east
+			))
+		if open_west:
+			drop = minf(drop, _connected_edge_drop(
+				west_inset, bevel,
+				north_inset, open_north,
+				south_inset, open_south
+			))
+		if open_east:
+			drop = minf(drop, _connected_edge_drop(
+				east_inset, bevel,
+				north_inset, open_north,
+				south_inset, open_south
+			))
 		# World-anchored relief: the same world position produces the same
 		# height on both sides of a fused seam.
 		var feather := 1.0 if inset == INF \
@@ -562,6 +591,27 @@ static func _connected_height_function(bevel: float, mask: int,
 			feather *= smoothstep(0.0, 0.065, boundary_inset)
 		var sculpt := float(relief.call(world_origin + local)) * feather
 		return drop + sculpt
+
+
+static func _connected_edge_drop(
+	boundary_inset: float,
+	bevel: float,
+	first_corner_inset: float,
+	first_corner_open: bool,
+	second_corner_inset: float,
+	second_corner_open: bool
+) -> float:
+	if boundary_inset >= bevel:
+		return 0.0
+	var t := 1.0 - clampf(boundary_inset, 0.0, bevel) / bevel
+	var drop := -bevel * (1.0 - sqrt(maxf(0.0, 1.0 - t * t)))
+	# A connected perpendicular edge owns the shared corner at y=0. Blend the
+	# open-edge bevel into that endpoint instead of leaving mismatched vertices.
+	if not first_corner_open:
+		drop *= smoothstep(0.0, bevel, first_corner_inset)
+	if not second_corner_open:
+		drop *= smoothstep(0.0, bevel, second_corner_inset)
+	return drop
 
 
 ## Cap for a connected tile: a displaced full-footprint grid (the height
@@ -616,7 +666,11 @@ static func _connected_cap(bevel: float, segments: int, keys: Dictionary,
 			var wall_normal := Vector3(outward.x, 0.0, outward.y)
 			wall_vertices.append(Vector3(point.x, SEAM, point.y))
 			wall_normals.append(wall_normal)
-			wall_vertices.append(Vector3(point.x, -bevel, point.y))
+			wall_vertices.append(Vector3(
+				point.x,
+				float(height_at.call(point)),
+				point.y
+			))
 			wall_normals.append(wall_normal)
 		for strip in strips:
 			var a := strip * 2

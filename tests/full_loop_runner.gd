@@ -1,7 +1,7 @@
 extends Node
 ## Scene-level acceptance run: drives the REAL game (main.tscn) through the
-## complete current loop — creation → free walk → catch/release → ferry →
-## parcel choice → Tile Library → placement → woodland tending → save/reload.
+## complete current loop — creation → free walk → catch/release → Tile Library
+## → placement → woodland tending → save/reload.
 ## Run windowed:  godot --path . tests/full_loop_runner.tscn
 ## Prints "FULL LOOP PASSED" or FAIL lines, then quits.
 
@@ -120,7 +120,7 @@ func _run() -> void:
 	await _step_universal_interaction()
 	await _step_movement()
 	await _step_fishing()
-	await _step_parcel()
+	await _step_retired_ferry()
 	await _step_place_tile()
 	await _step_woodcutting()
 	await _step_elevation_stacking()
@@ -185,6 +185,44 @@ func _step_creation() -> void:
 	main.arrival_picker.select("tile_sand")
 	await wait(1.45)
 	check(main._gameplay_started, "gameplay starts after the chosen land catches the keeper")
+	check(
+		main.placement.active
+		and not main.player.deployed
+		and not main.player.visible
+		and main.hud.player_dock_visible(),
+		"gameplay opens in Shape Land with the keeper waiting in the HUD dock"
+	)
+	check(
+		main.placement.player_drop_target_at_cell(Vector2i(99, 99)).is_empty(),
+		"keeper drops reject empty void"
+	)
+	check(
+		main.try_place_player_at_cell(main.core.grid.home_cell),
+		"the docked keeper can be placed on a walkable tile"
+	)
+	await wait(0.8)
+	check(
+		main.player.deployed
+		and main.player.visible
+		and main.player.state == PlayerController.State.FREE,
+		"a placed keeper lands into normal free movement"
+	)
+	check(main.player.recall_to_dock(), "the occupied dock recalls the keeper")
+	await wait(0.18)
+	check(
+		main.player.find_child("RescueBlackHole", true, false) != null,
+		"recall opens the established black-hole portal under the keeper"
+	)
+	await wait(0.65)
+	check(
+		not main.player.deployed and not main.player.visible,
+		"the recalled keeper returns to the HUD instead of teleporting home"
+	)
+	check(
+		main.try_place_player_at_cell(main.core.grid.home_cell),
+		"the recalled keeper can be dragged into the world again"
+	)
+	await wait(0.8)
 	check(
 		main.core.grid.cells.size() == 9
 		and main.core._placed_tile_count("tile_sand") == 9
@@ -265,12 +303,17 @@ func _step_controller_input() -> void:
 
 	await _tap_joy_button(JOY_BUTTON_Y)
 	await wait(0.1)
-	check(main.placement.active, "Y/north face opens build mode")
+	check(
+		main.placement.active and main.placement.controller_cursor_active(),
+		"Y/north face browses the world while permanent build mode stays active"
+	)
+	await _tap_joy_button(JOY_BUTTON_Y)
+	await wait(0.1)
 	var build_focus := get_viewport().gui_get_focus_owner()
 	check(
 		build_focus != null
 		and main.hud._build_bar.is_ancestor_of(build_focus),
-		"controller build mode focuses the categorized library"
+		"a second Y returns focus to the categorized library"
 	)
 	check(
 		build_focus != null and build_focus.tooltip_text != "",
@@ -278,8 +321,8 @@ func _step_controller_input() -> void:
 	)
 	await _tap_joy_button(JOY_BUTTON_B)
 	check(
-		not main.placement.active,
-		"B/east face exits the focused build library"
+		main.placement.active,
+		"B/east face closes library context without leaving permanent build mode"
 	)
 
 	var mouse_motion := InputEventMouseMotion.new()
@@ -601,39 +644,11 @@ func _step_build_library_ui() -> void:
 		main.pixel_look
 	)
 	check(not main.pixel_look.visible, "returning pixel size to off hides the layer again")
-	# A single fixed world-space slab with Horizon-style ray-marched
-	# density, never sprites, image cards, global fog, or screen-space
-	# corner puffs. Zoom cannot recompose it.
-	var cloud_manifest: Dictionary = (
-		main.lighting.void_clouds.runtime_manifest()
-	)
 	check(
-		bool(cloud_manifest["enabled"])
-		and bool(cloud_manifest["world_space"])
-		and bool(cloud_manifest["zoom_stable"])
-		and int(cloud_manifest["screen_space_layers"]) == 0
-		and int(cloud_manifest["sprites"]) == 0
-		and int(cloud_manifest["cloud_image_textures"]) == 0,
-		"void clouds are a world-space volumetric field with no image assets"
-	)
-	check(
-		main.lighting.void_clouds.find_child(
-			"HorizonCloudSea",
-			true,
-			false
-		) is MeshInstance3D,
-		"the cloudscape renders as one world-anchored raymarched slab"
-	)
-	check(
-		float(cloud_manifest["cloud_top_y"])
-			<= float(cloud_manifest["underside_y"]) - 5.0
-		and float(cloud_manifest["cloud_bottom_y"])
-			< float(cloud_manifest["cloud_top_y"]),
-		"the cloud crests stay well below the island underside"
-	)
-	check(
-		not bool(cloud_manifest["volumetric_fog_used"]),
-		"the broken volumetric-fog path stays entirely off"
+		not main.core.registries.feature("void_clouds_enabled", true)
+		and main.lighting.void_clouds == null
+		and main.find_child("HorizonCloudSea", true, false) == null,
+		"void clouds stay uninstantiated while the art-direction switch is off"
 	)
 	check(
 		main.find_child("CloudLayer", true, false) == null
@@ -2116,31 +2131,20 @@ func _step_fishing() -> void:
 	)
 	main.placement.store_held()
 
-func _step_parcel() -> void:
-	print("STEP ferry discovery")
+func _step_retired_ferry() -> void:
+	print("STEP retired ferry")
 	main.skill_actions.cancel_all()
 	main.player.set_state(PlayerController.State.FREE)
-	main.core.registries.arrival_config["ferry_approach_seconds"] = 0.45
-	main.core.registries.arrival_config["ferry_dock_seconds"] = 0.12
-	main.core.registries.arrival_config["ferry_departure_seconds"] = 0.3
-	check(main.core.arrivals.trigger_arrival(), "periodic scheduler triggers the ferry")
-	await wait(0.18)
-	check(main.ferry_presentation.active, "ferry visibly approaches from beyond the world")
-	await wait(0.7)
-	check(main.delivery_point.package_is_visible(), "ferry unloads one package")
-	check(main.core.arrivals.has_waiting_package(), "unopened package blocks accumulation")
-	main._open_delivery_package()
-	await wait(0.4)
-	check(main.discovery_reveal.is_open(), "ferry opens the same single-item discovery reveal")
-	var reward := main.core.progression.discovery.peek_pending()
-	check(reward.get("source") == "delivery", "the queued reward records its delivery source")
-	await shot("screenshot_ferry_discovery")
-	main.discovery_reveal._accept()
-	await wait(0.65)
-	check(main.core.arrivals.state == ArrivalScheduler.IDLE, "ferry timer resumes after acknowledgement")
-	check(_entry_stock_count_for_loop(reward) >= 1 or not main.placement.held.is_empty(), "ferry reward remains owned")
-	main.placement.store_held()
-	check(main.core.inventory.counts.is_empty(), "ferry reward bypasses material inventory")
+	check(
+		not main.core.registries.feature("ferry_arrivals_enabled", true),
+		"ferry feature remains disabled in the real scene"
+	)
+	check(main.ferry_presentation == null, "the retired ship is not instantiated")
+	check(not main.core.arrivals.trigger_arrival(), "no gift delivery can be forced")
+	check(
+		not main.delivery_point.package_is_visible(),
+		"no gift crate is present at the dock"
+	)
 
 func _step_place_tile() -> void:
 	print("STEP tile placement")
@@ -2628,10 +2632,11 @@ func _step_save_reload() -> void:
 	print("STEP save & reload")
 	main.skill_actions.cancel_all()
 	main.player.set_state(PlayerController.State.FREE)
-	check(main.core.arrivals.trigger_arrival(), "arrival uses the production scheduler")
-	main.core.arrivals.force_departure_ready()
-	await wait(0.1)
-	check(main.core.arrivals.has_waiting_package(), "ferry leaves the saved Land Parcel payload")
+	check(
+		not main.core.arrivals.trigger_arrival()
+		and not main.core.arrivals.has_waiting_package(),
+		"retired ferry remains absent before saving"
+	)
 	main.player.position = Vector3(0.37, 0.0, 0.41)   # deliberately between tile centers
 	await get_tree().physics_frame
 	await get_tree().physics_frame
@@ -2660,8 +2665,11 @@ func _step_save_reload() -> void:
 	)
 	check(main.core.progression.actions_done("fishing") == expect_actions, "activity progress survives reload")
 	check(main.player.position.distance_to(expect_pos) < 0.05, "exact continuous player position survives reload (%.3f drift)" % main.player.position.distance_to(expect_pos))
-	check(main.core.arrivals.has_waiting_package(), "unopened delivery survives reload")
-	check(main.delivery_point.package_is_visible(), "restored delivery is interactable at the dock")
+	check(
+		not main.core.arrivals.has_waiting_package()
+		and not main.delivery_point.package_is_visible(),
+		"retired ferry and gift crate remain absent after reload"
+	)
 	check(get_tree().get_nodes_in_group("enemies").is_empty(), "no monsters or combat encounters appear")
 
 

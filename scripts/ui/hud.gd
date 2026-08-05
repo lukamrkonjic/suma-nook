@@ -9,9 +9,16 @@ signal build_piece_selected(kind: String, id: String)
 signal build_world_browse_requested
 signal build_store_requested
 signal pause_requested
+signal player_dock_activated
+signal player_dock_drag_started(screen_position: Vector2)
+signal player_dock_drag_moved(screen_position: Vector2)
+signal player_dock_drag_released(screen_position: Vector2)
 
 const BuildThumbnailRendererScript := preload(
 	"res://scripts/ui/build_thumbnail_renderer.gd"
+)
+const PlayerPlacementDockScript := preload(
+	"res://scripts/ui/player_placement_dock.gd"
 )
 
 var core: GameCore
@@ -66,6 +73,11 @@ var _bottom_buttons: HBoxContainer
 var _menu_button: Button
 var _build_button: Button
 var _build_hint_label: Label
+var _player_dock_panel: PanelContainer
+var _player_dock: TextureButton
+var _player_dock_label: Label
+var _player_drag_icon: TextureRect
+var _player_deployed := false
 var _hover_tooltip: PanelContainer
 var _hover_name_label: Label
 var _hover_collection_label: Label
@@ -451,6 +463,55 @@ func _build_layout() -> void:
 	_store_bubble.gui_input.connect(_on_store_bubble_input)
 	root.add_child(_store_bubble)
 
+	# The keeper is a draggable world tool, mirroring the compact person dock
+	# used by map applications. It stays available after placement so one click
+	# can recall the active keeper through their portal animation.
+	_player_dock_panel = PanelContainer.new()
+	_player_dock_panel.name = "PlayerPlacementDockPanel"
+	_player_dock_panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_player_dock_panel.offset_left = -142
+	_player_dock_panel.offset_top = -142
+	_player_dock_panel.offset_right = -18
+	_player_dock_panel.offset_bottom = -18
+	var player_dock_style := kit.cloud_panel_style(22)
+	player_dock_style.content_margin_left = 14
+	player_dock_style.content_margin_right = 14
+	player_dock_style.content_margin_top = 10
+	player_dock_style.content_margin_bottom = 9
+	player_dock_style.shadow_size = 11
+	_player_dock_panel.add_theme_stylebox_override("panel", player_dock_style)
+	root.add_child(_player_dock_panel)
+	var player_dock_column := VBoxContainer.new()
+	player_dock_column.alignment = BoxContainer.ALIGNMENT_CENTER
+	player_dock_column.add_theme_constant_override("separation", 0)
+	_player_dock_panel.add_child(player_dock_column)
+	_player_dock = PlayerPlacementDockScript.new()
+	_player_dock.name = "PlayerPlacementDock"
+	_player_dock.texture_normal = load(
+		"res://assets/ui/icons/player_dock.svg"
+	)
+	_player_dock.drag_started.connect(_on_player_dock_drag_started)
+	_player_dock.drag_moved.connect(_on_player_dock_drag_moved)
+	_player_dock.drag_released.connect(_on_player_dock_drag_released)
+	_player_dock.activated.connect(func(): player_dock_activated.emit())
+	player_dock_column.add_child(_player_dock)
+	_player_dock_label = kit.label("Drag keeper", 13, false, true)
+	_player_dock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_player_dock_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	player_dock_column.add_child(_player_dock_label)
+
+	_player_drag_icon = TextureRect.new()
+	_player_drag_icon.name = "PlayerDockDragIcon"
+	_player_drag_icon.texture = _player_dock.texture_normal
+	_player_drag_icon.custom_minimum_size = Vector2(48, 56)
+	_player_drag_icon.size = Vector2(48, 56)
+	_player_drag_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_player_drag_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_player_drag_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_player_drag_icon.z_index = 100
+	_player_drag_icon.visible = false
+	root.add_child(_player_drag_icon)
+
 	_build_category_group = ButtonGroup.new()
 	_thumbnail_renderer = BuildThumbnailRendererScript.new()
 	_thumbnail_renderer.name = "BuildThumbnailRenderer"
@@ -458,6 +519,7 @@ func _build_layout() -> void:
 	_thumbnail_renderer.setup(core, placement.assets)
 	get_viewport().size_changed.connect(_resize_build_library)
 	_resize_build_library()
+	set_player_deployed(false)
 
 
 # ------------------------------------------------------------------ refresh
@@ -469,6 +531,47 @@ func _refresh_all() -> void:
 		_on_health_changed(core.combat.health, core.combat.max_health)
 	else:
 		_health_box.visible = false
+
+
+func set_player_deployed(deployed: bool) -> void:
+	if _player_dock == null:
+		return
+	_player_deployed = deployed
+	_player_dock.set_deployed(deployed)
+	_player_dock_label.text = "Recall keeper" if deployed else "Drag keeper"
+	_player_drag_icon.visible = false
+
+
+func set_player_drop_valid(valid: bool) -> void:
+	if _player_drag_icon == null:
+		return
+	_player_drag_icon.modulate = Color.WHITE if valid else Color(1.0, 0.42, 0.36, 0.88)
+
+
+func player_dock_visible() -> bool:
+	return _player_dock_panel != null and _player_dock_panel.visible
+
+
+func _on_player_dock_drag_started(screen_position: Vector2) -> void:
+	_player_drag_icon.visible = true
+	_move_player_drag_icon(screen_position)
+	player_dock_drag_started.emit(screen_position)
+
+
+func _on_player_dock_drag_moved(screen_position: Vector2) -> void:
+	_move_player_drag_icon(screen_position)
+	player_dock_drag_moved.emit(screen_position)
+
+
+func _on_player_dock_drag_released(screen_position: Vector2) -> void:
+	_player_drag_icon.visible = false
+	player_dock_drag_released.emit(screen_position)
+
+
+func _move_player_drag_icon(screen_position: Vector2) -> void:
+	if _player_drag_icon == null:
+		return
+	_player_drag_icon.position = screen_position - _player_drag_icon.size * 0.5
 
 
 func refresh_fishing_buttons() -> void:
@@ -662,7 +765,7 @@ func _refresh_build_items(entries_by_category: Dictionary) -> void:
 				"No owned pieces match “%s”. Clear the search to see everything."
 				% _build_search.text.strip_edges()
 				if not _build_search_query().is_empty()
-				else "Your Build Bag is empty — the next ferry will bring a Land Parcel."
+				else "Your Build Bag is empty — fish from an exposed edge to find a piece."
 			),
 			15
 		)
@@ -1345,15 +1448,8 @@ func _on_health_changed(current: int, maximum: int) -> void:
 
 
 func _on_build_button_pressed() -> void:
-	if not core.onboarding.requires_guided_placement():
-		placement.toggle()
-		return
-	if placement.active:
-		toast("Place this arrival piece before closing Shape Land.", "warn")
-		return
-	var guided := core.ensure_onboarding_guided_piece()
-	if not guided.is_empty():
-		placement.hold_new(String(guided["kind"]), String(guided["id"]))
+	placement.set_active(true)
+	request_build_library_open()
 
 
 func _enemies_near() -> bool:
@@ -1505,6 +1601,9 @@ func toast(message: String, tone := "common") -> void:
 
 ## Derives the current opening hint straight from discovery state.
 func update_tutorial() -> void:
+	if not _player_deployed and core.onboarding.stage != OnboardingState.LAND_CHOICE:
+		set_hint("Drag your keeper from the lower-right onto a clear tile.")
+		return
 	match core.onboarding.stage:
 		OnboardingState.LAND_CHOICE:
 			set_hint("")
@@ -1525,9 +1624,7 @@ func update_tutorial() -> void:
 				)
 			)
 			return
-	if core.arrivals.has_waiting_package():
-		set_hint("A gift crate is waiting at the northern dock.")
-	elif core.fishing.basket.is_full():
+	if core.fishing.basket.is_full():
 		set_hint("The Catch Basket is full — place or return a haul to fish again.")
 	elif core.progression.actions_done("fishing") == 0:
 		set_hint(
@@ -1535,10 +1632,7 @@ func update_tutorial() -> void:
 			% InputDeviceService.shared().format_action(&"interact", "when close")
 		)
 	elif core.grid.placed_tile_count() == 0 and core.stock.total_tiles() > 0:
-		set_hint(
-			"Place your new land beside the world you have. (%s)"
-			% InputDeviceService.shared().format_action(&"build_mode", "build mode")
-		)
+		set_hint("Place your new land beside the world from the Build Bag below.")
 	elif core.grid.placed_tile_count() > 0 and core.progression.actions_done("woodcutting") == 0:
 		if _has_placed_tree():
 			set_hint("Tend your placed tree — it will rest, then regrow.")

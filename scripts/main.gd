@@ -44,6 +44,8 @@ var delivery_point: DeliveryPoint
 var ferry_presentation: FerryArrivalPresentation
 var player: PlayerController
 var player_visual: PlayerVisual
+var player_drop_preview: Node3D
+var player_drop_preview_visual: PlayerVisual
 var pigeon_mascot: CharacterBody3D
 var pigeon_controller: PigeonMascotController
 var camera_rig: CameraRig
@@ -79,6 +81,8 @@ var _performance_hud_visible_before_hide := false
 var _controller_hud_hold_elapsed := 0.0
 var _controller_hud_hold_active := false
 var _controller_hud_hold_home_fired := false
+var _player_dock_busy := false
+var _player_drop_target: Dictionary = {}
 
 
 func _ready() -> void:
@@ -134,6 +138,11 @@ func _build_world_scene() -> void:
 	add_child(world_root)
 
 	lighting = (load("res://scenes/visual/SumaSoftDaylight.tscn") as PackedScene).instantiate()
+	# Temporarily keep the cloud sea out of the sky. The feature switch leaves
+	# the implementation intact for a later art-direction pass.
+	lighting.void_clouds_enabled = core.registries.feature(
+		"void_clouds_enabled", false
+	)
 	world_root.add_child(lighting)
 
 	renderer = WorldRenderer.new()
@@ -155,10 +164,11 @@ func _build_world_scene() -> void:
 		core.grid
 	)
 
-	ferry_presentation = FerryArrivalPresentation.new()
-	ferry_presentation.name = "FerryArrivalPresentation"
-	world_root.add_child(ferry_presentation)
-	ferry_presentation.setup(materials)
+	if core.registries.feature("ferry_arrivals_enabled", false):
+		ferry_presentation = FerryArrivalPresentation.new()
+		ferry_presentation.name = "FerryArrivalPresentation"
+		world_root.add_child(ferry_presentation)
+		ferry_presentation.setup(materials)
 
 	player = PlayerController.new()
 	player.name = "Player"
@@ -178,6 +188,17 @@ func _build_world_scene() -> void:
 	world_root.add_child(player)
 	player_visual.build(assets, palette)
 	player_visual.set_procedural_critter_enabled(procedural_critter_enabled)
+	player_drop_preview = Node3D.new()
+	player_drop_preview.name = "PlayerDropPreview"
+	player_drop_preview.visible = false
+	world_root.add_child(player_drop_preview)
+	player_drop_preview_visual = PlayerVisual.new()
+	player_drop_preview_visual.name = "Visual"
+	player_drop_preview.add_child(player_drop_preview_visual)
+	player_drop_preview_visual.build(assets, palette)
+	player_drop_preview_visual.set_procedural_critter_enabled(
+		procedural_critter_enabled
+	)
 
 	camera_rig = CameraRig.new()
 	camera_rig.name = "CameraRig"
@@ -251,6 +272,8 @@ func _build_world_scene() -> void:
 	)
 	player_visual.apply_profile(core.profile)
 	player_visual.apply_equipment(core.equipment)
+	player_drop_preview_visual.apply_profile(core.profile)
+	player_drop_preview_visual.apply_equipment(core.equipment)
 
 
 ## The basket sits one step behind the keeper's fishing spot, on land.
@@ -615,6 +638,10 @@ func debug_reset_save() -> void:
 
 func _connect_flows() -> void:
 	hud.pause_requested.connect(func(): open_pause_menu())
+	hud.player_dock_activated.connect(_on_player_dock_activated)
+	hud.player_dock_drag_started.connect(_on_player_dock_drag_started)
+	hud.player_dock_drag_moved.connect(_on_player_dock_drag_moved)
+	hud.player_dock_drag_released.connect(_on_player_dock_drag_released)
 	hud.catch_basket_requested.connect(panels.show_catch_basket)
 	hud.spirit_pouch_requested.connect(panels.show_spirit_pouch)
 	panels.basket_tile_bundle_taken.connect(_on_basket_tile_bundle_taken)
@@ -677,6 +704,7 @@ func _connect_flows() -> void:
 	player.click_interaction_reached.connect(_on_click_interaction_reached)
 	player.arrival_choice_ready.connect(_open_first_land_picker)
 	player.arrival_landed.connect(_on_first_arrival_landed)
+	player.deployment_changed.connect(_on_player_deployment_changed)
 	core.fire.burning_changed.connect(_on_fire_burning_changed)
 
 	core.progression.milestones.milestone_reached.connect(_on_milestone_reached)
@@ -699,8 +727,9 @@ func _connect_flows() -> void:
 	core.arrivals.arrival_requested.connect(_on_arrival_requested)
 	core.arrivals.delivery_ready.connect(_on_delivery_ready)
 	core.arrivals.delivery_resolved.connect(func(): delivery_point.hide_package())
-	ferry_presentation.arrival_started.connect(_on_presentation_arrival_started)
-	ferry_presentation.delivery_ready.connect(_on_presentation_delivery_ready)
+	if ferry_presentation != null:
+		ferry_presentation.arrival_started.connect(_on_presentation_arrival_started)
+		ferry_presentation.delivery_ready.connect(_on_presentation_delivery_ready)
 	lighting.profile_applied.connect(_on_profile_applied)
 	if lighting.current_profile != null:
 		_on_profile_applied(lighting.current_profile)
@@ -822,12 +851,17 @@ func _start_gameplay(fresh: bool, show_welcome := true) -> void:
 		hud._refresh_all()
 	if lighting.current_profile != null:
 		_on_profile_applied(lighting.current_profile)
+	# Shape Land is the permanent primary mode. The keeper begins in the HUD
+	# dock every session and only receives a world body after a valid drag/drop.
+	placement.set_active(true)
+	player.dock_for_placement()
+	player_drop_preview.visible = false
 	hud.update_tutorial()
 	if show_welcome:
 		hud.toast("Welcome%s, %s." % ["" if fresh else " back", core.profile.display_name], "good")
 	core.arrivals.announce_restored_delivery()
 	_refresh_controller_hints()
-	if is_instance_valid(pigeon_controller):
+	if player.deployed and is_instance_valid(pigeon_controller):
 		pigeon_controller.spawn_near_player()
 
 
@@ -859,6 +893,98 @@ func _advance_guided_onboarding() -> void:
 
 func _guided_placement_locked() -> bool:
 	return core.onboarding.requires_guided_placement()
+
+
+# --------------------------------------------------------- keeper world dock
+
+func _on_player_dock_drag_started(screen_position: Vector2) -> void:
+	if _player_dock_busy or player.deployed:
+		return
+	if not placement.held.is_empty():
+		placement.cancel_click()
+	skill_actions.cancel_all()
+	player_drop_preview_visual.apply_profile(core.profile)
+	player_drop_preview_visual.apply_equipment(core.equipment)
+	player_drop_preview_visual.play("idle")
+	_update_player_drop_preview(screen_position)
+
+
+func _on_player_dock_drag_moved(screen_position: Vector2) -> void:
+	if _player_dock_busy or player.deployed:
+		return
+	_update_player_drop_preview(screen_position)
+
+
+func _on_player_dock_drag_released(screen_position: Vector2) -> void:
+	if _player_dock_busy or player.deployed:
+		return
+	_update_player_drop_preview(screen_position)
+	player_drop_preview.visible = false
+	if _player_drop_target.is_empty():
+		hud.set_player_drop_valid(false)
+		hud.toast("Drop your keeper onto a clear, walkable tile.", "warn")
+		return
+	_deploy_player_target(_player_drop_target)
+
+
+func _on_player_dock_activated() -> void:
+	if _player_dock_busy:
+		return
+	if not player.deployed:
+		# Mouse placement is deliberately spatial. A controller has no drag
+		# gesture, so activating the focused dock uses the safe home tile.
+		if InputDeviceService.shared().is_controller():
+			try_place_player_at_cell(core.grid.home_cell)
+		else:
+			hud.toast("Drag your keeper from here onto the island.", "good")
+		return
+	if not placement.held.is_empty():
+		placement.cancel_click()
+	skill_actions.cancel_all()
+	_player_dock_busy = player.recall_to_dock()
+
+
+func _update_player_drop_preview(screen_position: Vector2) -> void:
+	_player_drop_target = placement.player_drop_target(screen_position)
+	var valid := not _player_drop_target.is_empty()
+	hud.set_player_drop_valid(valid)
+	player_drop_preview.visible = valid
+	if valid:
+		player_drop_preview.global_position = _player_drop_target["position"]
+
+
+func try_place_player_at_cell(coord: Vector2i) -> bool:
+	if _player_dock_busy or player.deployed:
+		return false
+	var target := placement.player_drop_target_at_cell(coord)
+	if target.is_empty():
+		return false
+	return _deploy_player_target(target)
+
+
+func _deploy_player_target(target: Dictionary) -> bool:
+	if target.is_empty() or not target.get("position") is Vector3:
+		return false
+	player_drop_preview.visible = false
+	_player_drop_target = {}
+	_player_dock_busy = player.deploy_from_dock(target["position"])
+	if _player_dock_busy:
+		hud.set_player_deployed(true)
+		camera_rig.reset_pan()
+	return _player_dock_busy
+
+
+func _on_player_deployment_changed(deployed: bool) -> void:
+	_player_dock_busy = false
+	_player_drop_target = {}
+	player_drop_preview.visible = false
+	hud.set_player_deployed(deployed)
+	if deployed:
+		core.autosave_soon()
+		if is_instance_valid(pigeon_controller):
+			pigeon_controller.spawn_near_player()
+	hud.update_tutorial()
+	_refresh_controller_hints()
 
 
 func _apply_saved_visual_state() -> void:
@@ -976,13 +1102,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		_handle_controller_build_input(event)
 		return
 	if event.is_action_pressed("build_mode"):
-		if _guided_placement_locked():
-			hud.toast("Place this piece before leaving Shape Land.", "warn")
-			get_viewport().set_input_as_handled()
-			return
-		skill_actions.cancel_all()
-		placement.toggle()
-	elif event.is_action_pressed("rotate_piece") and placement.active:
+		# Shape Land is no longer a toggle. The keyboard B binding is retired;
+		# keep this guard for migrated custom InputMaps and consume it harmlessly.
+		get_viewport().set_input_as_handled()
+		return
+	if event.is_action_pressed("rotate_piece") and placement.active:
 		placement.rotate_held()
 		audio.play_event("build_rotate")
 	elif (
@@ -1011,9 +1135,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		event.is_action_pressed("interact")
 		and not event is InputEventMouseButton
 	):
-		if placement.active:
+		if (
+			placement.active
+			and (
+				not placement.held.is_empty()
+				or placement.controller_cursor_active()
+			)
+		):
 			placement.click()
-		elif player.state == PlayerController.State.FREE:
+		elif player.deployed and player.state == PlayerController.State.FREE:
 			player.cancel_click_command()
 			_perform_interaction(player.focus())
 		elif player.state in [
@@ -1126,7 +1256,9 @@ func _cancel_build_or_open_library() -> void:
 			placement.cancel_click()
 		hud.request_build_library_open()
 		return
-	placement.cancel_click()
+	if not placement.held.is_empty():
+		placement.cancel_click()
+	hud.set_build_library_expanded(false)
 
 
 func _handle_hud_shortcut(event: InputEvent) -> bool:
@@ -1531,7 +1663,10 @@ func _open_delivery_package() -> void:
 
 
 func _on_arrival_requested(payload: LandParcelPayload) -> void:
-	ferry_presentation.play(delivery_point, payload, core.registries.arrival_config)
+	if ferry_presentation != null:
+		ferry_presentation.play(
+			delivery_point, payload, core.registries.arrival_config
+		)
 
 
 func _on_presentation_arrival_started() -> void:
@@ -1631,6 +1766,9 @@ func _spawn_saved_encounters() -> void:
 
 
 func _return_home() -> void:
+	if not player.deployed:
+		hud.toast("Drag your keeper onto the island first.", "warn")
+		return
 	player.teleport_home()
 	camera_rig.reset_pan()
 	hud.toast("Home again.", "good")
@@ -1658,8 +1796,10 @@ func reload_from_save() -> void:
 			_spawn_saved_encounters()
 		core.arrivals.announce_restored_delivery()
 		hud._refresh_all()
+		placement.set_active(true)
+		player.dock_for_placement()
 		hud.toast("Save reloaded.", "good")
-		if is_instance_valid(pigeon_controller):
+		if player.deployed and is_instance_valid(pigeon_controller):
 			pigeon_controller.spawn_near_player()
 
 

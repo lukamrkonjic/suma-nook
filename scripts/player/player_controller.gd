@@ -26,6 +26,10 @@ signal ground_landed(
 )
 signal arrival_choice_ready
 signal arrival_landed
+## The keeper is a world tool as well as an actor. Every gameplay session
+## begins with them in the HUD dock; this signal keeps that dock synchronized
+## after a drop or a recall animation finishes.
+signal deployment_changed(deployed: bool)
 
 enum State { FREE, FISHING_CAST, FISHING_WAIT, FISHING_CATCH, WOODCUTTING, ATTACKING, DODGING, HIT, BUILDING, DISABLED, RESCUED, SWIMMING, ARRIVING }
 
@@ -59,6 +63,8 @@ var _click_path_index := 0
 var _click_interaction: Dictionary = {}
 var _click_stop_radius := 0.12
 var _presentation_locked := false
+var deployed := true
+var _dock_tween: Tween
 
 
 func setup(game_core: GameCore, rig: CameraRig, player_visual: PlayerVisual) -> void:
@@ -76,6 +82,11 @@ func setup(game_core: GameCore, rig: CameraRig, player_visual: PlayerVisual) -> 
 
 func _physics_process(delta: float) -> void:
 	if core == null:
+		return
+	if not deployed:
+		# A docked keeper has no world body. Preserve the last useful camera/save
+		# anchor instead of letting a hidden CharacterBody fall without collision.
+		velocity = Vector3.ZERO
 		return
 	if state in [State.RESCUED, State.ARRIVING]:
 		# Scripted portal tweens own the transform; physics stays out of the way.
@@ -412,10 +423,112 @@ func suspend_water_rescue(seconds := 1.2) -> void:
 
 
 func teleport_home() -> void:
+	if not deployed:
+		return
 	cancel_click_command()
 	var home := core.grid.nearest_walkable(core.grid.home_cell)
 	position = core.grid.cell_to_world(home)
 	velocity = Vector3.ZERO
+
+
+# ------------------------------------------------------------ HUD deployment
+
+## Removes the keeper from the world without changing their saved position.
+## This is intentionally session state: reopening a save always returns the
+## keeper to the dock so the player chooses where exploration begins.
+func dock_for_placement(emit_change := true) -> void:
+	_abort_dock_tween()
+	deployed = false
+	velocity = Vector3.ZERO
+	collision_layer = 0
+	collision_mask = 0
+	visible = false
+	visual.visible = true
+	visual.scale = Vector3.ONE
+	set_state(State.DISABLED)
+	if emit_change:
+		deployment_changed.emit(false)
+
+
+## Drops the keeper onto a validated walkable point. Collision stays disabled
+## during the short fall so the authored landing point remains deterministic.
+func deploy_from_dock(target: Vector3) -> bool:
+	if deployed or _dock_tween != null:
+		return false
+	deployed = true
+	visible = true
+	visual.visible = true
+	visual.scale = Vector3.ONE
+	velocity = Vector3.ZERO
+	collision_layer = 0
+	collision_mask = 0
+	set_state(State.DISABLED)
+	position = target + Vector3.UP * 2.6
+	var drop := create_tween()
+	_dock_tween = drop
+	drop.tween_property(self, "position", target, 0.44) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	drop.tween_callback(_squash.bind(1.22, 0.76))
+	drop.tween_property(self, "position:y", target.y + 0.16, 0.1) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	drop.tween_callback(_squash.bind(0.92, 1.1))
+	drop.tween_property(self, "position:y", target.y, 0.1) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	drop.tween_callback(func():
+		_dock_tween = null
+		visual.scale = Vector3.ONE
+		collision_layer = 1
+		collision_mask = GROUND_MASK | PUSHABLE_NPC_LAYER
+		velocity = Vector3.ZERO
+		suspend_water_rescue()
+		core.profile.position = position
+		core.profile.facing = rotation.y
+		set_state(State.FREE)
+		deployment_changed.emit(true)
+	)
+	return true
+
+
+## Clicking the occupied dock recalls the keeper through the same matte black
+## portal language used by an out-of-bounds rescue, but with no world exit.
+func recall_to_dock() -> bool:
+	if not deployed or _dock_tween != null or state in [State.RESCUED, State.ARRIVING]:
+		return false
+	set_state(State.RESCUED)
+	cancel_click_command()
+	velocity = Vector3.ZERO
+	visual.set_walk(0.0, 0.016)
+	visual.play("idle")
+	collision_layer = 0
+	collision_mask = 0
+	var start := position
+	var hole := _spawn_rescue_hole(start + Vector3.UP * 0.025)
+	_grow_hole(hole)
+	var recall := create_tween()
+	_dock_tween = recall
+	recall.tween_interval(0.12)
+	recall.tween_property(self, "position:y", start.y - 1.65, 0.38) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	recall.parallel().tween_callback(func(): visual.visible = false).set_delay(0.24)
+	recall.tween_callback(_close_hole.bind(hole))
+	recall.tween_interval(0.18)
+	recall.tween_callback(func():
+		_dock_tween = null
+		deployed = false
+		velocity = Vector3.ZERO
+		visible = false
+		visual.visible = true
+		visual.scale = Vector3.ONE
+		set_state(State.DISABLED)
+		deployment_changed.emit(false)
+	)
+	return true
+
+
+func _abort_dock_tween() -> void:
+	if _dock_tween != null and _dock_tween.is_valid():
+		_dock_tween.kill()
+	_dock_tween = null
 
 
 # ------------------------------------------------------------------ water rescue
@@ -589,6 +702,7 @@ func _abort_rescue() -> void:
 
 func _spawn_rescue_hole(at: Vector3) -> MeshInstance3D:
 	var hole := MeshInstance3D.new()
+	hole.name = "RescueBlackHole"
 	var disc := QuadMesh.new()
 	disc.size = Vector2(0.81, 0.81)
 	hole.mesh = disc

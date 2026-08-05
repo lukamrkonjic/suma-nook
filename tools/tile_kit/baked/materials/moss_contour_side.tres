@@ -3,5 +3,5 @@
 [resource]
 resource_name = "tilekit_moss_contour_side"
 albedo_color = Color(0.4, 0.24499999, 0.16, 1)
-metallic_specular = 0.2
-roughness = 0.9
+metallic_specular = 0.05
+roughness = 0.98

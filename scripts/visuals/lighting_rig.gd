@@ -50,6 +50,7 @@ const FAR_DISTANCE_FADE_MAX_ALPHA := 0.0
 @export var warm_profile: VisualStyleProfile
 @export var overcast_profile: VisualStyleProfile
 @export var fallback_profile: VisualStyleProfile
+@export var void_clouds_enabled := false
 
 var current_profile: VisualStyleProfile
 var _palette := PaletteDefinition.shared()
@@ -122,12 +123,14 @@ func _ready() -> void:
 	_ground_fog.name = "CozyGroundFog"
 	add_child(_ground_fog)
 
-	# The volumetric void-cloud ocean beneath the island. It owns every
-	# volumetric fog environment setting; apply_profile delegates to it.
-	void_clouds = VoidCloudControllerScript.new()
-	void_clouds.name = "VoidCloudSystem"
-	add_child(void_clouds)
-	void_clouds.setup(_environment.environment, self)
+	# Cloud sea is intentionally switched off for the current art pass. Keep
+	# the controller behind one reversible flag so it can be reconsidered
+	# without restoring deleted code or assets.
+	if void_clouds_enabled:
+		void_clouds = VoidCloudControllerScript.new()
+		void_clouds.name = "VoidCloudSystem"
+		add_child(void_clouds)
+		void_clouds.setup(_environment.environment, self)
 
 	# Confirmed reference probe envelope: realtime, 128 px, one bounce,
 	# approximately 50 × 15 × 50 units with box projection disabled.

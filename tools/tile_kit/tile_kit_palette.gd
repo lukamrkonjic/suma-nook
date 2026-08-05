@@ -25,9 +25,6 @@ extends RefCounted
 const DESIGN_SYSTEM: PaletteDefinition = preload(
 	"res://assets/palettes/gg_material_palette.tres"
 )
-const MOSS_VELVET_SHADER: Shader = preload(
-	"res://assets/materials/reworked/gg_moss_velvet.gdshader"
-)
 const TUFT_WIND_SHADER: Shader = preload(
 	"res://assets/materials/reworked/gg_tuft_wind.gdshader"
 )
@@ -38,7 +35,7 @@ const BLADE_WIND_SHADER: Shader = preload(
 ## Palette roles whose geometry sways in the wind. Still palette-bound —
 ## the shader only ever receives a colour this class resolved.
 const WIND_BLADE_KEYS := [
-	"clay_leaf", "grass_rooted_gradient", "forest_rooted_gradient",
+	"clay_leaf", "grass_rooted_gradient",
 ]
 
 const COLORS := {
@@ -92,14 +89,14 @@ const COLORS := {
 	# meadow. Individual vertices stay inside the canonical palette while the
 	# entire grass/fern/clover/flower composition remains one material surface.
 	"grass_rooted_gradient": "tilekit_grass_gg_top",
-	# Forest-floor redesign: a deep quiet shell supporting a brighter clover
-	# carpet and large fern crowns. All raised greenery is vertex-coloured on
-	# one wind material, keeping the lush composition to one detail surface.
-	"forest_floor_top": "deep_grass",
-	"forest_floor_bevel": "deep_grass",
-	"forest_floor_side": "pine_deep",
-	"forest_floor_lower": "earth_deep",
-	"forest_rooted_gradient": "deep_grass",
+	# Forest floor is part of the moss family and must remain readable at the
+	# gameplay camera. The previous deep-grass shell rendered nearly black,
+	# which also exaggerated every transparent weather overlay above it.
+	"forest_floor_top": "moss_primary",
+	"forest_floor_bevel": "moss_primary",
+	"forest_floor_side": "tilekit_moss_deep",
+	"forest_floor_lower": "earth_shadow",
+	"forest_rooted_gradient": "moss_primary",
 	"forest_clover": "moss_primary",
 	"forest_clover_light": "leaf_medium",
 	"forest_fern": "pine_medium",
@@ -147,21 +144,20 @@ const COLORS := {
 	"moss_gg_carpet_lower": "earth_deep",
 	"moss_gg_carpet_detail": "grass_shade",
 	"moss_gg_carpet_highlight": "grass_primary",
-	# The contour tile is intentionally more olive than the vegetation ramp.
-	# Broad smooth lighting gradients carry its identity; a dedicated role keeps
-	# that quieter clay body from recolouring every existing moss asset.
-	"moss_contour_top": "earthy_olive",
-	"moss_contour_bevel": "earthy_olive",
+	# Moss stays in a readable mid-value range. It is deliberately matte and
+	# static; surface movement belongs to raised foliage, not the ground plane.
+	"moss_contour_top": "moss_primary",
+	"moss_contour_bevel": "moss_primary",
 	"moss_contour_side": "earth_shadow",
 	"moss_contour_lower": "earth_deep",
 	# Plush clay blanket: close moss values separate the puffs through broad
 	# lighting without returning to neon spots or hard high-contrast blobs.
-	"moss_plush_base": "leaf_olive",
-	"moss_plush_bevel": "leaf_olive",
-	"moss_plush_edge": "olive_shadow",
-	"moss_plush_body": "leaf_olive",
-	"moss_plush_light": "moss_primary",
-	"moss_plush_deep": "olive_shadow",
+	"moss_plush_base": "moss_primary",
+	"moss_plush_bevel": "moss_primary",
+	"moss_plush_edge": "tilekit_moss_deep",
+	"moss_plush_body": "moss_primary",
+	"moss_plush_light": "moss_bright",
+	"moss_plush_deep": "tilekit_moss_deep",
 	"moss_plush_soil_side": "earth_shadow",
 	"moss_plush_soil_lower": "earth_deep",
 	# Mossy garden ground uses a deeper, quieter soil cake than the standalone
@@ -174,15 +170,15 @@ const COLORS := {
 	"moss_ground_soil_lower": "earth_deep",
 	# Full-ground moss studies: coherent monochrome ramps with no exposed
 	# stone, soil, or leaf-litter layer.
-	"moss_sheet_top": "leaf_olive",
+	"moss_sheet_top": "moss_primary",
 	"moss_sheet_bevel": "moss_primary",
-	"moss_sheet_side": "leaf_olive",
-	"moss_sheet_lower": "deep_grass",
+	"moss_sheet_side": "moss_primary",
+	"moss_sheet_lower": "tilekit_moss_deep",
 	"moss_cushion_base": "moss_primary",
 	"moss_cushion_body": "moss_primary",
-	"moss_cushion_light": "leaf_medium",
-	"moss_cushion_side": "leaf_olive",
-	"moss_cushion_lower": "deep_grass",
+	"moss_cushion_light": "moss_bright",
+	"moss_cushion_side": "moss_primary",
+	"moss_cushion_lower": "tilekit_moss_deep",
 	"moss_shag_base": "moss_primary",
 	"moss_shag_body": "leaf_medium",
 	"moss_shag_light": "grass_secondary",
@@ -264,12 +260,26 @@ static func color(key: String) -> Color:
 
 
 ## The one shared material per palette key. Solid colour and matte across the
-## board, with two narrow finish exceptions: still water gets a restrained soft
-## sheen, and the dedicated contour-moss top gets a matte velvet nap. Both
-## remain palette-bound; neither introduces image texture or colour noise.
+## board, with one narrow finish exception: still water gets a restrained soft
+## sheen. Moss uses a stable matte material so camera movement cannot turn a
+## rim or animated nap into white flashes under bloom.
 static func material(key: String) -> Material:
 	if _materials.has(key):
 		return _materials[key]
+	if key == "forest_rooted_gradient":
+		# Grove foliage carries its moss-to-leaf ramp in vertex colours. Keep it
+		# completely static and matte: wind deformation and specular movement on
+		# this dense, sub-pixel geometry read as flashing at gameplay zoom.
+		var forest := StandardMaterial3D.new()
+		forest.resource_name = "tilekit_%s" % key
+		forest.albedo_color = Color.WHITE
+		forest.vertex_color_use_as_albedo = true
+		forest.vertex_color_is_srgb = true
+		forest.metallic = 0.0
+		forest.roughness = 1.0
+		forest.metallic_specular = 0.0
+		_materials[key] = forest
+		return forest
 	if key in WIND_BLADE_KEYS:
 		var blades := ShaderMaterial.new()
 		blades.resource_name = "tilekit_%s" % key
@@ -281,21 +291,6 @@ static func material(key: String) -> Material:
 		)
 		_materials[key] = blades
 		return blades
-	if key in ["moss_contour_top", "moss_plush_base", "moss_plush_body",
-			"moss_plush_light", "moss_plush_deep"]:
-		var velvet := ShaderMaterial.new()
-		velvet.resource_name = "tilekit_%s" % key
-		velvet.shader = MOSS_VELVET_SHADER
-		velvet.set_shader_parameter("albedo", color(key))
-		velvet.set_shader_parameter("roughness_val", 0.98)
-		velvet.set_shader_parameter("specular_val", 0.10)
-		velvet.set_shader_parameter("nap_strength", 0.012)
-		velvet.set_shader_parameter("nap_scale", 1.65)
-		velvet.set_shader_parameter("nap_speed", 0.075)
-		velvet.set_shader_parameter("rim_amount", 0.16)
-		velvet.set_shader_parameter("rim_tint_amount", 0.72)
-		_materials[key] = velvet
-		return velvet
 	var result := StandardMaterial3D.new()
 	result.resource_name = "tilekit_%s" % key
 	result.albedo_color = color(key)
@@ -303,6 +298,9 @@ static func material(key: String) -> Material:
 	result.roughness = 0.9
 	result.metallic_specular = 0.2
 	result.vertex_color_use_as_albedo = false
+	if key.begins_with("moss_") or key.begins_with("forest_"):
+		result.roughness = 0.98
+		result.metallic_specular = 0.05
 	if key in ["moss_ground_soil_top", "moss_ground_soil_gradient",
 			"moss_ground_soil_bevel",
 			"moss_ground_soil_side", "moss_ground_soil_lower"]:

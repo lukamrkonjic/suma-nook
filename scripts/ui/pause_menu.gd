@@ -353,7 +353,7 @@ func _build_controls_page() -> void:
 			],
 			"Use the focused chest, fire, fishing spot, tree, or other usable object.",
 		],
-		["Shape land", ["B"], "Open build mode and your tile library."],
+		["Shape land", ["Always on"], "Drag pieces from the persistent Build Bag."],
 		["Rotate piece", ["R"], "Turn the held tile or decoration."],
 		["Store piece", ["X"], "Return a held piece to its library."],
 		["Undo / redo", ["Ctrl+Z", "Ctrl+Shift+Z"], "Reverse recent building changes."],
@@ -367,7 +367,7 @@ func _build_controls_page() -> void:
 				[_input_service.prompt_for_action(&"interact")],
 				"Use a chest, fire, fishing spot, tree, or other usable object.",
 			],
-			["Shape land", [_input_service.prompt_for_action(&"build_mode")], "Open build mode and your tile library."],
+			["Shape land", [_input_service.prompt_for_action(&"build_mode")], "Switch between the library and world cursor."],
 			["Place / pick up", [_input_service.prompt_for_action(&"build_confirm")], "Use the camera-relative grid cursor."],
 			["Rotate piece", [_input_service.prompt_for_action(&"rotate_piece")], "Turn the held tile or decoration."],
 			["Store piece", [_input_service.prompt_for_action(&"store_piece")], "Return a moved piece to its library."],
@@ -516,9 +516,6 @@ func _build_admin_page() -> void:
 			["Dusk", "dusk"], ["Night", "night"],
 		], lighting.background_preset_id, func(choice_id): lighting.set_background_preset(choice_id))
 
-	var trigger_ferry := func() -> void:
-		var ok := core.arrivals.trigger_arrival()
-		_admin_status("Ferry arrival triggered." if ok else "Ferry could not arrive right now.")
 	var grant_fishing_discovery := func() -> void:
 		var haul = core.fishing.debug_force_catch(core.grid.home_cell)
 		_admin_status(
@@ -572,7 +569,6 @@ func _build_admin_page() -> void:
 		build_maxed_world
 	)
 	_admin_action_row(list, "Reset save", "Deletes the save and its backup, then restarts the game fresh.", "Reset", reset_save)
-	_admin_action_row(list, "Ferry", "Bring the delivery ferry in right away.", "Trigger arrival", trigger_ferry)
 	_admin_action_row(list, "Void Fishing", "Generate and commit one full haul to the Catch Basket.", "Catch now", grant_fishing_discovery)
 	_admin_action_row(list, "Woodland Tending", "Publish one completed tree cycle (grants a Grove Spirit).", "Complete cycle", grant_woodland_discovery)
 	_admin_action_row(

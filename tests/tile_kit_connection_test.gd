@@ -35,6 +35,60 @@ func _run() -> void:
 	)
 	grass_generator.free()
 
+	# At an L-shaped three-tile junction the open outer bevel must turn back up
+	# to the fused endpoint. All three caps then meet at y=0 instead of exposing
+	# the dark side wall as a V-shaped crevice.
+	var dirt := load(
+		"res://tools/tile_kit/library/recipes/tile_dirt.tres"
+	) as TileKitPreset
+	var dirt_generator := TileKitGenerator.new()
+	dirt_generator.preset = dirt
+	dirt_generator.neighbour_mask = 8
+	get_root().add_child(dirt_generator)
+	await process_frame
+	var dirt_height: Callable = (
+		dirt_generator.get("_context") as Dictionary
+	)["cap_height"]
+	_check(
+		absf(float(dirt_height.call(Vector2(-0.85, 0.85)))) < 0.001,
+		"connected dirt corner returns to the shared walk plane"
+	)
+	_check(
+		float(dirt_height.call(Vector2(0.0, 0.85))) < -0.02,
+		"open dirt edge keeps its bevel away from the junction"
+	)
+	dirt_generator.free()
+
+	var moss_material := TileKitPalette.material("moss_plush_base")
+	_check(
+		moss_material is StandardMaterial3D,
+		"moss ground uses a static matte material without animated rim flashes"
+	)
+	if moss_material is StandardMaterial3D:
+		_check(
+			(moss_material as StandardMaterial3D).albedo_color.get_luminance() > 0.35,
+			"moss ground stays in a readable mid-value range"
+		)
+	var forest_floor := TileKitPalette.material("forest_floor_top")
+	_check(
+		forest_floor is StandardMaterial3D
+			and (forest_floor as StandardMaterial3D).albedo_color.get_luminance() > 0.35
+			and (forest_floor as StandardMaterial3D).metallic_specular <= 0.051,
+		"mature grove floor uses the readable moss range"
+	)
+	var forest_foliage := TileKitPalette.material("forest_rooted_gradient")
+	_check(
+		forest_foliage is StandardMaterial3D,
+		"mature grove foliage is static and cannot shimmer under camera movement"
+	)
+	if forest_foliage is StandardMaterial3D:
+		_check(
+			is_zero_approx(
+				(forest_foliage as StandardMaterial3D).metallic_specular
+			),
+			"mature grove foliage cannot produce moving specular flashes"
+		)
+
 	var path_generator := TileKitGenerator.new()
 	path_generator.preset = path
 	path_generator.neighbour_mask = 2

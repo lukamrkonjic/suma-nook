@@ -37,7 +37,7 @@ _surfaces = [{
 "vertex_data": PackedByteArray("AAAAAAAAAAAAAAAAZmZGPwAAAABmZka/ZmZGPwAAAABmZka/ZmZGPwAAAABmZka/ZmZGPwAAAABmZka/ZmZGPwAAAABmZka/ZmZGPwAAAABmZka/ZmZGPwAAAABmZka/ZmZGPwAAAABmZkY/ZmZGPwAAAABmZkY/ZmZGPwAAAABmZkY/ZmZGPwAAAABmZkY/ZmZGPwAAAABmZkY/ZmZGPwAAAABmZkY/ZmZGPwAAAABmZkY/ZmZGvwAAAABmZkY/ZmZGvwAAAABmZkY/ZmZGvwAAAABmZkY/ZmZGvwAAAABmZkY/ZmZGvwAAAABmZkY/ZmZGvwAAAABmZkY/ZmZGvwAAAABmZkY/ZmZGvwAAAABmZka/ZmZGvwAAAABmZka/ZmZGvwAAAABmZka/ZmZGvwAAAABmZka/ZmZGvwAAAABmZka/ZmZGvwAAAABmZka/ZmZGvwAAAABmZka//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/vw==")
 }]
 
-[node name="tile_kit_surface" type="Node3D" unique_id=783940373]
+[node name="tile_kit_surface" type="Node3D" unique_id=1797819549]
 
-[node name="tile_cap" type="MeshInstance3D" parent="." unique_id=121014980]
+[node name="tile_cap" type="MeshInstance3D" parent="." unique_id=495879096]
 mesh = SubResource("ArrayMesh_fws5v")

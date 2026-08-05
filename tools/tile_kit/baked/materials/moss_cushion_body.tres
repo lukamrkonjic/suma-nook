@@ -2,6 +2,6 @@
 
 [resource]
 resource_name = "tilekit_moss_cushion_body"
-albedo_color = Color(0.28, 0.36, 0.18499999, 1)
-metallic_specular = 0.2
-roughness = 0.9
+albedo_color = Color(0.36000004, 0.46, 0.22000001, 1)
+metallic_specular = 0.05
+roughness = 0.98

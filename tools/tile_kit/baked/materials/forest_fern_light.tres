@@ -3,5 +3,5 @@
 [resource]
 resource_name = "tilekit_forest_fern_light"
 albedo_color = Color(0.29, 0.39, 0.16499999, 1)
-metallic_specular = 0.2
-roughness = 0.9
+metallic_specular = 0.05
+roughness = 0.98

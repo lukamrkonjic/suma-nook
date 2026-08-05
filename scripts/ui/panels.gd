@@ -127,7 +127,7 @@ func _inventory_panel() -> Dictionary:
 		visible_tile_count += 1
 		list.add_child(kit.label("⬢ %s ×%d" % [tile.display_name, core.stock.tile_count(tile_id)], 16))
 	if visible_tile_count == 0:
-		list.add_child(kit.label("No unplaced tiles yet. The ferry brings Land Parcels.", 14))
+		list.add_child(kit.label("No unplaced tiles yet. Fish from an exposed edge to find one.", 14))
 	list.add_child(kit.label("Build Library", 20))
 	for structure_id: String in core.stock.structures:
 		var structure := core.registries.structure(structure_id)
@@ -137,8 +137,7 @@ func _inventory_panel() -> Dictionary:
 	if core.stock.structures.is_empty():
 		list.add_child(kit.label("No stored decorations yet.", 14))
 	list.add_child(kit.label(
-		"%s to place anything from either library."
-		% _input_service.format_action(&"build_mode", "Open build mode"),
+		"Use the persistent Build Bag below to place anything from either library.",
 		14
 	))
 	return win

@@ -3,8 +3,9 @@
   "combat_enabled": false,
   "monsters_enabled": false,
   "hostile_landmarks_enabled": false,
-  "ferry_arrivals_enabled": true,
+  "ferry_arrivals_enabled": false,
+  "void_clouds_enabled": false,
   "procedural_critter_player_enabled": true,
-  "procedural_owl_mascot_enabled": true,
-  "debug_creature_parade_enabled": true
+  "procedural_owl_mascot_enabled": false,
+  "debug_creature_parade_enabled": false
 }

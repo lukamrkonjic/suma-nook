@@ -3,5 +3,5 @@
 [resource]
 resource_name = "tilekit_moss_gg_carpet_highlight"
 albedo_color = Color(0.49000004, 0.495, 0.18, 1)
-metallic_specular = 0.2
-roughness = 0.9
+metallic_specular = 0.05
+roughness = 0.98

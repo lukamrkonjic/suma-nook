@@ -109,6 +109,15 @@ func to_save_dict() -> Dictionary:
 
 
 func from_save_dict(data: Dictionary) -> void:
+	# Ferry deliveries are retired. Discard an in-flight legacy package instead
+	# of letting an older save resurrect the ship or gift crate after the
+	# feature has been disabled.
+	if not registries.feature("ferry_arrivals_enabled", false):
+		state = IDLE
+		time_until_next = 0.0
+		paused = false
+		current_payload = null
+		return
 	state = String(data.get("state", IDLE))
 	time_until_next = maxf(0.0, float(data.get("time_until_next", time_until_next)))
 	paused = bool(data.get("paused", false))
@@ -123,5 +132,8 @@ func from_save_dict(data: Dictionary) -> void:
 
 
 func announce_restored_delivery() -> void:
-	if has_waiting_package():
+	if (
+		registries.feature("ferry_arrivals_enabled", false)
+		and has_waiting_package()
+	):
 		delivery_ready.emit(current_payload)

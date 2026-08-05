@@ -145,8 +145,7 @@ func _run() -> void:
 	_test_skills_grant_no_direct_placeables()
 	_test_fish_journal_retired()
 	_test_out_of_scope_systems_disabled()
-	_test_arrival_and_gift_loop()
-	_test_arrival_queue_invariants()
+	_test_retired_arrival_mechanic()
 	_test_practice_milestones()
 	_test_journal_milestones()
 	_test_deterministic_rng()
@@ -917,8 +916,9 @@ func _test_input_bindings() -> void:
 		"south face button is jump and UI confirm"
 	)
 	check(
-		_action_has_joypad_button("build_mode", JOY_BUTTON_Y),
-		"north face button enters the build context"
+		_action_has_joypad_button("build_mode", JOY_BUTTON_Y)
+		and not _action_has_key("build_mode", KEY_B),
+		"controller can browse Shape Land while keyboard B is retired"
 	)
 	check(
 		_action_has_joypad_button("cancel", JOY_BUTTON_B),
@@ -1844,24 +1844,28 @@ func _test_out_of_scope_systems_disabled() -> void:
 	check(not core.registries.feature("hostile_landmarks_enabled"), "hostile landmark flag remains disabled")
 
 
-func _test_arrival_and_gift_loop() -> void:
+func _test_retired_arrival_mechanic() -> void:
 	var core := fresh_core(606)
 	var requested: Array = []
 	core.arrivals.arrival_requested.connect(func(payload): requested.append(payload))
 	core.arrivals.time_until_next = 0.01
 	core.tick(0.02)
-	check(requested.size() == 1, "arrival timer requests exactly one presentation")
-	var payload := requested[0] as LandParcelPayload
-	check(payload.gift_kind == "discovery", "ferry payload carries a discovery")
-	core.arrivals.mark_delivery_ready(payload)
-	var reward := core.arrivals.open_waiting(core.progression)
-	check(not reward.is_empty(), "dock gift reveals one broad discovery")
-	check(core.arrivals.state == ArrivalScheduler.OPENED, "scheduler pauses until the discovery is acknowledged")
-	check(_entry_stock_count(core, reward) >= 1, "ferry discovery is already safe in the Build Bag")
-	var acknowledged := core.progression.discovery.acknowledge_next()
-	check(acknowledged.get("id") == reward.get("id"), "the queued ferry reward is authoritative")
-	core.arrivals.resolve_delivery()
-	check(core.arrivals.state == ArrivalScheduler.IDLE, "next timer begins after acknowledgement")
+	check(
+		not core.registries.feature("ferry_arrivals_enabled", true),
+		"ferry and gift mechanic is disabled in production content"
+	)
+	check(requested.is_empty(), "retired ferry timer emits no presentation")
+	check(not core.arrivals.trigger_arrival(), "retired ferry cannot be forced")
+	core.arrivals.from_save_dict({
+		"state": ArrivalScheduler.WAITING,
+		"time_until_next": 12.0,
+		"payload": {"gift_kind": "discovery", "delivery_id": 9},
+	})
+	check(
+		core.arrivals.state == ArrivalScheduler.IDLE
+		and core.arrivals.current_payload == null,
+		"legacy waiting gifts are discarded instead of restored"
+	)
 
 func _entry_stock_count(core: GameCore, entry: Dictionary) -> int:
 	match String(entry.get("kind", "")):
@@ -1869,19 +1873,6 @@ func _entry_stock_count(core: GameCore, entry: Dictionary) -> int:
 		"structure": return core.stock.structure_count(String(entry["id"]))
 	return 0
 
-
-func _test_arrival_queue_invariants() -> void:
-	var core := fresh_core(707)
-	var requests := [0]
-	core.arrivals.arrival_requested.connect(func(_payload): requests[0] += 1)
-	check(core.arrivals.trigger_arrival(), "arrival uses the shared scheduler")
-	check(requests[0] == 1, "presentation receives one generic request")
-	var payload := core.arrivals.current_payload
-	core.arrivals.mark_delivery_ready(payload)
-	check(not core.arrivals.trigger_arrival(), "an unopened package blocks accumulation")
-	core.rewards.resolve_hobby_action(core.registries.skill("fishing"))
-	check(core.arrivals.has_waiting_package(), "local hobbies do not disturb a waiting ferry gift")
-	check(core.arrivals.deliveries_created == 0, "waiting never creates unattended stacks")
 
 func _test_practice_milestones() -> void:
 	var core := fresh_core()
@@ -2602,14 +2593,17 @@ func _test_rework_save_round_trip() -> void:
 			== core.fishing.luck.state.catches_since_keepsake,
 		"hidden protection counters round-trip"
 	)
-	check(restored.progression.discovery.pending.size() == 1, "the pending ferry discovery round-trips")
+	check(restored.progression.discovery.pending.size() == 1, "the pending discovery reveal round-trips")
 	check(restored.progression.actions_done("fishing") == core.progression.actions_done("fishing"), "lifetime actions round-trip")
 	check(restored.stock.tile_count("tile_grove_birch") == 1, "stock round-trips")
 	check(restored.grid.cells.size() == core.grid.cells.size(), "grid round-trips")
 	check(restored.profile.position.is_equal_approx(Vector3(0.234, 0.0, 0.345)), "exact player position round-trips")
 	check(restored.view_state == core.view_state and restored.visual_state == core.visual_state, "view and atmosphere round-trip")
-	check(restored.arrivals.has_waiting_package(), "unopened ferry gift survives restart")
-	check(restored.arrivals.current_payload.gift_kind == "discovery", "delivery payload survives restart")
+	check(
+		not restored.arrivals.has_waiting_package()
+		and restored.arrivals.current_payload == null,
+		"retired ferry payload stays absent after restart"
+	)
 	var loaded_next := restored.rng.randi_range("probe", 0, 999999)
 	var fresh_again := GameCore.new()
 	fresh_again.setup("res://data", 31415)
