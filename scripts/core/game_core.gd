@@ -36,6 +36,12 @@ const BuildRewardServiceScript := preload(
 const HarvestingModuleScript := preload(
 	"res://scripts/features/harvesting/harvesting_module.gd"
 )
+const HarvestingInteractionsScript := preload(
+	"res://scripts/features/harvesting/harvesting_interactions.gd"
+)
+const TokenPouchServiceScript := preload(
+	"res://scripts/features/rewards/token_pouch_service.gd"
+)
 const VisitorModuleScript := preload(
 	"res://scripts/features/visitors/visitor_module.gd"
 )
@@ -60,6 +66,7 @@ var camping
 var fire
 var fishing
 var build_rewards
+var token_pouch
 var harvesting
 var visitors
 var interactions
@@ -109,8 +116,15 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 	build_rewards = BuildRewardServiceScript.new(
 		registries, rng, stock, collection
 	)
+	token_pouch = TokenPouchServiceScript.new(
+		registries, inventory, build_rewards
+	)
 	harvesting = HarvestingModuleScript.new(
-		registries, rng, grid, build_rewards
+		registries, rng, grid, build_rewards, token_pouch
+	)
+	interactions.register_provider(
+		"harvesting",
+		HarvestingInteractionsScript.new(harvesting)
 	)
 	visitors = VisitorModuleScript.new(
 		registries, rng, grid, build_rewards
@@ -175,6 +189,12 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 		var owner := owner_ref.get_ref() as GameCore
 		if owner != null:
 			owner._on_harvest_reward_granted(instance_id, reward)
+	)
+	token_pouch.box_opened.connect(func(box_id, reward):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._on_token_box_opened(box_id, reward)
+			owner.save()
 	)
 	harvesting.hit_landed.connect(func(_instance_id, hit):
 		var owner := owner_ref.get_ref() as GameCore
@@ -285,6 +305,7 @@ func begin_build_onboarding(new_profile: PlayerProfile) -> void:
 	_ensure_default_body_item()
 	collection.record("gear", "tool_rod_basic")
 	collection.record("gear", "tool_axe_basic")
+	collection.record("structures", "struct_rock_outcrop", 0)
 	onboarding.begin("struct_pine_young")
 	visitors.arrival_allowed = false
 	for coord: Vector2i in grid.cells:
@@ -395,6 +416,7 @@ func _compose_starting_world() -> void:
 	# not spawn by default; the first tree waits in the Build Library.
 	grid.add_structure(Vector2i(-1, 1), "struct_bench", 2, 1)
 	grid.add_structure(Vector2i(1, 0), "struct_chest", 2, 0)
+	grid.add_structure(Vector2i(-1, -1), "struct_rock_outcrop", 1, 2)
 	for coord: Vector2i in grid.cells:
 		for s in grid.cell(coord).structures:
 			collection.record("structures", s.structure_id, 0)
@@ -410,6 +432,7 @@ func _compose_onboarding_world() -> void:
 			grid.place_tile(
 				Vector2i(x, y), "tile_grass", 0, true, false
 			)
+	grid.add_structure(Vector2i(-1, -1), "struct_rock_outcrop", 1, 2)
 	grid.rebuild_structure_index()
 
 
@@ -440,6 +463,17 @@ func _on_harvest_reward_granted(
 		onboarding.stage != OnboardingState.HARVEST_TREE
 		or instance_id != onboarding.starter_tree_instance_id
 	):
+		return
+	if (
+		String(reward.get("kind", "")) != "token"
+		or String(reward.get("id", "")) != "token_forest"
+	):
+		return
+	onboarding.set_stage(OnboardingState.OPEN_FOREST_BOX)
+
+
+func _on_token_box_opened(_box_id: String, reward: Dictionary) -> void:
+	if onboarding.stage != OnboardingState.OPEN_FOREST_BOX:
 		return
 	var kind := String(reward.get("kind", ""))
 	var content_id := String(reward.get("id", ""))

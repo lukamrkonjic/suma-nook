@@ -23,6 +23,7 @@ params = {
 "relief_resolution": 32,
 "relief_style": "heaps",
 "side_key": "moss_ground_soil_side",
+"surface_profile": "detailed_square",
 "top_bevel": 0.055,
 "top_key": "moss_plush_base",
 "turf_cap": false,

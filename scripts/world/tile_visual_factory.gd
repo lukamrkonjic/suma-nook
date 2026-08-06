@@ -18,6 +18,14 @@ const COVER_TWEEN_META := "covered_surface_tween"
 const COVER_STATE_META := "covered_surface_state"
 const STACK_SEAM_HEIGHT := 0.028
 const STACK_SEAM_OVERLAP := 0.003
+## Covers authored wind displacement as well as a narrow visual breathing room
+## around each model's actual contact footprint.
+const SURFACE_MASK_CLEARANCE := 0.05
+## Continuous relief is flattened by complete source triangles around the
+## contact polygon. A much smaller allowance than wind-blown detail is enough
+## here because lowering all three vertices guarantees the whole rendered
+## triangle remains at or below the object's seating plane.
+const SURFACE_RELIEF_MASK_CLEARANCE := 0.012
 ## Low four bits remain the cardinal connection topology. This extra flag
 ## selects a transition bake whose relief returns to the shared walk plane at
 ## the cell boundary, allowing unlike natural materials to meet without a
@@ -74,18 +82,23 @@ func batch_mesh(
 	covered: bool,
 	stack_seam: bool,
 	neighbour_mask := 0,
-	detail_variant := 0
+	detail_variant := 0,
+	surface_masks: Array = []
 ) -> ArrayMesh:
-	var key := "%s|%d|%d|%d|%d" % [
+	var key := "%s|%d|%d|%d|%d|%s" % [
 		def.id,
 		int(covered),
 		int(stack_seam),
 		neighbour_mask,
 		detail_variant,
+		surface_mask_signature(surface_masks),
 	]
 	if _batch_mesh_cache.has(key):
 		return _batch_mesh_cache[key]
 	var visual := instantiate_visual(def, false, neighbour_mask, detail_variant)
+	apply_surface_exclusion_masks(
+		visual, surface_masks, def.walk_surface_height
+	)
 	set_stack_seam_visible(visual, stack_seam)
 	if def.supports_tiles:
 		set_surface_covered(visual, covered, false)
@@ -98,6 +111,301 @@ func batch_mesh(
 
 func clear_asset_edit_cache() -> void:
 	_batch_mesh_cache.clear()
+
+
+## Makes every kind of tile art respect a placed model's contact footprint.
+## Discrete details are removed as complete connected components; continuous
+## relief is lowered by complete triangles to the same plane that seats the
+## model. This geometry operation works for opaque and shader-driven surfaces
+## alike and cannot leave depth fragments clipping through the object.
+func apply_surface_exclusion_masks(
+	root: Node3D,
+	surface_masks: Array,
+	seating_height := 0.0
+) -> void:
+	if root == null or surface_masks.is_empty():
+		return
+	for child: Node in root.find_children("*", "MeshInstance3D", true, false):
+		var mesh_instance := child as MeshInstance3D
+		if mesh_instance == null or mesh_instance.mesh == null:
+			continue
+		var mesh_to_root := _transform_from_ancestor(root, mesh_instance)
+		if bool(mesh_instance.get_meta(SURFACE_DETAIL_META, false)):
+			var masked := _masked_detail_mesh(
+				mesh_instance.mesh, mesh_to_root, surface_masks
+			)
+			if masked == null or masked.get_surface_count() == 0:
+				mesh_instance.visible = false
+			else:
+				mesh_instance.mesh = masked
+		elif String(mesh_instance.get_meta(LAYER_ROLE_META, "")) == "surface":
+			mesh_instance.mesh = _flatten_masked_surface_mesh(
+				mesh_instance.mesh,
+				mesh_to_root,
+				surface_masks,
+				maxf(0.0, seating_height)
+			)
+
+
+static func surface_mask_signature(surface_masks: Array) -> String:
+	if surface_masks.is_empty():
+		return "none"
+	var signature := ""
+	for raw_mask: Variant in surface_masks:
+		var mask := raw_mask as PackedVector2Array
+		for point: Vector2 in mask:
+			signature += "%.4f,%.4f;" % [point.x, point.y]
+		signature += "|"
+	return signature
+
+
+static func _masked_detail_mesh(
+	source: Mesh,
+	mesh_to_root: Transform3D,
+	surface_masks: Array
+) -> ArrayMesh:
+	var result := ArrayMesh.new()
+	result.resource_name = source.resource_name
+	for surface_index in source.get_surface_count():
+		var primitive: Mesh.PrimitiveType = (
+			source.surface_get_primitive_type(surface_index)
+		)
+		var arrays := source.surface_get_arrays(surface_index)
+		if primitive != Mesh.PRIMITIVE_TRIANGLES:
+			result.add_surface_from_arrays(primitive, arrays)
+			result.surface_set_material(
+				result.get_surface_count() - 1,
+				source.surface_get_material(surface_index)
+			)
+			continue
+		var positions: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		if positions.is_empty():
+			continue
+		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+		if indices.is_empty():
+			indices.resize(positions.size())
+			for index in positions.size():
+				indices[index] = index
+		var parents: Array[int] = []
+		parents.resize(positions.size())
+		for index in parents.size():
+			parents[index] = index
+		for triangle_start in range(0, indices.size() - 2, 3):
+			_union_vertices(
+				parents,
+				indices[triangle_start],
+				indices[triangle_start + 1]
+			)
+			_union_vertices(
+				parents,
+				indices[triangle_start],
+				indices[triangle_start + 2]
+			)
+		var component_bounds := {}
+		for vertex_index: int in indices:
+			var root_index := _vertex_root(parents, vertex_index)
+			var transformed := mesh_to_root * positions[vertex_index]
+			var point := Vector2(transformed.x, transformed.z)
+			if component_bounds.has(root_index):
+				component_bounds[root_index] = (
+					component_bounds[root_index] as Rect2
+				).expand(point)
+			else:
+				component_bounds[root_index] = Rect2(point, Vector2.ZERO)
+		var blocked_components := {}
+		for root_index: int in component_bounds:
+			var bounds := (component_bounds[root_index] as Rect2).grow(
+				SURFACE_MASK_CLEARANCE
+			)
+			for raw_mask: Variant in surface_masks:
+				var mask := raw_mask as PackedVector2Array
+				if _rect_intersects_polygon(bounds, mask):
+					blocked_components[root_index] = true
+					break
+		var filtered_indices := PackedInt32Array()
+		for triangle_start in range(0, indices.size() - 2, 3):
+			var root_index := _vertex_root(
+				parents,
+				indices[triangle_start]
+			)
+			if not blocked_components.has(root_index):
+				filtered_indices.append(indices[triangle_start])
+				filtered_indices.append(indices[triangle_start + 1])
+				filtered_indices.append(indices[triangle_start + 2])
+		if filtered_indices.is_empty():
+			continue
+		arrays[Mesh.ARRAY_INDEX] = filtered_indices
+		result.add_surface_from_arrays(primitive, arrays)
+		result.surface_set_material(
+			result.get_surface_count() - 1,
+			source.surface_get_material(surface_index)
+		)
+	return result
+
+
+static func _flatten_masked_surface_mesh(
+	source: Mesh,
+	mesh_to_root: Transform3D,
+	surface_masks: Array,
+	seating_height: float
+) -> ArrayMesh:
+	var result := ArrayMesh.new()
+	result.resource_name = source.resource_name
+	var root_to_mesh := mesh_to_root.affine_inverse()
+	for surface_index in source.get_surface_count():
+		var primitive: Mesh.PrimitiveType = (
+			source.surface_get_primitive_type(surface_index)
+		)
+		var arrays := source.surface_get_arrays(surface_index)
+		var positions: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		if primitive == Mesh.PRIMITIVE_TRIANGLES and not positions.is_empty():
+			var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+			if indices.is_empty():
+				indices.resize(positions.size())
+				for index in positions.size():
+					indices[index] = index
+			var flattened_vertices := {}
+			for triangle_start in range(0, indices.size() - 2, 3):
+				var triangle_bounds: Rect2
+				for offset in 3:
+					var point := mesh_to_root * positions[
+						indices[triangle_start + offset]
+					]
+					var horizontal := Vector2(point.x, point.z)
+					triangle_bounds = (
+						Rect2(horizontal, Vector2.ZERO)
+						if offset == 0
+						else triangle_bounds.expand(horizontal)
+					)
+				triangle_bounds = triangle_bounds.grow(
+					SURFACE_RELIEF_MASK_CLEARANCE
+				)
+				for raw_mask: Variant in surface_masks:
+					if _rect_intersects_polygon(
+						triangle_bounds,
+						raw_mask as PackedVector2Array
+					):
+						for offset in 3:
+							flattened_vertices[indices[triangle_start + offset]] = true
+						break
+			var changed := false
+			for vertex_index: int in flattened_vertices:
+				var root_point := mesh_to_root * positions[vertex_index]
+				if root_point.y <= seating_height:
+					continue
+				root_point.y = seating_height
+				positions[vertex_index] = root_to_mesh * root_point
+				changed = true
+			if changed:
+				arrays[Mesh.ARRAY_VERTEX] = positions
+				arrays[Mesh.ARRAY_NORMAL] = _recalculate_clockwise_normals(
+					positions, indices
+				)
+		result.add_surface_from_arrays(primitive, arrays)
+		result.surface_set_material(
+			result.get_surface_count() - 1,
+			source.surface_get_material(surface_index)
+		)
+	return result
+
+
+static func _recalculate_clockwise_normals(
+	positions: PackedVector3Array,
+	indices: PackedInt32Array
+) -> PackedVector3Array:
+	var normals := PackedVector3Array()
+	normals.resize(positions.size())
+	for triangle_start in range(0, indices.size() - 2, 3):
+		var first := indices[triangle_start]
+		var second := indices[triangle_start + 1]
+		var third := indices[triangle_start + 2]
+		# Godot's front-face convention is clockwise, opposite the conventional
+		# cross-product orientation.
+		var face := -(
+			positions[second] - positions[first]
+		).cross(positions[third] - positions[first])
+		if face.length_squared() <= 0.0000001:
+			continue
+		normals[first] = normals[first] + face
+		normals[second] = normals[second] + face
+		normals[third] = normals[third] + face
+	for index in normals.size():
+		normals[index] = (
+			normals[index].normalized()
+			if normals[index].length_squared() > 0.0000001
+			else Vector3.UP
+		)
+	return normals
+
+
+static func _transform_from_ancestor(
+	ancestor: Node3D,
+	descendant: Node3D
+) -> Transform3D:
+	var result := Transform3D.IDENTITY
+	var current: Node = descendant
+	while current != null and current != ancestor:
+		if current is Node3D:
+			result = (current as Node3D).transform * result
+		current = current.get_parent()
+	return result
+
+
+static func _vertex_root(parents: Array[int], vertex_index: int) -> int:
+	var root := vertex_index
+	while parents[root] != root:
+		root = parents[root]
+	var current := vertex_index
+	while parents[current] != current:
+		var next := parents[current]
+		parents[current] = root
+		current = next
+	return root
+
+
+static func _union_vertices(
+	parents: Array[int],
+	first: int,
+	second: int
+) -> void:
+	var first_root := _vertex_root(parents, first)
+	var second_root := _vertex_root(parents, second)
+	if first_root != second_root:
+		parents[second_root] = first_root
+
+
+static func _rect_intersects_polygon(
+	rect: Rect2,
+	polygon: PackedVector2Array
+) -> bool:
+	if polygon.size() < 3:
+		return false
+	for point: Vector2 in polygon:
+		if rect.has_point(point):
+			return true
+	var corners := PackedVector2Array([
+		rect.position,
+		Vector2(rect.end.x, rect.position.y),
+		rect.end,
+		Vector2(rect.position.x, rect.end.y),
+	])
+	for corner: Vector2 in corners:
+		if Geometry2D.is_point_in_polygon(corner, polygon):
+			return true
+	for polygon_index in polygon.size():
+		var polygon_start := polygon[polygon_index]
+		var polygon_end := polygon[(polygon_index + 1) % polygon.size()]
+		for corner_index in corners.size():
+			var rect_start := corners[corner_index]
+			var rect_end := corners[(corner_index + 1) % corners.size()]
+			if Geometry2D.segment_intersects_segment(
+				polygon_start,
+				polygon_end,
+				rect_start,
+				rect_end
+			) != null:
+				return true
+	return false
 
 
 func _instantiate_layered_visual(
@@ -218,6 +526,11 @@ func connection_mask(
 		if (
 			neighbour != null
 			and neighbour.connection_mode == "full_flush"
+			# Continuous water supplies a lowered bed and a separate region
+			# surface, not a solid block shell at the land tile's height. Treating
+			# it as a flush structural neighbour removed the land cap wall from
+			# y=-0.18..0.0 and exposed a see-through shoreline slit.
+			and neighbour.render_profile != "continuous_water"
 		):
 			world_mask |= int(entry[0])
 			if neighbour.connection_group != def.connection_group:

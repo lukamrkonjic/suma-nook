@@ -341,6 +341,24 @@ static func rounded_rect_outline(
 ) -> Array:
 	var points := PackedVector2Array()
 	var outwards := PackedVector2Array()
+	# A zero-radius profile is a real square, not a nearly-square rounded rect.
+	# Duplicate each corner once so adjacent walls keep independent cardinal
+	# normals while every vertex remains exactly on the authored slot boundary.
+	# This is the structural-base contract used by every Tile Kit tile.
+	if corner <= 0.000001:
+		points = PackedVector2Array([
+			Vector2(half, -half), Vector2(half, -half),
+			Vector2(half, half), Vector2(half, half),
+			Vector2(-half, half), Vector2(-half, half),
+			Vector2(-half, -half), Vector2(-half, -half),
+		])
+		outwards = PackedVector2Array([
+			Vector2(0.0, -1.0), Vector2(1.0, 0.0),
+			Vector2(1.0, 0.0), Vector2(0.0, 1.0),
+			Vector2(0.0, 1.0), Vector2(-1.0, 0.0),
+			Vector2(-1.0, 0.0), Vector2(0.0, -1.0),
+		])
+		return [points, outwards]
 	var r := clampf(corner, 0.0015, half - 0.001)
 	var inner := half - r
 	var corners := [

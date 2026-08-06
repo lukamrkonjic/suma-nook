@@ -7,15 +7,17 @@ extends RefCounted
 ## stacking, and covering keep working:
 ##
 ##   footprint          1.70 × 1.70 authored, centred; runtime scales X/Z
-##   base body          y −0.50 … −0.18   persists when covered (deep seam —
-##                      the chunky rounded cap needs more than the 5.5 cm skin)
+##   base body          y −0.50 … −0.18   persists when covered; always an
+##                      exact square prism on the slot boundary
 ##   surface cap        y −0.18 … 0.0     hides when covered
 ##   walk plane         y  0.0            the flat top props stand on
 ##
-## Inside that envelope it builds the reference look: broad flat top, generous
-## rounded top bevel, rounded plan corners, clean vertical sides, a slight
-## chamfer at the very bottom. The bevel is the tile's identity — two of these
-## side by side form the soft groove the diorama reads as handcrafted blocks.
+## The lower prism never inherits top bevels, corner rounding, relief, or
+## neighbour topology. Material-specific deformation belongs exclusively to
+## the replaceable surface cap. A uniform_square surface completes the base as
+## one perfectly even default block; detailed_square adds relief without
+## changing the square perimeter. Ordinary caps never inherit neighbour-
+## dependent horizontal deformation.
 
 const TILE := 1.70
 const HALF := TILE / 2.0
@@ -25,10 +27,10 @@ const SEAM := -0.18
 
 static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 		context: Dictionary) -> Dictionary:
+	var surface_profile := String(layer.value("surface_profile", "detailed_square"))
 	var bevel: float = layer.value("top_bevel", 0.075)
 	var corner: float = layer.value("corner_radius", 0.075)
 	var segments: int = layer.value("bevel_segments", 6)
-	var chamfer: float = layer.value("bottom_chamfer", 0.016)
 	# Shell palette keys, so one structural builder serves every material
 	# family: grass, moss, earth, snow — same block, different clay.
 	var keys := {
@@ -43,22 +45,92 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 
 	# Surface relief: the material-defining variation for soft tops. ONE
 	# colour, sculpted height — dunes on sand, pillowed drifts on snow, low
-	# swells on mud — read through lighting exactly like the clay references,
-	# where flat colour patches only ever read as printed dots. The relief
-	# feathers to zero before the bevel rim, so the tile's silhouette, seams,
-	# and stacking contract stay untouched.
-	var relief := _relief_function(layer, rng, bevel, mask == 0)
+	# swells on mud — read through lighting exactly like the clay references.
+	# Ordinary relief reaches the exact square perimeter; only special basins
+	# and turf use the legacy rounded-cap path below.
+	var relief_bevel := 0.0
+	var relief := _relief_function(
+		layer,
+		rng,
+		relief_bevel,
+		false
+	)
 	var relief_edge_feather: float = layer.value("relief_edge_feather", 0.16)
+	var surface_level := -clampf(
+		float(context.get("surface_recess", 0.0)), 0.0, 0.018
+	)
+	var special_shape := (
+		float(layer.value("basin_depth", 0.0)) > 0.0
+		or bool(layer.value("turf_cap", false))
+	)
 
 	# Downstream layers place across the WHOLE footprint — a detail carpet
 	# that stops at the bevel leaves a bald strip along every tile seam, and
 	# a 3x3 of those reads as a grid of gaps. surface_half is therefore the
-	# true half-footprint; cap_height tells each layer how far the surface
-	# has curved down at any local point — bevel drop plus relief — so edge
-	# placements hug the real surface instead of floating over it.
+	# true half-footprint; cap_height tells each layer the surface height at any
+	# local point so edge placements hug the real surface instead of floating.
 	context["surface_half"] = HALF
 	context["flat_half"] = HALF - bevel
 	context["surface_top"] = 0.0
+	if surface_profile == "uniform_square":
+		var uniform_height := func(_local: Vector2) -> float: return 0.0
+		context["flat_half"] = HALF
+		context["cap_height"] = uniform_height
+		return {
+			"meshes": [
+				{"role": "base", "name": "tile_body", "mesh": _body(keys),
+					"topology_invariant": true},
+				{"role": "surface", "name": "tile_cap",
+					"mesh": _uniform_square_top(keys),
+					"topology_invariant": true},
+				{"role": "edge", "name": "tile_cap_edge",
+					"mesh": _square_perimeter_walls(
+						keys, uniform_height, mask, 1)},
+			],
+		}
+	if surface_profile != "uniform_square" and not special_shape:
+		var world_origin: Vector2 = context.get("world_origin", Vector2.ZERO)
+		var flatten_relief := bool(context.get("flatten_connected_relief", false))
+		var square_relief := func(local: Vector2) -> float:
+			var height := float(relief.call(world_origin + local))
+			# GG keeps snow/natural relief right up to the square perimeter and
+			# closes it with a vertical side. Fading every exposed edge down to
+			# the carrier creates a V-shaped saddle at concave land corners.
+			# Transition variants flatten connected mixed-material edges only.
+			if flatten_relief:
+				var transition_inset := INF
+				if (mask & 1) != 0:
+					transition_inset = minf(transition_inset, local.y + HALF)
+				if (mask & 2) != 0:
+					transition_inset = minf(transition_inset, HALF - local.x)
+				if (mask & 4) != 0:
+					transition_inset = minf(transition_inset, HALF - local.y)
+				if (mask & 8) != 0:
+					transition_inset = minf(transition_inset, local.x + HALF)
+				if transition_inset != INF:
+					height *= smoothstep(0.0, 0.065, transition_inset)
+			return surface_level + height
+		context["flat_half"] = HALF
+		context["cap_height"] = square_relief
+		return {
+			"meshes": [
+				{"role": "base", "name": "tile_body", "mesh": _body(keys),
+					"topology_invariant": true},
+				{"role": "surface", "name": "tile_cap",
+					"mesh": _detailed_square_top(
+						keys,
+						square_relief,
+						int(layer.value("relief_resolution", 18))),
+					"topology_invariant": not flatten_relief},
+				{"role": "edge", "name": "tile_cap_edge",
+					"mesh": _square_perimeter_walls(
+						keys,
+						square_relief,
+						mask,
+						int(layer.value("relief_resolution", 18))
+					)},
+			],
+		}
 	var bevel_height := _cap_height_function(bevel, corner)
 	context["cap_height"] = func(local: Vector2) -> float:
 		return float(bevel_height.call(local)) + float(relief.call(local))
@@ -69,7 +141,7 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 	# surface with no groove. This is how the reference game's platforms
 	# read as single slabs: the chunky block silhouette belongs to the RIM
 	# of a land mass, never to its interior seams.
-	if mask != 0:
+	if mask != 0 and not special_shape:
 		var world_origin: Vector2 = context.get("world_origin", Vector2.ZERO)
 		var connected_height := _connected_height_function(bevel, mask,
 			relief, world_origin, relief_edge_feather,
@@ -78,7 +150,7 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 		return {
 			"meshes": [
 				{"role": "base", "name": "tile_body",
-					"mesh": _body(0.0015, chamfer, keys)},
+					"mesh": _body(keys)},
 				{"role": "surface", "name": "tile_cap",
 					"mesh": _connected_cap(bevel, segments, keys, mask,
 						connected_height,
@@ -98,7 +170,7 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 		return {
 			"meshes": [
 				{"role": "base", "name": "tile_body",
-					"mesh": _body(corner, chamfer, keys)},
+					"mesh": _body(keys)},
 				{"role": "surface", "name": "tile_cap",
 					"mesh": _basin_cap(bevel, corner, segments, keys, rim,
 						basin_depth)},
@@ -116,7 +188,7 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 		return {
 			"meshes": [
 				{"role": "base", "name": "tile_body",
-					"mesh": _body(corner, chamfer, keys)},
+					"mesh": _body(keys)},
 				{"role": "surface", "name": "tile_cap",
 					"mesh": _turf_cap(bevel, corner, segments, keys, relief,
 						int(layer.value("relief_resolution", 14)),
@@ -127,7 +199,7 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 
 	return {
 		"meshes": [
-			{"role": "base", "name": "tile_body", "mesh": _body(corner, chamfer, keys)},
+			{"role": "base", "name": "tile_body", "mesh": _body(keys)},
 			{"role": "surface", "name": "tile_cap",
 				"mesh": _cap(bevel, corner, segments, keys, relief,
 					int(layer.value("relief_resolution", 18)))},
@@ -373,8 +445,8 @@ static func _sculpted_dune_function(
 		# Evaluate in one repeating authoring cell. Neighbouring copies of every
 		# stroke contribute across the wrap, making the function truly periodic.
 		var local := Vector2(
-			fposmod(world.x + HALF, TILE) - HALF,
-			fposmod(world.y + HALF, TILE) - HALF
+			_wrap_tile_coordinate(world.x),
+			_wrap_tile_coordinate(world.y)
 		)
 		var accumulation := 0.0
 		for stroke: Dictionary in strokes:
@@ -470,8 +542,8 @@ static func _natural_dune_function(layer: TileKitLayer) -> Callable:
 	var falloff_power := lerpf(1.70, 1.10, softness)
 	return func(world: Vector2) -> float:
 		var local := Vector2(
-			fposmod(world.x + HALF, TILE) - HALF,
-			fposmod(world.y + HALF, TILE) - HALF)
+			_wrap_tile_coordinate(world.x),
+			_wrap_tile_coordinate(world.y))
 		var accumulation := 0.0
 		for dune: Dictionary in dunes:
 			var wind: Vector2 = dune["wind"]
@@ -518,6 +590,17 @@ static func _natural_dune_function(layer: TileKitLayer) -> Callable:
 		# additive peaks or winner-change seams.
 		var value := 1.0 - exp(-accumulation * lerpf(0.82, 1.12, amount))
 		return pow(clampf(value, 0.0, 1.0), maxf(0.45, height_exponent))
+
+
+## Canonicalise the positive boundary onto the negative boundary. Floating
+## point remainder can otherwise leave +HALF represented as +HALF instead of
+## -HALF, making two mathematically periodic edge samples differ by a few
+## micrometres at exactly the tile seam.
+static func _wrap_tile_coordinate(value: float) -> float:
+	var wrapped := fposmod(value + HALF, TILE) - HALF
+	if wrapped >= HALF - 0.000001:
+		return -HALF
+	return wrapped
 
 
 ## Height function for a connected tile: the bevel drop applies only near
@@ -828,28 +911,124 @@ static func _cap_height_function(bevel: float, corner: float) -> Callable:
 		return -bevel * (1.0 - sqrt(maxf(0.0, 1.0 - t * t)))
 
 
-## Structural body, −0.50…−0.18. Persists when covered, so it is plain by
-## design: side wall in the two structural greens, tiny bottom chamfer so a
-## floating or edge-exposed tile ends in a soft line instead of a razor edge.
-static func _body(corner: float, chamfer: float, keys: Dictionary) -> ArrayMesh:
+## Structural body, −0.50…−0.18. This is deliberately stricter than the
+## surface art: an exact square prism with planar vertical walls and a square
+## bottom. It is identical for every neighbour mask and cannot inherit the
+## rounded/deformed silhouette of the material-specific top.
+static func _body(keys: Dictionary) -> ArrayMesh:
 	var batch := TileKitMeshUtils.MeshBatch.new()
-	var side_split := lerpf(BODY_BOTTOM, SEAM, 0.42)
-	# Rings are listed BOTTOM-UP — add_ring_shell's winding contract.
-	TileKitMeshUtils.add_ring_shell(batch, String(keys["side"]), HALF, corner, 3, [
-		[0.0, side_split, 0.0],
+	# The complete structural shell is one colour. Surface art may use a
+	# different top material, but the block beneath it never has a decorative
+	# lower stripe.
+	TileKitMeshUtils.add_ring_shell(batch, String(keys["side"]), HALF, 0.0, 1, [
+		[0.0, BODY_BOTTOM, 0.0],
 		[0.0, SEAM, 0.0],
 	])
-	TileKitMeshUtils.add_ring_shell(batch, String(keys["lower"]), HALF, corner, 3, [
-		[chamfer, BODY_BOTTOM, -PI / 4.0],
-		[0.0, BODY_BOTTOM + chamfer, 0.0],
-		[0.0, side_split, 0.0],
-	])
-	TileKitMeshUtils.add_rect_cap(batch, String(keys["lower"]), HALF, corner, 3,
-		chamfer, BODY_BOTTOM, false)
+	TileKitMeshUtils.add_rect_cap(batch, String(keys["side"]), HALF, 0.0, 1,
+		0.0, BODY_BOTTOM, false)
 	# Flush lid at the seam so the body is watertight when the cap is hidden
 	# by a covering tile.
-	TileKitMeshUtils.add_rect_cap(batch, String(keys["side"]), HALF, corner, 3,
+	TileKitMeshUtils.add_rect_cap(batch, String(keys["side"]), HALF, 0.0, 1,
 		0.0, SEAM, true)
+	return batch.commit()
+
+
+## Default/equal terrain top. Together with _body this is one perfectly square
+## 1.70 x 1.70 x 0.50 tile. No neighbour mask is allowed to reshape it.
+static func _uniform_square_top(keys: Dictionary) -> ArrayMesh:
+	var batch := TileKitMeshUtils.MeshBatch.new()
+	TileKitMeshUtils.add_rect_cap(batch, String(keys["top"]), HALF, 0.0, 1,
+		0.0, 0.0, true)
+	return batch.commit()
+
+
+## Natural material top with a square, slot-filling perimeter. Relief is the
+## only deformation and is periodic/transition-flattened by the supplied callable;
+## neighbour topology cannot carve notches into its outline.
+static func _detailed_square_top(
+	keys: Dictionary,
+	relief: Callable,
+	resolution: int
+) -> ArrayMesh:
+	var batch := TileKitMeshUtils.MeshBatch.new()
+	# 32 cells already resolve the broad clay relief beyond gameplay pixel
+	# density. Higher grids only multiply scene parsing/instantiation work when
+	# a placed tile refreshes its neighbours.
+	var cells := clampi(resolution, 8, 32)
+	var step := TILE / float(cells)
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var indices := PackedInt32Array()
+	for row in cells + 1:
+		for column in cells + 1:
+			var local := Vector2(-HALF + column * step, -HALF + row * step)
+			var height := float(relief.call(local))
+			vertices.append(Vector3(local.x, height, local.y))
+			var d := step * 0.5
+			var left := float(relief.call(local - Vector2(d, 0.0)))
+			var right := float(relief.call(local + Vector2(d, 0.0)))
+			var back := float(relief.call(local - Vector2(0.0, d)))
+			var front := float(relief.call(local + Vector2(0.0, d)))
+			normals.append(Vector3(left - right, d * 2.0, back - front).normalized())
+	var stride := cells + 1
+	for row in cells:
+		for column in cells:
+			var a := row * stride + column
+			var b := row * stride + column + 1
+			var c := (row + 1) * stride + column + 1
+			var d := (row + 1) * stride + column
+			indices.append_array([a, b, c, a, c, d])
+	batch.add(String(keys["top"]), vertices, normals, indices)
+	return batch.commit()
+
+
+## Close exposed detailed tops down to the structural body. A connected edge
+## has another square top consuming the same boundary, so emitting both walls
+## there creates coplanar z-fighting. Keeping walls in their own lightweight
+## role also lets every same-material topology share one heavy relief sheet.
+static func _square_perimeter_walls(
+	keys: Dictionary,
+	height: Callable,
+	neighbour_mask: int,
+	resolution: int
+) -> ArrayMesh:
+	var batch := TileKitMeshUtils.MeshBatch.new()
+	var cells := clampi(resolution, 1, 32)
+	var step := TILE / float(cells)
+	for edge: Array in [
+		[1, Vector2(0.0, -1.0), Vector2(1.0, 0.0)],
+		[2, Vector2(1.0, 0.0), Vector2(0.0, 1.0)],
+		[4, Vector2(0.0, 1.0), Vector2(-1.0, 0.0)],
+		[8, Vector2(-1.0, 0.0), Vector2(0.0, -1.0)],
+	]:
+		if (neighbour_mask & int(edge[0])) != 0:
+			continue
+		var outward: Vector2 = edge[1]
+		var along: Vector2 = edge[2]
+		var wall_vertices := PackedVector3Array()
+		var wall_normals := PackedVector3Array()
+		var wall_indices := PackedInt32Array()
+		for strip in cells + 1:
+			var along_distance := -HALF + float(strip) * step
+			var point := outward * HALF + along * along_distance
+			var normal := Vector3(outward.x, 0.0, outward.y)
+			wall_vertices.append(Vector3(point.x, SEAM, point.y))
+			wall_normals.append(normal)
+			wall_vertices.append(Vector3(
+				point.x, float(height.call(point)), point.y
+			))
+			wall_normals.append(normal)
+		for strip in cells:
+			var a := strip * 2
+			var b := strip * 2 + 1
+			var c := strip * 2 + 3
+			var d := strip * 2 + 2
+			# Godot's front faces use clockwise winding. The cardinal `along`
+			# vectors above already walk each perimeter in the correct direction,
+			# so every wall must use the same index order. Reversing north/west
+			# made those two sides back-face-cull into transparent holes.
+			wall_indices.append_array([a, d, c, a, c, b])
+		batch.add(String(keys["side"]), wall_vertices, wall_normals, wall_indices)
 	return batch.commit()
 
 

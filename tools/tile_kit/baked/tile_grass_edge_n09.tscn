@@ -1,0 +1,21 @@
+[gd_scene format=4]
+
+[ext_resource type="Material" path="res://tools/tile_kit/baked/materials/grass_gg_side.tres" id="1_asbo8"]
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_45eo5"]
+_surfaces = [{
+"aabb": AABB(-0.85, -0.18, -0.85, 1.7, 0.18, 1.7),
+"format": 34359742471,
+"index_count": 12,
+"index_data": PackedByteArray("AAACAAMAAAADAAEABAAGAAcABAAHAAUA"),
+"material": ExtResource("1_asbo8"),
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("mplZP+xROL6amVm/mplZPwAAAACamVm/mplZP+xROL6amVk/mplZPwAAAACamVk/mplZP+xROL6amVk/mplZPwAAAACamVk/mplZv+xROL6amVk/mplZvwAAAACamVk/////f/9//7////9//3//v////3//f/+/////f/9//7//f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgA==")
+}]
+
+[node name="tile_kit_edge" type="Node3D" unique_id=1473219446]
+
+[node name="tile_cap_edge" type="MeshInstance3D" parent="." unique_id=275209797]
+mesh = SubResource("ArrayMesh_45eo5")

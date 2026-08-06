@@ -51,10 +51,10 @@ _surfaces = [{
 "vertex_data": PackedByteArray("nMQgv50Rpb2cxCC/elvWvp0Rpb2cxCC/eltWvp0Rpb2cxCC/AAAAAJ0Rpb2cxCC/eltWPp0Rpb2cxCC/elvWPp0Rpb2cxCC/nMQgP50Rpb2cxCC/nMQgv50Rpb16W9a+elvWvp0Rpb16W9a+eltWvp0Rpb16W9a+AAAAAJ0Rpb16W9a+eltWPp0Rpb16W9a+elvWPp0Rpb16W9a+nMQgP50Rpb16W9a+nMQgv50Rpb16W1a+elvWvp0Rpb16W1a+eltWvp0Rpb16W1a+AAAAAJ0Rpb16W1a+eltWPp0Rpb16W1a+elvWPp0Rpb16W1a+nMQgP50Rpb16W1a+nMQgv50Rpb0AAAAAelvWvp0Rpb0AAAAAeltWvp0Rpb0AAAAAAAAAAJ0Rpb0AAAAAeltWPp0Rpb0AAAAAelvWPp0Rpb0AAAAAnMQgP50Rpb0AAAAAnMQgv50Rpb16W1Y+elvWvp0Rpb16W1Y+eltWvp0Rpb16W1Y+AAAAAJ0Rpb16W1Y+eltWPp0Rpb16W1Y+elvWPp0Rpb16W1Y+nMQgP50Rpb16W1Y+nMQgv50Rpb16W9Y+elvWvp0Rpb16W9Y+eltWvp0Rpb16W9Y+AAAAAJ0Rpb16W9Y+eltWPp0Rpb16W9Y+elvWPp0Rpb16W9Y+nMQgP50Rpb16W9Y+nMQgv50Rpb2cxCA/elvWvp0Rpb2cxCA/eltWvp0Rpb2cxCA/AAAAAJ0Rpb2cxCA/eltWPp0Rpb2cxCA/elvWPp0Rpb2cxCA/nMQgP50Rpb2cxCA//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/78=")
 }]
 
-[node name="tile_kit_surface" type="Node3D" unique_id=2094127025]
+[node name="tile_kit_surface" type="Node3D" unique_id=856715978]
 
-[node name="tile_cap" type="MeshInstance3D" parent="." unique_id=951398198]
+[node name="tile_cap" type="MeshInstance3D" parent="." unique_id=1581941965]
 mesh = SubResource("ArrayMesh_6mbwm")
 
-[node name="tile_water" type="MeshInstance3D" parent="." unique_id=769284137]
+[node name="tile_water" type="MeshInstance3D" parent="." unique_id=405016758]
 mesh = SubResource("ArrayMesh_6bg0p")

@@ -32,6 +32,7 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 	var weights: Dictionary = layer.value("color_weights", {"stone_medium": 1.0})
 	var height_band: Array = layer.value("stone_height", [0.020, 0.030])
 	var sink: float = layer.value("sink", 0.005)
+	var integrated := bool(context.get("integrated_constructed_surface", false))
 	var batch := TileKitMeshUtils.MeshBatch.new()
 
 	var stones: Array = []
@@ -77,6 +78,16 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 		var minimum_height := 0.018 if pattern != "trail" else 0.006
 		var stone_height := maxf(minimum_height,
 			rng.randf_range(float(height_band[0]), float(height_band[1]))) + sink
+		var piece_base_y := base_y - sink
+		if integrated:
+			# GG's constructed tops replace the recessed carrier; they do not
+			# float above it. Keep only millimetres of authored height variation
+			# around the y=0 walk plane.
+			piece_base_y = base_y
+			stone_height = maxf(
+				0.004,
+				-base_y + rng.randf_range(-0.002, 0.004)
+			)
 		var corner: float = layer.value("stone_corner", 0.028)
 		var bevel := 0.016
 		var profile := String(layer.value("stone_profile", "slab"))
@@ -87,8 +98,8 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 		# of confident hand-cut facets for the whole tile.
 		if profile == "faceted":
 			TileKitMeshUtils.add_faceted_chunk(batch, piece_key,
-				Vector3(centre.x, base_y - sink, centre.y),
-				half_x, half_z, stone_height + sink,
+				Vector3(centre.x, piece_base_y, centre.y),
+				half_x, half_z, stone_height,
 				yaw + rng.randf_range(-0.1, 0.1), rng,
 				6, rng.randf_range(0.52, 0.68), 0.0)
 			continue
@@ -99,7 +110,7 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 			corner = minf(half_x, half_z) * 0.72
 			bevel = stone_height * 0.55
 		TileKitMeshUtils.add_slab(batch, piece_key,
-			Vector3(centre.x, base_y - sink, centre.y),
+			Vector3(centre.x, piece_base_y, centre.y),
 			half_x, half_z,
 			corner,
 			stone_height,
@@ -107,7 +118,8 @@ static func build(layer: TileKitLayer, rng: RandomNumberGenerator,
 
 	context["paver_stones"] = stones
 	return {
-		"meshes": [{"role": "surface", "name": "tile_pavers",
+		"meshes": [{"role": "surface",
+			"name": "tile_pavers_cap" if integrated else "tile_pavers",
 			"mesh": batch.commit()}],
 	}
 
@@ -164,10 +176,13 @@ static func _plank_courses(layer: TileKitLayer, rng: RandomNumberGenerator,
 	var width: float = layer.value("plank_width", 0.21)
 	var gap: float = layer.value("gap", 0.020)
 	var length_band: Array = layer.value("plank_length", [0.55, 0.95])
-	var rows := maxi(1, int(ceil((half * 2.0) / width)))
+	var edge := 0.006
+	var span := (half - edge) * 2.0
+	var rows := maxi(1, int(ceil(span / width)))
+	var row_height := span / float(rows)
 	var stones: Array = []
 	for row in rows:
-		var z := -half + (float(row) + 0.5) * width
+		var z := -half + edge + (float(row) + 0.5) * row_height
 		var cursor := -half + rng.randf_range(-0.25, 0.0)
 		while cursor < half:
 			var length: float = rng.randf_range(float(length_band[0]),
@@ -180,7 +195,7 @@ static func _plank_courses(layer: TileKitLayer, rng: RandomNumberGenerator,
 			stones.append({
 				"centre": Vector2((start + finish) * 0.5, z),
 				"half_x": (finish - start) * 0.5,
-				"half_z": (width - gap) * 0.5,
+				"half_z": (row_height - gap) * 0.5,
 				"yaw": 0.0,
 			})
 	return stones

@@ -109,6 +109,7 @@ var _controller_hud_hold_active := false
 var _controller_hud_hold_home_fired := false
 var _player_dock_busy := false
 var _player_drop_target: Dictionary = {}
+var _pending_build_interaction: Dictionary = {}
 
 
 func _ready() -> void:
@@ -358,6 +359,9 @@ func _build_ui() -> void:
 	hud.name = "Hud"
 	add_child(hud)
 	hud.setup(core, kit, placement)
+	placement.set_ui_pointer_blocker(
+		Callable(hud, "blocks_world_pointer")
+	)
 
 	panels = GamePanels.new()
 	panels.name = "Panels"
@@ -706,6 +710,7 @@ func _connect_flows() -> void:
 	hud.player_dock_drag_released.connect(_on_player_dock_drag_released)
 	hud.catch_basket_requested.connect(panels.show_catch_basket)
 	hud.spirit_pouch_requested.connect(panels.show_spirit_pouch)
+	hud.token_pouch_requested.connect(func(): panels.toggle("inventory"))
 	panels.basket_tile_bundle_taken.connect(_on_basket_tile_bundle_taken)
 	panels.basket_model_taken.connect(_on_basket_model_taken)
 	core.fishing.basket.basket_changed.connect(func():
@@ -800,6 +805,7 @@ func _connect_flows() -> void:
 	reward_reveal.reveal_finished.connect(func(_reward):
 		_refresh_controller_hints()
 	)
+	core.token_pouch.box_opened.connect(_on_token_box_opened)
 	visitor_scene.connect("reward_presented", _on_visitor_reward_presented)
 	core.visitors.visitor_available.connect(func(_event):
 		hud.toast("A curious visitor has arrived.", "rare")
@@ -1122,9 +1128,21 @@ func _on_anchor_regenerated(
 # ------------------------------------------------------------------ input routing
 
 func _input(event: InputEvent) -> void:
-	# Pause is global and must run before a focused Build Bag control can
-	# consume Escape as contextual cancel. The open PauseMenu owns the same
-	# action while the tree is paused and closes itself.
+	# A held placement owns Escape even when a Build Bag control has focus.
+	# Handle it before the global pause shortcut so the piece is restored or
+	# returned to stock instead of trapping the player behind the pause menu.
+	if (
+		_gameplay_started
+		and event is InputEventKey
+		and not event.echo
+		and event.is_action_pressed("cancel")
+		and placement.active
+		and not placement.held.is_empty()
+	):
+		_cancel_build_or_open_library()
+		get_viewport().set_input_as_handled()
+		return
+	# Outside an active placement, Escape remains the global pause shortcut.
 	if (
 		_gameplay_started
 		and event is InputEventKey
@@ -1141,7 +1159,7 @@ func _input(event: InputEvent) -> void:
 	var mouse := event as InputEventMouseButton
 	if not mouse.pressed or mouse.button_index != MOUSE_BUTTON_LEFT:
 		return
-	if _hovered_clickable_control() != null:
+	if _screen_position_blocked_by_ui(mouse.position):
 		return
 	if (
 		_gameplay_started
@@ -1153,13 +1171,13 @@ func _input(event: InputEvent) -> void:
 		effects.click_marker(mouse.position, true)
 
 
-func _hovered_clickable_control() -> Control:
-	var control := get_viewport().gui_get_hovered_control()
-	while control != null:
-		if control is BaseButton or control is Range or control is LineEdit or control is TextEdit:
-			return control
-		control = control.get_parent() as Control
-	return null
+func _screen_position_blocked_by_ui(screen_position: Vector2) -> bool:
+	# Any mouse-enabled Control shields the world, including empty panel space.
+	# Restricting this to buttons allowed selection and right-click actions to
+	# leak through the Build Bag background.
+	if hud != null and hud.blocks_world_pointer(screen_position):
+		return true
+	return get_viewport().gui_get_hovered_control() != null
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -1281,21 +1299,33 @@ func _unhandled_input(event: InputEvent) -> void:
 		if mouse.button_index == MOUSE_BUTTON_LEFT:
 			if placement.active:
 				if mouse.pressed:
-					if (
-						not placement.held.is_empty()
-						or not _try_build_world_action_at_screen(mouse.position)
-					):
+					_pending_build_interaction = {}
+					if not placement.held.is_empty():
 						placement.pointer_press(mouse.position)
+					else:
+						var interaction := _interaction_at_screen(mouse.position)
+						if interaction.get("kind", "") == "feature_interaction":
+							_pending_build_interaction = interaction
+							placement.pointer_press(mouse.position, true)
+						elif not _try_build_world_action_at_screen(mouse.position):
+							placement.pointer_press(mouse.position)
 				else:
-					placement.pointer_release(mouse.position)
+					var was_dragging := placement.pointer_release(mouse.position)
+					if not _pending_build_interaction.is_empty():
+						var interaction := _pending_build_interaction
+						_pending_build_interaction = {}
+						if not was_dragging:
+							_perform_interaction(interaction)
 			elif mouse.pressed:
 				_handle_world_click(mouse.position)
 		elif mouse.button_index == MOUSE_BUTTON_RIGHT and mouse.pressed:
-			if placement.active:
-				if placement.held.is_empty():
-					placement.pick_up_under_pointer()
-				else:
-					_cancel_build_or_open_library()
+			if (
+				placement.active
+				and not _screen_position_blocked_by_ui(mouse.position)
+				and placement.rotate_at_screen(mouse.position)
+			):
+				audio.play_event("build_rotate")
+				get_viewport().set_input_as_handled()
 	elif event is InputEventMouseMotion and placement.active:
 		placement.pointer_motion((event as InputEventMouseMotion).position)
 	elif event.is_action_pressed("store_piece") and placement.active:
@@ -1645,7 +1675,7 @@ func _on_harvest_feedback(kind: String, data: Dictionary) -> void:
 			if String(data.get("presentation", "clay_tree")) == "clay_tree":
 				audio.play_event("grove_rest")
 			var reward: Dictionary = data.get("reward", {})
-			if not reward.is_empty():
+			if String(reward.get("kind", "")) in ["tile", "structure"]:
 				var visual := renderer.structure_node(int(data.get("instance_id", 0)))
 				var source_position := (
 					visual.global_position
@@ -1656,11 +1686,36 @@ func _on_harvest_feedback(kind: String, data: Dictionary) -> void:
 					source_position,
 					String(data.get("reveal_profile_id", ""))
 				)
+			elif (
+				String(reward.get("kind", "")) == "token"
+				and core.onboarding.stage == OnboardingState.OPEN_FOREST_BOX
+			):
+				call_deferred("_open_onboarding_token_pouch")
 		"ready":
 			audio.play_event("leaf_rustle")
 			if core.onboarding.stage == OnboardingState.HARVEST_TREE:
 				hud.toast("Your tree is ready.", "good")
 	hud.update_tutorial()
+
+
+func _open_onboarding_token_pouch() -> void:
+	if (
+		core.onboarding.stage == OnboardingState.OPEN_FOREST_BOX
+		and not panels.is_open()
+	):
+		panels.toggle("inventory")
+
+
+func _on_token_box_opened(_box_id: String, reward: Dictionary) -> void:
+	var reveal_profile_id := String(reward.get("reveal_profile_id", ""))
+	if reveal_profile_id == "":
+		return
+	var source_position := (
+		player.global_position + Vector3.UP * 0.25
+		if player != null and player.deployed
+		else core.grid.cell_to_world(core.grid.home_cell) + Vector3.UP * 0.25
+	)
+	reward_reveal.enqueue(reward, source_position, reveal_profile_id)
 
 
 func _on_visitor_reward_presented(reward: Dictionary) -> void:

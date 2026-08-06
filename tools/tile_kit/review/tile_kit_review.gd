@@ -14,6 +14,7 @@ var _stage: Node3D
 var _focus_ids := PackedStringArray()
 var _catalog_mode := false
 var _gold_mode := false
+var _seam_audit_mode := false
 var _catalog_overlay: CanvasLayer
 var _render_host: Node
 var _render_viewport: Viewport
@@ -33,6 +34,8 @@ func _ready() -> void:
 			_catalog_mode = true
 		elif argument == "--gold":
 			_gold_mode = true
+		elif argument == "--seam-audit":
+			_seam_audit_mode = true
 	# The catalog once rendered through a dedicated 6400x5600 SubViewport.
 	# That path produced wrong ortho framing AND phantom sheared under-tile
 	# geometry on some machines (the hidpi rig), while the root viewport
@@ -42,7 +45,9 @@ func _ready() -> void:
 	_render_viewport = get_viewport()
 	_build_rig()
 	await get_tree().process_frame
-	if _gold_mode:
+	if _seam_audit_mode:
+		await _run_seam_audit()
+	elif _gold_mode:
 		await _run_gold()
 	elif _catalog_mode:
 		await _run_catalog()
@@ -52,6 +57,44 @@ func _ready() -> void:
 		await _run_focus()
 	print("TILE KIT REVIEW CAPTURED — %s" % ProjectSettings.globalize_path(_output_dir))
 	get_tree().quit()
+
+
+func _run_seam_audit() -> void:
+	# Five-cell stepped patches deliberately exercise exposed corners beside
+	# connected edges: the exact layout that exposed the old V-shaped bite.
+	var cells := [
+		Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0),
+		Vector2i(0, 1), Vector2i(1, 1),
+	]
+	for audit: Dictionary in [
+		{"id": "tile_dirt", "file": "seam_dirt.png"},
+		{"id": "tile_snowfield", "file": "seam_snowfield.png"},
+		{"id": "tile_proc_brick_court", "file": "seam_brick_court.png"},
+	]:
+		_clear()
+		for cell in cells:
+			var generator := TileKitGenerator.new()
+			generator.preset = TileKitPreset.official_recipe(String(audit["id"]))
+			generator.world_cell = cell
+			var mask := 0
+			if cell + Vector2i.UP in cells:
+				mask |= 1
+			if cell + Vector2i.RIGHT in cells:
+				mask |= 2
+			if cell + Vector2i.DOWN in cells:
+				mask |= 4
+			if cell + Vector2i.LEFT in cells:
+				mask |= 8
+			generator.neighbour_mask = mask
+			generator.position = Vector3(
+				(float(cell.x) - 1.0) * KitBaseBuilder.TILE,
+				0.0,
+				(float(cell.y) - 0.5) * KitBaseBuilder.TILE
+			)
+			_stage.add_child(generator)
+		_frame(5.8, Vector3(0.0, -0.15, 0.0))
+		await _calibrate_width(6.8)
+		await _shoot(String(audit["file"]))
 
 
 func _build_rig() -> void:

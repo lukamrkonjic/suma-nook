@@ -22,6 +22,7 @@ params = {
 "relief_rows": 5,
 "relief_style": "furrows",
 "side_key": "earth_side",
+"surface_profile": "detailed_square",
 "top_bevel": 0.075,
 "top_key": "earth_top",
 "turf_cap": false,

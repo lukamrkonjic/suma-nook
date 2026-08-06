@@ -7,15 +7,18 @@ const ValidationIssueScript := preload(
 )
 const REWARD_KINDS := ["tile", "structure"]
 const REWARD_RARITIES := ["common", "uncommon", "rare"]
-const HARVEST_PRESENTATIONS := ["clay_tree", "berry_cluster", "soft_source"]
+const HARVEST_PRESENTATIONS := [
+	"clay_tree", "clay_rock", "berry_cluster", "soft_source"
+]
 const REVEAL_PRESENTERS := ["world_bud"]
-const WORLD_BUD_SHAPES := ["acorn", "berry"]
+const WORLD_BUD_SHAPES := ["acorn", "berry", "box"]
 
 
 static func validate(snapshot, issues: Array) -> void:
 	_validate_reward_pools(snapshot, issues)
 	_validate_reward_roll_policies(snapshot, issues)
 	_validate_reward_reveal_profiles(snapshot, issues)
+	_validate_token_boxes(snapshot, issues)
 	_validate_harvest_profiles(snapshot, issues)
 	_validate_harvest_sources(snapshot, issues)
 	_validate_visitor_presentations(snapshot, issues)
@@ -127,8 +130,18 @@ static func _validate_reward_reveal_profiles(snapshot, issues: Array) -> void:
 static func _validate_harvest_profiles(snapshot, issues: Array) -> void:
 	for profile: Defs.HarvestProfileDefinition in snapshot.harvest_profiles.values():
 		var source = snapshot.source("harvest_profiles", profile.id)
+		var pays_tokens := profile.token_id != ""
+		var pays_direct_reward := profile.reward_pool_id != ""
 		_require(
-			issues, snapshot.reward_pools.has(profile.reward_pool_id),
+			issues, pays_tokens != pays_direct_reward,
+			"harvest.profile.reward_mode", source, "token",
+			"harvest profile '%s' must define exactly one of token or reward_pool"
+			% profile.id
+		)
+		_require(
+			issues,
+			not pays_direct_reward
+			or snapshot.reward_pools.has(profile.reward_pool_id),
 			"harvest.profile.reward_pool", source, "reward_pool",
 			"harvest profile '%s' references missing reward pool '%s'"
 			% [profile.id, profile.reward_pool_id]
@@ -142,17 +155,34 @@ static func _validate_harvest_profiles(snapshot, issues: Array) -> void:
 			% [profile.id, profile.first_reward_pool_id]
 		)
 		_require(
-			issues, snapshot.reward_roll_policies.has(profile.roll_policy_id),
+			issues,
+			not pays_direct_reward
+			or snapshot.reward_roll_policies.has(profile.roll_policy_id),
 			"harvest.profile.roll_policy", source, "roll_policy",
 			"harvest profile '%s' references missing roll policy '%s'"
 			% [profile.id, profile.roll_policy_id]
 		)
 		_require(
-			issues, snapshot.reward_reveal_profiles.has(profile.reveal_profile_id),
+			issues,
+			not pays_direct_reward
+			or snapshot.reward_reveal_profiles.has(profile.reveal_profile_id),
 			"harvest.profile.reveal_profile", source, "reveal_profile",
 			"harvest profile '%s' references missing reveal profile '%s'"
 			% [profile.id, profile.reveal_profile_id]
 		)
+		if pays_tokens:
+			var token := snapshot.items.get(profile.token_id) as Defs.ItemDefinition
+			_require(
+				issues, token != null and token.category == "token",
+				"harvest.profile.token", source, "token",
+				"harvest profile '%s' references missing pouch token '%s'"
+				% [profile.id, profile.token_id]
+			)
+			_require(
+				issues, profile.token_min >= 1 and profile.token_max >= profile.token_min,
+				"harvest.profile.token_quantity", source, "token_min",
+				"harvest token quantities must start at one and remain ordered"
+			)
 		_require(
 			issues, profile.hits_required >= 1, "harvest.profile.hits", source,
 			"hits", "harvest sources require at least one hit"
@@ -169,6 +199,41 @@ static func _validate_harvest_profiles(snapshot, issues: Array) -> void:
 		)
 		if profile.presentation_profile == "berry_cluster":
 			_validate_berry_presentation(profile, source, issues)
+
+
+static func _validate_token_boxes(snapshot, issues: Array) -> void:
+	for box: Defs.TokenBoxDefinition in snapshot.token_boxes.values():
+		var source = snapshot.source("token_boxes", box.id)
+		var token := snapshot.items.get(box.token_id) as Defs.ItemDefinition
+		_require(
+			issues, token != null and token.category == "token",
+			"token_box.token", source, "token",
+			"token box '%s' references missing pouch token '%s'"
+			% [box.id, box.token_id]
+		)
+		_require(
+			issues, box.cost >= 1,
+			"token_box.cost", source, "cost",
+			"token box cost must be at least one"
+		)
+		_require(
+			issues, snapshot.reward_pools.has(box.reward_pool_id),
+			"token_box.reward_pool", source, "reward_pool",
+			"token box '%s' references missing reward pool '%s'"
+			% [box.id, box.reward_pool_id]
+		)
+		_require(
+			issues, snapshot.reward_roll_policies.has(box.roll_policy_id),
+			"token_box.roll_policy", source, "roll_policy",
+			"token box '%s' references missing roll policy '%s'"
+			% [box.id, box.roll_policy_id]
+		)
+		_require(
+			issues, snapshot.reward_reveal_profiles.has(box.reveal_profile_id),
+			"token_box.reveal_profile", source, "reveal_profile",
+			"token box '%s' references missing reveal profile '%s'"
+			% [box.id, box.reveal_profile_id]
+		)
 
 
 static func _validate_berry_presentation(

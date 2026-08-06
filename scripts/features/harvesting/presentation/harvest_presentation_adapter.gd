@@ -44,6 +44,8 @@ func _on_hit_landed(instance_id: int, hit: Dictionary) -> void:
 	var presentation := String(hit.get("presentation", "soft_source"))
 	if presentation == "berry_cluster":
 		_present_berry_gather(instance_id, hit)
+	elif presentation == "clay_rock":
+		_present_rock_hit(instance_id, hit)
 	else:
 		_present_tree_hit(instance_id, hit)
 	feedback.emit("final" if bool(hit.get("final", false)) else "hit", hit)
@@ -84,6 +86,29 @@ func _present_berry_gather(instance_id: int, hit: Dictionary) -> void:
 	effects.flash_structure(instance_id, 0.1)
 	effects.shake_structure_impact(instance_id, 0.24)
 	effects.burst("fx_leaf", point, 7, 1.45)
+	if bool(hit.get("final", false)):
+		renderer.refresh_structure_harvest(instance_id, true)
+
+
+func _present_rock_hit(instance_id: int, hit: Dictionary) -> void:
+	if audio != null:
+		audio.play_event(
+			"place_stone",
+			1.0 if bool(hit.get("final", false)) else -1.0,
+			0.82 if bool(hit.get("final", false)) else 1.05
+		)
+	var visual := renderer.structure_node(instance_id)
+	var point := (
+		visual.global_position + Vector3(0.0, 0.24, 0.0)
+		if visual != null else Vector3.ZERO
+	)
+	effects.flash_structure(instance_id, 0.085 if not hit["final"] else 0.14)
+	effects.shake_structure_impact(instance_id, float(hit.get("progress", 0.0)))
+	effects.burst(
+		"fx_smoke_puff", point,
+		9 if bool(hit.get("final", false)) else 3 + int(hit.get("hit", 1)),
+		1.5
+	)
 	if bool(hit.get("final", false)):
 		renderer.refresh_structure_harvest(instance_id, true)
 

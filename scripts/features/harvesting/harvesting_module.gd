@@ -17,6 +17,7 @@ var registries: Registries
 var rng: RngService
 var grid: WorldGrid
 var rewards: RefCounted
+var token_pouch: RefCounted
 var enabled := true
 var first_rewards_claimed: Dictionary = {}
 var reward_history: Dictionary = {} # home_collection -> recent tokens + rare misses
@@ -31,12 +32,14 @@ func _init(
 	rng_service: RngService,
 	world_grid: WorldGrid,
 	reward_service: RefCounted,
+	pouch_service: RefCounted,
 	now_provider: Callable = Callable()
 ) -> void:
 	registries = regs
 	rng = rng_service
 	grid = world_grid
 	rewards = reward_service
+	token_pouch = pouch_service
 	enabled = registries.feature("harvesting_enabled", true)
 	_now_provider = now_provider
 	var module_ref: WeakRef = weakref(self)
@@ -163,22 +166,7 @@ func request_hit(instance_id: int, actor := "player") -> Dictionary:
 		runtime["cycles"] = int(runtime.get("cycles", 0)) + 1
 		runtime["deadline_unix"] = _now() + profile.regrowth_seconds
 		total_cycles += 1
-		var pool_id := profile.reward_pool_id
-		if (
-			profile.first_reward_pool_id != ""
-			and not bool(first_rewards_claimed.get(profile.id, false))
-		):
-			pool_id = profile.first_reward_pool_id
-			first_rewards_claimed[profile.id] = true
-		var history := _reward_history_for(profile.home_collection)
-		var reward: Dictionary = rewards.call(
-			"roll_and_grant",
-			pool_id,
-			"harvest:%s:%d" % [profile.id, int(runtime["cycles"])],
-			profile.roll_policy_id,
-			history
-		)
-		_update_reward_history(profile, reward)
+		var reward := _grant_harvest_reward(profile, int(runtime["cycles"]))
 		hit["reward"] = reward.duplicate(true)
 		_schedule_instance(instance_id, float(runtime["deadline_unix"]))
 		reward_granted.emit(instance_id, reward.duplicate(true))
@@ -187,6 +175,43 @@ func request_hit(instance_id: int, actor := "player") -> Dictionary:
 		)
 	hit_landed.emit(instance_id, hit.duplicate(true))
 	return hit
+
+
+func _grant_harvest_reward(
+	profile: Defs.HarvestProfileDefinition,
+	cycle: int
+) -> Dictionary:
+	var first_claim := not bool(first_rewards_claimed.get(profile.id, false))
+	if profile.token_id != "":
+		var amount := rng.randi_range(
+			"harvest_token:%s:%d" % [profile.id, cycle],
+			profile.token_min,
+			profile.token_max
+		)
+		if first_claim:
+			amount += profile.first_token_bonus
+			first_rewards_claimed[profile.id] = true
+		var granted: Variant = token_pouch.call(
+			"grant",
+			profile.token_id,
+			amount,
+			"harvest:%s:%d" % [profile.id, cycle]
+		)
+		return granted as Dictionary
+	var pool_id := profile.reward_pool_id
+	if profile.first_reward_pool_id != "" and first_claim:
+		pool_id = profile.first_reward_pool_id
+		first_rewards_claimed[profile.id] = true
+	var history := _reward_history_for(profile.home_collection)
+	var reward: Dictionary = rewards.call(
+		"roll_and_grant",
+		pool_id,
+		"harvest:%s:%d" % [profile.id, cycle],
+		profile.roll_policy_id,
+		history
+	)
+	_update_reward_history(profile, reward)
+	return reward
 
 
 func remaining_seconds(instance_id: int) -> float:

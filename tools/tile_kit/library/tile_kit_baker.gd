@@ -56,7 +56,13 @@ func bake(preset: TileKitPreset, tile_id: String) -> Dictionary:
 			for role in scenes:
 				baked_roles.append(String(role))
 		for role: String in scenes:
-			if (mask > 0 or transition) and role == "detail":
+			if (
+				(mask > 0 or transition)
+				and (
+					role == "detail"
+					or generator.role_is_topology_invariant(role)
+				)
+			):
 				continue
 			var asset_id := "%s_%s" % [tile_id, role]
 			if transition:
@@ -79,6 +85,8 @@ func bake(preset: TileKitPreset, tile_id: String) -> Dictionary:
 			else:
 				errors.append("%s: %s" % [path, error_string(error)])
 		generator.free()
+	if errors.is_empty():
+		_prune_stale_scenes(tile_id, written, errors)
 	baked_roles.sort()
 	return {
 		"ok": errors.is_empty(),
@@ -87,6 +95,32 @@ func bake(preset: TileKitPreset, tile_id: String) -> Dictionary:
 		"roles": baked_roles,
 		"statistics": stats,
 	}
+
+
+## Topology-invariant roles used to leave duplicate _nXX/_xXX scenes behind.
+## Remove only obsolete generated scenes for this exact tile ID after a fully
+## successful replacement bake, so runtime resolution cannot pick stale meshes.
+func _prune_stale_scenes(
+	tile_id: String,
+	written: PackedStringArray,
+	errors: PackedStringArray
+) -> void:
+	var keep := {}
+	for path: String in written:
+		keep[path] = true
+	for path: String in baked_paths_for(tile_id):
+		if keep.has(path):
+			continue
+		var absolute := ProjectSettings.globalize_path(path)
+		var output_root := ProjectSettings.globalize_path(output_directory)
+		if absolute.get_base_dir().simplify_path() != output_root.simplify_path():
+			errors.append("Refused to prune scene outside bake output: %s" % path)
+			continue
+		var error := DirAccess.remove_absolute(absolute)
+		if error != OK:
+			errors.append("Could not prune stale bake %s: %s" % [
+				path, error_string(error),
+			])
 
 
 func baked_paths_for(tile_id: String) -> PackedStringArray:

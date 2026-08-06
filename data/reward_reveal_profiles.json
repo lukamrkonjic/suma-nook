@@ -31,6 +31,38 @@
       "new_discovery_bonus_seconds": 0.45,
       "collect_seconds": 0.36,
       "miniature_size": 0.42
+    },
+    {
+      "id": "reveal_forest_box",
+      "name": "Forest Box",
+      "presenter_type": "world_bud",
+      "shell_shape": "box",
+      "shell_material": "wood_light",
+      "accent_material": "leaf_medium",
+      "glow_material": "magic",
+      "landing_seconds": 0.25,
+      "anticipation_seconds": 0.32,
+      "reveal_seconds": 0.42,
+      "display_seconds": 0.8,
+      "new_discovery_bonus_seconds": 0.45,
+      "collect_seconds": 0.36,
+      "miniature_size": 0.42
+    },
+    {
+      "id": "reveal_rock_box",
+      "name": "Rock Box",
+      "presenter_type": "world_bud",
+      "shell_shape": "box",
+      "shell_material": "pale_stone",
+      "accent_material": "dark_stone",
+      "glow_material": "magic",
+      "landing_seconds": 0.25,
+      "anticipation_seconds": 0.32,
+      "reveal_seconds": 0.42,
+      "display_seconds": 0.8,
+      "new_discovery_bonus_seconds": 0.45,
+      "collect_seconds": 0.36,
+      "miniature_size": 0.42
     }
   ]
 }

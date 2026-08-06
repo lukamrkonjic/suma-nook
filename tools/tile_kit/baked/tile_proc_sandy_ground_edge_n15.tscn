@@ -1,0 +1,8 @@
+[gd_scene format=3]
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_8asyv"]
+
+[node name="tile_kit_edge" type="Node3D" unique_id=114725299]
+
+[node name="tile_cap_edge" type="MeshInstance3D" parent="." unique_id=353853180]
+mesh = SubResource("ArrayMesh_8asyv")

@@ -174,7 +174,7 @@ func _procedural_definition() -> Dictionary:
 	var layers: Array[Dictionary] = []
 	for role in baked_roles:
 		var normalized := String(role)
-		if normalized not in ["base", "surface", "detail"]:
+		if normalized not in ["base", "surface", "edge", "detail"]:
 			continue
 		layers.append({
 			"role": normalized,

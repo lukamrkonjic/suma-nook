@@ -40,17 +40,31 @@ func _ready() -> void:
 	get_viewport().debug_draw = Viewport.DEBUG_DRAW_DISABLED
 
 	var spacing := core.grid.tile_size
-	for offset in [
+	hero.free()
+	var patch_cells: Array[Vector2i] = [
+		Vector2i.ZERO,
 		Vector2i(-1, 0),
 		Vector2i(1, 0),
 		Vector2i(0, -1),
 		Vector2i(0, 1),
 		Vector2i(-1, -1),
 		Vector2i(1, 1),
-	]:
+	]
+	for offset: Vector2i in patch_cells:
+		core.grid.place_tile(offset, "tile_sand")
+	var sand_def := core.registries.tile("tile_sand")
+	for offset: Vector2i in patch_cells:
+		var neighbour_mask := factory.connection_mask(
+			sand_def,
+			offset,
+			0,
+			0
+		)
 		var neighbour := factory.instantiate_visual(
-			core.registries.tile("tile_sand"),
-			true
+			sand_def,
+			true,
+			neighbour_mask,
+			TileVisualFactory.detail_variant_for_coord(sand_def, offset)
 		)
 		neighbour.position = Vector3(offset.x * spacing, 0.0, offset.y * spacing)
 		add_child(neighbour)

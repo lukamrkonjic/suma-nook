@@ -19,6 +19,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_grass_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_grass_surface",
           "cover_behavior": "hide"
@@ -32,14 +37,12 @@
       "render_profile": "layered",
       "collision_profile": "flat",
       "soft_surface_profile": "",
-      "walk_surface_height": 0.03,
+      "walk_surface_height": 0.0,
       "water_cells": [],
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -78,6 +81,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_kit_grass_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_kit_grass_surface",
           "cover_behavior": "hide"
@@ -96,9 +104,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -136,6 +142,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_grass_flower_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_grass_flower_surface",
           "cover_behavior": "hide"
@@ -154,9 +165,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -192,6 +201,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_proc_flower_meadow_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_proc_flower_meadow_surface",
           "cover_behavior": "hide"
@@ -210,9 +224,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -250,6 +262,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_master_grass_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_master_grass_surface",
           "cover_behavior": "hide"
@@ -268,9 +285,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -308,6 +323,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_proc_fenced_meadow_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_proc_fenced_meadow_surface",
           "cover_behavior": "hide"
@@ -326,9 +346,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -366,6 +384,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_grove_mature_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_grove_mature_surface",
           "cover_behavior": "hide"
@@ -384,9 +407,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -425,6 +446,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_grove_birch_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_grove_birch_surface",
           "cover_behavior": "hide"
@@ -443,9 +469,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -481,6 +505,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_grove_flowering_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_grove_flowering_surface",
           "cover_behavior": "hide"
@@ -499,9 +528,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -534,6 +561,11 @@
         {
           "role": "detail",
           "asset_id": "tile_grove_autumn_detail",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "edge",
+          "asset_id": "tile_grove_autumn_edge",
           "cover_behavior": "hide"
         },
         {
@@ -593,6 +625,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_grove_mossy_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_grove_mossy_surface",
           "cover_behavior": "hide"
@@ -611,9 +648,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -650,6 +685,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_proc_mossy_forest_floor_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_proc_mossy_forest_floor_surface",
           "cover_behavior": "hide"
@@ -668,9 +708,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -708,6 +746,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_proc_autumn_litter_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_proc_autumn_litter_surface",
           "cover_behavior": "hide"
@@ -726,9 +769,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -763,6 +804,11 @@
         {
           "role": "detail",
           "asset_id": "tile_garden_detail",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "edge",
+          "asset_id": "tile_garden_edge",
           "cover_behavior": "hide"
         },
         {
@@ -822,6 +868,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_proc_mulch_dirt_floor_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_proc_mulch_dirt_floor_surface",
           "cover_behavior": "hide"
@@ -840,9 +891,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -880,6 +929,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_path_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_path_surface",
           "cover_behavior": "hide"
@@ -898,9 +952,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "tiny_individual_seam",
       "exposed_top": "raised",
@@ -936,6 +988,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_proc_garden_path_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_proc_garden_path_surface",
           "cover_behavior": "hide"
@@ -954,9 +1011,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "tiny_individual_seam",
       "exposed_top": "raised",
@@ -994,6 +1049,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_plain_ground_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_plain_ground_surface",
           "cover_behavior": "hide"
@@ -1012,9 +1072,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -1050,6 +1108,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_dirt_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_dirt_surface",
           "cover_behavior": "hide"
@@ -1068,9 +1131,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -1107,6 +1168,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_clay_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_clay_surface",
           "cover_behavior": "hide"
@@ -1125,9 +1191,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -1163,6 +1227,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_proc_tilled_field_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_proc_tilled_field_surface",
           "cover_behavior": "hide"
@@ -1181,9 +1250,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -1221,6 +1288,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_dirt_road_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_dirt_road_surface",
           "cover_behavior": "hide"
@@ -1239,9 +1311,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -1277,6 +1347,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_dirt_crossroad_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_dirt_crossroad_surface",
           "cover_behavior": "hide"
@@ -1295,9 +1370,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -1413,9 +1486,7 @@
       "anchor": "pond_anchor",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "tiny_individual_seam",
       "exposed_top": "raised",
@@ -1453,6 +1524,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_open_water_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_open_water_surface",
           "cover_behavior": "hide"
@@ -1473,9 +1549,7 @@
       "anchor": "pond_anchor",
       "decor_sockets": 0,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -1513,6 +1587,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_proc_mud_bed_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_proc_mud_bed_surface",
           "cover_behavior": "hide"
@@ -1531,9 +1610,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -1571,6 +1648,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_mud_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_mud_surface",
           "cover_behavior": "hide"
@@ -1589,9 +1671,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -1622,6 +1702,11 @@
           "cover_behavior": "persist"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_sand_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_sand_surface",
           "cover_behavior": "hide"
@@ -1640,9 +1725,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -1680,6 +1763,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_proc_sandy_ground_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_proc_sandy_ground_surface",
           "cover_behavior": "hide"
@@ -1698,9 +1786,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -1733,6 +1819,11 @@
           "cover_behavior": "persist"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_proc_sand_dunes_study_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_proc_sand_dunes_study_surface",
           "cover_behavior": "hide"
@@ -1751,9 +1842,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -1791,6 +1880,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_wooden_planks_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_wooden_planks_surface",
           "cover_behavior": "hide"
@@ -1809,9 +1903,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "tiny_individual_seam",
       "exposed_top": "raised",
@@ -1847,6 +1939,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_snowfield_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_snowfield_surface",
           "cover_behavior": "hide"
@@ -1865,9 +1962,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -1900,6 +1995,11 @@
           "cover_behavior": "persist"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_proc_snow_field_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_proc_snow_field_surface",
           "cover_behavior": "hide"
@@ -1918,9 +2018,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -1958,6 +2056,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_snow_drift_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_snow_drift_surface",
           "cover_behavior": "hide"
@@ -1976,9 +2079,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "tiny_individual_seam",
       "exposed_top": "raised",
@@ -2009,6 +2110,11 @@
           "cover_behavior": "persist"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_proc_snow_drifts_study_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_proc_snow_drifts_study_surface",
           "cover_behavior": "hide"
@@ -2027,9 +2133,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -2067,6 +2171,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_snow_path_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_snow_path_surface",
           "cover_behavior": "hide"
@@ -2085,9 +2194,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "tiny_individual_seam",
       "exposed_top": "raised",
@@ -2123,6 +2230,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_frosted_stone_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_frosted_stone_surface",
           "cover_behavior": "hide"
@@ -2141,9 +2253,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -2179,6 +2289,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_courtyard_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_courtyard_surface",
           "cover_behavior": "hide"
@@ -2197,9 +2312,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "tiny_individual_seam",
       "exposed_top": "raised",
@@ -2230,6 +2343,11 @@
           "cover_behavior": "persist"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_proc_brick_court_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_proc_brick_court_surface",
           "cover_behavior": "hide"
@@ -2248,9 +2366,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "tiny_individual_seam",
       "exposed_top": "raised",
@@ -2283,6 +2399,11 @@
           "cover_behavior": "persist"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_proc_checker_slabs_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_proc_checker_slabs_surface",
           "cover_behavior": "hide"
@@ -2301,9 +2422,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "tiny_individual_seam",
       "exposed_top": "raised",
@@ -2336,6 +2455,11 @@
           "cover_behavior": "persist"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_proc_wood_plank_deck_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_proc_wood_plank_deck_surface",
           "cover_behavior": "hide"
@@ -2354,9 +2478,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "tiny_individual_seam",
       "exposed_top": "raised",
@@ -2394,6 +2516,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_master_wood_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_master_wood_surface",
           "cover_behavior": "hide"
@@ -2412,9 +2539,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "tiny_individual_seam",
       "exposed_top": "raised",
@@ -2452,6 +2577,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_cobblestone_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_cobblestone_surface",
           "cover_behavior": "hide"
@@ -2470,9 +2600,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "tiny_individual_seam",
       "exposed_top": "raised",
@@ -2503,6 +2631,11 @@
           "cover_behavior": "persist"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_proc_cobblestone_paving_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_proc_cobblestone_paving_surface",
           "cover_behavior": "hide"
@@ -2521,9 +2654,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "tiny_individual_seam",
       "exposed_top": "raised",
@@ -2561,6 +2692,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_master_pavers_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_master_pavers_surface",
           "cover_behavior": "hide"
@@ -2579,9 +2715,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "tiny_individual_seam",
       "exposed_top": "raised",
@@ -2614,6 +2748,11 @@
           "cover_behavior": "persist"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_proc_concrete_slabs_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_proc_concrete_slabs_surface",
           "cover_behavior": "hide"
@@ -2632,9 +2771,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "tiny_individual_seam",
       "exposed_top": "raised",
@@ -2672,6 +2809,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_concrete_brutalist_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_concrete_brutalist_surface",
           "cover_behavior": "hide"
@@ -2690,9 +2832,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "tiny_individual_seam",
       "exposed_top": "raised",
@@ -2730,6 +2870,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_flagstone_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_flagstone_surface",
           "cover_behavior": "hide"
@@ -2748,9 +2893,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "tiny_individual_seam",
       "exposed_top": "raised",
@@ -2786,6 +2929,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_proc_gravel_yard_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_proc_gravel_yard_surface",
           "cover_behavior": "hide"
@@ -2804,9 +2952,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -2844,6 +2990,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_proc_boulder_ground_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_proc_boulder_ground_surface",
           "cover_behavior": "hide"
@@ -2862,9 +3013,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -2902,6 +3051,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_stone_clearing_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_stone_clearing_surface",
           "cover_behavior": "hide"
@@ -2920,9 +3074,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -2960,6 +3112,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_stone_crystal_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_stone_crystal_surface",
           "cover_behavior": "hide"
@@ -2978,9 +3135,7 @@
       "anchor": "stone_anchor",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -3016,6 +3171,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_stone_mossy_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_stone_mossy_surface",
           "cover_behavior": "hide"
@@ -3034,9 +3194,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "full_flush",
       "exposed_top": "raised",
@@ -3074,6 +3232,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_stone_road_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_stone_road_surface",
           "cover_behavior": "hide"
@@ -3092,9 +3255,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "tiny_individual_seam",
       "exposed_top": "raised",
@@ -3132,6 +3293,11 @@
           "cover_behavior": "hide"
         },
         {
+          "role": "edge",
+          "asset_id": "tile_stone_ruin_edge",
+          "cover_behavior": "hide"
+        },
+        {
           "role": "surface",
           "asset_id": "tile_stone_ruin_surface",
           "cover_behavior": "hide"
@@ -3150,9 +3316,7 @@
       "anchor": "",
       "decor_sockets": 3,
       "structure_sockets": 1,
-      "unlock_level": {
-
-      },
+      "unlock_level": {},
       "geometry_profile": "rounded_corner_slab",
       "connection_mode": "tiny_individual_seam",
       "exposed_top": "raised",

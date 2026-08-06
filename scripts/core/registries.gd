@@ -44,6 +44,7 @@ var keepsakes: Dictionary = {}
 var reward_pools: Dictionary = {}
 var reward_roll_policies: Dictionary = {}
 var reward_reveal_profiles: Dictionary = {}
+var token_boxes: Dictionary = {}
 var harvest_profiles: Dictionary = {}
 var visitor_presentations: Dictionary = {}
 var visitor_programs: Dictionary = {}
@@ -140,6 +141,10 @@ func load_all(base_path := "res://data", report_issues := true) -> bool:
 		candidate, base_path + "/reward_reveal_profiles.json", "reward_reveal_profiles",
 		"reward_reveal_profiles", candidate.reward_reveal_profiles,
 		Defs.RewardRevealProfileDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/token_boxes.json", "token_boxes", "token_boxes",
+		candidate.token_boxes, Defs.TokenBoxDefinition.from_dict, issues
 	)
 	_load_list(
 		candidate, base_path + "/harvest_profiles.json", "harvest_profiles",
@@ -258,6 +263,7 @@ func keepsake(id: String) -> Defs.KeepsakeDefinition: return keepsakes.get(id)
 func reward_pool(id: String) -> Defs.RewardPoolDefinition: return reward_pools.get(id)
 func reward_roll_policy(id: String) -> Defs.RewardRollPolicyDefinition: return reward_roll_policies.get(id)
 func reward_reveal_profile(id: String) -> Defs.RewardRevealProfileDefinition: return reward_reveal_profiles.get(id)
+func token_box(id: String) -> Defs.TokenBoxDefinition: return token_boxes.get(id)
 func harvest_profile(id: String) -> Defs.HarvestProfileDefinition: return harvest_profiles.get(id)
 func visitor_presentation(id: String) -> Defs.VisitorPresentationDefinition: return visitor_presentations.get(id)
 func visitor_program(id: String) -> Defs.VisitorProgramDefinition: return visitor_programs.get(id)
@@ -450,6 +456,7 @@ func _adopt(candidate) -> void:
 	reward_pools = candidate.reward_pools
 	reward_roll_policies = candidate.reward_roll_policies
 	reward_reveal_profiles = candidate.reward_reveal_profiles
+	token_boxes = candidate.token_boxes
 	harvest_profiles = candidate.harvest_profiles
 	visitor_presentations = candidate.visitor_presentations
 	visitor_programs = candidate.visitor_programs

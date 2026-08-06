@@ -21,6 +21,7 @@ params = {
 "relief_resolution": 24,
 "relief_style": "none",
 "side_key": "earth_side",
+"surface_profile": "detailed_square",
 "top_bevel": 0.04,
 "top_key": "tile_top",
 "turf_cap": false,

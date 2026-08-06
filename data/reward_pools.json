@@ -67,6 +67,38 @@
         {"kind": "structure", "id": "struct_campfire", "weight": 0.45, "min": 1, "max": 1, "rarity": "rare"},
         {"kind": "structure", "id": "struct_stone_well", "weight": 0.35, "min": 1, "max": 1, "rarity": "rare"}
       ]
+    },
+    {
+      "id": "reward_forest_box",
+      "name": "Forest Box",
+      "entries": [
+        {"kind": "tile", "id": "tile_grove_mature", "weight": 6.0, "min": 1, "max": 1},
+        {"kind": "tile", "id": "tile_grove_mossy", "weight": 4.0, "min": 1, "max": 1},
+        {"kind": "tile", "id": "tile_grove_birch", "weight": 3.0, "min": 1, "max": 1},
+        {"kind": "tile", "id": "tile_grove_autumn", "weight": 2.0, "min": 1, "max": 1, "rarity": "uncommon"},
+        {"kind": "tile", "id": "tile_grove_flowering", "weight": 2.0, "min": 1, "max": 1, "rarity": "uncommon"},
+        {"kind": "structure", "id": "struct_bush", "weight": 1.8, "min": 1, "max": 1, "rarity": "uncommon"},
+        {"kind": "structure", "id": "struct_pine_young", "weight": 1.2, "min": 1, "max": 1, "rarity": "uncommon"},
+        {"kind": "structure", "id": "struct_log_pile", "weight": 0.9, "min": 1, "max": 1, "rarity": "uncommon"},
+        {"kind": "structure", "id": "struct_wooden_arch", "weight": 0.3, "min": 1, "max": 1, "rarity": "rare"}
+      ]
+    },
+    {
+      "id": "reward_rock_box",
+      "name": "Rock Box",
+      "entries": [
+        {"kind": "tile", "id": "tile_stone_clearing", "weight": 5.0, "min": 1, "max": 1},
+        {"kind": "tile", "id": "tile_stone_mossy", "weight": 3.5, "min": 1, "max": 1},
+        {"kind": "tile", "id": "tile_cobblestone", "weight": 3.0, "min": 1, "max": 1},
+        {"kind": "tile", "id": "tile_flagstone", "weight": 2.5, "min": 1, "max": 1},
+        {"kind": "tile", "id": "tile_stone_road", "weight": 2.0, "min": 1, "max": 1, "rarity": "uncommon"},
+        {"kind": "tile", "id": "tile_proc_boulder_ground", "weight": 1.5, "min": 1, "max": 1, "rarity": "uncommon"},
+        {"kind": "tile", "id": "tile_stone_crystal", "weight": 0.45, "min": 1, "max": 1, "rarity": "rare"},
+        {"kind": "structure", "id": "struct_rock_outcrop", "weight": 1.2, "min": 1, "max": 1, "rarity": "uncommon"},
+        {"kind": "structure", "id": "struct_stone_wall_low", "weight": 1.0, "min": 1, "max": 1, "rarity": "uncommon"},
+        {"kind": "structure", "id": "struct_stone_pillar", "weight": 0.7, "min": 1, "max": 1, "rarity": "uncommon"},
+        {"kind": "structure", "id": "struct_stone_well", "weight": 0.25, "min": 1, "max": 1, "rarity": "rare"}
+      ]
     }
   ]
 }

@@ -70,7 +70,7 @@ func toggle(panel_name: String) -> void:
 	var tween := card.create_tween()
 	tween.tween_property(card, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	panel_toggled.emit(panel_name, true)
-	focus_default()
+	focus_default(win.get("focus") as Control)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -94,9 +94,9 @@ func _cycle_panel(direction: int) -> void:
 	toggle(PANEL_ORDER[posmod(index + direction, PANEL_ORDER.size())])
 
 
-func focus_default() -> void:
+func focus_default(preferred: Control = null) -> void:
 	if _open_panel != null:
-		_input_service.focus_first(_open_panel)
+		_input_service.focus_first(_open_panel, preferred)
 
 
 func _scroll_list(height := 380.0) -> Dictionary:
@@ -114,10 +114,36 @@ func _scroll_list(height := 380.0) -> Dictionary:
 # ------------------------------------------------------------------ inventory
 
 func _inventory_panel() -> Dictionary:
-	var win := kit.window("Tile & Build Libraries", Vector2(500, 520))
+	var win := kit.window("Pouch & Build Libraries", Vector2(560, 620))
 	var parts := _scroll_list()
 	win["content"].add_child(parts["scroll"])
 	var list: VBoxContainer = parts["list"]
+	list.add_child(kit.label("Token Pouch", 20))
+	var token_summary := PackedStringArray()
+	for token_id: String in core.token_pouch.token_ids():
+		var token := core.registries.item(token_id)
+		if token != null:
+			token_summary.append(
+				"%s ×%d" % [token.display_name, core.token_pouch.balance(token_id)]
+			)
+	list.add_child(kit.label(
+		"  ·  ".join(token_summary) if not token_summary.is_empty() else "No biome tokens yet.",
+		16
+	))
+	list.add_child(kit.label("Boxes", 20))
+	var boxes: Array = core.registries.token_boxes.values()
+	boxes.sort_custom(func(a, b):
+		return String(a.display_name) < String(b.display_name)
+	)
+	var preferred: Control
+	for box: Defs.TokenBoxDefinition in boxes:
+		var row := _token_box_row(box)
+		list.add_child(row)
+		var button := row.get_meta("open_button") as Button
+		if preferred == null and button != null and not button.disabled:
+			preferred = button
+	if preferred != null:
+		win["focus"] = preferred
 	list.add_child(kit.label("Tile Library", 20))
 	var visible_tile_count := 0
 	for tile_id: String in core.stock.tiles:
@@ -141,6 +167,43 @@ func _inventory_panel() -> Dictionary:
 		14
 	))
 	return win
+
+
+func _token_box_row(box: Defs.TokenBoxDefinition) -> Control:
+	var card := kit.progression_card(
+		Vector2(0, 94), kit.palette.color("ui_good")
+	)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	card.add_child(row)
+	var copy := VBoxContainer.new()
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(copy)
+	copy.add_child(kit.label(box.display_name, 18, false, true))
+	var description := kit.label(box.description, 13)
+	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	description.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	copy.add_child(description)
+	var token := core.registries.item(box.token_id)
+	var have: int = core.token_pouch.balance(box.token_id)
+	var token_name := token.display_name if token != null else box.token_id
+	copy.add_child(kit.label(
+		"%s %d/%d" % [token_name, have, box.cost], 13
+	))
+	var open_button := kit.button("Open", true)
+	open_button.name = "OpenTokenBox_%s" % box.id
+	open_button.disabled = not core.token_pouch.can_open_box(box.id)
+	open_button.tooltip_text = (
+		"Spend %d %s and reveal one random themed world piece."
+		% [box.cost, token_name]
+	)
+	open_button.pressed.connect(func():
+		if not core.token_pouch.open_box(box.id).is_empty():
+			close()
+	)
+	row.add_child(open_button)
+	card.set_meta("open_button", open_button)
+	return card
 
 
 # ------------------------------------------------------------------ crafting

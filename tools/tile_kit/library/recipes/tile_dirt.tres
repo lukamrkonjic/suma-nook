@@ -21,6 +21,7 @@ params = {
 "relief_resolution": 12,
 "relief_style": "none",
 "side_key": "dirt_clay_side",
+"surface_profile": "detailed_square",
 "top_bevel": 0.052,
 "top_key": "dirt_clay_top",
 "turf_cap": false,

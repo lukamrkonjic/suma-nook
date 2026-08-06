@@ -28,6 +28,18 @@ func _run() -> void:
 		"sizes": sizes,
 		"structure_density": structure_density,
 	}))
+	var requested_tiles := _requested_tiles()
+	if not requested_tiles.is_empty():
+		for tile_id: String in requested_tiles:
+			for cell_count: int in sizes:
+				await _benchmark(
+					cell_count,
+					tile_id,
+					structure_density,
+					"PERF_TILE"
+				)
+		quit(0)
+		return
 	if "--mixed" in OS.get_cmdline_user_args():
 		for cell_count: int in sizes:
 			await _benchmark(
@@ -244,6 +256,19 @@ func _requested_structure_density() -> float:
 		if arg.begins_with("--structures="):
 			return clampf(float(arg.trim_prefix("--structures=")), 0.0, 1.0)
 	return 0.2
+
+
+func _requested_tiles() -> Array[String]:
+	for arg: String in OS.get_cmdline_user_args():
+		if not arg.begins_with("--tiles="):
+			continue
+		var result: Array[String] = []
+		for raw_id: String in arg.trim_prefix("--tiles=").split(",", false):
+			var tile_id := raw_id.strip_edges()
+			if not tile_id.is_empty() and tile_id not in result:
+				result.append(tile_id)
+		return result
+	return []
 
 
 func _settle() -> void:

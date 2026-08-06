@@ -23,6 +23,7 @@ params = {
 "relief_resolution": 30,
 "relief_style": "heaps",
 "side_key": "stone_deep",
+"surface_profile": "detailed_square",
 "top_bevel": 0.075,
 "top_key": "stone_medium",
 "turf_cap": false,

@@ -8,6 +8,7 @@ signal stage_changed(stage: String)
 const PLACE_TREE := "place_tree"
 const WAIT_TREE := "wait_tree"
 const HARVEST_TREE := "harvest_tree"
+const OPEN_FOREST_BOX := "open_forest_box"
 const PLACE_FOREST_REWARD := "place_forest_reward"
 const WAIT_VISITOR := "wait_visitor"
 const PLACE_VISITOR_REWARD := "place_visitor_reward"
@@ -17,6 +18,7 @@ const STAGES := [
 	PLACE_TREE,
 	WAIT_TREE,
 	HARVEST_TREE,
+	OPEN_FOREST_BOX,
 	PLACE_FOREST_REWARD,
 	WAIT_VISITOR,
 	PLACE_VISITOR_REWARD,

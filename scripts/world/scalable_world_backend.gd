@@ -128,12 +128,19 @@ func rebuild_chunk(chunk_coord: Vector2i) -> void:
 				var detail_variant := TileVisualFactory.detail_variant_for_coord(
 					definition, coord, elevation
 				)
-				var batch_key := "%s|%d|%d|%d|%d" % [
+				var surface_masks: Array[PackedVector2Array] = (
+					structure_factory.surface_masks_for_tile(
+						state,
+						state.rotation
+					)
+				)
+				var batch_key := "%s|%d|%d|%d|%d|%s" % [
 					definition.id,
 					int(covered),
 					int(elevation > 0),
 					neighbour_mask,
 					detail_variant,
+					tile_factory.surface_mask_signature(surface_masks),
 				]
 				if not batches.has(batch_key):
 					batches[batch_key] = {
@@ -143,6 +150,7 @@ func rebuild_chunk(chunk_coord: Vector2i) -> void:
 						"stack_seam": elevation > 0,
 						"neighbour_mask": neighbour_mask,
 						"detail_variant": detail_variant,
+						"surface_masks": surface_masks,
 						"entries": [],
 					}
 				(batches[batch_key]["entries"] as Array).append({
@@ -260,7 +268,8 @@ func _build_batch(chunk_root: Node3D, batch: Dictionary) -> void:
 			bool(batch["covered"]),
 			bool(batch["stack_seam"]),
 			int(batch["neighbour_mask"]),
-			int(batch.get("detail_variant", 0))
+			int(batch.get("detail_variant", 0)),
+			batch.get("surface_masks", [])
 		)
 	else:
 		batch_mesh = structure_factory.batch_mesh(

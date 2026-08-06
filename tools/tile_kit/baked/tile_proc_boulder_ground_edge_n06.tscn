@@ -1,0 +1,21 @@
+[gd_scene format=4]
+
+[ext_resource type="Material" path="res://tools/tile_kit/baked/materials/earth_side.tres" id="1_jny8c"]
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_17trd"]
+_surfaces = [{
+"aabb": AABB(-0.85, -0.18, -0.85, 1.7, 0.20232458, 1.7),
+"format": 34359742471,
+"index_count": 288,
+"index_data": PackedByteArray("AAACAAMAAAADAAEAAgAEAAUAAgAFAAMABAAGAAcABAAHAAUABgAIAAkABgAJAAcACAAKAAsACAALAAkACgAMAA0ACgANAAsADAAOAA8ADAAPAA0ADgAQABEADgARAA8AEAASABMAEAATABEAEgAUABUAEgAVABMAFAAWABcAFAAXABUAFgAYABkAFgAZABcAGAAaABsAGAAbABkAGgAcAB0AGgAdABsAHAAeAB8AHAAfAB0AHgAgACEAHgAhAB8AIAAiACMAIAAjACEAIgAkACUAIgAlACMAJAAmACcAJAAnACUAJgAoACkAJgApACcAKAAqACsAKAArACkAKgAsAC0AKgAtACsALAAuAC8ALAAvAC0ALgAwADEALgAxAC8AMgA0ADUAMgA1ADMANAA2ADcANAA3ADUANgA4ADkANgA5ADcAOAA6ADsAOAA7ADkAOgA8AD0AOgA9ADsAPAA+AD8APAA/AD0APgBAAEEAPgBBAD8AQABCAEMAQABDAEEAQgBEAEUAQgBFAEMARABGAEcARABHAEUARgBIAEkARgBJAEcASABKAEsASABLAEkASgBMAE0ASgBNAEsATABOAE8ATABPAE0ATgBQAFEATgBRAE8AUABSAFMAUABTAFEAUgBUAFUAUgBVAFMAVABWAFcAVABXAFUAVgBYAFkAVgBZAFcAWABaAFsAWABbAFkAWgBcAF0AWgBdAFsAXABeAF8AXABfAF0AXgBgAGEAXgBhAF8AYABiAGMAYABjAGEA"),
+"material": ExtResource("1_jny8c"),
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 100,
+"vertex_data": PackedByteArray("mplZv+xROL6amVm/mplZv1zDdjuamVm/d3dHv+xROL6amVm/d3dHv48m5DuamVm/VVU1v+xROL6amVm/VVU1vynlwDuamVm/MzMjv+xROL6amVm/MzMjv2gObTuamVm/ERERv+xROL6amVm/ERERv94vEzuamVm/3t39vuxROL6amVm/3t39vpNtdTqamVm/mpnZvuxROL6amVm/mpnZvvVXpDuamVm/VVW1vuxROL6amVm/VVW1vqSdQzyamVm/ERGRvuxROL6amVm/ERGRvpYNVTyamVm/mplZvuxROL6amVm/mplZviXfaTyamVm/ERERvuxROL6amVm/ERERvixhnzyamVm/ERGRvexROL6amVm/ERGRvdeqnzyamVm/AAAAAOxROL6amVm/AAAAAAvitjyamVm/ERGRPexROL6amVm/ERGRPTeqmjyamVm/ERERPuxROL6amVm/ERERPrAQjzyamVm/mplZPuxROL6amVm/mplZPpsaqDyamVm/ERGRPuxROL6amVm/ERGRPrtFjjyamVm/VVW1PuxROL6amVm/VVW1PisOLjyamVm/mpnZPuxROL6amVm/mpnZPoIblzuamVm/3t39PuxROL6amVm/3t39PoypqDuamVm/ERERP+xROL6amVm/ERERP2LbbTyamVm/MzMjP+xROL6amVm/MzMjP/AcfjyamVm/VVU1P+xROL6amVm/VVU1P4qTFDyamVm/d3dHP+xROL6amVm/d3dHP09H1juamVm/mplZP+xROL6amVm/mplZP4pL2DuamVm/mplZv+xROL6amVk/mplZv8wqYzyamVk/mplZv+xROL53d0c/mplZv/CeXzx3d0c/mplZv+xROL5VVTU/mplZv8GXCDxVVTU/mplZv+xROL4zMyM/mplZvzmzQjszMyM/mplZv+xROL4RERE/mplZv2oIsTsRERE/mplZv+xROL7e3f0+mplZv2AqLjze3f0+mplZv+xROL6amdk+mplZvwZ6Zjyamdk+mplZv+xROL5VVbU+mplZv2CQnjxVVbU+mplZv+xROL4REZE+mplZv7xPkzwREZE+mplZv+xROL6amVk+mplZv3OzpTyamVk+mplZv+xROL4RERE+mplZv/M1qDwRERE+mplZv+xROL4REZE9mplZvwJPdTwREZE9mplZv+xROL4AAAAAmplZv5Nd6zsAAAAAmplZv+xROL4REZG9mplZv1IwMjsREZG9mplZv+xROL4RERG+mplZv2V8STsRERG+mplZv+xROL6amVm+mplZv1kuFzuamVm+mplZv+xROL4REZG+mplZvwAAAAAREZG+mplZv+xROL5VVbW+mplZv/zBsTtVVbW+mplZv+xROL6amdm+mplZv3x96Duamdm+mplZv+xROL7e3f2+mplZv63klTve3f2+mplZv+xROL4RERG/mplZvzfpEjwRERG/mplZv+xROL4zMyO/mplZv92ZijwzMyO/mplZv+xROL5VVTW/mplZv7WsYDxVVTW/mplZv+xROL53d0e/mplZv4pX/Tt3d0e/mplZv+xROL6amVm/mplZv1zDdjuamVm///////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgAAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78=")
+}]
+
+[node name="tile_kit_edge" type="Node3D" unique_id=1826121108]
+
+[node name="tile_cap_edge" type="MeshInstance3D" parent="." unique_id=59663451]
+mesh = SubResource("ArrayMesh_17trd")

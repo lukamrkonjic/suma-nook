@@ -1,9 +1,9 @@
 class_name AssetLibrary
 extends RefCounted
-## Loads game-ready GLB scenes by stable asset id and instantiates them with
-## library materials bound. Gameplay code never touches file paths: definitions
-## carry asset ids, this class resolves them. Tier C swaps (proxy -> hero) are
-## file replacements at the same id — zero code changes.
+## Resolves game-ready scenes and approved procedural models by stable asset id,
+## then instantiates them with library materials bound. Gameplay code never
+## touches file paths: definitions carry asset ids and this class owns the
+## implementation route.
 
 ## Tile Forge bakes finished tile layers as PackedScenes rather than GLBs, so
 ## the baked directory joins the search order. A baked tile is then an ordinary
@@ -18,6 +18,12 @@ const SEARCH_PATHS := [
 const AssetEditLibraryScript := preload(
 	"res://scripts/visuals/asset_edit_library.gd"
 )
+const ProceduralStoneWallScript := preload(
+	"res://scripts/visuals/procedural_stone_wall.gd"
+)
+const PROCEDURAL_ASSET_IDS := {
+	"prop_stone_wall_polished": true,
+}
 
 var materials: MaterialLibrary
 var edits: AssetEditLibrary
@@ -31,7 +37,7 @@ func _init(material_library: MaterialLibrary) -> void:
 
 
 func exists(asset_id: String) -> bool:
-	return resolve_path(asset_id) != ""
+	return PROCEDURAL_ASSET_IDS.has(asset_id) or resolve_path(asset_id) != ""
 
 
 static func resolve_path(asset_id: String) -> String:
@@ -43,6 +49,12 @@ static func resolve_path(asset_id: String) -> String:
 
 
 func instantiate(asset_id: String) -> Node3D:
+	if PROCEDURAL_ASSET_IDS.has(asset_id):
+		var procedural := ProceduralStoneWallScript.build()
+		procedural.name = asset_id
+		procedural.set_meta(AssetEditLibrary.SOURCE_ASSET_META, asset_id)
+		edits.apply_to_instance(procedural, asset_id)
+		return procedural
 	var packed := _packed(asset_id)
 	if packed == null:
 		push_warning("AssetLibrary: missing asset '%s' — using fallback marker" % asset_id)
@@ -96,12 +108,17 @@ func apply_asset_profile_to_tree(
 func batch_mesh(asset_id: String) -> ArrayMesh:
 	if _batch_mesh_cache.has(asset_id):
 		return _batch_mesh_cache[asset_id]
-	var packed := _packed(asset_id)
-	if packed == null:
-		return null
-	var template := packed.instantiate() as Node3D
+	var template: Node3D
+	if PROCEDURAL_ASSET_IDS.has(asset_id):
+		template = ProceduralStoneWallScript.build()
+	else:
+		var packed := _packed(asset_id)
+		if packed == null:
+			return null
+		template = packed.instantiate() as Node3D
 	template.set_meta(AssetEditLibrary.SOURCE_ASSET_META, asset_id)
-	materials.rebind_materials(template)
+	if not PROCEDURAL_ASSET_IDS.has(asset_id):
+		materials.rebind_materials(template)
 	edits.apply_to_instance(template, asset_id)
 	var combined := flatten_static_visual(template, asset_id)
 	template.free()
@@ -178,6 +195,8 @@ func catalog_ids() -> Array[String]:
 		for filename in directory.get_files():
 			if filename.get_extension().to_lower() == "glb":
 				unique[filename.get_basename()] = true
+	for asset_id: String in PROCEDURAL_ASSET_IDS:
+		unique[asset_id] = true
 	var result: Array[String] = []
 	for asset_id: String in unique:
 		result.append(asset_id)

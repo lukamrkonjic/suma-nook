@@ -137,6 +137,18 @@ func rebuild() -> void:
 		"flatten_connected_relief": flatten_connected_relief,
 		"world_origin": Vector2(world_cell) * KitBaseBuilder.TILE,
 	}
+	# GG-style constructed ground is an integrated replacement top: its grout
+	# is a shallow recess inside the square cap and its pavers finish at the
+	# walk plane. Tell the base builder before layers run so it can provide that
+	# carrier instead of leaving loose slabs floating above y=0.
+	var pavers := preset.layer_of_kind("pavers")
+	if pavers != null and pavers.enabled:
+		var pattern := String(pavers.value("pattern", "cobbles"))
+		if pattern in ["cobbles", "planks"]:
+			_context["integrated_constructed_surface"] = true
+			_context["surface_recess"] = clampf(
+				float(pavers.value("grout_depth", 0.010)), 0.004, 0.018
+			)
 	_layer_results.clear()
 	for layer in preset.layers:
 		_build_layer(layer)
@@ -280,6 +292,21 @@ func bake_role_scenes() -> Dictionary:
 		scenes[role] = packed
 		root.free()
 	return scenes
+
+
+## True when every mesh contributing to a role is independent of the cardinal
+## neighbour mask. The baker keeps one canonical scene for these roles instead
+## of serializing 15 duplicate high-resolution relief sheets.
+func role_is_topology_invariant(role: String) -> bool:
+	var found := false
+	for entries: Array in _layer_results.values():
+		for entry: Dictionary in entries:
+			if String(entry.get("role", "detail")) != role:
+				continue
+			found = true
+			if not bool(entry.get("topology_invariant", false)):
+				return false
+	return found
 
 
 ## Exports the whole tile as one GLB through Godot's runtime glTF writer.

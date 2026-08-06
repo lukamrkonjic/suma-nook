@@ -267,7 +267,27 @@ func _build_bud(profile: Defs.RewardRevealProfileDefinition) -> Node3D:
 	bud.name = "WorldBud"
 	var shell := assets.materials.material(profile.shell_material)
 	var accent := assets.materials.material(profile.accent_material)
-	if profile.shell_shape == "berry":
+	if profile.shell_shape == "box":
+		var body_mesh := BoxMesh.new()
+		body_mesh.size = Vector3(0.34, 0.28, 0.3)
+		var body := _mesh(body_mesh, shell)
+		bud.add_child(body)
+		var lid_mesh := BoxMesh.new()
+		lid_mesh.size = Vector3(0.38, 0.075, 0.34)
+		var lid := _mesh(lid_mesh, shell)
+		lid.position.y = 0.17
+		bud.add_child(lid)
+		var band_mesh := BoxMesh.new()
+		band_mesh.size = Vector3(0.075, 0.39, 0.315)
+		var band := _mesh(band_mesh, accent)
+		band.position.y = 0.025
+		bud.add_child(band)
+		var clasp_mesh := BoxMesh.new()
+		clasp_mesh.size = Vector3(0.105, 0.095, 0.045)
+		var clasp := _mesh(clasp_mesh, accent)
+		clasp.position = Vector3(0.0, 0.035, -0.17)
+		bud.add_child(clasp)
+	elif profile.shell_shape == "berry":
 		for offset in [
 			Vector3(-0.065, 0.0, 0.0), Vector3(0.065, 0.0, 0.0),
 			Vector3(0.0, 0.055, -0.045), Vector3(0.0, -0.025, 0.055),

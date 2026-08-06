@@ -1,0 +1,24 @@
+{
+  "token_boxes": [
+    {
+      "id": "box_forest",
+      "name": "Forest Box",
+      "description": "A random forest tile or model, including more trees to grow your grove.",
+      "token": "token_forest",
+      "cost": 5,
+      "reward_pool": "reward_forest_box",
+      "roll_policy": "roll_policy_harvest_biome",
+      "reveal_profile": "reveal_forest_box"
+    },
+    {
+      "id": "box_rock",
+      "name": "Rock Box",
+      "description": "A random rocky tile or stone model, with a chance of another outcrop.",
+      "token": "token_rock",
+      "cost": 5,
+      "reward_pool": "reward_rock_box",
+      "roll_policy": "roll_policy_harvest_biome",
+      "reveal_profile": "reveal_rock_box"
+    }
+  ]
+}

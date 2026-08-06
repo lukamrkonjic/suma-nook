@@ -53,8 +53,8 @@ func _run() -> void:
 		"the original Sandy Ground preset remains unchanged"
 	)
 	_check(
-		String(original_snow.layer_of_kind("base").value("relief_style", "none")) == "dunes",
-		"the original Snow Field preset remains unchanged"
+		String(original_snow.layer_of_kind("base").value("relief_style", "none")) == "sculpted_dunes",
+		"the official Snow Field preset uses the current sculpted surface"
 	)
 	_check(
 		String(sand.layer_of_kind("base").value("relief_style", "none")) == "sculpted_dunes",
@@ -65,8 +65,8 @@ func _run() -> void:
 		"the snow duplicate opts into sculpted dunes"
 	)
 	_check(
-		is_equal_approx(float(sand.layer_of_kind("base").value("relief_amplitude", 0.0)), 0.060),
-		"sand study inherits the shipped six-centimetre relief range"
+		is_equal_approx(float(sand.layer_of_kind("base").value("relief_amplitude", 0.0)), 0.105),
+		"sand study keeps its current authored 10.5-centimetre relief range"
 	)
 	_check(
 		is_equal_approx(float(snow.layer_of_kind("base").value("relief_amplitude", 0.0)), 0.105),

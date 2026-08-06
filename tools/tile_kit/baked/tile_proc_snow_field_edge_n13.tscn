@@ -1,0 +1,21 @@
+[gd_scene format=4]
+
+[ext_resource type="Material" path="res://tools/tile_kit/baked/materials/snow_side.tres" id="1_qepxk"]
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_7c0rn"]
+_surfaces = [{
+"aabb": AABB(0.85, -0.18, -0.85, 1e-05, 0.25005057, 1.7),
+"format": 34359742471,
+"index_count": 192,
+"index_data": PackedByteArray("AAACAAMAAAADAAEAAgAEAAUAAgAFAAMABAAGAAcABAAHAAUABgAIAAkABgAJAAcACAAKAAsACAALAAkACgAMAA0ACgANAAsADAAOAA8ADAAPAA0ADgAQABEADgARAA8AEAASABMAEAATABEAEgAUABUAEgAVABMAFAAWABcAFAAXABUAFgAYABkAFgAZABcAGAAaABsAGAAbABkAGgAcAB0AGgAdABsAHAAeAB8AHAAfAB0AHgAgACEAHgAhAB8AIAAiACMAIAAjACEAIgAkACUAIgAlACMAJAAmACcAJAAnACUAJgAoACkAJgApACcAKAAqACsAKAArACkAKgAsAC0AKgAtACsALAAuAC8ALAAvAC0ALgAwADEALgAxAC8AMAAyADMAMAAzADEAMgA0ADUAMgA1ADMANAA2ADcANAA3ADUANgA4ADkANgA5ADcAOAA6ADsAOAA7ADkAOgA8AD0AOgA9ADsAPAA+AD8APAA/AD0APgBAAEEAPgBBAD8A"),
+"material": ExtResource("1_qepxk"),
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 66,
+"vertex_data": PackedByteArray("mplZP+xROL6amVm/mplZP7VnjT2amVm/mplZP+xROL4AAEy/mplZP/O0hz0AAEy/mplZP+xROL5mZj6/mplZP7g3Yz1mZj6/mplZP+xROL7NzDC/mplZPzFp1DzNzDC/mplZP+xROL4zMyO/mplZP/musjszMyO/mplZP+xROL6amRW/mplZP9KDcjqamRW/mplZP+xROL4AAAi/mplZP25uQzoAAAi/mplZP+xROL7NzPS+mplZP2ycZTvNzPS+mplZP+xROL6amdm+mplZP4fTNjyamdm+mplZP+xROL5mZr6+mplZP6KOszxmZr6+mplZP+xROL4zM6O+mplZP5NC8zwzM6O+mplZP+xROL4AAIi+mplZP0HOAT0AAIi+mplZP+xROL6amVm+mplZPxolxDyamVm+mplZP+xROL4zMyO+mplZP8NHzjszMyO+mplZP+xROL6amdm9mplZP7Ly5jmamdm9mplZP+xROL6amVm9mplZP1gr/TaamVm9mplZP+xROL4AAAAAmplZP2mi/TIAAAAAmplZP+xROL6amVk9mplZP9ScuzGamVk9mplZP+xROL6amdk9mplZP6H2vDOamdk9mplZP+xROL4zMyM+mplZPxJKizUzMyM+mplZP+xROL6amVk+mplZP/foGDeamVk+mplZP+xROL4AAIg+mplZPwNPgDgAAIg+mplZP+xROL4zM6M+mplZP4oEqjkzM6M+mplZP+xROL5mZr4+mplZP+hMuDpmZr4+mplZP+xROL6amdk+mplZPxnTpjuamdk+mplZP+xROL7NzPQ+mplZPzmVdTzNzPQ+mplZP+xROL4AAAg/mplZP4wICD0AAAg/mplZP+xROL6amRU/mplZP7rNVz2amRU/mplZP+xROL4zMyM/mplZPzZjgz0zMyM/mplZP+xROL7NzDA/mplZP7JajD3NzDA/mplZP+xROL5mZj4/mplZP3Nkjz1mZj4/mplZP+xROL4AAEw/mplZP6x2jz0AAEw/mplZP+xROL6amVk/mplZP7RnjT2amVk/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/")
+}]
+
+[node name="tile_kit_edge" type="Node3D" unique_id=948172521]
+
+[node name="tile_cap_edge" type="MeshInstance3D" parent="." unique_id=1422361878]
+mesh = SubResource("ArrayMesh_7c0rn")

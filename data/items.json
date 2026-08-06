@@ -16,6 +16,9 @@
     { "id": "carved_stone", "name": "Carved Stone", "category": "material", "rarity": "uncommon", "description": "Someone shaped this long ago." },
     { "id": "relic_fragment", "name": "Relic Fragment", "category": "material", "rarity": "rare", "description": "A piece of the watchpost's story." },
 
+    { "id": "token_forest", "name": "Forest Token", "category": "token", "tags": ["biome_token", "forest"], "rarity": "common", "description": "A leafy token earned from tending forest sources. Opens forest boxes and will be accepted by future woodland shops." },
+    { "id": "token_rock", "name": "Rock Token", "category": "token", "tags": ["biome_token", "rocky"], "rarity": "common", "description": "A sturdy token chipped from stone outcrops. Opens rock boxes and will be accepted by future rocky shops." },
+
     { "id": "tool_rod_basic", "name": "Willow Rod", "category": "tool", "slot": "tool", "tool_type": "rod", "tier": 1, "asset_id": "equip_fishing_rod", "stats": { "speed": 1.0 }, "description": "Your first rod. It has caught everything you own." },
     { "id": "tool_axe_basic", "name": "Keeper's Axe", "category": "tool", "slot": "tool", "tool_type": "axe", "tier": 1, "asset_id": "equip_axe_basic", "stats": { "speed": 1.0 }, "description": "Honest iron on honest wood." },
     { "id": "tool_axe_fine", "name": "Fine Axe", "category": "tool", "slot": "tool", "tool_type": "axe", "tier": 2, "asset_id": "equip_axe_fine", "stats": { "speed": 1.25, "yield_bonus": 0.2 }, "rarity": "uncommon", "description": "Gold-edged and eager. Groves respect it." },

@@ -18,7 +18,8 @@ func setup(asset_library: AssetLibrary) -> void:
 	assets = asset_library
 	_click_layer = CanvasLayer.new()
 	_click_layer.name = "ClickFeedbackLayer"
-	_click_layer.layer = 200
+	# Screen-space world feedback belongs below the persistent HUD.
+	_click_layer.layer = 0
 	add_child(_click_layer)
 	_bobber = assets.instantiate("equip_bobber")
 	_bobber.visible = false

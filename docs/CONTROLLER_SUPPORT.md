@@ -30,10 +30,14 @@ Build mode uses a camera-relative grid cursor. It never moves the OS pointer,
 so switching back to mouse input resumes at the player's real pointer
 position.
 
-Harvest reward reveals are deliberately non-modal. The World Bud completes
-automatically; pressing the ordinary `interact` action accelerates it without
-consuming the current build/world action. Pointer users may click the physical
-bud directly. No controller-only cursor or new conflicting action is needed.
+Harvest sources reuse the ordinary `interact` action: X/West hits the focused
+tree, shrub, or Stone Outcrop once. Biome tokens enter the Pouch automatically.
+The existing `panel_inventory` action opens **Pouch & Build Libraries**;
+affordable box buttons receive deterministic focus and A/South opens the
+selected box. Its non-modal reveal completes automatically, while `interact`
+accelerates it without consuming the current build/world action. Pointer users
+may click the physical reveal directly. No controller-only cursor or new
+conflicting action is needed.
 
 ## Default controller layout
 

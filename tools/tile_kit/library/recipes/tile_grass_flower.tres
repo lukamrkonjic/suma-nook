@@ -21,6 +21,7 @@ params = {
 "relief_resolution": 20,
 "relief_style": "none",
 "side_key": "grass_gg_side",
+"surface_profile": "detailed_square",
 "top_bevel": 0.045,
 "top_key": "grass_gg_top",
 "turf_cap": false,

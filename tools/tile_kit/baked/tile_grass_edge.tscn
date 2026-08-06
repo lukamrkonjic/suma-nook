@@ -1,0 +1,21 @@
+[gd_scene format=4]
+
+[ext_resource type="Material" path="res://tools/tile_kit/baked/materials/grass_gg_side.tres" id="1_u4ads"]
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_hv6wv"]
+_surfaces = [{
+"aabb": AABB(-0.85, -0.18, -0.85, 1.7, 0.18, 1.7),
+"format": 34359742471,
+"index_count": 24,
+"index_data": PackedByteArray("AAACAAMAAAADAAEABAAGAAcABAAHAAUACAAKAAsACAALAAkADAAOAA8ADAAPAA0A"),
+"material": ExtResource("1_u4ads"),
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 16,
+"vertex_data": PackedByteArray("mplZv+xROL6amVm/mplZvwAAAACamVm/mplZP+xROL6amVm/mplZPwAAAACamVm/mplZP+xROL6amVm/mplZPwAAAACamVm/mplZP+xROL6amVk/mplZPwAAAACamVk/mplZP+xROL6amVk/mplZPwAAAACamVk/mplZv+xROL6amVk/mplZvwAAAACamVk/mplZv+xROL6amVk/mplZvwAAAACamVk/mplZv+xROL6amVm/mplZvwAAAACamVm///////9/AID//////38AgP//////fwCA//////9/AID///9//3//v////3//f/+/////f/9//7////9//3//v/9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCAAAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78=")
+}]
+
+[node name="tile_kit_edge" type="Node3D" unique_id=1407352944]
+
+[node name="tile_cap_edge" type="MeshInstance3D" parent="." unique_id=1514409301]
+mesh = SubResource("ArrayMesh_hv6wv")

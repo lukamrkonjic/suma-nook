@@ -24,8 +24,9 @@ const SHAPES := [
 const DEFINITIONS := {
 	"base": {
 		"label": "Foundation & Relief",
-		"description": "Structural block, terrain relief, basins, and water.",
+		"description": "Exact square foundation plus an optional detailed top.",
 		"defaults": {
+			"surface_profile": "detailed_square",
 			"top_bevel": 0.075,
 			"corner_radius": 0.075,
 			"turf_cap": false,
@@ -41,10 +42,11 @@ const DEFINITIONS := {
 			"basin_rim": 0.17,
 		},
 		"parameters": [
-			{"section": "BLOCK PROFILE", "key": "top_bevel", "label": "Top bevel",
-				"type": "float", "min": 0.015, "max": 0.16, "step": 0.005},
-			{"key": "corner_radius", "label": "Corner roundness", "type": "float",
-				"min": 0.0, "max": 0.18, "step": 0.005},
+			{"section": "BLOCK PROFILE", "key": "surface_profile",
+				"label": "Upper form", "type": "enum",
+				"values": ["uniform_square", "detailed_square"],
+				"value_labels": ["Uniform square", "Detailed square"],
+				"randomize": false},
 			{"key": "turf_cap", "label": "Turf cap over soil", "type": "bool",
 				"randomize": false},
 			{"key": "turf_thickness", "label": "Turf thickness", "type": "float",
@@ -65,7 +67,7 @@ const DEFINITIONS := {
 				"min": 0.35, "max": 6.0, "step": 0.05,
 				"when": {"relief_style": ["pillow", "dunes"]}},
 			{"key": "relief_resolution", "label": "Surface detail", "type": "int",
-				"min": 12, "max": 64, "step": 2,
+				"min": 12, "max": 32, "step": 2,
 				"when": {"relief_style": ["pillow", "dunes", "sculpted_dunes", "natural_dunes", "contour_moss", "heaps", "furrows"]}},
 			{"key": "relief_edge_feather", "label": "Edge blend", "type": "float",
 				"min": 0.02, "max": 0.40, "step": 0.01,

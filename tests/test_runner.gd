@@ -1131,7 +1131,7 @@ func _test_content_catalog_architecture() -> void:
 		"discovery_pools", "milestones", "anchors", "capabilities",
 		"enemies", "landmarks", "fishing_loot", "spirits", "keepsakes",
 		"reward_pools", "reward_roll_policies", "reward_reveal_profiles",
-		"harvest_profiles", "visitor_presentations",
+		"token_boxes", "harvest_profiles", "visitor_presentations",
 		"visitor_programs",
 	]
 	check(
@@ -1167,24 +1167,32 @@ func _test_content_catalog_architecture() -> void:
 	)
 	var young_tree := regs.structure("struct_pine_young")
 	var young_profile := regs.harvest_profile("harvest_tree_young_evergreen")
+	var forest_box := regs.token_box("box_forest")
 	var berry_bush := regs.structure("struct_bush")
 	var berry_profile := regs.harvest_profile("harvest_berry_shrub")
+	var rock := regs.structure("struct_rock_outcrop")
+	var rock_profile := regs.harvest_profile("harvest_rock_outcrop")
+	var rock_box := regs.token_box("box_rock")
 	var visitor_program := regs.visitor_program("visitor_program_world_gifts")
 	check(
 		young_tree != null
 		and young_tree.has_capability("harvest_source")
 		and young_profile != null
-		and regs.reward_pool(young_profile.reward_pool_id) != null
-		and regs.reward_pool(young_profile.first_reward_pool_id) != null,
-		"harvest sources resolve capability → typed profile → shared reward pools"
+		and young_profile.token_id == "token_forest"
+		and young_profile.token_min >= 1
+		and regs.item(young_profile.token_id).category == "token",
+		"harvest sources resolve capability → typed profile → pouch tokens"
 	)
 	check(
-		regs.reward_roll_policy(young_profile.roll_policy_id) != null
-		and regs.reward_reveal_profile(young_profile.reveal_profile_id) != null
+		forest_box != null
+		and forest_box.token_id == young_profile.token_id
+		and regs.reward_pool(forest_box.reward_pool_id) != null
+		and regs.reward_roll_policy(forest_box.roll_policy_id) != null
+		and regs.reward_reveal_profile(forest_box.reveal_profile_id) != null
 		and regs.reward_reveal_profile(
-			young_profile.reveal_profile_id
+			forest_box.reveal_profile_id
 		).presenter_type == "world_bud",
-		"harvest profiles resolve replaceable roll policy and reveal presentation"
+		"token boxes resolve their price, shared pool, roll policy, and reveal"
 	)
 	check(
 		berry_bush != null
@@ -1193,8 +1201,20 @@ func _test_content_catalog_architecture() -> void:
 		and berry_profile != null
 		and berry_profile.presentation_profile == "berry_cluster"
 		and int(berry_profile.presentation_settings.get("count", 0)) >= 1
-		and regs.reward_pool(berry_profile.reward_pool_id) != null,
+		and berry_profile.token_id == "token_forest",
 		"generic berry sources resolve model-independent growth presentation data"
+	)
+	check(
+		rock != null
+		and rock.preserve_instance_state
+		and rock.has_capability("harvest_source")
+		and rock_profile != null
+		and rock_profile.presentation_profile == "clay_rock"
+		and rock_profile.token_id == "token_rock"
+		and rock_box != null
+		and rock_box.token_id == rock_profile.token_id
+		and regs.reward_pool(rock_box.reward_pool_id) != null,
+		"rock outcrops resolve through the shared harvest, pouch, and box contracts"
 	)
 	check(
 		visitor_program != null
@@ -1203,24 +1223,24 @@ func _test_content_catalog_architecture() -> void:
 		and regs.visitor_presentation(visitor_program.presentation_ids[0]) != null,
 		"visitor programs resolve replaceable presentations and shared reward pools"
 	)
-	var original_pool_id := young_profile.reward_pool_id
-	young_profile.reward_pool_id = "retired_reward_pool"
+	var original_token_id := young_profile.token_id
+	young_profile.token_id = "retired_token"
 	var feature_issues: Array = []
 	WorldRewardDefinitionValidator.validate(regs.snapshot, feature_issues)
 	check(
 		not feature_issues.is_empty(),
-		"ordinary content validation rejects a dangling harvest CRUD reference"
+		"ordinary content validation rejects a dangling harvest token reference"
 	)
-	young_profile.reward_pool_id = original_pool_id
-	var original_reveal_id := young_profile.reveal_profile_id
-	young_profile.reveal_profile_id = "retired_reveal"
+	young_profile.token_id = original_token_id
+	var original_reveal_id := forest_box.reveal_profile_id
+	forest_box.reveal_profile_id = "retired_reveal"
 	feature_issues.clear()
 	WorldRewardDefinitionValidator.validate(regs.snapshot, feature_issues)
 	check(
 		not feature_issues.is_empty(),
 		"content validation rejects a dangling reward reveal reference"
 	)
-	young_profile.reveal_profile_id = original_reveal_id
+	forest_box.reveal_profile_id = original_reveal_id
 	var original_snapshot: Variant = regs.snapshot
 	var original_tile_count := regs.tiles.size()
 	var source: Variant = regs.definition_source("structures", "struct_bench")
@@ -1431,7 +1451,13 @@ func _test_tile_slot_fill() -> void:
 			for found in root.find_children("*", "MeshInstance3D", true, false):
 				var mesh_instance := found as MeshInstance3D
 				var lower := String(mesh_instance.name).to_lower()
-				if not (lower.ends_with("_body") or lower.ends_with("_cap")):
+				# Integrated constructed tops split the shell between the recessed
+				# square carrier (_cap) and the walk-plane pieces (_pavers).
+				if not (
+					lower.ends_with("_body")
+					or lower.ends_with("_cap")
+					or lower.ends_with("_pavers_cap")
+				):
 					continue
 				var relative := Transform3D.IDENTITY
 				var cursor: Node3D = mesh_instance
@@ -1937,24 +1963,53 @@ func _test_authored_onboarding_flow() -> void:
 	)
 	var forest_reward: Dictionary = final_hit.get("reward", {})
 	check(
-		forest_reward.get("kind", "") == "tile"
-		and int(forest_reward.get("amount", 0)) == 1
-		and core.onboarding.stage == OnboardingState.PLACE_FOREST_REWARD
+		forest_reward.get("kind", "") == "token"
+		and forest_reward.get("id", "") == "token_forest"
+		and int(forest_reward.get("amount", 0)) >= 5
+		and core.token_pouch.balance("token_forest")
+			== int(forest_reward.get("amount", 0))
+		and core.onboarding.stage == OnboardingState.OPEN_FOREST_BOX
 		and core.onboarding.starter_tree_instance_id == 0
 		and core.grid.find_structure(tree.instance_id).get("structure") == tree,
-		"the final hit grants one finite forest piece, regrows the exact tree, and retires tutorial-only references"
+		"the final hit fills the pouch, regrows the exact tree, and opens the box lesson"
 	)
-	var forest_tile_id := String(forest_reward.get("id", ""))
-	var first_forest_placed := core.place_tile_from_stock(
-		Vector2i(0, 2), forest_tile_id, 0
+	var balance_before_box: int = core.token_pouch.balance("token_forest")
+	var box_reward: Dictionary = core.token_pouch.open_box("box_forest")
+	check(
+		String(box_reward.get("kind", "")) in ["tile", "structure"]
+		and int(box_reward.get("amount", 0)) == 1
+		and core.token_pouch.balance("token_forest") == balance_before_box - 5
+		and box_reward.get("reveal_profile_id", "") == "reveal_forest_box"
+		and core.onboarding.stage == OnboardingState.PLACE_FOREST_REWARD,
+		"the Forest Box spends five pouch tokens and grants one random forest piece"
 	)
+	var forest_piece_id := String(box_reward.get("id", ""))
+	var first_forest_placed := false
+	var duplicate_forest_placed := false
+	if box_reward.get("kind", "") == "tile":
+		first_forest_placed = core.place_tile_from_stock(
+			Vector2i(0, 2), forest_piece_id, 0
+		)
+		duplicate_forest_placed = core.place_tile_from_stock(
+			Vector2i(1, 2), forest_piece_id, 0
+		)
+	else:
+		var forest_structure_token := core.stock.take_structure_token(
+			forest_piece_id
+		)
+		first_forest_placed = (
+			not forest_structure_token.is_empty()
+			and core.grid.add_structure(
+				Vector2i(0, 1), forest_piece_id, 1, 0
+			) != null
+		)
+		duplicate_forest_placed = core.stock.take_structure(forest_piece_id)
 	check(
 		first_forest_placed
-		and core.stock.tile_count(forest_tile_id) == 0
-		and not core.place_tile_from_stock(Vector2i(1, 2), forest_tile_id, 0)
+		and not duplicate_forest_placed
 		and not core.advance_onboarding_after_placement().is_empty()
 		and core.onboarding.stage == OnboardingState.WAIT_VISITOR,
-		"the one forest reward is consumed exactly once before opening the visitor bridge"
+		"the boxed forest piece is consumed exactly once before opening the visitor bridge"
 	)
 	var visitor_event: Dictionary = core.visitors.trigger_now()
 	check(
@@ -2059,49 +2114,120 @@ func _test_harvesting_and_visitors() -> void:
 		"automation cannot take the satisfying final hit"
 	)
 	var player_final: Dictionary = core.harvesting.request_hit(tree.instance_id, "player")
+	var tree_token_reward: Dictionary = player_final.get("reward", {})
 	check(
 		player_final.get("final", false)
-		and player_final.get("reveal_profile_id", "")
-			== "reveal_world_bud_evergreen"
+		and tree_token_reward.get("kind", "") == "token"
+		and tree_token_reward.get("id", "") == "token_forest"
+		and int(tree_token_reward.get("amount", 0)) >= 3
+		and player_final.get("reveal_profile_id", "") == ""
 		and core.harvesting.status(tree.instance_id).get("state", "")
 			== HarvestingModule.STATE_REGROWING,
-		"the player final hit grants once, queues its reveal id, and starts regrowth"
-	)
-	var evergreen_history: Dictionary = core.harvesting.reward_history.get(
-		"evergreen_hearth", {}
+		"the player final hit grants forest tokens without a placeable reveal and starts regrowth"
 	)
 	check(
-		(evergreen_history.get("recent", []) as Array).size() == 1
-		and int(evergreen_history.get("rare_misses", -1)) >= 0,
-		"harvesting records a bounded per-subcollection anti-repetition history"
+		core.token_pouch.balance("token_forest")
+			== int(tree_token_reward.get("amount", 0))
+		and bool(core.harvesting.first_rewards_claimed.get(
+			"harvest_tree_mature_evergreen", false
+		)),
+		"harvesting records the automatic pouch grant and first-source claim"
 	)
-	var history_copy := fresh_core(8182)
-	history_copy.harvesting.from_save_dict(core.harvesting.to_save_dict())
+	var harvest_copy := fresh_core(8182)
+	harvest_copy.harvesting.from_save_dict(core.harvesting.to_save_dict())
 	check(
-		history_copy.harvesting.reward_history == core.harvesting.reward_history,
-		"reward variety history survives the harvesting save adapter exactly"
+		harvest_copy.harvesting.first_rewards_claimed
+			== core.harvesting.first_rewards_claimed,
+		"first-token bonus claims survive the harvesting save adapter exactly"
+	)
+	check(core.save(), "pouch balances save through the normal inventory boundary")
+	var pouch_reload := GameCore.new()
+	pouch_reload.setup("res://data", 8283)
+	pouch_reload.save_manager.save_path = core.save_manager.save_path
+	pouch_reload.save_manager.backup_path = core.save_manager.backup_path
+	check(
+		pouch_reload.load_game()
+		and pouch_reload.token_pouch.balance("token_forest")
+			== core.token_pouch.balance("token_forest"),
+		"forest-token pouch balance survives save and reload"
 	)
 
 	core.stock.add_structure("struct_bush", 1)
 	check(core.stock.take_structure("struct_bush"), "berry bush checks out as a stateful source")
-	var bush := core.grid.add_structure(Vector2i(1, 1), "struct_bush", 1, 1)
+	var bush := core.grid.add_structure(Vector2i(0, 1), "struct_bush", 1, 1)
 	check(bush != null, "any model can opt into the generic berry profile")
 	if bush != null:
 		var berry_runtime: Dictionary = bush.runtime_state[HarvestingModule.RUNTIME_KEY]
 		berry_runtime["deadline_unix"] = 0.0
 		var ripe_status: Dictionary = core.harvesting.status(bush.instance_id)
+		var forest_balance_before_bush: int = core.token_pouch.balance("token_forest")
 		var gather: Dictionary = core.harvesting.request_hit(bush.instance_id, "player")
+		var berry_reward: Dictionary = gather.get("reward", {})
 		check(
 			ripe_status.get("state", "") == HarvestingModule.STATE_READY
 			and ripe_status.get("presentation", "") == "berry_cluster"
 			and gather.get("verb", "") == "gather"
 			and gather.get("presentation", "") == "berry_cluster"
 			and gather.get("final", false)
-			and int((gather.get("reward", {}) as Dictionary).get("amount", 0)) == 1
+			and berry_reward.get("id", "") == "token_forest"
+			and int(berry_reward.get("amount", 0)) in [1, 2]
+			and core.token_pouch.balance("token_forest")
+				== forest_balance_before_bush + int(berry_reward.get("amount", 0))
 			and core.harvesting.status(bush.instance_id).get("state", "")
 				== HarvestingModule.STATE_REGROWING,
-			"ripe berries gather once, grant one world piece, and regrow on their timer"
+			"ripe berries gather forest tokens into the pouch and regrow on their timer"
 		)
+
+	var rock_cell := core.grid.cell(Vector2i(-1, -1))
+	var rock: WorldGrid.StructureState = rock_cell.structures[0]
+	var rock_runtime: Dictionary = rock.runtime_state[HarvestingModule.RUNTIME_KEY]
+	rock_runtime["deadline_unix"] = 0.0
+	core.harvesting.status(rock.instance_id)
+	var rock_option = core.interactions.primary_for("player", rock.instance_id)
+	var rock_balance_before: int = core.token_pouch.balance("token_rock")
+	var rock_final: Dictionary = {}
+	for _hit in 4:
+		rock_final = core.harvesting.request_hit(rock.instance_id, "player")
+	var rock_reward: Dictionary = rock_final.get("reward", {})
+	check(
+		rock_option != null
+		and rock_option.feature_id == "harvesting"
+		and rock_option.id == "harvest"
+		and rock_option.enabled
+		and rock_final.get("final", false)
+		and rock_final.get("verb", "") == "break"
+		and rock_reward.get("kind", "") == "token"
+		and rock_reward.get("id", "") == "token_rock"
+		and int(rock_reward.get("amount", 0)) in [2, 3, 4]
+		and core.token_pouch.balance("token_rock")
+			== rock_balance_before + int(rock_reward.get("amount", 0))
+		and core.harvesting.status(rock.instance_id).get("state", "")
+			== HarvestingModule.STATE_REGROWING,
+		"the starter outcrop is clickable, takes four breaks, grants Rock Tokens, and regrows"
+	)
+	var rock_top_up := maxi(0, 5 - core.token_pouch.balance("token_rock"))
+	if rock_top_up > 0:
+		core.token_pouch.grant("token_rock", rock_top_up, "test_top_up")
+	var rock_box_balance: int = core.token_pouch.balance("token_rock")
+	var tiles_before_rock_box := core.stock.total_tiles()
+	var structures_before_rock_box := 0
+	for amount: int in core.stock.structures.values():
+		structures_before_rock_box += amount
+	var rock_box_reward: Dictionary = core.token_pouch.open_box("box_rock")
+	var structures_after_rock_box := 0
+	for amount: int in core.stock.structures.values():
+		structures_after_rock_box += amount
+	var rock_stock_grew := (
+		core.stock.total_tiles() + structures_after_rock_box
+		== tiles_before_rock_box + structures_before_rock_box + 1
+	)
+	check(
+		String(rock_box_reward.get("kind", "")) in ["tile", "structure"]
+		and rock_box_reward.get("reveal_profile_id", "") == "reveal_rock_box"
+		and core.token_pouch.balance("token_rock") == rock_box_balance - 5
+		and rock_stock_grew,
+		"a Rock Box spends five Rock Tokens and grants one rocky tile or model"
+	)
 
 	core.visitors.time_until_next = 100.0
 	core.visitors.tick(10.0)
@@ -2542,6 +2668,7 @@ func _test_object_support_graph() -> void:
 		"struct_pot": true,
 		"struct_watering_can": true,
 		"struct_milk_churn": true,
+		"struct_stone_wall_polished": true,
 	}
 	var expected_supports := {
 		"struct_bench": {
@@ -2575,6 +2702,9 @@ func _test_object_support_graph() -> void:
 		},
 		"struct_crate": {
 			"top": ["struct_pot", "struct_watering_can", "struct_milk_churn"],
+		},
+		"struct_stone_wall_polished": {
+			"wall_top": ["struct_stone_wall_polished"],
 		},
 	}
 	for definition: Defs.StructureDefinition in core.registries.structures.values():
@@ -3041,7 +3171,7 @@ func _test_camping_feature_contract() -> void:
 	var returned_stack: Array[WorldGrid.StructureState] = [returned_tent]
 	check(
 		stored_reload.grid.restore_structure_stack(
-			Vector2i(1, 1), 0, returned_stack, 0, "", 0, 0
+			Vector2i(-1, 0), 0, returned_stack, 0, "", 0, 0
 		),
 		"stored tent places again through the generic support API"
 	)

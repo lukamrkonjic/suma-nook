@@ -338,6 +338,34 @@ class RewardRevealProfileDefinition:
 		return profile
 
 
+class TokenBoxDefinition:
+	extends Resource
+	## A purchasable themed reward roll. Currency remains an ordinary inventory
+	## item so future shops can share the same pouch without migrating saves.
+	var id: String
+	var display_name: String
+	var traits := DefinitionTraits.new()
+	var description: String = ""
+	var token_id: String = ""
+	var cost: int = 1
+	var reward_pool_id: String = ""
+	var roll_policy_id: String = ""
+	var reveal_profile_id: String = ""
+
+	static func from_dict(d: Dictionary) -> TokenBoxDefinition:
+		var box := TokenBoxDefinition.new()
+		box.id = String(d.get("id", ""))
+		box.display_name = String(d.get("name", box.id.capitalize()))
+		box.traits = DefinitionTraits.from_dict(d)
+		box.description = String(d.get("description", ""))
+		box.token_id = String(d.get("token", ""))
+		box.cost = maxi(1, int(d.get("cost", 1)))
+		box.reward_pool_id = String(d.get("reward_pool", ""))
+		box.roll_policy_id = String(d.get("roll_policy", ""))
+		box.reveal_profile_id = String(d.get("reveal_profile", ""))
+		return box
+
+
 class HarvestProfileDefinition:
 	extends Resource
 	## Lifecycle and economy for a reusable harvest source. Structures opt in
@@ -352,6 +380,13 @@ class HarvestProfileDefinition:
 	var regrowth_seconds: float = 30.0
 	var reward_pool_id: String = ""
 	var first_reward_pool_id: String = ""
+	## A source may pay a themed pouch token instead of rolling a world piece.
+	## Keeping both reward modes in one profile leaves special-biome drops and
+	## future event sources free to opt back into direct rewards.
+	var token_id: String = ""
+	var token_min: int = 1
+	var token_max: int = 1
+	var first_token_bonus: int = 0
 	var roll_policy_id: String = ""
 	var reveal_profile_id: String = ""
 	var home_collection: String = ""
@@ -373,6 +408,12 @@ class HarvestProfileDefinition:
 		profile.regrowth_seconds = maxf(0.0, float(d.get("regrowth_seconds", 30.0)))
 		profile.reward_pool_id = String(d.get("reward_pool", ""))
 		profile.first_reward_pool_id = String(d.get("first_reward_pool", ""))
+		profile.token_id = String(d.get("token", ""))
+		profile.token_min = maxi(1, int(d.get("token_min", 1)))
+		profile.token_max = maxi(
+			profile.token_min, int(d.get("token_max", profile.token_min))
+		)
+		profile.first_token_bonus = maxi(0, int(d.get("first_token_bonus", 0)))
 		profile.roll_policy_id = String(d.get("roll_policy", ""))
 		profile.reveal_profile_id = String(d.get("reveal_profile", ""))
 		profile.home_collection = String(d.get("home_collection", ""))

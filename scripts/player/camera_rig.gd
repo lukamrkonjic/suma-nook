@@ -154,9 +154,11 @@ func _unhandled_input(event: InputEvent) -> void:
 func _pan_by_pixels(relative: Vector2) -> void:
 	var basis := horizontal_basis()
 	var world_per_pixel := _size_target * 0.0008
+	# Horizontal middle-drag moves the view opposite the pointer; vertical drag
+	# keeps the established up/down direction. Keyboard/controller pan is separate.
 	_pan_offset += (
 		basis.x * relative.x * world_per_pixel
-		- basis.z * relative.y * world_per_pixel
+		+ basis.z * relative.y * world_per_pixel
 	)
 	_pan_offset.y = 0.0
 	_clamp_pan_offset()

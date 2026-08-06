@@ -515,7 +515,12 @@ func structure_local_transform(instance_id: int) -> Transform3D:
 	var by_id := {}
 	for structure: StructureState in state.structures:
 		by_id[structure.instance_id] = structure
-	return _structure_local_transform_in_state(instance_id, by_id, {})
+	return _structure_local_transform_in_state(
+		instance_id,
+		by_id,
+		{},
+		_tile_structure_surface_height(state)
+	)
 
 
 ## Same transform resolver for a temporarily detached cell. Placement ghosts
@@ -530,13 +535,19 @@ func structure_local_transform_in_cell(
 	var by_id := {}
 	for structure: StructureState in state.structures:
 		by_id[structure.instance_id] = structure
-	return _structure_local_transform_in_state(instance_id, by_id, {})
+	return _structure_local_transform_in_state(
+		instance_id,
+		by_id,
+		{},
+		_tile_structure_surface_height(state)
+	)
 
 
 func _structure_local_transform_in_state(
 	instance_id: int,
 	by_id: Dictionary,
-	visiting: Dictionary
+	visiting: Dictionary,
+	root_surface_height: float
 ) -> Transform3D:
 	if not by_id.has(instance_id) or visiting.has(instance_id):
 		return Transform3D.IDENTITY
@@ -545,10 +556,18 @@ func _structure_local_transform_in_state(
 	var local_basis := Basis(Vector3.UP, structure.rotation * PI * 0.5)
 	if structure.parent_instance_id == 0:
 		visiting.erase(instance_id)
-		return Transform3D(local_basis, socket_offset(structure.socket_index))
+		return Transform3D(
+			local_basis,
+			socket_offset(structure.socket_index)
+				+ Vector3.UP * root_surface_height
+		)
 	if not by_id.has(structure.parent_instance_id):
 		visiting.erase(instance_id)
-		return Transform3D(local_basis, socket_offset(structure.socket_index))
+		return Transform3D(
+			local_basis,
+			socket_offset(structure.socket_index)
+				+ Vector3.UP * root_surface_height
+		)
 	var parent: StructureState = by_id[structure.parent_instance_id]
 	var parent_def := registries.structure(parent.structure_id)
 	var slot := (
@@ -558,17 +577,29 @@ func _structure_local_transform_in_state(
 	)
 	if slot == null:
 		visiting.erase(instance_id)
-		return Transform3D(local_basis, socket_offset(structure.socket_index))
+		return Transform3D(
+			local_basis,
+			socket_offset(structure.socket_index)
+				+ Vector3.UP * root_surface_height
+		)
 	var parent_transform := _structure_local_transform_in_state(
 		structure.parent_instance_id,
 		by_id,
-		visiting
+		visiting,
+		root_surface_height
 	)
 	visiting.erase(instance_id)
 	return parent_transform * Transform3D(
 		local_basis,
 		model_space_offset(slot.offset)
 	)
+
+
+func _tile_structure_surface_height(state: CellState) -> float:
+	if state == null:
+		return 0.0
+	var definition := registries.tile(state.tile_id)
+	return maxf(0.0, definition.walk_surface_height) if definition != null else 0.0
 
 
 func support_slot_local_transform(parent_instance_id: int, slot_id: String) -> Transform3D:
@@ -727,6 +758,31 @@ func restore_tile_stack(
 			stacked_cells[slot_key(coord, elevation)] = state
 		_cache_state_structures(coord, elevation, state)
 		_emit_slot_changed(coord, elevation)
+	grid_changed.emit()
+	return true
+
+
+func rotate_tile_stack_at(
+	coord: Vector2i,
+	base_elevation: int,
+	quarter_turn_delta := 1
+) -> bool:
+	var stack := tile_stack_from(coord, base_elevation)
+	if stack.is_empty():
+		return false
+	var delta := posmod(quarter_turn_delta, 4)
+	if delta == 0:
+		return true
+	for entry: Dictionary in stack:
+		var state: CellState = entry["state"]
+		state.rotation = posmod(state.rotation + delta, 4)
+		for structure: StructureState in state.structures:
+			if structure.parent_instance_id == 0:
+				structure.rotation = posmod(structure.rotation + delta, 4)
+		_emit_slot_changed(
+			coord,
+			base_elevation + int(entry["relative_elevation"])
+		)
 	grid_changed.emit()
 	return true
 
@@ -925,6 +981,16 @@ func restore_structure_stack(
 		next_instance_id = maxi(next_instance_id, structure.instance_id + 1)
 		_cache_structure(coord, elevation, state, structure)
 	_emit_slot_changed(coord, elevation)
+	return true
+
+
+func set_structure_rotation(instance_id: int, rotation: int) -> bool:
+	var found := find_structure(instance_id)
+	if found.is_empty():
+		return false
+	var structure: StructureState = found["structure"]
+	structure.rotation = posmod(rotation, 4)
+	_emit_slot_changed(found["coord"], int(found["elevation"]))
 	return true
 
 

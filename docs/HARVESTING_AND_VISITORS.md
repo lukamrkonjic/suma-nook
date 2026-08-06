@@ -12,7 +12,8 @@ from and wherever the player places it:
 
 1. A newly created source matures.
 2. Every deliberate click/confirm produces one strong hit.
-3. The final hit grants one themed world piece and starts regrowth.
+3. The final hit deposits the source's biome tokens directly in the player's
+   Pouch and starts regrowth.
 4. The exact placed instance returns: same stable instance id, position,
    rotation, scale, model, visual seed, timers, and future upgrade state.
 
@@ -20,10 +21,21 @@ Moving or storing an instance never refreshes it. Stateful structure tokens
 preserve its deadline and hit progress. Storage does not create a second
 source or turn a regrowing source into a ready one.
 
-## Three progression channels
+Tokens are currencies, not placeable items. The player spends them on themed
+boxes in **Pouch & Build Libraries**. A box grants one random tile or model
+from its biome and leaves the same currencies available to future shops.
 
-- **Harvest sources** are targeted gacha. A source has a home subcollection,
-  with a smaller chance of another reward from its broad biome.
+The shipped sources are trees and berry shrubs for Forest Tokens, plus the
+clickable Stone Outcrop for Rock Tokens. The outcrop follows the same stable
+instance, hit, storage, regrowth, and save rules as vegetation.
+
+## Progression channels
+
+- **Harvest sources** generate themed currency. Source density increases only
+  the matching biome's token income.
+- **Token boxes** are the opt-in random reward point. Forest Boxes contain
+  forest tiles/models; Rock Boxes contain rocky tiles/models. Each pool can
+  include another harvest source, letting the player grow that economy.
 - **World visitors** are global gacha. They can introduce pieces from a biome
   the player does not yet own and therefore keep a forest start from becoming
   a forest-only save.
@@ -35,7 +47,7 @@ none of these modules depends on it.
 
 ## Content and module boundaries
 
-The generic content catalog owns five typed, atomically validated definition
+The generic content catalog owns six typed, atomically validated definition
 families for this loop:
 
 - `RewardPoolDefinition`: weighted tile/model entries and bundle quantities.
@@ -43,9 +55,12 @@ families for this loop:
   and bounded rare pity without changing pool membership or quantities.
 - `RewardRevealProfileDefinition`: replaceable presenter type, semantic clay
   materials, shape, timings, and miniature fit.
+- `TokenBoxDefinition`: token currency and price plus reward pool, roll policy,
+  and reveal profile.
 - `HarvestProfileDefinition`: verb, hit count, maturation, regrowth, home
-  collection, source presentation, roll/reveal policies, presenter settings,
-  and normal/first reward pools.
+  collection, source presentation, presenter settings, and token
+  id/min/max/first-harvest bonus. A direct reward pool remains supported for
+  future biome-specific special drops, but a profile cannot use both modes.
 - `VisitorPresentationDefinition` and `VisitorProgramDefinition`: replaceable
   presentation adapters plus cadence and reward-pool policy.
 
@@ -73,7 +88,7 @@ spread, height envelope, and bounded ready-nudge tuning. Fruit is absent while
 the source matures or regrows, appears directly inside the resolved host-model
 canopy when ready, and uses a sparse tween-only pulse/shiver as its harvest
 prompt. Any future shrub, planter, trellis, or fantasy plant can reuse the same
-presenter with a different lifecycle and reward pool; it does not inherit
+presenter with a different lifecycle and token yield; it does not inherit
 bush-specific code or spawn detached fruit objects.
 
 `HarvestingModule` owns lifecycle state, deadlines, hit validation, reward
@@ -86,24 +101,30 @@ presentation id, collection transaction, and persistence. The initial
 replaced by another registered adapter without changing scheduling, rewards,
 or saves.
 
-Both modules use the shared `BuildRewardService`. A final reward transaction
-is:
+`TokenPouchService` stores biome-token balances through `InventoryManager`, so
+they already use the normal save and dirty-state contract. A harvest
+transaction is:
 
-1. validate source/event;
-2. roll with the serialized `RngService` stream (visitors pre-roll on spawn);
-3. mark the source regrowing or visitor collected;
-4. grant tile/model copies to `StockManager`;
-5. record the collection entry;
-6. request an immediate save;
-7. play presentation.
+1. validate the source and its ready state;
+2. roll the authored token quantity with the serialized `RngService` stream;
+3. mark the source regrowing;
+4. grant the tokens to the Pouch;
+5. request an immediate save; and
+6. play the source hit/regrowth presentation.
 
-The reveal never owns or delays the grant. Closing the game, accelerating an
-animation, or replacing a presenter cannot lose or reroll a piece.
+Opening a box is a separate atomic transaction: validate its data and balance,
+spend the price, roll and grant one tile/model through `BuildRewardService`,
+then request the reveal. An invalid or retired roll refunds its tokens. The
+reveal never owns or delays the grant, so closing the game or accelerating its
+animation cannot lose or reroll a piece.
+
+Visitors continue to pre-roll and grant their saved global gift through
+`BuildRewardService` when collected.
 
 ## Reward variety without biome dilution
 
-Harvest profiles keep their existing subcollection-specific reward pools. A
-separate roll policy adjusts only the weights inside that pool:
+Each box owns a biome-specific reward pool. A separate roll policy adjusts
+only the weights inside that pool:
 
 - undiscovered pieces receive a moderate boost;
 - the last six results in that subcollection are strongly de-weighted;
@@ -111,11 +132,9 @@ separate roll policy adjusts only the weights inside that pool:
   threshold, capped at a fixed multiplier; and
 - every roll still grants exactly the amount authored by the pool.
 
-The owning `HarvestingModule` stores a short history and rare-miss counter per
-`home_collection`. The generic reward service remains stateless: visitors,
-events, and future sources may opt into their own policy and history owner.
-This increases surprise without letting a Forest source cross into global
-reward pools or accelerating the economy.
+This keeps a Forest Box inside Forest content and a Rock Box inside rocky
+content. Currency and reward membership are both data-authored, so future
+shops can spend the same tokens without changing harvesting.
 
 ## Runtime state
 
@@ -135,9 +154,9 @@ Harvest state is stored under `StructureState.runtime_state["harvest"]`:
 Deadlines are absolute and offline-inclusive. A sorted scheduler wakes only
 for the next due source; there is no per-source `_process` work.
 
-Harvest feature save data also stores bounded reward-selection history by
-subcollection. This history affects only future weights; ownership and source
-runtime remain independent.
+Harvest feature save data stores claimed first-token bonuses. Compatibility
+data for direct-pool source history is retained for future special-drop
+profiles. Token balances themselves live in the saved player inventory.
 
 The visitor save stores the complete pending event, including presentation id,
 world cell, and pre-rolled reward. Visitors never expire. A save can therefore
@@ -151,14 +170,14 @@ repositioning explicitly, including with a controller-native grid cursor.
 
 Each hit escalates through:
 
-- one varied axe-impact sound per accepted click;
+- one source-specific wood or stone impact sound per accepted click;
 - directional squash/bend and recoil;
 - a target-only white impact flash;
 - leaf/chip/dust particles and layered audio;
 - stronger penultimate and final-hit timing.
 
 The final tree hit falls away from the strike, settles into a small regrowing
-silhouette, grants the reward, and later grows back in place. All impact
+silhouette, grants Forest Tokens, and later grows back in place. All impact
 effects live in the presentation adapter, independently of lifecycle and loot.
 
 Gatherable berry sources use the same authoritative click port but a separate
@@ -168,21 +187,22 @@ full-sized. The saved absolute deadline restores the same ripe fruit cluster,
 including after offline time. Its occasional attention motion uses a bounded
 tween rather than a per-source process loop.
 
-## World Bud reward reveal
+Stone Outcrops use the same click/confirm interaction provider. Four accepted
+hits play stone impact feedback, the final break deposits Rock Tokens, and the
+outcrop shrinks into its regrowing state before returning on its deadline.
 
-Every harvest final hit now supplies a stable `reveal_profile_id` beside its
-already-granted reward. `RewardRevealSceneAdapter` resolves that data through
-an application-owned presenter registry. The initial `world_bud` presenter:
+## Box reward reveal
 
-1. arcs a source-themed clay bud from the harvested object;
+Every token box supplies a stable `reveal_profile_id` beside its already
+granted reward. `RewardRevealSceneAdapter` resolves that data through an
+application-owned presenter registry. The initial `world_bud` presenter:
+
+1. opens a small source-themed clay box near the keeper or home cell;
 2. gives it a short squash-and-swell anticipation beat;
 3. opens into a miniature rendered through the real tile/structure factories;
 4. communicates rarity and discovery through timing, sound, and the miniature
    instead of screen-filling world text; and
 5. flies the miniature toward the Build Bag side of the camera.
-
-The bud is a neutral reward vessel even for berry sources. Ripe berries remain
-attached to their plant and are never repurposed as a click-spawned reward prop.
 
 The flow is non-modal. Players may keep building or harvesting while it runs.
 Pointer users can click the physical bud and controller users can press the
@@ -212,12 +232,15 @@ the exact biome and tile remain random. Later visitors use the global pool.
 
 ## Launch tuning
 
-| Source | Hits | Maturation | Regrowth |
-| --- | ---: | ---: | ---: |
-| Young tree | 3 | 20 s | 35 s |
-| Mature tree | 4 | 30 s | 60 s |
-| Tall tree | 5 | 45 s | 90 s |
-| Berry shrub | 1 | 24 s | 45 s |
+| Source | Hits | Maturation | Regrowth | Token yield |
+| --- | ---: | ---: | ---: | ---: |
+| Young tree | 3 | 20 s | 35 s | 3–4 Forest (+2 first time) |
+| Mature tree | 4 | 30 s | 60 s | 3–5 Forest |
+| Tall tree | 5 | 45 s | 90 s | 4–6 Forest |
+| Berry shrub | 1 | 24 s | 45 s | 1–2 Forest |
+| Stone Outcrop | 4 | ready | 75 s | 2–4 Rock |
+
+Forest and Rock Boxes each cost 5 matching tokens and grant one placeable.
 
 The first visitor is scheduled 3–6 active minutes after the world begins.
 Later visitors arrive every 15–30 active minutes. A waiting visitor pauses the
@@ -231,6 +254,6 @@ non-final hits only, leaving the satisfying final click to the player. Later
 helper slots and a capped physical reward crate can ease large farms without
 making placement density multiply the global economy.
 
-Automated final rewards should later enqueue through the same reveal adapter.
-A capped physical basket may retain unopened buds, but it must not bypass
-source timers, grant additional rolls, or create a second reward transaction.
+Automated final harvests should still grant through the same Pouch service. A
+capped physical basket may retain uncollected token receipts, but it must not
+bypass source timers, grant additional rolls, or create a second transaction.

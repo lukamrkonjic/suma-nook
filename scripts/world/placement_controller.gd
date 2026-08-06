@@ -51,11 +51,13 @@ var _pointer_down := false
 var _pointer_dragging := false
 var _pointer_press_position := Vector2.ZERO
 var _picked_on_pointer_press := false
+var _deferred_pickup_hit: Dictionary = {}
 var _hover_info_signature := ""
 var _animate_ghost_rotation := false
 var _controller_mode := false
 var _controller_cursor_active := false
 var _controller_cell := Vector2i.ZERO
+var _ui_pointer_blocker := Callable()
 
 func setup(
 	game_core: GameCore,
@@ -82,6 +84,10 @@ func setup(
 		if _controller_mode and value.is_empty():
 			_controller_cursor_active = false
 	)
+
+
+func set_ui_pointer_blocker(blocker: Callable) -> void:
+	_ui_pointer_blocker = blocker
 
 
 # ------------------------------------------------------------------ mode
@@ -284,6 +290,79 @@ func rotate_held() -> void:
 	action_result.emit(true, "", "rotate")
 
 
+func rotate_at_screen(screen_position: Vector2) -> bool:
+	if not active or _pointer_is_over_ui(screen_position):
+		return false
+	if not held.is_empty():
+		rotate_held()
+		return true
+	var hit := world_renderer.pick_placeable_at_screen(
+		camera_rig.camera,
+		screen_position
+	)
+	if hit.is_empty():
+		return false
+	world_renderer.clear_structure_hover()
+	match String(hit.get("kind", "")):
+		"structure":
+			var instance_id := int(hit.get("instance_id", 0))
+			var found := core.grid.find_structure(instance_id)
+			if found.is_empty():
+				return false
+			var structure: WorldGrid.StructureState = found["structure"]
+			var from_rotation := structure.rotation
+			var to_rotation := posmod(from_rotation + 1, 4)
+			world_renderer.prepare_rotation_refresh(
+				found["coord"], int(found["elevation"])
+			)
+			if not core.grid.set_structure_rotation(instance_id, to_rotation):
+				world_renderer.cancel_rotation_refresh(
+					found["coord"], int(found["elevation"])
+				)
+				return false
+			world_renderer.animate_structure_rotation(instance_id, 1)
+			_push_undo({
+				"type": "rotate_structure",
+				"iid": instance_id,
+				"from_rotation": from_rotation,
+				"to_rotation": to_rotation,
+			})
+		"tile":
+			var coord: Vector2i = hit["coord"]
+			var elevation := int(hit.get("elevation", 0))
+			var state := core.grid.cell_at(coord, elevation)
+			if state == null:
+				return false
+			var from_rotation := state.rotation
+			var to_rotation := posmod(from_rotation + 1, 4)
+			world_renderer.prepare_tile_stack_rotation(coord, elevation)
+			if not core.grid.rotate_tile_stack_at(coord, elevation, 1):
+				world_renderer.cancel_tile_stack_rotation(coord, elevation)
+				return false
+			world_renderer.animate_tile_stack_rotation(coord, elevation, 1)
+			_push_undo({
+				"type": "rotate_tile_stack",
+				"coord": coord,
+				"elevation": elevation,
+				"from_rotation": from_rotation,
+				"to_rotation": to_rotation,
+			})
+		_:
+			return false
+	core.autosave_soon()
+	action_result.emit(true, "", "rotate")
+	return true
+
+
+func _pointer_is_over_ui(screen_position: Vector2) -> bool:
+	if (
+		_ui_pointer_blocker.is_valid()
+		and bool(_ui_pointer_blocker.call(screen_position))
+	):
+		return true
+	return get_viewport().gui_get_hovered_control() != null
+
+
 func _build_ghost() -> void:
 	_animate_ghost_rotation = false
 	if _ghost != null:
@@ -296,8 +375,14 @@ func _build_ghost() -> void:
 		and held.get("moving") != null
 		and held["moving"].has("stack")
 	):
-		_build_tile_stack_ghost(held["moving"]["stack"])
+		var moving_tile: Dictionary = held["moving"]
+		_build_tile_stack_ghost(
+			moving_tile["stack"],
+			moving_tile.get("coord", Vector2i.ZERO),
+			int(moving_tile.get("elevation", 0))
+		)
 		add_child(_ghost)
+		_initialize_ghost_yaw()
 		_preview.prepare_held_visual(_ghost)
 		_ghost.visible = false
 		return
@@ -314,7 +399,13 @@ func _build_ghost() -> void:
 			if structure_def == null:
 				action_result.emit(false, "That decoration is no longer available.", "invalid")
 				return
-			_ghost = _structure_visual_factory.instantiate_visual(structure_def)
+			var moving_structure: Variant = held.get("moving")
+			var source: WorldGrid.StructureState = null
+			if moving_structure is Dictionary and moving_structure.has("stack"):
+				var source_stack: Array = moving_structure["stack"]
+				if not source_stack.is_empty():
+					source = source_stack[0]
+			_ghost = _instantiate_structure_ghost(structure_def, source)
 		"deed":
 			var landmark_def := core.registries.landmark(held["id"])
 			if landmark_def == null:
@@ -330,13 +421,59 @@ func _build_ghost() -> void:
 	):
 		_add_stack_descendants_to_ghost(held["moving"]["stack"])
 	add_child(_ghost)
+	_initialize_ghost_yaw()
 	_preview.prepare_held_visual(_ghost)
 	# The first preview frame resolves the real cursor target before revealing
 	# the model, preventing a newly held piece from flying in from world origin.
 	_ghost.visible = false
 
 
-func _build_tile_stack_ghost(stack: Array) -> void:
+func _initialize_ghost_yaw() -> void:
+	if _ghost == null:
+		return
+	var yaw := int(held.get("rotation", 0)) * PI * 0.5
+	if held.get("kind", "") == "structure" and held.get("moving") is Dictionary:
+		var origin: Dictionary = held["moving"].get("origin", {})
+		var parent_instance_id := int(origin.get("parent", 0))
+		if parent_instance_id > 0:
+			yaw += core.grid.structure_local_transform(
+				parent_instance_id
+			).basis.get_euler().y
+	_ghost.rotation.y = yaw
+
+
+func _instantiate_structure_ghost(
+	definition: Defs.StructureDefinition,
+	source: WorldGrid.StructureState = null
+) -> Node3D:
+	var harvest_state: Dictionary = (
+		source.runtime_state.get("harvest", {})
+		if source != null else {}
+	)
+	var visual_seed := int(harvest_state.get(
+		"visual_seed",
+		source.instance_id if source != null else 0
+	))
+	var visual: Node3D = _structure_visual_factory.instantiate_visual(
+		definition,
+		true,
+		visual_seed
+	)
+	if source != null:
+		_structure_visual_factory.sync_harvest_visual(
+			visual,
+			definition,
+			String(harvest_state.get("state", "maturing")),
+			false
+		)
+	return visual
+
+
+func _build_tile_stack_ghost(
+	stack: Array,
+	source_coord: Vector2i,
+	source_elevation: int
+) -> void:
 	_ghost = Node3D.new()
 	_ghost.name = "TileStackGhost"
 	if stack.is_empty():
@@ -350,7 +487,24 @@ func _build_tile_stack_ghost(stack: Array) -> void:
 		var definition := core.registries.tile(state.tile_id)
 		if definition == null:
 			continue
-		var tile_visual := _tile_visual_factory.instantiate_visual(definition, true)
+		var source_level := source_elevation + relative
+		var neighbour_mask := _tile_visual_factory.connection_mask(
+			definition,
+			source_coord,
+			source_level,
+			state.rotation
+		)
+		var detail_variant := TileVisualFactory.detail_variant_for_coord(
+			definition,
+			source_coord,
+			source_level
+		)
+		var tile_visual := _tile_visual_factory.instantiate_visual(
+			definition,
+			true,
+			neighbour_mask,
+			detail_variant
+		)
 		tile_visual.name = "ghost_tile_e%d" % relative
 		tile_visual.set_meta("ghost_relative_elevation", relative)
 		tile_visual.position.y = relative * core.grid.block_depth
@@ -365,8 +519,9 @@ func _build_tile_stack_ghost(stack: Array) -> void:
 			var structure_def := core.registries.structure(structure.structure_id)
 			if structure_def == null:
 				continue
-			var structure_visual: Node3D = _structure_visual_factory.instantiate_visual(
-				structure_def
+			var structure_visual: Node3D = _instantiate_structure_ghost(
+				structure_def,
+				structure
 			)
 			structure_visual.name = "ghost_structure_%d" % structure.instance_id
 			var elevation_transform := Transform3D(
@@ -397,8 +552,9 @@ func _add_stack_descendants_to_ghost(stack: Array[WorldGrid.StructureState]) -> 
 		var definition := core.registries.structure(structure.structure_id)
 		if definition == null:
 			continue
-		var child_visual: Node3D = _structure_visual_factory.instantiate_visual(
-			definition
+		var child_visual: Node3D = _instantiate_structure_ghost(
+			definition,
+			structure
 		)
 		child_visual.name = "ghost_descendant_%d" % structure.instance_id
 		child_visual.transform = _stack_relative_transform(
@@ -537,6 +693,15 @@ func _resolved_landing_position(world: Vector3) -> Vector3:
 			else:
 				var socket := _target_socket(_hover_cell, _hover_elevation)
 				if socket >= 0:
+					var tile_definition := core.grid.tile_def_at(
+						_hover_cell,
+						_hover_elevation
+					)
+					if tile_definition != null:
+						landing_position.y += maxf(
+							0.0,
+							tile_definition.walk_surface_height
+						)
 					landing_position += core.grid.socket_offset(socket)
 	return landing_position
 
@@ -627,9 +792,14 @@ func _sync_indicator_preview(landing_position: Vector3) -> void:
 
 
 func _update_placeable_hover() -> void:
+	var pointer := get_viewport().get_mouse_position()
+	if _pointer_is_over_ui(pointer):
+		world_renderer.clear_structure_hover()
+		_emit_hover_info("", "", "")
+		return
 	var hit := world_renderer.pick_placeable_at_screen(
 		camera_rig.camera,
-		get_viewport().get_mouse_position()
+		pointer
 	)
 	if hit.is_empty():
 		world_renderer.clear_structure_hover()
@@ -917,14 +1087,25 @@ func pick_up_at(cell: Vector2i, elevation: int = -1) -> void:
 	_pick_up_from(cell, target_elevation)
 
 
-func pointer_press(screen_position: Vector2) -> void:
+func pointer_press(
+	screen_position: Vector2,
+	pick_up_on_drag_only := false
+) -> void:
 	_pointer_down = true
 	_pointer_dragging = false
 	_pointer_press_position = screen_position
 	_picked_on_pointer_press = false
+	_deferred_pickup_hit = {}
 	if held.is_empty():
-		_try_pick_up()
-		_picked_on_pointer_press = not held.is_empty()
+		if pick_up_on_drag_only:
+			if not _pointer_is_over_ui(screen_position):
+				_deferred_pickup_hit = world_renderer.pick_placeable_at_screen(
+					camera_rig.camera,
+					screen_position
+				)
+		else:
+			_try_pick_up()
+			_picked_on_pointer_press = not held.is_empty()
 	else:
 		click()
 
@@ -939,18 +1120,22 @@ func begin_pointer_drag_for_held(screen_position: Vector2) -> void:
 	_pointer_dragging = false
 	_pointer_press_position = screen_position
 	_picked_on_pointer_press = true
+	_deferred_pickup_hit = {}
 
 
 func pointer_motion(screen_position: Vector2) -> void:
-	if (
-		_pointer_down
-		and _picked_on_pointer_press
-		and screen_position.distance_to(_pointer_press_position) >= 8.0
-	):
-		_pointer_dragging = true
+	if not _pointer_down or _pointer_dragging:
+		return
+	if screen_position.distance_to(_pointer_press_position) < 8.0:
+		return
+	_pointer_dragging = true
+	if not _picked_on_pointer_press and not _deferred_pickup_hit.is_empty():
+		_pick_up_placeable_hit(_deferred_pickup_hit)
+		_picked_on_pointer_press = not held.is_empty()
 
 
-func pointer_release(_screen_position: Vector2) -> void:
+func pointer_release(_screen_position: Vector2) -> bool:
+	var was_dragging := _pointer_down and _pointer_dragging
 	if _pointer_down and _pointer_dragging and _picked_on_pointer_press and not held.is_empty():
 		if _hover_valid:
 			click()
@@ -959,6 +1144,8 @@ func pointer_release(_screen_position: Vector2) -> void:
 	_pointer_down = false
 	_pointer_dragging = false
 	_picked_on_pointer_press = false
+	_deferred_pickup_hit = {}
+	return was_dragging
 
 
 func pointer_is_down() -> bool:
@@ -991,6 +1178,7 @@ func cancel_pointer_gesture() -> void:
 	_pointer_down = false
 	_pointer_dragging = false
 	_picked_on_pointer_press = false
+	_deferred_pickup_hit = {}
 
 
 func click() -> void:
@@ -1226,26 +1414,33 @@ func _try_pick_up() -> void:
 				controller_instance
 			)
 		return
+	if _pointer_is_over_ui(get_viewport().get_mouse_position()):
+		return
 	var hit := world_renderer.pick_placeable_at_screen(
 		camera_rig.camera,
 		get_viewport().get_mouse_position()
 	)
-	if not hit.is_empty() and hit.get("kind", "") == "structure":
+	if not hit.is_empty():
+		_pick_up_placeable_hit(hit)
+		return
+	var slot_hit := _slot_under_mouse()
+	var elevation := int(slot_hit["elevation"])
+	if elevation >= 0:
+		_pick_up_from(slot_hit["coord"], elevation)
+
+
+func _pick_up_placeable_hit(hit: Dictionary) -> void:
+	if hit.get("kind", "") == "structure":
 		_pick_up_from(
 			hit["coord"],
 			int(hit["elevation"]),
 			int(hit["instance_id"])
 		)
 		return
-	if not hit.is_empty() and hit.get("kind", "") == "tile":
+	if hit.get("kind", "") == "tile":
 		var tile_state := core.grid.cell_at(hit["coord"], int(hit["elevation"]))
 		if tile_state != null:
 			_try_pick_up_tile(hit["coord"], int(hit["elevation"]), tile_state)
-		return
-	var slot_hit := _slot_under_mouse()
-	var elevation := int(slot_hit["elevation"])
-	if elevation >= 0:
-		_pick_up_from(slot_hit["coord"], elevation)
 
 
 func _pick_up_from(cell: Vector2i, elevation: int, preferred_instance_id := -1) -> void:
@@ -1373,6 +1568,7 @@ func store_held() -> void:
 	_pointer_down = false
 	_pointer_dragging = false
 	_picked_on_pointer_press = false
+	_deferred_pickup_hit = {}
 	held_changed.emit(held)
 	_build_ghost()
 	core.autosave_soon()
@@ -1398,6 +1594,7 @@ func prepare_for_save() -> void:
 func _cancel_held(restore: bool) -> void:
 	if held.is_empty():
 		core.autosave_paused = false
+		cancel_pointer_gesture()
 		if _ghost != null:
 			_ghost.queue_free()
 			_ghost = null
@@ -1433,6 +1630,7 @@ func _cancel_held(restore: bool) -> void:
 	_pointer_down = false
 	_pointer_dragging = false
 	_picked_on_pointer_press = false
+	_deferred_pickup_hit = {}
 	held_changed.emit(held)
 	if _ghost != null:
 		_ghost.queue_free()
@@ -1565,6 +1763,36 @@ func _apply(entry: Dictionary, reverse: bool) -> bool:
 				return false
 			entry["stack"] = moved_stack
 			return true
+		"rotate_structure":
+			world_renderer.clear_structure_hover()
+			return core.grid.set_structure_rotation(
+				int(entry.get("iid", 0)),
+				int(
+					entry.get("from_rotation", 0)
+					if reverse
+					else entry.get("to_rotation", 0)
+				)
+			)
+		"rotate_tile_stack":
+			var rotate_coord: Vector2i = entry["coord"]
+			var rotate_elevation := int(entry.get("elevation", 0))
+			var rotate_state := core.grid.cell_at(
+				rotate_coord,
+				rotate_elevation
+			)
+			if rotate_state == null:
+				return false
+			var target_rotation := int(
+				entry.get("from_rotation", 0)
+				if reverse
+				else entry.get("to_rotation", 0)
+			)
+			world_renderer.clear_structure_hover()
+			return core.grid.rotate_tile_stack_at(
+				rotate_coord,
+				rotate_elevation,
+				target_rotation - rotate_state.rotation
+			)
 		"store_structure":
 			var m: Dictionary = entry["from"]
 			var stored_stack: Array[WorldGrid.StructureState] = entry["stack"]

@@ -5,6 +5,7 @@ extends CanvasLayer
 
 signal catch_basket_requested
 signal spirit_pouch_requested
+signal token_pouch_requested
 signal build_piece_selected(kind: String, id: String)
 signal build_world_browse_requested
 signal build_store_requested
@@ -25,15 +26,17 @@ var core: GameCore
 var kit: UiKit
 var placement: PlacementController
 
-var _toast_box: VBoxContainer
 var _prompt_label: Label
 var _hint_label: Label
 var _hint_panel: PanelContainer
 var _health_box: HBoxContainer
+var _token_pouch_button: Button
 var _build_bar: PanelContainer
 var _build_bar_column: VBoxContainer
 var _build_compact_row: HBoxContainer
 var _build_expand_button: Button
+var _build_pin_button: Button
+var _build_close_button: Button
 var _build_expanded_clip: Control
 var _build_expanded_content: VBoxContainer
 var _build_search: LineEdit
@@ -49,6 +52,7 @@ var _build_category_group: ButtonGroup
 var _selected_build_category := ""
 var _selected_build_entry: Dictionary = {}
 var _build_library_expanded := false
+var _build_library_pinned := false
 var _build_hover_expand_armed := true
 var _build_mouse_exit_pending := false
 var _build_library_tween: Tween
@@ -67,11 +71,6 @@ var _catalogue_pointer_active := false
 var _thumbnail_renderer: BuildThumbnailRenderer
 var _build_preview_targets: Dictionary = {}
 var _context_column: VBoxContainer
-var _catch_basket_button: Button
-var _spirit_pouch_button: Button
-var _bottom_buttons: HBoxContainer
-var _menu_button: Button
-var _build_button: Button
 var _build_hint_label: Label
 var _player_dock_panel: PanelContainer
 var _player_dock: TextureButton
@@ -123,9 +122,11 @@ func setup(game_core: GameCore, ui_kit: UiKit, placement_controller: PlacementCo
 	core.stock.stock_changed.connect(func():
 		_refresh_build_strip()
 	)
+	core.token_pouch.balance_changed.connect(func(_token_id, _amount):
+		_refresh_token_pouch()
+	)
 	if core.registries.feature("combat_enabled", false):
 		core.combat.health_changed.connect(_on_health_changed)
-	core.notified.connect(func(message, tone): toast(message, tone))
 	placement.mode_changed.connect(_on_build_mode)
 	placement.held_changed.connect(_on_held_changed)
 	placement.action_result.connect(_on_action_result)
@@ -141,6 +142,9 @@ func setup(game_core: GameCore, ui_kit: UiKit, placement_controller: PlacementCo
 
 
 func _build_layout() -> void:
+	# World-space overlays live on canvas layer 0; the persistent HUD stays on
+	# layer 1 so selection/click effects can never draw through its panels.
+	layer = 1
 	var root := Control.new()
 	root.name = "HudRoot"
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -154,6 +158,19 @@ func _build_layout() -> void:
 	_health_box.add_theme_constant_override("separation", 4)
 	_health_box.visible = false
 	root.add_child(_health_box)
+
+	# Biome-token wallet. It stays compact but makes every harvest payout
+	# immediately legible; the same panel opens from the inventory action for
+	# keyboard and controller players.
+	_token_pouch_button = kit.button("", false)
+	_token_pouch_button.name = "TokenPouch"
+	_token_pouch_button.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_token_pouch_button.position = Vector2(16, 16)
+	_token_pouch_button.custom_minimum_size = Vector2(210, 42)
+	_token_pouch_button.add_theme_font_size_override("font_size", 15)
+	_token_pouch_button.focus_mode = Control.FOCUS_NONE
+	_token_pouch_button.pressed.connect(func(): token_pouch_requested.emit())
+	root.add_child(_token_pouch_button)
 
 	# Build hover identity — compact and centered, so the world remains the
 	# dominant surface while every tile/object still has a clear name.
@@ -179,15 +196,6 @@ func _build_layout() -> void:
 	)
 	hover_col.add_child(_hover_collection_label)
 
-	# Toasts — top right.
-	_toast_box = VBoxContainer.new()
-	_toast_box.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_toast_box.position += Vector2(-14, 14)
-	_toast_box.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_toast_box.add_theme_constant_override("separation", 6)
-	_toast_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(_toast_box)
-
 	# Context prompt + tutorial hint — bottom center.
 	_context_column = VBoxContainer.new()
 	_context_column.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
@@ -212,39 +220,16 @@ func _build_layout() -> void:
 	_context_column.add_child(_prompt_label)
 	_position_context_above_build_library.call_deferred()
 
-	# Bottom-left action buttons.
-	_bottom_buttons = HBoxContainer.new()
-	_bottom_buttons.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	_bottom_buttons.position += Vector2(14, -14)
-	_bottom_buttons.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_bottom_buttons.add_theme_constant_override("separation", 8)
-	root.add_child(_bottom_buttons)
-	_menu_button = kit.button("Menu")
-	_menu_button.pressed.connect(func(): pause_requested.emit())
-	_bottom_buttons.add_child(_menu_button)
-	_build_button = kit.button("Shape Land", true)
-	_build_button.pressed.connect(_on_build_button_pressed)
-	_bottom_buttons.add_child(_build_button)
-	_catch_basket_button = kit.button("Catch Basket")
-	_catch_basket_button.pressed.connect(
-		func(): catch_basket_requested.emit()
-	)
-	_bottom_buttons.add_child(_catch_basket_button)
-	_spirit_pouch_button = kit.button("Spirit Pouch")
-	_spirit_pouch_button.pressed.connect(
-		func(): spirit_pouch_requested.emit()
-	)
-	_bottom_buttons.add_child(_spirit_pouch_button)
-
-	# Build Bag — a single floating icon at rest, expanding upward into the
-	# owned-piece browser only while the player is using it.
+	# Build Bag — a quiet chevron at rest, expanding upward while hovered.
+	# The expanded shelf can be pinned when the player wants to keep browsing.
 	_build_bar = PanelContainer.new()
 	_build_bar.name = "BuildLibrary"
 	_build_bar.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_build_bar.position.y = -18
 	_build_bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_build_bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_build_bar.custom_minimum_size = Vector2(70, 0)
+	_build_bar.mouse_filter = Control.MOUSE_FILTER_STOP
+	_build_bar.custom_minimum_size = Vector2(54, 0)
 	_build_panel_collapsed_style = StyleBoxEmpty.new()
 	_build_panel_collapsed_style.set_content_margin_all(0)
 	_build_panel_expanded_style = kit.cloud_panel_style(28)
@@ -264,13 +249,15 @@ func _build_layout() -> void:
 
 	_build_compact_row = HBoxContainer.new()
 	_build_compact_row.name = "CompactBuildDock"
-	_build_compact_row.custom_minimum_size = Vector2(70, 70)
+	_build_compact_row.custom_minimum_size = Vector2(54, 42)
 	_build_compact_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	_build_bar_column.add_child(_build_compact_row)
 	_build_expand_button = Button.new()
 	_build_expand_button.name = "BuildExpandLibrary"
-	_build_expand_button.custom_minimum_size = Vector2(66, 66)
-	_build_expand_button.icon = load(BUILD_ICON_DIRECTORY + "build_bag.svg")
+	_build_expand_button.custom_minimum_size = Vector2(50, 38)
+	_build_expand_button.icon = load(BUILD_ICON_DIRECTORY + "chevron_up.svg")
+	_build_expand_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_build_expand_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_build_expand_button.expand_icon = false
 	_build_expand_button.tooltip_text = "Build Bag"
 	_build_expand_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
@@ -278,16 +265,16 @@ func _build_layout() -> void:
 	var bag_normal := StyleBoxFlat.new()
 	bag_normal.bg_color = kit.palette.color("ui_bag_surface")
 	bag_normal.border_color = kit.palette.color("ui_bag_border")
-	bag_normal.set_border_width_all(2)
-	bag_normal.set_corner_radius_all(33)
+	bag_normal.set_border_width_all(1)
+	bag_normal.set_corner_radius_all(19)
 	bag_normal.shadow_color = kit.palette.color("ui_bag_shadow")
-	bag_normal.shadow_size = 10
-	bag_normal.shadow_offset = Vector2(0, 5)
+	bag_normal.shadow_size = 6
+	bag_normal.shadow_offset = Vector2(0, 3)
 	var bag_hover := bag_normal.duplicate()
 	bag_hover.bg_color = kit.palette.color("ui_white")
 	bag_hover.border_color = kit.palette.color("ui_bag_hover")
-	bag_hover.shadow_size = 14
-	bag_hover.shadow_offset = Vector2(0, 7)
+	bag_hover.shadow_size = 9
+	bag_hover.shadow_offset = Vector2(0, 4)
 	var bag_pressed := bag_hover.duplicate()
 	bag_pressed.bg_color = kit.palette.color("ui_bag_pressed")
 	bag_pressed.shadow_size = 5
@@ -300,7 +287,6 @@ func _build_layout() -> void:
 		func(): set_build_library_expanded(true)
 	)
 	_build_compact_row.add_child(_build_expand_button)
-	call_deferred("_start_build_bag_idle")
 
 	# A clipped plain Control does not inherit its children's minimum height,
 	# allowing the shelf to animate rather than pop between layouts.
@@ -314,6 +300,11 @@ func _build_layout() -> void:
 	_build_expanded_content.offset_bottom = 404
 	_build_expanded_content.add_theme_constant_override("separation", 8)
 	_build_expanded_clip.add_child(_build_expanded_content)
+
+	var build_header := HBoxContainer.new()
+	build_header.name = "BuildLibraryHeader"
+	build_header.add_theme_constant_override("separation", 7)
+	_build_expanded_content.add_child(build_header)
 
 	_build_search = LineEdit.new()
 	_build_search.name = "BuildLibrarySearch"
@@ -338,7 +329,28 @@ func _build_layout() -> void:
 	search_focus.set_border_width_all(2)
 	_build_search.add_theme_stylebox_override("focus", search_focus)
 	_build_search.text_changed.connect(_on_build_search_changed)
-	_build_expanded_content.add_child(_build_search)
+	build_header.add_child(_build_search)
+
+	_build_pin_button = kit.library_arrow_button("")
+	_build_pin_button.name = "BuildLibraryPin"
+	_build_pin_button.custom_minimum_size = Vector2(42, 42)
+	_build_pin_button.icon = load(BUILD_ICON_DIRECTORY + "pin.svg")
+	_build_pin_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_build_pin_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_build_pin_button.toggle_mode = true
+	_build_pin_button.tooltip_text = "Keep Build Bag open"
+	_build_pin_button.toggled.connect(_on_build_library_pin_toggled)
+	build_header.add_child(_build_pin_button)
+
+	_build_close_button = kit.library_arrow_button("")
+	_build_close_button.name = "BuildLibraryClose"
+	_build_close_button.custom_minimum_size = Vector2(42, 42)
+	_build_close_button.icon = load(BUILD_ICON_DIRECTORY + "chevron_down.svg")
+	_build_close_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_build_close_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_build_close_button.tooltip_text = "Close Build Bag"
+	_build_close_button.pressed.connect(_close_build_library)
+	build_header.add_child(_build_close_button)
 
 	_build_category_scroll = ScrollContainer.new()
 	_build_category_scroll.name = "BuildCategories"
@@ -538,11 +550,24 @@ func _build_layout() -> void:
 
 func _refresh_all() -> void:
 	refresh_fishing_buttons()
+	_refresh_token_pouch()
 	_refresh_build_strip()
 	if core.registries.feature("combat_enabled", false):
 		_on_health_changed(core.combat.health, core.combat.max_health)
 	else:
 		_health_box.visible = false
+
+
+func _refresh_token_pouch() -> void:
+	if _token_pouch_button == null:
+		return
+	_token_pouch_button.text = "Pouch   Forest %d   ·   Rock %d" % [
+		core.token_pouch.balance("token_forest"),
+		core.token_pouch.balance("token_rock"),
+	]
+	_token_pouch_button.tooltip_text = "Open Pouch & Boxes · %s" % (
+		InputDeviceService.shared().format_action(&"panel_inventory", "open")
+	)
 
 
 func set_player_deployed(deployed: bool) -> void:
@@ -592,30 +617,8 @@ func _move_player_drag_icon(screen_position: Vector2) -> void:
 
 
 func refresh_fishing_buttons() -> void:
-	if _catch_basket_button != null:
-		var haul_count: int = core.fishing.basket.haul_count()
-		var capacity: int = core.fishing.basket.capacity()
-		_catch_basket_button.text = (
-			"Catch Basket" if haul_count == 0
-			else "Catch Basket %d/%d" % [haul_count, capacity]
-		)
-		_catch_basket_button.disabled = haul_count == 0
-		_catch_basket_button.tooltip_text = (
-			"Hauls from the void wait here until you place or return them."
-			if haul_count > 0
-			else "Fish from any exposed edge to fill the basket."
-		)
-	if _spirit_pouch_button != null:
-		var spirit_count: int = core.fishing.pouch.slots().size()
-		_spirit_pouch_button.text = (
-			"Spirit Pouch" if spirit_count == 0
-			else "Spirit Pouch %d/%d" % [spirit_count, core.fishing.pouch.capacity()]
-		)
-		_spirit_pouch_button.tooltip_text = (
-			"Arm a Spirit to lean the next catch toward its theme."
-			if spirit_count > 0
-			else "Finish tending a tree to earn a Grove Spirit."
-		)
+	# Fishing storage no longer owns persistent HUD buttons.
+	pass
 
 
 func _refresh_build_strip() -> void:
@@ -1076,8 +1079,13 @@ func _position_context_above_build_library() -> void:
 func set_build_library_expanded(expanded: bool, animate := true) -> void:
 	if _build_expanded_clip == null:
 		return
+	if not expanded and _build_library_pinned:
+		_build_library_pinned = false
+		if _build_pin_button != null:
+			_build_pin_button.set_pressed_no_signal(false)
+			_build_pin_button.tooltip_text = "Keep Build Bag open"
 	var target_height := 410.0 if expanded else 0.0
-	var target_width := _build_library_expanded_width() if expanded else 70.0
+	var target_width := _build_library_expanded_width() if expanded else 54.0
 	var already_settled := (
 		_build_library_expanded == expanded
 		and is_equal_approx(
@@ -1173,35 +1181,11 @@ func _finish_build_bag_collapse() -> void:
 
 
 func _start_build_bag_idle() -> void:
-	if (
-		_build_expand_button == null
-		or not _build_bar.visible
-		or _build_library_expanded
-	):
+	if _build_expand_button == null:
 		return
 	if _build_bag_idle_tween != null and _build_bag_idle_tween.is_valid():
 		_build_bag_idle_tween.kill()
-	_build_expand_button.pivot_offset = (
-		_build_expand_button.size * 0.5
-		if _build_expand_button.size != Vector2.ZERO
-		else _build_expand_button.custom_minimum_size * 0.5
-	)
 	_build_expand_button.scale = Vector2.ONE
-	_build_bag_idle_tween = create_tween().set_loops()
-	_build_bag_idle_tween.set_trans(Tween.TRANS_SINE)
-	_build_bag_idle_tween.set_ease(Tween.EASE_IN_OUT)
-	_build_bag_idle_tween.tween_property(
-		_build_expand_button,
-		"scale",
-		Vector2(1.035, 1.035),
-		0.9
-	)
-	_build_bag_idle_tween.tween_property(
-		_build_expand_button,
-		"scale",
-		Vector2.ONE,
-		0.9
-	)
 
 
 func _animate_build_bag_open() -> void:
@@ -1212,25 +1196,7 @@ func _animate_build_bag_open() -> void:
 	):
 		return
 	_build_bag_open_pending = true
-	if _build_bag_idle_tween != null and _build_bag_idle_tween.is_valid():
-		_build_bag_idle_tween.kill()
-	if _build_bag_button_tween != null and _build_bag_button_tween.is_valid():
-		_build_bag_button_tween.kill()
-	_build_expand_button.pivot_offset = _build_expand_button.size * 0.5
-	_build_bag_button_tween = create_tween()
-	_build_bag_button_tween.set_trans(Tween.TRANS_BACK)
-	_build_bag_button_tween.set_ease(Tween.EASE_OUT)
-	_build_bag_button_tween.tween_property(
-		_build_expand_button,
-		"scale",
-		Vector2(1.12, 1.12),
-		0.1
-	)
-	_build_bag_button_tween.tween_callback(
-		func():
-			_build_expand_button.scale = Vector2.ONE
-			set_build_library_expanded(true)
-	)
+	set_build_library_expanded(true)
 
 
 func request_build_library_open() -> void:
@@ -1241,6 +1207,45 @@ func request_build_library_open() -> void:
 
 func build_library_collapsed() -> bool:
 	return _build_bar != null and _build_bar.visible and not _build_library_expanded
+
+
+func blocks_world_pointer(screen_position: Vector2) -> bool:
+	# Geometry is authoritative here. Relying only on gui_get_hovered_control()
+	# leaves empty Container space transparent to world picking on some layouts.
+	for candidate in [
+		_build_bar,
+		_store_bubble,
+		_player_dock_panel,
+		_hint_panel,
+		_prompt_label,
+		_health_box,
+		_token_pouch_button,
+	]:
+		var control := candidate as Control
+		if (
+			control != null
+			and control.is_visible_in_tree()
+			and control.get_global_rect().has_point(screen_position)
+		):
+			return true
+	return false
+
+
+func _on_build_library_pin_toggled(pinned: bool) -> void:
+	_build_library_pinned = pinned
+	_build_mouse_exit_pending = false
+	_build_pin_button.tooltip_text = (
+		"Let Build Bag close when the pointer leaves"
+		if pinned
+		else "Keep Build Bag open"
+	)
+
+
+func _close_build_library() -> void:
+	_build_library_pinned = false
+	if _build_pin_button != null:
+		_build_pin_button.set_pressed_no_signal(false)
+	set_build_library_expanded(false)
 
 
 func _on_build_library_mouse_entered() -> void:
@@ -1266,6 +1271,9 @@ func _on_build_library_mouse_exited() -> void:
 		_build_expand_button.scale = Vector2.ONE
 		_start_build_bag_idle()
 		return
+	if _build_library_pinned:
+		_build_mouse_exit_pending = false
+		return
 	# Defer one frame because a child Control taking hover can briefly emit an
 	# exit from the parent on some platforms. Only collapse after confirming
 	# that the pointer actually left the whole bag.
@@ -1280,6 +1288,7 @@ func _collapse_build_library_after_mouse_exit() -> void:
 	if (
 		_build_bar == null
 		or not _build_bar.visible
+		or _build_library_pinned
 		or _build_bar.get_global_rect().has_point(get_viewport().get_mouse_position())
 	):
 		return
@@ -1507,18 +1516,12 @@ func _on_health_changed(current: int, maximum: int) -> void:
 		_health_box.add_child(heart)
 
 
-func _on_build_button_pressed() -> void:
-	placement.set_active(true)
-	request_build_library_open()
-
-
 func _enemies_near() -> bool:
 	return get_tree().get_node_count_in_group("enemies") > 0
 
 
 func _on_build_mode(active: bool) -> void:
 	_build_bar.visible = active
-	_bottom_buttons.visible = not active
 	if active:
 		set_build_library_expanded(
 			InputDeviceService.shared().is_controller(),
@@ -1613,50 +1616,10 @@ func apply_weather_contrast(rain_enabled: bool) -> void:
 		label.add_theme_constant_override("outline_size", 3 if rain_enabled else 0)
 
 
-func toast(message: String, tone := "common") -> void:
-	var accent := kit.palette.color("ui_accent_neutral")
-	var glyph := "◆"
-	var tag := "WORLD NOTE"
-	match tone:
-		"rare":
-			accent = kit.palette.color("ui_rare")
-			glyph = "✦"
-			tag = "NEW DISCOVERY"
-		"levelup":
-			accent = kit.palette.color("ui_accent")
-			glyph = "✧"
-			tag = "TRAIL MARKER"
-		"warn":
-			accent = kit.palette.color("ui_accent_alert")
-			glyph = "!"
-			tag = "TAKE CARE"
-		"good":
-			accent = kit.palette.color("ui_good")
-			glyph = "✓"
-			tag = "ALL SET"
-	var card := kit.progression_card(Vector2(320, 0), accent)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	card.add_child(row)
-	row.add_child(kit.monogram(glyph, accent, 36))
-	var copy := VBoxContainer.new()
-	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(copy)
-	copy.add_child(kit.eyebrow(tag, accent))
-	var l := kit.label(message, 14, false, true)
-	l.custom_minimum_size.x = 244
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	copy.add_child(l)
-	card.modulate.a = 0.0
-	_toast_box.add_child(card)
-	_toast_box.move_child(card, 0)
-	while _toast_box.get_child_count() > 6:
-		_toast_box.get_child(_toast_box.get_child_count() - 1).free()
-	var tween := card.create_tween()
-	tween.tween_property(card, "modulate:a", 1.0, 0.15)
-	tween.tween_interval(2.6 if tone == "common" else 3.6)
-	tween.tween_property(card, "modulate:a", 0.0, 0.5)
-	tween.tween_callback(card.queue_free)
+func toast(_message: String, _tone := "common") -> void:
+	# The top-right notification stack was intentionally retired. Gameplay
+	# state remains visible through the world, collection reveal, and bag UI.
+	pass
 
 
 ## Derives the current opening hint straight from discovery state.
@@ -1671,6 +1634,14 @@ func update_tutorial() -> void:
 		OnboardingState.HARVEST_TREE:
 			set_hint("Harvest the tree — three satisfying hits. (%s)" % InputDeviceService.shared().format_action(&"build_confirm", "hit"))
 			return
+		OnboardingState.OPEN_FOREST_BOX:
+			set_hint(
+				"Spend your Forest Tokens on a Forest Box in the Pouch. (%s)"
+				% InputDeviceService.shared().format_action(
+					&"panel_inventory", "open pouch"
+				)
+			)
+			return
 		OnboardingState.PLACE_FOREST_REWARD:
 			set_hint(
 				"Add the forest discovery to your world. (%s)"
@@ -1680,7 +1651,7 @@ func update_tutorial() -> void:
 			)
 			return
 		OnboardingState.WAIT_VISITOR:
-			set_hint("Shape your island while a curious visitor finds its way here.")
+			set_hint("")
 			return
 		OnboardingState.PLACE_VISITOR_REWARD:
 			set_hint("Place the visitor's gift — a first step beyond the forest.")
@@ -1748,8 +1719,6 @@ func release_build_focus() -> void:
 func focus_default() -> void:
 	if _build_bar.visible:
 		focus_build_library()
-	else:
-		InputDeviceService.shared().focus_first(_bottom_buttons, _build_button)
 
 
 func _on_held_changed(value: Dictionary) -> void:
@@ -1773,16 +1742,6 @@ func _on_held_changed(value: Dictionary) -> void:
 
 
 func _on_input_method_changed(_method: int) -> void:
-	if _menu_button == null:
-		return
-	_menu_button.text = InputDeviceService.shared().format_action(
-		&"pause" if InputDeviceService.shared().is_controller() else &"cancel",
-		"Menu"
-	)
-	_build_button.text = InputDeviceService.shared().format_action(
-		&"build_mode",
-		"Shape Land"
-	)
 	_build_hint_label.text = (
 		"%s  ·  %s  ·  %s  ·  %s"
 		% [
@@ -1792,10 +1751,9 @@ func _on_input_method_changed(_method: int) -> void:
 			InputDeviceService.shared().format_action(&"cancel", "back"),
 		]
 		if InputDeviceService.shared().is_controller()
-		else "%s  ·  wheel scrolls  ·  %s  ·  drag moved pieces here to store"
+		else "%s  ·  wheel scrolls  ·  Right Click rotates  ·  drag moved pieces here to store"
 		% [
 			InputDeviceService.shared().format_action(&"interact", "choose"),
-			InputDeviceService.shared().format_action(&"rotate_piece", "rotate"),
 		]
 	)
 	_refresh_prompt()

@@ -22,6 +22,7 @@ const DEFINITION_KINDS: Array[String] = [
 	"reward_pools",
 	"reward_roll_policies",
 	"reward_reveal_profiles",
+	"token_boxes",
 	"harvest_profiles",
 	"visitor_presentations",
 	"visitor_programs",
@@ -49,6 +50,7 @@ var keepsakes: Dictionary = {}
 var reward_pools: Dictionary = {}
 var reward_roll_policies: Dictionary = {}
 var reward_reveal_profiles: Dictionary = {}
+var token_boxes: Dictionary = {}
 var harvest_profiles: Dictionary = {}
 var visitor_presentations: Dictionary = {}
 var visitor_programs: Dictionary = {}
@@ -80,6 +82,7 @@ func definitions(kind: String) -> Dictionary:
 		"reward_pools": return reward_pools
 		"reward_roll_policies": return reward_roll_policies
 		"reward_reveal_profiles": return reward_reveal_profiles
+		"token_boxes": return token_boxes
 		"harvest_profiles": return harvest_profiles
 		"visitor_presentations": return visitor_presentations
 		"visitor_programs": return visitor_programs

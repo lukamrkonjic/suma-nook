@@ -14,6 +14,7 @@ const EDGE_WALL_LAYER := 1 << 3
 const PLACEABLE_PICK_LAYER := 1 << 7
 const OUTLINE_VISIBILITY_LAYER := 1 << 19
 const REST_TWEEN_SECONDS := 0.5
+const ROTATION_TWEEN_SECONDS := 0.18
 const StructureVisualFactoryScript := preload(
 	"res://scripts/world/structure_visual_factory.gd"
 )
@@ -40,6 +41,7 @@ var _structure_visual_factory: RefCounted
 var _outlined_meshes: Array[MeshInstance3D] = []
 var _hovered_structure_id := -1
 var _hover_signature := ""
+var _pending_rotation_slots: Dictionary = {}
 var _outline_viewport: SubViewport
 var _outline_camera: Camera3D
 var _outline_overlay: TextureRect
@@ -151,6 +153,9 @@ func refresh_asset_edits() -> void:
 
 
 func _on_slot_changed(coord: Vector2i, elevation: int) -> void:
+	var changed_key := core.grid.slot_key(coord, elevation)
+	var rotation_refresh := _pending_rotation_slots.has(changed_key)
+	_pending_rotation_slots.erase(changed_key)
 	var wants_scalable := (
 		core.grid.total_tile_count() >= SCALABLE_WORLD_THRESHOLD
 	)
@@ -164,7 +169,7 @@ func _on_slot_changed(coord: Vector2i, elevation: int) -> void:
 		return
 	_remove_cell_node(coord, elevation)
 	if core.grid.has_cell_at(coord, elevation):
-		_build_cell(coord, elevation, true)
+		_build_cell(coord, elevation, not rotation_refresh)
 	_refresh_connection_neighbours(coord, elevation)
 	if elevation > 0:
 		_refresh_covered_surface(coord, elevation - 1, true)
@@ -220,6 +225,11 @@ func _build_cell(coord: Vector2i, elevation: int, animate := false) -> void:
 
 	for s in state.structures:
 		_build_structure(holder, s)
+	_tile_visual_factory.apply_surface_exclusion_masks(
+		visual,
+		_structure_visual_factory.surface_masks_for_tile(state, state.rotation),
+		def.walk_surface_height
+	)
 
 	_apply_anchor_visual(holder, state, def, false)
 	if animate:
@@ -348,6 +358,12 @@ func _build_structure(holder: Node3D, s: WorldGrid.StructureState) -> void:
 	# resolved into a composed transform instead of a scene-tree hierarchy.
 	visual.transform = core.grid.structure_local_transform(s.instance_id)
 	holder.add_child(visual)
+	_configure_stone_wall_junctions(
+		visual,
+		holder.get_meta("grid_coord"),
+		int(holder.get_meta("elevation")),
+		s
+	)
 	visual.set_meta("instance_id", s.instance_id)
 	_structure_nodes[s.instance_id] = visual
 	if def.has_capability("harvest_source"):
@@ -395,6 +411,66 @@ func _build_structure(holder: Node3D, s: WorldGrid.StructureState) -> void:
 		_attach_tree_wind(visual, s.instance_id)
 	else:
 		_attach_ambient_motion(visual, Vector2i(s.instance_id, s.rotation))
+
+
+func _configure_stone_wall_junctions(
+	visual: Node3D,
+	coord: Vector2i,
+	elevation: int,
+	structure: WorldGrid.StructureState
+) -> void:
+	if structure.structure_id != "struct_stone_wall_polished":
+		return
+	var current_y := core.grid.structure_local_transform(
+		structure.instance_id
+	).origin.y
+	for side_data: Dictionary in [
+		{"node": "JunctionLeft", "sign": -1.0},
+		{"node": "JunctionRight", "sign": 1.0},
+	]:
+		var junction := visual.find_child(
+			String(side_data["node"]), true, false
+		) as Node3D
+		if junction == null:
+			continue
+		var local_axis := Vector3(float(side_data["sign"]), 0.0, 0.0)
+		var world_axis := (
+			Basis(Vector3.UP, structure.rotation * PI * 0.5)
+			* local_axis
+		)
+		var offset := Vector2i(
+			int(roundf(world_axis.x)),
+			int(roundf(world_axis.z))
+		)
+		junction.visible = _has_perpendicular_wall_at(
+			coord + offset,
+			elevation,
+			structure.rotation,
+			current_y
+		)
+
+
+func _has_perpendicular_wall_at(
+	coord: Vector2i,
+	elevation: int,
+	rotation: int,
+	local_height: float
+) -> bool:
+	var cell := core.grid.cell_at(coord, elevation)
+	if cell == null:
+		return false
+	for candidate: WorldGrid.StructureState in cell.structures:
+		if (
+			candidate.structure_id == "struct_stone_wall_polished"
+			and posmod(candidate.rotation - rotation, 2) == 1
+			and absf(
+				core.grid.structure_local_transform(
+					candidate.instance_id
+				).origin.y - local_height
+			) < 0.01
+		):
+			return true
+	return false
 
 
 func _attach_tree_wind(root: Node3D, seed_value: int) -> void:
@@ -631,6 +707,12 @@ func animation_manifest() -> Dictionary:
 				],
 			},
 		},
+		"object_rotation": {
+			"duration": ROTATION_TWEEN_SECONDS,
+			"pivot": "placeable_root",
+			"curve": "cubic_out",
+			"quarter_turn_degrees": 90.0,
+		},
 		"foliage_ambient": {
 			"looping": true,
 			"duration_range_per_half_cycle": [1.35, 2.4],
@@ -811,6 +893,72 @@ func tile_node(coord: Vector2i, elevation: int = -1) -> Node3D:
 	return _tile_nodes.get(core.grid.slot_key(coord, target_elevation))
 
 
+## Rotation commits rebuild the authoritative cell synchronously. Marking the
+## affected slots prevents that rebuild from replaying the placement bounce;
+## the replacement visual then receives a dedicated quarter-turn tween.
+func prepare_rotation_refresh(coord: Vector2i, elevation: int) -> void:
+	_pending_rotation_slots[core.grid.slot_key(coord, elevation)] = true
+
+
+func cancel_rotation_refresh(coord: Vector2i, elevation: int) -> void:
+	_pending_rotation_slots.erase(core.grid.slot_key(coord, elevation))
+
+
+func prepare_tile_stack_rotation(coord: Vector2i, base_elevation: int) -> void:
+	for entry: Dictionary in core.grid.tile_stack_from(coord, base_elevation):
+		prepare_rotation_refresh(
+			coord,
+			base_elevation + int(entry["relative_elevation"])
+		)
+
+
+func cancel_tile_stack_rotation(coord: Vector2i, base_elevation: int) -> void:
+	for entry: Dictionary in core.grid.tile_stack_from(coord, base_elevation):
+		cancel_rotation_refresh(
+			coord,
+			base_elevation + int(entry["relative_elevation"])
+		)
+
+
+func animate_structure_rotation(instance_id: int, quarter_turn_delta := 1) -> void:
+	_animate_quarter_turn(structure_node(instance_id), quarter_turn_delta)
+
+
+func animate_tile_stack_rotation(
+	coord: Vector2i,
+	base_elevation: int,
+	quarter_turn_delta := 1
+) -> void:
+	for entry: Dictionary in core.grid.tile_stack_from(coord, base_elevation):
+		var elevation := base_elevation + int(entry["relative_elevation"])
+		var holder := tile_node(coord, elevation)
+		if holder == null:
+			continue
+		var state: WorldGrid.CellState = entry["state"]
+		for child: Node in holder.get_children():
+			if not child is Node3D:
+				continue
+			var pivot := child as Node3D
+			if pivot.name == state.tile_id or pivot.name.begins_with("struct_"):
+				_animate_quarter_turn(pivot, quarter_turn_delta)
+
+
+func _animate_quarter_turn(pivot: Node3D, quarter_turn_delta: int) -> void:
+	if pivot == null or not is_instance_valid(pivot):
+		return
+	var delta := posmod(quarter_turn_delta, 4)
+	if delta == 0:
+		return
+	var target_yaw := pivot.rotation.y
+	pivot.rotation.y = target_yaw - float(delta) * PI * 0.5
+	pivot.create_tween().tween_property(
+		pivot,
+		"rotation:y",
+		target_yaw,
+		ROTATION_TWEEN_SECONDS
+	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+
 # ------------------------------------------------------------------ placeable picking / hover
 
 func _setup_screen_space_outline() -> void:
@@ -818,6 +966,8 @@ func _setup_screen_space_outline() -> void:
 	_outline_viewport.name = "PlaceableOutlineViewport"
 	_outline_viewport.transparent_bg = true
 	_outline_viewport.world_3d = get_world_3d()
+	_outline_viewport.msaa_3d = Viewport.MSAA_4X
+	_outline_viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 	_outline_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	_outline_viewport.handle_input_locally = false
 	add_child(_outline_viewport)
@@ -830,12 +980,14 @@ func _setup_screen_space_outline() -> void:
 
 	var canvas := CanvasLayer.new()
 	canvas.name = "PlaceableOutlineCanvas"
-	canvas.layer = 5
+	# Keep world feedback below the HUD (layer 1) and every modal UI layer.
+	canvas.layer = 0
 	add_child(canvas)
 	_outline_overlay = TextureRect.new()
 	_outline_overlay.name = "PlaceableOutlineOverlay"
 	_outline_overlay.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_outline_overlay.stretch_mode = TextureRect.STRETCH_SCALE
+	_outline_overlay.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	_outline_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_outline_overlay.texture = _outline_viewport.get_texture()
 	_outline_overlay.visible = false
@@ -847,21 +999,27 @@ shader_type canvas_item;
 render_mode unshaded;
 
 uniform vec4 outline_color : source_color = vec4(1.0, 0.99, 0.96, 1.0);
-uniform float outline_width_pixels = 2.25;
+uniform float outline_width_pixels = 2.5;
+
+const int OUTLINE_SAMPLES = 16;
 
 void fragment() {
 	vec2 px = TEXTURE_PIXEL_SIZE * outline_width_pixels;
 	float center = texture(TEXTURE, UV).a;
 	float around = 0.0;
-	around = max(around, texture(TEXTURE, UV + vec2(px.x, 0.0)).a);
-	around = max(around, texture(TEXTURE, UV - vec2(px.x, 0.0)).a);
-	around = max(around, texture(TEXTURE, UV + vec2(0.0, px.y)).a);
-	around = max(around, texture(TEXTURE, UV - vec2(0.0, px.y)).a);
-	around = max(around, texture(TEXTURE, UV + px).a);
-	around = max(around, texture(TEXTURE, UV - px).a);
-	around = max(around, texture(TEXTURE, UV + vec2(px.x, -px.y)).a);
-	around = max(around, texture(TEXTURE, UV + vec2(-px.x, px.y)).a);
-	float outline = smoothstep(0.08, 0.65, around) * (1.0 - smoothstep(0.02, 0.35, center));
+	float coverage = 0.0;
+	for (int i = 0; i < OUTLINE_SAMPLES; i++) {
+		float angle = TAU * float(i) / float(OUTLINE_SAMPLES);
+		vec2 direction = vec2(cos(angle), sin(angle));
+		float outer_sample = texture(TEXTURE, UV + direction * px).a;
+		float inner_sample = texture(TEXTURE, UV + direction * px * 0.55).a;
+		around = max(around, max(outer_sample, inner_sample));
+		coverage += outer_sample + inner_sample;
+	}
+	coverage /= float(OUTLINE_SAMPLES * 2);
+	float rounded_dilation = max(around, smoothstep(0.02, 0.28, coverage));
+	float exterior = 1.0 - smoothstep(0.04, 0.72, center);
+	float outline = smoothstep(0.04, 0.58, rounded_dilation) * exterior;
 	COLOR = vec4(outline_color.rgb, outline_color.a * outline);
 }
 """

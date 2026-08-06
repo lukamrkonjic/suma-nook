@@ -24,6 +24,7 @@ params = {
 "relief_resolution": 22,
 "relief_style": "heaps",
 "side_key": "snow_side",
+"surface_profile": "detailed_square",
 "top_bevel": 0.075,
 "top_key": "snow_top",
 "turf_cap": false,

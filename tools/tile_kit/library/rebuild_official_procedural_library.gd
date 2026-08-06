@@ -300,6 +300,7 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 				"lower_key": "grass_gg_lower", "turf_side_key": "grass_gg_side"},
 				"none", 0.0,
 				{"relief_resolution": 20, "relief_edge_feather": 0.2,
+					"surface_profile": "uniform_square",
 					"turf_cap": false, "top_bevel": 0.045,
 					"corner_radius": 0.05, "bevel_segments": 6,
 					"bottom_chamfer": 0.018})
@@ -657,7 +658,7 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 		"tile_sand":
 			# Pure sculpt: one colour, one beautiful wind-shaped surface.
 			_set_base(preset, SAND_BASE, "natural_dunes", 0.100,
-				{"relief_resolution": 42, "relief_edge_feather": 0.20,
+				{"relief_resolution": 32, "relief_edge_feather": 0.20,
 					"dune_scale": 0.72, "dune_amount": 0.18,
 					"dune_softness": 0.82, "dune_irregularity": 0.72,
 					"dune_lee_depth": 0.20, "dune_direction_degrees": 307.0,
@@ -694,7 +695,7 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 			# Fresh Snow: nearly untouched — the sculpt carries everything,
 			# with at most a couple of large settled pillows.
 			_set_base(preset, SNOW_BASE, "sculpted_dunes", 0.115,
-				{"relief_resolution": 56, "relief_edge_feather": 0.28,
+				{"relief_resolution": 32, "relief_edge_feather": 0.28,
 					"dune_scale": 0.96, "dune_amount": 0.58,
 					"dune_softness": 0.80, "dune_irregularity": 0.45,
 					"dune_lee_depth": 0.28, "dune_direction_degrees": 336.0,
@@ -705,7 +706,7 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 		"tile_proc_snow_field":
 			# The quietest tile in the kit: sculpt only.
 			_set_base(preset, SNOW_BASE, "sculpted_dunes", 0.072,
-				{"relief_resolution": 56, "relief_edge_feather": 0.30,
+				{"relief_resolution": 32, "relief_edge_feather": 0.30,
 					"dune_scale": 0.92, "dune_amount": 0.58,
 					"dune_softness": 0.90, "dune_irregularity": 0.40,
 					"dune_lee_depth": 0.12, "dune_direction_degrees": 322.0})
@@ -723,14 +724,14 @@ func _make_recipe(tile_id: String) -> TileKitPreset:
 			preset.separate_tiles = true
 		"tile_proc_snow_drifts_study":
 			_set_base(preset, SNOW_BASE, "sculpted_dunes", 0.105,
-				{"relief_resolution": 64, "relief_edge_feather": 0.30,
+				{"relief_resolution": 32, "relief_edge_feather": 0.30,
 					"dune_scale": 0.92, "dune_amount": 0.68,
 					"dune_softness": 0.88, "dune_irregularity": 0.52,
 					"dune_lee_depth": 0.16, "dune_direction_degrees": 322.0,
 					"dune_height_exponent": 0.92})
 		"tile_snow_path":
 			_set_base(preset, SNOW_BASE, "sculpted_dunes", 0.055,
-				{"relief_resolution": 48, "relief_edge_feather": 0.28,
+				{"relief_resolution": 32, "relief_edge_feather": 0.28,
 					"dune_scale": 0.88, "dune_amount": 0.42,
 					"dune_softness": 0.9, "dune_irregularity": 0.32,
 					"dune_lee_depth": 0.12, "dune_direction_degrees": 22.0})

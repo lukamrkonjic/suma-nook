@@ -21,6 +21,7 @@ params = {
 "relief_resolution": 24,
 "relief_style": "pillow",
 "side_key": "stone_medium",
+"surface_profile": "detailed_square",
 "top_bevel": 0.075,
 "top_key": "accent_cream",
 "turf_cap": false,

@@ -218,6 +218,11 @@ func _step_creation() -> void:
 		if event_name == "chop_impact":
 			harvest_audio_events.append(event_name)
 	)
+	# The same automatic lesson must open ready for a player who harvested with
+	# a controller; the next confirm should immediately activate its box.
+	InputDeviceService.shared()._set_input_method(
+		InputDeviceService.InputMethod.CONTROLLER
+	)
 	check(main._try_harvest_instance(tree_iid), "first click lands a harvest hit")
 	await wait(0.08)
 	check(main._try_harvest_instance(tree_iid), "second click escalates the hit")
@@ -230,26 +235,52 @@ func _step_creation() -> void:
 		% harvest_audio_events.size()
 	)
 	check(
-		main.reward_reveal != null and main.reward_reveal.is_revealing(),
-		"the granted harvest reward becomes a non-modal queued World Bud reveal"
+		main.core.onboarding.stage == OnboardingState.OPEN_FOREST_BOX
+		and main.core.token_pouch.balance("token_forest") >= 5
+		and not main.reward_reveal.is_revealing(),
+		"the chopped tree sends Forest Tokens straight to the pouch without dropping a tile"
+	)
+	check(
+		main.panels.is_open()
+		and main.panels._open_name == "inventory",
+		"the first token haul opens the Pouch & Build Libraries lesson"
+	)
+	var forest_box_button := main.panels.find_child(
+		"OpenTokenBox_box_forest", true, false
+	) as Button
+	check(
+		forest_box_button != null
+		and not forest_box_button.disabled
+		and get_viewport().gui_get_focus_owner() == forest_box_button,
+		"the affordable Forest Box receives deterministic controller focus"
+	)
+	var forest_balance_before_box: int = main.core.token_pouch.balance(
+		"token_forest"
+	)
+	forest_box_button.pressed.emit()
+	await wait(0.3)
+	check(
+		main.core.onboarding.stage == OnboardingState.PLACE_FOREST_REWARD
+		and String(main.placement.held.get("kind", "")) in ["tile", "structure"]
+		and main.core.token_pouch.balance("token_forest")
+			== forest_balance_before_box - 5
+		and main.reward_reveal.is_revealing(),
+		"opening the Forest Box spends five tokens and reveals one random forest piece"
 	)
 	await _tap_joy_button(JOY_BUTTON_X)
 	await wait(0.25)
 	check(
 		not main.reward_reveal.is_revealing(),
-		"controller Interact accelerates the reveal without blocking its grant"
+		"controller Interact accelerates the box reveal without blocking its grant"
+	)
+	var forest_placement_coord := (
+		Vector2i(0, 2)
+		if main.placement.held.get("kind", "") == "tile"
+		else Vector2i(0, 1)
 	)
 	check(
-		main.core.onboarding.stage == OnboardingState.PLACE_FOREST_REWARD
-		and main.placement.held.get("kind", "") == "tile"
-		and main.core.stock.tile_count(
-			String(main.placement.held.get("id", ""))
-		) == 1,
-		"the first harvest grants exactly one finite forest piece"
-	)
-	check(
-		main.placement.try_place_at(Vector2i(0, 2)),
-		"the forest discovery expands the authored world"
+		main.placement.try_place_at(forest_placement_coord),
+		"the boxed forest discovery places through the ordinary build flow"
 	)
 	await wait(0.25)
 	check(
@@ -286,7 +317,7 @@ func _step_creation() -> void:
 		"keeper drops still reject empty void"
 	)
 	check(
-		main.try_place_player_at_cell(Vector2i(-1, -1)),
+		main.try_place_player_at_cell(Vector2i(-1, 0)),
 		"the keeper remains available as an optional post-onboarding world tool"
 	)
 	await wait(0.8)
@@ -1444,6 +1475,43 @@ func _step_object_support_graph() -> void:
 		and not main.core.registries.structure("struct_lantern").light_flicker,
 		"the lamp light stays fixed at its bulb instead of pulsing along the post"
 	)
+	var lantern_from_rotation := ground_lantern.rotation
+	main.renderer.prepare_rotation_refresh(lamp_coord, 0)
+	check(
+		main.core.grid.set_structure_rotation(
+			ground_lantern.instance_id,
+			posmod(lantern_from_rotation + 1, 4)
+		),
+		"an existing world object accepts a quarter-turn rotation"
+	)
+	main.renderer.animate_structure_rotation(ground_lantern.instance_id, 1)
+	var rotating_lantern := main.renderer.structure_node(
+		ground_lantern.instance_id
+	)
+	check(
+		rotating_lantern != null
+		and absf(angle_difference(
+			rotating_lantern.rotation.y,
+			float(lantern_from_rotation) * PI * 0.5
+		)) < 0.001,
+		"world-object rotation begins at its previous yaw instead of snapping"
+	)
+	await wait(WorldRenderer.ROTATION_TWEEN_SECONDS * 0.5)
+	check(
+		rotating_lantern.rotation.y
+			> float(lantern_from_rotation) * PI * 0.5 + 0.05
+		and rotating_lantern.rotation.y
+			< float(lantern_from_rotation + 1) * PI * 0.5 - 0.01,
+		"world-object rotation visibly travels around its pivot"
+	)
+	await wait(WorldRenderer.ROTATION_TWEEN_SECONDS)
+	check(
+		absf(angle_difference(
+			rotating_lantern.rotation.y,
+			float(lantern_from_rotation + 1) * PI * 0.5
+		)) < 0.001,
+		"world-object rotation settles exactly on the committed quarter turn"
+	)
 	support_demo_coord = destination
 	support_demo_root_iid = table.instance_id
 	support_demo_middle_iid = chest.instance_id
@@ -2226,6 +2294,13 @@ func _step_place_tile() -> void:
 	main.placement.hold_new("tile", "tile_grass")
 	await wait(0.2)
 	check(main.placement.active, "build mode active with held piece")
+	await _tap_key(KEY_ESCAPE)
+	check(
+		main.placement.held.is_empty() and not main.pause_menu.is_open(),
+		"Escape cancels a held placement before the global pause shortcut"
+	)
+	main.placement.hold_new("tile", "tile_grass")
+	await wait(0.1)
 	main.placement.rotate_held()
 	check(int(main.placement.held["rotation"]) == 1, "rotation steps")
 	var detached := Vector2i(6, 6)

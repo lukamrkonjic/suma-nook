@@ -7,6 +7,9 @@ extends RefCounted
 ## from the live tile and therefore receive the shared scale vertically only.
 
 const GRID_FIT_MARGIN := 0.02
+const SURFACE_MASK_MIN_CONTACT_BAND := 0.06
+const SURFACE_MASK_MAX_CONTACT_BAND := 0.18
+const SURFACE_MASK_CONTACT_BAND_RATIO := 0.12
 const AmbientMotionScript := preload("res://scripts/visuals/ambient_motion.gd")
 const BurningEffectScript := preload("res://scripts/visuals/burning_effect_3d.gd")
 const BerryGrowthVisualScript := preload(
@@ -16,6 +19,7 @@ const BerryGrowthVisualScript := preload(
 var assets: AssetLibrary
 var grid: WorldGrid
 var _batch_mesh_cache: Dictionary = {}
+var _surface_contact_mask_cache: Dictionary = {}
 
 
 func _init(asset_library: AssetLibrary, world_grid: WorldGrid) -> void:
@@ -140,6 +144,117 @@ func batch_mesh(
 
 func clear_asset_edit_cache() -> void:
 	_batch_mesh_cache.clear()
+	_surface_contact_mask_cache.clear()
+
+
+## Returns model contact footprints in tile-visual local space. Only objects
+## directly supported by the tile participate; children sitting on benches,
+## tables, or other support slots must not clear the terrain beneath them.
+func surface_masks_for_tile(
+	state: WorldGrid.CellState,
+	tile_rotation_quarters: int
+) -> Array[PackedVector2Array]:
+	var masks: Array[PackedVector2Array] = []
+	if state == null or state.structures.is_empty():
+		return masks
+	var tile_transform := Transform3D(
+		Basis(Vector3.UP, tile_rotation_quarters * PI * 0.5),
+		Vector3.ZERO
+	)
+	var tile_inverse := tile_transform.affine_inverse()
+	for structure: WorldGrid.StructureState in state.structures:
+		if structure.parent_instance_id != 0:
+			continue
+		var definition := grid.registries.structure(structure.structure_id)
+		var model_mask := surface_contact_mask(definition)
+		if model_mask.size() < 3:
+			continue
+		var relative_transform := (
+			tile_inverse
+			* grid.structure_local_transform_in_cell(state, structure.instance_id)
+		)
+		var tile_mask := PackedVector2Array()
+		for point: Vector2 in model_mask:
+			var transformed := relative_transform * Vector3(point.x, 0.0, point.y)
+			tile_mask.append(Vector2(transformed.x, transformed.z))
+		masks.append(tile_mask)
+	return masks
+
+
+## The exclusion shape follows the authored model's actual near-ground
+## geometry instead of its complete AABB. A tree therefore clears around its
+## trunk rather than its canopy, while a firepit follows the stone ring and a
+## bench spans its feet. The result is cached per edited model definition.
+func surface_contact_mask(
+	definition: Defs.StructureDefinition
+) -> PackedVector2Array:
+	if definition == null:
+		return PackedVector2Array()
+	var cache_key := definition.id
+	if _surface_contact_mask_cache.has(cache_key):
+		return _surface_contact_mask_cache[cache_key]
+	var visual := instantiate_visual(definition, false)
+	var mask := surface_contact_mask_from_visual(visual)
+	visual.free()
+	_surface_contact_mask_cache[cache_key] = mask
+	return mask
+
+
+static func surface_contact_mask_from_visual(
+	visual: Node3D
+) -> PackedVector2Array:
+	if visual == null:
+		return PackedVector2Array()
+	var authored := visual.get_node_or_null("AuthoredVisual") as Node3D
+	if authored == null:
+		return PackedVector2Array()
+	var vertices: Array[Vector3] = []
+	_collect_mesh_vertices(authored, authored.transform, vertices)
+	if vertices.size() < 3:
+		return PackedVector2Array()
+	var minimum_y := vertices[0].y
+	var maximum_y := vertices[0].y
+	for vertex: Vector3 in vertices:
+		minimum_y = minf(minimum_y, vertex.y)
+		maximum_y = maxf(maximum_y, vertex.y)
+	var contact_band := clampf(
+		(maximum_y - minimum_y) * SURFACE_MASK_CONTACT_BAND_RATIO,
+		SURFACE_MASK_MIN_CONTACT_BAND,
+		SURFACE_MASK_MAX_CONTACT_BAND
+	)
+	var contact_points := PackedVector2Array()
+	for vertex: Vector3 in vertices:
+		if vertex.y <= minimum_y + contact_band:
+			contact_points.append(Vector2(vertex.x, vertex.z))
+	if contact_points.size() < 3:
+		for vertex: Vector3 in vertices:
+			contact_points.append(Vector2(vertex.x, vertex.z))
+	return Geometry2D.convex_hull(contact_points)
+
+
+static func _collect_mesh_vertices(
+	node: Node,
+	local_transform: Transform3D,
+	vertices: Array[Vector3]
+) -> void:
+	if (
+		node.has_meta("exclude_from_structural_bounds")
+		and bool(node.get_meta("exclude_from_structural_bounds"))
+	):
+		return
+	if node is MeshInstance3D:
+		var mesh_instance := node as MeshInstance3D
+		if mesh_instance.mesh != null:
+			for surface_index in mesh_instance.mesh.get_surface_count():
+				var arrays := mesh_instance.mesh.surface_get_arrays(surface_index)
+				var positions: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+				for position: Vector3 in positions:
+					vertices.append(local_transform * position)
+	for child: Node in node.get_children():
+		var child_transform := local_transform
+		if child is Node3D:
+			child_transform = local_transform * (child as Node3D).transform
+		_collect_mesh_vertices(child, child_transform, vertices)
 
 
 func effective_model_scale(definition: Defs.StructureDefinition) -> float:

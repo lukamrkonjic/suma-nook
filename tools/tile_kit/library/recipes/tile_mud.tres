@@ -21,6 +21,7 @@ params = {
 "relief_resolution": 30,
 "relief_style": "pillow",
 "side_key": "earth_deep",
+"surface_profile": "detailed_square",
 "top_bevel": 0.075,
 "top_key": "mud_top",
 "turf_cap": false,
