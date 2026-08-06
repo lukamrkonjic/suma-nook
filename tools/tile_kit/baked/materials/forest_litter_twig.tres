@@ -2,6 +2,6 @@
 
 [resource]
 resource_name = "tilekit_forest_litter_twig"
-albedo_color = Color(0.195, 0.115, 0.075, 1)
+albedo_color = Color(0.184314, 0.12941201, 0.11372501, 1)
 metallic_specular = 0.05
 roughness = 0.98

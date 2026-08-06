@@ -15,7 +15,7 @@ _surfaces = [{
 "vertex_data": PackedByteArray("mplZv+xROL6amVm/mplZvwAAAACamVm/VVU1v+xROL6amVm/VVU1vwAAAACamVm/ERERv+xROL6amVm/ERERvwAAAACamVm/mpnZvuxROL6amVm/mpnZvgAAAACamVm/ERGRvuxROL6amVm/ERGRvgAAAACamVm/ERERvuxROL6amVm/ERERvgAAAACamVm/AAAAAOxROL6amVm/AAAAAAAAAACamVm/ERERPuxROL6amVm/ERERPgAAAACamVm/ERGRPuxROL6amVm/ERGRPgAAAACamVm/mpnZPuxROL6amVm/mpnZPgAAAACamVm/ERERP+xROL6amVm/ERERPwAAAACamVm/VVU1P+xROL6amVm/VVU1PwAAAACamVm/mplZP+xROL6amVm/mplZPwAAAACamVm///////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgA==")
 }]
 
-[node name="tile_kit_edge" type="Node3D" unique_id=167326227]
+[node name="tile_kit_edge" type="Node3D" unique_id=907255987]
 
-[node name="tile_cap_edge" type="MeshInstance3D" parent="." unique_id=929354863]
+[node name="tile_cap_edge" type="MeshInstance3D" parent="." unique_id=908708633]
 mesh = SubResource("ArrayMesh_eaqws")

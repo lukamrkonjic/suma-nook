@@ -2,6 +2,6 @@
 
 [resource]
 resource_name = "tilekit_moss_top"
-albedo_color = Color(0.41999996, 0.5, 0.19999999, 1)
+albedo_color = Color(0.305882, 0.443137, 0.27451, 1)
 metallic_specular = 0.05
 roughness = 0.98

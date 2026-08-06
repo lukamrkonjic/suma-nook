@@ -2,6 +2,6 @@
 
 [resource]
 resource_name = "tilekit_dirt_clay_side"
-albedo_color = Color(0.4, 0.24499999, 0.16, 1)
+albedo_color = Color(0.317647, 0.2, 0.160784, 1)
 metallic_specular = 0.2
 roughness = 0.9

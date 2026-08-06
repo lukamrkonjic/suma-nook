@@ -26,8 +26,8 @@ _surfaces = [{
 "vertex_data": PackedByteArray("nsrSu+ZpITv0x6q+YFYtPOZpITvnEKO+xpKAPOZpITsop5S+GArkO+ZpITsTDIW+sF9JvOZpITtHa3S+HCQOveZpITsvj3C+CNNTveZpITtK/X++08ZoveZpITtkaI6+s/5EveZpITt5A56+CEvsvOZpITvo2ai+EmwIvBu7FjzrZae+iO/ROxu7Fjx5t6C+fIwxPBu7FjwPPJS+iGNWOxu7Fjw3uIa+pIpbvBu7Fjz4qnq+bGIGvRu7FjxCU3e+YbtCvRu7FjwTWIK+j+BUvRu7Fjx9046+qOM1vRu7FjxVV5y+jjXjvBu7FjwQuqW+GDBdvGaIZzzdJ56+gKSju2aIZzxXTJq+qKofu2aIZzx3F5O+1PXeu2aIZzzsSYu+pJaGvGaIZzy13oW+1GLivGaIZzyv54S+4AgUvWaIZzw1w4i+xoIevWaIZzwV+I++tp4MvWaIZzygxZe+PGTKvGaIZzzXMJ2+cH2ovN6NgjzGh5G+cH2ovN6NgjzGh5G+cH2ovN6NgjzGh5G+cH2ovN6NgjzGh5G+cH2ovN6NgjzGh5G+cH2ovN6NgjzGh5G+cH2ovN6NgjzGh5G+cH2ovN6NgjzGh5G+cH2ovN6NgjzGh5G+cH2ovN6NgjzGh5G+//9748yaPZH//1er76SKto34/3+UeMS/A9P/fzVawrXsr/9/2FhKn3xj/3/Mmj2RVyv/f++kirYAAHGHlHjEvwAA+6w1WsK1AAAR0NhYSp8Vrrr14gU4qsm1a9y7KB/VPbG3y5BCatPupvbDPz5MzVyUncmHLFTCu3Xp0XE5LrRsXDXKeETLrbdLwc5DQMCr90MP2ScvB6meSaLrTx8GpDaUfvtEAhbJ55iF72EQMsuNlgzosxvTyuGS4eKVHpvId4m05r4XhMN+e8jrXxalvIZvFufMG4u3DGhw6ZUZ67TiYh3tCBSmsrVmhvahC+Gy/3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/78=")
 }]
 
-[node name="tile_kit_detail" type="Node3D" unique_id=220929006]
+[node name="tile_kit_detail" type="Node3D" unique_id=840886902]
 
-[node name="tile_clutter" type="MeshInstance3D" parent="." unique_id=2069695118]
+[node name="tile_clutter" type="MeshInstance3D" parent="." unique_id=1286030569]
 cast_shadow = 0
 mesh = SubResource("ArrayMesh_no5j5")

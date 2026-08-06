@@ -15,7 +15,7 @@ _surfaces = [{
 "vertex_data": PackedByteArray("mplZP+xROL6amVk/mplZPwAAAACamVk/d3dHP+xROL6amVk/d3dHPz25hTuamVk/VVU1P+xROL6amVk/VVU1P6rMcjuamVk/MzMjP+xROL6amVk/MzMjP978pTuamVk/ERERP+xROL6amVk/ERERP68c8DuamVk/3t39PuxROL6amVk/3t39PlQCJTyamVk/mpnZPuxROL6amVk/mpnZPs5pVzyamVk/VVW1PuxROL6amVk/VVW1Pq0WhjyamVk/ERGRPuxROL6amVk/ERGRPneTnDyamVk/mplZPuxROL6amVk/mplZPo/IqTyamVk/ERERPuxROL6amVk/ERERPptmpTyamVk/ERGRPexROL6amVk/ERGRPTwajjyamVk/AAAAAOxROL6amVk/AAAAAB7LVDyamVk/ERGRvexROL6amVk/ERGRva5lEDyamVk/ERERvuxROL6amVk/ERERvkeFqzuamVk/mplZvuxROL6amVk/mplZvkV9BTuamVk/ERGRvuxROL6amVk/ERGRvhc5NjiamVk/VVW1vuxROL6amVk/VVW1vlZEsjmamVk/mpnZvuxROL6amVk/mpnZvlrcLjuamVk/3t39vuxROL6amVk/3t39vq4FxDuamVk/ERERv+xROL6amVk/ERERv+DiAjyamVk/MzMjv+xROL6amVk/MzMjvxvv4juamVk/VVU1v+xROL6amVk/VVU1v2XhojuamVk/d3dHv+xROL6amVk/d3dHv4lGvDuamVk/mplZv+xROL6amVk/mplZvwAAAACamVk//3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgP9//3//fwCA/3//f/9/AID/f/9//38AgA==")
 }]
 
-[node name="tile_kit_edge" type="Node3D" unique_id=949433121]
+[node name="tile_kit_edge" type="Node3D" unique_id=1573882946]
 
-[node name="tile_cap_edge" type="MeshInstance3D" parent="." unique_id=531642760]
+[node name="tile_cap_edge" type="MeshInstance3D" parent="." unique_id=1645828030]
 mesh = SubResource("ArrayMesh_ykltp")

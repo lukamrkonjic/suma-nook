@@ -2,6 +2,6 @@
 
 [resource]
 resource_name = "tilekit_moss_gg_stone_bevel"
-albedo_color = Color(0.68, 0.62, 0.52, 1)
+albedo_color = Color(0.74902, 0.709804, 0.615686, 1)
 metallic_specular = 0.05
 roughness = 0.98

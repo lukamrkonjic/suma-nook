@@ -15,7 +15,7 @@ _surfaces = [{
 "vertex_data": PackedByteArray("mplZv+xROL6amVk/mplZvwAAAACamVk/mplZv+xROL4K10M/mplZvwAAAAAK10M/mplZv+xROL57FC4/mplZvwAAAAB7FC4/mplZv+xROL7sURg/mplZvwAAAADsURg/mplZv+xROL5cjwI/mplZvwAAAABcjwI/mplZv+xROL6amdk+mplZvwAAAACamdk+mplZv+xROL57FK4+mplZvwAAAAB7FK4+mplZv+xROL5cj4I+mplZvwAAAABcj4I+mplZv+xROL57FC4+mplZvwAAAAB7FC4+mplZv+xROL57FK49mplZvwAAAAB7FK49mplZv+xROL4AAAAlmplZvwAAAAAAAAAlmplZv+xROL57FK69mplZvwAAAAB7FK69mplZv+xROL57FC6+mplZvwAAAAB7FC6+mplZv+xROL5cj4K+mplZvwAAAABcj4K+mplZv+xROL57FK6+mplZvwAAAAB7FK6+mplZv+xROL6amdm+mplZvwAAAACamdm+mplZv+xROL5cjwK/mplZvwAAAABcjwK/mplZv+xROL7sURi/mplZvwAAAADsURi/mplZv+xROL57FC6/mplZvwAAAAB7FC6/mplZv+xROL4K10O/mplZvwAAAAAK10O/mplZv+xROL6amVm/mplZvwAAAACamVm/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/")
 }]
 
-[node name="tile_kit_edge" type="Node3D" unique_id=1887101823]
+[node name="tile_kit_edge" type="Node3D" unique_id=1883903882]
 
-[node name="tile_cap_edge" type="MeshInstance3D" parent="." unique_id=742023123]
+[node name="tile_cap_edge" type="MeshInstance3D" parent="." unique_id=146847923]
 mesh = SubResource("ArrayMesh_8iq2t")

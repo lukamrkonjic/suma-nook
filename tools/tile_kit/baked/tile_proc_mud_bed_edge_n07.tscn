@@ -15,7 +15,7 @@ _surfaces = [{
 "vertex_data": PackedByteArray("mplZv+xROL6amVk/mplZv/u0czuamVk/mplZv+xROL6O3Eg/mplZvxXWBD2O3Eg/mplZv+xROL6CHzg/mplZv5ZDCz2CHzg/mplZv+xROL52Yic/mplZv5ZDCz12Yic/mplZv+xROL5qpRY/mplZv+lVlzxqpRY/mplZv+xROL5f6AU/mplZv34SGTxf6AU/mplZv+xROL6lVuo+mplZv+QDcDulVuo+mplZv+xROL6O3Mg+mplZv00tuTuO3Mg+mplZv+xROL52Yqc+mplZvzrG2bp2Yqc+mplZv+xROL5f6IU+mplZv79Gxrtf6IU+mplZv+xROL6O3Eg+mplZv/5TpDyO3Eg+mplZv+xROL5f6AU+mplZvx/Nrjxf6AU+mplZv+xROL5f6IU9mplZvwlQTLxf6IU9mplZv+xROL4AAAClmplZvwoAjrsAAAClmplZv+xROL5f6IW9mplZv8cwETxf6IW9mplZv+xROL5f6AW+mplZv5Xmcjxf6AW+mplZv+xROL6O3Ei+mplZv/2wzzyO3Ei+mplZv+xROL5f6IW+mplZvz330zxf6IW+mplZv+xROL52Yqe+mplZv5B9jzt2Yqe+mplZv+xROL6O3Mi+mplZvyZRqryO3Mi+mplZv+xROL6lVuq+mplZv4+S27ylVuq+mplZv+xROL5f6AW/mplZv7l6pbxf6AW/mplZv+xROL5qpRa/mplZvzXx2DtqpRa/mplZv+xROL52Yie/mplZv4i0Drt2Yie/mplZv+xROL6CHzi/mplZv3T1BryCHzi/mplZv+xROL6O3Ei/mplZv0vvzLmO3Ei/mplZv+xROL6amVm/mplZv8hJbzyamVm/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/")
 }]
 
-[node name="tile_kit_edge" type="Node3D" unique_id=296478604]
+[node name="tile_kit_edge" type="Node3D" unique_id=1776360409]
 
-[node name="tile_cap_edge" type="MeshInstance3D" parent="." unique_id=1877339573]
+[node name="tile_cap_edge" type="MeshInstance3D" parent="." unique_id=659235012]
 mesh = SubResource("ArrayMesh_dnyix")

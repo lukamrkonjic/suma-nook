@@ -2,6 +2,6 @@
 
 [resource]
 resource_name = "tilekit_earth_clump"
-albedo_color = Color(0.61, 0.39, 0.19999999, 1)
+albedo_color = Color(0.607843, 0.37647104, 0.19607802, 1)
 metallic_specular = 0.2
 roughness = 0.9

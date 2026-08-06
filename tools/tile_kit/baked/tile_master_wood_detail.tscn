@@ -26,8 +26,8 @@ _surfaces = [{
 "vertex_data": PackedByteArray("jjsIviiGCby8rY8+3bAJviiGCby2xpY+I8cZviiGCbzgT6A+VVkyviiGCbzKpKg+0ARKviiGCbzAlqw+Dr9XviiGCbz8o6o+v0lWviiGCbwCi6M+eTNGviiGCbzYAZo+R6EtviiGCbzurJE+zPUVviiGCbz4uo0+HY8NvgAyKbsZfJE+adIOvgAyKbuloZc+8MAcvgAyKbvC458+aAgyvgAyKbvqGqc+EohGvgAyKbuQhao+f2tSvgAyKbuf1ag+MyhRvgAyKbsTsKI+rDlDvgAyKbv2bZo+NPItvgAyKbvONpM+inIZvgAyKbsozI8+bhwcvnhJ2zpMa5Y+FtccvnhJ2zrJ95k+OOIkvnhJ2zpevJ4+UisxvnhJ2zrT5qI+DwE9vnhJ2zrO36Q+Lt5DvnhJ2zps5qM+hiNDvnhJ2zrvWaA+ZBg7vnhJ2zpalZs+Ss8uvnhJ2zrlapc+jfkivnhJ2zrqcZU+Tv0vvqC0UzvcKJ0+Tv0vvqC0UzvcKJ0+Tv0vvqC0UzvcKJ0+Tv0vvqC0UzvcKJ0+Tv0vvqC0UzvcKJ0+Tv0vvqC0UzvcKJ0+Tv0vvqC0UzvcKJ0+Tv0vvqC0UzvcKJ0+Tv0vvqC0UzvcKJ0+Tv0vvqC0UzvcKJ0+//+5s5ioO7LM0/9/nFojtt+7/3+RVdunLKv/fyZbzJtZjP9/xnPDhrkz/3+YqDuyAAAyrJxaI7YAAB/EkVXbpwAA0tQmW8ybAACl88Zzw4bNr4LjrRzf09mpEsAJQoPN66Mzs347acFmmbC05EJKt4iFnMYQRPGyg2Mx0O86ZLATQCXWkzQ8qDMzEtx4NSafsDSY5rgxQJqdRnX65CApnDeVWvNCDMHJ6ZQN4LohZsn0k1XVDii/xu2NsdZ0I6/CoYK25MwbUL5ac8fqMBdkuQ5gFetVFpGxVVUJ7LUYEquyVhDy0BQAqrdkXf09CDCw/3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/78=")
 }]
 
-[node name="tile_kit_detail" type="Node3D" unique_id=932980891]
+[node name="tile_kit_detail" type="Node3D" unique_id=1008917895]
 
-[node name="tile_clutter" type="MeshInstance3D" parent="." unique_id=1437204242]
+[node name="tile_clutter" type="MeshInstance3D" parent="." unique_id=820205546]
 cast_shadow = 0
 mesh = SubResource("ArrayMesh_g6k2d")

@@ -2,6 +2,6 @@
 
 [resource]
 resource_name = "tilekit_sand_patch"
-albedo_color = Color(0.7, 0.52, 0.31999996, 1)
+albedo_color = Color(0.690196, 0.588235, 0.41176504, 1)
 metallic_specular = 0.2
 roughness = 0.9

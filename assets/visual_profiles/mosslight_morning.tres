@@ -1,0 +1,64 @@
+[gd_resource type="Resource" script_class="VisualStyleProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/visual_style_profile.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+profile_id = "mosslight_morning"
+ambient_energy = 0.9
+ambient_gradient_enabled = true
+background_gradient = false
+stars_enabled = false
+sun_energy = 0.9
+sun_specular = 0.72
+sun_pitch_deg = -62.0
+sun_yaw_deg = -36.0
+shadow_max_distance = 100.0
+shadow_opacity = 0.76
+shadow_blur = 0.82
+sun_angular_distance = 0.0
+shadow_bias = 0.02
+shadow_normal_bias = 1.0
+shadow_cascade_mode = "orthogonal"
+shadow_blend_splits = false
+ssao_enabled = true
+ssao_intensity = 1.15
+ssao_radius = 0.4
+ssao_power = 1.15
+ssao_detail = 0.0
+ssao_horizon = 0.06
+ssao_sharpness = 0.96
+ssil_enabled = false
+ssr_enabled = false
+glow_enabled = true
+glow_intensity = 0.08
+glow_hdr_threshold = 1.55
+glow_bloom = 0.0
+exposure = 1.0
+tonemap = "linear"
+brightness = 1.0
+contrast = 1.0
+saturation = 1.0
+fog_enabled = false
+reflection_probe_enabled = false
+reflection_probe_update_always = false
+reflection_probe_shadows = false
+gg_pipeline_enabled = true
+grade_post_exposure_ev = 0.08
+grade_temperature = 2.0
+grade_tint = -2.0
+grade_saturation = 3.0
+grade_contrast = 18.0
+grade_tonemapper = "neutral"
+background_gg_gradient = true
+bg_sparkles_enabled = true
+min_light_intensity = 0.76
+sun_pitch_night_deg = -50.0
+ssao_light_affect = 0.72
+rain_enabled = false
+motes_enabled = true
+leaves_enabled = false
+snow_enabled = false
+blossoms_enabled = false
+spores_enabled = false
+local_light_multiplier = 0.58

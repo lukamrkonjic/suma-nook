@@ -2,6 +2,6 @@
 
 [resource]
 resource_name = "tilekit_grass_clay_side"
-albedo_color = Color(0.23, 0.31, 0.16, 1)
+albedo_color = Color(0.27451, 0.419608, 0.270588, 1)
 metallic_specular = 0.2
 roughness = 0.9

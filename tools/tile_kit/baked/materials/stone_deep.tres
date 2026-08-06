@@ -2,6 +2,6 @@
 
 [resource]
 resource_name = "tilekit_stone_deep"
-albedo_color = Color(0.34, 0.31, 0.25, 1)
+albedo_color = Color(0.466667, 0.458824, 0.388235, 1)
 metallic_specular = 0.2
 roughness = 0.9
