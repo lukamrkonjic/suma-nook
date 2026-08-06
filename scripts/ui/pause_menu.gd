@@ -275,6 +275,12 @@ func _build_settings_page() -> void:
 	list.add_child(_setting_row("Gentle bloom", "Softens bright fires and magical highlights.", bloom_check))
 
 	list.add_child(kit.section_label("Pixel look"))
+	var painterly_check := _check_button("Painterly Pixel Garden", preferences.painterly_pixel)
+	list.add_child(_setting_row(
+		"Painterly pixels",
+		"Outline-free colour clusters, cool shadows, and warm painted highlights.",
+		painterly_check
+	))
 	var pixel_option := OptionButton.new()
 	for option_label in GamePreferences.PIXEL_SIZE_OPTIONS:
 		pixel_option.add_item(String(option_label))
@@ -285,6 +291,12 @@ func _build_settings_page() -> void:
 	list.add_child(_setting_row("Pixel size", "Render the world in chunky retro pixels; menus stay crisp.", pixel_option))
 	var cel_check := _check_button("Cel colours", preferences.pixel_cel)
 	list.add_child(_setting_row("Cel colours", "Step shading into flat hand-painted bands.", cel_check))
+	pixel_option.disabled = preferences.painterly_pixel
+	cel_check.disabled = preferences.painterly_pixel
+	painterly_check.toggled.connect(func(enabled: bool):
+		pixel_option.disabled = enabled
+		cel_check.disabled = enabled
+	)
 
 	list.add_child(kit.section_label("Sound"))
 	var master_control := _volume_control(preferences.master_volume)
@@ -311,6 +323,7 @@ func _build_settings_page() -> void:
 		][aa_option.selected]
 		preferences.ssao = ssao_check.button_pressed
 		preferences.bloom = bloom_check.button_pressed
+		preferences.painterly_pixel = painterly_check.button_pressed
 		preferences.pixel_size = pixel_option.selected
 		preferences.pixel_cel = cel_check.button_pressed
 		preferences.master_volume = float(master_control["slider"].value)

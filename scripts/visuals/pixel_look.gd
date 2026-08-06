@@ -16,6 +16,7 @@ const PIXEL_SHADER := preload("res://assets/materials/reworked/pixel_present.gds
 ## "Pixel size" dropdown index (index 0 = off / crisp render).
 const PIXEL_LEVELS := [1, 2, 3, 4, 5, 6, 8]
 const CEL_STRENGTH := 0.85
+const PAINTERLY_PIXEL_SIZE := 4.0
 
 var _rect: ColorRect
 var _material: ShaderMaterial
@@ -41,12 +42,38 @@ func _ready() -> void:
 	visible = false
 
 
-## `level_index` follows the settings dropdown (0 = off); `cel` toggles the
-## HSV posterize treatment. With both off the pass hides entirely.
-func apply(level_index: int, cel: bool) -> void:
+## Painterly mode is the live default art-direction test. When disabled,
+## `level_index` and `cel` retain the older optional retro presentation.
+func apply(level_index: int, cel: bool, painterly := false) -> void:
 	if _material == null:
+		return
+	if painterly:
+		_apply_painterly()
 		return
 	var index := clampi(level_index, 0, PIXEL_LEVELS.size() - 1)
 	_material.set_shader_parameter("pixel_size", float(PIXEL_LEVELS[index]))
 	_material.set_shader_parameter("posterize_strength", CEL_STRENGTH if cel else 0.0)
+	_material.set_shader_parameter("contrast", 1.0)
+	_material.set_shader_parameter("saturation", 1.0)
+	_material.set_shader_parameter("brightness", 1.0)
+	_material.set_shader_parameter("value_steps", 10.0)
+	_material.set_shader_parameter("sat_steps", 7.0)
+	_material.set_shader_parameter("painterly_strength", 0.0)
+	_material.set_shader_parameter("dither_strength", 0.0)
 	visible = index > 0 or cel
+
+
+## Outline-free moving pixel painting: medium-size blocks retain silhouettes,
+## broad colour ramps replace smooth gradients, and extremely light ordered
+## breakup keeps large surfaces from reading as a flat posterize filter.
+func _apply_painterly() -> void:
+	_material.set_shader_parameter("pixel_size", PAINTERLY_PIXEL_SIZE)
+	_material.set_shader_parameter("posterize_strength", 0.76)
+	_material.set_shader_parameter("contrast", 1.0)
+	_material.set_shader_parameter("saturation", 1.08)
+	_material.set_shader_parameter("brightness", 1.055)
+	_material.set_shader_parameter("value_steps", 12.0)
+	_material.set_shader_parameter("sat_steps", 10.0)
+	_material.set_shader_parameter("painterly_strength", 1.0)
+	_material.set_shader_parameter("dither_strength", 0.025)
+	visible = true

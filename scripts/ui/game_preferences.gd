@@ -27,6 +27,7 @@ var bloom := true
 var master_volume := 0.63
 var music_volume := 0.4
 var tutorial_hints := true
+var painterly_pixel := true
 var pixel_size := 0
 var pixel_cel := false
 
@@ -41,6 +42,7 @@ func from_dict(data: Dictionary) -> void:
 	master_volume = clampf(float(data.get("master_volume", master_volume)), 0.0, 1.0)
 	music_volume = clampf(float(data.get("music_volume", music_volume)), 0.0, 1.0)
 	tutorial_hints = bool(data.get("tutorial_hints", tutorial_hints))
+	painterly_pixel = bool(data.get("painterly_pixel", painterly_pixel))
 	pixel_size = clampi(int(data.get("pixel_size", pixel_size)), 0, PIXEL_SIZE_OPTIONS.size() - 1)
 	pixel_cel = bool(data.get("pixel_cel", pixel_cel))
 
@@ -55,6 +57,7 @@ func to_dict() -> Dictionary:
 		"master_volume": master_volume,
 		"music_volume": music_volume,
 		"tutorial_hints": tutorial_hints,
+		"painterly_pixel": painterly_pixel,
 		"pixel_size": pixel_size,
 		"pixel_cel": pixel_cel,
 	}
@@ -90,6 +93,18 @@ func apply(
 		DisplayServer.window_set_vsync_mode(
 			DisplayServer.VSYNC_ENABLED if vsync else DisplayServer.VSYNC_DISABLED
 		)
+	_apply_anti_aliasing(viewport)
+	_set_bus_volume("Master", master_volume)
+	_set_bus_volume("Music", music_volume)
+	if lighting != null:
+		lighting.set_user_post_effects(ssao, bloom)
+	if hud != null:
+		hud.set_tutorial_enabled(tutorial_hints)
+	if pixel_look != null:
+		pixel_look.apply(pixel_size, pixel_cel, painterly_pixel)
+
+
+func _apply_anti_aliasing(viewport: Viewport) -> void:
 	match anti_aliasing:
 		AA_OFF:
 			viewport.msaa_3d = Viewport.MSAA_DISABLED
@@ -107,14 +122,6 @@ func apply(
 			# A single non-temporal FXAA pass cleans up residual shadow-map
 			# stipple without the motion trails or surface wash of TAA.
 			viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
-	_set_bus_volume("Master", master_volume)
-	_set_bus_volume("Music", music_volume)
-	if lighting != null:
-		lighting.set_user_post_effects(ssao, bloom)
-	if hud != null:
-		hud.set_tutorial_enabled(tutorial_hints)
-	if pixel_look != null:
-		pixel_look.apply(pixel_size, pixel_cel)
 
 
 func _set_bus_volume(bus_name: String, value: float) -> void:

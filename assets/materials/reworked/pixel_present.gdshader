@@ -19,6 +19,22 @@ uniform float saturation : hint_range(0.0, 2.0) = 1.0;
 uniform float brightness : hint_range(0.5, 1.5) = 1.0;
 uniform float value_steps : hint_range(2.0, 24.0) = 10.0;  // brightness bands
 uniform float sat_steps : hint_range(2.0, 16.0) = 7.0;     // saturation bands
+uniform float painterly_strength : hint_range(0.0, 1.0) = 0.0;
+uniform float dither_strength : hint_range(0.0, 1.0) = 0.0;
+
+// A restrained 2x2 ordered pattern, repeated per presented world-pixel.
+// Painterly mode uses it only near colour-ramp transitions; it must never
+// become the all-over checkerboard of the discarded handheld prototype.
+float bayer2(vec2 pixel_coord) {
+	vec2 p = mod(floor(pixel_coord), 2.0);
+	float rank = 0.0;
+	if (p.y < 0.5) {
+		rank = p.x < 0.5 ? 0.0 : 2.0;
+	} else {
+		rank = p.x < 0.5 ? 3.0 : 1.0;
+	}
+	return rank / 4.0 - 0.375;
+}
 
 // RGB<->HSV so we can quantize value/saturation while leaving hue continuous.
 vec3 rgb2hsv(vec3 c) {
@@ -60,10 +76,25 @@ void fragment() {
 	src.rgb *= brightness;
 	src.rgb = clamp(src.rgb, vec3(0.0), vec3(1.0));
 
-	// Posterize in HSV: keep hue, step value + saturation into flat bands.
+	// The painterly palette keeps material hues recognizable while moving
+	// shadows toward cool blue-green and sunlit planes toward warm cream.
+	// This replaces black outlines with colour contrast between adjacent forms.
+	float painted_luma = dot(src.rgb, vec3(0.299, 0.587, 0.114));
+	float shadow_weight = (1.0 - smoothstep(0.12, 0.62, painted_luma)) * painterly_strength;
+	float light_weight = smoothstep(0.58, 0.96, painted_luma) * painterly_strength;
+	vec3 cool_shadow = clamp(src.rgb * vec3(0.80, 0.93, 1.08), vec3(0.0), vec3(1.0));
+	vec3 warm_light = clamp(src.rgb * vec3(1.06, 1.01, 0.90) + vec3(0.018, 0.010, 0.0), vec3(0.0), vec3(1.0));
+	src.rgb = mix(src.rgb, cool_shadow, shadow_weight * 0.20);
+	src.rgb = mix(src.rgb, warm_light, light_weight * 0.24);
+
+	// Posterize value and saturation into broad painted clusters. Hue stays
+	// continuous so grass, stone, snow, fire, and water retain their identity.
 	vec3 hsv = rgb2hsv(src.rgb);
-	hsv.z = floor(hsv.z * value_steps + 0.5) / value_steps;
-	hsv.y = floor(hsv.y * sat_steps + 0.5) / sat_steps;
+	float ordered = bayer2(floor(FRAGCOORD.xy / block));
+	float value_dither = ordered * dither_strength / max(value_steps, 1.0);
+	float saturation_dither = ordered * dither_strength / max(sat_steps, 1.0);
+	hsv.z = floor(clamp(hsv.z + value_dither, 0.0, 1.0) * value_steps + 0.5) / value_steps;
+	hsv.y = floor(clamp(hsv.y + saturation_dither, 0.0, 1.0) * sat_steps + 0.5) / sat_steps;
 	vec3 quantized = hsv2rgb(hsv);
 	vec3 result = mix(src.rgb, quantized, posterize_strength);
 	// The math above runs in sRGB display space; the hdr_2d buffer this pass
