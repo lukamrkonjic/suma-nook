@@ -120,11 +120,12 @@ func _ready() -> void:
 
 	core = GameCore.new()
 	core.setup()
+	var showcase_world_requested := _showcase_world_requested()
 	var debug_world_tiles := _requested_debug_world_tiles()
 	var debug_world_models := _requested_debug_world_models(
 		debug_world_tiles
 	)
-	if debug_world_tiles > 0:
+	if debug_world_tiles > 0 or showcase_world_requested:
 		_isolate_debug_save()
 	if save_path_override != "":
 		core.save_manager.save_path = save_path_override
@@ -134,7 +135,15 @@ func _ready() -> void:
 	_build_ui()
 	_connect_flows()
 
-	if debug_world_tiles > 0:
+	if showcase_world_requested:
+		var showcase_profile := PlayerProfile.new()
+		showcase_profile.display_name = "Garden Keeper"
+		core.new_game(showcase_profile)
+		debug_build_showcase_world()
+		player_visual.apply_profile(core.profile)
+		player_visual.apply_equipment(core.equipment)
+		_start_gameplay(true)
+	elif debug_world_tiles > 0:
 		var debug_profile := PlayerProfile.new()
 		debug_profile.display_name = "Debug Keeper"
 		core.new_game(debug_profile)
@@ -534,6 +543,51 @@ const MOCK_WORLD_STRUCTURES := [
 	[Vector2i(5, 1), "struct_fishing_marker", 0],
 ]
 
+# A separate art-direction vignette for screenshots and visual review. Unlike
+# the mock/testing island above, this is deliberately composed as a lived-in
+# garden: shaded woodland, flowers, a wandering path, a pond and dock, garden
+# beds, a tiny paved court, and a warm plank porch share one organic island.
+const SHOWCASE_WORLD_ORIGIN := Vector2i(-4, -3)
+const SHOWCASE_WORLD_TILES := {
+	"G": "tile_grass",
+	"F": "tile_grass_flower",
+	"M": "tile_grove_mossy",
+	"P": "tile_path",
+	"W": "tile_open_water",
+	"S": "tile_sand",
+	"D": "tile_garden",
+	"C": "tile_cobblestone",
+	"B": "tile_wooden_planks",
+}
+const SHOWCASE_WORLD_ROWS := [
+	"..MMGGGG..",
+	".MMFGFGGG.",
+	"MGGPPGGGGG",
+	"GGGPPGGWWG",
+	"GGDPSGSWWG",
+	"GGDPSSGWWG",
+	".GCCPGGGG.",
+	"..GGBBGG..",
+]
+const SHOWCASE_WORLD_STRUCTURES := [
+	[Vector2i(-3, -3), "struct_pine_tall", 0],
+	[Vector2i(-2, -2), "struct_pine", 1],
+	[Vector2i(-1, -2), "struct_birdbath", 0],
+	[Vector2i(1, -2), "struct_planter", 1],
+	[Vector2i(-2, 0), "struct_wheelbarrow", 3],
+	[Vector2i(2, 0), "struct_bench", 2],
+	[Vector2i(3, 0), "struct_dock", 1],
+	[Vector2i(-2, 1), "struct_garden_trellis", 0],
+	[Vector2i(-3, 2), "struct_watering_can", 2],
+	[Vector2i(0, 2), "struct_lantern", 0],
+	[Vector2i(2, 2), "struct_campfire", 0],
+	[Vector2i(4, 2), "struct_log_pile", 1],
+	[Vector2i(-2, 3), "struct_stone_well", 0],
+	[Vector2i(0, 3), "struct_wooden_arch", 0],
+	[Vector2i(0, 4), "struct_barrel", 0],
+	[Vector2i(1, 4), "struct_pot", 0],
+]
+
 
 func debug_build_mock_world() -> int:
 	if not OS.is_debug_build():
@@ -559,6 +613,57 @@ func debug_build_mock_world() -> int:
 	player.global_position = core.grid.cell_to_world(Vector2i(-1, -1)) + Vector3(0, 0.05, 0)
 	core.autosave_soon()
 	return placed
+
+
+func debug_build_showcase_world() -> Dictionary:
+	if not OS.is_debug_build():
+		return {}
+	core.autosave_paused = true
+	if placement != null and placement.active:
+		placement.cancel_click()
+	core.grid.cells.clear()
+	core.grid.stacked_cells.clear()
+	core.grid.next_instance_id = 1
+	core.grid.home_cell = Vector2i.ZERO
+	core.landmarks.active.clear()
+	var tile_count := 0
+	for row_index in SHOWCASE_WORLD_ROWS.size():
+		var row: String = SHOWCASE_WORLD_ROWS[row_index]
+		for col in row.length():
+			var tile_id: String = SHOWCASE_WORLD_TILES.get(row[col], "")
+			if tile_id.is_empty():
+				continue
+			core.grid.place_tile(
+				SHOWCASE_WORLD_ORIGIN + Vector2i(col, row_index),
+				tile_id
+			)
+			tile_count += 1
+	var structure_count := 0
+	for spec in SHOWCASE_WORLD_STRUCTURES:
+		if core.grid.add_structure(
+			spec[0],
+			String(spec[1]),
+			_mock_socket(String(spec[1])),
+			int(spec[2])
+		) != null:
+			structure_count += 1
+	core.grid.rebuild_structure_index()
+	core._rebuild_resting_anchors()
+	core.profile.position = core.grid.cell_to_world(Vector2i(0, 1))
+	core.profile.facing = PI
+	renderer.rebuild_all()
+	player.global_position = core.profile.position + Vector3(0, 0.05, 0)
+	player.rotation.y = core.profile.facing
+	player.suspend_water_rescue()
+	player.cancel_click_command()
+	delivery_point._sync_to_dock()
+	hud._refresh_all()
+	hud.update_tutorial()
+	return {
+		"tiles": tile_count,
+		"models": structure_count,
+		"theme": "mosslight_garden",
+	}
 
 
 func debug_build_performance_world(
@@ -618,6 +723,10 @@ func _requested_debug_world_tiles() -> int:
 	return 0
 
 
+func _showcase_world_requested() -> bool:
+	return "--showcase-world" in OS.get_cmdline_user_args()
+
+
 func _requested_debug_world_models(tile_count: int) -> int:
 	if tile_count <= 0:
 		return DEBUG_WORLD_MODEL_COUNT
@@ -643,6 +752,13 @@ func _maxed_world_requested() -> bool:
 func _apply_debug_visual_overrides() -> void:
 	if not OS.is_debug_build():
 		return
+	if _showcase_world_requested():
+		# The showcase is a clean art-review scene. Keep its composition free of
+		# build outlines and onboarding chrome; H can restore the HUD at any time.
+		placement.set_active(false)
+		renderer.clear_structure_hover()
+		if not _hud_hidden:
+			toggle_all_hud()
 	for arg: String in OS.get_cmdline_user_args():
 		if arg.begins_with("--time-of-day="):
 			var requested_time := arg.trim_prefix("--time-of-day=")

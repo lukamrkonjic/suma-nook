@@ -64,16 +64,16 @@ func apply(level_index: int, cel: bool, painterly := false) -> void:
 
 
 ## Outline-free moving pixel painting: medium-size blocks retain silhouettes,
-## broad colour ramps replace smooth gradients, and extremely light ordered
-## breakup keeps large surfaces from reading as a flat posterize filter.
+## broad colour ramps replace smooth gradients, and a visible ordered weave
+## gives light, foliage, water, and broad ground planes a painted-pixel grain.
 func _apply_painterly() -> void:
 	_material.set_shader_parameter("pixel_size", PAINTERLY_PIXEL_SIZE)
-	_material.set_shader_parameter("posterize_strength", 0.76)
-	_material.set_shader_parameter("contrast", 1.0)
-	_material.set_shader_parameter("saturation", 1.08)
-	_material.set_shader_parameter("brightness", 1.055)
-	_material.set_shader_parameter("value_steps", 12.0)
-	_material.set_shader_parameter("sat_steps", 10.0)
+	_material.set_shader_parameter("posterize_strength", 0.90)
+	_material.set_shader_parameter("contrast", 1.04)
+	_material.set_shader_parameter("saturation", 1.05)
+	_material.set_shader_parameter("brightness", 1.05)
+	_material.set_shader_parameter("value_steps", 9.0)
+	_material.set_shader_parameter("sat_steps", 7.0)
 	_material.set_shader_parameter("painterly_strength", 1.0)
-	_material.set_shader_parameter("dither_strength", 0.025)
+	_material.set_shader_parameter("dither_strength", 0.16)
 	visible = true
