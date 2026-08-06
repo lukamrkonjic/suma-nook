@@ -9,6 +9,9 @@ extends RefCounted
 const GRID_FIT_MARGIN := 0.02
 const AmbientMotionScript := preload("res://scripts/visuals/ambient_motion.gd")
 const BurningEffectScript := preload("res://scripts/visuals/burning_effect_3d.gd")
+const BerryGrowthVisualScript := preload(
+	"res://scripts/features/harvesting/presentation/berry_growth_visual.gd"
+)
 
 var assets: AssetLibrary
 var grid: WorldGrid
@@ -22,7 +25,8 @@ func _init(asset_library: AssetLibrary, world_grid: WorldGrid) -> void:
 
 func instantiate_visual(
 	definition: Defs.StructureDefinition,
-	include_effects := true
+	include_effects := true,
+	visual_seed := 0
 ) -> Node3D:
 	var visual := Node3D.new()
 	if definition == null:
@@ -33,6 +37,7 @@ func instantiate_visual(
 	authored.name = "AuthoredVisual"
 	visual.add_child(authored)
 	_prepare_authored_visual(authored, definition)
+	_attach_harvest_presentation(visual, definition, visual_seed)
 	if definition.has_capability("fire"):
 		_hide_authored_fire(authored, definition.capability("fire"))
 		if include_effects:
@@ -43,6 +48,46 @@ func instantiate_visual(
 		visual.add_child(motion)
 		motion.configure(authored, definition.capability("ambient_motion"))
 	return visual
+
+
+func _attach_harvest_presentation(
+	visual: Node3D,
+	definition: Defs.StructureDefinition,
+	visual_seed: int
+) -> void:
+	if not definition.has_capability("harvest_source"):
+		return
+	var profile_id := String(
+		definition.capability("harvest_source").get("profile_id", "")
+	)
+	var profile := grid.registries.harvest_profile(profile_id)
+	if profile == null or profile.presentation_profile != "berry_cluster":
+		return
+	var bounds_data := local_mesh_bounds(visual)
+	if not bool(bounds_data.get("found", false)):
+		return
+	var growth := BerryGrowthVisualScript.new()
+	growth.name = "HarvestYieldVisual"
+	visual.add_child(growth)
+	growth.configure(
+		assets.materials,
+		profile.presentation_settings,
+		visual_seed if visual_seed != 0 else hash(definition.id),
+		bounds_data["bounds"]
+	)
+
+
+func sync_harvest_visual(
+	visual: Node3D,
+	definition: Defs.StructureDefinition,
+	state: String,
+	animate := true
+) -> void:
+	if visual == null or definition == null:
+		return
+	var yield_visual := visual.find_child("HarvestYieldVisual", true, false)
+	if yield_visual != null and yield_visual.has_method("set_harvest_state"):
+		yield_visual.call("set_harvest_state", state, animate)
 
 
 func instantiate_fire_effect(
@@ -75,16 +120,21 @@ func _hide_authored_fire(authored: Node3D, profile: Dictionary) -> void:
 			(old_flame as Node3D).visible = false
 
 
-func batch_mesh(definition: Defs.StructureDefinition) -> ArrayMesh:
+func batch_mesh(
+	definition: Defs.StructureDefinition,
+	harvest_state := "ready"
+) -> ArrayMesh:
 	if definition == null:
 		return null
-	if _batch_mesh_cache.has(definition.id):
-		return _batch_mesh_cache[definition.id]
+	var cache_key := "%s|%s" % [definition.id, harvest_state]
+	if _batch_mesh_cache.has(cache_key):
+		return _batch_mesh_cache[cache_key]
 	var visual := instantiate_visual(definition, false)
+	sync_harvest_visual(visual, definition, harvest_state, false)
 	var combined := assets.flatten_static_visual(visual, definition.id)
 	visual.free()
 	if combined != null:
-		_batch_mesh_cache[definition.id] = combined
+		_batch_mesh_cache[cache_key] = combined
 	return combined
 
 
@@ -156,6 +206,11 @@ static func _collect_mesh_bounds(
 	parent_transform: Transform3D,
 	points: Array[Vector3]
 ) -> void:
+	if (
+		parent.has_meta("exclude_from_structural_bounds")
+		and bool(parent.get_meta("exclude_from_structural_bounds"))
+	):
+		return
 	if parent is MeshInstance3D:
 		var parent_mesh := parent as MeshInstance3D
 		if parent_mesh.mesh != null:

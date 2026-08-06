@@ -41,6 +41,12 @@ var landmarks: Dictionary = {}
 var fishing_loot: Dictionary = {}
 var spirits: Dictionary = {}
 var keepsakes: Dictionary = {}
+var reward_pools: Dictionary = {}
+var reward_roll_policies: Dictionary = {}
+var reward_reveal_profiles: Dictionary = {}
+var harvest_profiles: Dictionary = {}
+var visitor_presentations: Dictionary = {}
+var visitor_programs: Dictionary = {}
 var fishing_balance: Dictionary = {}
 var load_issues: Array = []
 var load_errors: PackedStringArray = []
@@ -120,6 +126,35 @@ func load_all(base_path := "res://data", report_issues := true) -> bool:
 	_load_list(
 		candidate, base_path + "/fishing_keepsakes.json", "keepsakes", "keepsakes",
 		candidate.keepsakes, Defs.KeepsakeDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/reward_pools.json", "reward_pools", "reward_pools",
+		candidate.reward_pools, Defs.RewardPoolDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/reward_roll_policies.json", "reward_roll_policies",
+		"reward_roll_policies", candidate.reward_roll_policies,
+		Defs.RewardRollPolicyDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/reward_reveal_profiles.json", "reward_reveal_profiles",
+		"reward_reveal_profiles", candidate.reward_reveal_profiles,
+		Defs.RewardRevealProfileDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/harvest_profiles.json", "harvest_profiles",
+		"harvest_profiles", candidate.harvest_profiles,
+		Defs.HarvestProfileDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/visitor_presentations.json", "visitor_presentations",
+		"visitor_presentations", candidate.visitor_presentations,
+		Defs.VisitorPresentationDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/visitor_programs.json", "visitor_programs",
+		"visitor_programs", candidate.visitor_programs,
+		Defs.VisitorProgramDefinition.from_dict, issues
 	)
 	candidate.fishing_balance = _read_object(
 		base_path + "/fishing_balance.json", issues
@@ -220,6 +255,12 @@ func landmark(id: String) -> Defs.LandmarkDefinition: return landmarks.get(id)
 func fishing_loot_definition(id: String) -> Defs.FishingLootDefinition: return fishing_loot.get(id)
 func spirit(id: String) -> Defs.SpiritDefinition: return spirits.get(id)
 func keepsake(id: String) -> Defs.KeepsakeDefinition: return keepsakes.get(id)
+func reward_pool(id: String) -> Defs.RewardPoolDefinition: return reward_pools.get(id)
+func reward_roll_policy(id: String) -> Defs.RewardRollPolicyDefinition: return reward_roll_policies.get(id)
+func reward_reveal_profile(id: String) -> Defs.RewardRevealProfileDefinition: return reward_reveal_profiles.get(id)
+func harvest_profile(id: String) -> Defs.HarvestProfileDefinition: return harvest_profiles.get(id)
+func visitor_presentation(id: String) -> Defs.VisitorPresentationDefinition: return visitor_presentations.get(id)
+func visitor_program(id: String) -> Defs.VisitorProgramDefinition: return visitor_programs.get(id)
 
 
 func has_definition(kind: String, id: String) -> bool:
@@ -406,6 +447,12 @@ func _adopt(candidate) -> void:
 	fishing_loot = candidate.fishing_loot
 	spirits = candidate.spirits
 	keepsakes = candidate.keepsakes
+	reward_pools = candidate.reward_pools
+	reward_roll_policies = candidate.reward_roll_policies
+	reward_reveal_profiles = candidate.reward_reveal_profiles
+	harvest_profiles = candidate.harvest_profiles
+	visitor_presentations = candidate.visitor_presentations
+	visitor_programs = candidate.visitor_programs
 	fishing_balance = candidate.fishing_balance
 
 

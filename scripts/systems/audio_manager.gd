@@ -4,6 +4,8 @@ extends Node
 ## pitch/volume variation, and routes to the right bus. Gameplay scripts never
 ## touch AudioStreamPlayer nodes or NodePaths — they emit event names.
 
+signal event_played(event_name: String)
+
 const DIR := "res://audio/generated/"
 const POOL_SIZE := 10
 
@@ -132,6 +134,7 @@ func play_event(
 		1.0 + randf_range(-pitch_var, pitch_var)
 	)
 	player.play()
+	event_played.emit(event)
 
 
 func _load_stream(file: String) -> AudioStream:

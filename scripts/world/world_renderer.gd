@@ -336,7 +336,12 @@ func _build_structure(holder: Node3D, s: WorldGrid.StructureState) -> void:
 	var def := core.registries.structure(s.structure_id)
 	if def == null:
 		return
-	var visual: Node3D = _structure_visual_factory.instantiate_visual(def)
+	var harvest_runtime: Dictionary = s.runtime_state.get("harvest", {})
+	var visual: Node3D = _structure_visual_factory.instantiate_visual(
+		def,
+		true,
+		int(harvest_runtime.get("visual_seed", s.instance_id))
+	)
 	visual.name = "struct_%d" % s.instance_id
 	# All visuals stay siblings under the tile holder so selecting a jar does
 	# not outline its stool (or vice versa). The persistent support graph is
@@ -345,10 +350,17 @@ func _build_structure(holder: Node3D, s: WorldGrid.StructureState) -> void:
 	holder.add_child(visual)
 	visual.set_meta("instance_id", s.instance_id)
 	_structure_nodes[s.instance_id] = visual
-	if def.anchor_id != "" and s.anchor_resting:
+	if def.has_capability("harvest_source"):
+		_structure_visual_factory.sync_harvest_visual(
+			visual,
+			def,
+			String(harvest_runtime.get("state", "maturing")),
+			false
+		)
+		visual.scale = Vector3.ONE * _harvest_visual_scale(s)
+	elif def.anchor_id != "" and s.anchor_resting:
 		visual.scale = Vector3.ONE * core.registries.tunef(
-			"grove_rest_visual_scale",
-			0.82
+			"grove_rest_visual_scale", 0.82
 		)
 	if def.collision_profile == "walkable_surface":
 		_align_walkable_surface(visual)
@@ -750,6 +762,44 @@ func refresh_structure_anchor(instance_id: int, animate := true) -> void:
 	tween.tween_property(visual, "scale", target_scale, REST_TWEEN_SECONDS).set_trans(
 		Tween.TRANS_BACK
 	).set_ease(Tween.EASE_OUT)
+
+
+func refresh_structure_harvest(instance_id: int, animate := true) -> void:
+	var found := core.grid.find_structure(instance_id)
+	var visual := structure_node(instance_id)
+	if found.is_empty() or visual == null:
+		return
+	var structure: WorldGrid.StructureState = found["structure"]
+	var definition := core.registries.structure(structure.structure_id)
+	var runtime: Dictionary = structure.runtime_state.get("harvest", {})
+	_structure_visual_factory.sync_harvest_visual(
+		visual,
+		definition,
+		String(runtime.get("state", "maturing")),
+		animate
+	)
+	var target := Vector3.ONE * _harvest_visual_scale(structure)
+	if not animate:
+		visual.scale = target
+		return
+	var tween := visual.create_tween()
+	tween.tween_property(visual, "scale", target, 0.46).set_trans(
+		Tween.TRANS_BACK
+	).set_ease(Tween.EASE_OUT)
+
+
+func _harvest_visual_scale(structure: WorldGrid.StructureState) -> float:
+	var runtime: Dictionary = structure.runtime_state.get("harvest", {})
+	var profile: Defs.HarvestProfileDefinition = (
+		core.harvesting.profile_for_structure(structure)
+	)
+	if profile != null and profile.presentation_profile == "berry_cluster":
+		# Fruit changes state; the replaceable host model remains fully grown.
+		return 1.0
+	match String(runtime.get("state", "maturing")):
+		"ready": return 1.0
+		"regrowing": return 0.28
+		_: return 0.72
 
 
 func tile_node(coord: Vector2i, elevation: int = -1) -> Node3D:

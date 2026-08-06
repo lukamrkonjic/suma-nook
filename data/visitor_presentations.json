@@ -1,0 +1,14 @@
+{
+  "visitor_presentations": [
+    {"id": "visitor_bamboo_bun", "name": "Bamboo Bun", "presenter_type": "sdf_creature", "resource_path": "res://data/creatures/bamboo_bun.json", "weight": 1.0, "scale": 0.85, "shine_color": "#FFE9A6"},
+    {"id": "visitor_bramble_bear", "name": "Bramble Bear", "presenter_type": "sdf_creature", "resource_path": "res://data/creatures/bramble_bear.json", "weight": 0.7, "scale": 0.75, "shine_color": "#DDF2AD"},
+    {"id": "visitor_clover_hop", "name": "Clover Hop", "presenter_type": "sdf_creature", "resource_path": "res://data/creatures/clover_hop.json", "weight": 1.2, "scale": 0.9, "shine_color": "#EAF7AF"},
+    {"id": "visitor_dawn_fawn", "name": "Dawn Fawn", "presenter_type": "sdf_creature", "resource_path": "res://data/creatures/dawn_fawn.json", "weight": 0.8, "scale": 0.75, "shine_color": "#FFD7B3"},
+    {"id": "visitor_lily_hop", "name": "Lily Hop", "presenter_type": "sdf_creature", "resource_path": "res://data/creatures/lily_hop.json", "weight": 1.1, "scale": 0.9, "shine_color": "#CDEFC7"},
+    {"id": "visitor_meadow_pup", "name": "Meadow Pup", "presenter_type": "sdf_creature", "resource_path": "res://data/creatures/meadow_pup.json", "weight": 1.0, "scale": 0.8, "shine_color": "#FFF0B8"},
+    {"id": "visitor_pip_chick", "name": "Pip Chick", "presenter_type": "sdf_creature", "resource_path": "res://data/creatures/pip_chick.json", "weight": 1.2, "scale": 0.95, "shine_color": "#FFF19C"},
+    {"id": "visitor_puddle_duck", "name": "Puddle Duck", "presenter_type": "sdf_creature", "resource_path": "res://data/creatures/puddle_duck.json", "weight": 1.0, "scale": 0.88, "shine_color": "#C6EEF1"},
+    {"id": "visitor_shroomling", "name": "Shroomling", "presenter_type": "sdf_creature", "resource_path": "res://data/creatures/shroomling.json", "weight": 0.8, "scale": 0.9, "shine_color": "#FFD1C9"},
+    {"id": "visitor_thimble_mouse", "name": "Thimble Mouse", "presenter_type": "sdf_creature", "resource_path": "res://data/creatures/thimble_mouse.json", "weight": 1.1, "scale": 1.0, "shine_color": "#F4E4C1"}
+  ]
+}

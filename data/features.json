@@ -7,5 +7,7 @@
   "void_clouds_enabled": false,
   "procedural_critter_player_enabled": true,
   "procedural_owl_mascot_enabled": false,
-  "debug_creature_parade_enabled": false
+  "debug_creature_parade_enabled": false,
+  "harvesting_enabled": true,
+  "visitor_events_enabled": true
 }

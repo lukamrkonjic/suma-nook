@@ -23,6 +23,27 @@ const ProceduralOwlMascotScript := preload(
 const DebugCreatureParadeScript := preload(
 	"res://scripts/debug/creature_parade.gd"
 )
+const HarvestPresentationAdapterScript := preload(
+	"res://scripts/features/harvesting/presentation/harvest_presentation_adapter.gd"
+)
+const WorldBudRewardPresenterScript := preload(
+	"res://scripts/features/rewards/presentation/world_bud_reward_presenter.gd"
+)
+const RewardRevealPresenterRegistryScript := preload(
+	"res://scripts/features/rewards/presentation/reward_reveal_presenter_registry.gd"
+)
+const RewardRevealSceneAdapterScript := preload(
+	"res://scripts/features/rewards/presentation/reward_reveal_scene_adapter.gd"
+)
+const VisitorSceneAdapterScript := preload(
+	"res://scripts/features/visitors/presentation/visitor_scene_adapter.gd"
+)
+const VisitorPresenterRegistryScript := preload(
+	"res://scripts/features/visitors/presentation/visitor_presenter_registry.gd"
+)
+const SdfCreatureVisitorPresenterScript := preload(
+	"res://scripts/features/visitors/presentation/sdf_creature_visitor_presenter.gd"
+)
 const DEBUG_WORLD_TILE_COUNT := 5000
 const DEBUG_WORLD_MODEL_COUNT := 1250
 const MAXED_WORLD_TILE_COUNT := 10000
@@ -51,6 +72,11 @@ var pigeon_controller: PigeonMascotController
 var camera_rig: CameraRig
 var placement: PlacementController
 var skill_actions: SkillActions
+var harvest_presentation: Node
+var reward_reveal: RewardRevealSceneAdapter
+var reward_reveal_presenter_registry: RewardRevealPresenterRegistry
+var visitor_scene: Node3D
+var visitor_presenter_registry: RefCounted
 var hud: Hud
 var pixel_look: PixelLook
 const LightingTunerScript := preload("res://scripts/ui/lighting_tuner.gd")
@@ -119,13 +145,17 @@ func _ready() -> void:
 		player_visual.apply_equipment(core.equipment)
 		_start_gameplay(true)
 	elif core.save_manager.has_save() and core.load_game():
-		if core.onboarding.stage == OnboardingState.LAND_CHOICE:
-			_begin_first_arrival()
-		else:
-			_start_gameplay(false)
-			call_deferred("_resume_guided_onboarding")
+		_start_gameplay(false)
+		call_deferred("_resume_guided_onboarding")
 	else:
-		_start_character_creation()
+		var opening_profile := PlayerProfile.new()
+		opening_profile.display_name = "Keeper"
+		core.begin_build_onboarding(opening_profile)
+		renderer.rebuild_all()
+		player_visual.apply_profile(core.profile)
+		player_visual.apply_equipment(core.equipment)
+		_start_gameplay(true, false)
+		call_deferred("_resume_guided_onboarding")
 	_apply_debug_visual_overrides()
 	_schedule_debug_capture()
 
@@ -153,6 +183,9 @@ func _build_world_scene() -> void:
 	effects.name = "Effects"
 	world_root.add_child(effects)
 	effects.setup(assets)
+	harvest_presentation = HarvestPresentationAdapterScript.new()
+	harvest_presentation.name = "HarvestPresentation"
+	add_child(harvest_presentation)
 
 	delivery_point = DeliveryPoint.new()
 	world_root.add_child(delivery_point)
@@ -232,6 +265,35 @@ func _build_world_scene() -> void:
 	add_child(audio)
 
 	renderer.setup(core, assets)
+	harvest_presentation.call("setup", core.harvesting, renderer, effects, audio)
+	reward_reveal_presenter_registry = RewardRevealPresenterRegistryScript.new()
+	reward_reveal_presenter_registry.register(
+		"world_bud",
+		func(): return WorldBudRewardPresenterScript.new() as Node3D
+	)
+	reward_reveal = RewardRevealSceneAdapterScript.new()
+	reward_reveal.name = "WorldBudRewards"
+	world_root.add_child(reward_reveal)
+	reward_reveal.setup(
+		core.registries,
+		reward_reveal_presenter_registry,
+		assets,
+		core.grid,
+		camera_rig.camera,
+		audio
+	)
+	visitor_presenter_registry = VisitorPresenterRegistryScript.new()
+	visitor_presenter_registry.call(
+		"register", "sdf_creature",
+		func(): return SdfCreatureVisitorPresenterScript.new() as Node3D
+	)
+	visitor_scene = VisitorSceneAdapterScript.new() as Node3D
+	visitor_scene.name = "VisitorScene"
+	world_root.add_child(visitor_scene)
+	visitor_scene.call(
+		"setup", core.visitors, core.registries, core.grid,
+		visitor_presenter_registry
+	)
 	player.setup(core, camera_rig, player_visual)
 	pigeon_mascot = PIGEON_MASCOT_SCENE.instantiate() as CharacterBody3D
 	pigeon_mascot.name = "PigeonMascot"
@@ -727,6 +789,22 @@ func _connect_flows() -> void:
 	core.arrivals.arrival_requested.connect(_on_arrival_requested)
 	core.arrivals.delivery_ready.connect(_on_delivery_ready)
 	core.arrivals.delivery_resolved.connect(func(): delivery_point.hide_package())
+	core.onboarding_guidance_ready.connect(func(_kind, _content_id):
+		call_deferred("_resume_guided_onboarding")
+	)
+	core.onboarding.stage_changed.connect(_on_onboarding_stage_changed)
+	harvest_presentation.connect("feedback", _on_harvest_feedback)
+	reward_reveal.reveal_started.connect(func(_reward):
+		_refresh_controller_hints()
+	)
+	reward_reveal.reveal_finished.connect(func(_reward):
+		_refresh_controller_hints()
+	)
+	visitor_scene.connect("reward_presented", _on_visitor_reward_presented)
+	core.visitors.visitor_available.connect(func(_event):
+		hud.toast("A curious visitor has arrived.", "rare")
+		audio.play_event("parcel_appear")
+	)
 	if ferry_presentation != null:
 		ferry_presentation.arrival_started.connect(_on_presentation_arrival_started)
 		ferry_presentation.delivery_ready.connect(_on_presentation_delivery_ready)
@@ -804,11 +882,9 @@ func _begin_first_arrival() -> void:
 
 
 func _open_first_land_picker() -> void:
-	if core.onboarding.stage != OnboardingState.LAND_CHOICE:
-		return
-	arrival_picker.open(_starter_land_option_ids())
-	_refresh_controller_hints()
-	get_tree().paused = true
+	# Retained as a disconnected compatibility hook for the archived portal
+	# presentation. The current opening starts directly in Shape Land.
+	return
 
 
 func _on_first_land_chosen(tile_id: String) -> void:
@@ -855,11 +931,13 @@ func _start_gameplay(fresh: bool, show_welcome := true) -> void:
 	# dock every session and only receives a world body after a valid drag/drop.
 	placement.set_active(true)
 	player.dock_for_placement()
+	hud.set_player_dock_visible(not core.onboarding.is_active())
 	player_drop_preview.visible = false
 	hud.update_tutorial()
 	if show_welcome:
 		hud.toast("Welcome%s, %s." % ["" if fresh else " back", core.profile.display_name], "good")
 	core.arrivals.announce_restored_delivery()
+	visitor_scene.call("sync_from_module")
 	_refresh_controller_hints()
 	if player.deployed and is_instance_valid(pigeon_controller):
 		pigeon_controller.spawn_near_player()
@@ -887,7 +965,12 @@ func _advance_guided_onboarding() -> void:
 	if kind != "" and content_id != "":
 		placement.hold_new(kind, content_id)
 	else:
-		placement.set_active(false)
+		# Guided rewards are bundles. The lesson places one copy; remaining
+		# copies stay safely in stock instead of trapping the player in a
+		# continuous-placement preview after the stage has advanced.
+		if not placement.held.is_empty():
+			placement.cancel_click()
+		placement.set_active(true)
 	hud.update_tutorial()
 
 
@@ -1039,6 +1122,20 @@ func _on_anchor_regenerated(
 # ------------------------------------------------------------------ input routing
 
 func _input(event: InputEvent) -> void:
+	# Pause is global and must run before a focused Build Bag control can
+	# consume Escape as contextual cancel. The open PauseMenu owns the same
+	# action while the tree is paused and closes itself.
+	if (
+		_gameplay_started
+		and event is InputEventKey
+		and event.is_action_pressed("pause")
+		and not pause_menu.is_open()
+		and not discovery_reveal.is_open()
+		and (asset_viewer == null or not asset_viewer.is_open())
+	):
+		open_pause_menu()
+		get_viewport().set_input_as_handled()
+		return
 	if not event is InputEventMouseButton:
 		return
 	var mouse := event as InputEventMouseButton
@@ -1102,13 +1199,21 @@ func _unhandled_input(event: InputEvent) -> void:
 		_handle_controller_build_input(event)
 		return
 	if event.is_action_pressed("build_mode"):
-		# Shape Land is no longer a toggle. The keyboard B binding is retired;
-		# keep this guard for migrated custom InputMaps and consume it harmlessly.
+		if hud.build_library_collapsed():
+			hud.request_build_library_open()
+		else:
+			hud.set_build_library_expanded(false)
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("rotate_piece") and placement.active:
 		placement.rotate_held()
 		audio.play_event("build_rotate")
+	elif (
+		event.is_action_pressed("move_piece")
+		and placement.active
+		and placement.held.is_empty()
+	):
+		placement.pick_up_under_pointer()
 	elif (
 		event.is_action_pressed("undo")
 		and not _is_controller_event(event)
@@ -1176,14 +1281,21 @@ func _unhandled_input(event: InputEvent) -> void:
 		if mouse.button_index == MOUSE_BUTTON_LEFT:
 			if placement.active:
 				if mouse.pressed:
-					placement.pointer_press(mouse.position)
+					if (
+						not placement.held.is_empty()
+						or not _try_build_world_action_at_screen(mouse.position)
+					):
+						placement.pointer_press(mouse.position)
 				else:
 					placement.pointer_release(mouse.position)
 			elif mouse.pressed:
 				_handle_world_click(mouse.position)
 		elif mouse.button_index == MOUSE_BUTTON_RIGHT and mouse.pressed:
 			if placement.active:
-				_cancel_build_or_open_library()
+				if placement.held.is_empty():
+					placement.pick_up_under_pointer()
+				else:
+					_cancel_build_or_open_library()
 	elif event is InputEventMouseMotion and placement.active:
 		placement.pointer_motion((event as InputEventMouseMotion).position)
 	elif event.is_action_pressed("store_piece") and placement.active:
@@ -1229,7 +1341,18 @@ func _handle_controller_build_input(event: InputEvent) -> void:
 		event.is_action_pressed("build_confirm")
 		and placement.controller_cursor_active()
 	):
-		placement.click()
+		if (
+			not placement.held.is_empty()
+			or not _try_build_world_action_at_cell(
+				placement.controller_cursor_cell()
+			)
+		):
+			placement.click()
+	elif event.is_action_pressed("move_piece") and placement.held.is_empty():
+		placement.pick_up_at(
+			placement.controller_cursor_cell(),
+			core.grid.top_elevation(placement.controller_cursor_cell())
+		)
 	elif event.is_action_pressed("rotate_piece"):
 		placement.rotate_held()
 		audio.play_event("build_rotate")
@@ -1381,6 +1504,7 @@ func _refresh_controller_hints() -> void:
 		if not placement.held.is_empty():
 			actions = [
 				{"action": &"build_cursor_up", "label": "Move cursor"},
+				{"action": &"camera_pan_up", "label": "Pan camera"},
 				{"action": &"build_confirm", "label": "Place"},
 				{"action": &"rotate_piece", "label": "Rotate"},
 				{"action": &"cancel", "label": "Cancel"},
@@ -1393,7 +1517,9 @@ func _refresh_controller_hints() -> void:
 		elif placement.controller_cursor_active():
 			actions = [
 				{"action": &"build_cursor_up", "label": "Move cursor"},
-				{"action": &"build_confirm", "label": "Pick up"},
+				{"action": &"camera_pan_up", "label": "Pan camera"},
+				{"action": &"build_confirm", "label": "Interact"},
+				{"action": &"move_piece", "label": "Move piece"},
 				{"action": &"build_mode", "label": "Library"},
 				{"action": &"cancel", "label": "Exit"},
 			]
@@ -1412,6 +1538,17 @@ func _refresh_controller_hints() -> void:
 		]
 		if not player.focus().is_empty():
 			actions.insert(1, {"action": &"interact", "label": "Interact"})
+	var has_interact_prompt := false
+	for action: Dictionary in actions:
+		if action.get("action", &"") == &"interact":
+			has_interact_prompt = true
+			break
+	if (
+		reward_reveal != null
+		and reward_reveal.is_revealing()
+		and not has_interact_prompt
+	):
+		actions.push_front({"action": &"interact", "label": "Hurry reward"})
 	input_hints.set_context(actions)
 
 
@@ -1430,6 +1567,42 @@ func _handle_world_click(screen_position: Vector2) -> void:
 	if player.state != PlayerController.State.FREE:
 		player.set_state(PlayerController.State.FREE)
 	player.set_click_command(destination, interaction)
+
+
+func _try_build_world_action_at_screen(screen_position: Vector2) -> bool:
+	var visitor: Dictionary = visitor_scene.call(
+		"event_at_screen", camera_rig.camera, screen_position
+	)
+	if not visitor.is_empty():
+		return bool(visitor_scene.call("interact", int(visitor["event_id"])))
+	var hit := renderer.pick_structure_at_screen(camera_rig.camera, screen_position)
+	return (
+		_try_harvest_instance(int(hit.get("instance_id", 0)))
+		if not hit.is_empty() else false
+	)
+
+
+func _try_build_world_action_at_cell(cell: Vector2i) -> bool:
+	var visitor: Dictionary = visitor_scene.call("event_at_cell", cell)
+	if not visitor.is_empty():
+		return bool(visitor_scene.call("interact", int(visitor["event_id"])))
+	return _try_harvest_instance(placement.controller_target_instance_id())
+
+
+func _try_harvest_instance(instance_id: int) -> bool:
+	if instance_id <= 0 or not bool(core.harvesting.call("can_harvest", instance_id)):
+		return false
+	var result: Dictionary = harvest_presentation.call(
+		"request_hit", instance_id, "player"
+	)
+	if not bool(result.get("accepted", false)):
+		var reason := String(result.get("reason", ""))
+		if reason in ["maturing", "regrowing"]:
+			hud.toast(
+				"Growing — ready in %d seconds." % ceili(float(result.get("remaining", 0.0))),
+				"common"
+			)
+	return true
 
 
 func _interaction_at_screen(screen_position: Vector2) -> Dictionary:
@@ -1464,6 +1637,52 @@ func _on_action_feedback(kind: String, data: Dictionary) -> void:
 				renderer.refresh_anchor(data["coord"])
 		"tool_equip":
 			audio.play_event("tool_equip")
+
+
+func _on_harvest_feedback(kind: String, data: Dictionary) -> void:
+	match kind:
+		"final":
+			if String(data.get("presentation", "clay_tree")) == "clay_tree":
+				audio.play_event("grove_rest")
+			var reward: Dictionary = data.get("reward", {})
+			if not reward.is_empty():
+				var visual := renderer.structure_node(int(data.get("instance_id", 0)))
+				var source_position := (
+					visual.global_position
+					if visual != null else Vector3.ZERO
+				)
+				reward_reveal.enqueue(
+					reward,
+					source_position,
+					String(data.get("reveal_profile_id", ""))
+				)
+		"ready":
+			audio.play_event("leaf_rustle")
+			if core.onboarding.stage == OnboardingState.HARVEST_TREE:
+				hud.toast("Your tree is ready.", "good")
+	hud.update_tutorial()
+
+
+func _on_visitor_reward_presented(reward: Dictionary) -> void:
+	var name: String = core.build_rewards.call("display_name", reward)
+	audio.play_event(
+		"reward_rare" if String(reward.get("rarity", "common")) == "rare"
+		else "reward_common"
+	)
+	hud.toast(
+		"%d × %s dropped into your Build Library."
+		% [int(reward.get("amount", 1)), name],
+		"rare"
+	)
+	hud.update_tutorial()
+
+
+func _on_onboarding_stage_changed(_stage: String) -> void:
+	if hud == null:
+		return
+	hud.set_player_dock_visible(not core.onboarding.is_active())
+	hud.update_tutorial()
+	_refresh_controller_hints()
 
 
 func _on_milestone_reached(_milestone_id: String, _rewards: Array) -> void:

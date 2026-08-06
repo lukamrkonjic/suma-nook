@@ -260,29 +260,29 @@ func library_visual_item_button(
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(name_label)
 
-	var badge: PanelContainer
-	if count > 1:
-		badge = PanelContainer.new()
-		badge.name = "CountBadge"
-		badge.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-		badge.position = Vector2(-9, 9)
-		badge.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-		var badge_style := StyleBoxFlat.new()
-		badge_style.bg_color = palette.color("ui_good").darkened(0.08)
-		badge_style.set_corner_radius_all(12)
-		badge_style.content_margin_left = 8
-		badge_style.content_margin_right = 8
-		badge_style.content_margin_top = 4
-		badge_style.content_margin_bottom = 4
-		badge_style.shadow_color = palette.color("ui_badge_shadow")
-		badge_style.shadow_size = 3
-		badge_style.shadow_offset = Vector2(0, 2)
-		badge.add_theme_stylebox_override("panel", badge_style)
-		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var count_label := label("×%d" % count, 13, true, true)
-		count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		badge.add_child(count_label)
-		button.add_child(badge)
+	# A visible ×1 matters: without it, the last owned piece reads as an
+	# unlimited catalogue recipe instead of finite inventory.
+	var badge := PanelContainer.new()
+	badge.name = "CountBadge"
+	badge.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	badge.position = Vector2(-9, 9)
+	badge.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	var badge_style := StyleBoxFlat.new()
+	badge_style.bg_color = palette.color("ui_good").darkened(0.08)
+	badge_style.set_corner_radius_all(12)
+	badge_style.content_margin_left = 8
+	badge_style.content_margin_right = 8
+	badge_style.content_margin_top = 4
+	badge_style.content_margin_bottom = 4
+	badge_style.shadow_color = palette.color("ui_badge_shadow")
+	badge_style.shadow_size = 3
+	badge_style.shadow_offset = Vector2(0, 2)
+	badge.add_theme_stylebox_override("panel", badge_style)
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var count_label := label("×%d" % count, 13, true, true)
+	count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.add_child(count_label)
+	button.add_child(badge)
 
 	return {
 		"button": button,

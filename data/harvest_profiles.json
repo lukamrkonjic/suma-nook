@@ -1,0 +1,74 @@
+{
+  "harvest_profiles": [
+    {
+      "id": "harvest_tree_young_evergreen",
+      "name": "Young Evergreen",
+      "verb": "chop",
+      "tool_icon": "axe",
+      "hits": 3,
+      "maturation_seconds": 20.0,
+      "regrowth_seconds": 35.0,
+      "reward_pool": "reward_evergreen_hearth",
+      "first_reward_pool": "reward_forest_foundations",
+      "roll_policy": "roll_policy_harvest_biome",
+      "reveal_profile": "reveal_world_bud_evergreen",
+      "home_collection": "evergreen_hearth",
+      "presentation": "clay_tree"
+    },
+    {
+      "id": "harvest_tree_mature_evergreen",
+      "name": "Mature Evergreen",
+      "verb": "chop",
+      "tool_icon": "axe",
+      "hits": 4,
+      "maturation_seconds": 30.0,
+      "regrowth_seconds": 60.0,
+      "reward_pool": "reward_evergreen_hearth",
+      "roll_policy": "roll_policy_harvest_biome",
+      "reveal_profile": "reveal_world_bud_evergreen",
+      "home_collection": "evergreen_hearth",
+      "presentation": "clay_tree"
+    },
+    {
+      "id": "harvest_tree_tall_evergreen",
+      "name": "Tall Evergreen",
+      "verb": "chop",
+      "tool_icon": "axe",
+      "hits": 5,
+      "maturation_seconds": 45.0,
+      "regrowth_seconds": 90.0,
+      "reward_pool": "reward_evergreen_hearth",
+      "roll_policy": "roll_policy_harvest_biome",
+      "reveal_profile": "reveal_world_bud_evergreen",
+      "home_collection": "evergreen_hearth",
+      "presentation": "clay_tree"
+    },
+    {
+      "id": "harvest_berry_shrub",
+      "name": "Woodland Berry Shrub",
+      "verb": "gather",
+      "tool_icon": "sickle",
+      "hits": 1,
+      "maturation_seconds": 24.0,
+      "regrowth_seconds": 45.0,
+      "reward_pool": "reward_woodland_berry_patch",
+      "roll_policy": "roll_policy_harvest_biome",
+      "reveal_profile": "reveal_world_bud_berry",
+      "home_collection": "woodland_berry_patch",
+      "presentation": "berry_cluster",
+      "presentation_settings": {
+        "count": 9,
+        "radius_min": 0.038,
+        "radius_max": 0.052,
+        "spread_x": 0.68,
+        "spread_z": 0.62,
+        "height_min": 0.52,
+        "height_max": 0.82,
+        "ready_pulse_scale": 1.055,
+        "ready_nudge_radians": 0.028,
+        "ready_nudge_interval": 1.15,
+        "material": "tilekit_clay_berry"
+      }
+    }
+  ]
+}

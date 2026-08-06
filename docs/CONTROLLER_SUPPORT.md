@@ -30,6 +30,11 @@ Build mode uses a camera-relative grid cursor. It never moves the OS pointer,
 so switching back to mouse input resumes at the player's real pointer
 position.
 
+Harvest reward reveals are deliberately non-modal. The World Bud completes
+automatically; pressing the ordinary `interact` action accelerates it without
+consuming the current build/world action. Pointer users may click the physical
+bud directly. No controller-only cursor or new conflicting action is needed.
+
 ## Default controller layout
 
 Face-button names below describe Xbox/generic labels. Prompts automatically
@@ -48,7 +53,12 @@ use PlayStation names and Nintendo physical-button labels when detected.
 | R3 | Return home | Rotate held piece |
 | View/Create | Open map | Open map |
 | Menu/Options | Pause | Pause |
-| Right stick | — | Orbit in the debug asset viewer |
+| Right stick | Pan camera | Pan camera; orbit in the debug asset viewer |
+
+Keyboard WASD is reserved for persistent camera panning; keeper movement on
+desktop uses click-to-walk. Land placement targets any empty grid coordinate,
+including detached islands. The D-pad cursor can therefore travel through the
+void without requiring an existing neighbour.
 
 ## Adding a player-facing feature
 

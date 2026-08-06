@@ -1,0 +1,26 @@
+{
+  "visitor_programs": [
+    {
+      "id": "visitor_program_world_gifts",
+      "name": "World Gift Visitors",
+      "presentations": [
+        "visitor_bamboo_bun",
+        "visitor_bramble_bear",
+        "visitor_clover_hop",
+        "visitor_dawn_fawn",
+        "visitor_lily_hop",
+        "visitor_meadow_pup",
+        "visitor_pip_chick",
+        "visitor_puddle_duck",
+        "visitor_shroomling",
+        "visitor_thimble_mouse"
+      ],
+      "first_reward_pool": "reward_non_forest_foundations",
+      "reward_pool": "reward_global_world_gifts",
+      "first_min_seconds": 180.0,
+      "first_max_seconds": 360.0,
+      "later_min_seconds": 900.0,
+      "later_max_seconds": 1800.0
+    }
+  ]
+}

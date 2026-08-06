@@ -12,6 +12,9 @@ const ProgressionDefinitionValidatorScript := preload(
 const FishingDefinitionValidatorScript := preload(
 	"res://scripts/features/fishing/fishing_definition_validator.gd"
 )
+const WorldRewardDefinitionValidatorScript := preload(
+	"res://scripts/features/rewards/world_reward_definition_validator.gd"
+)
 
 
 static func create() -> Registries:
@@ -19,4 +22,5 @@ static func create() -> Registries:
 	registries.register_validator(CampingDefinitionValidatorScript.validate)
 	registries.register_validator(ProgressionDefinitionValidatorScript.validate)
 	registries.register_validator(FishingDefinitionValidatorScript.validate)
+	registries.register_validator(WorldRewardDefinitionValidatorScript.validate)
 	return registries

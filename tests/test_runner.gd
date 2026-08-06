@@ -141,6 +141,7 @@ func _run() -> void:
 	_test_game_preferences()
 	_test_starting_world()
 	_test_authored_onboarding_flow()
+	_test_harvesting_and_visitors()
 	_test_maxed_debug_world_spawn()
 	_test_skills_grant_no_direct_placeables()
 	_test_fish_journal_retired()
@@ -150,7 +151,7 @@ func _run() -> void:
 	_test_journal_milestones()
 	_test_deterministic_rng()
 	_test_legacy_reward_paths_removed()
-	_test_tile_adjacency_overlap_rotation()
+	_test_free_tile_placement_overlap_rotation()
 	_test_elevation_stacking()
 	_test_connectivity_and_relocation()
 	_test_sockets_and_overlap_prevention()
@@ -873,15 +874,23 @@ func _test_maxed_debug_world_spawn() -> void:
 
 func _test_input_bindings() -> void:
 	var input_service := InputDeviceServiceScript.new()
-	check(_action_has_key("move_up", KEY_W), "W remains bound to character movement")
-	check(_action_has_key("move_left", KEY_A), "A remains bound to character movement")
+	check(not _action_has_key("move_up", KEY_W), "W no longer moves the keeper and camera together")
+	check(not _action_has_key("move_left", KEY_A), "A no longer moves the keeper and camera together")
+	check(_action_has_key("camera_pan_up", KEY_W), "W pans the world camera forward")
+	check(_action_has_key("camera_pan_left", KEY_A), "A pans the world camera left")
+	check(_action_has_key("camera_pan_down", KEY_S), "S pans the world camera backward")
+	check(_action_has_key("camera_pan_right", KEY_D), "D pans the world camera right")
 	check(not _action_has_key("move_up", KEY_UP), "up arrow no longer moves the character")
 	check(not _action_has_key("move_left", KEY_LEFT), "left arrow no longer moves the character")
 	check(_action_has_key("camera_rotate_right", KEY_LEFT), "left arrow uses the reversed camera spin")
 	check(_action_has_key("camera_rotate_left", KEY_RIGHT), "right arrow uses the reversed camera spin")
 	check(_action_has_key("camera_zoom_in", KEY_UP), "up arrow zooms the camera in")
 	check(_action_has_key("camera_zoom_out", KEY_DOWN), "down arrow zooms the camera out")
-	check(_action_has_key("cancel", KEY_ESCAPE), "Escape opens and closes the pause flow")
+	check(
+		_action_has_key("pause", KEY_ESCAPE),
+		"Escape owns the pause flow even while Shape Land is active"
+	)
+	check(_action_has_key("cancel", KEY_ESCAPE), "Escape remains a keyboard back action")
 	check(_action_has_key("toggle_hud", KEY_H), "H hides and restores the HUD")
 	check(
 		_action_has_key("interact", KEY_F)
@@ -917,12 +926,24 @@ func _test_input_bindings() -> void:
 	)
 	check(
 		_action_has_joypad_button("build_mode", JOY_BUTTON_Y)
-		and not _action_has_key("build_mode", KEY_B),
-		"controller can browse Shape Land while keyboard B is retired"
+		and _action_has_key("build_mode", KEY_B),
+		"B and controller north toggle the Build Bag in their native contexts"
+	)
+	check(
+		_action_has_joypad_axis("camera_pan_left", JOY_AXIS_RIGHT_X, -1.0)
+		and _action_has_joypad_axis("camera_pan_right", JOY_AXIS_RIGHT_X, 1.0)
+		and _action_has_joypad_axis("camera_pan_up", JOY_AXIS_RIGHT_Y, -1.0)
+		and _action_has_joypad_axis("camera_pan_down", JOY_AXIS_RIGHT_Y, 1.0),
+		"right stick pans the world camera in all four directions"
 	)
 	check(
 		_action_has_joypad_button("cancel", JOY_BUTTON_B),
 		"east face button is contextual back"
+	)
+	check(
+		_action_has_key("move_piece", KEY_M)
+		and _action_has_joypad_button("move_piece", JOY_BUTTON_X),
+		"stateful world pieces have an explicit keyboard and controller move action"
 	)
 	check(
 		_action_has_joypad_axis("undo", JOY_AXIS_TRIGGER_LEFT, 1.0)
@@ -1109,6 +1130,9 @@ func _test_content_catalog_architecture() -> void:
 		"skills", "items", "tiles", "structures", "recipes", "loot_tables",
 		"discovery_pools", "milestones", "anchors", "capabilities",
 		"enemies", "landmarks", "fishing_loot", "spirits", "keepsakes",
+		"reward_pools", "reward_roll_policies", "reward_reveal_profiles",
+		"harvest_profiles", "visitor_presentations",
+		"visitor_programs",
 	]
 	check(
 		regs.definition_kinds() == expected_kinds,
@@ -1141,6 +1165,62 @@ func _test_content_catalog_architecture() -> void:
 		).get("capacity", 0)) == 2,
 		"capabilities use the same global API rather than a tent-only registry"
 	)
+	var young_tree := regs.structure("struct_pine_young")
+	var young_profile := regs.harvest_profile("harvest_tree_young_evergreen")
+	var berry_bush := regs.structure("struct_bush")
+	var berry_profile := regs.harvest_profile("harvest_berry_shrub")
+	var visitor_program := regs.visitor_program("visitor_program_world_gifts")
+	check(
+		young_tree != null
+		and young_tree.has_capability("harvest_source")
+		and young_profile != null
+		and regs.reward_pool(young_profile.reward_pool_id) != null
+		and regs.reward_pool(young_profile.first_reward_pool_id) != null,
+		"harvest sources resolve capability → typed profile → shared reward pools"
+	)
+	check(
+		regs.reward_roll_policy(young_profile.roll_policy_id) != null
+		and regs.reward_reveal_profile(young_profile.reveal_profile_id) != null
+		and regs.reward_reveal_profile(
+			young_profile.reveal_profile_id
+		).presenter_type == "world_bud",
+		"harvest profiles resolve replaceable roll policy and reveal presentation"
+	)
+	check(
+		berry_bush != null
+		and berry_bush.preserve_instance_state
+		and berry_bush.has_capability("harvest_source")
+		and berry_profile != null
+		and berry_profile.presentation_profile == "berry_cluster"
+		and int(berry_profile.presentation_settings.get("count", 0)) >= 1
+		and regs.reward_pool(berry_profile.reward_pool_id) != null,
+		"generic berry sources resolve model-independent growth presentation data"
+	)
+	check(
+		visitor_program != null
+		and regs.reward_pool(visitor_program.first_reward_pool_id) != null
+		and not visitor_program.presentation_ids.is_empty()
+		and regs.visitor_presentation(visitor_program.presentation_ids[0]) != null,
+		"visitor programs resolve replaceable presentations and shared reward pools"
+	)
+	var original_pool_id := young_profile.reward_pool_id
+	young_profile.reward_pool_id = "retired_reward_pool"
+	var feature_issues: Array = []
+	WorldRewardDefinitionValidator.validate(regs.snapshot, feature_issues)
+	check(
+		not feature_issues.is_empty(),
+		"ordinary content validation rejects a dangling harvest CRUD reference"
+	)
+	young_profile.reward_pool_id = original_pool_id
+	var original_reveal_id := young_profile.reveal_profile_id
+	young_profile.reveal_profile_id = "retired_reveal"
+	feature_issues.clear()
+	WorldRewardDefinitionValidator.validate(regs.snapshot, feature_issues)
+	check(
+		not feature_issues.is_empty(),
+		"content validation rejects a dangling reward reveal reference"
+	)
+	young_profile.reveal_profile_id = original_reveal_id
 	var original_snapshot: Variant = regs.snapshot
 	var original_tile_count := regs.tiles.size()
 	var source: Variant = regs.definition_source("structures", "struct_bench")
@@ -1253,6 +1333,18 @@ func _test_build_library_categories() -> void:
 			== expected_structures[structure_id],
 			"%s appears in the expected build-library object category" % structure_id
 		)
+	var finite_card := UiKit.new(
+		PaletteDefinition.shared()
+	).library_visual_item_button("Forest Floor", 1)
+	var finite_badge := finite_card.get("badge") as PanelContainer
+	var finite_label := (
+		finite_badge.get_child(0) as Label if finite_badge != null else null
+	)
+	check(
+		finite_label != null and finite_label.text == "×1",
+		"the Build Bag visibly labels the final copy instead of implying infinite stock"
+	)
+	(finite_card["button"] as Button).free()
 
 
 ## The slot-fill contract — the root guarantee behind "no seams ever": every
@@ -1478,6 +1570,11 @@ func _test_world_model_scale_contract() -> void:
 	) as CozyPalette
 	var assets := AssetLibrary.new(MaterialLibrary.new(palette))
 	var factory := StructureVisualFactory.new(assets, core.grid)
+	var reward_presenter := WorldBudRewardPresenter.new()
+	var reward_camera := Camera3D.new()
+	reward_presenter.setup(
+		core.registries, assets, core.grid, reward_camera, null
+	)
 	var expected_scale := 1.0 / 1.35
 	check(
 		is_equal_approx(core.grid.world_model_scale, expected_scale),
@@ -1533,6 +1630,44 @@ func _test_world_model_scale_contract() -> void:
 			"%s fire geometry follows its complete effective model scale" % fire_id
 		)
 		effect.free()
+	for reward in [
+		{"kind": "tile", "id": "tile_grove_mature"},
+		{"kind": "structure", "id": "struct_bush"},
+	]:
+		var reward_visual := reward_presenter.create_reward_visual(reward)
+		var reward_bounds := StructureVisualFactory.local_mesh_bounds(reward_visual)
+		check(
+			bool(reward_bounds.get("found", false)),
+			"World Bud renders the real %s reward through its catalog factory"
+			% reward["kind"]
+		)
+		reward_visual.free()
+	reward_presenter.free()
+	reward_camera.free()
+	var bush_definition := core.registries.structure("struct_bush")
+	var bush_visual := factory.instantiate_visual(bush_definition, false, 741)
+	var berry_visual := bush_visual.find_child(
+		"HarvestYieldVisual", true, false
+	) as Node3D
+	check(
+		berry_visual != null,
+		"berry_cluster presenter attaches fruit without bush-model node names"
+	)
+	if berry_visual != null:
+		factory.sync_harvest_visual(
+			bush_visual, bush_definition, HarvestingModule.STATE_REGROWING, false
+		)
+		var hidden_while_regrowing := not berry_visual.visible
+		factory.sync_harvest_visual(
+			bush_visual, bush_definition, HarvestingModule.STATE_READY, false
+		)
+		check(
+			hidden_while_regrowing
+			and berry_visual.visible
+			and is_equal_approx(berry_visual.scale.x, 1.0),
+			"berries exist on the host model only while the generic source is ripe"
+		)
+	bush_visual.free()
 
 
 func _test_catalog_expansion() -> void:
@@ -1744,48 +1879,277 @@ func _test_authored_onboarding_flow() -> void:
 	core.save_manager.backup_path = "user://test_onboarding_save.json.backup"
 	var profile := PlayerProfile.new()
 	profile.display_name = "New Keeper"
-	core.begin_onboarding_game(profile)
-	check(
-		core.grid.cells.is_empty()
-		and core.onboarding.stage == OnboardingState.LAND_CHOICE,
-		"onboarding begins with a saved land choice"
-	)
-	check(core.choose_onboarding_land("tile_grove_mature"), "valid first land materializes")
+	core.begin_build_onboarding(profile)
 	check(
 		core.grid.cells.size() == 9
-		and core._placed_tile_count("tile_grove_mature") == 9
-		and core._placed_tile_count("tile_open_water") == 0
-		and core._is_structure_placed("struct_pine")
-		and core.onboarding.stage == OnboardingState.TRY_VOID_FISHING,
-		"arrival raises a 3x3 biome island, one tree, and an exposed void edge"
-	)
-	# Fish the first haul through the real session state machine, headless.
-	check(
-		core.fishing.session.begin_session(Vector2i.ZERO),
-		"onboarding void fishing begins at the raised island"
-	)
-	for _index in 400:
-		core.fishing.tick(0.25)
-		if core.onboarding.stage == OnboardingState.PLACE_DISCOVERY:
-			break
-	core.fishing.session.cancel("test")
-	check(
-		core.onboarding.stage == OnboardingState.PLACE_DISCOVERY
-		and core.onboarding.guided_id == "tile_open_water",
-		"the first haul guarantees buildable water and guides its placement"
+		and core._placed_tile_count("tile_grass") == 9
+		and core.onboarding.stage == OnboardingState.PLACE_TREE,
+		"onboarding opens immediately on a nine-grass build canvas"
 	)
 	check(
-		core.stock.tile_count("tile_open_water") >= 1,
-		"the guided bundle is checked into the Build Library"
+		core.stock.structure_count("struct_pine_young") == 1
+		and not core._is_structure_placed("struct_pine_young"),
+		"the only opening model is one unplaced stateful young tree"
+	)
+	check(core.stock.take_structure("struct_pine_young"), "starter tree checks out")
+	var tree := core.grid.add_structure(
+		Vector2i.ZERO, "struct_pine_young", 1, 2
 	)
 	check(
-		core.place_tile_from_stock(Vector2i(0, 2), "tile_open_water", 0),
-		"discovered water places as an ordinary real tile"
+		tree != null and not core.advance_onboarding_after_placement().is_empty()
+		and core.onboarding.stage == OnboardingState.WAIT_TREE,
+		"placing the tree begins its real maturation phase"
 	)
-	core.advance_onboarding_after_placement()
+	if tree == null:
+		return
+	var resumed := GameCore.new()
+	resumed.setup("res://data", 1818)
+	resumed.save_manager.save_path = core.save_manager.save_path
+	resumed.save_manager.backup_path = core.save_manager.backup_path
 	check(
-		core.onboarding.stage == OnboardingState.COMPLETE,
-		"placing the first haul completes onboarding into free play"
+		resumed.load_game()
+		and resumed.onboarding.stage == OnboardingState.WAIT_TREE
+		and resumed.onboarding.starter_tree_instance_id == tree.instance_id
+		and not resumed.grid.find_structure(tree.instance_id).is_empty(),
+		"an interrupted build-first lesson resumes on the exact starter tree"
+	)
+	var early_hit: Dictionary = core.harvesting.request_hit(tree.instance_id)
+	check(
+		not early_hit.get("accepted", false)
+		and early_hit.get("reason", "") == HarvestingModule.STATE_MATURING,
+		"a newly placed source cannot be harvested before maturation"
+	)
+	var tree_runtime: Dictionary = tree.runtime_state[HarvestingModule.RUNTIME_KEY]
+	tree_runtime["deadline_unix"] = 0.0
+	core.harvesting.status(tree.instance_id)
+	check(
+		core.onboarding.stage == OnboardingState.HARVEST_TREE,
+		"the real ready transition advances the harvest lesson"
+	)
+	var first_hit: Dictionary = core.harvesting.request_hit(tree.instance_id)
+	var second_hit: Dictionary = core.harvesting.request_hit(tree.instance_id)
+	var final_hit: Dictionary = core.harvesting.request_hit(tree.instance_id)
+	check(
+		first_hit.get("accepted", false)
+		and second_hit.get("accepted", false)
+		and final_hit.get("final", false),
+		"the young tree resolves in exactly three deliberate hits"
+	)
+	var forest_reward: Dictionary = final_hit.get("reward", {})
+	check(
+		forest_reward.get("kind", "") == "tile"
+		and int(forest_reward.get("amount", 0)) == 1
+		and core.onboarding.stage == OnboardingState.PLACE_FOREST_REWARD
+		and core.onboarding.starter_tree_instance_id == 0
+		and core.grid.find_structure(tree.instance_id).get("structure") == tree,
+		"the final hit grants one finite forest piece, regrows the exact tree, and retires tutorial-only references"
+	)
+	var forest_tile_id := String(forest_reward.get("id", ""))
+	var first_forest_placed := core.place_tile_from_stock(
+		Vector2i(0, 2), forest_tile_id, 0
+	)
+	check(
+		first_forest_placed
+		and core.stock.tile_count(forest_tile_id) == 0
+		and not core.place_tile_from_stock(Vector2i(1, 2), forest_tile_id, 0)
+		and not core.advance_onboarding_after_placement().is_empty()
+		and core.onboarding.stage == OnboardingState.WAIT_VISITOR,
+		"the one forest reward is consumed exactly once before opening the visitor bridge"
+	)
+	var visitor_event: Dictionary = core.visitors.trigger_now()
+	check(
+		not visitor_event.is_empty()
+		and core.registries.visitor_presentation(
+			String(visitor_event.get("presentation_id", ""))
+		) != null,
+		"the first visitor selects a replaceable retained-SDF presentation"
+	)
+	var visitor_reward: Dictionary = core.visitors.collect(
+		int(visitor_event.get("event_id", 0))
+	)
+	check(
+		visitor_reward.get("kind", "") == "tile"
+		and int(visitor_reward.get("amount", 0)) >= 4
+		and core.onboarding.stage == OnboardingState.PLACE_VISITOR_REWARD,
+		"clicking the first visitor grants a useful non-forest foundation bundle"
+	)
+	check(
+		core.place_tile_from_stock(
+			Vector2i(1, 2), String(visitor_reward.get("id", "")), 0
+		)
+		and not core.advance_onboarding_after_placement().is_empty()
+		and core.onboarding.stage == OnboardingState.COMPLETE,
+		"placing the visitor gift completes onboarding into free play"
+	)
+
+
+func _test_harvesting_and_visitors() -> void:
+	var core := fresh_core(8181)
+	var policy_entries: Array[Dictionary] = [
+		{
+			"kind": "tile", "id": "tile_grass", "weight": 10.0,
+			"rarity": "common",
+		},
+		{
+			"kind": "tile", "id": "tile_grove_mature", "weight": 10.0,
+			"rarity": "rare",
+		},
+	]
+	var weighted: Array[Dictionary] = core.build_rewards._weighted_candidates(
+		policy_entries,
+		"roll_policy_harvest_biome",
+		{"recent": ["tile:tile_grass"], "rare_misses": 8}
+	)
+	check(
+		float(weighted[0]["weight"]) < 10.0
+		and bool(weighted[0].get("recently_seen", false))
+		and float(weighted[1]["weight"]) > 10.0
+		and bool(weighted[1].get("novelty_boosted", false))
+		and float(weighted[1].get("pity_multiplier", 1.0)) > 1.0,
+		"harvest policy suppresses recent repeats and gently boosts novelty/rare pity"
+	)
+	check(core.stock.take_structure("struct_pine"), "stateful source checks out")
+	var tree := core.grid.add_structure(Vector2i.ZERO, "struct_pine", 1, 1)
+	check(tree != null, "a data-authored harvest capability activates at placement")
+	if tree == null:
+		return
+	var runtime: Dictionary = tree.runtime_state[HarvestingModule.RUNTIME_KEY]
+	runtime["deadline_unix"] = 0.0
+	core.harvesting.status(tree.instance_id)
+	check(
+		core.harvesting.request_hit(tree.instance_id, "player").get("hit", 0) == 1,
+		"one request is exactly one hit"
+	)
+	var removed := core.grid.remove_structure(Vector2i.ZERO, tree.instance_id)
+	core.stock.add_structure_instance(removed)
+	var token := core.stock.take_structure_token("struct_pine", tree.instance_id)
+	var restored := WorldGrid.StructureState.from_dict(token.get("state", {}))
+	var restored_stack: Array[WorldGrid.StructureState] = [restored]
+	check(
+		restored.instance_id == tree.instance_id
+		and int(restored.runtime_state[HarvestingModule.RUNTIME_KEY].get("hits", 0)) == 1
+		and core.grid.restore_structure_stack(
+			Vector2i.ZERO, 0, restored_stack, 0, "", 1, 1
+		),
+		"moving through storage preserves iid, hit progress, and runtime state"
+	)
+	check(core.save(), "harvest runtime writes through the normal save boundary")
+	var reloaded := GameCore.new()
+	reloaded.setup("res://data", 8282)
+	reloaded.save_manager.save_path = core.save_manager.save_path
+	reloaded.save_manager.backup_path = core.save_manager.backup_path
+	check(reloaded.load_game(), "a save with stateful harvest runtime passes strict hydration")
+	var reloaded_tree := reloaded.grid.find_structure(tree.instance_id)
+	check(
+		not reloaded_tree.is_empty()
+		and int((reloaded_tree["structure"] as WorldGrid.StructureState).runtime_state[
+			HarvestingModule.RUNTIME_KEY
+		].get("hits", 0)) == 1,
+		"save/reload restores the exact source iid and partial hit progress"
+	)
+	check(
+		core.harvesting.request_hit(tree.instance_id, "helper").get("hit", 0) == 2,
+		"future helpers use the same public hit port"
+	)
+	check(
+		core.harvesting.request_hit(tree.instance_id, "helper").get("hit", 0) == 3
+		and not core.harvesting.request_hit(
+			tree.instance_id, "helper"
+		).get("accepted", false),
+		"automation cannot take the satisfying final hit"
+	)
+	var player_final: Dictionary = core.harvesting.request_hit(tree.instance_id, "player")
+	check(
+		player_final.get("final", false)
+		and player_final.get("reveal_profile_id", "")
+			== "reveal_world_bud_evergreen"
+		and core.harvesting.status(tree.instance_id).get("state", "")
+			== HarvestingModule.STATE_REGROWING,
+		"the player final hit grants once, queues its reveal id, and starts regrowth"
+	)
+	var evergreen_history: Dictionary = core.harvesting.reward_history.get(
+		"evergreen_hearth", {}
+	)
+	check(
+		(evergreen_history.get("recent", []) as Array).size() == 1
+		and int(evergreen_history.get("rare_misses", -1)) >= 0,
+		"harvesting records a bounded per-subcollection anti-repetition history"
+	)
+	var history_copy := fresh_core(8182)
+	history_copy.harvesting.from_save_dict(core.harvesting.to_save_dict())
+	check(
+		history_copy.harvesting.reward_history == core.harvesting.reward_history,
+		"reward variety history survives the harvesting save adapter exactly"
+	)
+
+	core.stock.add_structure("struct_bush", 1)
+	check(core.stock.take_structure("struct_bush"), "berry bush checks out as a stateful source")
+	var bush := core.grid.add_structure(Vector2i(1, 1), "struct_bush", 1, 1)
+	check(bush != null, "any model can opt into the generic berry profile")
+	if bush != null:
+		var berry_runtime: Dictionary = bush.runtime_state[HarvestingModule.RUNTIME_KEY]
+		berry_runtime["deadline_unix"] = 0.0
+		var ripe_status: Dictionary = core.harvesting.status(bush.instance_id)
+		var gather: Dictionary = core.harvesting.request_hit(bush.instance_id, "player")
+		check(
+			ripe_status.get("state", "") == HarvestingModule.STATE_READY
+			and ripe_status.get("presentation", "") == "berry_cluster"
+			and gather.get("verb", "") == "gather"
+			and gather.get("presentation", "") == "berry_cluster"
+			and gather.get("final", false)
+			and int((gather.get("reward", {}) as Dictionary).get("amount", 0)) == 1
+			and core.harvesting.status(bush.instance_id).get("state", "")
+				== HarvestingModule.STATE_REGROWING,
+			"ripe berries gather once, grant one world piece, and regrow on their timer"
+		)
+
+	core.visitors.time_until_next = 100.0
+	core.visitors.tick(10.0)
+	core.stock.add_structure("struct_pine_young", 20)
+	core.visitors.tick(10.0)
+	check(
+		is_equal_approx(core.visitors.time_until_next, 80.0),
+		"visitor cadence is one global timer, independent of source density"
+	)
+	core.visitors.time_until_next = 0.0
+	var pending: Dictionary = core.visitors.trigger_now()
+	var disk_core := GameCore.new()
+	disk_core.setup("res://data", 9292)
+	disk_core.save_manager.save_path = core.save_manager.save_path
+	disk_core.save_manager.backup_path = core.save_manager.backup_path
+	var disk_loaded := disk_core.load_game()
+	var disk_pending: Dictionary = disk_core.visitors.waiting_event()
+	check(
+		disk_loaded and disk_pending == pending,
+		"visitor arrival immediately persists its look, cell, and pre-rolled gift"
+	)
+	var persisted: Dictionary = core.visitors.to_save_dict()
+	var restored_core := fresh_core(9191)
+	restored_core.visitors.from_save_dict(persisted)
+	check(
+		not pending.is_empty()
+		and restored_core.visitors.waiting_event() == pending,
+		"a pending visitor keeps its exact presentation and pre-rolled gift"
+	)
+	var pending_reward: Dictionary = pending.get("reward", {})
+	var before := (
+		restored_core.stock.tile_count(String(pending_reward.get("id", "")))
+		if pending_reward.get("kind", "") == "tile"
+		else restored_core.stock.structure_count(String(pending_reward.get("id", "")))
+	)
+	var granted: Dictionary = restored_core.visitors.collect(
+		int(pending.get("event_id", 0))
+	)
+	var after := (
+		restored_core.stock.tile_count(String(granted.get("id", "")))
+		if granted.get("kind", "") == "tile"
+		else restored_core.stock.structure_count(String(granted.get("id", "")))
+	)
+	check(
+		not granted.is_empty()
+		and after - before == int(granted.get("amount", 0))
+		and not restored_core.visitors.has_waiting_visitor(),
+		"visitor collection grants its saved gift once and schedules the next event"
 	)
 
 func _test_skills_grant_no_direct_placeables() -> void:
@@ -1948,15 +2312,23 @@ func _test_legacy_reward_paths_removed() -> void:
 		"manual shrine bias and land insurance remain fully retired"
 	)
 
-func _test_tile_adjacency_overlap_rotation() -> void:
+func _test_free_tile_placement_overlap_rotation() -> void:
 	var core := fresh_core()
-	check(not core.grid.can_place_tile(Vector2i(5, 5)), "detached placement rejected")
+	var detached := Vector2i(5, 5)
+	check(core.grid.can_place_tile(detached), "an empty detached grid cell accepts land")
 	check(not core.grid.can_place_tile(Vector2i.ZERO), "overlap rejected")
-	check(core.grid.can_place_tile(Vector2i(2, 0)), "edge-adjacent placement accepted")
 	core.stock.add_tile("tile_grass")
-	check(core.place_tile_from_stock(Vector2i(2, 0), "tile_grass", 3), "placement from stock succeeds")
-	check(core.grid.cell(Vector2i(2, 0)).rotation == 3, "rotation persists on the placed cell")
-	check(not core.place_tile_from_stock(Vector2i(2, 0), "tile_grass", 0), "double placement rejected")
+	check(core.place_tile_from_stock(detached, "tile_grass", 3), "detached placement from stock succeeds")
+	check(core.grid.cell(detached).rotation == 3, "rotation persists on the detached cell")
+	var stack := core.grid.detach_tile_stack(detached, 0)
+	var moved := Vector2i(-8, 11)
+	check(
+		core.grid.can_restore_tile_stack(moved, 0, stack)
+		and core.grid.restore_tile_stack(moved, 0, stack),
+		"a detached tile stack can move directly to another empty void cell"
+	)
+	check(core.grid.cell(moved).rotation == 3, "detached tile movement preserves rotation")
+	check(not core.place_tile_from_stock(moved, "tile_grass", 0), "double placement rejected")
 	check(core.stock.tile_count("tile_grass") == 0, "stock consumed exactly once")
 
 
@@ -2872,6 +3244,46 @@ func _test_current_save_policy() -> void:
 					"occupants": [],
 					"construction_progress": 1.0,
 				}),
+		},
+		{
+			"label": "harvest profile claim",
+			"mutate": func(save: Dictionary) -> void:
+				save["features"]["harvesting"]["first_rewards_claimed"] = {
+					"retired_harvest_profile": true,
+			},
+		},
+		{
+			"label": "harvest reward history",
+			"mutate": func(save: Dictionary) -> void:
+				save["features"]["harvesting"]["reward_history"] = {
+					"evergreen_hearth": {
+						"recent": ["tile:retired_tile"],
+						"rare_misses": 1,
+					},
+				},
+		},
+		{
+			"label": "visitor presentation state",
+			"mutate": func(save: Dictionary) -> void:
+				save["features"]["visitors"]["current_event"] = {
+					"event_id": 9,
+					"program_id": "visitor_program_world_gifts",
+					"presentation_id": "retired_visitor",
+					"cell": [0, 0],
+					"reward": {
+						"kind": "tile", "id": "tile_grass", "amount": 4,
+					},
+				},
+		},
+		{
+			"label": "guided onboarding piece",
+			"mutate": func(save: Dictionary) -> void:
+				save["onboarding"] = {
+					"stage": OnboardingState.PLACE_FOREST_REWARD,
+					"guided_kind": "tile",
+					"guided_id": "retired_tile",
+					"starter_tree_instance_id": 0,
+				},
 		},
 	]
 	for case: Dictionary in retired_reference_cases:

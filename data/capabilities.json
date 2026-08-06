@@ -10,6 +10,7 @@
     { "id": "sleep", "owner": "camping", "description": "Allows eligible actors to sleep." },
     { "id": "storage", "owner": "camping", "description": "Provides stateful shelter storage slots." },
     { "id": "durability", "owner": "camping", "description": "Tracks structural condition." },
-    { "id": "ambient_motion", "owner": "core", "description": "Runs lightweight decorative transform animation on an authored visual node." }
+    { "id": "ambient_motion", "owner": "core", "description": "Runs lightweight decorative transform animation on an authored visual node." },
+    { "id": "harvest_source", "owner": "harvesting", "description": "Makes a stateful structure mature, accept deliberate hits, grant a world-piece reward, and regrow." }
   ]
 }

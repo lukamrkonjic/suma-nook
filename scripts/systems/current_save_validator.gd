@@ -19,10 +19,18 @@ static func validate(data: Dictionary, registries: Registries) -> PackedStringAr
 		for structure_index in (cell.get("structs", []) as Array).size():
 			var structure: Dictionary = cell["structs"][structure_index]
 			var structure_id := String(structure.get("id", ""))
+			var definition := registries.structure(structure_id)
 			_require(
-				errors, registries.structure(structure_id) != null,
+				errors, definition != null,
 				"grid.cells[%d].structs[%d] references missing structure '%s'"
 				% [index, structure_index, structure_id]
+			)
+			_validate_structure_runtime(
+				errors,
+				structure.get("runtime", {}),
+				definition,
+				registries,
+				"grid.cells[%d].structs[%d].runtime" % [index, structure_index]
 			)
 			var instance_id := int(structure.get("iid", 0))
 			_require(
@@ -40,10 +48,18 @@ static func validate(data: Dictionary, registries: Registries) -> PackedStringAr
 	for index in (stock.get("structure_instances", []) as Array).size():
 		var state: Dictionary = stock["structure_instances"][index]
 		var structure_id := String(state.get("id", ""))
+		var definition := registries.structure(structure_id)
 		_require(
-			errors, registries.structure(structure_id) != null,
+			errors, definition != null,
 			"stock.structure_instances[%d] references missing structure '%s'"
 			% [index, structure_id]
+		)
+		_validate_structure_runtime(
+			errors,
+			state.get("runtime", {}),
+			definition,
+			registries,
+			"stock.structure_instances[%d].runtime" % index
 		)
 		var instance_id := int(state.get("iid", 0))
 		_require(
@@ -90,7 +106,198 @@ static func validate(data: Dictionary, registries: Registries) -> PackedStringAr
 			% [index, instance_id]
 		)
 	_validate_fishing(errors, feature_data.get("fishing", {}), registries)
+	_validate_harvesting(errors, feature_data.get("harvesting", {}), registries)
+	_validate_visitors(errors, feature_data.get("visitors", {}), registries)
+	_validate_onboarding(
+		errors, data.get("onboarding", {}), registries, known_instance_ids
+	)
 	return errors
+
+
+static func _validate_structure_runtime(
+	errors: PackedStringArray,
+	raw: Variant,
+	definition,
+	registries: Registries,
+	field: String
+) -> void:
+	if not raw is Dictionary:
+		errors.append("%s must be an object" % field)
+		return
+	var runtime: Dictionary = raw
+	if not runtime.has("harvest"):
+		return
+	var harvest: Variant = runtime.get("harvest")
+	if not harvest is Dictionary:
+		errors.append("%s.harvest must be an object" % field)
+		return
+	var profile_id := String((harvest as Dictionary).get("profile_id", ""))
+	var declared_profile_id := ""
+	if definition != null and definition.has_capability("harvest_source"):
+		declared_profile_id = String(
+			definition.capability("harvest_source").get("profile_id", "")
+		)
+	_require(
+		errors,
+		profile_id != ""
+		and registries.harvest_profile(profile_id) != null
+		and profile_id == declared_profile_id,
+		"%s.harvest.profile_id references missing or mismatched harvest profile '%s'"
+		% [field, profile_id]
+	)
+	_require(
+		errors,
+		String((harvest as Dictionary).get("state", "")) in [
+			"maturing", "ready", "regrowing",
+		],
+		"%s.harvest.state is invalid" % field
+	)
+
+
+static func _validate_harvesting(
+	errors: PackedStringArray,
+	raw: Variant,
+	registries: Registries
+) -> void:
+	if not raw is Dictionary:
+		errors.append("features.harvesting must be an object")
+		return
+	var data: Dictionary = raw
+	var claims: Variant = data.get("first_rewards_claimed", {})
+	if not claims is Dictionary:
+		errors.append("features.harvesting.first_rewards_claimed must be an object")
+		return
+	for profile_id: String in claims:
+		_require(
+			errors, registries.harvest_profile(profile_id) != null,
+			"features.harvesting.first_rewards_claimed references missing harvest profile '%s'"
+			% profile_id
+		)
+	var history: Variant = data.get("reward_history", {})
+	if not history is Dictionary:
+		errors.append("features.harvesting.reward_history must be an object")
+		return
+	for collection_id: String in history:
+		var entry: Variant = history[collection_id]
+		if collection_id == "" or not entry is Dictionary:
+			errors.append(
+				"features.harvesting.reward_history entries need a collection id and object"
+			)
+			continue
+		var recent: Variant = (entry as Dictionary).get("recent", [])
+		if not recent is Array:
+			errors.append(
+				"features.harvesting.reward_history.%s.recent must be an array"
+				% collection_id
+			)
+			continue
+		for token: Variant in recent:
+			var parts := String(token).split(":", false, 1)
+			var known := false
+			if parts.size() == 2:
+				known = (
+					(parts[0] == "tile" and registries.tile(parts[1]) != null)
+					or (
+						parts[0] == "structure"
+						and registries.structure(parts[1]) != null
+					)
+				)
+			_require(
+				errors, known,
+				"features.harvesting.reward_history.%s contains unknown reward '%s'"
+				% [collection_id, token]
+			)
+		_require(
+			errors, int((entry as Dictionary).get("rare_misses", 0)) >= 0,
+			"features.harvesting.reward_history.%s.rare_misses cannot be negative"
+			% collection_id
+		)
+
+
+static func _validate_visitors(
+	errors: PackedStringArray,
+	raw: Variant,
+	registries: Registries
+) -> void:
+	if not raw is Dictionary:
+		errors.append("features.visitors must be an object")
+		return
+	var data: Dictionary = raw
+	if data.is_empty():
+		return
+	var program_id := String(data.get("program_id", ""))
+	_require(
+		errors, registries.visitor_program(program_id) != null,
+		"features.visitors.program_id references missing visitor program '%s'"
+		% program_id
+	)
+	var event: Variant = data.get("current_event", {})
+	if not event is Dictionary:
+		errors.append("features.visitors.current_event must be an object")
+		return
+	if (event as Dictionary).is_empty():
+		return
+	var presentation_id := String((event as Dictionary).get("presentation_id", ""))
+	_require(
+		errors, registries.visitor_presentation(presentation_id) != null,
+		"features.visitors.current_event references missing visitor presentation '%s'"
+		% presentation_id
+	)
+	var reward: Variant = (event as Dictionary).get("reward", {})
+	if not reward is Dictionary:
+		errors.append("features.visitors.current_event.reward must be an object")
+		return
+	var kind := String((reward as Dictionary).get("kind", ""))
+	var content_id := String((reward as Dictionary).get("id", ""))
+	var known_reward := (
+		(kind == "tile" and registries.tile(content_id) != null)
+		or (kind == "structure" and registries.structure(content_id) != null)
+	)
+	_require(
+		errors, known_reward and int((reward as Dictionary).get("amount", 0)) > 0,
+		"features.visitors.current_event.reward references missing %s '%s'"
+		% [kind, content_id]
+	)
+
+
+static func _validate_onboarding(
+	errors: PackedStringArray,
+	raw: Variant,
+	registries: Registries,
+	known_instance_ids: Dictionary
+) -> void:
+	if not raw is Dictionary:
+		errors.append("onboarding must be an object")
+		return
+	var data: Dictionary = raw
+	var stage := String(data.get("stage", OnboardingState.COMPLETE))
+	_require(
+		errors, stage in OnboardingState.STAGES,
+		"onboarding.stage '%s' is not supported" % stage
+	)
+	var guided_kind := String(data.get("guided_kind", ""))
+	var guided_id := String(data.get("guided_id", ""))
+	if guided_kind != "" or guided_id != "":
+		var known_guided := (
+			(guided_kind == "tile" and registries.tile(guided_id) != null)
+			or (guided_kind == "structure" and registries.structure(guided_id) != null)
+		)
+		_require(
+			errors, known_guided,
+			"onboarding guided piece references missing %s '%s'"
+			% [guided_kind, guided_id]
+		)
+	var starter_iid := int(data.get("starter_tree_instance_id", 0))
+	if starter_iid > 0 and stage in [
+		OnboardingState.PLACE_TREE,
+		OnboardingState.WAIT_TREE,
+		OnboardingState.HARVEST_TREE,
+	]:
+		_require(
+			errors, known_instance_ids.has(starter_iid),
+			"onboarding.starter_tree_instance_id references missing iid %d"
+			% starter_iid
+		)
 
 
 static func _validate_fishing(

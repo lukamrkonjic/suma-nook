@@ -42,6 +42,19 @@ separate:
 | Behaviour | Typed systems | `ShelterSystem`, `SleepSystem` |
 | Presentation | Renderer, assets, UI adapters | Tent GLB and interaction label |
 
+Harvestable model identity follows this boundary: the stable structure id and
+capability own lifecycle/save data, while `asset_id` is presentation-only.
+Generated yields such as berries use profile settings plus measured model
+bounds, so art can be replaced without changing behavior or saved instances.
+
+World-piece gacha follows two further boundaries. `RewardPoolDefinition` owns
+eligible results, `RewardRollPolicyDefinition` owns reusable weight modifiers,
+and the feature that invokes a roll owns its bounded history/pity state.
+`RewardRevealProfileDefinition` is presentation-only: the reward transaction
+commits and saves before `RewardRevealSceneAdapter` asks an application-owned
+presenter registry to animate it. Concrete reveal scenes may therefore be
+added, replaced, accelerated, or removed without changing rewards or saves.
+
 ## Repository structure
 
 ```text
@@ -62,6 +75,9 @@ scripts/
   features/
     camping/                  # definitions, validation, systems,
                               # interactions, save and presentation adapters
+    harvesting/               # source lifecycle, hit transactions, scheduler,
+                              # reward port and replaceable presentation
+    visitors/                 # global heartbeat, pending gifts and scene adapter
     progression/              # discovery, biome context, duplicate exchange,
                               # milestones and versioned migration
   systems/                    # cross-feature runtime services
@@ -174,6 +190,12 @@ current state; it does not decide whether sleeping is legal.
 
 - A feature owns its schema adapter, validators, mutable systems,
   interactions, tests, save adapter, and presentation adapter.
+- Cross-feature world rewards use the typed `RewardPoolDefinition` catalog and
+  shared `BuildRewardService`; individual features never duplicate stock or
+  collection grant rules.
+- A scheduled world event stores a presentation definition id, never a scene
+  class. Presentation factories are replaceable adapters; deleting the SDF
+  visitor adapter cannot invalidate cadence or reward policy.
 - `GameCore` is the only place that wires feature dependencies.
 - Cross-feature calls use capabilities, stable IDs, typed query methods, or
   signals. They do not reach into another feature's dictionaries.

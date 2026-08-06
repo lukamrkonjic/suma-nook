@@ -1,0 +1,72 @@
+{
+  "reward_pools": [
+    {
+      "id": "reward_forest_foundations",
+      "name": "Forest Foundations",
+      "entries": [
+        {"kind": "tile", "id": "tile_grove_mature", "weight": 5.0, "min": 1, "max": 1},
+        {"kind": "tile", "id": "tile_grove_birch", "weight": 2.0, "min": 1, "max": 1},
+        {"kind": "tile", "id": "tile_grove_mossy", "weight": 2.0, "min": 1, "max": 1},
+        {"kind": "tile", "id": "tile_grove_flowering", "weight": 1.0, "min": 1, "max": 1}
+      ]
+    },
+    {
+      "id": "reward_evergreen_hearth",
+      "name": "Evergreen Hearth",
+      "entries": [
+        {"kind": "tile", "id": "tile_grove_mature", "weight": 7.0, "min": 1, "max": 1},
+        {"kind": "tile", "id": "tile_grove_mossy", "weight": 3.0, "min": 1, "max": 1},
+        {"kind": "tile", "id": "tile_grove_birch", "weight": 1.8, "min": 1, "max": 1},
+        {"kind": "structure", "id": "struct_bush", "weight": 1.4, "min": 1, "max": 1, "rarity": "uncommon"},
+        {"kind": "structure", "id": "struct_log_pile", "weight": 0.9, "min": 1, "max": 1, "rarity": "uncommon"},
+        {"kind": "structure", "id": "struct_wooden_arch", "weight": 0.25, "min": 1, "max": 1, "rarity": "rare"},
+        {"kind": "tile", "id": "tile_proc_sandy_ground", "weight": 0.18, "min": 1, "max": 1, "rarity": "rare"},
+        {"kind": "tile", "id": "tile_snowfield", "weight": 0.12, "min": 1, "max": 1, "rarity": "rare"}
+      ]
+    },
+    {
+      "id": "reward_non_forest_foundations",
+      "name": "Beyond the Forest",
+      "entries": [
+        {"kind": "tile", "id": "tile_sand", "weight": 3.0, "min": 4, "max": 6},
+        {"kind": "tile", "id": "tile_open_water", "weight": 3.0, "min": 4, "max": 6},
+        {"kind": "tile", "id": "tile_dirt", "weight": 3.0, "min": 4, "max": 6},
+        {"kind": "tile", "id": "tile_concrete_brutalist", "weight": 2.0, "min": 4, "max": 6},
+        {"kind": "tile", "id": "tile_snowfield", "weight": 2.0, "min": 4, "max": 6},
+        {"kind": "tile", "id": "tile_wooden_planks", "weight": 2.0, "min": 4, "max": 6}
+      ]
+    },
+    {
+      "id": "reward_woodland_berry_patch",
+      "name": "Woodland Berry Patch",
+      "entries": [
+        {"kind": "tile", "id": "tile_grove_flowering", "weight": 4.5, "min": 1, "max": 1},
+        {"kind": "tile", "id": "tile_grass_flower", "weight": 3.5, "min": 1, "max": 1},
+        {"kind": "tile", "id": "tile_grove_mossy", "weight": 2.5, "min": 1, "max": 1},
+        {"kind": "tile", "id": "tile_grove_mature", "weight": 1.8, "min": 1, "max": 1},
+        {"kind": "structure", "id": "struct_planter", "weight": 0.8, "min": 1, "max": 1, "rarity": "uncommon"},
+        {"kind": "structure", "id": "struct_pot", "weight": 0.55, "min": 1, "max": 1, "rarity": "uncommon"},
+        {"kind": "structure", "id": "struct_watering_can", "weight": 0.3, "min": 1, "max": 1, "rarity": "rare"},
+        {"kind": "structure", "id": "struct_bush", "weight": 0.2, "min": 1, "max": 1, "rarity": "rare"}
+      ]
+    },
+    {
+      "id": "reward_global_world_gifts",
+      "name": "World Gifts",
+      "entries": [
+        {"kind": "tile", "id": "tile_grass", "weight": 2.5, "min": 2, "max": 5},
+        {"kind": "tile", "id": "tile_grove_mature", "weight": 2.2, "min": 2, "max": 5},
+        {"kind": "tile", "id": "tile_sand", "weight": 2.2, "min": 2, "max": 5},
+        {"kind": "tile", "id": "tile_open_water", "weight": 2.2, "min": 2, "max": 5},
+        {"kind": "tile", "id": "tile_dirt", "weight": 2.0, "min": 2, "max": 5},
+        {"kind": "tile", "id": "tile_concrete_brutalist", "weight": 1.5, "min": 2, "max": 4, "rarity": "uncommon"},
+        {"kind": "tile", "id": "tile_snowfield", "weight": 1.5, "min": 2, "max": 4, "rarity": "uncommon"},
+        {"kind": "tile", "id": "tile_wooden_planks", "weight": 1.5, "min": 2, "max": 4, "rarity": "uncommon"},
+        {"kind": "structure", "id": "struct_planter", "weight": 0.8, "min": 1, "max": 1, "rarity": "uncommon"},
+        {"kind": "structure", "id": "struct_birdbath", "weight": 0.6, "min": 1, "max": 1, "rarity": "uncommon"},
+        {"kind": "structure", "id": "struct_campfire", "weight": 0.45, "min": 1, "max": 1, "rarity": "rare"},
+        {"kind": "structure", "id": "struct_stone_well", "weight": 0.35, "min": 1, "max": 1, "rarity": "rare"}
+      ]
+    }
+  ]
+}

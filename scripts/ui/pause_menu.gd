@@ -341,7 +341,7 @@ func _build_controls_page() -> void:
 
 	list.add_child(kit.section_label("Keeper"))
 	var keeper_controls := [
-		["Move", ["W", "A", "S", "D"], "Walk freely across connected land."],
+		["Move", ["Click ground"], "Send the keeper across its current island."],
 		["Jump", ["Space"], "Clear objects and one raised land layer."],
 		[
 			"Interact",
@@ -353,7 +353,7 @@ func _build_controls_page() -> void:
 			],
 			"Use the focused chest, fire, fishing spot, tree, or other usable object.",
 		],
-		["Shape land", ["Always on"], "Drag pieces from the persistent Build Bag."],
+		["Build Bag", ["B"], "Open or collapse the persistent piece library."],
 		["Rotate piece", ["R"], "Turn the held tile or decoration."],
 		["Store piece", ["X"], "Return a held piece to its library."],
 		["Undo / redo", ["Ctrl+Z", "Ctrl+Shift+Z"], "Reverse recent building changes."],
@@ -382,13 +382,14 @@ func _build_controls_page() -> void:
 	list.add_child(kit.section_label("Camera"))
 	var camera_controls := [
 		["Zoom", ["Wheel", "Up", "Down"], "Move from full-diorama view to close inspection."],
-		["Pan", ["Middle mouse"], "Drag the diorama to inspect another area."],
+		["Pan", ["W", "A", "S", "D", "Middle mouse"], "Move across the world and detached islands."],
 		["Rotate view", ["Q", "X", "Left", "Right"], "Orbit by a quarter turn."],
 		["Hide HUD", ["H"], "Hide or restore every gameplay overlay."],
 		["Return home", ["Home"], "Return the keeper and camera to the home tile."],
 	]
 	if _input_service.is_controller():
 		camera_controls = [
+			["Pan", [_input_service.prompt_for_action(&"camera_pan_up")], "Move across the world and detached islands."],
 			["Zoom", [
 				_input_service.prompt_for_action(&"camera_zoom_in"),
 				_input_service.prompt_for_action(&"camera_zoom_out"),

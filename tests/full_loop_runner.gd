@@ -96,6 +96,13 @@ func _ready() -> void:
 func _run() -> void:
 	await wait(0.5)
 	await _step_creation()
+	if OS.get_cmdline_user_args().has("--opening-only"):
+		if failures.is_empty():
+			print("OPENING LOOP PASSED — %d checks" % checks)
+		else:
+			print("OPENING LOOP FAILED — %d/%d failed" % [failures.size(), checks])
+		await _finish()
+		return
 	await _step_controller_input()
 	if OS.get_cmdline_user_args().has("--mock-shot"):
 		# Visual QA: build the admin showcase island and save one screenshot.
@@ -164,109 +171,143 @@ func _finish() -> void:
 
 
 func _step_creation() -> void:
-	print("STEP creation and discovery onboarding")
-	var creator: CharacterCreator = main.find_child("Creator", false, false)
-	check(creator != null, "character creator opens on fresh boot")
-	if creator == null:
-		return
-	creator.profile.skin_index = 2
-	creator.profile.hair_style = 2
-	creator.profile.hair_color_index = 3
-	creator.profile.outfit_index = 1
-	creator._preview()
-	await wait(0.4)
-	await shot("screenshot_character_customization")
-	creator._name_edit.text = "Loop Keeper"
-	creator._finish()
-	await wait(1.1)
-	check(main.arrival_picker.is_open() and get_tree().paused, "first-land picker freezes the portal arrival")
-	check(main.arrival_picker._root.find_children("*", "Button", true, false).size() == 3, "arrival offers three rendered land choices")
-	await shot("screenshot_first_land_choice")
-	main.arrival_picker.select("tile_sand")
-	await wait(1.45)
-	check(main._gameplay_started, "gameplay starts after the chosen land catches the keeper")
+	print("STEP build-first harvesting and visitor onboarding")
+	check(
+		main.find_child("Creator", false, false) == null
+		and not main.arrival_picker.is_open()
+		and not get_tree().paused,
+		"fresh boot skips avatar creation and land choice"
+	)
+	check(main._gameplay_started, "the world opens directly in Shape Land")
 	check(
 		main.placement.active
 		and not main.player.deployed
 		and not main.player.visible
+		and not main.hud.player_dock_visible(),
+		"the optional keeper stays absent throughout the opening lesson"
+	)
+	check(
+		main.core.grid.cells.size() == 9
+		and main.core._placed_tile_count("tile_grass") == 9
+		and main.core.onboarding.stage == OnboardingState.PLACE_TREE
+		and main.placement.held.get("id", "") == "struct_pine_young",
+		"the opening is nine grass tiles plus one guided young tree"
+	)
+	check(main.placement.try_place_at(Vector2i.ZERO), "the first tree places normally")
+	await wait(0.25)
+	var tree_iid := main.core.onboarding.starter_tree_instance_id
+	check(
+		tree_iid > 0
+		and main.core.onboarding.stage == OnboardingState.WAIT_TREE,
+		"tree placement begins the real maturation timer"
+	)
+	var found_tree := main.core.grid.find_structure(tree_iid)
+	if not found_tree.is_empty():
+		var tree_state: WorldGrid.StructureState = found_tree["structure"]
+		(tree_state.runtime_state[HarvestingModule.RUNTIME_KEY] as Dictionary)[
+			"deadline_unix"
+		] = 0.0
+		main.core.harvesting.status(tree_iid)
+	await wait(0.2)
+	check(
+		main.core.onboarding.stage == OnboardingState.HARVEST_TREE,
+		"maturation readies the exact placed tree"
+	)
+	var harvest_audio_events: Array[String] = []
+	main.audio.event_played.connect(func(event_name: String):
+		if event_name == "chop_impact":
+			harvest_audio_events.append(event_name)
+	)
+	check(main._try_harvest_instance(tree_iid), "first click lands a harvest hit")
+	await wait(0.08)
+	check(main._try_harvest_instance(tree_iid), "second click escalates the hit")
+	await wait(0.08)
+	check(main._try_harvest_instance(tree_iid), "third click fells the young tree")
+	await wait(0.3)
+	check(
+		harvest_audio_events.size() == 3,
+		"every accepted harvest click plays one chop impact (heard %d)"
+		% harvest_audio_events.size()
+	)
+	check(
+		main.reward_reveal != null and main.reward_reveal.is_revealing(),
+		"the granted harvest reward becomes a non-modal queued World Bud reveal"
+	)
+	await _tap_joy_button(JOY_BUTTON_X)
+	await wait(0.25)
+	check(
+		not main.reward_reveal.is_revealing(),
+		"controller Interact accelerates the reveal without blocking its grant"
+	)
+	check(
+		main.core.onboarding.stage == OnboardingState.PLACE_FOREST_REWARD
+		and main.placement.held.get("kind", "") == "tile"
+		and main.core.stock.tile_count(
+			String(main.placement.held.get("id", ""))
+		) == 1,
+		"the first harvest grants exactly one finite forest piece"
+	)
+	check(
+		main.placement.try_place_at(Vector2i(0, 2)),
+		"the forest discovery expands the authored world"
+	)
+	await wait(0.25)
+	check(
+		main.core.onboarding.stage == OnboardingState.WAIT_VISITOR,
+		"the first forest placement enables the global visitor bridge"
+	)
+	var visitor_event: Dictionary = main.core.visitors.trigger_now()
+	await wait(0.2)
+	check(
+		not visitor_event.is_empty()
+		and main.visitor_scene.call(
+			"interact", int(visitor_event.get("event_id", 0))
+		),
+		"a retained SDF visitor is clickable through its replaceable presenter"
+	)
+	await wait(0.55)
+	check(
+		main.core.onboarding.stage == OnboardingState.PLACE_VISITOR_REWARD
+		and main.placement.held.get("kind", "") == "tile",
+		"the visitor fades away and leaves its pre-rolled non-forest gift"
+	)
+	check(
+		main.placement.try_place_at(Vector2i(1, 2)),
+		"the visitor gift places as an ordinary reusable world piece"
+	)
+	await wait(0.25)
+	check(
+		main.core.onboarding.stage == OnboardingState.COMPLETE
 		and main.hud.player_dock_visible(),
-		"gameplay opens in Shape Land with the keeper waiting in the HUD dock"
+		"free play begins with themed harvesting and global visitors understood"
 	)
 	check(
 		main.placement.player_drop_target_at_cell(Vector2i(99, 99)).is_empty(),
-		"keeper drops reject empty void"
+		"keeper drops still reject empty void"
 	)
 	check(
-		main.try_place_player_at_cell(main.core.grid.home_cell),
-		"the docked keeper can be placed on a walkable tile"
+		main.try_place_player_at_cell(Vector2i(-1, -1)),
+		"the keeper remains available as an optional post-onboarding world tool"
 	)
 	await wait(0.8)
-	check(
-		main.player.deployed
-		and main.player.visible
-		and main.player.state == PlayerController.State.FREE,
-		"a placed keeper lands into normal free movement"
-	)
-	check(main.player.recall_to_dock(), "the occupied dock recalls the keeper")
-	await wait(0.18)
-	check(
-		main.player.find_child("RescueBlackHole", true, false) != null,
-		"recall opens the established black-hole portal under the keeper"
-	)
-	await wait(0.65)
-	check(
-		not main.player.deployed and not main.player.visible,
-		"the recalled keeper returns to the HUD instead of teleporting home"
-	)
-	check(
-		main.try_place_player_at_cell(main.core.grid.home_cell),
-		"the recalled keeper can be dragged into the world again"
-	)
-	await wait(0.8)
-	check(
-		main.core.grid.cells.size() == 9
-		and main.core._placed_tile_count("tile_sand") == 9
-		and main.core._placed_tile_count("tile_open_water") == 0
-		and main.core._is_structure_placed("struct_pine"),
-		"the Pale Sand start is a 3x3 island with exposed void edges"
-	)
-	check(main.core.onboarding.stage == OnboardingState.TRY_VOID_FISHING, "void fishing is the first world-making verb")
-	# Commit the first haul through the live fishing services; the guided
-	# onboarding hook auto-takes the guaranteed water bundle for placement.
-	var first_haul = main.core.fishing.debug_force_catch(Vector2i.ZERO)
-	await wait(0.55)
-	check(
-		first_haul != null
-		and main.core.onboarding.stage == OnboardingState.PLACE_DISCOVERY
-		and main.core.onboarding.guided_id == "tile_open_water",
-		"the first cast hauls real buildable water and guides its placement"
-	)
-	main._resume_guided_onboarding()
-	await wait(0.45)
-	check(
-		main.placement.held.get("id", "") == "tile_open_water",
-		"the guided haul is held for immediate placement"
-	)
-	check(main.placement.try_place_at(Vector2i(0, 2)), "first discovered water places beside the island")
-	await wait(0.2)
-	check(main.core.onboarding.stage == OnboardingState.COMPLETE, "placing the first haul completes onboarding")
-	# Spirits arrive through the narrow activity-completion event.
-	var pouch_before: int = main.core.fishing.pouch.slots().size()
-	main.core.progression.on_activity_cycle_completed("woodcutting")
-	await wait(0.2)
-	check(
-		main.core.fishing.pouch.slots().size() == pouch_before + 1
-		and main.core.fishing.pouch.slots().back() == "spirit_grove",
-		"a completed tree cycle settles one Grove Spirit into the pouch"
-	)
-	# Unplaced bundle copies return to the basket before the fixture resets.
-	main.core.fishing.basket.reconcile_bundle_checkout()
+	check(main.player.deployed and main.player.visible, "the optional keeper deploys normally")
 
 	main.core.new_game(main.core.profile)
 	main.renderer.rebuild_all()
 	main.player.position = main.core.profile.position
 	main.hud._refresh_all()
 	check(main.core.grid.cells.size() == 9, "3x3 acceptance fixture is ready")
+	main.hud.set_build_library_expanded(true, false)
+	await _tap_key(KEY_ESCAPE)
+	check(
+		main.pause_menu.is_open(),
+		"Escape opens the pause menu instead of merely collapsing Shape Land"
+	)
+	main.pause_menu.close()
+	await _tap_key(KEY_B)
+	check(main.hud.build_library_collapsed(), "B collapses the expanded Build Bag")
+	await _tap_key(KEY_B)
+	check(not main.hud.build_library_collapsed(), "B opens the collapsed Build Bag")
 	var tool_mount := main.player_visual.find_child("ToolMount", true, false)
 	check(tool_mount != null and tool_mount.get_child_count() == 0, "rod stays hidden during movement")
 	await shot("screenshot_starting_world")
@@ -381,6 +422,11 @@ func _step_build_library_ui() -> void:
 	for landmark_id: String in main.core.registries.landmarks:
 		main.core.stock.landmark_deeds.append(landmark_id)
 	main.core.stock.stock_changed.emit()
+	# The onboarding flow has already exercised focus/hover transitions. Reset
+	# only this fixture's UI posture before testing the bag in isolation.
+	main.hud._selected_build_category = "nature"
+	main.hud.set_build_library_expanded(false, false)
+	main.hud._build_hover_expand_armed = true
 	main.placement.set_active(true)
 	await wait(0.15)
 
@@ -516,6 +562,14 @@ func _step_build_library_ui() -> void:
 	)
 	main.hud._select_build_category("nature")
 	await wait(0.05)
+	var pine_card := main.hud._build_strip.find_child(
+		"BuildItem_struct_pine", false, false
+	)
+	check(
+		pine_card != null
+		and pine_card.find_child("HarvestBadge_axe", true, false) != null,
+		"harvestable Build Library models expose their data-authored tool badge"
+	)
 	var vertical_bar := main.hud._build_item_scroll.get_v_scroll_bar()
 	check(
 		vertical_bar.max_value > vertical_bar.page,
@@ -1708,6 +1762,26 @@ func _step_movement() -> void:
 		"every authored runtime animation closes horizontal root travel"
 	)
 
+	main.camera_rig.reset_pan()
+	var camera_pan_player_start := player.position
+	Input.action_press("camera_pan_up")
+	for _index in 20:
+		await get_tree().process_frame
+	Input.action_release("camera_pan_up")
+	check(
+		main.camera_rig._pan_offset.length() > 0.5
+		and camera_pan_player_start.distance_to(player.position) < 0.01,
+		"camera pan actions move the view without moving the keeper"
+	)
+	var saved_pan := main.camera_rig._pan_offset
+	var saved_camera_state := main.camera_rig.save_state()
+	main.camera_rig.reset_pan()
+	main.camera_rig.restore_state(saved_camera_state)
+	check(
+		main.camera_rig._pan_offset.is_equal_approx(saved_pan),
+		"camera pan position survives the normal view-state save contract"
+	)
+	main.camera_rig.reset_pan()
 	await anchor_for_walk(Vector2i(0, 1))
 	var start := player.position
 	var samples: Array[Vector3] = []
@@ -1791,7 +1865,7 @@ func _step_movement() -> void:
 	var moved := start.distance_to(stopped)
 	check(
 		moved > main.core.grid.tile_size * 0.5,
-		"holding W crosses ground continuously (moved %.2f m)" % moved
+		"holding the keeper movement action crosses ground continuously (moved %.2f m)" % moved
 	)
 	var max_step := 0.0
 	for i in range(1, samples.size()):
@@ -2148,15 +2222,21 @@ func _step_retired_ferry() -> void:
 
 func _step_place_tile() -> void:
 	print("STEP tile placement")
-	main.core.stock.add_tile("tile_grass")
+	main.core.stock.add_tile("tile_grass", 2)
 	main.placement.hold_new("tile", "tile_grass")
 	await wait(0.2)
 	check(main.placement.active, "build mode active with held piece")
 	main.placement.rotate_held()
 	check(int(main.placement.held["rotation"]) == 1, "rotation steps")
-	check(not main.placement.try_place_at(Vector2i(6, 6)), "detached placement rejected")
+	var detached := Vector2i(6, 6)
+	check(main.placement.try_place_at(detached), "detached placement succeeds")
+	check(
+		main.core.grid.tile_def(detached).id == "tile_grass",
+		"detached land is authored as a normal saved world cell"
+	)
+	main.placement.hold_new("tile", "tile_grass")
 	var target := Vector2i(2, 0)
-	check(main.placement.try_place_at(target), "adjacent placement accepted")
+	check(main.placement.try_place_at(target), "connected placement remains accepted")
 	check(main.core.grid.tile_def(target).id == "tile_grass", "known walkable tile placed into the world")
 	await wait(0.6)
 	await shot("screenshot_tile_placement")

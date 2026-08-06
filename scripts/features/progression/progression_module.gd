@@ -320,6 +320,8 @@ static func _retire_old_onboarding(data: Dictionary) -> void:
 	if not onboarding.is_empty() and String(onboarding.get("stage", "")) not in [
 		"land_choice", "try_void_fishing", "place_discovery",
 		"tend_tree", "place_biome_discovery", "complete",
+		"place_tree", "wait_tree", "harvest_tree", "place_forest_reward",
+		"wait_visitor", "place_visitor_reward",
 	]:
 		onboarding["stage"] = "complete"
 

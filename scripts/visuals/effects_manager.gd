@@ -345,6 +345,82 @@ func shake_structure(instance_id: int) -> void:
 	tween.tween_property(visual, "rotation:z", base_rotation, 0.1)
 
 
+func shake_structure_impact(instance_id: int, strength: float) -> void:
+	var renderer := get_parent().find_child("WorldRenderer", false, false) as WorldRenderer
+	if renderer == null:
+		return
+	var visual := renderer.structure_node(instance_id)
+	if visual == null:
+		return
+	var amount := lerpf(0.045, 0.11, clampf(strength, 0.0, 1.0))
+	var base_rotation := visual.rotation.z
+	var base_scale := visual.scale
+	var tween := visual.create_tween()
+	tween.set_parallel()
+	tween.tween_property(
+		visual, "rotation:z", base_rotation + amount, 0.055
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(
+		visual, "scale", base_scale * Vector3(1.08, 0.9, 1.08), 0.055
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.chain().set_parallel()
+	tween.tween_property(visual, "rotation:z", base_rotation - amount * 0.45, 0.07)
+	tween.tween_property(visual, "scale", base_scale, 0.09)
+	tween.chain().tween_property(visual, "rotation:z", base_rotation, 0.09)
+
+
+func flash_structure(instance_id: int, seconds := 0.08) -> void:
+	var renderer := get_parent().find_child("WorldRenderer", false, false) as WorldRenderer
+	if renderer == null:
+		return
+	var visual := renderer.structure_node(instance_id)
+	if visual == null:
+		return
+	var overlay := StandardMaterial3D.new()
+	overlay.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	overlay.albedo_color = Color(1.0, 0.98, 0.9, 0.92)
+	overlay.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var meshes: Array[MeshInstance3D] = []
+	for child in visual.find_children("*", "MeshInstance3D", true, false):
+		var mesh := child as MeshInstance3D
+		meshes.append(mesh)
+		mesh.material_overlay = overlay
+	var timer := get_tree().create_timer(maxf(0.02, seconds))
+	timer.timeout.connect(func():
+		for mesh: MeshInstance3D in meshes:
+			if is_instance_valid(mesh) and mesh.material_overlay == overlay:
+				mesh.material_overlay = null
+	)
+
+
+func fell_structure(instance_id: int, finished: Callable = Callable()) -> void:
+	var renderer := get_parent().find_child("WorldRenderer", false, false) as WorldRenderer
+	if renderer == null:
+		if finished.is_valid():
+			finished.call()
+		return
+	var visual := renderer.structure_node(instance_id)
+	if visual == null:
+		if finished.is_valid():
+			finished.call()
+		return
+	var base_rotation := visual.rotation
+	var tween := visual.create_tween()
+	tween.tween_property(
+		visual, "rotation:x", base_rotation.x + 1.28, 0.34
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.parallel().tween_property(
+		visual, "position:y", visual.position.y + 0.06, 0.22
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.tween_interval(0.06)
+	tween.tween_callback(func():
+		visual.rotation = base_rotation
+		visual.position.y -= 0.06
+		if finished.is_valid():
+			finished.call()
+	)
+
+
 func placement_poof(point: Vector3, kind: String) -> void:
 	burst("fx_leaf" if kind == "grass" else "fx_smoke_puff", point + Vector3(0, 0.15, 0), 7, 1.6)
 

@@ -100,6 +100,18 @@ const BUILD_CATEGORIES := [
 ]
 
 const BUILD_ICON_DIRECTORY := "res://assets/ui/icons/"
+const HARVEST_ICON_FILES := {
+	"axe": "harvest_axe.svg",
+	"pickaxe": "harvest_pickaxe.svg",
+	"sickle": "harvest_sickle.svg",
+	"crack": "harvest_crack.svg",
+}
+const HARVEST_ICON_LABELS := {
+	"axe": "Choppable",
+	"pickaxe": "Mineable",
+	"sickle": "Gatherable",
+	"crack": "Breakable",
+}
 
 
 func setup(game_core: GameCore, ui_kit: UiKit, placement_controller: PlacementController) -> void:
@@ -552,6 +564,11 @@ func player_dock_visible() -> bool:
 	return _player_dock_panel != null and _player_dock_panel.visible
 
 
+func set_player_dock_visible(visible: bool) -> void:
+	if _player_dock_panel != null:
+		_player_dock_panel.visible = visible
+
+
 func _on_player_dock_drag_started(screen_position: Vector2) -> void:
 	_player_drag_icon.visible = true
 	_move_player_drag_icon(screen_position)
@@ -678,12 +695,26 @@ func _collect_build_entries() -> Dictionary:
 			definition.display_name, structure_id, category_id
 		):
 			continue
+		var harvest_icon := ""
+		var harvest_label := ""
+		if definition.has_capability("harvest_source"):
+			var profile_id := String(
+				definition.capability("harvest_source").get("profile_id", "")
+			)
+			var harvest_profile := core.registries.harvest_profile(profile_id)
+			if harvest_profile != null:
+				harvest_icon = harvest_profile.tool_icon
+				harvest_label = String(
+					HARVEST_ICON_LABELS.get(harvest_icon, harvest_profile.verb.capitalize())
+				)
 		result[category_id].append({
 			"kind": "structure",
 			"id": structure_id,
 			"name": definition.display_name,
 			"count": count,
-			"tooltip": "%s · %s" % [
+			"harvest_icon": harvest_icon,
+			"tooltip": "%s%s · %s" % [
+				("%s · " % harvest_label if harvest_label != "" else ""),
 				_build_category_label(category_id),
 				InputDeviceService.shared().format_action(&"build_confirm", "place"),
 			],
@@ -784,6 +815,7 @@ func _refresh_build_items(entries_by_category: Dictionary) -> void:
 		)
 		var item_button: Button = card["button"]
 		var preview: TextureRect = card["preview"]
+		_add_harvest_badge(item_button, String(entry.get("harvest_icon", "")))
 		item_button.name = "BuildItem_%s" % entry["id"]
 		var tooltip := String(entry["tooltip"])
 		var place_prompt := InputDeviceService.shared().format_action(
@@ -813,6 +845,34 @@ func _refresh_build_items(entries_by_category: Dictionary) -> void:
 				preview.get_instance_id()
 			)
 		)
+
+
+func _add_harvest_badge(button: Button, icon_id: String) -> void:
+	var filename := String(HARVEST_ICON_FILES.get(icon_id, ""))
+	if filename == "":
+		return
+	var badge := PanelContainer.new()
+	badge.name = "HarvestBadge_%s" % icon_id
+	badge.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	badge.position = Vector2(9, 9)
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = kit.palette.color("ui_card").lightened(0.08)
+	style.set_corner_radius_all(11)
+	style.set_content_margin_all(5)
+	style.shadow_color = kit.palette.color("ui_badge_shadow")
+	style.shadow_size = 3
+	style.shadow_offset = Vector2(0, 2)
+	badge.add_theme_stylebox_override("panel", style)
+	var icon := TextureRect.new()
+	icon.name = "Icon"
+	icon.custom_minimum_size = Vector2(22, 22)
+	icon.texture = load(BUILD_ICON_DIRECTORY + filename)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.add_child(icon)
+	button.add_child(badge)
 
 
 func _on_build_piece_pressed(entry: Dictionary) -> void:
@@ -1601,29 +1661,33 @@ func toast(message: String, tone := "common") -> void:
 
 ## Derives the current opening hint straight from discovery state.
 func update_tutorial() -> void:
-	if not _player_deployed and core.onboarding.stage != OnboardingState.LAND_CHOICE:
-		set_hint("Drag your keeper from the lower-right onto a clear tile.")
-		return
 	match core.onboarding.stage:
-		OnboardingState.LAND_CHOICE:
-			set_hint("")
+		OnboardingState.PLACE_TREE:
+			set_hint("Place your first tree. (%s)" % InputDeviceService.shared().format_action(&"build_confirm", "place"))
 			return
-		OnboardingState.TRY_VOID_FISHING:
-			set_hint(
-				"Walk to an exposed edge and fish into the unknown. (%s)"
-				% InputDeviceService.shared().format_action(
-					&"interact", "when close"
-				)
-			)
+		OnboardingState.WAIT_TREE:
+			set_hint("Turn the world while your tree grows.")
 			return
-		OnboardingState.PLACE_DISCOVERY:
+		OnboardingState.HARVEST_TREE:
+			set_hint("Harvest the tree — three satisfying hits. (%s)" % InputDeviceService.shared().format_action(&"build_confirm", "hit"))
+			return
+		OnboardingState.PLACE_FOREST_REWARD:
 			set_hint(
-				"Place the piece you pulled from the unknown. (%s)"
+				"Add the forest discovery to your world. (%s)"
 				% InputDeviceService.shared().format_action(
 					&"build_confirm", "place"
 				)
 			)
 			return
+		OnboardingState.WAIT_VISITOR:
+			set_hint("Shape your island while a curious visitor finds its way here.")
+			return
+		OnboardingState.PLACE_VISITOR_REWARD:
+			set_hint("Place the visitor's gift — a first step beyond the forest.")
+			return
+	if not _player_deployed and not core.onboarding.is_active():
+		set_hint("Drag your keeper from the lower-right onto a clear tile.")
+		return
 	if core.fishing.basket.is_full():
 		set_hint("The Catch Basket is full — place or return a haul to fish again.")
 	elif core.progression.actions_done("fishing") == 0:
@@ -1632,7 +1696,7 @@ func update_tutorial() -> void:
 			% InputDeviceService.shared().format_action(&"interact", "when close")
 		)
 	elif core.grid.placed_tile_count() == 0 and core.stock.total_tiles() > 0:
-		set_hint("Place your new land beside the world from the Build Bag below.")
+		set_hint("Place your new land in any empty grid space from the Build Bag below.")
 	elif core.grid.placed_tile_count() > 0 and core.progression.actions_done("woodcutting") == 0:
 		if _has_placed_tree():
 			set_hint("Tend your placed tree — it will rest, then regrow.")

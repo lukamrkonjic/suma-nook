@@ -19,6 +19,12 @@ const DEFINITION_KINDS: Array[String] = [
 	"fishing_loot",
 	"spirits",
 	"keepsakes",
+	"reward_pools",
+	"reward_roll_policies",
+	"reward_reveal_profiles",
+	"harvest_profiles",
+	"visitor_presentations",
+	"visitor_programs",
 ]
 
 var base_path: String
@@ -40,6 +46,12 @@ var landmarks: Dictionary = {}
 var fishing_loot: Dictionary = {}
 var spirits: Dictionary = {}
 var keepsakes: Dictionary = {}
+var reward_pools: Dictionary = {}
+var reward_roll_policies: Dictionary = {}
+var reward_reveal_profiles: Dictionary = {}
+var harvest_profiles: Dictionary = {}
+var visitor_presentations: Dictionary = {}
+var visitor_programs: Dictionary = {}
 var fishing_balance: Dictionary = {}
 var sources: Dictionary = {}
 
@@ -65,6 +77,12 @@ func definitions(kind: String) -> Dictionary:
 		"fishing_loot": return fishing_loot
 		"spirits": return spirits
 		"keepsakes": return keepsakes
+		"reward_pools": return reward_pools
+		"reward_roll_policies": return reward_roll_policies
+		"reward_reveal_profiles": return reward_reveal_profiles
+		"harvest_profiles": return harvest_profiles
+		"visitor_presentations": return visitor_presentations
+		"visitor_programs": return visitor_programs
 	return {}
 
 

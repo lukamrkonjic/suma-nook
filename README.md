@@ -51,13 +51,15 @@ visibility as soon as the active input method changes.
 
 | Action | Keyboard / mouse | Controller |
 |---|---|---|
-| Walk / sprint | WASD / Shift | left stick / L3 |
-| Interact | E | X / west face |
+| Pan camera | WASD / middle-mouse drag | right stick |
+| Walk / sprint keeper | click ground / Shift | left stick / L3 |
+| Interact | F | X / west face |
 | Fish the unknown | interact near an exposed land edge | interact |
 | Jump | Space | A / south face |
 | Build mode / Build Bag | B | Y / north face |
 | Place / pick up in build mode | click | A / south face |
 | Move build cursor | pointer | D-pad |
+| Place detached land | click any empty grid cell | move cursor anywhere, then A |
 | Rotate / store held piece | R / X | R3 / X-west |
 | Rotate camera | ← / → or Q / X | LB / RB |
 | Zoom; build undo / redo | ↑ / ↓ or wheel; Ctrl+Z / Ctrl+Shift+Z | LT / RT |

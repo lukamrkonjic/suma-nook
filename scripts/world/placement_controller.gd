@@ -2,7 +2,7 @@ class_name PlacementController
 extends Node3D
 ## Build mode: ghost previews, grid snapping, rotation, move-with-cancel,
 ## undo/redo, and every placement safety rule (adjacency, overlap, world
-## connectivity, player standing-cell relocation). The grid snaps pieces;
+## occupancy, support, and player standing-cell relocation). The grid snaps pieces;
 ## the player character never snaps.
 
 signal mode_changed(active: bool)
@@ -161,6 +161,21 @@ func controller_mode() -> bool:
 
 func controller_cursor_cell() -> Vector2i:
 	return _controller_cell
+
+
+func controller_target_instance_id() -> int:
+	if not controller_cursor_active():
+		return 0
+	var elevation := core.grid.top_elevation(_controller_cell)
+	return (
+		_highest_structure_instance_at(_controller_cell, elevation)
+		if elevation >= 0 else 0
+	)
+
+
+func pick_up_under_pointer() -> void:
+	if active and held.is_empty():
+		_try_pick_up()
 
 
 ## Resolves the keeper-dock drag against the same authored tile/structure
@@ -1292,9 +1307,6 @@ func _try_pick_up_tile(cell: Vector2i, elevation: int, state: WorldGrid.CellStat
 		if home_after == cell:
 			action_result.emit(false, "Place another safe land tile before moving this one.", "invalid")
 			return
-	if elevation == 0 and not core.grid.connected_without(cell, home_after):
-		action_result.emit(false, "Removing that tile would split your world in two.", "invalid")
-		return
 	if elevation == 0 and player.current_cell() == cell:
 		var refuge := core.grid.nearest_walkable(cell, cell)
 		if refuge == cell:
@@ -1451,8 +1463,6 @@ func _apply(entry: Dictionary, reverse: bool) -> bool:
 				var coord: Vector2i = entry["coord"]
 				if elevation == 0 and player.current_cell() == coord:
 					player.position = core.grid.cell_to_world(core.grid.nearest_walkable(coord, coord))
-				if elevation == 0 and not core.grid.connected_without(coord, core.grid.home_cell):
-					return false
 				var removed := core.grid.remove_tile_at(coord, elevation)
 				if removed != null:
 					core.stock.add_tile(removed.tile_id)

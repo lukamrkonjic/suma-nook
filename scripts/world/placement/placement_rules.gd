@@ -32,8 +32,7 @@ func validate(
 					return false
 				return core.grid.can_place_tile_at(cell, elevation, held["id"])
 			if held["moving"] != null and int(held["moving"].get("elevation", 0)) == 0:
-				var from: Vector2i = held["moving"]["coord"]
-				return not core.grid.has_cell(cell) and _adjacent_excluding(cell, from)
+				return not core.grid.has_cell(cell)
 			return core.grid.can_place_tile_at(cell, 0, held["id"])
 		"structure":
 			if support_instance_id > 0:
@@ -104,12 +103,6 @@ func invalid_message(
 				return "That object cannot hold another item."
 			return "That support is full or does not fit this item."
 		return "That object needs a clear supported spot."
-	return "It can't go there — land must touch the world edge-to-edge."
-
-
-func _adjacent_excluding(cell: Vector2i, excluded: Vector2i) -> bool:
-	for offset: Vector2i in WorldGrid.NEIGHBORS:
-		var neighbor: Vector2i = cell + offset
-		if neighbor != excluded and core.grid.has_cell(neighbor):
-			return true
-	return false
+	if held.get("kind", "") == "tile":
+		return "That grid space is already occupied."
+	return "It can't go there."

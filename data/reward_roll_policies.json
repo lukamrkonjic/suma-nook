@@ -1,0 +1,14 @@
+{
+  "reward_roll_policies": [
+    {
+      "id": "roll_policy_harvest_biome",
+      "name": "Biome Harvest Variety",
+      "recent_memory": 6,
+      "recent_weight_multiplier": 0.22,
+      "undiscovered_weight_multiplier": 1.7,
+      "rare_pity_start": 7,
+      "rare_pity_step": 0.35,
+      "rare_pity_max_multiplier": 3.0
+    }
+  ]
+}

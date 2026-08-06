@@ -314,7 +314,11 @@ func _append_structure(
 	var world_transform := (
 		Transform3D(Basis.IDENTITY, world_position) * local_transform
 	)
-	var source_mesh := structure_factory.batch_mesh(definition)
+	var harvest_runtime: Dictionary = structure.runtime_state.get("harvest", {})
+	var source_mesh := structure_factory.batch_mesh(
+		definition,
+		String(harvest_runtime.get("state", "ready"))
+	)
 	var authored_model_scale: float = assets.edits.model_scale_for(
 		definition.asset_id
 	)

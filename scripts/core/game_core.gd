@@ -9,6 +9,7 @@ signal world_grown(coord: Vector2i)
 signal notified(message: String, tone: String)   # lightweight toast channel
 signal before_save
 signal anchor_regenerated(coord: Vector2i, elevation: int, instance_id: int)
+signal onboarding_guidance_ready(kind: String, content_id: String)
 
 const GameContentCatalogScript := preload("res://scripts/core/game_content_catalog.gd")
 const CampingModuleScript := preload(
@@ -28,6 +29,15 @@ const CurrentSaveValidatorScript := preload(
 )
 const FishingModuleScript := preload(
 	"res://scripts/features/fishing/fishing_module.gd"
+)
+const BuildRewardServiceScript := preload(
+	"res://scripts/features/rewards/build_reward_service.gd"
+)
+const HarvestingModuleScript := preload(
+	"res://scripts/features/harvesting/harvesting_module.gd"
+)
+const VisitorModuleScript := preload(
+	"res://scripts/features/visitors/visitor_module.gd"
 )
 
 var registries: Registries
@@ -49,6 +59,9 @@ var save_manager: SaveManager
 var camping
 var fire
 var fishing
+var build_rewards
+var harvesting
+var visitors
 var interactions
 
 var autosave_timer := 0.0
@@ -93,6 +106,15 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 	interactions.register_provider("camping", camping.interactions)
 	collection = CollectionManager.new(registries)
 	rewards = RewardManager.new(registries, rng, inventory, stock, collection)
+	build_rewards = BuildRewardServiceScript.new(
+		registries, rng, stock, collection
+	)
+	harvesting = HarvestingModuleScript.new(
+		registries, rng, grid, build_rewards
+	)
+	visitors = VisitorModuleScript.new(
+		registries, rng, grid, build_rewards
+	)
 	equipment = EquipmentManager.new(registries)
 	progression = ProgressionModule.new(registries, rng, grid, stock, collection, equipment)
 	fishing = FishingModuleScript.new(
@@ -139,7 +161,53 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 		if owner != null:
 			owner._dirty = true
 	)
-	grid.slot_changed.connect(_sync_resting_anchor_slot)
+	grid.slot_changed.connect(func(coord, elevation):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._sync_resting_anchor_slot(coord, elevation)
+	)
+	harvesting.source_state_changed.connect(func(instance_id, state, status):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._on_harvest_source_state_changed(instance_id, state, status)
+	)
+	harvesting.reward_granted.connect(func(instance_id, reward):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._on_harvest_reward_granted(instance_id, reward)
+	)
+	harvesting.hit_landed.connect(func(_instance_id, hit):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null and not bool(hit.get("final", false)):
+			owner.autosave_soon()
+	)
+	visitors.visitor_available.connect(func(_event):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			# Persist the selected look, cell, and pre-rolled gift immediately;
+			# quitting can never reroll an already-arrived visitor.
+			owner.save()
+	)
+	visitors.visitor_collected.connect(func(event, reward):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._on_visitor_collected(event, reward)
+	)
+	onboarding.stage_changed.connect(func(stage):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._on_onboarding_stage_changed(stage)
+	)
+	harvesting.reward_granted.connect(func(_instance_id, _reward):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner.save()
+	)
+	visitors.visitor_collected.connect(func(_event, _reward):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner.save()
+	)
 	fire.burning_changed.connect(func(_instance_id, _burning):
 		var owner := owner_ref.get_ref() as GameCore
 		if owner != null:
@@ -192,74 +260,61 @@ func new_game(new_profile: PlayerProfile) -> void:
 ## no land yet: the keeper arrives into an empty world and chooses the first
 ## tile during the portal sequence.
 func begin_onboarding_game(new_profile: PlayerProfile) -> void:
+	begin_build_onboarding(new_profile)
+
+
+## Build-first opening: the world exists immediately and the only owned model
+## is one stateful young tree waiting in the Build Library.
+func begin_build_onboarding(new_profile: PlayerProfile) -> void:
 	profile = new_profile
 	camping.reset()
 	fishing.reset()
-	grid.cells.clear()
-	grid.stacked_cells.clear()
-	grid.rebuild_structure_index()
+	_compose_onboarding_world()
 	grid.home_cell = Vector2i.ZERO
 	profile.position = grid.cell_to_world(Vector2i.ZERO)
+	stock.tiles.clear()
+	stock.structures.clear()
+	stock.structure_instances.clear()
+	stock.add_structure("struct_pine_young")
+	# The keeper is deliberately absent from the opening presentation, but its
+	# normal wardrobe and tools are already safe for the moment the player
+	# chooses to deploy it after onboarding.
 	equipment.acquire("tool_rod_basic")
 	equipment.acquire("tool_axe_basic")
 	equipment.equip("tool_rod_basic")
 	_ensure_default_body_item()
 	collection.record("gear", "tool_rod_basic")
 	collection.record("gear", "tool_axe_basic")
-	onboarding.begin()
+	onboarding.begin("struct_pine_young")
+	visitors.arrival_allowed = false
+	for coord: Vector2i in grid.cells:
+		collection.record("tiles", grid.cell(coord).tile_id, 0)
 	save()
 
 
 func choose_onboarding_land(tile_id: String) -> bool:
-	if onboarding.stage != OnboardingState.LAND_CHOICE:
-		return false
-	var allowed: Array = registries.tune("starter_land_options", [])
-	if (
-		tile_id not in allowed
-		or registries.tile(tile_id) == null
-		or not registries.is_tile_active(tile_id)
-	):
-		return false
-	profile.starter_land_id = tile_id
-	grid.home_cell = Vector2i.ZERO
-	# Nine chosen blocks rise through the portal. Their exposed edges are the
-	# player's first fishing place; water is a discovered building material.
-	for x in range(-1, 2):
-		for y in range(-1, 2):
-			var coord := Vector2i(x, y)
-			grid.place_tile(
-				coord,
-				tile_id,
-				0,
-				coord == Vector2i.ZERO,
-				false
-			)
-	var starter_tree := grid.add_structure(
-		Vector2i(-1, -1),
-		"struct_pine",
-		1,
-		0
-	)
-	profile.position = grid.cell_to_world(Vector2i.ZERO)
-	collection.record("tiles", tile_id, 0)
-	if starter_tree != null:
-		collection.record("structures", "struct_pine")
-		collection.record_placed("structures", "struct_pine")
-	onboarding.set_stage(OnboardingState.TRY_VOID_FISHING)
-	save()
-	return true
+	return false
 
 
 ## Called after a successful placement. It verifies the live world state
 ## before advancing and returns the next guaranteed piece for presentation.
 func advance_onboarding_after_placement() -> Dictionary:
-	if onboarding.stage != OnboardingState.PLACE_DISCOVERY:
-		return {}
-	onboarding.set_stage(OnboardingState.COMPLETE)
-	save()
-	return {
-		"message": "Build the world you want. What you build shapes what the void gives back.",
-	}
+	match onboarding.stage:
+		OnboardingState.PLACE_TREE:
+			var instance_id := _newest_placed_structure(onboarding.guided_id)
+			if not onboarding.tree_placed(instance_id):
+				return {}
+			save()
+			return {"message": "Turn the world while your tree grows."}
+		OnboardingState.PLACE_FOREST_REWARD:
+			onboarding.set_stage(OnboardingState.WAIT_VISITOR)
+			save()
+			return {"message": "Your tree will return. Something else may visit soon."}
+		OnboardingState.PLACE_VISITOR_REWARD:
+			onboarding.set_stage(OnboardingState.COMPLETE)
+			save()
+			return {"message": "Harvest for themed finds. Visitors bring surprises from everywhere."}
+	return {}
 
 
 ## Every committed haul autosaves; during onboarding the first catch also
@@ -267,25 +322,6 @@ func advance_onboarding_after_placement() -> Dictionary:
 ## basket "take" for the player).
 func _on_fishing_haul_committed(haul) -> void:
 	autosave_soon()
-	if onboarding.stage != OnboardingState.TRY_VOID_FISHING:
-		return
-	var entry = haul.primary_entry()
-	if entry == null:
-		return
-	match entry.form:
-		FishingReward.FORM_TILE_BUNDLE:
-			fishing.basket.take_tile_bundle(haul.haul_id, 0)
-			onboarding.guide_piece(
-				OnboardingState.PLACE_DISCOVERY, "tile", entry.building_id
-			)
-		FishingReward.FORM_MODEL:
-			fishing.basket.take_model(haul.haul_id, 0)
-			onboarding.guide_piece(
-				OnboardingState.PLACE_DISCOVERY, "structure", entry.building_id
-			)
-		_:
-			return
-	save()
 
 
 ## Repairs an interrupted guided placement after load without duplicating a
@@ -365,6 +401,77 @@ func _compose_starting_world() -> void:
 	grid.rebuild_structure_index()
 
 
+func _compose_onboarding_world() -> void:
+	grid.cells.clear()
+	grid.stacked_cells.clear()
+	grid.next_instance_id = 1
+	for x in range(-1, 2):
+		for y in range(-1, 2):
+			grid.place_tile(
+				Vector2i(x, y), "tile_grass", 0, true, false
+			)
+	grid.rebuild_structure_index()
+
+
+func _newest_placed_structure(structure_id: String) -> int:
+	var newest := 0
+	for slot: Dictionary in grid.all_cell_slots():
+		var state: WorldGrid.CellState = slot["state"]
+		for structure: WorldGrid.StructureState in state.structures:
+			if structure.structure_id == structure_id:
+				newest = maxi(newest, structure.instance_id)
+	return newest
+
+
+func _on_harvest_source_state_changed(
+	instance_id: int,
+	state: String,
+	_status: Dictionary
+) -> void:
+	if state == HarvestingModule.STATE_READY and onboarding.tree_ready(instance_id):
+		autosave_soon()
+
+
+func _on_harvest_reward_granted(
+	instance_id: int,
+	reward: Dictionary
+) -> void:
+	if (
+		onboarding.stage != OnboardingState.HARVEST_TREE
+		or instance_id != onboarding.starter_tree_instance_id
+	):
+		return
+	var kind := String(reward.get("kind", ""))
+	var content_id := String(reward.get("id", ""))
+	if kind not in ["tile", "structure"] or content_id == "":
+		return
+	onboarding.guide_piece(
+		OnboardingState.PLACE_FOREST_REWARD, kind, content_id
+	)
+	onboarding_guidance_ready.emit(kind, content_id)
+
+
+func _on_visitor_collected(event: Dictionary, reward: Dictionary) -> void:
+	if onboarding.stage != OnboardingState.WAIT_VISITOR:
+		return
+	var kind := String(reward.get("kind", ""))
+	var content_id := String(reward.get("id", ""))
+	if kind not in ["tile", "structure"] or content_id == "":
+		return
+	onboarding.guide_piece(
+		OnboardingState.PLACE_VISITOR_REWARD, kind, content_id
+	)
+	onboarding_guidance_ready.emit(kind, content_id)
+
+
+func _on_onboarding_stage_changed(stage: String) -> void:
+	visitors.arrival_allowed = stage in [
+		OnboardingState.WAIT_VISITOR,
+		OnboardingState.PLACE_VISITOR_REWARD,
+		OnboardingState.COMPLETE,
+	]
+
+
 # ------------------------------------------------------------------ flow hooks
 
 func _on_milestone_reached(milestone_id: String, rewards_granted: Array) -> void:
@@ -401,6 +508,8 @@ func tick(delta: float) -> void:
 	_poll_autosave()
 	play_seconds += delta
 	fishing.tick(delta)
+	harvesting.tick(delta)
+	visitors.tick(delta)
 	arrivals.tick(delta)
 	if registries.feature("combat_enabled", false):
 		combat.tick(delta)
@@ -524,6 +633,8 @@ func _save_payload() -> Dictionary:
 		"features": {
 			"camping": camping.to_save_dict(),
 			"fishing": fishing.to_save_dict(),
+			"harvesting": harvesting.to_save_dict(),
+			"visitors": visitors.to_save_dict(),
 		},
 		"view": view_state.duplicate(true),
 		"visual": visual_state.duplicate(true),
@@ -594,6 +705,12 @@ func load_game() -> bool:
 	_rebuild_resting_anchors()
 	inventory.from_save_dict(data.get("inventory", {}))
 	stock.from_save_dict(data.get("stock", {}))
+	harvesting.from_save_dict(
+		(data.get("features", {}) as Dictionary).get("harvesting", {})
+	)
+	visitors.from_save_dict(
+		(data.get("features", {}) as Dictionary).get("visitors", {})
+	)
 	camping.from_save_dict(
 		(data.get("features", {}) as Dictionary).get("camping", {})
 	)

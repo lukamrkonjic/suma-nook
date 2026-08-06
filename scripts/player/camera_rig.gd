@@ -19,6 +19,7 @@ var _pitch_node: Node3D
 var _rotating := false
 var _pan_offset := Vector3.ZERO
 var _middle_panning := false
+var _middle_pan_origin := Vector3.ZERO
 var _creator_focus := false
 
 
@@ -53,6 +54,7 @@ func setup(game_core: GameCore, follow_target: Node3D) -> void:
 
 
 func _process(delta: float) -> void:
+	_apply_continuous_pan(delta)
 	if target != null:
 		var goal := target.global_position + _pan_offset
 		global_position = global_position.lerp(goal, minf(1.0, core.registries.tunef("camera_follow_speed", 4.5) * delta))
@@ -84,7 +86,7 @@ func _input(event: InputEvent) -> void:
 		and not (event as InputEventMouseButton).pressed
 	):
 		_middle_panning = false
-		reset_pan()
+		_pan_offset = _middle_pan_origin
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -124,8 +126,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		var wheel := event as InputEventMouseButton
 		if wheel.button_index == MOUSE_BUTTON_MIDDLE:
 			_middle_panning = wheel.pressed
-			if not wheel.pressed:
-				reset_pan()
+			if wheel.pressed:
+				_middle_pan_origin = _pan_offset
+			else:
+				_pan_offset = _middle_pan_origin
 			get_viewport().set_input_as_handled()
 		elif wheel.pressed:
 			var wheel_amount := maxf(0.1, wheel.factor)
@@ -155,8 +159,47 @@ func _pan_by_pixels(relative: Vector2) -> void:
 		- basis.z * relative.y * world_per_pixel
 	)
 	_pan_offset.y = 0.0
-	if _pan_offset.length() > 30.0:
-		_pan_offset = _pan_offset.normalized() * 30.0
+	_clamp_pan_offset()
+
+
+func _apply_continuous_pan(delta: float) -> void:
+	if _creator_focus or _middle_panning:
+		return
+	var focused := get_viewport().gui_get_focus_owner()
+	if (
+		focused is LineEdit
+		or focused is TextEdit
+		or (
+			focused != null
+			and InputDeviceService.shared() != null
+			and InputDeviceService.shared().is_controller()
+		)
+	):
+		return
+	var input := Input.get_vector(
+		"camera_pan_left",
+		"camera_pan_right",
+		"camera_pan_up",
+		"camera_pan_down"
+	)
+	if input.length_squared() <= 0.001:
+		return
+	var movement_basis := horizontal_basis()
+	var direction := movement_basis.x * input.x + movement_basis.z * input.y
+	direction.y = 0.0
+	if direction.length_squared() > 1.0:
+		direction = direction.normalized()
+	var default_distance := core.registries.tunef("camera_default_size", 37.0)
+	var zoom_scale := clampf(_size_target / maxf(1.0, default_distance), 0.5, 2.0)
+	_pan_offset += direction * core.registries.tunef("camera_pan_speed", 10.0) * zoom_scale * delta
+	_clamp_pan_offset()
+
+
+func _clamp_pan_offset() -> void:
+	_pan_offset.y = 0.0
+	var limit := core.registries.tunef("camera_pan_limit", 1024.0)
+	if limit > 0.0 and _pan_offset.length() > limit:
+		_pan_offset = _pan_offset.normalized() * limit
 
 
 func _zoom_by(amount: float) -> void:
@@ -242,16 +285,17 @@ func zoom_distance() -> float:
 
 
 func save_state() -> Dictionary:
+	var persisted_pan := _middle_pan_origin if _middle_panning else _pan_offset
 	return {
 		"yaw": _yaw_target,
 		"distance": _size_target,
-		# Middle-drag is a temporary look gesture and is never persisted.
-		"pan": [0.0, 0.0],
+		"pan": [persisted_pan.x, persisted_pan.z],
 	}
 
 
 func reset_pan() -> void:
 	_pan_offset = Vector3.ZERO
+	_middle_pan_origin = Vector3.ZERO
 	core.autosave_soon()
 
 
@@ -279,6 +323,9 @@ func runtime_manifest() -> Dictionary:
 		},
 		"motion": {
 			"follow_damping_per_second": core.registries.tunef("camera_follow_speed", 10.0),
+			"pan_speed_units_per_second": core.registries.tunef("camera_pan_speed", 10.0),
+			"pan_limit": core.registries.tunef("camera_pan_limit", 1024.0),
+			"pan_offset": _pan_offset,
 			"orbit_speed_degrees_per_second": core.registries.tunef("camera_rotate_speed_deg", 360.0),
 			"orbit_step_degrees": 90.0,
 			"settle_epsilon_degrees": 0.25,
@@ -313,7 +360,12 @@ func restore_state(data: Dictionary) -> void:
 		core.registries.tunef("camera_min_size", 14.0),
 		core.registries.tunef("camera_max_size", 70.0)
 	)
-	# Discard legacy persistent framing offsets. Middle-drag now returns to the
-	# player on release and must not reopen a save looking away from them.
-	_pan_offset = Vector3.ZERO
+	var stored_pan: Array = data.get("pan", [0.0, 0.0])
+	_pan_offset = Vector3(
+		float(stored_pan[0]) if stored_pan.size() > 0 else 0.0,
+		0.0,
+		float(stored_pan[1]) if stored_pan.size() > 1 else 0.0
+	)
+	_clamp_pan_offset()
+	_middle_pan_origin = _pan_offset
 	set_zoom_immediate(_size_target)

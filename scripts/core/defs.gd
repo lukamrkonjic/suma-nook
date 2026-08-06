@@ -228,6 +228,219 @@ class KeepsakeDefinition:
 		return k
 
 
+class RewardPoolDefinition:
+	extends Resource
+	## Shared, presentation-neutral world-piece rewards. Harvesting, visitors,
+	## milestones, and future event types all grant through the same contract.
+	var id: String
+	var display_name: String
+	var traits := DefinitionTraits.new()
+	var entries: Array[Dictionary] = []
+
+	static func from_dict(d: Dictionary) -> RewardPoolDefinition:
+		var pool := RewardPoolDefinition.new()
+		pool.id = String(d.get("id", ""))
+		pool.display_name = String(d.get("name", pool.id.capitalize()))
+		pool.traits = DefinitionTraits.from_dict(d)
+		for raw_entry in d.get("entries", []):
+			if not raw_entry is Dictionary:
+				continue
+			pool.entries.append({
+				"kind": String(raw_entry.get("kind", "")),
+				"id": String(raw_entry.get("id", "")),
+				"weight": maxf(0.0, float(raw_entry.get("weight", 1.0))),
+				"min": maxi(1, int(raw_entry.get("min", 1))),
+				"max": maxi(1, int(raw_entry.get("max", raw_entry.get("min", 1)))),
+				"rarity": String(raw_entry.get("rarity", "common")),
+			})
+		return pool
+
+
+class RewardRollPolicyDefinition:
+	extends Resource
+	## Reusable selection policy. The reward pool defines what may drop; this
+	## policy only adjusts weights from collection history and a bounded pity
+	## counter supplied by the owning feature.
+	var id: String
+	var display_name: String
+	var traits := DefinitionTraits.new()
+	var recent_memory: int = 0
+	var recent_weight_multiplier: float = 1.0
+	var undiscovered_weight_multiplier: float = 1.0
+	var rare_pity_start: int = 0
+	var rare_pity_step: float = 0.0
+	var rare_pity_max_multiplier: float = 1.0
+
+	static func from_dict(d: Dictionary) -> RewardRollPolicyDefinition:
+		var policy := RewardRollPolicyDefinition.new()
+		policy.id = String(d.get("id", ""))
+		policy.display_name = String(d.get("name", policy.id.capitalize()))
+		policy.traits = DefinitionTraits.from_dict(d)
+		policy.recent_memory = maxi(0, int(d.get("recent_memory", 0)))
+		policy.recent_weight_multiplier = clampf(
+			float(d.get("recent_weight_multiplier", 1.0)), 0.0, 1.0
+		)
+		policy.undiscovered_weight_multiplier = maxf(
+			1.0, float(d.get("undiscovered_weight_multiplier", 1.0))
+		)
+		policy.rare_pity_start = maxi(0, int(d.get("rare_pity_start", 0)))
+		policy.rare_pity_step = maxf(0.0, float(d.get("rare_pity_step", 0.0)))
+		policy.rare_pity_max_multiplier = maxf(
+			1.0, float(d.get("rare_pity_max_multiplier", 1.0))
+		)
+		return policy
+
+
+class RewardRevealProfileDefinition:
+	extends Resource
+	## Presentation-only gacha reveal. The reward is already committed before
+	## a presenter receives this profile, so animation can be skipped or
+	## replaced without touching ownership or save data.
+	var id: String
+	var display_name: String
+	var traits := DefinitionTraits.new()
+	var presenter_type: String = "world_bud"
+	var shell_shape: String = "acorn"
+	var shell_material: String = "wood_light"
+	var accent_material: String = "leaf_medium"
+	var glow_material: String = "magic"
+	var landing_seconds: float = 0.32
+	var anticipation_seconds: float = 0.3
+	var reveal_seconds: float = 0.42
+	var display_seconds: float = 0.8
+	var new_discovery_bonus_seconds: float = 0.45
+	var collect_seconds: float = 0.38
+	var miniature_size: float = 0.42
+
+	static func from_dict(d: Dictionary) -> RewardRevealProfileDefinition:
+		var profile := RewardRevealProfileDefinition.new()
+		profile.id = String(d.get("id", ""))
+		profile.display_name = String(d.get("name", profile.id.capitalize()))
+		profile.traits = DefinitionTraits.from_dict(d)
+		profile.presenter_type = String(d.get("presenter_type", "world_bud"))
+		profile.shell_shape = String(d.get("shell_shape", "acorn"))
+		profile.shell_material = String(d.get("shell_material", "wood_light"))
+		profile.accent_material = String(d.get("accent_material", "leaf_medium"))
+		profile.glow_material = String(d.get("glow_material", "magic"))
+		profile.landing_seconds = maxf(0.05, float(d.get("landing_seconds", 0.32)))
+		profile.anticipation_seconds = maxf(
+			0.05, float(d.get("anticipation_seconds", 0.3))
+		)
+		profile.reveal_seconds = maxf(0.05, float(d.get("reveal_seconds", 0.42)))
+		profile.display_seconds = maxf(0.0, float(d.get("display_seconds", 0.8)))
+		profile.new_discovery_bonus_seconds = maxf(
+			0.0, float(d.get("new_discovery_bonus_seconds", 0.45))
+		)
+		profile.collect_seconds = maxf(0.05, float(d.get("collect_seconds", 0.38)))
+		profile.miniature_size = clampf(
+			float(d.get("miniature_size", 0.42)), 0.1, 1.0
+		)
+		return profile
+
+
+class HarvestProfileDefinition:
+	extends Resource
+	## Lifecycle and economy for a reusable harvest source. Structures opt in
+	## through a capability payload that references this stable id.
+	var id: String
+	var display_name: String
+	var traits := DefinitionTraits.new()
+	var verb: String = "gather"
+	var tool_icon: String = "sickle"
+	var hits_required: int = 1
+	var maturation_seconds: float = 20.0
+	var regrowth_seconds: float = 30.0
+	var reward_pool_id: String = ""
+	var first_reward_pool_id: String = ""
+	var roll_policy_id: String = ""
+	var reveal_profile_id: String = ""
+	var home_collection: String = ""
+	var presentation_profile: String = "soft_source"
+	## Presentation-owned data. The lifecycle never interprets this payload;
+	## replaceable presenters may use it to attach fruit, ore, flowers, etc. to
+	## any model that references the profile.
+	var presentation_settings: Dictionary = {}
+
+	static func from_dict(d: Dictionary) -> HarvestProfileDefinition:
+		var profile := HarvestProfileDefinition.new()
+		profile.id = String(d.get("id", ""))
+		profile.display_name = String(d.get("name", profile.id.capitalize()))
+		profile.traits = DefinitionTraits.from_dict(d)
+		profile.verb = String(d.get("verb", "gather"))
+		profile.tool_icon = String(d.get("tool_icon", "sickle"))
+		profile.hits_required = maxi(1, int(d.get("hits", 1)))
+		profile.maturation_seconds = maxf(0.0, float(d.get("maturation_seconds", 20.0)))
+		profile.regrowth_seconds = maxf(0.0, float(d.get("regrowth_seconds", 30.0)))
+		profile.reward_pool_id = String(d.get("reward_pool", ""))
+		profile.first_reward_pool_id = String(d.get("first_reward_pool", ""))
+		profile.roll_policy_id = String(d.get("roll_policy", ""))
+		profile.reveal_profile_id = String(d.get("reveal_profile", ""))
+		profile.home_collection = String(d.get("home_collection", ""))
+		profile.presentation_profile = String(d.get("presentation", "soft_source"))
+		profile.presentation_settings = (
+			d.get("presentation_settings", {}) as Dictionary
+		).duplicate(true)
+		return profile
+
+
+class VisitorPresentationDefinition:
+	extends Resource
+	## A replaceable scene adapter. The visitor scheduler persists only this id;
+	## presenter_type selects an application-registered factory.
+	var id: String
+	var display_name: String
+	var traits := DefinitionTraits.new()
+	var presenter_type: String = "sdf_creature"
+	var presentation_resource: String = ""
+	var weight: float = 1.0
+	var scale: float = 1.0
+	var shine_color: Color = Color(1.0, 0.9, 0.55)
+
+	static func from_dict(d: Dictionary) -> VisitorPresentationDefinition:
+		var presentation := VisitorPresentationDefinition.new()
+		presentation.id = String(d.get("id", ""))
+		presentation.display_name = String(d.get("name", presentation.id.capitalize()))
+		presentation.traits = DefinitionTraits.from_dict(d)
+		presentation.presenter_type = String(d.get("presenter_type", "sdf_creature"))
+		presentation.presentation_resource = String(d.get("resource_path", ""))
+		presentation.weight = maxf(0.0, float(d.get("weight", 1.0)))
+		presentation.scale = maxf(0.05, float(d.get("scale", 1.0)))
+		presentation.shine_color = Color.from_string(
+			String(d.get("shine_color", "#FFE59A")), Color(1.0, 0.9, 0.55)
+		)
+		return presentation
+
+
+class VisitorProgramDefinition:
+	extends Resource
+	## Global heartbeat policy. Density never changes these intervals.
+	var id: String
+	var display_name: String
+	var traits := DefinitionTraits.new()
+	var presentation_ids: Array[String] = []
+	var first_reward_pool_id: String = ""
+	var reward_pool_id: String = ""
+	var first_min_seconds: float = 180.0
+	var first_max_seconds: float = 360.0
+	var later_min_seconds: float = 900.0
+	var later_max_seconds: float = 1800.0
+
+	static func from_dict(d: Dictionary) -> VisitorProgramDefinition:
+		var program := VisitorProgramDefinition.new()
+		program.id = String(d.get("id", ""))
+		program.display_name = String(d.get("name", program.id.capitalize()))
+		program.traits = DefinitionTraits.from_dict(d)
+		for presentation_id in d.get("presentations", []):
+			program.presentation_ids.append(String(presentation_id))
+		program.first_reward_pool_id = String(d.get("first_reward_pool", ""))
+		program.reward_pool_id = String(d.get("reward_pool", ""))
+		program.first_min_seconds = maxf(0.0, float(d.get("first_min_seconds", 180.0)))
+		program.first_max_seconds = maxf(program.first_min_seconds, float(d.get("first_max_seconds", 360.0)))
+		program.later_min_seconds = maxf(0.0, float(d.get("later_min_seconds", 900.0)))
+		program.later_max_seconds = maxf(program.later_min_seconds, float(d.get("later_max_seconds", 1800.0)))
+		return program
+
+
 class MilestoneDefinition:
 	extends Resource
 	## A one-time reward moment. Practice milestones fire on lifetime action

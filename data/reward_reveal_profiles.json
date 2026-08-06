@@ -1,0 +1,36 @@
+{
+  "reward_reveal_profiles": [
+    {
+      "id": "reveal_world_bud_evergreen",
+      "name": "Evergreen World Bud",
+      "presenter_type": "world_bud",
+      "shell_shape": "acorn",
+      "shell_material": "wood_light",
+      "accent_material": "leaf_medium",
+      "glow_material": "magic",
+      "landing_seconds": 0.32,
+      "anticipation_seconds": 0.3,
+      "reveal_seconds": 0.42,
+      "display_seconds": 0.8,
+      "new_discovery_bonus_seconds": 0.45,
+      "collect_seconds": 0.38,
+      "miniature_size": 0.42
+    },
+    {
+      "id": "reveal_world_bud_berry",
+      "name": "Woodland World Bud",
+      "presenter_type": "world_bud",
+      "shell_shape": "acorn",
+      "shell_material": "wood_light",
+      "accent_material": "leaf_medium",
+      "glow_material": "magic",
+      "landing_seconds": 0.28,
+      "anticipation_seconds": 0.26,
+      "reveal_seconds": 0.38,
+      "display_seconds": 0.78,
+      "new_discovery_bonus_seconds": 0.45,
+      "collect_seconds": 0.36,
+      "miniature_size": 0.42
+    }
+  ]
+}

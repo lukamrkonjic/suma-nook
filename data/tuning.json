@@ -25,6 +25,8 @@
   "camera_pitch_deg": -40.0,
   "camera_default_yaw_deg": 45.0,
   "camera_follow_speed": 10.0,
+  "camera_pan_speed": 10.0,
+  "camera_pan_limit": 1024.0,
   "camera_rotate_speed_deg": 360.0,
   "camera_wheel_zoom_step": 5.0,
   "camera_trackpad_zoom_speed": 1.0,
@@ -47,6 +49,7 @@
   ],
   "landmark_connect_adjacent": true,
   "autosave_interval": 40.0,
+  "visitor_program_id": "visitor_program_world_gifts",
   "discovery_context_radius": 2.0,
   "first_void_reward": "tile_open_water",
   "active_tile_ids": [

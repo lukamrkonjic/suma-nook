@@ -296,7 +296,7 @@ func is_adjacent_to_world(coord: Vector2i) -> bool:
 
 
 func can_place_tile(coord: Vector2i) -> bool:
-	return not cells.has(coord) and is_adjacent_to_world(coord)
+	return not cells.has(coord)
 
 
 func can_place_tile_at(coord: Vector2i, elevation: int, tile_id: String) -> bool:

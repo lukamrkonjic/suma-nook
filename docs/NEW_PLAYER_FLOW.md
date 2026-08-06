@@ -1,67 +1,90 @@
 # Suma — new-player flow
 
-Status: current, resumable, implemented.
+Status: current implementation contract.
 
-The first session teaches one complete idea:
+The first session starts with the world, not an avatar.
 
-> **The unknown gives broad surprises; the world you build shapes what local
-> skills discover.**
+## 1. Nine pieces of land
 
-## 1. Create the keeper
+The game opens directly in Shape Land. Nine ordinary `tile_grass` pieces form
+a 3×3 square against the sky. There is no character creator, portal arrival,
+land picker, dock, fishing lesson, starter bench, chest, or hidden resource
+inventory.
 
-Character creation opens before gameplay. Confirming the keeper begins the
-authored arrival; ordinary HUD and world input stay hidden until it finishes.
+The optional keeper remains a later world tool and is hidden during this
+opening sequence.
 
-## 2. Choose the first land
+## 2. One tree in the Build Library
 
-The keeper appears against empty sky and chooses one of three rendered land
-materials. The choice creates a 3×3 island made entirely from that material.
-A mature pine is placed on one corner. There is no starter ocean strip, dock,
-well, shrine, currency, or hidden tutorial inventory.
+The Build Library contains one stateful Young Pine. The game immediately
+holds it at the controller grid cursor or pointer preview and asks:
 
-## 3. Fish the unknown
+> Place your first tree.
 
-The exposed perimeter becomes an interaction target labelled **Fish into the
-unknown**. The cast travels past the island edge. The first successful catch
-uses the real discovery system and guarantees one `tile_open_water`.
+Placement begins the real maturation timer. The tree is never spawned ready
+and picking it up cannot refresh it.
 
-The reveal is a single card. The tile is already safe in the Build Bag; the
-acknowledgement simply holds it for immediate placement.
+## 3. Let the tree mature
 
-## 4. Place real water
+The tree visibly settles and grows while one short hint teaches camera motion:
 
-The player places the water beside the island. It is an ordinary owned tile,
-so it can form the beginning of a pond, stream, lake, or dock space and may be
-moved again in build mode.
+> Pan or turn the world while your tree grows.
 
-This placement advances the tutorial to local skilling.
+When ready, it gives a small shine and gesture. The prompt becomes:
 
-## 5. Tend the tree
+> Harvest the tree — 3 satisfying hits.
 
-The player interacts with the actual placed pine. Four tending actions
-complete its first discovery cycle. The discovery resolver reads the local
-tiles and objects and chooses the strongest eligible woodcutting pool.
+## 4. First forest reward
 
-The resulting tile or model is safely granted and shown through the same
-single-card reveal.
+Each primary click/confirm performs one hit and plays one axe impact. The third
+fells the tree and guarantees one random Forest Foundations tile. That finite
+piece is already safe in the Build Library before the reveal animation.
 
-## 6. Place the biome-shaped discovery
+The piece is held for immediate placement:
 
-Placing that piece completes onboarding. The final message explains that
-every biome changes what its skills can uncover. All normal UI and free play
-continue from the world the player just made.
+> Add the discovery to your world.
+
+The exact tree remains in place as a regrowing source.
+
+Land may be placed in any empty grid coordinate. Connected gardens remain the
+natural visual default, but detached islands never require a temporary bridge.
+
+## 5. First visitor
+
+The global visitor heartbeat begins with the world. Three to six active
+minutes into the session, after the first tree loop is complete, a random
+retained SDF animal appears on a clear tile inside a quiet shine. It waits
+indefinitely.
+
+Clicking/confirming the visitor fades it away and grants a random non-Forest
+foundation bundle. This is the explicit bridge out of the opening Forest
+collection. The player places one piece, then the normal global visitor pool
+and free play take over.
+
+## 6. Free play
+
+The player now has two understandable collection engines:
+
+- harvest a chosen source for themed rewards;
+- notice a visitor for a completely random world gift.
+
+The Build Library, collection, and optional keeper tool remain available. New
+sources, visitor looks, and reward pools add through data without changing the
+flow.
 
 ## Persistence contract
 
 Stages are:
 
-1. `land_choice`
-2. `try_void_fishing`
-3. `place_discovery`
-4. `tend_tree`
-5. `place_biome_discovery`
-6. `complete`
+1. `place_tree`
+2. `wait_tree`
+3. `harvest_tree`
+4. `place_forest_reward`
+5. `wait_visitor`
+6. `place_visitor_reward`
+7. `complete`
 
-The guided piece's kind and stable ID persist. If the game closes after a
-reward is granted but before placement, load repairs stock only when needed;
-it never duplicates or loses the promised item.
+The guided piece's kind and stable ID persist. Interrupted placement repairs
+stock only when needed; it never duplicates a promised item. Harvest runtime
+is stored on the stable tree instance. A pending visitor stores its selected
+presentation and pre-rolled reward, so reload never rerolls either.
