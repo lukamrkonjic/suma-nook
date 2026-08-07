@@ -16,7 +16,6 @@ const PIXEL_SHADER := preload("res://assets/materials/reworked/pixel_present.gds
 ## "Pixel size" dropdown index (index 0 = off / crisp render).
 const PIXEL_LEVELS := [1, 2, 3, 4, 5, 6, 8]
 const CEL_STRENGTH := 0.85
-const PAINTERLY_PIXEL_SIZE := 4.0
 
 var _rect: ColorRect
 var _material: ShaderMaterial
@@ -42,13 +41,15 @@ func _ready() -> void:
 	visible = false
 
 
-## Painterly mode is the live default art-direction test. When disabled,
+## Realistic mode is the live default art-direction test. The old save key remains
+## `painterly_pixel` so existing players keep their enabled/disabled choice.
+## When disabled,
 ## `level_index` and `cel` retain the older optional retro presentation.
 func apply(level_index: int, cel: bool, painterly := false) -> void:
 	if _material == null:
 		return
 	if painterly:
-		_apply_painterly()
+		_apply_realistic()
 		return
 	var index := clampi(level_index, 0, PIXEL_LEVELS.size() - 1)
 	_material.set_shader_parameter("pixel_size", float(PIXEL_LEVELS[index]))
@@ -58,22 +59,11 @@ func apply(level_index: int, cel: bool, painterly := false) -> void:
 	_material.set_shader_parameter("brightness", 1.0)
 	_material.set_shader_parameter("value_steps", 10.0)
 	_material.set_shader_parameter("sat_steps", 7.0)
-	_material.set_shader_parameter("painterly_strength", 0.0)
-	_material.set_shader_parameter("dither_strength", 0.0)
 	visible = index > 0 or cel
 
 
-## Outline-free moving pixel painting: medium-size blocks retain silhouettes,
-## broad colour ramps replace smooth gradients, and a visible ordered weave
-## gives light, foliage, water, and broad ground planes a painted-pixel grain.
-func _apply_painterly() -> void:
-	_material.set_shader_parameter("pixel_size", PAINTERLY_PIXEL_SIZE)
-	_material.set_shader_parameter("posterize_strength", 0.90)
-	_material.set_shader_parameter("contrast", 1.04)
-	_material.set_shader_parameter("saturation", 1.05)
-	_material.set_shader_parameter("brightness", 1.05)
-	_material.set_shader_parameter("value_steps", 9.0)
-	_material.set_shader_parameter("sat_steps", 7.0)
-	_material.set_shader_parameter("painterly_strength", 1.0)
-	_material.set_shader_parameter("dither_strength", 0.16)
-	visible = true
+## Ultra-realistic mode deliberately applies no fullscreen stylization. Native
+## PBR materials, the environment tonemapper, reflections, and shadowing own
+## the image; the optional legacy pixel controls still work when this is off.
+func _apply_realistic() -> void:
+	visible = false

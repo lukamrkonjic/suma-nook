@@ -782,8 +782,8 @@ func _test_soft_terrain_contract() -> void:
 			"%s uses the bounded responsive terrain shader" % material_key
 		)
 	check(
-		material_manifest["grass"]["family"] == "gg_diorama_surface",
-		"ordinary opaque terrain stays on the cheaper diorama shader"
+		material_manifest["grass"]["family"] == "realistic_pbr_surface",
+		"ordinary opaque terrain uses native PBR material response"
 	)
 
 	var assets := AssetLibrary.new(materials)

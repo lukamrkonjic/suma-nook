@@ -1,0 +1,57 @@
+[gd_resource type="Resource" script_class="VisualStyleProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/visual_style_profile.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+profile_id = "ultra_realistic_day"
+ambient_energy = 0.82
+ambient_gradient_enabled = true
+background_gradient = true
+stars_enabled = false
+sun_energy = 2.65
+sun_specular = 1.0
+sun_pitch_deg = -48.0
+sun_yaw_deg = -38.0
+shadow_max_distance = 100.0
+shadow_opacity = 0.72
+shadow_blur = 1.05
+sun_angular_distance = 0.42
+shadow_bias = 0.012
+shadow_normal_bias = 0.42
+shadow_cascade_mode = "pssm_4"
+shadow_split_1 = 0.18
+shadow_split_2 = 0.42
+shadow_split_3 = 0.7
+shadow_blend_splits = true
+ssao_enabled = true
+ssao_intensity = 0.68
+ssao_radius = 0.28
+ssao_power = 1.08
+ssao_detail = 0.55
+ssao_horizon = 0.045
+ssao_sharpness = 0.94
+ssil_enabled = true
+ssil_intensity = 0.22
+ssil_radius = 0.4
+ssil_sharpness = 0.92
+ssr_enabled = true
+glow_enabled = true
+glow_intensity = 0.035
+glow_hdr_threshold = 2.0
+glow_bloom = 0.0
+exposure = 1.08
+tonemap = "agx"
+agx_white = 10.0
+agx_contrast = 1.04
+brightness = 1.02
+contrast = 1.02
+saturation = 1.06
+fog_enabled = false
+reflection_probe_enabled = true
+reflection_probe_update_always = true
+reflection_probe_shadows = true
+gg_pipeline_enabled = false
+rain_enabled = false
+motes_enabled = false
+local_light_multiplier = 0.72

@@ -35,22 +35,23 @@ const SOFT_TERRAIN_PARAMETERS := {
 ## GG-style baked-shading emulation shared by every opaque surface material.
 const SURFACE_RAMP := {
 	"ramp_height": 1.35,
-	"ramp_top_lift": 0.10,
-	"ramp_bottom_drop": 0.16,
+	"ramp_top_lift": 0.0,
+	"ramp_bottom_drop": 0.0,
+	"mottle_amount": 0.0,
 }
 const STYLE_DATA_PATH := "res://data/material_styles.json"
 const WATER_PARAMETERS := {
-	"wave_height": 0.048,
-	"wave_speed": 1.08,
-	"surface_shimmer": 0.16,
-	"depth_falloff": 0.5,
+	"wave_height": 0.032,
+	"wave_speed": 0.72,
+	"surface_shimmer": 0.08,
+	"depth_falloff": 0.62,
 	"shallow_alpha": 0.8,
 	"deep_alpha": 0.97,
-	"foam_width": 0.045,
-	"water_roughness": 0.42,
-	"water_specular": 0.18,
+	"foam_width": 0.022,
+	"water_roughness": 0.18,
+	"water_specular": 0.56,
 	"scene_lighting_response": 1.0,
-	"fresnel_strength": 0.22,
+	"fresnel_strength": 0.52,
 	"water_level": -0.14,
 	"side_opacity": 1.0,
 }
@@ -107,9 +108,14 @@ func material(key: String) -> Material:
 	var style := material_parameters(key)
 	var emission_energy := float(style.get("emission_energy", EMISSIVE.get(key, 0.0)))
 	var alpha := float(style.get("alpha", 1.0))
-	# Opaque, non-emissive surfaces use the GG diorama shader (baked-ramp
-	# emulation). Emissive and translucent keys keep StandardMaterial3D.
-	if emission_energy <= 0.0 and alpha >= 1.0:
+	# Only deformable sand/snow retain a custom shader. Every ordinary opaque
+	# surface uses Godot's native physically based material response: no baked
+	# vertical ramp, no painted mottling, and no orientation tint.
+	if (
+		emission_energy <= 0.0
+		and alpha >= 1.0
+		and SOFT_TERRAIN_PARAMETERS.has(key)
+	):
 		var surface := ShaderMaterial.new()
 		surface.resource_name = key
 		surface.shader = (
@@ -137,6 +143,8 @@ func material(key: String) -> Material:
 	m.roughness = float(style["roughness"])
 	m.metallic = float(style["metallic"])
 	m.metallic_specular = float(style["specular"])
+	m.diffuse_mode = BaseMaterial3D.DIFFUSE_BURLEY
+	m.specular_mode = BaseMaterial3D.SPECULAR_SCHLICK_GGX
 	if emission_energy > 0.0:
 		m.emission_enabled = true
 		m.emission = palette.color(key)
@@ -180,6 +188,8 @@ func material_parameter_manifest() -> Dictionary:
 		else:
 			var style := material_parameters(key)
 			var standard := live as StandardMaterial3D
+			if not standard.emission_enabled and standard.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED:
+				style["family"] = "realistic_pbr_surface"
 			style["material_class"] = "StandardMaterial3D"
 			style["albedo_color"] = standard.albedo_color
 			style["roughness"] = standard.roughness
