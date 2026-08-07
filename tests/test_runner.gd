@@ -150,6 +150,7 @@ func _run() -> void:
 	_test_unfolding_world_dormants()
 	_test_unfolding_world_save_round_trip()
 	_test_unfolding_world_flags_off()
+	_test_unfolding_world_reveal_timeline()
 	_test_maxed_debug_world_spawn()
 	_test_skills_grant_no_direct_placeables()
 	_test_fish_journal_retired()
@@ -3929,7 +3930,7 @@ func _test_unfolding_world_growth_and_keepsakes() -> void:
 		if growth.is_empty() or float(growth.get("deadline_unix", 0.0)) <= 0.0:
 			break
 		growth["deadline_unix"] = 1.0
-		core.nooks.tick(0.1)
+		core.nooks.tick(2.5)
 		instance_id = _newest_growth_instance(core, instance_id)
 	check(
 		stages_seen == [
@@ -4081,3 +4082,50 @@ func _test_unfolding_world_flags_off() -> void:
 		"the treasure listener can be disabled without touching anything else"
 	)
 	core.registries.features["nooks_enabled"] = true
+
+
+func _test_unfolding_world_reveal_timeline() -> void:
+	var config := {
+		"wavefront_tiles_per_second": 10.0,
+		"stagger_ms": 80,
+		"tile_drop_seconds": 0.3,
+		"origin": "seam",
+	}
+	var locals: Array[Vector2i] = []
+	for y in 8:
+		for x in 8:
+			locals.append(Vector2i(x, y))
+	var centre := NookRevealTimeline.wave_origin(8, Vector2i.ZERO, config)
+	check(
+		centre.is_equal_approx(Vector2(3.5, 3.5)),
+		"a first Nook's wave starts at its centre"
+	)
+	var seam := NookRevealTimeline.wave_origin(8, Vector2i(0, -1), config)
+	check(
+		seam.is_equal_approx(Vector2(3.5, -0.5)),
+		"a connected Nook's wave starts at the seam it grew across"
+	)
+	var wave_a := NookRevealTimeline.tile_wave(locals, seam, config)
+	var wave_b := NookRevealTimeline.tile_wave(locals, seam, config)
+	check(
+		str(wave_a) == str(wave_b),
+		"the reveal wave is deterministic"
+	)
+	check(wave_a.size() == 64, "every tile gets a wave entry")
+	var sorted_ok := true
+	var previous := -1.0
+	for entry: Dictionary in wave_a:
+		if float(entry["delay"]) < previous:
+			sorted_ok = false
+		previous = float(entry["delay"])
+	check(sorted_ok, "wave entries arrive in delay order")
+	var duration := NookRevealTimeline.wave_duration(wave_a, config)
+	check(
+		duration > 0.5 and duration < 3.0,
+		"an 8x8 wave lands in comfortable seconds, not minutes"
+	)
+	var near_entry: Dictionary = wave_a[0]
+	check(
+		Vector2(near_entry["local"] as Vector2i).distance_to(seam) < 3.0,
+		"the earliest tile falls beside the wave origin"
+	)

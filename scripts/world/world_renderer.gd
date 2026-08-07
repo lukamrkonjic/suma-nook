@@ -1264,6 +1264,16 @@ func structure_node(instance_id: int) -> Node3D:
 	return visual
 
 
+## Per-cell visual holder, used by the Nook reveal wave to animate tiles the
+## moment after their state committed. Null in scalable (MultiMesh) mode,
+## where per-cell nodes do not exist; the presenter degrades gracefully.
+func cell_holder(coord: Vector2i, elevation: int = 0) -> Node3D:
+	if _scalable_mode:
+		return null
+	var holder := _tile_nodes.get(core.grid.slot_key(coord, elevation)) as Node3D
+	return holder if holder != null and is_instance_valid(holder) else null
+
+
 func debug_stats() -> Dictionary:
 	if _scalable_mode and _scalable_backend != null:
 		var stats: Dictionary = _scalable_backend.debug_stats()

@@ -89,6 +89,8 @@ var panels: GamePanels
 var pause_menu: PauseMenu
 var discovery_reveal: DiscoveryReveal
 var arrival_picker: ArrivalLandPicker
+var nook_offer_panel: NookOfferPanel
+var nook_reveal_presenter: NookRevealPresenter
 var catch_basket_view: CatchBasketView
 var input_hints: InputHintOverlay
 var character_creator: CharacterCreator
@@ -386,6 +388,17 @@ func _build_ui() -> void:
 	arrival_picker.name = "ArrivalLandPicker"
 	add_child(arrival_picker)
 	arrival_picker.setup(core, kit, assets)
+
+	nook_offer_panel = NookOfferPanel.new()
+	nook_offer_panel.name = "NookOfferPanel"
+	add_child(nook_offer_panel)
+	nook_offer_panel.setup(core, kit)
+	panels.nook_offer_requested.connect(nook_offer_panel.open)
+
+	nook_reveal_presenter = NookRevealPresenter.new()
+	nook_reveal_presenter.name = "NookRevealPresenter"
+	add_child(nook_reveal_presenter)
+	nook_reveal_presenter.setup(core, renderer, lighting)
 
 	pause_menu = PauseMenu.new()
 	pause_menu.name = "PauseMenu"

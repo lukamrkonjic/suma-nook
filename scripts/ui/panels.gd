@@ -4,6 +4,7 @@ extends CanvasLayer
 ## world stays visible around every card.
 
 signal panel_toggled(panel_name: String, open: bool)
+signal nook_offer_requested
 signal landmark_resolution_chosen(landmark_id: String, resolution: String)
 signal basket_tile_bundle_taken(haul_id: int, entry_index: int)
 signal basket_model_taken(haul_id: int, entry_index: int)
@@ -564,13 +565,111 @@ func _display_name_for(category: String, id: String) -> String:
 # ------------------------------------------------------------------ map
 
 func _map_panel() -> Dictionary:
-	var win := kit.window("Your World", Vector2(520, 540))
+	var win := kit.window("Atlas", Vector2(560, 640))
+	var parts := _scroll_list(520.0)
+	win["content"].add_child(parts["scroll"])
+	var list: VBoxContainer = parts["list"]
+
+	# The frontier: when the newest Nook has seen enough life, the next
+	# offer is reachable from here as well as from the world chip — the
+	# controller-native path to expansion.
+	var offers: NookOffers = core.nooks.offers
+	if offers.has_pending() or offers.can_offer():
+		var offer_button := kit.button("🌱  A new Nook waits — see the seeds", true)
+		offer_button.pressed.connect(func():
+			close()
+			nook_offer_requested.emit()
+		)
+		list.add_child(offer_button)
+		win["focus"] = offer_button
+
 	var map := _WorldMap.new()
 	map.core = core
 	map.kit = kit
-	map.custom_minimum_size = Vector2(460, 420)
-	win["content"].add_child(map)
+	map.custom_minimum_size = Vector2(460, 320)
+	list.add_child(map)
+
+	# Named chunk registry — every revealed Nook, newest first.
+	list.add_child(kit.label("Nooks", 20, false, true))
+	var records: Array = core.nooks.world.nooks.values()
+	records.sort_custom(func(a, b) -> bool:
+		return a.revealed_unix > b.revealed_unix
+	)
+	for record: NookWorld.NookRecord in records:
+		list.add_child(_nook_row(record))
+
+	# Journal — discoveries appear here only after they happen. There is
+	# deliberately no forward-looking surface: nothing lists what a Nook
+	# still hides.
+	var entries := core.journal.entries.duplicate()
+	if not entries.is_empty():
+		list.add_child(kit.label("Journal", 20, false, true))
+		entries.reverse()
+		for index in mini(entries.size(), 14):
+			var entry: Dictionary = entries[index]
+			var text := kit.muted_label("· %s" % String(entry.get("text", "")), 13)
+			text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			list.add_child(text)
 	return win
+
+
+func _nook_row(record: NookWorld.NookRecord) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var biome := core.registries.nook_biome(record.biome_id)
+	var mood := core.registries.nook_mood(record.mood_id)
+	var title := record.display_name
+	if title == "":
+		title = "Unnamed Nook (%d, %d)" % [record.coord.x, record.coord.y]
+	var label := kit.label(title, 15, false, true)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(label)
+	var found := 0
+	for assignment: Variant in record.treasures.values():
+		if bool((assignment as Dictionary).get("found", false)):
+			found += 1
+	var detail_parts := PackedStringArray()
+	if biome != null:
+		detail_parts.append(biome.display_name)
+	if mood != null:
+		detail_parts.append(mood.display_name)
+	if found > 0:
+		detail_parts.append("%d found" % found)
+	row.add_child(kit.muted_label(" · ".join(detail_parts), 12))
+	if record.display_name == "":
+		var name_button := kit.button("Name")
+		name_button.tooltip_text = "Give this Nook its name."
+		name_button.pressed.connect(func(): _open_nook_naming(record.coord))
+		row.add_child(name_button)
+	return row
+
+
+## Settle-and-name ritual, v1: a focused text row inside the Atlas.
+func _open_nook_naming(coord: Vector2i) -> void:
+	close()
+	var win := kit.window("Name this Nook", Vector2(420, 220))
+	var content: VBoxContainer = win["content"]
+	content.add_child(kit.muted_label(
+		"A name makes a place. This one is permanent ground now.", 13
+	))
+	var edit := LineEdit.new()
+	edit.placeholder_text = "Its name…"
+	edit.max_length = 40
+	content.add_child(edit)
+	var confirm := kit.button("Keep this name", true)
+	confirm.pressed.connect(func():
+		if core.nooks.name_nook(coord, edit.text):
+			close()
+			toggle("map")
+	)
+	edit.text_submitted.connect(func(_text: String): confirm.pressed.emit())
+	content.add_child(confirm)
+	_open_panel = win["root"]
+	_open_name = "nook_naming"
+	win["close"].pressed.connect(close)
+	add_child(_open_panel)
+	panel_toggled.emit("nook_naming", true)
+	edit.grab_focus()
 
 
 class _WorldMap:

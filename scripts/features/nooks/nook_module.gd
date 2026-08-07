@@ -198,11 +198,18 @@ func plant_sapling(coord: Vector2i, sapling_id: String) -> Dictionary:
 	return planted
 
 
+var _growth_poll_accum := 0.0
+
 ## Real-time growth with offline catch-up: deadlines are unix timestamps,
-## so time away simply arrives due.
-func tick(_delta: float) -> void:
+## so time away simply arrives due. Stage lengths are minutes, so a 2 s poll
+## keeps the frame free; tests may call with a large delta to force a scan.
+func tick(delta: float) -> void:
 	if not enabled:
 		return
+	_growth_poll_accum += delta
+	if _growth_poll_accum < 2.0 and delta < 2.0:
+		return
+	_growth_poll_accum = 0.0
 	var now := _now()
 	var due: Array[Dictionary] = []
 	for slot: Dictionary in grid.all_cell_slots():
