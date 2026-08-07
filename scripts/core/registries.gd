@@ -48,6 +48,15 @@ var token_boxes: Dictionary = {}
 var harvest_profiles: Dictionary = {}
 var visitor_presentations: Dictionary = {}
 var visitor_programs: Dictionary = {}
+var nook_biomes: Dictionary = {}
+var nook_stamps: Dictionary = {}
+var nook_moods: Dictionary = {}
+var treasure_tables: Dictionary = {}
+var firsts: Dictionary = {}
+var dormants: Dictionary = {}
+var moments: Dictionary = {}
+var nook_config: Dictionary = {}
+var reveal_config: Dictionary = {}
 var fishing_balance: Dictionary = {}
 var load_issues: Array = []
 var load_errors: PackedStringArray = []
@@ -161,6 +170,37 @@ func load_all(base_path := "res://data", report_issues := true) -> bool:
 		"visitor_programs", candidate.visitor_programs,
 		Defs.VisitorProgramDefinition.from_dict, issues
 	)
+	_load_list(
+		candidate, base_path + "/nook_biomes.json", "nook_biomes", "nook_biomes",
+		candidate.nook_biomes, NookDefs.NookBiomeDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/nook_stamps.json", "nook_stamps", "nook_stamps",
+		candidate.nook_stamps, NookDefs.NookStampDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/nook_moods.json", "nook_moods", "nook_moods",
+		candidate.nook_moods, NookDefs.NookMoodDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/treasure_tables.json", "treasure_tables",
+		"treasure_tables", candidate.treasure_tables,
+		NookDefs.TreasureTableDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/firsts.json", "firsts", "firsts",
+		candidate.firsts, NookDefs.FirstDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/dormants.json", "dormants", "dormants",
+		candidate.dormants, NookDefs.DormantDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/moments.json", "moments", "moments",
+		candidate.moments, NookDefs.MomentDefinition.from_dict, issues
+	)
+	candidate.nook_config = _read_object(base_path + "/nook_config.json", issues)
+	candidate.reveal_config = _read_object(base_path + "/reveal.json", issues)
 	candidate.fishing_balance = _read_object(
 		base_path + "/fishing_balance.json", issues
 	)
@@ -267,6 +307,13 @@ func token_box(id: String) -> Defs.TokenBoxDefinition: return token_boxes.get(id
 func harvest_profile(id: String) -> Defs.HarvestProfileDefinition: return harvest_profiles.get(id)
 func visitor_presentation(id: String) -> Defs.VisitorPresentationDefinition: return visitor_presentations.get(id)
 func visitor_program(id: String) -> Defs.VisitorProgramDefinition: return visitor_programs.get(id)
+func nook_biome(id: String) -> NookDefs.NookBiomeDefinition: return nook_biomes.get(id)
+func nook_stamp(id: String) -> NookDefs.NookStampDefinition: return nook_stamps.get(id)
+func nook_mood(id: String) -> NookDefs.NookMoodDefinition: return nook_moods.get(id)
+func treasure_table(id: String) -> NookDefs.TreasureTableDefinition: return treasure_tables.get(id)
+func first(id: String) -> NookDefs.FirstDefinition: return firsts.get(id)
+func dormant(id: String) -> NookDefs.DormantDefinition: return dormants.get(id)
+func moment(id: String) -> NookDefs.MomentDefinition: return moments.get(id)
 
 
 func has_definition(kind: String, id: String) -> bool:
@@ -460,6 +507,15 @@ func _adopt(candidate) -> void:
 	harvest_profiles = candidate.harvest_profiles
 	visitor_presentations = candidate.visitor_presentations
 	visitor_programs = candidate.visitor_programs
+	nook_biomes = candidate.nook_biomes
+	nook_stamps = candidate.nook_stamps
+	nook_moods = candidate.nook_moods
+	treasure_tables = candidate.treasure_tables
+	firsts = candidate.firsts
+	dormants = candidate.dormants
+	moments = candidate.moments
+	nook_config = candidate.nook_config
+	reveal_config = candidate.reveal_config
 	fishing_balance = candidate.fishing_balance
 
 

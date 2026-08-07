@@ -7,10 +7,15 @@ extends RefCounted
 signal source_state_changed(instance_id: int, state: String, status: Dictionary)
 signal hit_landed(instance_id: int, hit: Dictionary)
 signal reward_granted(instance_id: int, reward: Dictionary)
+## Final hit on a profile with on_final == "clear". The module never mutates
+## the grid itself: the Nook clearing listener issues the clear_feature
+## command, keeping world mutation at the single command choke point.
+signal source_cleared(instance_id: int, clearing: Dictionary)
 
 const STATE_MATURING := "maturing"
 const STATE_READY := "ready"
 const STATE_REGROWING := "regrowing"
+const STATE_CLEARED := "cleared"
 const RUNTIME_KEY := "harvest"
 
 var registries: Registries
@@ -161,18 +166,33 @@ func request_hit(instance_id: int, actor := "player") -> Dictionary:
 		"reveal_profile_id": profile.reveal_profile_id,
 	}
 	if final:
-		runtime["state"] = STATE_REGROWING
-		runtime["hits"] = 0
 		runtime["cycles"] = int(runtime.get("cycles", 0)) + 1
-		runtime["deadline_unix"] = _now() + profile.regrowth_seconds
 		total_cycles += 1
 		var reward := _grant_harvest_reward(profile, int(runtime["cycles"]))
 		hit["reward"] = reward.duplicate(true)
-		_schedule_instance(instance_id, float(runtime["deadline_unix"]))
 		reward_granted.emit(instance_id, reward.duplicate(true))
-		source_state_changed.emit(
-			instance_id, STATE_REGROWING, _status_dictionary(profile, runtime)
-		)
+		if profile.on_final == "clear":
+			runtime["state"] = STATE_CLEARED
+			hit["cleared"] = true
+			hit["leaves_structure_id"] = profile.leaves_structure_id
+			source_state_changed.emit(
+				instance_id, STATE_CLEARED, _status_dictionary(profile, runtime)
+			)
+			source_cleared.emit(instance_id, {
+				"instance_id": instance_id,
+				"profile_id": profile.id,
+				"verb": profile.verb,
+				"leaves_structure_id": profile.leaves_structure_id,
+				"actor": actor,
+			})
+		else:
+			runtime["state"] = STATE_REGROWING
+			runtime["hits"] = 0
+			runtime["deadline_unix"] = _now() + profile.regrowth_seconds
+			_schedule_instance(instance_id, float(runtime["deadline_unix"]))
+			source_state_changed.emit(
+				instance_id, STATE_REGROWING, _status_dictionary(profile, runtime)
+			)
 	hit_landed.emit(instance_id, hit.duplicate(true))
 	return hit
 
@@ -321,7 +341,8 @@ func _normalize_due(
 	if runtime.is_empty():
 		return
 	var state := String(runtime.get("state", STATE_MATURING))
-	if state == STATE_READY or float(runtime.get("deadline_unix", 0.0)) > now:
+	if state == STATE_READY or state == STATE_CLEARED \
+		or float(runtime.get("deadline_unix", 0.0)) > now:
 		return
 	runtime["state"] = STATE_READY
 	runtime["hits"] = 0

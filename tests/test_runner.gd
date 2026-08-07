@@ -142,6 +142,14 @@ func _run() -> void:
 	_test_starting_world()
 	_test_authored_onboarding_flow()
 	_test_harvesting_and_visitors()
+	_test_unfolding_world_generation()
+	_test_unfolding_world_offers_and_reveal()
+	_test_unfolding_world_clearing_and_treasure()
+	_test_unfolding_world_firsts()
+	_test_unfolding_world_growth_and_keepsakes()
+	_test_unfolding_world_dormants()
+	_test_unfolding_world_save_round_trip()
+	_test_unfolding_world_flags_off()
 	_test_maxed_debug_world_spawn()
 	_test_skills_grant_no_direct_placeables()
 	_test_fish_journal_retired()
@@ -1132,7 +1140,8 @@ func _test_content_catalog_architecture() -> void:
 		"enemies", "landmarks", "fishing_loot", "spirits", "keepsakes",
 		"reward_pools", "reward_roll_policies", "reward_reveal_profiles",
 		"token_boxes", "harvest_profiles", "visitor_presentations",
-		"visitor_programs",
+		"visitor_programs", "nook_biomes", "nook_stamps", "nook_moods",
+		"treasure_tables", "firsts", "dormants", "moments",
 	]
 	check(
 		regs.definition_kinds() == expected_kinds,
@@ -1970,8 +1979,8 @@ func _test_authored_onboarding_flow() -> void:
 			== int(forest_reward.get("amount", 0))
 		and core.onboarding.stage == OnboardingState.OPEN_FOREST_BOX
 		and core.onboarding.starter_tree_instance_id == 0
-		and core.grid.find_structure(tree.instance_id).get("structure") == tree,
-		"the final hit fills the pouch, regrows the exact tree, and opens the box lesson"
+		and core.grid.find_structure(tree.instance_id).is_empty(),
+		"the final hit fills the pouch, clears the tree, and opens the box lesson"
 	)
 	var balance_before_box: int = core.token_pouch.balance("token_forest")
 	var box_reward: Dictionary = core.token_pouch.open_box("box_forest")
@@ -2121,10 +2130,17 @@ func _test_harvesting_and_visitors() -> void:
 		and tree_token_reward.get("id", "") == "token_forest"
 		and int(tree_token_reward.get("amount", 0)) >= 3
 		and player_final.get("reveal_profile_id", "") == ""
-		and core.harvesting.status(tree.instance_id).get("state", "")
-			== HarvestingModule.STATE_REGROWING,
-		"the player final hit grants forest tokens without a placeable reveal and starts regrowth"
+		and bool(player_final.get("cleared", false))
+		and String(player_final.get("leaves_structure_id", ""))
+			== "struct_stump_pine"
+		and core.grid.find_structure(tree.instance_id).is_empty(),
+		"the player final hit grants forest tokens and clears the tree from the world"
 	)
+	var stump_left := false
+	for stump_struct: WorldGrid.StructureState in core.grid.cell(Vector2i.ZERO).structures:
+		if stump_struct.structure_id == "struct_stump_pine":
+			stump_left = true
+	check(stump_left, "a cleared tree leaves a pryable stump in its socket")
 	check(
 		core.token_pouch.balance("token_forest")
 			== int(tree_token_reward.get("amount", 0))
@@ -2195,15 +2211,14 @@ func _test_harvesting_and_visitors() -> void:
 		and rock_option.id == "harvest"
 		and rock_option.enabled
 		and rock_final.get("final", false)
-		and rock_final.get("verb", "") == "break"
+		and rock_final.get("verb", "") == "crack"
 		and rock_reward.get("kind", "") == "token"
 		and rock_reward.get("id", "") == "token_rock"
 		and int(rock_reward.get("amount", 0)) in [2, 3, 4]
 		and core.token_pouch.balance("token_rock")
 			== rock_balance_before + int(rock_reward.get("amount", 0))
-		and core.harvesting.status(rock.instance_id).get("state", "")
-			== HarvestingModule.STATE_REGROWING,
-		"the starter outcrop is clickable, takes four breaks, grants Rock Tokens, and regrows"
+		and core.grid.find_structure(rock.instance_id).is_empty(),
+		"the starter outcrop is clickable, cracks in four hits, grants Rock Tokens, and clears"
 	)
 	var rock_top_up := maxi(0, 5 - core.token_pouch.balance("token_rock"))
 	if rock_top_up > 0:
@@ -3579,3 +3594,490 @@ func _test_player_defeat_safety() -> void:
 	check(defeated[0], "defeat fires")
 	check(core.combat.health == core.combat.max_health, "defeat restores full health (no corpse run)")
 	check(core.inventory.count("softwood") == 3, "nothing is lost on defeat")
+
+
+# ---------------------------------------------------------------- unfolding world
+
+func _test_unfolding_world_generation() -> void:
+	var core := fresh_core(4242)
+	var card := {
+		"biome": "nook_biome_forest", "density": "grown",
+		"mood": "mood_clear_noon", "seed": 20260807,
+	}
+	var size := core.nooks.world.nook_size
+	var plan_a := core.nooks.generator.generate(Vector2i(9, 9), card, size)
+	var plan_b := core.nooks.generator.generate(Vector2i(9, 9), card, size)
+	check(
+		str(plan_a.tiles) == str(plan_b.tiles)
+		and str(plan_a.features) == str(plan_b.features)
+		and str(plan_a.treasures) == str(plan_b.treasures)
+		and str(plan_a.dormant) == str(plan_b.dormant)
+		and plan_a.stamp_ids == plan_b.stamp_ids,
+		"generation is deterministic: one seed card, one Nook, forever"
+	)
+	check(
+		plan_a.tiles.size() == size * size,
+		"every cell of a generated Nook receives terrain"
+	)
+	check(not plan_a.features.is_empty(), "a grown Nook scatters features")
+	var guaranteed_found := not plan_a.treasures.is_empty()
+	check(
+		guaranteed_found,
+		"a grown Nook always buries at least its guaranteed treasure"
+	)
+	for key: String in plan_a.treasures:
+		var assignment: Dictionary = plan_a.treasures[key]
+		check(
+			core.registries.reward_pool(String(assignment.get("pool", ""))) != null,
+			"every treasure assignment references a live reward pool"
+		)
+	var different := core.nooks.generator.generate(
+		Vector2i(9, 9),
+		{
+			"biome": "nook_biome_forest", "density": "grown",
+			"mood": "mood_clear_noon", "seed": 555,
+		},
+		size
+	)
+	check(
+		str(different.tiles) != str(plan_a.tiles)
+		or str(different.features) != str(plan_a.features),
+		"different seeds produce different Nooks"
+	)
+
+
+func _test_unfolding_world_offers_and_reveal() -> void:
+	var core := fresh_core(6161)
+	check(
+		core.nooks.world.has_nook(Vector2i.ZERO)
+		and core.nooks.world.nook(Vector2i.ZERO).starter,
+		"a new game registers the starter zone as the first Nook"
+	)
+	check(core.nooks.offers.can_offer(), "the starter Nook leaves the frontier open")
+	var offered: Array = []
+	core.nooks.offers.offer_ready.connect(func(coord, cards):
+		offered.append({"coord": coord, "cards": cards})
+	)
+	var offer: Dictionary = core.nooks.offers.make_offer()
+	var cards: Array = offer.get("cards", [])
+	check(
+		offered.size() == 1 and cards.size() == 3,
+		"expansion offers exactly three seed cards"
+	)
+	for raw_card: Variant in cards:
+		var card: Dictionary = raw_card
+		check(
+			core.registries.nook_biome(String(card.get("biome", ""))) != null
+			and core.registries.nook_mood(String(card.get("mood", ""))) != null
+			and String(card.get("density", "")) in ["open", "seeded", "grown"],
+			"every offered card is a valid biome + density + mood seed"
+		)
+	check(
+		not core.nooks.offers.make_offer(),
+		"only one offer can wait at a time"
+	)
+	var rerolled: Dictionary = core.nooks.offers.reroll()
+	check(
+		not rerolled.is_empty()
+		and int(rerolled.get("rerolls_left", -1)) == 0
+		and core.nooks.offers.reroll().is_empty(),
+		"rerolls are limited by config"
+	)
+	var revealed: Array = []
+	core.events.nook_revealed.connect(func(coord, _payload): revealed.append(coord))
+	var connected: Array = []
+	core.events.nook_connected.connect(func(a, b, _p): connected.append([a, b]))
+	var cells_before := core.grid.cells.size()
+	var plan := core.nooks.accept_offer(0)
+	check(plan != null, "accepting a card reveals the Nook")
+	var coord: Vector2i = plan.coord
+	check(
+		core.nooks.world.has_nook(coord)
+		and revealed == [coord]
+		and connected.size() >= 1,
+		"the revealed Nook is recorded and announces its seam connections"
+	)
+	check(
+		core.grid.cells.size() > cells_before,
+		"reveal writes generated terrain into the authoritative grid"
+	)
+	var record := core.nooks.world.nook(coord)
+	check(
+		record.biome_id != "" and record.seed_value != 0
+		and not core.nooks.offers.has_pending(),
+		"the record keeps the chosen seed and the offer is consumed"
+	)
+	check(
+		not core.nooks.offers.can_offer(),
+		"a fresh Nook closes the frontier until it has seen some life"
+	)
+	var origin := core.nooks.world.chunk_origin(coord)
+	var planted := 0
+	var threshold := int(
+		core.registries.nook_config.get("frontier_activity_threshold", 6)
+	)
+	for y in core.nooks.world.nook_size:
+		if planted >= threshold:
+			break
+		for x in core.nooks.world.nook_size:
+			if planted >= threshold:
+				break
+			var cell: Vector2i = origin + Vector2i(x, y)
+			var result: Dictionary = core.nooks.plant_sapling(cell, "sapling_evergreen")
+			if bool(result.get("ok", false)):
+				planted += 1
+	check(planted >= threshold, "planting into the new Nook is unlimited and free")
+	check(
+		core.nooks.offers.can_offer(),
+		"modest activity in the newest Nook reopens the frontier"
+	)
+
+
+func _test_unfolding_world_clearing_and_treasure() -> void:
+	var core := fresh_core(7171)
+	var found_treasure_seed := 0
+	var size := core.nooks.world.nook_size
+	for candidate_seed in range(1, 60):
+		var probe := core.nooks.generator.generate(
+			Vector2i(3, 0),
+			{
+				"biome": "nook_biome_forest", "density": "grown",
+				"mood": "mood_clear_noon", "seed": candidate_seed,
+			},
+			size
+		)
+		var tree_treasure := false
+		for key: String in probe.treasures:
+			if String((probe.treasures[key] as Dictionary).get("host_tag", "")) == "tree":
+				tree_treasure = true
+		if tree_treasure and not probe.dormant.is_empty():
+			found_treasure_seed = candidate_seed
+			break
+	check(
+		found_treasure_seed != 0,
+		"grown forest seeds regularly bury treasure under trees and host a dormant"
+	)
+	var plan := core.nooks.reveal_nook(Vector2i(3, 0), {
+		"biome": "nook_biome_forest", "density": "grown",
+		"mood": "mood_clear_noon", "seed": found_treasure_seed,
+	})
+	var record := core.nooks.world.nook(Vector2i(3, 0))
+	var treasure_local := Vector2i.ZERO
+	for key: String in record.treasures:
+		if String((record.treasures[key] as Dictionary).get("host_tag", "")) == "tree":
+			var parts := key.split(":")
+			treasure_local = Vector2i(int(parts[0]), int(parts[1]))
+			break
+	var world_cell: Vector2i = core.nooks.world.chunk_origin(Vector2i(3, 0)) + treasure_local
+	var target: WorldGrid.StructureState = null
+	for structure: WorldGrid.StructureState in core.grid.cell(world_cell).structures:
+		var definition := core.registries.structure(structure.structure_id)
+		if definition != null and definition.placement_tags.has("tree"):
+			target = structure
+	check(target != null, "the treasured cell hosts the generated tree")
+	var treasures_found: Array = []
+	core.events.treasure_found.connect(func(payload): treasures_found.append(payload))
+	var cleared_events: Array = []
+	core.events.feature_cleared.connect(func(payload): cleared_events.append(payload))
+	var runtime: Dictionary = target.runtime_state.get("harvest", {})
+	if runtime.is_empty():
+		core.harvesting.status(target.instance_id)
+		runtime = target.runtime_state.get("harvest", {})
+	runtime["deadline_unix"] = 0.0
+	core.harvesting.status(target.instance_id)
+	var final_hit: Dictionary = {}
+	for _hit in 8:
+		if core.grid.find_structure(target.instance_id).is_empty():
+			break
+		final_hit = core.harvesting.request_hit(target.instance_id, "player")
+		if bool(final_hit.get("final", false)):
+			break
+	check(
+		bool(final_hit.get("cleared", false))
+		and core.grid.find_structure(target.instance_id).is_empty(),
+		"chopping the generated tree clears it from the world"
+	)
+	check(
+		cleared_events.size() == 1
+		and (cleared_events[0] as Dictionary).get("nook", Vector2i.ZERO)
+			== Vector2i(3, 0),
+		"clearing publishes feature_cleared scoped to its Nook"
+	)
+	check(
+		treasures_found.size() == 1
+		and bool((record.treasures[NookWorld.cell_key(treasure_local)] as Dictionary).get("found", false)),
+		"the buried treasure tumbles out exactly once and is marked found"
+	)
+	var treasure_entries := core.journal.entries_of_kind("treasure")
+	check(
+		treasure_entries.size() == 1,
+		"the treasure writes a journal entry"
+	)
+	var stump: WorldGrid.StructureState = null
+	for structure: WorldGrid.StructureState in core.grid.cell(world_cell).structures:
+		if structure.structure_id == "struct_stump_pine":
+			stump = structure
+	check(stump != null, "the cleared tree left a stump")
+	if stump != null:
+		var pry_final: Dictionary = {}
+		for _hit in 4:
+			if core.grid.find_structure(stump.instance_id).is_empty():
+				break
+			pry_final = core.harvesting.request_hit(stump.instance_id, "player")
+			if bool(pry_final.get("final", false)):
+				break
+		check(
+			bool(pry_final.get("cleared", false))
+			and core.grid.find_structure(stump.instance_id).is_empty(),
+			"prying the stump removes it and leaves clean ground"
+		)
+
+
+func _test_unfolding_world_firsts() -> void:
+	var core := fresh_core(8811)
+	var fired: Array = []
+	core.events.first_fired.connect(func(payload): fired.append(payload))
+	var stump_count_before := core.stock.structure_count("struct_birdbath")
+	core.stock.add_tile("tile_open_water", 3)
+	var target := Vector2i(0, 3)
+	while core.grid.has_cell(target):
+		target.y += 1
+	check(
+		core.place_tile_from_stock(target, "tile_open_water", 0),
+		"the player can lay water at the world edge"
+	)
+	var water_firsts := 0
+	for payload: Dictionary in fired:
+		if String(payload.get("first_id", "")) == "first_water_in_dry":
+			water_firsts += 1
+	check(
+		water_firsts == 1,
+		"first water in a dry Nook fires its transformation"
+	)
+	check(
+		core.journal.is_structure_unlocked("struct_birdbath")
+		and core.stock.structure_count("struct_birdbath")
+			== stump_count_before + 1,
+		"the First unlocks its family and grants a first copy"
+	)
+	check(
+		core.journal.entries_of_kind("first").size() >= 1,
+		"the First appears in the journal only after firing"
+	)
+	var second := Vector2i(target.x, target.y + 1)
+	while core.grid.has_cell(second):
+		second.y += 1
+	core.place_tile_from_stock(second, "tile_open_water", 0)
+	var water_firsts_after := 0
+	for payload: Dictionary in fired:
+		if String(payload.get("first_id", "")) == "first_water_in_dry":
+			water_firsts_after += 1
+	check(
+		water_firsts_after == 1,
+		"a chunk-scoped First fires once per Nook"
+	)
+
+
+func _test_unfolding_world_growth_and_keepsakes() -> void:
+	var core := fresh_core(9911)
+	var plan := core.nooks.reveal_nook(Vector2i(0, 3), {
+		"biome": "nook_biome_meadow", "density": "open",
+		"mood": "mood_clear_noon", "seed": 31,
+	})
+	check(plan != null, "an open meadow reveals for planting")
+	var origin := core.nooks.world.chunk_origin(Vector2i(0, 3))
+	var matured: Array = []
+	core.events.sapling_matured.connect(func(payload): matured.append(payload))
+	var minted: Array = []
+	core.events.keepsake_minted.connect(func(payload): minted.append(payload))
+	var first_planted: Dictionary = {}
+	var planted := 0
+	for y in core.nooks.world.nook_size:
+		if planted >= 10:
+			break
+		for x in core.nooks.world.nook_size:
+			if planted >= 10:
+				break
+			var result: Dictionary = core.nooks.plant_sapling(
+				origin + Vector2i(x, y), "sapling_evergreen"
+			)
+			if bool(result.get("ok", false)):
+				planted += 1
+				if first_planted.is_empty():
+					first_planted = result
+	check(planted == 10, "ten saplings go into one meadow")
+	var keepsake_ids: Array = []
+	for payload: Dictionary in minted:
+		keepsake_ids.append(String(payload.get("moment_id", "")))
+	check(
+		keepsake_ids.has("moment_ten_saplings"),
+		"the tenth sapling mints its keepsake moment"
+	)
+	check(
+		core.journal.is_structure_unlocked("struct_garden_trellis"),
+		"keepsake moments unlock their display piece"
+	)
+	var instance_id := int(first_planted.get("instance_id", 0))
+	var stages_seen: Array = []
+	for _stage in 3:
+		var found := core.grid.find_structure(instance_id)
+		if found.is_empty():
+			break
+		var structure: WorldGrid.StructureState = found["structure"]
+		stages_seen.append(structure.structure_id)
+		var growth: Dictionary = structure.runtime_state.get("growth", {})
+		if growth.is_empty() or float(growth.get("deadline_unix", 0.0)) <= 0.0:
+			break
+		growth["deadline_unix"] = 1.0
+		core.nooks.tick(0.1)
+		instance_id = _newest_growth_instance(core, instance_id)
+	check(
+		stages_seen == [
+			"struct_pine_young", "struct_pine", "struct_pine_tall",
+		],
+		"a planted sapling grows through its full line in real time"
+	)
+	check(
+		matured.size() == 1,
+		"the final stage announces sapling_matured exactly once"
+	)
+
+
+func _newest_growth_instance(core: GameCore, previous_id: int) -> int:
+	# advance_growth replaces the structure; find the instance now carrying
+	# growth runtime in the same cell.
+	var found := core.grid.find_structure(previous_id)
+	if not found.is_empty():
+		return previous_id
+	var best := previous_id
+	for slot: Dictionary in core.grid.all_cell_slots():
+		var state := core.grid.cell_at(slot["coord"], int(slot["elevation"]))
+		if state == null:
+			continue
+		for structure: WorldGrid.StructureState in state.structures:
+			if structure.runtime_state.has("growth") \
+				and structure.instance_id > best:
+				best = structure.instance_id
+	return best
+
+
+func _test_unfolding_world_dormants() -> void:
+	var core := fresh_core(2244)
+	var chosen_seed := 0
+	for candidate_seed in range(1, 80):
+		var probe := core.nooks.generator.generate(
+			Vector2i(5, 5),
+			{
+				"biome": "nook_biome_forest", "density": "seeded",
+				"mood": "mood_clear_noon", "seed": candidate_seed,
+			},
+			core.nooks.world.nook_size
+		)
+		if not probe.dormant.is_empty():
+			chosen_seed = candidate_seed
+			break
+	check(chosen_seed != 0, "seeded forests regularly host a dormant mystery")
+	core.nooks.reveal_nook(Vector2i(5, 5), {
+		"biome": "nook_biome_forest", "density": "seeded",
+		"mood": "mood_clear_noon", "seed": chosen_seed,
+	})
+	var record := core.nooks.world.nook(Vector2i(5, 5))
+	check(
+		int(record.dormant.get("instance_id", 0)) != 0
+		and not bool(record.dormant.get("woken", false)),
+		"the dormant thing stands in the world, odd and unexplained"
+	)
+	var woken_events: Array = []
+	core.events.dormant_woken.connect(func(payload): woken_events.append(payload))
+	for _minute in 40:
+		core.dormants.note_presence(Vector2i(5, 5), 60.0)
+	check(
+		bool(record.dormant.get("pending_wake", false))
+		and woken_events.is_empty(),
+		"crossing the life threshold defers the wake to the next session"
+	)
+	var applied := core.dormants.apply_pending_wakes()
+	check(
+		applied.size() == 1
+		and bool(record.dormant.get("woken", false))
+		and woken_events.size() == 1,
+		"the next session wakes the dormant thing exactly once"
+	)
+	check(
+		core.journal.entries_of_kind("dormant").size() == 1,
+		"the wake earns its unique journal page"
+	)
+	check(core.dormants.apply_pending_wakes().is_empty(), "wakes never repeat")
+
+
+func _test_unfolding_world_save_round_trip() -> void:
+	var core := fresh_core(3355)
+	core.save_manager.save_path = "user://test_unfolding_save.json"
+	core.save_manager.backup_path = "user://test_unfolding_save.json.backup"
+	var plan := core.nooks.reveal_nook(Vector2i(1, 0), {
+		"biome": "nook_biome_stonefell", "density": "grown",
+		"mood": "mood_soft_mist", "seed": 777,
+	})
+	check(plan != null, "a stonefell Nook reveals")
+	core.nooks.name_nook(Vector2i(1, 0), "Grey Shoulder")
+	var origin := core.nooks.world.chunk_origin(Vector2i(1, 0))
+	for y in core.nooks.world.nook_size:
+		var done := false
+		for x in core.nooks.world.nook_size:
+			if bool(core.nooks.plant_sapling(
+				origin + Vector2i(x, y), "sapling_evergreen"
+			).get("ok", false)):
+				done = true
+				break
+		if done:
+			break
+	check(core.save(), "the unfolding world writes through the normal save")
+	var reloaded := GameCore.new()
+	reloaded.setup("res://data", 1)
+	reloaded.save_manager.save_path = core.save_manager.save_path
+	reloaded.save_manager.backup_path = core.save_manager.backup_path
+	check(reloaded.load_game(), "an unfolding-world save passes strict hydration")
+	var record := reloaded.nooks.world.nook(Vector2i(1, 0))
+	var original := core.nooks.world.nook(Vector2i(1, 0))
+	check(
+		record != null
+		and record.biome_id == "nook_biome_stonefell"
+		and record.display_name == "Grey Shoulder"
+		and record.seed_value == 777
+		and record.treasures == original.treasures
+		and record.dormant == original.dormant
+		and record.activity == original.activity,
+		"Nook meta — seed, name, treasures, dormant, activity — survives reload"
+	)
+	check(
+		reloaded.journal.entries.size() == core.journal.entries.size()
+		and reloaded.keepsakes.counters == core.keepsakes.counters
+		and reloaded.firsts.fired_world == core.firsts.fired_world,
+		"discovery state survives reload"
+	)
+
+
+func _test_unfolding_world_flags_off() -> void:
+	var core := fresh_core(4466)
+	core.registries.features["nooks_enabled"] = false
+	var module := NookModule.new(
+		core.registries, core.rng, core.grid, core.events, core.commands
+	)
+	check(
+		not module.enabled
+		and module.plant_sapling(Vector2i.ZERO, "sapling_evergreen")
+			.get("reason", "") == "disabled"
+		and module.accept_offer(0) == null
+		and not module.offers.can_offer(),
+		"flipping nooks_enabled off leaves a quiet but running game"
+	)
+	core.registries.features["nook_treasures_enabled"] = false
+	var silent_treasures := TreasureSystem.new(
+		core.registries, core.nooks.world, core.events,
+		core.build_rewards, core.journal
+	)
+	check(
+		not silent_treasures.enabled,
+		"the treasure listener can be disabled without touching anything else"
+	)
+	core.registries.features["nooks_enabled"] = true

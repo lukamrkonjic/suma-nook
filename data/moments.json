@@ -1,0 +1,30 @@
+{
+  "moments": [
+    {
+      "id": "moment_ten_saplings",
+      "name": "Quiet Orchardist",
+      "kind": "counter",
+      "signal": "sapling_planted",
+      "count": 10,
+      "journal": "Ten saplings planted. Somewhere a future forest keeps my count.",
+      "keepsake_structure": "struct_garden_trellis"
+    },
+    {
+      "id": "moment_fifty_clearings",
+      "name": "Fifty Rings",
+      "kind": "counter",
+      "signal": "feature_cleared",
+      "count": 50,
+      "journal": "Fifty features cleared by hand. The callouses arrived before the keepsake did.",
+      "keepsake_structure": "struct_log_pile"
+    },
+    {
+      "id": "moment_warm_light_at_night",
+      "name": "Kept Warm",
+      "kind": "cooccurrence",
+      "conditions": ["warm_light", "night"],
+      "journal": "A lit lantern against the dark, in a place that did not exist a season ago.",
+      "keepsake_structure": "struct_lantern"
+    }
+  ]
+}

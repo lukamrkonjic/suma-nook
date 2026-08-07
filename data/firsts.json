@@ -1,0 +1,98 @@
+{
+  "firsts": [
+    {
+      "id": "first_water_in_dry",
+      "name": "The Ground Drank",
+      "signal": "water_added",
+      "scope": "chunk",
+      "chunk_lacked_tag": "water",
+      "once_per_chunk": true,
+      "journal": "Water reached ground that had never held it. The whole Nook seemed to breathe out.",
+      "ambient_fx": "fx_spring_stir",
+      "unlock_structures": ["struct_birdbath"]
+    },
+    {
+      "id": "first_sapling",
+      "name": "Something Given Back",
+      "signal": "sapling_planted",
+      "scope": "world",
+      "once_per_chunk": false,
+      "journal": "The first sapling went into cleared ground. Taking and giving turned out to be the same motion.",
+      "ambient_fx": "fx_leaf_drift",
+      "unlock_structures": ["struct_planter"]
+    },
+    {
+      "id": "first_tree_matures",
+      "name": "Grown Tall",
+      "signal": "sapling_matured",
+      "scope": "world",
+      "once_per_chunk": false,
+      "journal": "A tree I planted stands taller than I do now.",
+      "ambient_fx": "fx_leaf_burst",
+      "unlock_structures": ["struct_garden_trellis"]
+    },
+    {
+      "id": "first_path_laid",
+      "name": "A Way Through",
+      "signal": "path_linked",
+      "scope": "chunk",
+      "once_per_chunk": true,
+      "journal": "A path now runs where there was only undergrowth.",
+      "ambient_fx": "fx_dust_settle"
+    },
+    {
+      "id": "first_clearing",
+      "name": "First Clearing",
+      "signal": "feature_cleared",
+      "scope": "world",
+      "once_per_chunk": false,
+      "journal": "The first tree came down slowly, and the light changed where it had stood.",
+      "ambient_fx": "fx_light_shaft"
+    },
+    {
+      "id": "first_mark_on_new_ground",
+      "name": "Mark on New Ground",
+      "signal": "model_placed",
+      "scope": "chunk",
+      "once_per_chunk": true,
+      "journal": "The first made thing in this Nook. It is not wilderness anymore — not entirely.",
+      "ambient_fx": ""
+    },
+    {
+      "id": "first_nook_named",
+      "name": "A Name Spoken",
+      "signal": "nook_named",
+      "scope": "world",
+      "once_per_chunk": false,
+      "journal": "I gave a place a name, and the name stuck.",
+      "ambient_fx": ""
+    },
+    {
+      "id": "first_nook_connected",
+      "name": "Two Became One",
+      "signal": "nook_connected",
+      "scope": "world",
+      "once_per_chunk": false,
+      "journal": "Two Nooks touch now. Standing at the seam, I could not say where one ended.",
+      "ambient_fx": "fx_seam_shimmer"
+    },
+    {
+      "id": "first_treasure",
+      "name": "Something Buried",
+      "signal": "treasure_found",
+      "scope": "world",
+      "once_per_chunk": false,
+      "journal": "It tumbled out mid-fall and caught the light. The ground had been keeping it for me.",
+      "ambient_fx": "fx_glint"
+    },
+    {
+      "id": "first_dormant_wake",
+      "name": "It Was Waiting",
+      "signal": "dormant_woken",
+      "scope": "world",
+      "once_per_chunk": false,
+      "journal": "The vines pulled back on their own. Whatever slept there had decided the place was alive enough.",
+      "ambient_fx": "fx_wake_bloom"
+    }
+  ]
+}

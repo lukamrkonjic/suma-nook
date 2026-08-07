@@ -1,0 +1,29 @@
+{
+  "nook_size": 8,
+  "origin_cell": [-2, -2],
+  "offer_count": 3,
+  "free_rerolls": 1,
+  "frontier_activity_threshold": 6,
+  "density_bands": ["open", "seeded", "grown"],
+  "density_weights": [2.0, 3.0, 2.0],
+  "stamps_min": 1,
+  "stamps_max": 2,
+  "ruin_chance": 0.05,
+  "dormant_chance": 0.85,
+  "growth_lines": {
+    "line_evergreen": {
+      "stages": ["struct_pine_young", "struct_pine", "struct_pine_tall"],
+      "stage_seconds": [1200.0, 2700.0]
+    }
+  },
+  "saplings": [
+    {"id": "sapling_evergreen", "growth_line": "line_evergreen"}
+  ],
+  "dormant_score_weights": {
+    "model_placed": 1.0,
+    "sapling_planted": 1.0,
+    "sapling_matured": 2.0,
+    "first_fired": 3.0,
+    "presence_minute": 0.5
+  }
+}

@@ -8,6 +8,10 @@ extends RefCounted
 signal cell_changed(coord: Vector2i)
 signal slot_changed(coord: Vector2i, elevation: int)
 signal grid_changed
+## Structure lifecycle at the model layer. Carries enough for world-signal
+## listeners without exposing mutable state.
+signal structure_added(coord: Vector2i, instance_id: int, structure_id: String)
+signal structure_removed(coord: Vector2i, instance_id: int, structure_id: String)
 
 const NEIGHBORS := [Vector2i.RIGHT, Vector2i.LEFT, Vector2i(0, 1), Vector2i(0, -1)]
 
@@ -838,6 +842,7 @@ func add_structure(
 	state.structures.append(s)
 	_cache_structure(coord, elevation, state, s)
 	_emit_slot_changed(coord, elevation)
+	structure_added.emit(coord, s.instance_id, s.structure_id)
 	return s
 
 
@@ -881,6 +886,9 @@ func add_structure_on(
 		structure
 	)
 	_emit_slot_changed(parent_found["coord"], int(parent_found["elevation"]))
+	structure_added.emit(
+		parent_found["coord"], structure.instance_id, structure.structure_id
+	)
 	return structure
 
 
@@ -902,6 +910,7 @@ func remove_structure(coord: Vector2i, instance_id: int, elevation: int = -1) ->
 			state.structures.remove_at(i)
 			_structure_locations.erase(instance_id)
 			_emit_slot_changed(coord, elevation)
+			structure_removed.emit(coord, s.instance_id, s.structure_id)
 			return s
 	return null
 

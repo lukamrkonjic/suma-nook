@@ -15,6 +15,9 @@ const FishingDefinitionValidatorScript := preload(
 const WorldRewardDefinitionValidatorScript := preload(
 	"res://scripts/features/rewards/world_reward_definition_validator.gd"
 )
+const NookDefinitionValidatorScript := preload(
+	"res://scripts/features/nooks/nook_definition_validator.gd"
+)
 
 
 static func create() -> Registries:
@@ -23,4 +26,5 @@ static func create() -> Registries:
 	registries.register_validator(ProgressionDefinitionValidatorScript.validate)
 	registries.register_validator(FishingDefinitionValidatorScript.validate)
 	registries.register_validator(WorldRewardDefinitionValidatorScript.validate)
+	registries.register_validator(NookDefinitionValidatorScript.validate)
 	return registries

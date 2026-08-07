@@ -391,6 +391,13 @@ class HarvestProfileDefinition:
 	var reveal_profile_id: String = ""
 	var home_collection: String = ""
 	var presentation_profile: String = "soft_source"
+	## What the final hit does. "regrow" keeps the classic cycle;
+	## "clear" removes the feature from the world, leaving
+	## `leaves_structure_id` behind (stump, rubble) or nothing. Clearing is
+	## the Unfolding World's terrain-with-resistance model: trees and stones
+	## are terrain, not an economy.
+	var on_final: String = "regrow"
+	var leaves_structure_id: String = ""
 	## Presentation-owned data. The lifecycle never interprets this payload;
 	## replaceable presenters may use it to attach fruit, ore, flowers, etc. to
 	## any model that references the profile.
@@ -418,6 +425,8 @@ class HarvestProfileDefinition:
 		profile.reveal_profile_id = String(d.get("reveal_profile", ""))
 		profile.home_collection = String(d.get("home_collection", ""))
 		profile.presentation_profile = String(d.get("presentation", "soft_source"))
+		profile.on_final = String(d.get("on_final", "regrow"))
+		profile.leaves_structure_id = String(d.get("leaves", ""))
 		profile.presentation_settings = (
 			d.get("presentation_settings", {}) as Dictionary
 		).duplicate(true)

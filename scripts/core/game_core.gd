@@ -70,6 +70,16 @@ var token_pouch
 var harvesting
 var visitors
 var interactions
+# --- Unfolding World: explicit wiring, no autoloads. `events` is a scoped
+# hub owned here; every discovery system below is a deletable listener.
+var events: WorldEvents
+var commands: WorldCommandService
+var nooks: NookModule
+var journal: DiscoveryJournal
+var treasures: TreasureSystem
+var firsts: FirstsSystem
+var dormants: DormantSystem
+var keepsakes: KeepsakeSystem
 
 var autosave_timer := 0.0
 var autosave_paused := false
@@ -128,6 +138,22 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 	)
 	visitors = VisitorModuleScript.new(
 		registries, rng, grid, build_rewards
+	)
+	events = WorldEvents.new()
+	commands = WorldCommandService.new(grid, registries, events)
+	nooks = NookModule.new(registries, rng, grid, events, commands)
+	journal = DiscoveryJournal.new(registries, stock)
+	treasures = TreasureSystem.new(
+		registries, nooks.world, events, build_rewards, journal
+	)
+	firsts = FirstsSystem.new(
+		registries, grid, nooks.world, events, journal
+	)
+	dormants = DormantSystem.new(
+		registries, nooks.world, events, commands, build_rewards, journal
+	)
+	keepsakes = KeepsakeSystem.new(
+		registries, grid, nooks.world, events, journal
 	)
 	equipment = EquipmentManager.new(registries)
 	progression = ProgressionModule.new(registries, rng, grid, stock, collection, equipment)
@@ -201,6 +227,39 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 		if owner != null and not bool(hit.get("final", false)):
 			owner.autosave_soon()
 	)
+	harvesting.source_cleared.connect(func(instance_id, clearing):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner.nooks.on_source_cleared(instance_id, clearing)
+	)
+	# Player model placement/removal become world signals. Command-driven
+	# structure churn (generation, growth, clearing) is excluded here — the
+	# command reducer publishes its own semantic events instead.
+	grid.structure_added.connect(func(coord, instance_id, structure_id):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null and not owner.commands.is_applying:
+			owner.events.publish("model_placed", {
+				"coord": coord,
+				"instance_id": instance_id,
+				"structure_id": structure_id,
+				"nook": owner.nooks.world.chunk_of_cell(coord),
+			})
+	)
+	grid.structure_removed.connect(func(coord, instance_id, structure_id):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null and not owner.commands.is_applying:
+			owner.events.publish("model_removed", {
+				"coord": coord,
+				"instance_id": instance_id,
+				"structure_id": structure_id,
+				"nook": owner.nooks.world.chunk_of_cell(coord),
+			})
+	)
+	events.world_signal.connect(func(_name, _payload):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._dirty = true
+	)
 	visitors.visitor_available.connect(func(_event):
 		var owner := owner_ref.get_ref() as GameCore
 		if owner != null:
@@ -273,6 +332,7 @@ func new_game(new_profile: PlayerProfile) -> void:
 	collection.record("gear", "tool_axe_basic")
 	for coord: Vector2i in grid.cells:
 		collection.record("tiles", grid.cell(coord).tile_id, 0)
+	nooks.bootstrap_starter_nook()
 	save()
 
 
@@ -310,6 +370,7 @@ func begin_build_onboarding(new_profile: PlayerProfile) -> void:
 	visitors.arrival_allowed = false
 	for coord: Vector2i in grid.cells:
 		collection.record("tiles", grid.cell(coord).tile_id, 0)
+	nooks.bootstrap_starter_nook()
 	save()
 
 
@@ -532,6 +593,20 @@ func place_tile_from_stock(
 	if elevation == 0 and registries.feature("hostile_landmarks_enabled", false):
 		landmarks.on_world_grown()
 	world_grown.emit(coord)
+	var payload := {
+		"coord": coord,
+		"elevation": elevation,
+		"tile_id": tile_id,
+		"nook": nooks.world.chunk_of_cell(coord),
+		"source": "player",
+	}
+	events.publish("tile_placed", payload)
+	var tile := registries.tile(tile_id)
+	if tile != null:
+		if tile.traits.has_tag("water") or tile.surface_kind == "water":
+			events.publish("water_added", payload)
+		if tile.traits.has_tag("path"):
+			events.publish("path_linked", payload)
 	autosave_soon()
 	return true
 
@@ -543,6 +618,7 @@ func tick(delta: float) -> void:
 	play_seconds += delta
 	fishing.tick(delta)
 	harvesting.tick(delta)
+	nooks.tick(delta)
 	visitors.tick(delta)
 	arrivals.tick(delta)
 	if registries.feature("combat_enabled", false):
@@ -669,6 +745,13 @@ func _save_payload() -> Dictionary:
 			"fishing": fishing.to_save_dict(),
 			"harvesting": harvesting.to_save_dict(),
 			"visitors": visitors.to_save_dict(),
+			"nooks": nooks.to_save_dict(),
+			"discovery": {
+				"journal": journal.to_save_dict(),
+				"treasures": treasures.to_save_dict(),
+				"firsts": firsts.to_save_dict(),
+				"keepsakes": keepsakes.to_save_dict(),
+			},
 		},
 		"view": view_state.duplicate(true),
 		"visual": visual_state.duplicate(true),
@@ -751,6 +834,19 @@ func load_game() -> bool:
 	fishing.from_save_dict(
 		(data.get("features", {}) as Dictionary).get("fishing", {})
 	)
+	nooks.from_save_dict(
+		(data.get("features", {}) as Dictionary).get("nooks", {})
+	)
+	# A pre-Nooks save (or a deleted nooks section) heals itself: the starter
+	# zone re-registers as the first Nook and play continues.
+	nooks.bootstrap_starter_nook()
+	var discovery: Dictionary = (
+		data.get("features", {}) as Dictionary
+	).get("discovery", {})
+	journal.from_save_dict(discovery.get("journal", {}) as Dictionary)
+	treasures.from_save_dict(discovery.get("treasures", {}) as Dictionary)
+	firsts.from_save_dict(discovery.get("firsts", {}) as Dictionary)
+	keepsakes.from_save_dict(discovery.get("keepsakes", {}) as Dictionary)
 	collection.from_save_dict(data.get("collection", {}))
 	progression.from_save_dict(data.get("progression", {}))
 	onboarding.from_save_dict(data.get("onboarding", {}))
@@ -770,6 +866,9 @@ func load_game() -> bool:
 	_apply_offline_recovery(int(data.get("saved_at_unix", 0)))
 	if not grid.is_traversable(grid.world_to_cell(profile.position)):
 		profile.position = grid.cell_to_world(grid.nearest_walkable(grid.world_to_cell(profile.position)))
+	# Dormant wakes crossed last session play out now — the player arrives
+	# and the place has changed. Presentation animates them on first sight.
+	dormants.apply_pending_wakes()
 	_dirty = wardrobe_migrated or showcase_placeables_migrated
 	return true
 

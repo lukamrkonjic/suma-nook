@@ -9,5 +9,10 @@
   "procedural_owl_mascot_enabled": false,
   "debug_creature_parade_enabled": false,
   "harvesting_enabled": true,
-  "visitor_events_enabled": true
+  "visitor_events_enabled": true,
+  "nooks_enabled": true,
+  "nook_treasures_enabled": true,
+  "nook_firsts_enabled": true,
+  "nook_dormants_enabled": true,
+  "nook_keepsakes_enabled": true
 }

@@ -1,0 +1,36 @@
+{
+  "nook_moods": [
+    {
+      "id": "mood_clear_noon",
+      "name": "Clear Noon",
+      "weather": "day",
+      "time_of_day": "noon",
+      "ambient_fx": "",
+      "weight": 4.0
+    },
+    {
+      "id": "mood_golden_dusk",
+      "name": "Golden Dusk",
+      "weather": "day",
+      "time_of_day": "dusk",
+      "ambient_fx": "fx_fireflies",
+      "weight": 2.0
+    },
+    {
+      "id": "mood_soft_mist",
+      "name": "Soft Mist",
+      "weather": "mist",
+      "time_of_day": "morning",
+      "ambient_fx": "fx_mist_drift",
+      "weight": 2.0
+    },
+    {
+      "id": "mood_first_snow",
+      "name": "First Snow",
+      "weather": "snow",
+      "time_of_day": "noon",
+      "ambient_fx": "fx_slow_flakes",
+      "weight": 1.0
+    }
+  ]
+}

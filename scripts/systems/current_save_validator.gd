@@ -148,7 +148,7 @@ static func _validate_structure_runtime(
 	_require(
 		errors,
 		String((harvest as Dictionary).get("state", "")) in [
-			"maturing", "ready", "regrowing",
+			"maturing", "ready", "regrowing", "cleared",
 		],
 		"%s.harvest.state is invalid" % field
 	)

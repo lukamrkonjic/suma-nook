@@ -13,7 +13,9 @@
       "token_max": 4,
       "first_token_bonus": 2,
       "home_collection": "evergreen_hearth",
-      "presentation": "clay_tree"
+      "presentation": "clay_tree",
+      "on_final": "clear",
+      "leaves": "struct_stump_pine"
     },
     {
       "id": "harvest_tree_mature_evergreen",
@@ -27,7 +29,9 @@
       "token_min": 3,
       "token_max": 5,
       "home_collection": "evergreen_hearth",
-      "presentation": "clay_tree"
+      "presentation": "clay_tree",
+      "on_final": "clear",
+      "leaves": "struct_stump_pine"
     },
     {
       "id": "harvest_tree_tall_evergreen",
@@ -41,7 +45,9 @@
       "token_min": 4,
       "token_max": 6,
       "home_collection": "evergreen_hearth",
-      "presentation": "clay_tree"
+      "presentation": "clay_tree",
+      "on_final": "clear",
+      "leaves": "struct_stump_pine"
     },
     {
       "id": "harvest_berry_shrub",
@@ -73,7 +79,7 @@
     {
       "id": "harvest_rock_outcrop",
       "name": "Stone Outcrop",
-      "verb": "break",
+      "verb": "crack",
       "tool_icon": "pickaxe",
       "hits": 4,
       "maturation_seconds": 0.0,
@@ -82,7 +88,26 @@
       "token_min": 2,
       "token_max": 4,
       "home_collection": "stonebound",
-      "presentation": "clay_rock"
+      "presentation": "clay_rock",
+      "on_final": "clear",
+      "leaves": ""
+    },
+    {
+      "id": "harvest_stump_pry",
+      "name": "Weathered Stump",
+      "verb": "pry",
+      "tool_icon": "axe",
+      "hits": 2,
+      "maturation_seconds": 0.0,
+      "regrowth_seconds": 0.0,
+      "token": "token_forest",
+      "token_min": 1,
+      "token_max": 1,
+      "first_token_bonus": 0,
+      "home_collection": "evergreen_hearth",
+      "presentation": "soft_source",
+      "on_final": "clear",
+      "leaves": ""
     }
   ]
 }

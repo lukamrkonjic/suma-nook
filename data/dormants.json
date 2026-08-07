@@ -1,0 +1,34 @@
+{
+  "dormants": [
+    {
+      "id": "dormant_mossy_arch",
+      "name": "Overgrown Arch",
+      "structure": "struct_ruin_arch",
+      "woken_structure": "",
+      "wake_score": 12.0,
+      "reward_pool": "reward_global_world_gifts",
+      "journal": "The arch shed its moss overnight. Under it, the air feels older than the forest.",
+      "weight": 2.0
+    },
+    {
+      "id": "dormant_still_stone",
+      "name": "Still Stone",
+      "structure": "struct_stone_pillar",
+      "woken_structure": "struct_stone_well",
+      "wake_score": 10.0,
+      "reward_pool": "reward_rock_box",
+      "journal": "The still stone was a wellhead all along. There is water at the bottom, and it is clear.",
+      "weight": 2.0
+    },
+    {
+      "id": "dormant_sealed_hollow",
+      "name": "Sealed Hollow",
+      "structure": "struct_rock_outcrop",
+      "woken_structure": "",
+      "wake_score": 14.0,
+      "reward_pool": "reward_forest_box",
+      "journal": "The hollow opened while I was away. Something small had been keeping house inside.",
+      "weight": 1.0
+    }
+  ]
+}

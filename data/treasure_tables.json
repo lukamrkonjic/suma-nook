@@ -1,0 +1,31 @@
+{
+  "treasure_tables": [
+    {
+      "id": "ttable_open",
+      "name": "Sparse Ground",
+      "slots": [
+        {"host_tag": "tree", "chance": 0.05, "pool": "reward_forest_box"},
+        {"host_tag": "rock", "chance": 0.08, "pool": "reward_rock_box"}
+      ]
+    },
+    {
+      "id": "ttable_seeded",
+      "name": "Seeded Ground",
+      "slots": [
+        {"host_tag": "tree", "chance": 0.07, "pool": "reward_forest_box"},
+        {"host_tag": "rock", "chance": 0.1, "pool": "reward_rock_box"},
+        {"host_tag": "stump", "chance": 0.05, "pool": "reward_global_world_gifts"}
+      ]
+    },
+    {
+      "id": "ttable_grown",
+      "name": "Grown Ground",
+      "slots": [
+        {"host_tag": "tree", "chance": 0.08, "pool": "reward_forest_box"},
+        {"host_tag": "rock", "chance": 0.12, "pool": "reward_rock_box"},
+        {"host_tag": "stump", "chance": 0.06, "pool": "reward_global_world_gifts"},
+        {"guaranteed": 1, "host_tag": "any", "pool": "reward_global_world_gifts"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "wavefront_tiles_per_second": 11.0,
+  "stagger_ms": 80,
+  "origin": "seam",
+  "tile_drop_height": 6.0,
+  "tile_drop_seconds": 0.34,
+  "tile_overshoot": 0.08,
+  "dust_fx": "fx_tile_dust",
+  "feature_pop_delay": 0.12,
+  "feature_pop_seconds": 0.22,
+  "feature_leaf_shake": true,
+  "mood_settle_seconds": 3.5,
+  "camera_pullback": 1.35,
+  "camera_seam_drift_seconds": 1.6,
+  "first_boot_zoom_seconds": 2.4
+}

@@ -1,65 +1,1018 @@
 {
   "structures": [
-    { "id": "struct_bench", "name": "Keeper's Bench", "asset_id": "prop_bench", "kind": "decoration", "socket_type": "decor", "visitor_tags": ["seating"], "capabilities": { "rest": {} }, "placement_sound": "wood", "placement_tags": ["furniture", "medium"], "can_be_stacked": false, "support_slots": [
-      { "id": "seat_left", "offset": [-0.27, 0.42, -0.03], "accepts": ["small_surface_item"] },
-      { "id": "seat_right", "offset": [0.27, 0.42, -0.03], "accepts": ["small_surface_item"] }
-    ] },
-    { "id": "struct_stool", "name": "Stool", "asset_id": "prop_stool", "kind": "decoration", "socket_type": "decor", "visitor_tags": ["seating"], "placement_sound": "wood", "placement_tags": ["furniture", "medium"], "can_be_stacked": false, "support_slots": [
-      { "id": "top", "offset": [0.0, 0.46, 0.0], "accepts": ["small_surface_item"] }
-    ] },
-    { "id": "struct_table", "name": "Round Table", "asset_id": "prop_table", "kind": "decoration", "socket_type": "decor", "visitor_tags": ["social"], "placement_sound": "wood", "placement_tags": ["furniture", "medium"], "can_be_stacked": false, "support_slots": [
-      { "id": "top_center", "offset": [0.0, 0.61, 0.0], "accepts": ["tabletop_item"] }
-    ] },
-    { "id": "struct_fence", "name": "Fence", "asset_id": "prop_fence", "kind": "decoration", "socket_type": "decor", "blocks_movement": true, "placement_sound": "wood", "placement_tags": ["barrier", "large"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_gate", "name": "Gate", "asset_id": "prop_gate", "kind": "decoration", "socket_type": "decor", "placement_sound": "wood", "placement_tags": ["barrier", "large"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_lantern", "name": "Warm Lantern", "asset_id": "prop_lantern", "kind": "utility", "socket_type": "decor", "capabilities": { "light": {} }, "light_height": 1.34, "light_flicker": false, "visitor_tags": ["viewing"], "placement_sound": "wood", "placement_tags": ["light", "medium"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_campfire", "name": "Campfire", "asset_id": "prop_campfire", "kind": "utility", "socket_type": "structure", "capabilities": { "light": {}, "rest": {}, "fire": { "starts_lit": false, "offset": [0.0, 0.12, 0.0], "width": 0.52, "height": 0.54, "intensity": 0.95, "smoke": 0.28, "embers": 0.55, "speed": 0.52, "wind": [0.025, 0.0, -0.015], "seed": 73021, "hide_nodes": ["FlameCore", "FlameOuter"], "fuel": { "nodes": ["camp_log0", "camp_log1", "camp_log2"], "color_token": "fuel_campfire", "tint": 0.38, "emission": 0.08, "pulse": 0.035 } } }, "light_height": 0.35, "light_flicker": true, "visitor_tags": ["social", "shelter"], "placement_sound": "stone", "placement_tags": ["hazard", "large"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_firepit_polished", "name": "Polished Firepit", "asset_id": "prop_firepit_polished", "kind": "utility", "socket_type": "structure", "capabilities": { "light": {}, "rest": {}, "fire": { "starts_lit": false, "offset": [0.0, 0.27, 0.0], "width": 0.60, "height": 0.56, "intensity": 1.0, "smoke": 0.24, "embers": 0.5, "speed": 0.52, "wind": [0.018, 0.0, -0.012], "seed": 81283, "fuel": { "nodes": ["FirepitPolished"], "region_radius": 0.255, "region_min_y": 0.095, "region_max_y": 0.43, "region_softness": 0.035, "color_token": "fuel_polished_firepit", "tint": 0.24, "emission": 0.07, "pulse": 0.03 } } }, "light_height": 0.35, "light_flicker": true, "visitor_tags": ["social", "shelter"], "placement_sound": "stone", "placement_tags": ["hazard", "large"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_high_tent", "name": "High Tent", "asset_id": "prop_shelter", "kind": "building", "socket_type": "structure", "blocks_movement": true, "preserve_instance_state": true, "capabilities": { "shelter": { "capacity": 2, "weather_resistance": 0.8 }, "sleep": { "capacity": 2, "comfort": 6 }, "storage": { "slots": 6 }, "durability": { "maximum": 100.0 } }, "visitor_tags": ["shelter"], "placement_sound": "wood", "placement_tags": ["building", "shelter", "large", "stateful"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_planter", "name": "Planter", "asset_id": "prop_planter", "kind": "decoration", "socket_type": "decor", "visitor_tags": ["viewing"], "placement_sound": "wood", "placement_tags": ["plant", "medium", "tabletop_item"], "can_be_stacked": true, "support_slots": [] },
-    { "id": "struct_pot", "name": "Terracotta Pot", "asset_id": "prop_pot", "kind": "decoration", "socket_type": "decor", "visitor_tags": ["viewing"], "placement_sound": "stone", "placement_tags": ["plant", "small", "small_surface_item", "tabletop_item"], "can_be_stacked": true, "support_slots": [] },
-    { "id": "struct_chest", "name": "Storage Chest", "asset_id": "prop_chest", "kind": "utility", "socket_type": "decor", "capabilities": { "storage_access": {} }, "placement_sound": "wood", "placement_tags": ["storage", "medium", "tabletop_item"], "can_be_stacked": true, "support_slots": [
-      { "id": "lid", "offset": [0.0, 0.51, 0.0], "accepts": ["small_surface_item"] }
-    ] },
-    { "id": "struct_box", "name": "Cardboard Box", "asset_id": "prop_cardboard_box", "kind": "decoration", "socket_type": "decor", "placement_sound": "wood", "placement_tags": ["container", "medium"], "can_be_stacked": false, "support_slots": [
-      { "id": "top", "offset": [0.0, 0.53, 0.0], "accepts": ["small_surface_item"] }
-    ] },
-    { "id": "struct_dock", "name": "Small Dock", "asset_id": "prop_dock", "kind": "building", "socket_type": "structure", "allowed_surfaces": ["water"], "collision_profile": "walkable_surface", "grid_fit_profile": "tile_span", "capabilities": { "fishing_spot": {} }, "placement_sound": "wood", "placement_tags": ["building", "large"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_sign", "name": "Signpost", "asset_id": "prop_sign", "kind": "decoration", "socket_type": "decor", "placement_sound": "wood", "placement_tags": ["sign", "medium"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_ruin_arch", "name": "Reclaimed Arch", "asset_id": "prop_ruin_arch", "kind": "building", "socket_type": "structure", "visitor_tags": ["viewing"], "placement_sound": "stone", "placement_tags": ["building", "large"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_stone_wall", "name": "Old Stone Wall", "asset_id": "prop_stone_wall", "kind": "decoration", "socket_type": "decor", "blocks_movement": true, "placement_sound": "stone", "placement_tags": ["barrier", "large"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_stone_wall_polished", "name": "Polished Stone Wall", "asset_id": "prop_stone_wall_polished", "kind": "decoration", "socket_type": "decor", "blocks_movement": true, "placement_sound": "stone", "placement_tags": ["barrier", "stonework", "large", "stackable_wall"], "can_be_stacked": true, "support_slots": [
-      { "id": "wall_top", "offset": [0.0, 0.675, 0.0], "accepts": ["stackable_wall"] }
-    ] },
-    { "id": "struct_fishing_marker", "name": "Fishing Marker", "asset_id": "prop_fishing_marker", "kind": "utility", "socket_type": "decor", "capabilities": { "fishing_luck": {} }, "placement_sound": "wood", "placement_tags": ["utility", "small"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_pine", "name": "Mature Pine", "asset_id": "prop_pine_a", "anchor": "grove_anchor", "kind": "decoration", "socket_type": "decor", "blocks_movement": true, "preserve_instance_state": true, "capabilities": { "harvest_source": { "profile_id": "harvest_tree_mature_evergreen" } }, "tags": ["biome_forest"], "visitor_tags": ["viewing"], "placement_sound": "grass", "placement_tags": ["tree", "plant", "large", "stateful"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_pine_tall", "name": "Tall Pine", "asset_id": "prop_pine_b", "anchor": "grove_anchor", "kind": "decoration", "socket_type": "decor", "blocks_movement": true, "preserve_instance_state": true, "capabilities": { "harvest_source": { "profile_id": "harvest_tree_tall_evergreen" } }, "tags": ["biome_forest"], "visitor_tags": ["viewing"], "placement_sound": "grass", "placement_tags": ["tree", "plant", "large", "stateful"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_pine_young", "name": "Young Pine", "asset_id": "prop_pine_young", "anchor": "grove_anchor", "kind": "decoration", "socket_type": "decor", "blocks_movement": true, "preserve_instance_state": true, "capabilities": { "harvest_source": { "profile_id": "harvest_tree_young_evergreen" } }, "tags": ["biome_forest"], "visitor_tags": ["viewing"], "placement_sound": "grass", "placement_tags": ["tree", "plant", "medium", "stateful"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_bush", "name": "Rounded Bush", "asset_id": "prop_bush_a", "kind": "decoration", "socket_type": "decor", "preserve_instance_state": true, "capabilities": { "harvest_source": { "profile_id": "harvest_berry_shrub" } }, "tags": ["biome_forest"], "visitor_tags": ["viewing"], "placement_sound": "grass", "placement_tags": ["plant", "medium", "stateful"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_rock_outcrop", "name": "Stone Outcrop", "asset_id": "prop_rock_cluster", "kind": "decoration", "socket_type": "decor", "blocks_movement": true, "preserve_instance_state": true, "capabilities": { "harvest_source": { "profile_id": "harvest_rock_outcrop" } }, "tags": ["biome_rocky"], "visitor_tags": ["viewing"], "placement_sound": "stone", "placement_tags": ["rock", "stonework", "nature", "medium", "stateful"], "can_be_stacked": false, "support_slots": [] },
-
-    { "id": "struct_stone_wall_low", "name": "Low Stone Wall", "asset_id": "prop_stone_wall_low", "kind": "decoration", "socket_type": "decor", "blocks_movement": true, "placement_sound": "stone", "placement_tags": ["barrier", "stonework", "large"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_stone_wall_corner", "name": "Stone Wall Corner", "asset_id": "prop_stone_wall_corner", "kind": "decoration", "socket_type": "decor", "blocks_movement": true, "placement_sound": "stone", "placement_tags": ["barrier", "stonework", "large"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_stone_pillar", "name": "Stone Pillar", "asset_id": "prop_stone_pillar", "kind": "decoration", "socket_type": "decor", "blocks_movement": true, "placement_sound": "stone", "placement_tags": ["barrier", "stonework", "large"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_stone_well", "name": "Village Well", "asset_id": "prop_stone_well", "kind": "utility", "socket_type": "structure", "blocks_movement": true, "visitor_tags": ["viewing", "social"], "placement_sound": "stone", "placement_tags": ["utility", "stonework", "large"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_stone_bench", "name": "Stone Bench", "asset_id": "prop_stone_bench", "kind": "decoration", "socket_type": "decor", "visitor_tags": ["seating"], "capabilities": { "rest": {} }, "placement_sound": "stone", "placement_tags": ["furniture", "stonework", "medium"], "can_be_stacked": false, "support_slots": [
-      { "id": "seat_left", "offset": [-0.28, 0.59, 0.0], "accepts": ["small_surface_item"] },
-      { "id": "seat_right", "offset": [0.28, 0.59, 0.0], "accepts": ["small_surface_item"] }
-    ] },
-    { "id": "struct_birdbath", "name": "Birdbath", "asset_id": "prop_birdbath", "kind": "decoration", "socket_type": "decor", "visitor_tags": ["viewing"], "placement_sound": "stone", "placement_tags": ["garden", "nature", "medium"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_watering_can", "name": "Sage Watering Can", "asset_id": "prop_watering_can", "kind": "utility", "socket_type": "decor", "placement_sound": "stone", "placement_tags": ["utility", "garden", "small", "small_surface_item", "tabletop_item"], "can_be_stacked": true, "support_slots": [] },
-    { "id": "struct_barrel", "name": "Garden Barrel", "asset_id": "prop_barrel", "kind": "decoration", "socket_type": "decor", "blocks_movement": true, "placement_sound": "wood", "placement_tags": ["container", "storage", "medium"], "can_be_stacked": false, "support_slots": [
-      { "id": "top", "offset": [0.0, 0.76, 0.0], "accepts": ["small_surface_item"] }
-    ] },
-    { "id": "struct_crate", "name": "Slatted Crate", "asset_id": "prop_crate", "kind": "decoration", "socket_type": "decor", "blocks_movement": true, "placement_sound": "wood", "placement_tags": ["container", "storage", "medium"], "can_be_stacked": false, "support_slots": [
-      { "id": "top", "offset": [0.0, 0.66, 0.0], "accepts": ["small_surface_item"] }
-    ] },
-    { "id": "struct_wheelbarrow", "name": "Wheelbarrow", "asset_id": "prop_wheelbarrow", "kind": "decoration", "socket_type": "decor", "blocks_movement": true, "placement_sound": "wood", "placement_tags": ["garden", "utility", "large"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_log_pile", "name": "Stacked Firewood", "asset_id": "prop_log_pile", "kind": "decoration", "socket_type": "decor", "blocks_movement": true, "placement_sound": "wood", "placement_tags": ["storage", "woodland", "medium"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_wooden_arch", "name": "Garden Arch", "asset_id": "prop_wooden_arch", "kind": "decoration", "socket_type": "structure", "blocks_movement": true, "placement_sound": "wood", "placement_tags": ["building", "garden", "large"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_milk_churn", "name": "Milk Churn", "asset_id": "prop_milk_churn", "kind": "decoration", "socket_type": "decor", "placement_sound": "stone", "placement_tags": ["container", "small", "small_surface_item", "tabletop_item"], "can_be_stacked": true, "support_slots": [] },
-    { "id": "struct_garden_trellis", "name": "Garden Trellis", "asset_id": "prop_garden_trellis", "kind": "decoration", "socket_type": "decor", "blocks_movement": true, "placement_sound": "wood", "placement_tags": ["barrier", "garden", "medium"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_snowman", "name": "Friendly Snowkeeper", "asset_id": "prop_snowman", "kind": "decoration", "socket_type": "decor", "blocks_movement": true, "visitor_tags": ["viewing"], "placement_sound": "grass", "placement_tags": ["nature", "winter", "large"], "can_be_stacked": false, "support_slots": [] },
-    { "id": "struct_water_wheel", "name": "Waterside Wheel", "asset_id": "prop_water_wheel", "kind": "building", "socket_type": "structure", "allowed_surfaces": ["water"], "blocks_movement": true, "grid_fit_profile": "tile_span", "capabilities": { "ambient_motion": { "node": "WaterWheelRotor", "axis": "z", "speed": 0.62 } }, "placement_sound": "wood", "placement_tags": ["building", "waterside", "large"], "can_be_stacked": false, "support_slots": [] }
+    {
+      "id": "struct_bench",
+      "name": "Keeper's Bench",
+      "asset_id": "prop_bench",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "visitor_tags": [
+        "seating"
+      ],
+      "capabilities": {
+        "rest": {}
+      },
+      "placement_sound": "wood",
+      "placement_tags": [
+        "furniture",
+        "medium"
+      ],
+      "can_be_stacked": false,
+      "support_slots": [
+        {
+          "id": "seat_left",
+          "offset": [
+            -0.27,
+            0.42,
+            -0.03
+          ],
+          "accepts": [
+            "small_surface_item"
+          ]
+        },
+        {
+          "id": "seat_right",
+          "offset": [
+            0.27,
+            0.42,
+            -0.03
+          ],
+          "accepts": [
+            "small_surface_item"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "struct_stool",
+      "name": "Stool",
+      "asset_id": "prop_stool",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "visitor_tags": [
+        "seating"
+      ],
+      "placement_sound": "wood",
+      "placement_tags": [
+        "furniture",
+        "medium"
+      ],
+      "can_be_stacked": false,
+      "support_slots": [
+        {
+          "id": "top",
+          "offset": [
+            0.0,
+            0.46,
+            0.0
+          ],
+          "accepts": [
+            "small_surface_item"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "struct_table",
+      "name": "Round Table",
+      "asset_id": "prop_table",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "visitor_tags": [
+        "social"
+      ],
+      "placement_sound": "wood",
+      "placement_tags": [
+        "furniture",
+        "medium"
+      ],
+      "can_be_stacked": false,
+      "support_slots": [
+        {
+          "id": "top_center",
+          "offset": [
+            0.0,
+            0.61,
+            0.0
+          ],
+          "accepts": [
+            "tabletop_item"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "struct_fence",
+      "name": "Fence",
+      "asset_id": "prop_fence",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "blocks_movement": true,
+      "placement_sound": "wood",
+      "placement_tags": [
+        "barrier",
+        "large"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_gate",
+      "name": "Gate",
+      "asset_id": "prop_gate",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "placement_sound": "wood",
+      "placement_tags": [
+        "barrier",
+        "large"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_lantern",
+      "name": "Warm Lantern",
+      "asset_id": "prop_lantern",
+      "kind": "utility",
+      "socket_type": "decor",
+      "capabilities": {
+        "light": {}
+      },
+      "light_height": 1.34,
+      "light_flicker": false,
+      "visitor_tags": [
+        "viewing"
+      ],
+      "placement_sound": "wood",
+      "placement_tags": [
+        "light",
+        "medium"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_campfire",
+      "name": "Campfire",
+      "asset_id": "prop_campfire",
+      "kind": "utility",
+      "socket_type": "structure",
+      "capabilities": {
+        "light": {},
+        "rest": {},
+        "fire": {
+          "starts_lit": false,
+          "offset": [
+            0.0,
+            0.12,
+            0.0
+          ],
+          "width": 0.52,
+          "height": 0.54,
+          "intensity": 0.95,
+          "smoke": 0.28,
+          "embers": 0.55,
+          "speed": 0.52,
+          "wind": [
+            0.025,
+            0.0,
+            -0.015
+          ],
+          "seed": 73021,
+          "hide_nodes": [
+            "FlameCore",
+            "FlameOuter"
+          ],
+          "fuel": {
+            "nodes": [
+              "camp_log0",
+              "camp_log1",
+              "camp_log2"
+            ],
+            "color_token": "fuel_campfire",
+            "tint": 0.38,
+            "emission": 0.08,
+            "pulse": 0.035
+          }
+        }
+      },
+      "light_height": 0.35,
+      "light_flicker": true,
+      "visitor_tags": [
+        "social",
+        "shelter"
+      ],
+      "placement_sound": "stone",
+      "placement_tags": [
+        "hazard",
+        "large"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_firepit_polished",
+      "name": "Polished Firepit",
+      "asset_id": "prop_firepit_polished",
+      "kind": "utility",
+      "socket_type": "structure",
+      "capabilities": {
+        "light": {},
+        "rest": {},
+        "fire": {
+          "starts_lit": false,
+          "offset": [
+            0.0,
+            0.27,
+            0.0
+          ],
+          "width": 0.6,
+          "height": 0.56,
+          "intensity": 1.0,
+          "smoke": 0.24,
+          "embers": 0.5,
+          "speed": 0.52,
+          "wind": [
+            0.018,
+            0.0,
+            -0.012
+          ],
+          "seed": 81283,
+          "fuel": {
+            "nodes": [
+              "FirepitPolished"
+            ],
+            "region_radius": 0.255,
+            "region_min_y": 0.095,
+            "region_max_y": 0.43,
+            "region_softness": 0.035,
+            "color_token": "fuel_polished_firepit",
+            "tint": 0.24,
+            "emission": 0.07,
+            "pulse": 0.03
+          }
+        }
+      },
+      "light_height": 0.35,
+      "light_flicker": true,
+      "visitor_tags": [
+        "social",
+        "shelter"
+      ],
+      "placement_sound": "stone",
+      "placement_tags": [
+        "hazard",
+        "large"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_high_tent",
+      "name": "High Tent",
+      "asset_id": "prop_shelter",
+      "kind": "building",
+      "socket_type": "structure",
+      "blocks_movement": true,
+      "preserve_instance_state": true,
+      "capabilities": {
+        "shelter": {
+          "capacity": 2,
+          "weather_resistance": 0.8
+        },
+        "sleep": {
+          "capacity": 2,
+          "comfort": 6
+        },
+        "storage": {
+          "slots": 6
+        },
+        "durability": {
+          "maximum": 100.0
+        }
+      },
+      "visitor_tags": [
+        "shelter"
+      ],
+      "placement_sound": "wood",
+      "placement_tags": [
+        "building",
+        "shelter",
+        "large",
+        "stateful"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_planter",
+      "name": "Planter",
+      "asset_id": "prop_planter",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "visitor_tags": [
+        "viewing"
+      ],
+      "placement_sound": "wood",
+      "placement_tags": [
+        "plant",
+        "medium",
+        "tabletop_item"
+      ],
+      "can_be_stacked": true,
+      "support_slots": []
+    },
+    {
+      "id": "struct_pot",
+      "name": "Terracotta Pot",
+      "asset_id": "prop_pot",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "visitor_tags": [
+        "viewing"
+      ],
+      "placement_sound": "stone",
+      "placement_tags": [
+        "plant",
+        "small",
+        "small_surface_item",
+        "tabletop_item"
+      ],
+      "can_be_stacked": true,
+      "support_slots": []
+    },
+    {
+      "id": "struct_chest",
+      "name": "Storage Chest",
+      "asset_id": "prop_chest",
+      "kind": "utility",
+      "socket_type": "decor",
+      "capabilities": {
+        "storage_access": {}
+      },
+      "placement_sound": "wood",
+      "placement_tags": [
+        "storage",
+        "medium",
+        "tabletop_item"
+      ],
+      "can_be_stacked": true,
+      "support_slots": [
+        {
+          "id": "lid",
+          "offset": [
+            0.0,
+            0.51,
+            0.0
+          ],
+          "accepts": [
+            "small_surface_item"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "struct_box",
+      "name": "Cardboard Box",
+      "asset_id": "prop_cardboard_box",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "placement_sound": "wood",
+      "placement_tags": [
+        "container",
+        "medium"
+      ],
+      "can_be_stacked": false,
+      "support_slots": [
+        {
+          "id": "top",
+          "offset": [
+            0.0,
+            0.53,
+            0.0
+          ],
+          "accepts": [
+            "small_surface_item"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "struct_dock",
+      "name": "Small Dock",
+      "asset_id": "prop_dock",
+      "kind": "building",
+      "socket_type": "structure",
+      "allowed_surfaces": [
+        "water"
+      ],
+      "collision_profile": "walkable_surface",
+      "grid_fit_profile": "tile_span",
+      "capabilities": {
+        "fishing_spot": {}
+      },
+      "placement_sound": "wood",
+      "placement_tags": [
+        "building",
+        "large"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_sign",
+      "name": "Signpost",
+      "asset_id": "prop_sign",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "placement_sound": "wood",
+      "placement_tags": [
+        "sign",
+        "medium"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_ruin_arch",
+      "name": "Reclaimed Arch",
+      "asset_id": "prop_ruin_arch",
+      "kind": "building",
+      "socket_type": "structure",
+      "visitor_tags": [
+        "viewing"
+      ],
+      "placement_sound": "stone",
+      "placement_tags": [
+        "building",
+        "large"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_stone_wall",
+      "name": "Old Stone Wall",
+      "asset_id": "prop_stone_wall",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "blocks_movement": true,
+      "placement_sound": "stone",
+      "placement_tags": [
+        "barrier",
+        "large"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_stone_wall_polished",
+      "name": "Polished Stone Wall",
+      "asset_id": "prop_stone_wall_polished",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "blocks_movement": true,
+      "placement_sound": "stone",
+      "placement_tags": [
+        "barrier",
+        "stonework",
+        "large",
+        "stackable_wall"
+      ],
+      "can_be_stacked": true,
+      "support_slots": [
+        {
+          "id": "wall_top",
+          "offset": [
+            0.0,
+            0.675,
+            0.0
+          ],
+          "accepts": [
+            "stackable_wall"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "struct_fishing_marker",
+      "name": "Fishing Marker",
+      "asset_id": "prop_fishing_marker",
+      "kind": "utility",
+      "socket_type": "decor",
+      "capabilities": {
+        "fishing_luck": {}
+      },
+      "placement_sound": "wood",
+      "placement_tags": [
+        "utility",
+        "small"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_pine",
+      "name": "Mature Pine",
+      "asset_id": "prop_pine_a",
+      "anchor": "grove_anchor",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "blocks_movement": true,
+      "preserve_instance_state": true,
+      "capabilities": {
+        "harvest_source": {
+          "profile_id": "harvest_tree_mature_evergreen"
+        }
+      },
+      "tags": [
+        "biome_forest"
+      ],
+      "visitor_tags": [
+        "viewing"
+      ],
+      "placement_sound": "grass",
+      "placement_tags": [
+        "tree",
+        "plant",
+        "large",
+        "stateful"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_pine_tall",
+      "name": "Tall Pine",
+      "asset_id": "prop_pine_b",
+      "anchor": "grove_anchor",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "blocks_movement": true,
+      "preserve_instance_state": true,
+      "capabilities": {
+        "harvest_source": {
+          "profile_id": "harvest_tree_tall_evergreen"
+        }
+      },
+      "tags": [
+        "biome_forest"
+      ],
+      "visitor_tags": [
+        "viewing"
+      ],
+      "placement_sound": "grass",
+      "placement_tags": [
+        "tree",
+        "plant",
+        "large",
+        "stateful"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_pine_young",
+      "name": "Young Pine",
+      "asset_id": "prop_pine_young",
+      "anchor": "grove_anchor",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "blocks_movement": true,
+      "preserve_instance_state": true,
+      "capabilities": {
+        "harvest_source": {
+          "profile_id": "harvest_tree_young_evergreen"
+        }
+      },
+      "tags": [
+        "biome_forest"
+      ],
+      "visitor_tags": [
+        "viewing"
+      ],
+      "placement_sound": "grass",
+      "placement_tags": [
+        "tree",
+        "plant",
+        "medium",
+        "stateful"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_bush",
+      "name": "Rounded Bush",
+      "asset_id": "prop_bush_a",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "preserve_instance_state": true,
+      "capabilities": {
+        "harvest_source": {
+          "profile_id": "harvest_berry_shrub"
+        }
+      },
+      "tags": [
+        "biome_forest"
+      ],
+      "visitor_tags": [
+        "viewing"
+      ],
+      "placement_sound": "grass",
+      "placement_tags": [
+        "plant",
+        "medium",
+        "stateful"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_rock_outcrop",
+      "name": "Stone Outcrop",
+      "asset_id": "prop_rock_cluster",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "blocks_movement": true,
+      "preserve_instance_state": true,
+      "capabilities": {
+        "harvest_source": {
+          "profile_id": "harvest_rock_outcrop"
+        }
+      },
+      "tags": [
+        "biome_rocky"
+      ],
+      "visitor_tags": [
+        "viewing"
+      ],
+      "placement_sound": "stone",
+      "placement_tags": [
+        "rock",
+        "stonework",
+        "nature",
+        "medium",
+        "stateful"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_stone_wall_low",
+      "name": "Low Stone Wall",
+      "asset_id": "prop_stone_wall_low",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "blocks_movement": true,
+      "placement_sound": "stone",
+      "placement_tags": [
+        "barrier",
+        "stonework",
+        "large"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_stone_wall_corner",
+      "name": "Stone Wall Corner",
+      "asset_id": "prop_stone_wall_corner",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "blocks_movement": true,
+      "placement_sound": "stone",
+      "placement_tags": [
+        "barrier",
+        "stonework",
+        "large"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_stone_pillar",
+      "name": "Stone Pillar",
+      "asset_id": "prop_stone_pillar",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "blocks_movement": true,
+      "placement_sound": "stone",
+      "placement_tags": [
+        "barrier",
+        "stonework",
+        "large"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_stone_well",
+      "name": "Village Well",
+      "asset_id": "prop_stone_well",
+      "kind": "utility",
+      "socket_type": "structure",
+      "blocks_movement": true,
+      "visitor_tags": [
+        "viewing",
+        "social"
+      ],
+      "placement_sound": "stone",
+      "placement_tags": [
+        "utility",
+        "stonework",
+        "large"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_stone_bench",
+      "name": "Stone Bench",
+      "asset_id": "prop_stone_bench",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "visitor_tags": [
+        "seating"
+      ],
+      "capabilities": {
+        "rest": {}
+      },
+      "placement_sound": "stone",
+      "placement_tags": [
+        "furniture",
+        "stonework",
+        "medium"
+      ],
+      "can_be_stacked": false,
+      "support_slots": [
+        {
+          "id": "seat_left",
+          "offset": [
+            -0.28,
+            0.59,
+            0.0
+          ],
+          "accepts": [
+            "small_surface_item"
+          ]
+        },
+        {
+          "id": "seat_right",
+          "offset": [
+            0.28,
+            0.59,
+            0.0
+          ],
+          "accepts": [
+            "small_surface_item"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "struct_birdbath",
+      "name": "Birdbath",
+      "asset_id": "prop_birdbath",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "visitor_tags": [
+        "viewing"
+      ],
+      "placement_sound": "stone",
+      "placement_tags": [
+        "garden",
+        "nature",
+        "medium"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_watering_can",
+      "name": "Sage Watering Can",
+      "asset_id": "prop_watering_can",
+      "kind": "utility",
+      "socket_type": "decor",
+      "placement_sound": "stone",
+      "placement_tags": [
+        "utility",
+        "garden",
+        "small",
+        "small_surface_item",
+        "tabletop_item"
+      ],
+      "can_be_stacked": true,
+      "support_slots": []
+    },
+    {
+      "id": "struct_barrel",
+      "name": "Garden Barrel",
+      "asset_id": "prop_barrel",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "blocks_movement": true,
+      "placement_sound": "wood",
+      "placement_tags": [
+        "container",
+        "storage",
+        "medium"
+      ],
+      "can_be_stacked": false,
+      "support_slots": [
+        {
+          "id": "top",
+          "offset": [
+            0.0,
+            0.76,
+            0.0
+          ],
+          "accepts": [
+            "small_surface_item"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "struct_crate",
+      "name": "Slatted Crate",
+      "asset_id": "prop_crate",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "blocks_movement": true,
+      "placement_sound": "wood",
+      "placement_tags": [
+        "container",
+        "storage",
+        "medium"
+      ],
+      "can_be_stacked": false,
+      "support_slots": [
+        {
+          "id": "top",
+          "offset": [
+            0.0,
+            0.66,
+            0.0
+          ],
+          "accepts": [
+            "small_surface_item"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "struct_wheelbarrow",
+      "name": "Wheelbarrow",
+      "asset_id": "prop_wheelbarrow",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "blocks_movement": true,
+      "placement_sound": "wood",
+      "placement_tags": [
+        "garden",
+        "utility",
+        "large"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_log_pile",
+      "name": "Stacked Firewood",
+      "asset_id": "prop_log_pile",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "blocks_movement": true,
+      "placement_sound": "wood",
+      "placement_tags": [
+        "storage",
+        "woodland",
+        "medium"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_wooden_arch",
+      "name": "Garden Arch",
+      "asset_id": "prop_wooden_arch",
+      "kind": "decoration",
+      "socket_type": "structure",
+      "blocks_movement": true,
+      "placement_sound": "wood",
+      "placement_tags": [
+        "building",
+        "garden",
+        "large"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_milk_churn",
+      "name": "Milk Churn",
+      "asset_id": "prop_milk_churn",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "placement_sound": "stone",
+      "placement_tags": [
+        "container",
+        "small",
+        "small_surface_item",
+        "tabletop_item"
+      ],
+      "can_be_stacked": true,
+      "support_slots": []
+    },
+    {
+      "id": "struct_garden_trellis",
+      "name": "Garden Trellis",
+      "asset_id": "prop_garden_trellis",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "blocks_movement": true,
+      "placement_sound": "wood",
+      "placement_tags": [
+        "barrier",
+        "garden",
+        "medium"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_snowman",
+      "name": "Friendly Snowkeeper",
+      "asset_id": "prop_snowman",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "blocks_movement": true,
+      "visitor_tags": [
+        "viewing"
+      ],
+      "placement_sound": "grass",
+      "placement_tags": [
+        "nature",
+        "winter",
+        "large"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_water_wheel",
+      "name": "Waterside Wheel",
+      "asset_id": "prop_water_wheel",
+      "kind": "building",
+      "socket_type": "structure",
+      "allowed_surfaces": [
+        "water"
+      ],
+      "blocks_movement": true,
+      "grid_fit_profile": "tile_span",
+      "capabilities": {
+        "ambient_motion": {
+          "node": "WaterWheelRotor",
+          "axis": "z",
+          "speed": 0.62
+        }
+      },
+      "placement_sound": "wood",
+      "placement_tags": [
+        "building",
+        "waterside",
+        "large"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_stump_pine",
+      "name": "Pine Stump",
+      "asset_id": "prop_log_pile",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "preserve_instance_state": true,
+      "capabilities": {
+        "harvest_source": {
+          "profile_id": "harvest_stump_pry"
+        }
+      },
+      "tags": [
+        "biome_forest"
+      ],
+      "visitor_tags": [],
+      "placement_sound": "wood",
+      "placement_tags": [
+        "stump",
+        "nature",
+        "small",
+        "stateful"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    }
   ]
 }

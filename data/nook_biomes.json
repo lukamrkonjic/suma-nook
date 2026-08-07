@@ -1,0 +1,70 @@
+{
+  "nook_biomes": [
+    {
+      "id": "nook_biome_forest",
+      "name": "Whisperpine Forest",
+      "tags": ["forest", "green"],
+      "resolve": {
+        "ground": {"pool": ["tile_grass", "tile_proc_mossy_forest_floor"], "weights": [3, 1]},
+        "clearing": {"pool": ["tile_proc_mulch_dirt_floor", "tile_dirt"], "weights": [2, 1]},
+        "water": {"pool": ["tile_open_water"]},
+        "water_edge": {"pool": ["tile_grass_pond_edge"]},
+        "rock_ground": {"pool": ["tile_stone_mossy"]},
+        "relic": {"pool": ["struct_ruin_arch"]},
+        "tree": {"pool": ["struct_pine_young", "struct_pine", "struct_pine_tall"], "weights": [2, 3, 1]},
+        "shrub": {"pool": ["struct_bush"]},
+        "stone": {"pool": ["struct_rock_outcrop"]}
+      },
+      "scatter": {"pool": ["tree", "shrub", "stone"], "weights": [5, 2, 1]},
+      "density": {"open": 0.05, "seeded": 0.16, "grown": 0.38},
+      "moods": ["mood_clear_noon", "mood_golden_dusk", "mood_soft_mist", "mood_first_snow"],
+      "treasure_tables": {"open": "ttable_open", "seeded": "ttable_seeded", "grown": "ttable_grown"},
+      "base_weight": 1.2,
+      "neighbor_weight": 3.0
+    },
+    {
+      "id": "nook_biome_meadow",
+      "name": "Sunbloom Meadow",
+      "tags": ["meadow", "green"],
+      "resolve": {
+        "ground": {"pool": ["tile_grass", "tile_grass_flower"], "weights": [2, 3]},
+        "clearing": {"pool": ["tile_dirt"]},
+        "water": {"pool": ["tile_open_water"]},
+        "water_edge": {"pool": ["tile_grass_pond_edge"]},
+        "rock_ground": {"pool": ["tile_stone_clearing"]},
+        "relic": {"pool": ["struct_stone_pillar"]},
+        "tree": {"pool": ["struct_pine_young", "struct_pine"], "weights": [2, 1]},
+        "shrub": {"pool": ["struct_bush"]},
+        "stone": {"pool": ["struct_rock_outcrop"]}
+      },
+      "scatter": {"pool": ["tree", "shrub", "stone"], "weights": [1, 4, 1]},
+      "density": {"open": 0.04, "seeded": 0.12, "grown": 0.3},
+      "moods": ["mood_clear_noon", "mood_golden_dusk", "mood_soft_mist"],
+      "treasure_tables": {"open": "ttable_open", "seeded": "ttable_seeded", "grown": "ttable_grown"},
+      "base_weight": 1.0,
+      "neighbor_weight": 3.0
+    },
+    {
+      "id": "nook_biome_stonefell",
+      "name": "Stonefell Rise",
+      "tags": ["rocky", "grey"],
+      "resolve": {
+        "ground": {"pool": ["tile_stone_mossy", "tile_stone_clearing"], "weights": [2, 1]},
+        "clearing": {"pool": ["tile_stone_clearing"]},
+        "water": {"pool": ["tile_open_water"]},
+        "water_edge": {"pool": ["tile_grass_pond_edge"]},
+        "rock_ground": {"pool": ["tile_frosted_stone"]},
+        "relic": {"pool": ["struct_ruin_arch", "struct_stone_pillar"], "weights": [1, 1]},
+        "tree": {"pool": ["struct_pine_young"]},
+        "shrub": {"pool": ["struct_bush"]},
+        "stone": {"pool": ["struct_rock_outcrop"]}
+      },
+      "scatter": {"pool": ["tree", "shrub", "stone"], "weights": [1, 1, 5]},
+      "density": {"open": 0.05, "seeded": 0.14, "grown": 0.32},
+      "moods": ["mood_clear_noon", "mood_soft_mist", "mood_first_snow"],
+      "treasure_tables": {"open": "ttable_open", "seeded": "ttable_seeded", "grown": "ttable_grown"},
+      "base_weight": 0.7,
+      "neighbor_weight": 2.5
+    }
+  ]
+}

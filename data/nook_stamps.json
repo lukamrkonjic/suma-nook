@@ -1,0 +1,77 @@
+{
+  "nook_stamps": [
+    {
+      "id": "stamp_spring_pond",
+      "name": "Spring Pond",
+      "size": [3, 3],
+      "rows": ["eee", "ewe", "eee"],
+      "legend": {"e": "water_edge", "w": "water"},
+      "features": [],
+      "edges": {"n": "land", "s": "land", "e": "land", "w": "land"},
+      "tags": ["water", "focal"],
+      "biomes": ["nook_biome_forest", "nook_biome_meadow", "nook_biome_stonefell"],
+      "dormant_socket": false,
+      "weight": 3.0
+    },
+    {
+      "id": "stamp_still_pool",
+      "name": "Still Pool",
+      "size": [2, 2],
+      "rows": ["we", "ee"],
+      "legend": {"w": "water", "e": "water_edge"},
+      "features": [],
+      "edges": {"n": "land", "s": "land", "e": "land", "w": "land"},
+      "tags": ["water"],
+      "biomes": ["nook_biome_forest", "nook_biome_meadow"],
+      "dormant_socket": false,
+      "weight": 2.0
+    },
+    {
+      "id": "stamp_quiet_glade",
+      "name": "Quiet Glade",
+      "size": [3, 3],
+      "rows": ["ccc", "ccc", "ccc"],
+      "legend": {"c": "clearing"},
+      "features": [],
+      "edges": {"n": "land", "s": "land", "e": "land", "w": "land"},
+      "tags": ["clearing", "focal"],
+      "biomes": ["nook_biome_forest", "nook_biome_meadow", "nook_biome_stonefell"],
+      "dormant_socket": true,
+      "dormant_cell": [1, 1],
+      "weight": 3.0
+    },
+    {
+      "id": "stamp_rocky_rise",
+      "name": "Rocky Rise",
+      "size": [2, 3],
+      "rows": ["rr", "rr", "rr"],
+      "legend": {"r": "rock_ground"},
+      "features": [
+        {"cell": [0, 0], "slot": "stone"},
+        {"cell": [1, 2], "slot": "stone"}
+      ],
+      "edges": {"n": "land", "s": "land", "e": "land", "w": "land"},
+      "tags": ["rocky"],
+      "biomes": ["nook_biome_forest", "nook_biome_stonefell"],
+      "dormant_socket": true,
+      "dormant_cell": [1, 0],
+      "weight": 2.0
+    },
+    {
+      "id": "stamp_old_ruin",
+      "name": "Old Ruin",
+      "size": [3, 2],
+      "rows": ["ccc", "ccc"],
+      "legend": {"c": "clearing"},
+      "features": [
+        {"cell": [1, 0], "slot": "relic"}
+      ],
+      "edges": {"n": "land", "s": "land", "e": "land", "w": "land"},
+      "tags": ["ruin", "focal"],
+      "biomes": ["nook_biome_forest", "nook_biome_meadow", "nook_biome_stonefell"],
+      "dormant_socket": true,
+      "dormant_cell": [1, 1],
+      "weight": 1.0
+    }
+  ]
+}

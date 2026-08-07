@@ -26,6 +26,13 @@ const DEFINITION_KINDS: Array[String] = [
 	"harvest_profiles",
 	"visitor_presentations",
 	"visitor_programs",
+	"nook_biomes",
+	"nook_stamps",
+	"nook_moods",
+	"treasure_tables",
+	"firsts",
+	"dormants",
+	"moments",
 ]
 
 var base_path: String
@@ -54,6 +61,15 @@ var token_boxes: Dictionary = {}
 var harvest_profiles: Dictionary = {}
 var visitor_presentations: Dictionary = {}
 var visitor_programs: Dictionary = {}
+var nook_biomes: Dictionary = {}
+var nook_stamps: Dictionary = {}
+var nook_moods: Dictionary = {}
+var treasure_tables: Dictionary = {}
+var firsts: Dictionary = {}
+var dormants: Dictionary = {}
+var moments: Dictionary = {}
+var nook_config: Dictionary = {}
+var reveal_config: Dictionary = {}
 var fishing_balance: Dictionary = {}
 var sources: Dictionary = {}
 
@@ -86,6 +102,13 @@ func definitions(kind: String) -> Dictionary:
 		"harvest_profiles": return harvest_profiles
 		"visitor_presentations": return visitor_presentations
 		"visitor_programs": return visitor_programs
+		"nook_biomes": return nook_biomes
+		"nook_stamps": return nook_stamps
+		"nook_moods": return nook_moods
+		"treasure_tables": return treasure_tables
+		"firsts": return firsts
+		"dormants": return dormants
+		"moments": return moments
 	return {}
 
 
