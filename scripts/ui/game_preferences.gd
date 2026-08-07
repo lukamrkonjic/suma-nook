@@ -21,7 +21,7 @@ const PIXEL_SIZE_OPTIONS := [
 
 var fullscreen := true
 var vsync := true
-var anti_aliasing := AA_HIGH
+var anti_aliasing := AA_BALANCED
 var ssao := true
 var bloom := true
 var master_volume := 0.63

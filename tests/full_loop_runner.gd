@@ -32,6 +32,21 @@ func check(condition: bool, message: String) -> void:
 		print("  ok — " + message)
 
 
+func send_main_pointer_button(position: Vector2, pressed: bool) -> void:
+	var event := InputEventMouseButton.new()
+	event.position = position
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = pressed
+	main._input(event)
+
+
+func send_main_pointer_motion(position: Vector2, relative: Vector2) -> void:
+	var event := InputEventMouseMotion.new()
+	event.position = position
+	event.relative = relative
+	main._input(event)
+
+
 func shot(name: String) -> void:
 	if not OS.get_cmdline_user_args().has("--shots"):
 		return
@@ -313,17 +328,21 @@ func _step_creation() -> void:
 	await wait(0.25)
 	check(
 		main.core.onboarding.stage == OnboardingState.COMPLETE
-		and main.hud.player_dock_visible(),
-		"free play begins with themed harvesting and global visitors understood"
+		and not main.hud.player_dock_visible(),
+		"free play stays in god view without a keeper placement dock"
 	)
+	var free_play_hint := main.hud._hint_label.text.to_lower()
 	check(
-		main.placement.player_drop_target_at_cell(Vector2i(99, 99)).is_empty(),
-		"keeper drops still reject empty void"
+		"fish" not in free_play_hint
+		and (
+			"drag any tile or model" in free_play_hint
+			or "move the build cursor" in free_play_hint
+		),
+		"free-play guidance explains direct world shaping without retired fishing"
 	)
-	check(
-		main.try_place_player_at_cell(Vector2i(-1, 0)),
-		"the keeper remains available as an optional post-onboarding world tool"
-	)
+	# The old character loop remains test-addressable while its live HUD entry
+	# is removed; later legacy-system checks still use it as a fixture.
+	check(main.try_place_player_at_cell(Vector2i(-1, 0)), "legacy player fixture deploys")
 	await wait(0.8)
 	check(main.player.deployed and main.player.visible, "the optional keeper deploys normally")
 
@@ -1116,7 +1135,8 @@ func _step_build_mode_selection_rules() -> void:
 			and (chest_mesh.layers & WorldRenderer.OUTLINE_VISIBILITY_LAYER) != 0,
 			"hovering adds the object to the outer-silhouette mask"
 		)
-		main.placement._pick_up_from(chest_cell, 0, chest_iid)
+		Input.warp_mouse(screen_point)
+		send_main_pointer_button(screen_point, true)
 		check(
 			int(
 				main.placement.held.get("moving", {}).get(
@@ -1126,6 +1146,7 @@ func _step_build_mode_selection_rules() -> void:
 			) == chest_iid,
 			"click-targeted pickup moves the selected object instance"
 		)
+		send_main_pointer_button(screen_point, false)
 		main.placement._ghost.rotation.y = 0.0
 		main.placement._ghost.visible = false
 		main.placement.held["rotation"] = 3
@@ -1158,6 +1179,28 @@ func _step_build_mode_selection_rules() -> void:
 			"an explicit rotation advances by a bounded amount per frame"
 		)
 		main.placement.cancel_click()
+		var drag_destination := Vector2i(0, 1)
+		var destination_screen := main.camera_rig.camera.unproject_position(
+			main.core.grid.cell_to_world(drag_destination, 0)
+		)
+		Input.warp_mouse(screen_point)
+		send_main_pointer_button(screen_point, true)
+		Input.warp_mouse(destination_screen)
+		send_main_pointer_motion(
+			destination_screen,
+			destination_screen - screen_point
+		)
+		await get_tree().process_frame
+		await get_tree().physics_frame
+		send_main_pointer_button(destination_screen, false)
+		var dragged := main.core.grid.find_structure(chest_iid)
+		check(
+			not dragged.is_empty()
+			and dragged.get("coord", chest_cell) == drag_destination,
+			"the live Main input path drag-drops a model onto another tile"
+		)
+		main.placement.undo()
+		await get_tree().process_frame
 
 	main.placement.hold_new("structure", "struct_bench")
 	main.placement._hover_support_instance_id = 0
@@ -1328,6 +1371,15 @@ func _step_build_mode_selection_rules() -> void:
 			and tile_hit.get("coord", Vector2i.ZERO) == empty_tile_coord,
 			"the placeable ray resolves an unobstructed tile independently"
 		)
+		Input.warp_mouse(tile_screen_point)
+		send_main_pointer_button(tile_screen_point, true)
+		check(
+			main.placement.held.get("kind", "") == "tile"
+			and main.placement.held.get("moving", null) != null,
+			"world pickup uses the click position instead of stale global hover state"
+		)
+		send_main_pointer_button(tile_screen_point, false)
+		main.placement.cancel_click()
 
 	var chest_holder := main.renderer.tile_node(chest_cell, 0)
 	var refreshed_chest_visual := main.renderer.structure_node(chest_iid)

@@ -1,8 +1,8 @@
 # The Unfolding World
 
-Suma's progression rework: the world grows as permanent, generated nature
-Nooks that the player reveals, clears, builds into, and discovers treasures
-within. Creative expression is the purpose; every system below serves it.
+Suma is a god-view creative world builder: the world grows as permanent,
+generated nature Nooks that the player reshapes and builds into from above.
+Creative expression is the purpose; every system below serves it.
 
 ## Design pillars (locked)
 
@@ -57,7 +57,7 @@ references:
 | `data/firsts.json` | `firsts` | world-signal triggers, chunk-lacked conditions, unlocks, journal text |
 | `data/dormants.json` | `dormants` | dormant structure, wake score, reward, journal page |
 | `data/moments.json` | `moments` | keepsake counters and chunk co-occurrences |
-| `data/nook_config.json` | object | chunk size (8), origin, offer rules, growth lines, dormant scoring |
+| `data/nook_config.json` | object | compact chunk size (4), silhouette cuts, origin, offer rules, growth lines, dormant scoring |
 | `data/reveal.json` | object | the entire reveal wave timing surface |
 
 Stamps reference palette *slots* ("ground", "water", "tree"); each biome
@@ -68,6 +68,9 @@ once, it reads correctly in every biome.
 
 - **Generation is deterministic**: same seed card → same Nook, including
   treasure assignment (stored in chunk meta, so re-rolling can't farm).
+  New Nooks are compact 4×4 slates with one or two cut-away corners and a
+  guaranteed readable knoll; rocky Nooks may form a two-level shoulder.
+  Pre-4×4 saves keep their original 8×8 coordinate spacing.
 - **Offers**: `NookOffers` rolls 3 seed cards with biome drift (revealed
   neighbors multiply their biome weight); limited rerolls; Surprise Me is a
   plain random pick. The next offer opens after modest activity in the
@@ -94,6 +97,9 @@ once, it reads correctly in every biome.
 
 ## UI
 
+- The resting world is god view. There is no character-placement dock.
+  Pointer users drag any tile or model directly; controller users target the
+  same pieces with the build cursor and the named `move_piece` action.
 - `NookOfferPanel`: modal 3-card ritual + quiet HUD chip; deterministic
   focus, `ui_accept`, `cancel` — controller-complete. Also reachable from
   the Atlas (`panel_map`) for a controller-native path.

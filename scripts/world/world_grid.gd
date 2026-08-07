@@ -309,7 +309,10 @@ func can_place_tile_at(coord: Vector2i, elevation: int, tile_id: String) -> bool
 	var placed_def := registries.tile(tile_id)
 	if (
 		placed_def == null
-		or not placed_def.stackable
+		or (
+			not placed_def.stackable
+			and placed_def.height_fraction >= 1.0
+		)
 		or elevation > max_stack_elevation
 		or has_cell_at(coord, elevation)
 		or top_elevation(coord) != elevation - 1
@@ -724,7 +727,10 @@ func can_restore_tile_stack(
 		else:
 			var support_def := registries.tile(previous_state.tile_id)
 			if (
-				not definition.stackable
+				(
+					not definition.stackable
+					and definition.height_fraction >= 1.0
+				)
 				or support_def == null
 				or not support_def.supports_tiles
 				or support_def.surface_kind != "flat"

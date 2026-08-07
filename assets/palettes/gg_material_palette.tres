@@ -2414,7 +2414,7 @@ character_swatch_groups = {
 "hair": ["brown_600", "brown_800", "yellow_800", "brown_300", "neutral_550", "olive_250"],
 "outfit": ["red_650", "green_650", "violet_950", "yellow_700", "blue_500"]
 }
-active_scheme = "hearthfield_haze"
+active_scheme = "default"
 skin_tones = PackedColorArray()
 hair_colors = PackedColorArray()
 outfit_colors = PackedColorArray()

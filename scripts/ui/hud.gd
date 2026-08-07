@@ -18,10 +18,6 @@ signal player_dock_drag_released(screen_position: Vector2)
 const BuildThumbnailRendererScript := preload(
 	"res://scripts/ui/build_thumbnail_renderer.gd"
 )
-const PlayerPlacementDockScript := preload(
-	"res://scripts/ui/player_placement_dock.gd"
-)
-
 var core: GameCore
 var kit: UiKit
 var placement: PlacementController
@@ -492,55 +488,6 @@ func _build_layout() -> void:
 	_store_bubble.gui_input.connect(_on_store_bubble_input)
 	root.add_child(_store_bubble)
 
-	# The keeper is a draggable world tool, mirroring the compact person dock
-	# used by map applications. It stays available after placement so one click
-	# can recall the active keeper through their portal animation.
-	_player_dock_panel = PanelContainer.new()
-	_player_dock_panel.name = "PlayerPlacementDockPanel"
-	_player_dock_panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	_player_dock_panel.offset_left = -142
-	_player_dock_panel.offset_top = -142
-	_player_dock_panel.offset_right = -18
-	_player_dock_panel.offset_bottom = -18
-	var player_dock_style := kit.cloud_panel_style(22)
-	player_dock_style.content_margin_left = 14
-	player_dock_style.content_margin_right = 14
-	player_dock_style.content_margin_top = 10
-	player_dock_style.content_margin_bottom = 9
-	player_dock_style.shadow_size = 11
-	_player_dock_panel.add_theme_stylebox_override("panel", player_dock_style)
-	root.add_child(_player_dock_panel)
-	var player_dock_column := VBoxContainer.new()
-	player_dock_column.alignment = BoxContainer.ALIGNMENT_CENTER
-	player_dock_column.add_theme_constant_override("separation", 0)
-	_player_dock_panel.add_child(player_dock_column)
-	_player_dock = PlayerPlacementDockScript.new()
-	_player_dock.name = "PlayerPlacementDock"
-	_player_dock.texture_normal = load(
-		"res://assets/ui/icons/player_dock.svg"
-	)
-	_player_dock.drag_started.connect(_on_player_dock_drag_started)
-	_player_dock.drag_moved.connect(_on_player_dock_drag_moved)
-	_player_dock.drag_released.connect(_on_player_dock_drag_released)
-	_player_dock.activated.connect(func(): player_dock_activated.emit())
-	player_dock_column.add_child(_player_dock)
-	_player_dock_label = kit.label("Drag keeper", 13, false, true)
-	_player_dock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_player_dock_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	player_dock_column.add_child(_player_dock_label)
-
-	_player_drag_icon = TextureRect.new()
-	_player_drag_icon.name = "PlayerDockDragIcon"
-	_player_drag_icon.texture = _player_dock.texture_normal
-	_player_drag_icon.custom_minimum_size = Vector2(48, 56)
-	_player_drag_icon.size = Vector2(48, 56)
-	_player_drag_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_player_drag_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_player_drag_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_player_drag_icon.z_index = 100
-	_player_drag_icon.visible = false
-	root.add_child(_player_drag_icon)
-
 	_build_category_group = ButtonGroup.new()
 	_thumbnail_renderer = BuildThumbnailRendererScript.new()
 	_thumbnail_renderer.name = "BuildThumbnailRenderer"
@@ -548,7 +495,6 @@ func _build_layout() -> void:
 	_thumbnail_renderer.setup(core, placement.assets)
 	get_viewport().size_changed.connect(_resize_build_library)
 	_resize_build_library()
-	set_player_deployed(false)
 
 
 # ------------------------------------------------------------------ refresh
@@ -1683,27 +1629,18 @@ func update_tutorial() -> void:
 		OnboardingState.PLACE_VISITOR_REWARD:
 			set_hint("Place the visitor's gift — a first step beyond the forest.")
 			return
-	if not _player_deployed and not core.onboarding.is_active():
-		set_hint("Drag your keeper from the lower-right onto a clear tile.")
-		return
-	if core.fishing.basket.is_full():
-		set_hint("The Catch Basket is full — place or return a haul to fish again.")
-	elif core.progression.actions_done("fishing") == 0:
+	if InputDeviceService.shared().is_controller():
 		set_hint(
-			"Fish from an exposed edge. What you build nearby shapes the catch. (%s)"
-			% InputDeviceService.shared().format_action(&"interact", "when close")
+			"Move the build cursor onto any tile or model, then %s."
+			% InputDeviceService.shared().format_action(
+				&"move_piece", "move it"
+			)
 		)
-	elif core.grid.placed_tile_count() == 0 and core.stock.total_tiles() > 0:
-		set_hint("Place your new land in any empty grid space from the Build Bag below.")
-	elif core.grid.placed_tile_count() > 0 and core.progression.actions_done("woodcutting") == 0:
-		if _has_placed_tree():
-			set_hint("Tend your placed tree — it will rest, then regrow.")
-		elif _stored_tree_count() > 0:
-			set_hint("Place your tree from the Build Library, then tend it.")
-		else:
-			set_hint("")
 	else:
-		set_hint("")
+		set_hint(
+			"Drag any tile or model to rearrange your world. "
+			+ "Use the Build Bag to add more."
+		)
 
 
 func _is_structure_placed(structure_id: String) -> bool:

@@ -3620,12 +3620,55 @@ func _test_unfolding_world_generation() -> void:
 		"generation is deterministic: one seed card, one Nook, forever"
 	)
 	var ground_entries := 0
+	var raised_entries := 0
 	for tile: Dictionary in plan_a.tiles:
 		if int(tile.get("elevation", 0)) == 0:
 			ground_entries += 1
+		else:
+			raised_entries += 1
 	check(
-		ground_entries == size * size,
-		"every cell of a generated Nook receives terrain"
+		size == 4
+		and ground_entries >= size * size - 2
+		and ground_entries < size * size,
+		"generated Nooks are compact four-by-four slates with cut-away corners"
+	)
+	check(
+		raised_entries >= 3,
+		"every generated Nook arrives with a readable multi-cell landform"
+	)
+	var representative_relief_ok := true
+	for biome_id in [
+		"nook_biome_forest",
+		"nook_biome_meadow",
+		"nook_biome_stonefell",
+	]:
+		for candidate_seed in range(1, 31):
+			var sample := core.nooks.generator.generate(
+				Vector2i(12, 12),
+				{
+					"biome": biome_id,
+					"density": "open",
+					"mood": "mood_clear_noon",
+					"seed": candidate_seed,
+				},
+				size
+			)
+			var sample_ground := 0
+			var sample_raised := 0
+			for tile: Dictionary in sample.tiles:
+				if int(tile.get("elevation", 0)) == 0:
+					sample_ground += 1
+				else:
+					sample_raised += 1
+			if (
+				sample_ground < 14
+				or sample_ground > 15
+				or sample_raised < 3
+			):
+				representative_relief_ok = false
+	check(
+		representative_relief_ok,
+		"compact silhouettes and visible relief hold across representative biome seeds"
 	)
 	check(not plan_a.features.is_empty(), "a grown Nook scatters features")
 	var guaranteed_found := not plan_a.treasures.is_empty()
@@ -3847,9 +3890,19 @@ func _test_unfolding_world_firsts() -> void:
 	core.events.first_fired.connect(func(payload): fired.append(payload))
 	var stump_count_before := core.stock.structure_count("struct_birdbath")
 	core.stock.add_tile("tile_open_water", 3)
-	var target := Vector2i(0, 3)
-	while core.grid.has_cell(target):
-		target.y += 1
+	var nook_origin := core.nooks.world.chunk_origin(Vector2i.ZERO)
+	var target := nook_origin
+	var found_open_nook_cell := false
+	for y in core.nooks.world.nook_size:
+		for x in core.nooks.world.nook_size:
+			var candidate := nook_origin + Vector2i(x, y)
+			if not core.grid.has_cell(candidate):
+				target = candidate
+				found_open_nook_cell = true
+				break
+		if found_open_nook_cell:
+			break
+	check(found_open_nook_cell, "the starter Nook has an open shaping cell")
 	check(
 		core.place_tile_from_stock(target, "tile_open_water", 0),
 		"the player can lay water at the world edge"
@@ -3873,8 +3926,12 @@ func _test_unfolding_world_firsts() -> void:
 		"the First appears in the journal only after firing"
 	)
 	var second := Vector2i(target.x, target.y + 1)
-	while core.grid.has_cell(second):
-		second.y += 1
+	for y in core.nooks.world.nook_size:
+		for x in core.nooks.world.nook_size:
+			var candidate := nook_origin + Vector2i(x, y)
+			if candidate != target and not core.grid.has_cell(candidate):
+				second = candidate
+				break
 	core.place_tile_from_stock(second, "tile_open_water", 0)
 	var water_firsts_after := 0
 	for payload: Dictionary in fired:
@@ -3888,32 +3945,35 @@ func _test_unfolding_world_firsts() -> void:
 
 func _test_unfolding_world_growth_and_keepsakes() -> void:
 	var core := fresh_core(9911)
-	var plan := core.nooks.reveal_nook(Vector2i(0, 3), {
-		"biome": "nook_biome_meadow", "density": "open",
-		"mood": "mood_clear_noon", "seed": 31,
-	})
-	check(plan != null, "an open meadow reveals for planting")
-	var origin := core.nooks.world.chunk_origin(Vector2i(0, 3))
+	var planting_nooks: Array[Vector2i] = [Vector2i(0, 3), Vector2i(1, 3)]
+	for index in planting_nooks.size():
+		var plan := core.nooks.reveal_nook(planting_nooks[index], {
+			"biome": "nook_biome_meadow", "density": "open",
+			"mood": "mood_clear_noon", "seed": 31 + index,
+		})
+		check(plan != null, "a compact open meadow reveals for planting")
 	var matured: Array = []
 	core.events.sapling_matured.connect(func(payload): matured.append(payload))
 	var minted: Array = []
 	core.events.keepsake_minted.connect(func(payload): minted.append(payload))
 	var first_planted: Dictionary = {}
 	var planted := 0
-	for y in core.nooks.world.nook_size:
-		if planted >= 10:
-			break
-		for x in core.nooks.world.nook_size:
+	for nook_coord: Vector2i in planting_nooks:
+		var origin := core.nooks.world.chunk_origin(nook_coord)
+		for y in core.nooks.world.nook_size:
 			if planted >= 10:
 				break
-			var result: Dictionary = core.nooks.plant_sapling(
-				origin + Vector2i(x, y), "sapling_evergreen"
-			)
-			if bool(result.get("ok", false)):
-				planted += 1
-				if first_planted.is_empty():
-					first_planted = result
-	check(planted == 10, "ten saplings go into one meadow")
+			for x in core.nooks.world.nook_size:
+				if planted >= 10:
+					break
+				var result: Dictionary = core.nooks.plant_sapling(
+					origin + Vector2i(x, y), "sapling_evergreen"
+				)
+				if bool(result.get("ok", false)):
+					planted += 1
+					if first_planted.is_empty():
+						first_planted = result
+	check(planted == 10, "ten saplings fit across compact creative Nooks")
 	var keepsake_ids: Array = []
 	for payload: Dictionary in minted:
 		keepsake_ids.append(String(payload.get("moment_id", "")))
@@ -4006,10 +4066,12 @@ func _test_unfolding_world_dormants() -> void:
 	)
 	var applied := core.dormants.apply_pending_wakes()
 	check(
-		applied.size() == 1
-		and bool(record.dormant.get("woken", false))
-		and woken_events.size() == 1,
-		"the next session wakes the dormant thing exactly once"
+		applied.size() == 1 and bool(record.dormant.get("woken", false)),
+		"the next session applies the pending dormant wake exactly once"
+	)
+	check(
+		woken_events.size() == 1,
+		"a dormant wake publishes exactly one world event"
 	)
 	check(
 		core.journal.entries_of_kind("dormant").size() == 1,
@@ -4040,11 +4102,19 @@ func _test_unfolding_world_save_round_trip() -> void:
 		if done:
 			break
 	check(core.save(), "the unfolding world writes through the normal save")
+	check(
+		int(core.nooks.world.to_save_dict().get("nook_size", 0)) == 4,
+		"new saves freeze their compact Nook coordinate size"
+	)
 	var reloaded := GameCore.new()
 	reloaded.setup("res://data", 1)
 	reloaded.save_manager.save_path = core.save_manager.save_path
 	reloaded.save_manager.backup_path = core.save_manager.backup_path
 	check(reloaded.load_game(), "an unfolding-world save passes strict hydration")
+	check(
+		reloaded.nooks.world.nook_size == 4,
+		"compact Nook spacing survives reload"
+	)
 	var record := reloaded.nooks.world.nook(Vector2i(1, 0))
 	var original := core.nooks.world.nook(Vector2i(1, 0))
 	check(
@@ -4062,6 +4132,14 @@ func _test_unfolding_world_save_round_trip() -> void:
 		and reloaded.keepsakes.counters == core.keepsakes.counters
 		and reloaded.firsts.fired_world == core.firsts.fired_world,
 		"discovery state survives reload"
+	)
+	var legacy_world := NookWorld.new(core.registries)
+	legacy_world.from_save_dict({
+		"nooks": [core.nooks.world.nook(Vector2i.ZERO).to_dict()],
+	})
+	check(
+		legacy_world.nook_size == 8,
+		"pre-size saves retain their original 8x8 coordinate spacing"
 	)
 
 
@@ -4173,6 +4251,7 @@ func _test_unfolding_world_planting_flow() -> void:
 func _test_unfolding_world_relief() -> void:
 	var core := fresh_core(6644)
 	var low := core.registries.tile("tile_grass_low")
+	var full := core.registries.tile("tile_grass")
 	check(
 		low != null
 		and is_equal_approx(low.height_fraction, 0.25)
@@ -4180,6 +4259,62 @@ func _test_unfolding_world_relief() -> void:
 		and not low.supports_tiles,
 		"fractional tiles load as non-stacking top caps"
 	)
+	var palette := load(
+		"res://assets/palettes/gg_material_palette.tres"
+	) as CozyPalette
+	var assets := AssetLibrary.new(MaterialLibrary.new(palette))
+	var tile_factory := TileVisualFactory.new(assets, core.grid)
+	var low_batch := tile_factory.batch_mesh(low, false, true)
+	var full_batch := tile_factory.batch_mesh(full, false, false)
+	check(
+		low_batch != null
+		and full_batch != null
+		and low_batch.get_aabb().size.y
+			< full_batch.get_aabb().size.y * 0.4,
+		"scalable rendering retains the quarter-height tile transform"
+	)
+	var low_visual := tile_factory.instantiate_visual(low)
+	var side_infill := low_visual.find_child(
+		TileVisualFactory.FRACTIONAL_SIDE_INFILL_NAME,
+		true,
+		false
+	) as MeshInstance3D
+	check(
+		side_infill != null
+		and side_infill.mesh != null
+		and absf(
+			side_infill.position.y - side_infill.get_aabb().size.y * 0.5
+			+ core.grid.block_depth * low.height_fraction
+		) < 0.001,
+		"a short cap owns solid side geometry all the way down to its support"
+	)
+	low_visual.free()
+	check(
+		core.grid.can_place_tile_at(Vector2i.ZERO, 1, "tile_grass_low"),
+		"a generated fractional cap remains legal to place after pickup"
+	)
+	core.grid.place_tile_at(Vector2i.ZERO, 1, "tile_grass_low")
+	check(
+		not core.grid.can_place_tile_at(Vector2i.ZERO, 2, "tile_grass"),
+		"fractional caps stay terminal and reject land stacked above them"
+	)
+	core.grid.place_tile_at(Vector2i.RIGHT, 1, "tile_grass")
+	core.grid.place_tile_at(Vector2i.DOWN, 1, "tile_grass_low")
+	var low_mask := tile_factory.connection_mask(
+		low, Vector2i.ZERO, 1, 0
+	)
+	check(
+		(low_mask & 2) == 0 and (low_mask & 4) != 0,
+		"short tiles expose height-mismatched sides but join equal-height sides"
+	)
+	var moved_cap_stack := core.grid.detach_tile_stack(Vector2i.ZERO, 1)
+	check(
+		moved_cap_stack.size() == 1
+		and core.grid.restore_tile_stack(Vector2i.LEFT, 1, moved_cap_stack),
+		"a generated short cap can be picked up and dropped onto new support"
+	)
+	var return_cap_stack := core.grid.detach_tile_stack(Vector2i.LEFT, 1)
+	core.grid.restore_tile_stack(Vector2i.ZERO, 1, return_cap_stack)
 	var relief_seed := 0
 	var relief_plan: NookGenerator.NookPlan = null
 	for candidate_seed in range(1, 40):
@@ -4270,9 +4405,10 @@ func _test_unfolding_world_seeded_opening() -> void:
 		"the chosen seed becomes the starter Nook"
 	)
 	check(
-		core.grid.cells.size() >= core.nooks.world.nook_size \
-			* core.nooks.world.nook_size,
-		"the first Nook is real generated ground, not the authored canvas"
+		core.nooks.world.nook_size == 4
+		and core.grid.cells.size() >= 14
+		and core.grid.cells.size() < 32,
+		"the first Nook is a compact generated slate, not the large authored canvas"
 	)
 	check(
 		core.grid.is_walkable(core.grid.home_cell),

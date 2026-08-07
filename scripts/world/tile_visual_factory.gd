@@ -8,6 +8,8 @@ const BLOCKER_LAYER := 1
 const AUTHORED_TILE_SIZE := 1.7
 const COVERED_INFILL_NAME := "CoveredSurfaceInfill"
 const STACK_SEAM_NAME := "StackSeamCollar"
+const FRACTIONAL_SIDE_INFILL_NAME := "FractionalSideInfill"
+const HEIGHT_FRACTION_META := "tile_height_fraction"
 const PREVIEW_WATER_SURFACE_NAME := "PreviewWaterSurface"
 const SURFACE_DETAIL_META := "tile_surface_detail"
 const LAYER_ROLE_META := "tile_layer_role"
@@ -53,6 +55,7 @@ func instantiate_visual(
 	# The wrapper lets generated surface detail remain in live-grid units.
 	var visual := Node3D.new()
 	visual.name = def.id
+	visual.set_meta(HEIGHT_FRACTION_META, def.height_fraction)
 	var authored_visual: Node3D
 	if def.render_profile == "continuous_water":
 		authored_visual = _continuous_water_bed()
@@ -73,9 +76,16 @@ func instantiate_visual(
 		_add_preview_water_surface(visual)
 	# Fractional tiles compress the block toward its own (already lowered)
 	# top: the bottom lands exactly on the support below, so a 0.25 cap is
-	# a shallow shelf, never a floating slab.
+	# a shallow shelf, never a floating slab. Scale below the returned root:
+	# AssetLibrary deliberately excludes the root transform when flattening
+	# scalable-world meshes, so scaling the wrapper made short tiles render as
+	# full blocks whose sides disappeared inside their support.
 	if def.height_fraction < 1.0:
-		visual.scale.y = def.height_fraction
+		for child_variant: Variant in visual.get_children():
+			var child := child_variant as Node3D
+			if child != null:
+				child.scale.y *= def.height_fraction
+		_add_fractional_side_infill(visual, def.height_fraction)
 	return visual
 
 
@@ -531,6 +541,13 @@ func connection_mask(
 		if (
 			neighbour != null
 			and neighbour.connection_mode == "full_flush"
+			# Only equal-height surfaces are flush. Treating a quarter cap as
+			# connected to a full/half block removes the taller tile's side rim
+			# and leaves a transparent step face between them.
+			and is_equal_approx(
+				neighbour.height_fraction,
+				def.height_fraction
+			)
 			# Continuous water supplies a lowered bed and a separate region
 			# surface, not a solid block shell at the land tile's height. Treating
 			# it as a flush structural neighbour removed the land cap wall from
@@ -622,6 +639,13 @@ func _continuous_water_bed() -> Node3D:
 ## and collision remain on the exact block-depth grid.
 func set_stack_seam_visible(visual: Node3D, visible: bool) -> void:
 	var collar := visual.find_child(STACK_SEAM_NAME, true, false) as MeshInstance3D
+	# Fractional caps own a solid full-footprint side infill down to their
+	# support. A separate seam collar casts a dark line under the cap and makes
+	# the top read as a hovering plate.
+	if float(visual.get_meta(HEIGHT_FRACTION_META, 1.0)) < 1.0:
+		if collar != null:
+			collar.visible = false
+		return
 	if not visible:
 		if collar != null:
 			collar.visible = false
@@ -909,6 +933,39 @@ func _covered_surface_infill(body_mesh: MeshInstance3D) -> MeshInstance3D:
 	return infill
 
 
+func _add_fractional_side_infill(
+	visual: Node3D,
+	height_fraction: float
+) -> void:
+	var body_mesh: MeshInstance3D
+	for child in visual.find_children("*", "MeshInstance3D", true, false):
+		var candidate := child as MeshInstance3D
+		if String(candidate.get_meta(LAYER_ROLE_META, "")) == "base":
+			body_mesh = candidate
+			break
+	if body_mesh == null:
+		return
+	var infill := MeshInstance3D.new()
+	infill.name = FRACTIONAL_SIDE_INFILL_NAME
+	var block_height := grid.block_depth * height_fraction
+	var top_inset := minf(0.004, block_height * 0.1)
+	var height := maxf(0.01, block_height - top_inset)
+	var box := BoxMesh.new()
+	box.size = Vector3(
+		grid.tile_size - 0.008,
+		height,
+		grid.tile_size - 0.008
+	)
+	infill.mesh = box
+	# The authored cap remains responsible for the visible top. This box ends
+	# just beneath it and reaches the support exactly, filling every side even
+	# when a topology variant removes an authored rim.
+	infill.position.y = -top_inset - height * 0.5
+	if body_mesh.mesh != null and body_mesh.mesh.get_surface_count() > 0:
+		infill.material_override = body_mesh.get_active_material(0)
+	visual.add_child(infill)
+
+
 func _stack_seam_collar(visual: Node3D) -> MeshInstance3D:
 	var body_mesh: MeshInstance3D
 	for child in visual.find_children("*", "MeshInstance3D", true, false):
@@ -930,8 +987,11 @@ func _stack_seam_collar(visual: Node3D) -> MeshInstance3D:
 		grid.tile_size - 0.004
 	)
 	collar.mesh = box
+	var height_fraction := float(
+		visual.get_meta(HEIGHT_FRACTION_META, 1.0)
+	)
 	collar.position.y = (
-		-grid.block_depth
+		-grid.block_depth * height_fraction
 		+ STACK_SEAM_HEIGHT * 0.5
 		- STACK_SEAM_OVERLAP
 	)

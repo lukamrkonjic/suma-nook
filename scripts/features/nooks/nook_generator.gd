@@ -6,9 +6,8 @@ extends RefCounted
 ## by re-rolling.
 ##
 ## Pipeline: stamp placement -> ground fill -> scatter pass -> treasure &
-## dormant assignment. Stamps keep a one-cell margin from the chunk seam,
-## so cross-chunk continuity never produces a broken half-landform; seam
-## stitching stays a presentation concern.
+## dormant assignment. Compact Nooks allow stamps at the outer rim, while
+## footprint carving preserves the two middle seam cells on every side.
 
 const StampMargin := 1
 
@@ -87,6 +86,11 @@ func generate(coord: Vector2i, seed_card: Dictionary, size: int) -> NookPlan:
 		if stamp.dormant_socket and dormant_socket.x < 0:
 			dormant_socket = rect.position + stamp.dormant_cell
 
+	# Bevel one or two un-authored corners so each compact slate has a distinct
+	# silhouette instead of reading as another perfect square. The two middle
+	# cells on every side remain intact, guaranteeing a clear seam to neighbors.
+	_carve_footprint(terrain_slots, size, rng)
+
 	# Resolve terrain slots to concrete tiles.
 	for local: Vector2i in terrain_slots:
 		var slot := String(terrain_slots[local])
@@ -100,7 +104,12 @@ func generate(coord: Vector2i, seed_card: Dictionary, size: int) -> NookPlan:
 	# Relief pass: gentle knolls from fractional-height caps (quarter rims,
 	# half cores), and in rocky biomes an occasional full-block mountain
 	# shoulder with a half cap. Deterministic from the same seed.
-	_carve_relief(plan, biome, terrain_slots, stamp_cells, size, rng)
+	var relief_exclusions: Dictionary = {}
+	for feature: Dictionary in stamp_features:
+		relief_exclusions[feature["local"]] = true
+	if dormant_socket.x >= 0:
+		relief_exclusions[dormant_socket] = true
+	_carve_relief(plan, biome, terrain_slots, relief_exclusions, size, rng)
 
 	# Scatter pass: features by density curve — thicker toward the chunk
 	# edge (the wild rim), thinner near stamps and the chunk core.
@@ -123,6 +132,8 @@ func generate(coord: Vector2i, seed_card: Dictionary, size: int) -> NookPlan:
 	for y in size:
 		for x in size:
 			var local := Vector2i(x, y)
+			if not terrain_slots.has(local):
+				continue
 			if stamp_cells.has(local) or authored_feature_cells.has(local):
 				continue
 			if local == dormant_socket:
@@ -154,12 +165,12 @@ func generate(coord: Vector2i, seed_card: Dictionary, size: int) -> NookPlan:
 
 ## Elevation vocabulary: 0.25 rims, 0.5 cores, and (rocky biomes) a full
 ## block + half cap summit. All entries land at elevation 1/2 above the
-## already-generated ground, never under stamps or water.
+## already-generated ground, never under water or authored feature sockets.
 func _carve_relief(
 	plan: NookPlan,
 	biome: NookDefs.NookBiomeDefinition,
 	terrain_slots: Dictionary,
-	stamp_cells: Dictionary,
+	relief_exclusions: Dictionary,
 	size: int,
 	rng: RandomNumberGenerator
 ) -> void:
@@ -183,22 +194,33 @@ func _carve_relief(
 		var radius := rng.randi_range(
 			int(config.get("radius_min", 1)), int(config.get("radius_max", 2))
 		)
-		var centre := Vector2i(
-			rng.randi_range(radius, size - 1 - radius),
-			rng.randi_range(radius, size - 1 - radius)
+		var centre := _pick_relief_centre(
+			terrain_slots,
+			relief_exclusions,
+			raised,
+			size,
+			radius,
+			rng
 		)
+		if centre.x < 0:
+			continue
 		var is_mountain := mountain and knoll_index == 0
 		for y in range(centre.y - radius, centre.y + radius + 1):
 			for x in range(centre.x - radius, centre.x + radius + 1):
 				var local := Vector2i(x, y)
 				if x < 0 or y < 0 or x >= size or y >= size:
 					continue
-				if stamp_cells.has(local) or raised.has(local):
+				if raised.has(local) or relief_exclusions.has(local):
 					continue
-				if String(terrain_slots.get(local, "ground")) != "ground":
+				if not terrain_slots.has(local):
+					continue
+				# Ponds remain readable depressions, while clearings and rocky
+				# stamp ground are fair game for relief. Restricting knolls to the
+				# generic ground slot made compact stamped Nooks almost flat.
+				if not _terrain_accepts_relief(String(terrain_slots[local])):
 					continue
 				var distance := Vector2(local).distance_to(Vector2(centre))
-				if distance > float(radius) + 0.45:
+				if distance > float(radius) + 0.08:
 					continue
 				var core := distance <= float(radius) * 0.55
 				if is_mountain and core:
@@ -220,6 +242,53 @@ func _carve_relief(
 						"elevation": 1,
 					})
 				raised[local] = true
+
+
+func _pick_relief_centre(
+	terrain_slots: Dictionary,
+	relief_exclusions: Dictionary,
+	raised: Dictionary,
+	size: int,
+	radius: int,
+	rng: RandomNumberGenerator
+) -> Vector2i:
+	# Compact 4x4 Nooks cannot reserve a one-cell perimeter for the centre:
+	# a 3x3 pond would occupy every candidate and erase the landform. Score
+	# every cell, then randomly select among the best usable silhouettes.
+	var best_score := 0
+	var best: Array[Vector2i] = []
+	for centre_y in size:
+		for centre_x in size:
+			var centre := Vector2i(centre_x, centre_y)
+			var score := 0
+			for y in range(centre.y - radius, centre.y + radius + 1):
+				for x in range(centre.x - radius, centre.x + radius + 1):
+					var local := Vector2i(x, y)
+					if x < 0 or y < 0 or x >= size or y >= size:
+						continue
+					if (
+						relief_exclusions.has(local)
+						or raised.has(local)
+						or not terrain_slots.has(local)
+						or not _terrain_accepts_relief(
+							String(terrain_slots[local])
+						)
+					):
+						continue
+					if Vector2(local).distance_to(Vector2(centre)) <= float(radius) + 0.08:
+						score += 1
+			if score > best_score:
+				best_score = score
+				best.assign([centre])
+			elif score == best_score and score > 0:
+				best.append(centre)
+	if best.is_empty():
+		return Vector2i(-1, -1)
+	return best[rng.randi_range(0, best.size() - 1)]
+
+
+func _terrain_accepts_relief(slot: String) -> bool:
+	return slot not in ["water", "water_edge"]
 
 
 func _roll_stamps(
@@ -265,14 +334,15 @@ func _find_stamp_rect(
 	taken: Array[Rect2i],
 	rng: RandomNumberGenerator
 ) -> Rect2i:
-	var max_x := size - StampMargin - stamp.size.x
-	var max_y := size - StampMargin - stamp.size.y
-	if max_x < StampMargin or max_y < StampMargin:
+	var margin := 0 if size <= 4 else StampMargin
+	var max_x := size - margin - stamp.size.x
+	var max_y := size - margin - stamp.size.y
+	if max_x < margin or max_y < margin:
 		return Rect2i(Vector2i(-1, -1), Vector2i.ZERO)
 	for _attempt in 12:
 		var position := Vector2i(
-			rng.randi_range(StampMargin, max_x),
-			rng.randi_range(StampMargin, max_y)
+			rng.randi_range(margin, max_x),
+			rng.randi_range(margin, max_y)
 		)
 		var rect := Rect2i(position, stamp.size)
 		var collides := false
@@ -283,6 +353,45 @@ func _find_stamp_rect(
 		if not collides:
 			return rect
 	return Rect2i(Vector2i(-1, -1), Vector2i.ZERO)
+
+
+func _carve_footprint(
+	terrain_slots: Dictionary,
+	size: int,
+	rng: RandomNumberGenerator
+) -> void:
+	if size < 3:
+		return
+	var candidates: Array[Vector2i] = [
+		Vector2i.ZERO,
+		Vector2i(size - 1, 0),
+		Vector2i(0, size - 1),
+		Vector2i(size - 1, size - 1),
+	]
+	for index in range(candidates.size() - 1, 0, -1):
+		var swap_index := rng.randi_range(0, index)
+		var temporary := candidates[index]
+		candidates[index] = candidates[swap_index]
+		candidates[swap_index] = temporary
+	var minimum := clampi(
+		int(registries.nook_config.get("corner_cuts_min", 1)),
+		0,
+		candidates.size()
+	)
+	var maximum := clampi(
+		int(registries.nook_config.get("corner_cuts_max", 2)),
+		minimum,
+		candidates.size()
+	)
+	var wanted := rng.randi_range(minimum, maximum)
+	var removed := 0
+	for candidate: Vector2i in candidates:
+		if removed >= wanted:
+			break
+		if String(terrain_slots.get(candidate, "")) != "ground":
+			continue
+		terrain_slots.erase(candidate)
+		removed += 1
 
 
 ## Treasure is decided here, at generation, and stored in chunk meta. Denser

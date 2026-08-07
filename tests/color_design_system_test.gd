@@ -33,30 +33,45 @@ func _ready() -> void:
 		"screen-space target values load exactly"
 	)
 	_expect(
-		palette.active_scheme == "earthwood_cozy"
-		and palette.schemes["earthwood_cozy"]["overrides"].size()
-		== palette.colors.size(),
-		"active production scheme explicitly covers every semantic role"
+		palette.active_scheme == "default",
+		"the original Suma garden-clay scheme is the active production palette"
 	)
 	_expect(
 		palette.color("background_day").is_equal_approx(
-			Color(0.658824, 0.647059, 0.552941, 1.0)
+			Color(0.72, 0.68, 0.56, 1.0)
 		)
 		and palette.color("grass_primary").is_equal_approx(
-			Color(0.435294, 0.470588, 0.27451, 1.0)
+			Color(0.49, 0.495, 0.18, 1.0)
 		)
 		and palette.color("pine_deep").is_equal_approx(
-			Color(0.129412, 0.239216, 0.196078, 1.0)
+			Color(0.075, 0.15, 0.085, 1.0)
 		)
 		and palette.color("earth_primary").is_equal_approx(
-			Color(0.435294, 0.301961, 0.27451, 1.0)
+			Color(0.565, 0.35, 0.235, 1.0)
 		),
-		"earthwood anchors preserve atmosphere, grass, forest, and clay separation"
+		"garden-clay anchors preserve warm atmosphere, olive grass, forest, and clay separation"
 	)
 	_expect(
 		palette.character_swatches("skin").size()
 		== palette.character_swatch_groups.get("skin", []).size(),
 		"character swatches resolve through scheme adjustments"
+	)
+
+	var daylight_scene := load("res://scenes/visual/SumaSoftDaylight.tscn") as PackedScene
+	var daylight := daylight_scene.instantiate()
+	_expect(
+		daylight.day_profile.profile_id == "garden_galaxy_exact",
+		"the first retro push daylight profile remains the live default"
+	)
+	daylight.free()
+	var pixel_shader_source := FileAccess.get_file_as_string(
+		"res://assets/materials/reworked/pixel_present.gdshader"
+	)
+	_expect(
+		"local_contrast_strength" not in pixel_shader_source
+		and "cavity_strength" not in pixel_shader_source
+		and "crest_strength" not in pixel_shader_source,
+		"retro presentation does not synthesize line-like relief from neighboring pixels"
 	)
 
 	palette.clear_runtime_alterations()

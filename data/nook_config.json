@@ -1,5 +1,5 @@
 {
-  "nook_size": 8,
+  "nook_size": 4,
   "origin_cell": [
     -2,
     -2
@@ -18,7 +18,9 @@
     2.0
   ],
   "stamps_min": 1,
-  "stamps_max": 2,
+  "stamps_max": 1,
+  "corner_cuts_min": 1,
+  "corner_cuts_max": 2,
   "ruin_chance": 0.05,
   "dormant_chance": 0.85,
   "growth_lines": {
@@ -49,10 +51,10 @@
   },
   "relief": {
     "knolls_min": 1,
-    "knolls_max": 3,
+    "knolls_max": 1,
     "radius_min": 1,
-    "radius_max": 2,
+    "radius_max": 1,
     "mountain_biome_tag": "rocky",
-    "mountain_chance": 0.5
+    "mountain_chance": 0.7
   }
 }

@@ -50,6 +50,7 @@ var _hover_support_slot := ""
 var _pointer_down := false
 var _pointer_dragging := false
 var _pointer_press_position := Vector2.ZERO
+var _pointer_screen_position := Vector2.ZERO
 var _picked_on_pointer_press := false
 var _deferred_pickup_hit: Dictionary = {}
 var _hover_info_signature := ""
@@ -355,11 +356,11 @@ func rotate_at_screen(screen_position: Vector2) -> bool:
 
 
 func _pointer_is_over_ui(screen_position: Vector2) -> bool:
-	if (
-		_ui_pointer_blocker.is_valid()
-		and bool(_ui_pointer_blocker.call(screen_position))
-	):
-		return true
+	# Main provides a geometry-based HUD query for the event's exact position.
+	# Do not then consult gui_get_hovered_control(): that value can lag behind a
+	# fast move out of the Build Bag and used to reject valid world drags.
+	if _ui_pointer_blocker.is_valid():
+		return bool(_ui_pointer_blocker.call(screen_position))
 	return get_viewport().gui_get_hovered_control() != null
 
 
@@ -909,9 +910,13 @@ func _emit_hover_info(signature: String, display_name: String, collection_name: 
 	hover_changed.emit(display_name, collection_name)
 
 
-func _slot_under_mouse() -> Dictionary:
+func _slot_under_mouse(screen_position: Variant = null) -> Dictionary:
 	var viewport := get_viewport()
-	var mouse := viewport.get_mouse_position()
+	var mouse := (
+		screen_position as Vector2
+		if screen_position is Vector2
+		else viewport.get_mouse_position()
+	)
 	var camera := camera_rig.camera
 	var origin := camera.project_ray_origin(mouse)
 	var direction := camera.project_ray_normal(mouse)
@@ -941,17 +946,22 @@ func _update_hover_target() -> void:
 	if _controller_mode and _controller_cursor_active:
 		_update_controller_hover_target()
 		return
+	var pointer_position := (
+		_pointer_screen_position
+		if _pointer_down
+		else get_viewport().get_mouse_position()
+	)
 	if held.get("kind", "") == "structure":
 		var structure_hit := world_renderer.pick_structure_at_screen(
 			camera_rig.camera,
-			get_viewport().get_mouse_position()
+			pointer_position
 		)
 		if not structure_hit.is_empty():
 			_hover_cell = structure_hit["coord"]
 			_hover_elevation = core.grid.top_elevation(_hover_cell)
 			if _resolve_highest_structure_target(_hover_cell, _hover_elevation):
 				return
-	var hit := _slot_under_mouse()
+	var hit := _slot_under_mouse(pointer_position)
 	_hover_cell = hit["coord"]
 	var support_elevation := int(hit["elevation"])
 	match held.get("kind", ""):
@@ -1094,6 +1104,7 @@ func pointer_press(
 	_pointer_down = true
 	_pointer_dragging = false
 	_pointer_press_position = screen_position
+	_pointer_screen_position = screen_position
 	_picked_on_pointer_press = false
 	_deferred_pickup_hit = {}
 	if held.is_empty():
@@ -1104,7 +1115,7 @@ func pointer_press(
 					screen_position
 				)
 		else:
-			_try_pick_up()
+			_try_pick_up(screen_position)
 			_picked_on_pointer_press = not held.is_empty()
 	else:
 		click()
@@ -1119,11 +1130,13 @@ func begin_pointer_drag_for_held(screen_position: Vector2) -> void:
 	_pointer_down = true
 	_pointer_dragging = false
 	_pointer_press_position = screen_position
+	_pointer_screen_position = screen_position
 	_picked_on_pointer_press = true
 	_deferred_pickup_hit = {}
 
 
 func pointer_motion(screen_position: Vector2) -> void:
+	_pointer_screen_position = screen_position
 	if not _pointer_down or _pointer_dragging:
 		return
 	if screen_position.distance_to(_pointer_press_position) < 8.0:
@@ -1134,7 +1147,8 @@ func pointer_motion(screen_position: Vector2) -> void:
 		_picked_on_pointer_press = not held.is_empty()
 
 
-func pointer_release(_screen_position: Vector2) -> bool:
+func pointer_release(screen_position: Vector2) -> bool:
+	_pointer_screen_position = screen_position
 	var was_dragging := _pointer_down and _pointer_dragging
 	if _pointer_down and _pointer_dragging and _picked_on_pointer_press and not held.is_empty():
 		if _hover_valid:
@@ -1400,7 +1414,7 @@ func _place_deed() -> void:
 
 
 ## Pick up an existing structure (preferred) or a movable tile under the cursor.
-func _try_pick_up() -> void:
+func _try_pick_up(screen_position: Variant = null) -> void:
 	if _controller_mode and _controller_cursor_active:
 		var controller_elevation := core.grid.top_elevation(_controller_cell)
 		if controller_elevation >= 0:
@@ -1414,16 +1428,21 @@ func _try_pick_up() -> void:
 				controller_instance
 			)
 		return
-	if _pointer_is_over_ui(get_viewport().get_mouse_position()):
+	var pointer := (
+		screen_position as Vector2
+		if screen_position is Vector2
+		else get_viewport().get_mouse_position()
+	)
+	if _pointer_is_over_ui(pointer):
 		return
 	var hit := world_renderer.pick_placeable_at_screen(
 		camera_rig.camera,
-		get_viewport().get_mouse_position()
+		pointer
 	)
 	if not hit.is_empty():
 		_pick_up_placeable_hit(hit)
 		return
-	var slot_hit := _slot_under_mouse()
+	var slot_hit := _slot_under_mouse(pointer)
 	var elevation := int(slot_hit["elevation"])
 	if elevation >= 0:
 		_pick_up_from(slot_hit["coord"], elevation)

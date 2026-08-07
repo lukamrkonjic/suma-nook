@@ -450,14 +450,23 @@ func _append_tile_collision(
 	match definition.collision_profile:
 		"flat":
 			if definition.walkable:
+				var block_height := (
+					core.grid.block_depth * definition.height_fraction
+				)
+				var collision_height := (
+					block_height + definition.walk_surface_height
+				)
 				_append_box_faces(
 					ground_faces,
 					world_position + Vector3(
 						0.0,
-						-core.grid.block_depth * 0.5,
+						(
+							definition.walk_surface_height
+							- block_height
+						) * 0.5,
 						0.0
 					),
-					Vector3(size, core.grid.block_depth, size)
+					Vector3(size, collision_height, size)
 				)
 		"pond_basin":
 			if definition.walkable:

@@ -1066,8 +1066,8 @@ func _apply_particle_quality() -> void:
 ## light, the rosy garden is Pink light, warm evenings are Orange light, and
 ## GG's iconic starry night is the Brown theme's dark backdrop.
 const GG_TIME_STATES := {
-	"morning": ["mosslight", 1.0],
-	"noon": ["mosslight", 1.0],
+	"morning": ["pink", 1.0],
+	"noon": ["default", 1.0],
 	"sunset": ["orange", 1.0],
 	"night": ["brown", 0.0],
 }

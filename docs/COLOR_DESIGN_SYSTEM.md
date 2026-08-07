@@ -12,21 +12,14 @@ profiles, world themes, and authoring tools. The game keeps precise names such
 as `water_deep`, `ui_bad`, and `hair_primary`, and those runtime roles retain
 their individually calibrated values.
 
-The active `hearthfield_haze` scheme is the shipped art direction: a mellow,
-earthy derivation of `earthwood_cozy` with sage-greyed greens, dusty
-blue-green pine shadows, lifted mid values, and a blush-cream atmosphere.
-It was derived by systematic per-family HSV adjustment of the calibrated
-`earthwood_cozy` overrides (greens desaturated ~22-34% and pulled toward
-sage, values lifted ~0.05-0.10; water dustier; creams warmed toward blush),
-so every consumer keeps its relative tonal order. `earthwood_cozy` remains
-available as a scheme. The paragraph below describes the earthwood anchors
-that Hearthfield inherits. Its anchors
-are warm mushroom-sage atmosphere, deep forest greens, olive grass, earthy
-gray stone, restrained green water, clay and wood browns, and a brown-charcoal
-floor. Gold, coral, pink, and violet are reserved for UI focus, characters,
-flowers, fire, rewards, and other small focal details. This separation gives
-the restrained world warmth and contrast without returning to bright
-yellow-green terrain or letting cool sky colors dominate the scene.
+The active `default` scheme is the original Suma garden-clay direction from
+the first retro visual push. Its anchors are a warm ivory atmosphere,
+yellow-olive grass, deep forest greens, terracotta earth, muted sage-aqua
+water, warm stone, and restrained gold. Gold, coral, pink, and violet are
+reserved for UI focus, flowers, fire, rewards, and other small focal details.
+Later `earthwood_cozy`, `mosslight`, and `hearthfield_haze` experiments remain
+available for comparison, but they must not be layered over the shipped retro
+look or replace it as the default.
 
 `PaletteDefinition` is the access layer, not another data source. Use
 `PaletteDefinition.shared()` when a system does not already receive the shared
@@ -120,10 +113,10 @@ overrides and are deliberately supported; shipped defaults remain token-based.
 The application order is stored in `design_rules.adjustment_order`. Adjustment
 bounds are guidance for art direction, not arbitrary effect limits. The
 included `default`, `warm`, `cool`, `muted`, `high_contrast`, and
-`deuteranopia_safe` schemes are starting points. `earthwood_cozy` is the complete
-production remap: every semantic token has an explicit role-preserving value,
-so switching back to `default` remains useful for comparison without weakening
-the active palette contract.
+`deuteranopia_safe` schemes are starting points. `earthwood_cozy` and its later
+derivatives are complete experimental remaps: every semantic token has an
+explicit role-preserving value, so they remain useful for comparison without
+weakening the original `default` production contract.
 
 At runtime, call `set_active_scheme()`, `set_runtime_adjustments()`, or
 `set_runtime_override()`. These emit `palette_changed`; long-lived world

@@ -9,7 +9,7 @@ critical; the designer wants real findings, not encouragement.
 
 ## The vision in one paragraph
 
-Suma is a quiet game about a small person tending an unfolding world.
+Suma is a quiet god-view game about tending an unfolding world from above.
 Permanent, procedurally generated pockets of nature — **Nooks** — arrive one
 choice at a time, fall into place tile by tile, and become yours: you clear
 what resists, plant what grows, build what you imagine, and occasionally the
@@ -42,9 +42,10 @@ somewhere between a hand-painted pixel landscape and a low-poly clay island.
 
 **Opening.** A new game asks exactly one question: *"Choose where the world
 begins"* — three seed cards (biome + density + mood), a limited reroll, and
-a Surprise Me option. The chosen card generates the first 8×8 Nook, which
-reveals via the falling-tile wave. The player spawns in it. No tutorial
-lesson, no guided placement.
+a Surprise Me option. The chosen card generates the first compact 4×4 Nook,
+with an irregular silhouette and pronounced terrain relief, which reveals via
+the falling-tile wave. Play remains in top-down god view. No tutorial lesson,
+no guided placement.
 
 **The frontier rhythm.** After modest activity in the newest Nook (a handful
 of placements, clearings, or plantings — minutes, not completion), the next
@@ -99,22 +100,21 @@ out. Prompts are contextual. No persistent bars, minimaps, or quest chrome.
 ## What was deliberately removed
 
 An earlier build had: a 9-tile authored starter island, a guided
-place-a-tree/chop-it tutorial, ferry deliveries on a timer, XP-style hobby
-progression (fishing/woodcutting levels), materials crafting, combat and
-hostile landmarks (already disabled), and regrowing harvest nodes. All of
-this was cut or demoted to test-only flows in favor of the loop above.
-Fishing still exists as a calm activity (catch and release, journal record).
+place-a-tree/chop-it tutorial, a controllable character, ferry deliveries on
+a timer, fishing, XP-style hobby progression, materials crafting, combat and
+hostile landmarks, and regrowing harvest nodes. All of this was cut or demoted
+to test-only compatibility fixtures in favor of god-view world shaping.
 
 ## Aesthetic direction
 
-Painterly-pixel presentation over real 3D: a fullscreen pass posterizes
-value/saturation into painted bands with subtle cavity/crest relief cues —
-outline-free, never a checkerboard filter. One authored palette file drives
-every material, light, UI surface, and effect through semantic tokens; the
-active scheme ("Hearthfield Haze") is muted sage greens, dusty blue-green
-pine shadows, warm grey stone, clay browns, and a blush-cream sky. Gold,
-coral, and pink are reserved for small focal moments (fire, flowers,
-rewards, UI focus).
+Painterly-pixel presentation over real 3D: a fullscreen pass groups the world
+into stable pixel blocks and broad value/saturation bands—outline-free, with
+almost no ordered breakup and no neighbor-derived relief lines. One authored
+palette file drives every material, light, UI surface, and effect through
+semantic tokens; the active original garden-clay scheme uses yellow-olive
+grass, deep forest green, terracotta earth, sage-aqua water, warm stone, and
+an ivory sky. Gold, coral, and pink are reserved for small focal moments
+(fire, flowers, rewards, UI focus).
 
 ## Current state (honest)
 

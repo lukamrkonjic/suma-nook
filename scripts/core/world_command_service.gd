@@ -199,7 +199,18 @@ func _advance_growth(args: Dictionary) -> Dictionary:
 	var removed := grid.remove_structure(coord, instance_id, elevation)
 	if removed == null:
 		return {"ok": false, "reason": "blocked"}
-	var grown := grid.add_structure(coord, next_id, socket, rotation, elevation)
+	# A dormant may wake into a different placement class (for example a decor
+	# pillar becoming a utility well). Resolve the replacement's own socket
+	# instead of reusing the old class's index.
+	var next_definition := registries.structure(next_id)
+	var next_socket := grid.free_socket(
+		coord,
+		next_definition.socket_type,
+		elevation
+	)
+	var grown := grid.add_structure(
+		coord, next_id, next_socket, rotation, elevation
+	) if next_socket >= 0 else null
 	if grown == null:
 		# Never lose the plant: restore the previous stage.
 		grid.add_structure(

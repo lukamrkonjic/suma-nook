@@ -97,6 +97,7 @@ class NookRecord:
 
 var registries: Registries
 var nooks: Dictionary = {}   # Vector2i -> NookRecord
+var _saved_nook_size := 0
 
 
 func _init(regs: Registries) -> void:
@@ -104,7 +105,10 @@ func _init(regs: Registries) -> void:
 
 
 var nook_size: int:
-	get: return maxi(4, int(registries.nook_config.get("nook_size", 8)))
+	get:
+		if _saved_nook_size > 0:
+			return _saved_nook_size
+		return maxi(4, int(registries.nook_config.get("nook_size", 4)))
 
 var origin_cell: Vector2i:
 	get:
@@ -123,6 +127,11 @@ func nook(coord: Vector2i) -> NookRecord:
 
 
 func add_nook(record: NookRecord) -> void:
+	if _saved_nook_size <= 0:
+		_saved_nook_size = maxi(
+			4,
+			int(registries.nook_config.get("nook_size", 4))
+		)
 	nooks[record.coord] = record
 	nook_added.emit(record.coord)
 
@@ -188,12 +197,20 @@ func to_save_dict() -> Dictionary:
 	var records: Array = []
 	for coord: Vector2i in nooks:
 		records.append((nooks[coord] as NookRecord).to_dict())
-	return {"nooks": records}
+	return {"nook_size": nook_size, "nooks": records}
 
 
 func from_save_dict(data: Dictionary) -> void:
 	nooks.clear()
-	for raw: Variant in data.get("nooks", []):
+	var raw_records: Array = data.get("nooks", [])
+	# Saves made before Nook size became explicit were generated as 8x8.
+	# Preserve their coordinate system so loading never shifts or overlaps an
+	# existing creative world; only newly started worlds use the compact size.
+	_saved_nook_size = int(data.get(
+		"nook_size",
+		8 if not raw_records.is_empty() else 0
+	))
+	for raw: Variant in raw_records:
 		if raw is Dictionary:
 			var record := NookRecord.from_dict(raw)
 			nooks[record.coord] = record

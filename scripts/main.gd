@@ -1097,11 +1097,10 @@ func _start_gameplay(fresh: bool, show_welcome := true) -> void:
 		hud._refresh_all()
 	if lighting.current_profile != null:
 		_on_profile_applied(lighting.current_profile)
-	# Shape Land is the permanent primary mode. The keeper begins in the HUD
-	# dock every session and only receives a world body after a valid drag/drop.
+	# Shape Land is the permanent god-view mode. Keep the legacy player body
+	# docked and invisible; no live HUD path can deploy it.
 	placement.set_active(true)
 	player.dock_for_placement()
-	hud.set_player_dock_visible(not core.onboarding.is_active())
 	player_drop_preview.visible = false
 	hud.update_tutorial()
 	if show_welcome:
@@ -1318,6 +1317,39 @@ func _input(event: InputEvent) -> void:
 		open_pause_menu()
 		get_viewport().set_input_as_handled()
 		return
+	if (
+		_gameplay_started
+		and placement.active
+		and not pause_menu.is_open()
+		and not discovery_reveal.is_open()
+		and not panels.is_open()
+		and (asset_viewer == null or not asset_viewer.is_open())
+	):
+		if event is InputEventMouseMotion and placement.pointer_is_down():
+			placement.pointer_motion(
+				(event as InputEventMouseMotion).position
+			)
+			return
+		if event is InputEventMouseButton:
+			var build_mouse := event as InputEventMouseButton
+			if build_mouse.button_index == MOUSE_BUTTON_LEFT:
+				if build_mouse.pressed:
+					if _screen_position_blocked_by_ui(build_mouse.position):
+						return
+					_begin_build_pointer(build_mouse.position)
+					get_viewport().set_input_as_handled()
+					return
+				if placement.pointer_is_down():
+					# A dragged world piece released over the Build Bag is stored by
+					# HUD polling; ordinary world releases commit here immediately.
+					if (
+						_screen_position_blocked_by_ui(build_mouse.position)
+						and placement.pointer_dragging_moved_piece()
+					):
+						return
+					_finish_build_pointer(build_mouse.position)
+					get_viewport().set_input_as_handled()
+					return
 	if not event is InputEventMouseButton:
 		return
 	var mouse := event as InputEventMouseButton
@@ -1339,9 +1371,37 @@ func _screen_position_blocked_by_ui(screen_position: Vector2) -> bool:
 	# Any mouse-enabled Control shields the world, including empty panel space.
 	# Restricting this to buttons allowed selection and right-click actions to
 	# leak through the Build Bag background.
-	if hud != null and hud.blocks_world_pointer(screen_position):
-		return true
+	if hud != null:
+		return hud.blocks_world_pointer(screen_position)
 	return get_viewport().gui_get_hovered_control() != null
+
+
+func _begin_build_pointer(screen_position: Vector2) -> void:
+	_pending_build_interaction = {}
+	if not placement.held.is_empty():
+		placement.pointer_press(screen_position)
+		return
+	# The retired guided-canvas fixture still teaches its old click-to-harvest
+	# lesson. In the shipped god-view flow, direct manipulation wins: pressing
+	# any tile or model picks it up immediately for click-place or drag-drop.
+	if core.onboarding.is_active():
+		var interaction := _interaction_at_screen(screen_position)
+		if interaction.get("kind", "") == "feature_interaction":
+			_pending_build_interaction = interaction
+			placement.pointer_press(screen_position, true)
+			return
+		if _try_build_world_action_at_screen(screen_position):
+			return
+	placement.pointer_press(screen_position)
+
+
+func _finish_build_pointer(screen_position: Vector2) -> void:
+	var was_dragging := placement.pointer_release(screen_position)
+	if not _pending_build_interaction.is_empty():
+		var interaction := _pending_build_interaction
+		_pending_build_interaction = {}
+		if not was_dragging:
+			_perform_interaction(interaction)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -1461,26 +1521,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton
 		if mouse.button_index == MOUSE_BUTTON_LEFT:
-			if placement.active:
-				if mouse.pressed:
-					_pending_build_interaction = {}
-					if not placement.held.is_empty():
-						placement.pointer_press(mouse.position)
-					else:
-						var interaction := _interaction_at_screen(mouse.position)
-						if interaction.get("kind", "") == "feature_interaction":
-							_pending_build_interaction = interaction
-							placement.pointer_press(mouse.position, true)
-						elif not _try_build_world_action_at_screen(mouse.position):
-							placement.pointer_press(mouse.position)
-				else:
-					var was_dragging := placement.pointer_release(mouse.position)
-					if not _pending_build_interaction.is_empty():
-						var interaction := _pending_build_interaction
-						_pending_build_interaction = {}
-						if not was_dragging:
-							_perform_interaction(interaction)
-			elif mouse.pressed:
+			if not placement.active and mouse.pressed:
 				_handle_world_click(mouse.position)
 		elif mouse.button_index == MOUSE_BUTTON_RIGHT and mouse.pressed:
 			if (
@@ -1899,7 +1940,6 @@ func _on_visitor_reward_presented(reward: Dictionary) -> void:
 func _on_onboarding_stage_changed(_stage: String) -> void:
 	if hud == null:
 		return
-	hud.set_player_dock_visible(not core.onboarding.is_active())
 	hud.update_tutorial()
 	_refresh_controller_hints()
 
