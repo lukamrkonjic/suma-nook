@@ -155,6 +155,9 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 	keepsakes = KeepsakeSystem.new(
 		registries, grid, nooks.world, events, journal
 	)
+	if nooks.enabled:
+		for sapling_structure_id: String in nooks.sapling_stage_zero_ids():
+			stock.set_unlimited_structure(sapling_structure_id)
 	equipment = EquipmentManager.new(registries)
 	progression = ProgressionModule.new(registries, rng, grid, stock, collection, equipment)
 	fishing = FishingModuleScript.new(
@@ -244,6 +247,9 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 				"structure_id": structure_id,
 				"nook": owner.nooks.world.chunk_of_cell(coord),
 			})
+			# A placed first-stage sapling starts growing immediately —
+			# the build flow IS the planting flow.
+			owner.nooks.adopt_planted(instance_id, structure_id, coord)
 	)
 	grid.structure_removed.connect(func(coord, instance_id, structure_id):
 		var owner := owner_ref.get_ref() as GameCore
@@ -259,6 +265,19 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 		var owner := owner_ref.get_ref() as GameCore
 		if owner != null:
 			owner._dirty = true
+	)
+	treasures.treasure_revealed.connect(func(payload):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			var reward: Dictionary = payload.get("reward", {})
+			owner.notified.emit(
+				"Buried beneath the %s: %s"
+				% [
+					String(payload.get("host_tag", "ground")),
+					String(owner.build_rewards.call("display_name", reward)),
+				],
+				"levelup"
+			)
 	)
 	visitors.visitor_available.connect(func(_event):
 		var owner := owner_ref.get_ref() as GameCore

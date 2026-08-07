@@ -1,5 +1,20 @@
 # Rework audit — ferry and XP-only hobbies
 
+## Current iteration (2026-08-07): The Unfolding World
+
+Suma's progression now grows as permanent generated nature Nooks (8x8
+chunks) revealed through a falling-tile wave, cleared by hand (chop/crack/
+pry leave real absence: stumps, clean ground), replanted with unlimited
+saplings, and mined for invisible generation-time discoveries (buried
+treasures, transformation Firsts, one dormant mystery per Nook, keepsake
+moments). See docs/UNFOLDING_WORLD.md for architecture, content families,
+flags, and follow-ups. Headless suites cover generation determinism,
+offers/reveal, clearing/treasure, firsts, growth/keepsakes, dormants, save
+round trip, flags-off, reveal timeline, and the planting flow.
+
+---
+
+
 ## Current iteration (2026-07-25)
 
 ### Project-selection correction

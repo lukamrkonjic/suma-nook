@@ -151,6 +151,7 @@ func _run() -> void:
 	_test_unfolding_world_save_round_trip()
 	_test_unfolding_world_flags_off()
 	_test_unfolding_world_reveal_timeline()
+	_test_unfolding_world_planting_flow()
 	_test_maxed_debug_world_spawn()
 	_test_skills_grant_no_direct_placeables()
 	_test_fish_journal_retired()
@@ -4129,3 +4130,35 @@ func _test_unfolding_world_reveal_timeline() -> void:
 		Vector2(near_entry["local"] as Vector2i).distance_to(seam) < 3.0,
 		"the earliest tile falls beside the wave origin"
 	)
+
+
+func _test_unfolding_world_planting_flow() -> void:
+	var core := fresh_core(5577)
+	check(
+		core.stock.is_unlimited_structure("struct_pine_young")
+		and core.stock.structure_count("struct_pine_young") >= 1,
+		"first-stage saplings are unlimited in the Build Bag"
+	)
+	for _take in 5:
+		check(
+			core.stock.take_structure("struct_pine_young"),
+			"taking a sapling never exhausts the bag"
+		)
+	var planted_events: Array = []
+	core.events.sapling_planted.connect(func(payload): planted_events.append(payload))
+	var placed := core.grid.add_structure(Vector2i(0, 1), "struct_pine_young", 1, 0)
+	check(placed != null, "the ordinary build flow places a young tree")
+	check(
+		planted_events.size() == 1
+		and placed.runtime_state.has("growth")
+		and int((placed.runtime_state["growth"] as Dictionary).get("stage", -1)) == 0,
+		"a placed first-stage sapling is adopted as a growing plant"
+	)
+	var grown := core.grid.add_structure(Vector2i(1, 0), "struct_pine", 0, 0)
+	if grown == null:
+		grown = core.grid.add_structure(Vector2i(1, 1), "struct_pine", 1, 0)
+	if grown != null:
+		check(
+			not grown.runtime_state.has("growth"),
+			"placing an already-grown tree does not restart its life"
+		)

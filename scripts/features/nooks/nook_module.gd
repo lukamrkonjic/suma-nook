@@ -289,6 +289,52 @@ func _growth_line_for_sapling(sapling_id: String) -> Dictionary:
 	return {}
 
 
+## Adopts a player-placed structure as a growing sapling when it matches a
+## configured growth line's first stage. This is how the ordinary build
+## flow plants: place a young tree from the (unlimited) Build Bag and it
+## simply starts growing — no separate planting mode to learn.
+func adopt_planted(instance_id: int, structure_id: String, coord: Vector2i) -> void:
+	if not enabled:
+		return
+	var lines: Dictionary = registries.nook_config.get("growth_lines", {})
+	for raw: Variant in registries.nook_config.get("saplings", []):
+		if not raw is Dictionary:
+			continue
+		var line_id := String(raw.get("growth_line", ""))
+		var line: Dictionary = lines.get(line_id, {})
+		var stages: Array = line.get("stages", [])
+		if stages.is_empty() or String(stages[0]) != structure_id:
+			continue
+		var found := grid.find_structure(instance_id)
+		if found.is_empty():
+			return
+		var structure: WorldGrid.StructureState = found["structure"]
+		if structure.runtime_state.has(GROWTH_RUNTIME_KEY):
+			return
+		_write_growth_runtime(instance_id, line_id, 0)
+		events.publish("sapling_planted", {
+			"coord": coord,
+			"instance_id": instance_id,
+			"structure_id": structure_id,
+			"nook": world.chunk_of_cell(coord),
+		})
+		return
+
+
+## First-stage structure ids for every configured sapling — the Build Bag
+## marks these unlimited.
+func sapling_stage_zero_ids() -> Array[String]:
+	var result: Array[String] = []
+	var lines: Dictionary = registries.nook_config.get("growth_lines", {})
+	for raw: Variant in registries.nook_config.get("saplings", []):
+		if raw is Dictionary:
+			var line: Dictionary = lines.get(String(raw.get("growth_line", "")), {})
+			var stages: Array = line.get("stages", [])
+			if not stages.is_empty():
+				result.append(String(stages[0]))
+	return result
+
+
 func sapling_ids() -> Array[String]:
 	var result: Array[String] = []
 	for raw: Variant in registries.nook_config.get("saplings", []):
