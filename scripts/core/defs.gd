@@ -667,6 +667,12 @@ class TileDefinition:
 	# surface; the shader then compresses the relief locally beneath each foot.
 	var soft_surface_profile: String = ""         # ""|sand|snow
 	var walk_surface_height: float = 0.0
+	# Fractional block height (0..1]. A 0.25 grass tile stacked on ground
+	# reads as a gentle quarter-step rise instead of a full cliff — the
+	# terrain vocabulary behind knolls, terraces, and mountains. The tile's
+	# TOP drops by the missing height; its bottom always meets its support.
+	# Fractional tiles are top caps: they never support further tiles.
+	var height_fraction: float = 1.0
 	# TileGeometryProfile contract (art_source/blender/tile_profiles.py):
 	# which shell silhouette this tile's authored mesh uses and how it meets
 	# its neighbours. Declared explicitly per tile, validated by test_runner.
@@ -741,6 +747,11 @@ class TileDefinition:
 		)
 		t.soft_surface_profile = d.get("soft_surface_profile", "")
 		t.walk_surface_height = float(d.get("walk_surface_height", 0.0))
+		t.height_fraction = clampf(float(d.get("height_fraction", 1.0)), 0.125, 1.0)
+		if t.height_fraction < 1.0:
+			# Top caps only: fractional tiles never support further tiles.
+			t.supports_tiles = false
+			t.stackable = false
 		return t
 
 	func uses_layered_visual() -> bool:

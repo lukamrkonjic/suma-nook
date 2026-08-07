@@ -337,7 +337,17 @@ func world_to_cell(world_pos: Vector3) -> Vector2i:
 
 
 func cell_to_world(coord: Vector2i, elevation: int = 0) -> Vector3:
-	return Vector3(coord.x * tile_size, elevation * block_depth, coord.y * tile_size)
+	# A fractional-height tile lowers its own top by the missing height, so
+	# a 0.25 cap over ground is a gentle step, not a cliff. This is the one
+	# place world height is derived; renderer holders, collision, structure
+	# transforms, and player anchoring all inherit it.
+	var y := elevation * block_depth
+	var state := cell_at(coord, elevation)
+	if state != null:
+		var definition := registries.tile(state.tile_id)
+		if definition != null and definition.height_fraction < 1.0:
+			y -= (1.0 - definition.height_fraction) * block_depth
+	return Vector3(coord.x * tile_size, y, coord.y * tile_size)
 
 
 ## Every direct tile-root object is centered. Socket ids remain stable

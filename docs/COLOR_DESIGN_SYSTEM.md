@@ -12,7 +12,15 @@ profiles, world themes, and authoring tools. The game keeps precise names such
 as `water_deep`, `ui_bad`, and `hair_primary`, and those runtime roles retain
 their individually calibrated values.
 
-The active `earthwood_cozy` scheme is the shipped art direction. Its anchors
+The active `hearthfield_haze` scheme is the shipped art direction: a mellow,
+earthy derivation of `earthwood_cozy` with sage-greyed greens, dusty
+blue-green pine shadows, lifted mid values, and a blush-cream atmosphere.
+It was derived by systematic per-family HSV adjustment of the calibrated
+`earthwood_cozy` overrides (greens desaturated ~22-34% and pulled toward
+sage, values lifted ~0.05-0.10; water dustier; creams warmed toward blush),
+so every consumer keeps its relative tonal order. `earthwood_cozy` remains
+available as a scheme. The paragraph below describes the earthwood anchors
+that Hearthfield inherits. Its anchors
 are warm mushroom-sage atmosphere, deep forest greens, olive grass, earthy
 gray stone, restrained green water, clay and wood browns, and a brown-charcoal
 floor. Gold, coral, pink, and violet are reserved for UI focus, characters,

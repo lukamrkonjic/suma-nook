@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="TileLibraryManifest" format=3]
+
+[ext_resource type="Script" path="res://tools/tile_kit/library/tile_library_manifest.gd" id="1_vqn4e"]
+
+[resource]
+script = ExtResource("1_vqn4e")
+tile_id = "tile_stone_clearing_low"
+display_name = "Low Stone Shelf"
+revision = 2
+lifecycle = "published"
+visibility = "active"
+recipe_path = "res://tools/tile_kit/library/recipes/tile_stone_clearing.tres"
+baked_roles = PackedStringArray("base", "detail", "edge", "surface")
+family = "stonebound"
+catalog_category = "ruins"
+catalog_order = 21
+connection_group = "stonebound"
+biome_tags = PackedStringArray()
+landmark_tags = PackedStringArray("ruin")
+weight = 2.4
+placement_sound = "stone"
+dependencies = PackedStringArray()
+water_cells = PackedStringArray()
+created_at = "2026-08-01 00:00:00"
+updated_at = "2026-08-04 11:10:00"
+published_at = "2026-08-01 00:00:00"
+notes = "Fractional-height (0.25) terrain cap derived from tile_stone_clearing. Shares the base recipe and baked assets; the runtime height_fraction compresses the block for gentle elevation."

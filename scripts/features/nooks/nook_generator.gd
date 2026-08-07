@@ -95,7 +95,12 @@ func generate(coord: Vector2i, seed_card: Dictionary, size: int) -> NookPlan:
 			pool = biome.resolve.get("ground")
 		var tile_id := pool.pick(rng) if pool != null else ""
 		if tile_id != "" and registries.tile(tile_id) != null:
-			plan.tiles.append({"local": local, "tile_id": tile_id})
+			plan.tiles.append({"local": local, "tile_id": tile_id, "elevation": 0})
+
+	# Relief pass: gentle knolls from fractional-height caps (quarter rims,
+	# half cores), and in rocky biomes an occasional full-block mountain
+	# shoulder with a half cap. Deterministic from the same seed.
+	_carve_relief(plan, biome, terrain_slots, stamp_cells, size, rng)
 
 	# Scatter pass: features by density curve — thicker toward the chunk
 	# edge (the wild rim), thinner near stamps and the chunk core.
@@ -145,6 +150,76 @@ func generate(coord: Vector2i, seed_card: Dictionary, size: int) -> NookPlan:
 	_assign_treasures(plan, biome, rng)
 	_assign_dormant(plan, dormant_socket, rng)
 	return plan
+
+
+## Elevation vocabulary: 0.25 rims, 0.5 cores, and (rocky biomes) a full
+## block + half cap summit. All entries land at elevation 1/2 above the
+## already-generated ground, never under stamps or water.
+func _carve_relief(
+	plan: NookPlan,
+	biome: NookDefs.NookBiomeDefinition,
+	terrain_slots: Dictionary,
+	stamp_cells: Dictionary,
+	size: int,
+	rng: RandomNumberGenerator
+) -> void:
+	var low_pool: NookDefs.SlotPool = biome.resolve.get("rise_low")
+	var half_pool: NookDefs.SlotPool = biome.resolve.get("rise_half")
+	if low_pool == null or low_pool.is_empty() \
+		or half_pool == null or half_pool.is_empty():
+		return
+	var config: Dictionary = registries.nook_config.get("relief", {})
+	var knolls := rng.randi_range(
+		int(config.get("knolls_min", 1)), int(config.get("knolls_max", 3))
+	)
+	var full_pool: NookDefs.SlotPool = biome.resolve.get("rise_full")
+	var mountain := (
+		full_pool != null and not full_pool.is_empty()
+		and biome.traits.has_tag(String(config.get("mountain_biome_tag", "rocky")))
+		and rng.randf() < float(config.get("mountain_chance", 0.5))
+	)
+	var raised: Dictionary = {}
+	for knoll_index in knolls:
+		var radius := rng.randi_range(
+			int(config.get("radius_min", 1)), int(config.get("radius_max", 2))
+		)
+		var centre := Vector2i(
+			rng.randi_range(radius, size - 1 - radius),
+			rng.randi_range(radius, size - 1 - radius)
+		)
+		var is_mountain := mountain and knoll_index == 0
+		for y in range(centre.y - radius, centre.y + radius + 1):
+			for x in range(centre.x - radius, centre.x + radius + 1):
+				var local := Vector2i(x, y)
+				if x < 0 or y < 0 or x >= size or y >= size:
+					continue
+				if stamp_cells.has(local) or raised.has(local):
+					continue
+				if String(terrain_slots.get(local, "ground")) != "ground":
+					continue
+				var distance := Vector2(local).distance_to(Vector2(centre))
+				if distance > float(radius) + 0.45:
+					continue
+				var core := distance <= float(radius) * 0.55
+				if is_mountain and core:
+					plan.tiles.append({
+						"local": local,
+						"tile_id": full_pool.pick(rng),
+						"elevation": 1,
+					})
+					plan.tiles.append({
+						"local": local,
+						"tile_id": half_pool.pick(rng),
+						"elevation": 2,
+					})
+				else:
+					var cap_pool := half_pool if core else low_pool
+					plan.tiles.append({
+						"local": local,
+						"tile_id": cap_pool.pick(rng),
+						"elevation": 1,
+					})
+				raised[local] = true
 
 
 func _roll_stamps(

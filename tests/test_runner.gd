@@ -152,6 +152,7 @@ func _run() -> void:
 	_test_unfolding_world_flags_off()
 	_test_unfolding_world_reveal_timeline()
 	_test_unfolding_world_planting_flow()
+	_test_unfolding_world_relief()
 	_test_maxed_debug_world_spawn()
 	_test_skills_grant_no_direct_placeables()
 	_test_fish_journal_retired()
@@ -187,7 +188,7 @@ func _test_tile_library_contract() -> void:
 	var service := TileLibraryService.new()
 	service.reload()
 	var official := service.official_manifests()
-	check(official.size() == 56, "official Tile Library manifests are complete")
+	check(official.size() == 61, "official Tile Library manifests are complete")
 	for entry in TileKitPreset.OFFICIAL_RECIPES:
 		var tile_id := String(entry[1])
 		check(
@@ -1091,10 +1092,10 @@ func _test_registries() -> void:
 		"open water remains a real continuous-water tile"
 	)
 	check(
-		regs.active_tile_ids().size() == 55
+		regs.active_tile_ids().size() == 60
 		and regs.preview_tile_ids().is_empty()
 		and regs.obtainable_tile_ids().all(func(tile_id: String) -> bool: return regs.is_tile_active(tile_id)),
-		"the 55 catalog tiles ship in the active gameplay roster"
+		"the 60 catalog tiles ship in the active gameplay roster"
 	)
 	check(
 		regs.tile("tile_proc_fenced_meadow") != null
@@ -3617,8 +3618,12 @@ func _test_unfolding_world_generation() -> void:
 		and plan_a.stamp_ids == plan_b.stamp_ids,
 		"generation is deterministic: one seed card, one Nook, forever"
 	)
+	var ground_entries := 0
+	for tile: Dictionary in plan_a.tiles:
+		if int(tile.get("elevation", 0)) == 0:
+			ground_entries += 1
 	check(
-		plan_a.tiles.size() == size * size,
+		ground_entries == size * size,
 		"every cell of a generated Nook receives terrain"
 	)
 	check(not plan_a.features.is_empty(), "a grown Nook scatters features")
@@ -3772,7 +3777,7 @@ func _test_unfolding_world_clearing_and_treasure() -> void:
 			break
 	var world_cell: Vector2i = core.nooks.world.chunk_origin(Vector2i(3, 0)) + treasure_local
 	var target: WorldGrid.StructureState = null
-	for structure: WorldGrid.StructureState in core.grid.cell(world_cell).structures:
+	for structure: WorldGrid.StructureState in core.grid.top_cell(world_cell).structures:
 		var definition := core.registries.structure(structure.structure_id)
 		if definition != null and definition.placement_tags.has("tree"):
 			target = structure
@@ -3816,7 +3821,7 @@ func _test_unfolding_world_clearing_and_treasure() -> void:
 		"the treasure writes a journal entry"
 	)
 	var stump: WorldGrid.StructureState = null
-	for structure: WorldGrid.StructureState in core.grid.cell(world_cell).structures:
+	for structure: WorldGrid.StructureState in core.grid.top_cell(world_cell).structures:
 		if structure.structure_id == "struct_stump_pine":
 			stump = structure
 	check(stump != null, "the cleared tree left a stump")
@@ -4162,3 +4167,82 @@ func _test_unfolding_world_planting_flow() -> void:
 			not grown.runtime_state.has("growth"),
 			"placing an already-grown tree does not restart its life"
 		)
+
+
+func _test_unfolding_world_relief() -> void:
+	var core := fresh_core(6644)
+	var low := core.registries.tile("tile_grass_low")
+	check(
+		low != null
+		and is_equal_approx(low.height_fraction, 0.25)
+		and not low.stackable
+		and not low.supports_tiles,
+		"fractional tiles load as non-stacking top caps"
+	)
+	var relief_seed := 0
+	var relief_plan: NookGenerator.NookPlan = null
+	for candidate_seed in range(1, 40):
+		var probe := core.nooks.generator.generate(
+			Vector2i(7, 7),
+			{
+				"biome": "nook_biome_forest", "density": "open",
+				"mood": "mood_clear_noon", "seed": candidate_seed,
+			},
+			core.nooks.world.nook_size
+		)
+		for tile: Dictionary in probe.tiles:
+			if int(tile.get("elevation", 0)) > 0:
+				relief_seed = candidate_seed
+				relief_plan = probe
+				break
+		if relief_seed != 0:
+			break
+	check(relief_seed != 0, "forest Nooks regularly rise into knolls")
+	core.nooks.reveal_nook(Vector2i(7, 7), {
+		"biome": "nook_biome_forest", "density": "open",
+		"mood": "mood_clear_noon", "seed": relief_seed,
+	})
+	var origin := core.nooks.world.chunk_origin(Vector2i(7, 7))
+	var cap_cell := Vector2i.ZERO
+	var cap_fraction := 1.0
+	for tile: Dictionary in relief_plan.tiles:
+		if int(tile.get("elevation", 0)) == 1:
+			cap_cell = origin + (tile["local"] as Vector2i)
+			cap_fraction = core.registries.tile(
+				String(tile["tile_id"])
+			).height_fraction
+			break
+	check(
+		core.grid.has_cell_at(cap_cell, 1),
+		"the relief cap is real stacked world state"
+	)
+	var cap_top := core.grid.cell_to_world(cap_cell, 1).y
+	check(
+		is_equal_approx(cap_top, core.grid.block_depth * cap_fraction),
+		"a fractional cap raises the surface by its fraction, not a full block"
+	)
+	var ground_top := core.grid.cell_to_world(cap_cell, 0).y
+	check(
+		is_equal_approx(ground_top, 0.0),
+		"full-height ground keeps the standard plane"
+	)
+	var mountain_seed := 0
+	for candidate_seed in range(1, 120):
+		var probe := core.nooks.generator.generate(
+			Vector2i(8, 8),
+			{
+				"biome": "nook_biome_stonefell", "density": "open",
+				"mood": "mood_clear_noon", "seed": candidate_seed,
+			},
+			core.nooks.world.nook_size
+		)
+		for tile: Dictionary in probe.tiles:
+			if int(tile.get("elevation", 0)) == 2:
+				mountain_seed = candidate_seed
+				break
+		if mountain_seed != 0:
+			break
+	check(
+		mountain_seed != 0,
+		"stonefell can raise a two-layer mountain shoulder with a half cap"
+	)

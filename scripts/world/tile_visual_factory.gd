@@ -71,6 +71,11 @@ func instantiate_visual(
 	_add_surface_detail(visual, def.surface_detail_profile)
 	if preview and def.render_profile == "continuous_water":
 		_add_preview_water_surface(visual)
+	# Fractional tiles compress the block toward its own (already lowered)
+	# top: the bottom lands exactly on the support below, so a 0.25 cap is
+	# a shallow shelf, never a floating slab.
+	if def.height_fraction < 1.0:
+		visual.scale.y = def.height_fraction
 	return visual
 
 
@@ -1011,15 +1016,18 @@ func add_collision(
 				# Raised soft surfaces author real relief above the structural
 				# y=0 plane. Preserve the exact block bottom/stack seam while
 				# lifting only the walk plane to the measured median height.
+				# Fractional tiles shrink the block itself; the holder is
+				# already lowered by cell_to_world.
+				var block_height := grid.block_depth * def.height_fraction
 				var collision_height := (
-					grid.block_depth + def.walk_surface_height
+					block_height + def.walk_surface_height
 				)
 				_add_box(
 					holder,
 					Vector3(grid.tile_size, collision_height, grid.tile_size),
 					Vector3(
 						0.0,
-						(def.walk_surface_height - grid.block_depth) * 0.5,
+						(def.walk_surface_height - block_height) * 0.5,
 						0.0
 					),
 					GROUND_LAYER

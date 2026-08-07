@@ -107,7 +107,12 @@
     "tile_stone_mossy",
     "tile_stone_road",
     "tile_stone_ruin",
-    "tile_wooden_planks"
+    "tile_wooden_planks",
+    "tile_grass_low",
+    "tile_grass_half",
+    "tile_stone_clearing_low",
+    "tile_stone_mossy_half",
+    "tile_dirt_low"
   ],
   "starter_land_options": [
     "tile_grove_mature",

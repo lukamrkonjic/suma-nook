@@ -3352,6 +3352,317 @@
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_stone_ruin.tres",
       "source_kind": "procedural",
       "source_revision": 2
+    },
+    {
+      "id": "tile_grass_low",
+      "name": "Low Grass Rise",
+      "family": "home_meadow",
+      "catalog_category": "meadow",
+      "catalog_order": 11,
+      "asset_id": "tile_grass_surface",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_grass_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "detail",
+          "asset_id": "tile_grass_detail",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "edge",
+          "asset_id": "tile_grass_edge",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_grass_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": false,
+      "supports_tiles": false,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "render_profile": "layered",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "water_cells": [],
+      "anchor": "",
+      "decor_sockets": 3,
+      "structure_sockets": 1,
+      "unlock_level": {},
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "full_flush",
+      "exposed_top": "raised",
+      "connection_group": "home_meadow",
+      "biome_tags": [
+        "meadow"
+      ],
+      "landmark_tags": [],
+      "rarity": "common",
+      "weight": 3.0,
+      "placement_sound": "grass",
+      "collection_hint": "The gentle default. Everything grows from here.",
+      "special_trait": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_grass.tres",
+      "source_kind": "procedural",
+      "source_revision": 6,
+      "detail_rotation_variants": 4,
+      "height_fraction": 0.25
+    },
+    {
+      "id": "tile_grass_half",
+      "name": "Grass Rise",
+      "family": "home_meadow",
+      "catalog_category": "meadow",
+      "catalog_order": 11,
+      "asset_id": "tile_grass_surface",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_grass_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "detail",
+          "asset_id": "tile_grass_detail",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "edge",
+          "asset_id": "tile_grass_edge",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_grass_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": false,
+      "supports_tiles": false,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "render_profile": "layered",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "water_cells": [],
+      "anchor": "",
+      "decor_sockets": 3,
+      "structure_sockets": 1,
+      "unlock_level": {},
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "full_flush",
+      "exposed_top": "raised",
+      "connection_group": "home_meadow",
+      "biome_tags": [
+        "meadow"
+      ],
+      "landmark_tags": [],
+      "rarity": "common",
+      "weight": 3.0,
+      "placement_sound": "grass",
+      "collection_hint": "The gentle default. Everything grows from here.",
+      "special_trait": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_grass.tres",
+      "source_kind": "procedural",
+      "source_revision": 6,
+      "detail_rotation_variants": 4,
+      "height_fraction": 0.5
+    },
+    {
+      "id": "tile_stone_clearing_low",
+      "name": "Low Stone Shelf",
+      "family": "stonebound",
+      "catalog_category": "ruins",
+      "catalog_order": 21,
+      "asset_id": "tile_stone_clearing_surface",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_stone_clearing_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "detail",
+          "asset_id": "tile_stone_clearing_detail",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "edge",
+          "asset_id": "tile_stone_clearing_edge",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_stone_clearing_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": false,
+      "supports_tiles": false,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "render_profile": "layered",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "water_cells": [],
+      "anchor": "",
+      "decor_sockets": 3,
+      "structure_sockets": 1,
+      "unlock_level": {},
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "full_flush",
+      "exposed_top": "raised",
+      "connection_group": "stonebound",
+      "biome_tags": [],
+      "landmark_tags": [
+        "ruin"
+      ],
+      "rarity": "common",
+      "weight": 2.4,
+      "placement_sound": "stone",
+      "collection_hint": "",
+      "special_trait": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_stone_clearing.tres",
+      "source_kind": "procedural",
+      "source_revision": 2,
+      "height_fraction": 0.25
+    },
+    {
+      "id": "tile_stone_mossy_half",
+      "name": "Mossy Stone Rise",
+      "family": "stonebound",
+      "catalog_category": "ruins",
+      "catalog_order": 41,
+      "asset_id": "tile_stone_mossy_surface",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_stone_mossy_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "detail",
+          "asset_id": "tile_stone_mossy_detail",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "edge",
+          "asset_id": "tile_stone_mossy_edge",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_stone_mossy_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": false,
+      "supports_tiles": false,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "render_profile": "layered",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "water_cells": [],
+      "anchor": "",
+      "decor_sockets": 3,
+      "structure_sockets": 1,
+      "unlock_level": {},
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "full_flush",
+      "exposed_top": "raised",
+      "connection_group": "stonebound",
+      "biome_tags": [],
+      "landmark_tags": [
+        "ruin"
+      ],
+      "rarity": "common",
+      "weight": 1.8,
+      "placement_sound": "stone",
+      "collection_hint": "",
+      "special_trait": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_stone_mossy.tres",
+      "source_kind": "procedural",
+      "source_revision": 2,
+      "height_fraction": 0.5
+    },
+    {
+      "id": "tile_dirt_low",
+      "name": "Low Earth Bank",
+      "family": "home_meadow",
+      "catalog_category": "farm",
+      "catalog_order": 11,
+      "asset_id": "tile_dirt_surface",
+      "layers": [
+        {
+          "role": "base",
+          "asset_id": "tile_dirt_base",
+          "cover_behavior": "persist"
+        },
+        {
+          "role": "detail",
+          "asset_id": "tile_dirt_detail",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "edge",
+          "asset_id": "tile_dirt_edge",
+          "cover_behavior": "hide"
+        },
+        {
+          "role": "surface",
+          "asset_id": "tile_dirt_surface",
+          "cover_behavior": "hide"
+        }
+      ],
+      "stackable": false,
+      "supports_tiles": false,
+      "supports_decor": true,
+      "walkable": true,
+      "surface_kind": "flat",
+      "render_profile": "layered",
+      "collision_profile": "flat",
+      "soft_surface_profile": "",
+      "walk_surface_height": 0.0,
+      "water_cells": [],
+      "anchor": "",
+      "decor_sockets": 3,
+      "structure_sockets": 1,
+      "unlock_level": {},
+      "geometry_profile": "rounded_corner_slab",
+      "connection_mode": "full_flush",
+      "exposed_top": "raised",
+      "connection_group": "home_meadow",
+      "biome_tags": [],
+      "landmark_tags": [],
+      "rarity": "common",
+      "weight": 2.2,
+      "placement_sound": "grass",
+      "collection_hint": "",
+      "special_trait": "",
+      "obtainable": true,
+      "source_manifest": "res://tools/tile_kit/library/manifests/tile_dirt.tres",
+      "source_kind": "procedural",
+      "source_revision": 3,
+      "detail_rotation_variants": 4,
+      "height_fraction": 0.25
     }
   ]
 }

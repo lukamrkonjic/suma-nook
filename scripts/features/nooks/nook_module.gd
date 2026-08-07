@@ -91,13 +91,20 @@ func reveal_nook(coord: Vector2i, seed_card: Dictionary) -> NookGenerator.NookPl
 	if plan.biome_id == "":
 		return null
 	var origin := world.chunk_origin(coord)
-	for tile: Dictionary in plan.tiles:
+	# Ground before relief caps: stacked entries need their support first.
+	var ordered_tiles := plan.tiles.duplicate()
+	ordered_tiles.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(a.get("elevation", 0)) < int(b.get("elevation", 0))
+	)
+	for tile: Dictionary in ordered_tiles:
 		var cell: Vector2i = origin + (tile["local"] as Vector2i)
-		if grid.has_cell(cell):
+		var elevation := int(tile.get("elevation", 0))
+		if elevation == 0 and grid.has_cell(cell):
 			continue
 		commands.apply("place_tile", {
 			"coord": cell,
 			"tile_id": String(tile["tile_id"]),
+			"elevation": elevation,
 			"nook": coord,
 			"source": "generation",
 		})
@@ -107,6 +114,8 @@ func reveal_nook(coord: Vector2i, seed_card: Dictionary) -> NookGenerator.NookPl
 		var placed := commands.apply("place_feature", {
 			"coord": cell,
 			"structure_id": String(feature["structure_id"]),
+			# Features stand on whatever the relief pass left on top.
+			"elevation": maxi(0, grid.top_elevation(cell)),
 			"nook": coord,
 		})
 		if bool(feature.get("dormant", false)) and bool(placed.get("ok", false)):

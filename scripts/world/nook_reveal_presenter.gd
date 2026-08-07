@@ -33,8 +33,12 @@ func _on_nook_revealed(coord: Vector2i, plan: NookGenerator.NookPlan) -> void:
 	var world := core.nooks.world
 	var origin_cell := world.chunk_origin(coord)
 	var locals: Array[Vector2i] = []
+	var seen_locals: Dictionary = {}
 	for tile: Dictionary in plan.tiles:
-		locals.append(tile["local"] as Vector2i)
+		var local: Vector2i = tile["local"]
+		if not seen_locals.has(local):
+			seen_locals[local] = true
+			locals.append(local)
 	var seam := _seam_side(coord)
 	var wave_origin := NookRevealTimeline.wave_origin(
 		world.nook_size, seam, config
@@ -44,22 +48,28 @@ func _on_nook_revealed(coord: Vector2i, plan: NookGenerator.NookPlan) -> void:
 	var drop_height := float(config.get("tile_drop_height", 6.0))
 	var drop_seconds := maxf(0.05, float(config.get("tile_drop_seconds", 0.34)))
 	var overshoot := float(config.get("tile_overshoot", 0.08))
-	var animated := 0
+	var delays: Dictionary = {}
 	for entry: Dictionary in entries:
-		var cell: Vector2i = origin_cell + (entry["local"] as Vector2i)
-		var holder := renderer.cell_holder(cell)
+		delays[entry["local"] as Vector2i] = float(entry["delay"])
+	var animated := 0
+	for tile: Dictionary in plan.tiles:
+		var local: Vector2i = tile["local"]
+		var cell: Vector2i = origin_cell + local
+		var elevation := int(tile.get("elevation", 0))
+		var holder := renderer.cell_holder(cell, elevation)
 		if holder == null:
 			continue
 		animated += 1
-		_drop_tile(
-			holder, float(entry["delay"]), drop_height, drop_seconds, overshoot
-		)
-		_pop_features(
-			cell,
-			float(entry["delay"]) + drop_seconds
-				+ float(config.get("feature_pop_delay", 0.12)),
-			maxf(0.05, float(config.get("feature_pop_seconds", 0.22)))
-		)
+		# Relief caps land a beat after their ground, stacking the wave.
+		var delay := float(delays.get(local, 0.0)) + 0.08 * elevation
+		_drop_tile(holder, delay, drop_height, drop_seconds, overshoot)
+		if elevation == maxi(0, core.grid.top_elevation(cell)):
+			_pop_features(
+				cell,
+				delay + drop_seconds
+					+ float(config.get("feature_pop_delay", 0.12)),
+				maxf(0.05, float(config.get("feature_pop_seconds", 0.22)))
+			)
 	_settle_mood(plan.mood_id, duration, config)
 	reveal_started.emit(coord, duration)
 	if animated == 0:
@@ -93,7 +103,7 @@ func _drop_tile(
 
 
 func _pop_features(cell: Vector2i, delay: float, pop_seconds: float) -> void:
-	var state := core.grid.cell(cell)
+	var state := core.grid.top_cell(cell)
 	if state == null:
 		return
 	for structure: WorldGrid.StructureState in state.structures:
