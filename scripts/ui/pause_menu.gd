@@ -275,10 +275,10 @@ func _build_settings_page() -> void:
 	list.add_child(_setting_row("Gentle bloom", "Softens bright fires and magical highlights.", bloom_check))
 
 	list.add_child(kit.section_label("Pixel look"))
-	var painterly_check := _check_button("Ultra-realistic 3D", preferences.painterly_pixel)
+	var painterly_check := _check_button("Painterly pixels", preferences.painterly_pixel)
 	list.add_child(_setting_row(
-		"Realistic rendering",
-		"Native PBR materials, reflections, high-quality shadows, and no art filter.",
+		"Painterly rendering",
+		"Living pixel painting: soft colour bands with tactile clay depth.",
 		painterly_check
 	))
 	var pixel_option := OptionButton.new()

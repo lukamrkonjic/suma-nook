@@ -48,15 +48,16 @@ func _ready() -> void:
 	visible = false
 
 
-## Realistic mode is the live default art-direction test. The old save key remains
-## `painterly_pixel` so existing players keep their enabled/disabled choice.
-## When disabled,
-## `level_index` and `cel` retain the older optional retro presentation.
+## Painterly mode is the live default art direction: the upgraded pixel
+## painting with cavity/crest relief and palette-bound shadow/highlight
+## tints. `_apply_realistic()` (no fullscreen stylization) remains available
+## as an alternate art-direction test. When the toggle is off, `level_index`
+## and `cel` retain the older optional retro presentation.
 func apply(level_index: int, cel: bool, painterly := false) -> void:
 	if _material == null:
 		return
 	if painterly:
-		_apply_realistic()
+		_apply_painterly()
 		return
 	var index := clampi(level_index, 0, PIXEL_LEVELS.size() - 1)
 	_material.set_shader_parameter("pixel_size", float(PIXEL_LEVELS[index]))
