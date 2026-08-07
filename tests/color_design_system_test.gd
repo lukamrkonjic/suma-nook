@@ -13,8 +13,8 @@ func _ready() -> void:
 	_expect(palette.validate().is_empty(), "palette metadata validates")
 	_expect(palette.swatches.size() == 128, "palette uses exactly 128 reference tokens")
 	_expect(palette.swatches.size() <= 128, "reference palette stays within its hard cap")
-	_expect(palette.colors.size() == 427, "palette has all 427 canonical semantic colors")
-	_expect(palette.all_color_keys().size() == 432, "five aliases complete the named palette")
+	_expect(palette.colors.size() == 435, "palette has all 435 canonical semantic colors")
+	_expect(palette.all_color_keys().size() == 440, "five aliases complete the named palette")
 	_expect(
 		palette.render_targets.size() == palette.colors.size(),
 		"every canonical semantic color has a screen target"
@@ -22,15 +22,36 @@ func _ready() -> void:
 	_expect(palette.has_color("ui_text"), "aliases resolve to canonical tokens")
 	_expect(
 		palette.raw_color("warm_white").is_equal_approx(
-			Color(0.870355, 0.845445, 0.758989, 1.0)
+			Color(0.886, 0.854, 0.744, 1.0)
 		),
 		"game-ready semantic source values load exactly"
 	)
 	_expect(
 		palette.render_target("warm_white").is_equal_approx(
-			Color(0.9647, 0.9333, 0.8392, 1.0)
+			Color(0.9686, 0.9412, 0.8471, 1.0)
 		),
 		"screen-space target values load exactly"
+	)
+	_expect(
+		palette.active_scheme == "earthwood_cozy"
+		and palette.schemes["earthwood_cozy"]["overrides"].size()
+		== palette.colors.size(),
+		"active production scheme explicitly covers every semantic role"
+	)
+	_expect(
+		palette.color("background_day").is_equal_approx(
+			Color(0.658824, 0.647059, 0.552941, 1.0)
+		)
+		and palette.color("grass_primary").is_equal_approx(
+			Color(0.435294, 0.470588, 0.27451, 1.0)
+		)
+		and palette.color("pine_deep").is_equal_approx(
+			Color(0.129412, 0.239216, 0.196078, 1.0)
+		)
+		and palette.color("earth_primary").is_equal_approx(
+			Color(0.435294, 0.301961, 0.27451, 1.0)
+		),
+		"earthwood anchors preserve atmosphere, grass, forest, and clay separation"
 	)
 	_expect(
 		palette.character_swatches("skin").size()
