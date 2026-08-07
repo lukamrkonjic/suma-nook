@@ -144,6 +144,7 @@ func _run() -> void:
 	_test_harvesting_and_visitors()
 	_test_unfolding_world_generation()
 	_test_unfolding_world_offers_and_reveal()
+	_test_direct_frontier_expansion()
 	_test_unfolding_world_clearing_and_treasure()
 	_test_unfolding_world_firsts()
 	_test_unfolding_world_growth_and_keepsakes()
@@ -1808,6 +1809,65 @@ func _test_catalog_expansion() -> void:
 func _test_gg_render_contract() -> void:
 	var profile := load("res://assets/visual_profiles/suma_soft_daylight_warm.tres") as VisualStyleProfile
 	check(profile != null, "Suma soft-daylight visual profile loads")
+	var rig := LightingRig.new()
+	rig._environment = WorldEnvironment.new()
+	rig._environment.environment = Environment.new()
+	rig.add_child(rig._environment)
+	rig._bg_layer = CanvasLayer.new()
+	rig.add_child(rig._bg_layer)
+	rig._bg_rect = ColorRect.new()
+	rig._bg_layer.add_child(rig._bg_rect)
+	rig._bg_material = ShaderMaterial.new()
+	rig._bg_material.shader = load(
+		"res://assets/materials/mist_background.gdshader"
+	)
+	rig._gg_bg_material = ShaderMaterial.new()
+	rig._gg_bg_material.shader = load(
+		"res://assets/materials/gg_screen_skybox.gdshader"
+	)
+	rig._gg_bg_quad = MeshInstance3D.new()
+	rig.add_child(rig._gg_bg_quad)
+	var theme := PaletteDefinition.shared().world_theme("default")
+	rig._set_gg_background(
+		theme.bg0,
+		theme.bg1,
+		true,
+		theme.bg_zenith,
+		theme.bg_accent
+	)
+	var gg_color0 := rig._gg_bg_material.get_shader_parameter("color0") as Color
+	var gg_color1 := rig._gg_bg_material.get_shader_parameter("color1") as Color
+	var gg_zenith := (
+		rig._gg_bg_material.get_shader_parameter("zenith_color") as Color
+	)
+	var gg_accent := (
+		rig._gg_bg_material.get_shader_parameter("horizon_accent_color") as Color
+	)
+	check(
+		gg_color0.is_equal_approx(gg_color1)
+			and gg_color0.is_equal_approx(gg_zenith)
+			and gg_color0.is_equal_approx(gg_accent)
+			and gg_color0.is_equal_approx(theme.bg_accent),
+		"Garden Galaxy renders its lightest theme anchor as one flat background"
+	)
+	rig._set_gradient_background(
+		Color("91b6da"),
+		Color("c4d3dc"),
+		Color("e3dfcb"),
+		0.0
+	)
+	var legacy_top := rig._bg_material.get_shader_parameter("top_color") as Color
+	var legacy_mid := rig._bg_material.get_shader_parameter("mid_color") as Color
+	var legacy_bottom := (
+		rig._bg_material.get_shader_parameter("bottom_color") as Color
+	)
+	check(
+		legacy_top.is_equal_approx(legacy_mid)
+			and legacy_top.is_equal_approx(legacy_bottom)
+			and legacy_mid.is_equal_approx(Color("c4d3dc")),
+		"Legacy weather backdrops render their profile hue without a gradient"
+	)
+	rig.free()
 	var regs := GameContentCatalogScript.create()
 	check(regs.load_all(), "render-contract tuning registry loads")
 	check(
@@ -3781,6 +3841,122 @@ func _test_unfolding_world_offers_and_reveal() -> void:
 	check(
 		core.nooks.offers.can_offer(),
 		"modest activity in the newest Nook reopens the frontier"
+	)
+
+
+func _test_direct_frontier_expansion() -> void:
+	var core := fresh_core(20260807)
+	check(
+		NookFrontierMarkers.DOT_RADIUS >= 0.1
+			and NookFrontierMarkers.RIM_RADIUS > NookFrontierMarkers.DOT_RADIUS
+			and NookFrontierMarkers.HALO_RADIUS >= 0.24,
+		"frontier dots keep a bright readable core, rim, and halo"
+	)
+	var reveal_presenter := NookRevealPresenter.new()
+	check(
+		not reveal_presenter.has_method("_settle_mood"),
+		"expanding a Nook cannot change the global weather or time of day"
+	)
+	reveal_presenter.free()
+	var targets := NookFrontierMarkers.frontier_targets(core.nooks.world)
+	var directions: Array[Vector2i] = []
+	var marker_cells: Array[Vector2i] = []
+	for target: Dictionary in targets:
+		var direction: Vector2i = target["direction"]
+		var nook_coord: Vector2i = target["nook"]
+		directions.append(direction)
+		var marker_cell := NookFrontierMarkers.marker_cell(
+			core.nooks.world, nook_coord, direction
+		)
+		marker_cells.append(marker_cell)
+		check(
+			core.nooks.world.chunk_of_cell(marker_cell) == nook_coord
+			and not core.grid.has_cell(marker_cell),
+			"each frontier glow exposes an empty deterministic build-cursor target"
+		)
+	check(
+		targets.size() == 4
+		and directions.has(Vector2i.UP)
+		and directions.has(Vector2i.RIGHT)
+		and directions.has(Vector2i.DOWN)
+		and directions.has(Vector2i.LEFT)
+		and marker_cells.size() == 4,
+		"the initial Nook exposes every cardinal frontier slot"
+	)
+	check(
+		InputMap.has_action(&"build_confirm")
+		and InputDeviceServiceScript.new().action_has_controller_binding(
+			&"build_confirm"
+		),
+		"controller confirm activates the same deterministic frontier target as a click"
+	)
+
+	var east: Dictionary = targets.filter(func(target: Dictionary) -> bool:
+		return target["direction"] == Vector2i.RIGHT
+	)[0]
+	var first_coord: Vector2i = east["nook"]
+	var cells_before := core.grid.cells.size()
+	var first_plan := core.nooks.expand_random(first_coord)
+	check(
+		first_plan != null
+		and core.nooks.world.has_nook(first_coord)
+		and core.grid.cells.size() > cells_before,
+		"activating a glow immediately unfolds a complete generated Nook"
+	)
+	var first_record := core.nooks.world.nook(first_coord)
+	check(
+		first_record != null
+		and core.registries.nook_biome(first_record.biome_id) != null
+		and core.registries.nook_mood(first_record.mood_id) != null
+		and first_record.seed_value != 0,
+		"direct growth still uses the authored biome, density, mood, and seed pools"
+	)
+	check(
+		not core.nooks.offers.can_offer(),
+		"the compatibility activity gate is closed after a fresh reveal"
+	)
+
+	var next_targets := NookFrontierMarkers.frontier_targets(core.nooks.world)
+	check(
+		next_targets.size() == core.nooks.world.frontier_coords().size()
+		and next_targets.size() > 4,
+		"every open slot along a branched frontier receives a glow"
+	)
+	var south: Dictionary = next_targets.filter(func(target: Dictionary) -> bool:
+		return target["nook"] == Vector2i(0, 1)
+	)[0]
+	var second_coord: Vector2i = south["nook"]
+	check(
+		core.nooks.expand_random(second_coord) != null
+		and core.nooks.world.has_nook(second_coord),
+		"another glow can grow the world immediately without activity or inventory"
+	)
+	var gap_coord := Vector2i(1, 1)
+	var gap_target: Dictionary = {}
+	for target: Dictionary in NookFrontierMarkers.frontier_targets(core.nooks.world):
+		if target["nook"] == gap_coord:
+			gap_target = target
+			break
+	var gap_cell := NookFrontierMarkers.marker_cell(
+		core.nooks.world,
+		gap_coord,
+		gap_target.get("direction", Vector2i.ZERO)
+	)
+	check(
+		not gap_target.is_empty()
+		and core.nooks.world.chunk_of_cell(gap_cell) == gap_coord
+		and gap_cell == Vector2i(3, 3),
+		"a concave void between two Nook rows gets one centered fill-in glow"
+	)
+	check(
+		core.nooks.expand_random(gap_coord) != null
+		and core.nooks.world.has_nook(gap_coord),
+		"the between-row glow fills the void with a generated Nook"
+	)
+	check(
+		core.nooks.expand_random(gap_coord) == null
+		and core.nooks.expand_random(Vector2i(99, 99)) == null,
+		"direct growth rejects revealed and disconnected coordinates"
 	)
 
 

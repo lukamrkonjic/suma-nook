@@ -1,5 +1,5 @@
 shader_type canvas_item;
-// Screen-space vertical background gradient for the mist preset, with very
+// Screen-space flat background for the mist and legacy presets, with very
 // sparse soft star points. Draws behind the 3D diorama via BG_CANVAS.
 // Clouds are NOT drawn here: the volumetric void-cloud ocean below the
 // island is world-space fog, so the backdrop stays a calm open wash.
@@ -81,13 +81,7 @@ vec3 shooting_star_radiance(vec2 uv) {
 }
 
 void fragment() {
-	float t = UV.y;
-	vec3 col;
-	if (t < 0.5) {
-		col = mix(top_color.rgb, mid_color.rgb, t * 2.0);
-	} else {
-		col = mix(mid_color.rgb, bottom_color.rgb, (t - 0.5) * 2.0);
-	}
+	vec3 col = mid_color.rgb;
 	float aspect = (
 		SCREEN_PIXEL_SIZE.y
 		/ max(SCREEN_PIXEL_SIZE.x, 0.000001)
@@ -96,11 +90,6 @@ void fragment() {
 	radial_uv.x *= aspect * 0.64;
 	radial_uv.y *= 1.08;
 	float centre_glow = exp(-dot(radial_uv, radial_uv) * 3.1);
-	col = mix(
-		col,
-		centre_glow_color.rgb,
-		centre_glow * 0.16
-	);
 
 	vec2 mote_grid = UV * vec2(38.0, 22.0);
 	vec2 mote_cell = floor(mote_grid);

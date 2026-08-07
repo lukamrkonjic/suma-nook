@@ -35,8 +35,8 @@ somewhere between a hand-painted pixel landscape and a low-poly clay island.
 5. **Progressive breadth, unlimited depth.** Unlocks gate *kinds* of things,
    never quantities. Anything unlocked is unlimited forever. Saplings are
    free and infinite from the start.
-6. **The only 1-of-3 choice in the game happens at Nook seeds.** Placements
-   are never gacha; expansion is the ritual moment of chance.
+6. **The opening is the only 1-of-3 seed choice.** Later expansion asks for an
+   open neighboring slot, then lets the procedural Nook pools supply the surprise.
 
 ## The progression loop (as shipped)
 
@@ -47,12 +47,12 @@ with an irregular silhouette and pronounced terrain relief, which reveals via
 the falling-tile wave. Play remains in top-down god view. No tutorial lesson,
 no guided placement.
 
-**The frontier rhythm.** After modest activity in the newest Nook (a handful
-of placements, clearings, or plantings — minutes, not completion), the next
-offer quietly becomes available: a small sprout icon in a corner, and an
-entry in the Atlas. Opening it presents three new seed cards for the next
-chunk on the frontier. Biomes drift rather than checkerboard: neighboring
-biomes multiply their own odds. Nooks are permanent once revealed.
+**The frontier rhythm.** A small glowing dot sits in every open Nook slot beside
+the revealed world, including gaps between branches. Choosing one immediately
+rolls and unfolds that Nook without an activity or inventory cost. Biomes drift
+rather than checkerboard: neighboring biomes multiply their own odds. Expansion
+never changes the player's weather or time selection. Nooks are permanent once
+revealed.
 
 **Inside a Nook.**
 - *Clearing:* trees chop in 3–5 deliberate clicks (rising-pitch feedback,

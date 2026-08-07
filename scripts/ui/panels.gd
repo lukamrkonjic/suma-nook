@@ -4,7 +4,6 @@ extends CanvasLayer
 ## world stays visible around every card.
 
 signal panel_toggled(panel_name: String, open: bool)
-signal nook_offer_requested
 signal landmark_resolution_chosen(landmark_id: String, resolution: String)
 signal basket_tile_bundle_taken(haul_id: int, entry_index: int)
 signal basket_model_taken(haul_id: int, entry_index: int)
@@ -569,19 +568,6 @@ func _map_panel() -> Dictionary:
 	var parts := _scroll_list(520.0)
 	win["content"].add_child(parts["scroll"])
 	var list: VBoxContainer = parts["list"]
-
-	# The frontier: when the newest Nook has seen enough life, the next
-	# offer is reachable from here as well as from the world chip — the
-	# controller-native path to expansion.
-	var offers: NookOffers = core.nooks.offers
-	if offers.has_pending() or offers.can_offer():
-		var offer_button := kit.button("🌱  A new Nook waits — see the seeds", true)
-		offer_button.pressed.connect(func():
-			close()
-			nook_offer_requested.emit()
-		)
-		list.add_child(offer_button)
-		win["focus"] = offer_button
 
 	var map := _WorldMap.new()
 	map.core = core

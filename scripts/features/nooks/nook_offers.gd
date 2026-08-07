@@ -1,9 +1,8 @@
 class_name NookOffers
 extends RefCounted
-## The only 1-of-3 choice in the game: Nook seeds. Placements never offer
-## choices; expansion does. Soft frontier rhythm: the next offer becomes
-## available after modest activity in the newest Nook — minutes, not
-## completion.
+## Seed-card roller retained for the first Nook and save compatibility.
+## Later growth uses roll_direct(): a frontier glow chooses the open slot and
+## this service rolls one biome/density/mood seed from the same authored data.
 
 signal offer_ready(coord: Vector2i, cards: Array)
 signal offer_consumed(coord: Vector2i)
@@ -96,6 +95,30 @@ func choose_surprise() -> Dictionary:
 	return choose(rng.randi_range("nook_offer_surprise", 0, cards.size() - 1))
 
 
+## Rolls one procedural seed directly into a player-selected frontier coord.
+## This intentionally ignores the retired activity gate: direction is the
+## choice now, and growing the world never costs an earned item.
+func roll_direct(coord: Vector2i) -> Dictionary:
+	if (
+		not registries.feature("nooks_enabled", true)
+		or world.has_nook(coord)
+		or not world.frontier_coords().has(coord)
+	):
+		return {}
+	offers_made += 1
+	var cards := _roll_cards(coord, 1)
+	if cards.is_empty():
+		return {}
+	# Old saves may carry a waiting three-card offer. Direct growth supersedes
+	# it so a hidden legacy choice can never block or reappear later.
+	pending = {}
+	offer_consumed.emit(coord)
+	return {
+		"coord": coord,
+		"card": (cards[0] as Dictionary).duplicate(true),
+	}
+
+
 func reroll() -> Dictionary:
 	if pending.is_empty() or int(pending.get("rerolls_left", 0)) <= 0:
 		return {}
@@ -107,9 +130,13 @@ func reroll() -> Dictionary:
 
 ## Biome drifts instead of checkerboarding: revealed neighbors multiply
 ## their biome's weight. Density and mood roll from data-declared weights.
-func _roll_cards(coord: Vector2i) -> Array:
+func _roll_cards(coord: Vector2i, count_override := -1) -> Array:
 	var cards: Array = []
-	var count := int(registries.nook_config.get("offer_count", 3))
+	var count := (
+		count_override
+		if count_override >= 0
+		else int(registries.nook_config.get("offer_count", 3))
+	)
 	var used_biomes: Dictionary = {}
 	for index in count:
 		var stream := "nook_offer:%d:%d:%d:%d" % [

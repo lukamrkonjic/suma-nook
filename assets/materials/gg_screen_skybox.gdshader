@@ -1,28 +1,22 @@
 shader_type spatial;
 render_mode unshaded, cull_disabled, shadows_disabled;
-// Reconstruction of Garden Galaxy's "Custom/Screen Skybox" backdrop, drawn
-// exactly where Unity draws it: inside the 3D pass, on the far plane, in
-// linear radiance. Several very broad, slowly drifting gradient fields keep
-// the apricot atmosphere alive without ever becoming a readable noise map.
-// The sparse animated sparkle field remains above that wash. Reference values:
+// Garden Galaxy's "Custom/Screen Skybox" backdrop, drawn inside the 3D pass
+// on the far plane in linear radiance. Suma uses one uninterrupted theme
+// colour here; the sparse animated sparkle field remains above that wash.
+// Reference values:
 // _YOffset 0.69, _Exponent2 0.25, _SparkleOn 1, _SparkleIntensity 10,
 // _SparkleThreshold 0.965, _SparkleSoftness 0.01, _SparkleSpeed 0.002.
-// The theme controller pushes bgColor0/bgColor1 into it on every blend.
+// The theme controller pushes the selected flat colour into every anchor.
 // Clouds are NOT drawn here: the volumetric void-cloud ocean is world-space
 // geometry-composited fog, so this backdrop deliberately accepts fog (no
 // fog_disabled) and keeps the sky an open, calm wash.
 
 uniform vec3 color0 : source_color = vec3(1.0);
 uniform vec3 color1 : source_color = vec3(1.0);
-// Per-time-of-day art direction pushed by the lighting rig alongside
-// color0/color1: a deeper tone crowning the very top of the sky and a
-// luminous accent band hugging the horizon. Together with the two theme
-// anchors they give each time slot a four-stop painted gradient.
+// Retained as compatibility parameters for old resources and transitions;
+// the lighting rig now supplies the same flat colour to every anchor.
 uniform vec3 zenith_color : source_color = vec3(1.0);
 uniform vec3 horizon_accent_color : source_color = vec3(1.0);
-uniform float horizon_accent_strength : hint_range(0.0, 1.0) = 0.38;
-uniform float y_offset = 0.69;
-uniform float gradient_exponent = 0.25;
 uniform float sparkle_amount = 1.0;      // 0 disables the sparkle field
 uniform float sparkle_intensity = 10.0;
 uniform float sparkle_threshold = 0.965;
@@ -32,8 +26,6 @@ uniform vec3 centre_glow_color : source_color = vec3(1.0);
 uniform vec3 shooting_star_trail_color : source_color = vec3(1.0);
 uniform vec3 shooting_star_head_color : source_color = vec3(1.0);
 uniform vec3 night_star_color : source_color = vec3(1.0);
-uniform float sky_motion_speed : hint_range(0.0, 0.03) = 0.006;
-uniform float sky_breath_strength : hint_range(0.0, 0.2) = 0.085;
 uniform float mote_density : hint_range(0.0, 1.0) = 0.2;
 uniform float shooting_star_active = 0.0;
 uniform vec2 shooting_star_start = vec2(0.28, 0.18);
@@ -48,45 +40,6 @@ float hash21(vec2 p) {
 	p = fract(p * vec2(234.34, 435.345));
 	p += dot(p, p + 34.23);
 	return fract(p.x * p.y);
-}
-
-// C2-continuous step: plain smoothstep's derivative kinks at both edges
-// draw visible Mach-band creases across the sky's broad calm gradients.
-float smootherstep(float edge0, float edge1, float value) {
-	float t = clamp((value - edge0) / max(edge1 - edge0, 0.0001), 0.0, 1.0);
-	return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
-}
-
-float value_noise_2d(vec2 point) {
-	vec2 cell = floor(point);
-	vec2 local = fract(point);
-	// Quintic fade (C2 continuous): the cubic fade's second-derivative
-	// seams show up as faint straight creases across calm sky gradients.
-	local = local * local * local
-		* (local * (local * 6.0 - 15.0) + 10.0);
-	float bottom = mix(
-		hash21(cell),
-		hash21(cell + vec2(1.0, 0.0)),
-		local.x
-	);
-	float top = mix(
-		hash21(cell + vec2(0.0, 1.0)),
-		hash21(cell + vec2(1.0, 1.0)),
-		local.x
-	);
-	return mix(bottom, top, local.y);
-}
-
-float broad_sky_field(vec2 point) {
-	float value = 0.0;
-	float amplitude = 0.55;
-	mat2 turn = mat2(vec2(0.80, -0.60), vec2(0.60, 0.80));
-	for (int octave = 0; octave < 4; octave++) {
-		value += value_noise_2d(point) * amplitude;
-		point = turn * point * 1.92 + vec2(3.7, 1.9);
-		amplitude *= 0.47;
-	}
-	return value / 1.01;
 }
 
 vec3 shooting_star_radiance(vec2 uv) {
@@ -148,81 +101,12 @@ void vertex() {
 
 void fragment() {
 	vec2 uv = SCREEN_UV;
-	float sky_time = TIME * sky_motion_speed;
 	float mean_luminance = dot(
-		(color0 + color1) * 0.5,
+		color0,
 		vec3(0.2126, 0.7152, 0.0722)
 	);
 	float daylight = smoothstep(0.24, 0.74, mean_luminance);
-
-	// Two huge fields move in different directions. They bend the vertical
-	// gradient into imperceptibly evolving pools rather than laying visible
-	// noise over the sky. A full cycle takes minutes at the default speed.
-	float field_a = broad_sky_field(
-		uv * vec2(1.42, 1.16) + vec2(sky_time, -sky_time * 0.43)
-	);
-	float field_b = broad_sky_field(
-		uv.yx * vec2(1.08, 1.36)
-		+ vec2(-sky_time * 0.37, sky_time * 0.59)
-		+ 8.3
-	);
-	// The reference sky reads in three luminous strata: deeper warm
-	// cream-peach high up, a bright cream band through the middle, and a
-	// pale near-white haze rising from below where distant clouds catch
-	// the light. The theme colours are authored to the reference, so they
-	// pass through almost untouched; daylight only adds the gentle lift
-	// toward the luminous lower band.
-	vec3 upper_sky = color0;
-	vec3 bright_band = mix(color0, vec3(1.0), 0.14 * daylight);
-	vec3 low_haze = mix(color1, vec3(1.0), 0.22 * daylight);
-	float breath_y = uv.y + (field_a - 0.5) * sky_breath_strength;
-	// Four painted stops from the top of the frame to the horizon: deep
-	// zenith crown, the theme's upper sky, a luminous middle band, and
-	// the pale haze — then the horizon accent glows through the bottom.
-	vec3 color = mix(
-		zenith_color,
-		upper_sky,
-		smootherstep(0.02, 0.44, breath_y)
-	);
-	color = mix(
-		color,
-		bright_band,
-		smootherstep(0.32, 0.70, breath_y)
-	);
-	float haze_rise = smootherstep(
-		0.55,
-		1.08,
-		uv.y + (field_b - 0.5) * 0.1
-	);
-	color = mix(
-		color,
-		low_haze,
-		haze_rise * (0.45 + 0.25 * daylight)
-	);
-	float accent_band = smootherstep(0.70, 1.14, breath_y);
-	color = mix(
-		color,
-		horizon_accent_color,
-		accent_band * horizon_accent_strength
-	);
-
-	// One broad veiled light pool drifting slowly low through the sky,
-	// matching the reference's luminous region beneath the island.
-	float aspect = VIEWPORT_SIZE.x / max(VIEWPORT_SIZE.y, 1.0);
-	vec2 sun_position = vec2(
-		0.62 + sin(sky_time * 0.73) * 0.05,
-		0.52 + cos(sky_time * 0.51) * 0.03
-	);
-	vec2 radial_uv = uv - sun_position;
-	radial_uv.x *= aspect * 0.64;
-	radial_uv.y *= 1.08;
-	float centre_glow = exp(-dot(radial_uv, radial_uv) * 2.6);
-	color = mix(
-		color,
-		centre_glow_color,
-		centre_glow * 0.12 * daylight
-	);
-	color *= 0.99 + field_a * 0.022 + field_b * 0.010;
+	vec3 color = color0;
 
 	vec2 mote_grid = uv * vec2(38.0, 22.0);
 	vec2 mote_cell = floor(mote_grid);
@@ -247,9 +131,7 @@ void fragment() {
 		0.0,
 		mote_distance
 	) * mote_gate;
-	color += centre_glow_color * mote * (
-		0.20 + centre_glow * 0.22
-	);
+	color += centre_glow_color * mote * 0.20;
 
 	if (sparkle_amount > 0.0) {
 		vec2 cell = floor(uv * vec2(96.0, 54.0));
@@ -270,17 +152,6 @@ void fragment() {
 			* sparkle_intensity * 0.02 * sparkle_amount * star_boost;
 	}
 	color += shooting_star_radiance(uv);
-
-	// Debanding dither: ordered interleaved-gradient noise stays under
-	// the 8-bit quantisation step, unlike white noise which reads as
-	// grain. It also breathes down after dark, where any speckle would
-	// show against the near-black sky.
-	float ordered = fract(
-		52.9829189 * fract(
-			0.06711056 * FRAGCOORD.x + 0.00583715 * FRAGCOORD.y
-		)
-	);
-	color += vec3(ordered - 0.5) * (mix(0.4, 1.0, daylight) / 255.0);
 
 	ALBEDO = color;
 }

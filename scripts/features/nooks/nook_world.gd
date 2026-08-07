@@ -167,8 +167,8 @@ static func cell_key(local: Vector2i) -> String:
 	return "%d:%d" % [local.x, local.y]
 
 
-## Coords adjacent to revealed Nooks but not yet revealed — the frontier the
-## next offer expands into.
+## Coords adjacent to revealed Nooks but not yet revealed — every one becomes
+## a direct-growth glow, including concave gaps between branches.
 func frontier_coords() -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
 	for coord: Vector2i in nooks:

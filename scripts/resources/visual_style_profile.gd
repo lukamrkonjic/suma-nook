@@ -56,9 +56,9 @@ var ambient_ground_color := Color.MAGENTA:
 		ambient_ground_color = value
 		_track_color_override("ambient_ground_color", value)
 
-@export_group("Background gradient")
-## When enabled the rig shows a screen-space vertical gradient (mist preset)
-## behind the diorama instead of the flat background color.
+@export_group("Background backdrop")
+## Legacy profiles retain three colour anchors for lighting compatibility.
+## The rig renders their middle hue as one flat screen-space backdrop.
 @export var background_gradient := false
 var gradient_top := Color.MAGENTA:
 	set(value):
@@ -167,8 +167,9 @@ var fog_color := Color.MAGENTA:
 @export var grade_contrast := 35.0
 ## "neutral" or "none".
 @export var grade_tonemapper := "neutral"
-## Screen-space two-color backdrop matching "Custom/Screen Skybox"
-## (theme bgColor0/bgColor1) with the sparse sparkle field.
+## Screen-space Garden Galaxy backdrop. The time-of-day theme still provides
+## its authored anchors; the rig selects the lightest as one flat colour and
+## keeps the sparse sparkle field above it.
 @export var background_gg_gradient := false
 var bg_color0 := Color.MAGENTA:
 	set(value):

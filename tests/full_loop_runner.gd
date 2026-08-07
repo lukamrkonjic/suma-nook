@@ -331,14 +331,10 @@ func _step_creation() -> void:
 		and not main.hud.player_dock_visible(),
 		"free play stays in god view without a keeper placement dock"
 	)
-	var free_play_hint := main.hud._hint_label.text.to_lower()
 	check(
-		"fish" not in free_play_hint
-		and (
-			"drag any tile or model" in free_play_hint
-			or "move the build cursor" in free_play_hint
-		),
-		"free-play guidance explains direct world shaping without retired fishing"
+		main.hud._hint_label.text == ""
+			and not main.hud._hint_panel.visible,
+		"free play removes the unnecessary persistent guidance card"
 	)
 	# The old character loop remains test-addressable while its live HUD entry
 	# is removed; later legacy-system checks still use it as a fixture.

@@ -1629,18 +1629,9 @@ func update_tutorial() -> void:
 		OnboardingState.PLACE_VISITOR_REWARD:
 			set_hint("Place the visitor's gift — a first step beyond the forest.")
 			return
-	if InputDeviceService.shared().is_controller():
-		set_hint(
-			"Move the build cursor onto any tile or model, then %s."
-			% InputDeviceService.shared().format_action(
-				&"move_piece", "move it"
-			)
-		)
-	else:
-		set_hint(
-			"Drag any tile or model to rearrange your world. "
-			+ "Use the Build Bag to add more."
-		)
+	# The frontier dots and direct manipulation are self-explanatory in free
+	# play. Keep the guidance card reserved for active onboarding steps.
+	set_hint("")
 
 
 func _is_structure_placed(structure_id: String) -> bool:

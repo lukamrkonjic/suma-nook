@@ -1,9 +1,8 @@
 class_name NookOfferPanel
 extends CanvasLayer
-## The only 1-of-3 ritual after first landing: choosing the next Nook's
-## seed. A quiet chip appears when the frontier opens; the modal shows three
-## seed cards plus Surprise Me and a limited reroll. Fully driveable by
-## controller: deterministic focus, ui_accept activation, cancel to close.
+## Opening-only seed ritual. Later expansion happens directly at world-space
+## frontier glows; the non-opening methods remain solely to hydrate
+## old pending offers without breaking older saves and test fixtures.
 
 signal offer_accepted(coord: Vector2i)
 ## First boot only: the chosen seed card, before any world exists.
@@ -15,7 +14,6 @@ var _input_service: InputDeviceService
 var _root: Control
 var _chip: Button
 var _first_button: Button
-var _poll_accum := 0.0
 ## While true the panel is the opening ritual: no dismissal, no chip, and
 ## accepting hands the raw card to Main instead of revealing directly.
 var first_boot := false
@@ -51,20 +49,10 @@ func setup(game_core: GameCore, ui_kit: UiKit) -> void:
 	add_child(_chip)
 
 
-func _process(delta: float) -> void:
-	if core == null:
-		return
-	_poll_accum += delta
-	if _poll_accum < 0.5:
-		return
-	_poll_accum = 0.0
-	var offers: NookOffers = core.nooks.offers
-	var available := offers.has_pending() or offers.can_offer()
-	_chip.visible = available and not is_open() and not first_boot
-	if available:
-		_chip.tooltip_text = "A new Nook waits · also in the Atlas (%s)" % (
-			_input_service.format_action(&"panel_map", "map")
-		)
+func _process(_delta: float) -> void:
+	# The modal is now opening-only. Later Nooks are grown directly from
+	# world-space frontier glows, so no earned offer chip appears.
+	_chip.visible = false
 
 
 func is_open() -> bool:

@@ -145,8 +145,9 @@ func _ready() -> void:
 	_reflection_probe.update_mode = ReflectionProbe.UPDATE_ONCE
 	add_child(_reflection_probe)
 
-	# Screen-space gradient backdrop (mist preset). Sits behind the 3D scene
-	# via BG_CANVAS; hidden entirely for flat-color presets.
+	# Screen-space backdrop for mist and the legacy weather presets. Its base
+	# is a single profile colour; the canvas shader only adds sparse motes and
+	# stars above it.
 	_bg_layer = CanvasLayer.new()
 	_bg_layer.name = "Backdrop"
 	_bg_layer.layer = -10
@@ -441,11 +442,12 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 	if profile.background_gg_gradient:
 		_set_gg_background(profile.bg_color0, profile.bg_color1, profile.bg_sparkles_enabled)
 	elif profile.background_gradient:
-		_bg_rect.material = _bg_material
-		_bg_material.set_shader_parameter("top_color", profile.gradient_top)
-		_bg_material.set_shader_parameter("mid_color", profile.gradient_mid)
-		_bg_material.set_shader_parameter("bottom_color", profile.gradient_bottom)
-		_bg_material.set_shader_parameter("stars_amount", 1.0 if profile.stars_enabled else 0.0)
+		_set_gradient_background(
+			profile.gradient_top,
+			profile.gradient_mid,
+			profile.gradient_bottom,
+			1.0 if profile.stars_enabled else 0.0
+		)
 
 	_sun.light_color = profile.sun_color
 	_sun.light_energy = profile.sun_energy
@@ -1264,22 +1266,30 @@ func _set_flat_background(color: Color) -> void:
 	_gg_bg_quad.visible = false
 
 
-func _set_gradient_background(top: Color, middle: Color, bottom: Color, stars: float) -> void:
+func _set_gradient_background(
+	_top: Color,
+	middle: Color,
+	_bottom: Color,
+	stars: float
+) -> void:
+	# The legacy profiles still carry three authored colours because they are
+	# also useful to lighting and fog. The backdrop itself deliberately uses
+	# the middle/profile hue as one uninterrupted field. This keeps the blue
+	# daylight backdrop blue instead of promoting its old near-white glow.
 	_environment.environment.background_mode = Environment.BG_CANVAS
+	_environment.environment.background_color = middle
 	_bg_layer.visible = true
 	_gg_bg_quad.visible = false
 	_bg_rect.material = _bg_material
-	_bg_material.set_shader_parameter("top_color", top)
+	_bg_material.set_shader_parameter("top_color", middle)
 	_bg_material.set_shader_parameter("mid_color", middle)
-	_bg_material.set_shader_parameter("bottom_color", bottom)
+	_bg_material.set_shader_parameter("bottom_color", middle)
 	_bg_material.set_shader_parameter("stars_amount", stars)
 
 
-## GG "Custom/Screen Skybox" backdrop: bgColor0/bgColor1 wash plus the
-## per-time zenith crown and horizon accent band, rendered by the
-## far-plane quad inside the 3D pass. Themes without authored zenith or
-## accent colours (transparent sentinel) derive gentle ones from the two
-## anchors so every path stays coherent.
+## GG "Custom/Screen Skybox" backdrop rendered by the far-plane quad inside
+## the 3D pass. Theme anchors are retained for time-of-day art direction, but
+## the visible field uses the lightest authored anchor as one solid colour.
 func _set_gg_background(
 	color0: Color,
 	color1: Color,
@@ -1294,16 +1304,38 @@ func _set_gg_background(
 		zenith = color0.darkened(0.10)
 	if accent.a <= 0.001:
 		accent = color1.lightened(0.14)
-	_gg_bg_material.set_shader_parameter("color0", color0)
-	_gg_bg_material.set_shader_parameter("color1", color1)
-	_gg_bg_material.set_shader_parameter("zenith_color", zenith)
-	_gg_bg_material.set_shader_parameter("horizon_accent_color", accent)
+	var flat_color := _lightest_background_color([
+		color0,
+		color1,
+		zenith,
+		accent,
+	])
+	_environment.environment.background_color = flat_color
+	_gg_bg_material.set_shader_parameter("color0", flat_color)
+	_gg_bg_material.set_shader_parameter("color1", flat_color)
+	_gg_bg_material.set_shader_parameter("zenith_color", flat_color)
+	_gg_bg_material.set_shader_parameter("horizon_accent_color", flat_color)
 	_gg_bg_material.set_shader_parameter("sparkle_amount", 1.0 if sparkles else 0.0)
 	# The cloud sea takes its colour from whatever sky is actually shown,
 	# so clouds always sit inside the sky's own light - dim grey-blue at
 	# night, warm at sunset - instead of glowing with a parallel palette.
 	if void_clouds != null:
-		void_clouds.set_sky_light(color0, color1, zenith)
+		void_clouds.set_sky_light(flat_color, flat_color, flat_color)
+
+
+func _lightest_background_color(colors: Array[Color]) -> Color:
+	var lightest := colors[0]
+	var highest_luminance := -1.0
+	for color: Color in colors:
+		var luminance := (
+			color.r * 0.2126
+			+ color.g * 0.7152
+			+ color.b * 0.0722
+		)
+		if luminance > highest_luminance:
+			highest_luminance = luminance
+			lightest = color
+	return lightest
 
 
 func _shooting_stars_should_run() -> bool:

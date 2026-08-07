@@ -71,6 +71,7 @@ var pigeon_mascot: CharacterBody3D
 var pigeon_controller: PigeonMascotController
 var camera_rig: CameraRig
 var placement: PlacementController
+var frontier_markers: NookFrontierMarkers
 var skill_actions: SkillActions
 var harvest_presentation: Node
 var reward_reveal: RewardRevealSceneAdapter
@@ -112,6 +113,7 @@ var _controller_hud_hold_home_fired := false
 var _player_dock_busy := false
 var _player_drop_target: Dictionary = {}
 var _pending_build_interaction: Dictionary = {}
+var _nook_reveal_in_progress := false
 
 
 func _ready() -> void:
@@ -274,6 +276,10 @@ func _build_world_scene() -> void:
 	placement.name = "Placement"
 	world_root.add_child(placement)
 	placement.setup(core, assets, camera_rig, player, effects, renderer)
+	frontier_markers = NookFrontierMarkers.new()
+	frontier_markers.name = "NookFrontierMarkers"
+	world_root.add_child(frontier_markers)
+	frontier_markers.setup(core, camera_rig.camera, placement, palette)
 
 	skill_actions = SkillActions.new()
 	skill_actions.name = "SkillActions"
@@ -400,12 +406,11 @@ func _build_ui() -> void:
 	nook_offer_panel.name = "NookOfferPanel"
 	add_child(nook_offer_panel)
 	nook_offer_panel.setup(core, kit)
-	panels.nook_offer_requested.connect(nook_offer_panel.open)
 
 	nook_reveal_presenter = NookRevealPresenter.new()
 	nook_reveal_presenter.name = "NookRevealPresenter"
 	add_child(nook_reveal_presenter)
-	nook_reveal_presenter.setup(core, renderer, lighting)
+	nook_reveal_presenter.setup(core, renderer)
 
 	pause_menu = PauseMenu.new()
 	pause_menu.name = "PauseMenu"
@@ -893,6 +898,8 @@ func _connect_flows() -> void:
 	)
 	pause_menu.opened.connect(_refresh_controller_hints)
 	pause_menu.closed.connect(_refresh_controller_hints)
+	nook_reveal_presenter.reveal_started.connect(_on_nook_reveal_started)
+	nook_reveal_presenter.reveal_finished.connect(_on_nook_reveal_finished)
 
 	skill_actions.action_feedback.connect(_on_action_feedback)
 	skill_actions.storage_requested.connect(func(): panels.toggle("inventory"))
@@ -1102,6 +1109,7 @@ func _start_gameplay(fresh: bool, show_welcome := true) -> void:
 	placement.set_active(true)
 	player.dock_for_placement()
 	player_drop_preview.visible = false
+	frontier_markers.rebuild()
 	hud.update_tutorial()
 	if show_welcome:
 		hud.toast("Welcome%s, %s." % ["" if fresh else " back", core.profile.display_name], "good")
@@ -1244,11 +1252,41 @@ func _apply_saved_visual_state() -> void:
 
 
 func _process(delta: float) -> void:
+	_update_frontier_marker_availability()
 	if not _gameplay_started:
 		return
 	_tick_controller_hud_hold(delta)
 	core.tick(delta)
 	_tick_footsteps(delta)
+
+
+func _update_frontier_marker_availability() -> void:
+	if frontier_markers == null:
+		return
+	frontier_markers.set_interaction_enabled(
+		_gameplay_started
+		and placement.active
+		and placement.held.is_empty()
+		and not _nook_reveal_in_progress
+		and not pause_menu.is_open()
+		and not panels.is_open()
+		and not discovery_reveal.is_open()
+		and not nook_offer_panel.is_open()
+		and (asset_viewer == null or not asset_viewer.is_open())
+	)
+
+
+func _on_nook_reveal_started(_coord: Vector2i, _duration: float) -> void:
+	_nook_reveal_in_progress = true
+	_update_frontier_marker_availability()
+
+
+func _on_nook_reveal_finished(_coord: Vector2i) -> void:
+	_nook_reveal_in_progress = false
+	if frontier_markers != null:
+		frontier_markers.rebuild()
+	_update_frontier_marker_availability()
+	_refresh_controller_hints()
 
 
 func _tick_controller_hud_hold(delta: float) -> void:
@@ -1380,6 +1418,8 @@ func _begin_build_pointer(screen_position: Vector2) -> void:
 	_pending_build_interaction = {}
 	if not placement.held.is_empty():
 		placement.pointer_press(screen_position)
+		return
+	if _try_expand_frontier_at_screen(screen_position):
 		return
 	# The retired guided-canvas fixture still teaches its old click-to-harvest
 	# lesson. In the shipped god-view flow, direct manipulation wins: pressing
@@ -1571,6 +1611,7 @@ func _handle_controller_build_input(event: InputEvent) -> void:
 	if cursor_direction != Vector2i.ZERO:
 		placement.move_controller_cursor(cursor_direction)
 		get_viewport().set_input_as_handled()
+		_refresh_controller_hints()
 		return
 	if (
 		event.is_action_pressed("build_confirm")
@@ -1750,10 +1791,18 @@ func _refresh_controller_hints() -> void:
 					{"action": &"store_piece", "label": "Store"}
 				)
 		elif placement.controller_cursor_active():
+			var confirm_label := "Interact"
+			if (
+				frontier_markers != null
+				and not frontier_markers.marker_at_cell(
+					placement.controller_cursor_cell()
+				).is_empty()
+			):
+				confirm_label = "Grow land"
 			actions = [
 				{"action": &"build_cursor_up", "label": "Move cursor"},
 				{"action": &"camera_pan_up", "label": "Pan camera"},
-				{"action": &"build_confirm", "label": "Interact"},
+				{"action": &"build_confirm", "label": confirm_label},
 				{"action": &"move_piece", "label": "Move piece"},
 				{"action": &"build_mode", "label": "Library"},
 				{"action": &"cancel", "label": "Exit"},
@@ -1818,10 +1867,47 @@ func _try_build_world_action_at_screen(screen_position: Vector2) -> bool:
 
 
 func _try_build_world_action_at_cell(cell: Vector2i) -> bool:
+	if _try_expand_frontier_at_cell(cell):
+		return true
 	var visitor: Dictionary = visitor_scene.call("event_at_cell", cell)
 	if not visitor.is_empty():
 		return bool(visitor_scene.call("interact", int(visitor["event_id"])))
 	return _try_harvest_instance(placement.controller_target_instance_id())
+
+
+func _try_expand_frontier_at_screen(screen_position: Vector2) -> bool:
+	if frontier_markers == null:
+		return false
+	var marker := frontier_markers.marker_at_screen(screen_position)
+	return (
+		_expand_nook_at(marker.get("nook", Vector2i.ZERO))
+		if not marker.is_empty()
+		else false
+	)
+
+
+func _try_expand_frontier_at_cell(cell: Vector2i) -> bool:
+	if frontier_markers == null:
+		return false
+	var marker := frontier_markers.marker_at_cell(cell)
+	return (
+		_expand_nook_at(marker.get("nook", Vector2i.ZERO))
+		if not marker.is_empty()
+		else false
+	)
+
+
+func _expand_nook_at(coord: Vector2i) -> bool:
+	if _nook_reveal_in_progress or not placement.held.is_empty():
+		return false
+	var plan := core.nooks.expand_random(coord)
+	if plan == null:
+		audio.play_event("build_invalid")
+		return false
+	audio.play_event("parcel_reveal")
+	core.autosave_soon()
+	_refresh_controller_hints()
+	return true
 
 
 func _try_harvest_instance(instance_id: int) -> bool:
@@ -2276,6 +2362,7 @@ func reload_from_save() -> void:
 		hud._refresh_all()
 		placement.set_active(true)
 		player.dock_for_placement()
+		frontier_markers.rebuild()
 		hud.toast("Save reloaded.", "good")
 		if player.deployed and is_instance_valid(pigeon_controller):
 			pigeon_controller.spawn_near_player()

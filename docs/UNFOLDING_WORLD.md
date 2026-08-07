@@ -14,7 +14,8 @@ Creative expression is the purpose; every system below serves it.
    per Nook, keepsake moments. Never visible requests.
 5. Progressive breadth, unlimited depth: unlocks gate *kinds*, never
    quantities (saplings are literally unlimited in the Build Bag).
-6. The 1-of-3 choice happens at Nook seeds only, never at placements.
+6. The opening chooses 1-of-3 seeds. Later growth chooses any open frontier
+   slot; the procedural pools surprise you with the Nook itself.
 
 ## Architecture
 
@@ -52,7 +53,7 @@ references:
 | --- | --- | --- |
 | `data/nook_biomes.json` | `nook_biomes` | slot→pool palettes, densities, moods, treasure tables, drift weights |
 | `data/nook_stamps.json` | `nook_stamps` | hand-authored landform grids in palette slots, edges, dormant sockets |
-| `data/nook_moods.json` | `nook_moods` | weather/time/particle overrides (presentation only) |
+| `data/nook_moods.json` | `nook_moods` | descriptive procedural mood metadata; expansion never changes global weather or time |
 | `data/treasure_tables.json` | `treasure_tables` | host-tag slots rolled at generation |
 | `data/firsts.json` | `firsts` | world-signal triggers, chunk-lacked conditions, unlocks, journal text |
 | `data/dormants.json` | `dormants` | dormant structure, wake score, reward, journal page |
@@ -71,10 +72,11 @@ once, it reads correctly in every biome.
   New Nooks are compact 4×4 slates with one or two cut-away corners and a
   guaranteed readable knoll; rocky Nooks may form a two-level shoulder.
   Pre-4×4 saves keep their original 8×8 coordinate spacing.
-- **Offers**: `NookOffers` rolls 3 seed cards with biome drift (revealed
-  neighbors multiply their biome weight); limited rerolls; Surprise Me is a
-  plain random pick. The next offer opens after modest activity in the
-  newest Nook (`frontier_activity_threshold`).
+- **Frontier glows**: every unrevealed Nook slot beside the world gets one
+  small dot, including concave gaps between two branches. Clicking one, or
+  targeting it with the build cursor and confirming, immediately rolls a Nook
+  from the authored biome/density/mood/stamp pools. Neighboring biomes still
+  multiply their own weight, but growth has no activity or inventory cost.
 - **Clearing**: harvest profiles gained `on_final: "clear"` and `leaves`.
   Trees chop down to a pryable stump; stones crack to nothing; the
   `source_cleared` signal routes through `NookModule` into the
@@ -92,17 +94,18 @@ once, it reads correctly in every biome.
   before it fires. Journal entries appear only afterwards.
 - **Reveal wave**: `NookRevealTimeline` (pure math, tested headless) +
   `NookRevealPresenter` (falling tiles from the connecting seam, feature
-  pops behind the wavefront, mood settles last). State commits before
-  presentation starts; interrupting the animation cannot lose anything.
+  pops behind the wavefront). State commits before presentation starts;
+  expansion never changes the selected weather or time, and interrupting the
+  animation cannot lose anything.
 
 ## UI
 
 - The resting world is god view. There is no character-placement dock.
   Pointer users drag any tile or model directly; controller users target the
   same pieces with the build cursor and the named `move_piece` action.
-- `NookOfferPanel`: modal 3-card ritual + quiet HUD chip; deterministic
-  focus, `ui_accept`, `cancel` — controller-complete. Also reachable from
-  the Atlas (`panel_map`) for a controller-native path.
+- `NookOfferPanel`: opening-only 3-card seed ritual with deterministic focus.
+- `NookFrontierMarkers`: pointer hit targets plus build-cursor cells for every
+  open neighboring slot; `build_confirm` unfolds the selected Nook.
 - Atlas v1 lives in the map panel: pending-offer entry, world map, named
   Nook registry (biome/mood/finds), the name-the-Nook ritual, and journal
   excerpts.

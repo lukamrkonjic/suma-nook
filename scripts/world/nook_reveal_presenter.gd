@@ -1,10 +1,9 @@
 class_name NookRevealPresenter
 extends Node
 ## The signature moment: terrain falls in as a radial wave from the
-## connecting seam, features pop after the wavefront passes, and the Nook's
-## mood settles last. Presentation only — every cell already committed
-## through the command layer before this starts; skipping or interrupting
-## the animation can never lose state.
+## connecting seam and features pop after the wavefront passes. Presentation
+## only — every cell already committed through the command layer before this
+## starts; skipping or interrupting the animation can never lose state.
 ##
 ## Timings live in data/reveal.json (via NookRevealTimeline); there is no
 ## animation constant in this file worth tuning.
@@ -14,17 +13,14 @@ signal reveal_finished(coord: Vector2i)
 
 var core: GameCore
 var renderer: WorldRenderer
-var lighting   # LightingRig or null — mood settle degrades to nothing
 
 
 func setup(
 	game_core: GameCore,
-	world_renderer: WorldRenderer,
-	lighting_rig = null
+	world_renderer: WorldRenderer
 ) -> void:
 	core = game_core
 	renderer = world_renderer
-	lighting = lighting_rig
 	core.nooks.nook_revealed.connect(_on_nook_revealed)
 
 
@@ -70,7 +66,6 @@ func _on_nook_revealed(coord: Vector2i, plan: NookGenerator.NookPlan) -> void:
 					+ float(config.get("feature_pop_delay", 0.12)),
 				maxf(0.05, float(config.get("feature_pop_seconds", 0.22)))
 			)
-	_settle_mood(plan.mood_id, duration, config)
 	reveal_started.emit(coord, duration)
 	if animated == 0:
 		reveal_finished.emit(coord)
@@ -117,22 +112,6 @@ func _pop_features(cell: Vector2i, delay: float, pop_seconds: float) -> void:
 		tween.tween_property(
 			visual, "scale", target_scale, pop_seconds
 		).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-
-
-## Mood settles last: weather and time-of-day crossfade after the wave.
-func _settle_mood(mood_id: String, wave_duration: float, config: Dictionary) -> void:
-	if lighting == null or mood_id == "":
-		return
-	var mood := core.registries.nook_mood(mood_id)
-	if mood == null:
-		return
-	var timer := get_tree().create_timer(maxf(0.0, wave_duration * 0.6))
-	timer.timeout.connect(func():
-		if lighting.has_method("set_weather"):
-			lighting.set_weather(mood.weather)
-		if lighting.has_method("set_time_of_day") and mood.time_of_day != "":
-			lighting.set_time_of_day(mood.time_of_day)
-	)
 
 
 ## The side of this chunk that touches an already-revealed neighbour, so

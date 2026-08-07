@@ -81,6 +81,18 @@ func accept_offer(index: int, surprise := false) -> NookGenerator.NookPlan:
 	return reveal_nook(choice["coord"], choice["card"])
 
 
+## Expands immediately in the open slot selected by a frontier glow. The
+## authored procedural pools still decide biome, density, mood, stamp, relief,
+## features, and discoveries; there is no activity or inventory gate.
+func expand_random(coord: Vector2i) -> NookGenerator.NookPlan:
+	if not enabled:
+		return null
+	var choice := offers.roll_direct(coord)
+	if choice.is_empty():
+		return null
+	return reveal_nook(choice["coord"], choice["card"])
+
+
 ## Applies a seed card to the world: generation is deterministic from the
 ## card, application flows through the command reducer, and the resulting
 ## record carries the invisible discovery assignments.
