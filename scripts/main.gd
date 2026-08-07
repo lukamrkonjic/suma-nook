@@ -157,8 +157,17 @@ func _ready() -> void:
 		player_visual.apply_equipment(core.equipment)
 		_start_gameplay(true)
 	elif core.save_manager.has_save() and core.load_game():
-		_start_gameplay(false)
-		call_deferred("_resume_guided_onboarding")
+		# Pre-rework saves can carry a half-finished guided lesson the
+		# shipped seeded opening no longer supports. Never resume it into a
+		# dead end: close the lesson and hand the world straight to play.
+		if core.onboarding.is_active() \
+			and OS.get_environment("SUMA_LEGACY_OPENING") != "1":
+			core.onboarding.set_stage(OnboardingState.COMPLETE)
+			core.save()
+			_start_gameplay(false)
+		else:
+			_start_gameplay(false)
+			call_deferred("_resume_guided_onboarding")
 	else:
 		# The Unfolding World opening: one question — the first Nook's seed
 		# — then the same falling-tile reveal as every later expansion. The
