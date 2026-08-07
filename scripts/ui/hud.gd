@@ -162,6 +162,9 @@ func _build_layout() -> void:
 	# Biome-token wallet. It stays compact but makes every harvest payout
 	# immediately legible; the same panel opens from the inventory action for
 	# keyboard and controller players.
+	# Calm HUD: the wallet surfaces only for a few breaths after a payout,
+	# then leaves the screen to the world. The inventory action keeps it one
+	# press away at all times.
 	_token_pouch_button = kit.button("", false)
 	_token_pouch_button.name = "TokenPouch"
 	_token_pouch_button.set_anchors_preset(Control.PRESET_TOP_LEFT)
@@ -170,6 +173,8 @@ func _build_layout() -> void:
 	_token_pouch_button.add_theme_font_size_override("font_size", 15)
 	_token_pouch_button.focus_mode = Control.FOCUS_NONE
 	_token_pouch_button.pressed.connect(func(): token_pouch_requested.emit())
+	_token_pouch_button.visible = false
+	_token_pouch_button.modulate.a = 0.0
 	root.add_child(_token_pouch_button)
 
 	# Build hover identity — compact and centered, so the world remains the
@@ -558,15 +563,37 @@ func _refresh_all() -> void:
 		_health_box.visible = false
 
 
+var _pouch_fade_tween: Tween
+var _last_pouch_signature := ""
+
+
 func _refresh_token_pouch() -> void:
 	if _token_pouch_button == null:
 		return
-	_token_pouch_button.text = "Pouch   Forest %d   ·   Rock %d" % [
-		core.token_pouch.balance("token_forest"),
-		core.token_pouch.balance("token_rock"),
-	]
+	var forest: int = core.token_pouch.balance("token_forest")
+	var rock: int = core.token_pouch.balance("token_rock")
+	_token_pouch_button.text = "Pouch   Forest %d   ·   Rock %d" % [forest, rock]
 	_token_pouch_button.tooltip_text = "Open Pouch & Boxes · %s" % (
 		InputDeviceService.shared().format_action(&"panel_inventory", "open")
+	)
+	# Surface briefly on change, then fade back out of the way.
+	var signature := "%d:%d" % [forest, rock]
+	if signature == _last_pouch_signature:
+		return
+	var first_reading := _last_pouch_signature == ""
+	_last_pouch_signature = signature
+	if first_reading:
+		return
+	if _pouch_fade_tween != null and _pouch_fade_tween.is_valid():
+		_pouch_fade_tween.kill()
+	_token_pouch_button.visible = true
+	_pouch_fade_tween = _token_pouch_button.create_tween()
+	_pouch_fade_tween.tween_property(_token_pouch_button, "modulate:a", 1.0, 0.22)
+	_pouch_fade_tween.tween_interval(3.6)
+	_pouch_fade_tween.tween_property(_token_pouch_button, "modulate:a", 0.0, 0.8)
+	_pouch_fade_tween.tween_callback(func():
+		if _token_pouch_button != null:
+			_token_pouch_button.visible = false
 	)
 
 

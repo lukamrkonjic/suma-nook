@@ -81,6 +81,10 @@ func _ready() -> void:
 	for path in [SAVE_PATH, SAVE_PATH + ".backup"]:
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(path)
+	# This acceptance loop drives the legacy guided-canvas opening, which is
+	# now a test-only flow; the shipped opening is the Nook seed ritual
+	# (covered headless in test_runner and by --seeded-opening below).
+	OS.set_environment("SUMA_LEGACY_OPENING", "1")
 	# Inject before the node enters the tree so Main cannot inspect or load the
 	# developer's normal save during its _ready callback.
 	main = (load("res://scenes/main.tscn") as PackedScene).instantiate()
@@ -710,9 +714,14 @@ func _step_build_library_ui() -> void:
 		main.pause_menu.close()
 		await wait(0.05)
 
-	# Pixel look: the Imota-ported pixelation applies from preferences and the
-	# presentation layer stays hidden while the setting is off.
-	check(not main.pixel_look.visible, "the pixel look stays off by default")
+	# Pixel look: painterly pixels are the live default art direction, and
+	# the legacy retro sizes still work when painterly is toggled off.
+	check(
+		main.pause_menu.preferences.painterly_pixel
+		and main.pixel_look.visible,
+		"painterly pixels are on by default"
+	)
+	main.pause_menu.preferences.painterly_pixel = false
 	main.pause_menu.preferences.pixel_size = 3
 	main.pause_menu.preferences.apply(
 		main.get_viewport(),
@@ -728,7 +737,14 @@ func _step_build_library_ui() -> void:
 		main.hud,
 		main.pixel_look
 	)
-	check(not main.pixel_look.visible, "returning pixel size to off hides the layer again")
+	check(not main.pixel_look.visible, "with painterly off and no pixel size, the layer hides")
+	main.pause_menu.preferences.painterly_pixel = true
+	main.pause_menu.preferences.apply(
+		main.get_viewport(),
+		main.lighting,
+		main.hud,
+		main.pixel_look
+	)
 	check(
 		not main.core.registries.feature("void_clouds_enabled", true)
 		and main.lighting.void_clouds == null

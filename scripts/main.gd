@@ -160,14 +160,12 @@ func _ready() -> void:
 		_start_gameplay(false)
 		call_deferred("_resume_guided_onboarding")
 	else:
+		# The Unfolding World opening: one question — the first Nook's seed
+		# — then the same falling-tile reveal as every later expansion. The
+		# legacy nine-tile guided canvas remains only for tests.
 		var opening_profile := PlayerProfile.new()
 		opening_profile.display_name = "Keeper"
-		core.begin_build_onboarding(opening_profile)
-		renderer.rebuild_all()
-		player_visual.apply_profile(core.profile)
-		player_visual.apply_equipment(core.equipment)
-		_start_gameplay(true, false)
-		call_deferred("_resume_guided_onboarding")
+		_begin_seeded_opening(opening_profile)
 	_apply_debug_visual_overrides()
 	_schedule_debug_capture()
 
@@ -992,6 +990,34 @@ func _starter_land_option_ids() -> Array:
 		if tile != null and core.registries.is_tile_active(tile.id):
 			options.append(tile.id)
 	return options
+
+
+## Fresh boot: the seed question comes first; the world unfolds from the
+## answer. State commits inside begin_seeded_game before the reveal wave
+## plays, so quitting mid-animation loses nothing.
+func _begin_seeded_opening(opening_profile: PlayerProfile) -> void:
+	if OS.get_environment("SUMA_LEGACY_OPENING") == "1" \
+		or not core.registries.feature("nooks_enabled", true):
+		# Feature flag off: the legacy guided canvas is the fallback.
+		core.begin_build_onboarding(opening_profile)
+		renderer.rebuild_all()
+		player_visual.apply_profile(core.profile)
+		player_visual.apply_equipment(core.equipment)
+		_start_gameplay(true, false)
+		call_deferred("_resume_guided_onboarding")
+		return
+	get_tree().paused = false
+	_gameplay_started = false
+	hud.visible = false
+	player_visual.apply_profile(opening_profile)
+	nook_offer_panel.first_seed_chosen.connect(func(card: Dictionary):
+		core.begin_seeded_game(opening_profile, card)
+		player.position = core.profile.position
+		player_visual.apply_profile(core.profile)
+		player_visual.apply_equipment(core.equipment)
+		_start_gameplay(true, false)
+	, CONNECT_ONE_SHOT)
+	nook_offer_panel.open_for_first_boot()
 
 
 func _on_creation_finished(profile: PlayerProfile) -> void:

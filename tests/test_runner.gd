@@ -153,6 +153,7 @@ func _run() -> void:
 	_test_unfolding_world_reveal_timeline()
 	_test_unfolding_world_planting_flow()
 	_test_unfolding_world_relief()
+	_test_unfolding_world_seeded_opening()
 	_test_maxed_debug_world_spawn()
 	_test_skills_grant_no_direct_placeables()
 	_test_fish_journal_retired()
@@ -4245,4 +4246,56 @@ func _test_unfolding_world_relief() -> void:
 	check(
 		mountain_seed != 0,
 		"stonefell can raise a two-layer mountain shoulder with a half cap"
+	)
+
+
+func _test_unfolding_world_seeded_opening() -> void:
+	var core := GameCore.new()
+	check(core.setup("res://data", 9090), "seeded opening core loads")
+	core.save_manager.save_path = "user://test_seeded_save.json"
+	core.save_manager.backup_path = "user://test_seeded_save.json.backup"
+	var offer: Dictionary = core.nooks.offers.make_offer(Vector2i.ZERO)
+	check(
+		not offer.is_empty()
+		and offer.get("coord", Vector2i.ONE) == Vector2i.ZERO,
+		"a fresh world offers the first seed at the origin"
+	)
+	var choice: Dictionary = core.nooks.offers.choose(0)
+	var profile := PlayerProfile.new()
+	profile.display_name = "Keeper"
+	core.begin_seeded_game(profile, choice.get("card", {}))
+	var record := core.nooks.world.nook(Vector2i.ZERO)
+	check(
+		record != null and record.starter and record.display_name == "Home",
+		"the chosen seed becomes the starter Nook"
+	)
+	check(
+		core.grid.cells.size() >= core.nooks.world.nook_size \
+			* core.nooks.world.nook_size,
+		"the first Nook is real generated ground, not the authored canvas"
+	)
+	check(
+		core.grid.is_walkable(core.grid.home_cell),
+		"the keeper spawns on walkable ground"
+	)
+	var spawn_state := core.grid.top_cell(core.grid.home_cell)
+	var spawn_clear := true
+	for structure: WorldGrid.StructureState in spawn_state.structures:
+		var definition := core.registries.structure(structure.structure_id)
+		if definition != null and definition.blocks_movement:
+			spawn_clear = false
+	check(spawn_clear, "nothing solid stands on the spawn cell")
+	check(
+		core.onboarding.stage == OnboardingState.COMPLETE,
+		"the seeded opening has no guided lesson to resume"
+	)
+	var reloaded := GameCore.new()
+	reloaded.setup("res://data", 1)
+	reloaded.save_manager.save_path = core.save_manager.save_path
+	reloaded.save_manager.backup_path = core.save_manager.backup_path
+	check(
+		reloaded.load_game()
+		and reloaded.nooks.world.nook(Vector2i.ZERO) != null
+		and reloaded.nooks.world.nook(Vector2i.ZERO).starter,
+		"a seeded opening save reloads with its starter Nook intact"
 	)

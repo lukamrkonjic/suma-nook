@@ -6,6 +6,8 @@ extends CanvasLayer
 ## controller: deterministic focus, ui_accept activation, cancel to close.
 
 signal offer_accepted(coord: Vector2i)
+## First boot only: the chosen seed card, before any world exists.
+signal first_seed_chosen(card: Dictionary)
 
 var core: GameCore
 var kit: UiKit
@@ -14,6 +16,9 @@ var _root: Control
 var _chip: Button
 var _first_button: Button
 var _poll_accum := 0.0
+## While true the panel is the opening ritual: no dismissal, no chip, and
+## accepting hands the raw card to Main instead of revealing directly.
+var first_boot := false
 
 const DENSITY_WORDS := {
 	"open": "Open — airy ground, few features",
@@ -26,16 +31,22 @@ func setup(game_core: GameCore, ui_kit: UiKit) -> void:
 	core = game_core
 	kit = ui_kit
 	_input_service = InputDeviceService.shared()
-	_chip = kit.button("")
+	# Calm HUD: a small quiet sprout in the corner, words only on hover.
+	# Controller players reach the same offer through the Atlas (panel_map).
+	_chip = kit.button("🌱")
 	_chip.name = "NookOfferChip"
 	_chip.visible = false
 	_chip.anchor_left = 1.0
 	_chip.anchor_right = 1.0
-	_chip.offset_left = -240.0
+	_chip.offset_left = -62.0
 	_chip.offset_right = -16.0
-	_chip.offset_top = 68.0
-	_chip.offset_bottom = 104.0
+	_chip.offset_top = 16.0
+	_chip.offset_bottom = 62.0
 	_chip.focus_mode = Control.FOCUS_NONE
+	_chip.add_theme_font_size_override("font_size", 22)
+	_chip.modulate.a = 0.75
+	_chip.mouse_entered.connect(func(): _chip.modulate.a = 1.0)
+	_chip.mouse_exited.connect(func(): _chip.modulate.a = 0.75)
 	_chip.pressed.connect(open)
 	add_child(_chip)
 
@@ -49,9 +60,11 @@ func _process(delta: float) -> void:
 	_poll_accum = 0.0
 	var offers: NookOffers = core.nooks.offers
 	var available := offers.has_pending() or offers.can_offer()
-	_chip.visible = available and not is_open()
+	_chip.visible = available and not is_open() and not first_boot
 	if available:
-		_chip.text = "🌱  A new Nook waits"
+		_chip.tooltip_text = "A new Nook waits · also in the Atlas (%s)" % (
+			_input_service.format_action(&"panel_map", "map")
+		)
 
 
 func is_open() -> bool:
@@ -65,6 +78,17 @@ func open() -> void:
 	if not offers.has_pending():
 		if offers.make_offer().is_empty():
 			return
+	_build_modal()
+
+
+## The opening ritual: choosing the first Nook's seed IS starting the game.
+func open_for_first_boot() -> void:
+	if is_open() or core == null:
+		return
+	first_boot = true
+	var offers: NookOffers = core.nooks.offers
+	if not offers.has_pending():
+		offers.make_offer(Vector2i.ZERO)
 	_build_modal()
 
 
@@ -83,7 +107,7 @@ func focus_default() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not is_open():
+	if not is_open() or first_boot:
 		return
 	if event.is_action_pressed("cancel"):
 		close()
@@ -114,12 +138,16 @@ func _build_modal() -> void:
 	center.add_child(shell)
 
 	var eyebrow := kit.eyebrow(
-		"The world is ready to grow",
+		"Your first ground" if first_boot else "The world is ready to grow",
 		kit.palette.color("ui_arrival_border")
 	)
 	eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	shell.add_child(eyebrow)
-	var title := kit.label("Choose the next Nook's seed", 34, true, true)
+	var title := kit.label(
+		"Choose where the world begins" if first_boot
+		else "Choose the next Nook's seed",
+		34, true, true
+	)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	shell.add_child(title)
 	var subtitle := kit.label(
@@ -157,10 +185,11 @@ func _build_modal() -> void:
 		reroll.tooltip_text = "Draw three different seeds."
 		reroll.pressed.connect(_on_reroll)
 		actions.add_child(reroll)
-	var later := kit.button("Not yet")
-	later.tooltip_text = "The offer keeps. Come back any time."
-	later.pressed.connect(close)
-	actions.add_child(later)
+	if not first_boot:
+		var later := kit.button("Not yet")
+		later.tooltip_text = "The offer keeps. Come back any time."
+		later.pressed.connect(close)
+		actions.add_child(later)
 
 	var prompt := kit.label(
 		"%s  ·  The Nook is permanent; what you do with it is up to you."
@@ -230,6 +259,16 @@ func _on_reroll() -> void:
 
 
 func _accept(index: int) -> void:
+	if first_boot:
+		var offers: NookOffers = core.nooks.offers
+		var choice := (
+			offers.choose_surprise() if index < 0 else offers.choose(index)
+		)
+		first_boot = false
+		close()
+		if not choice.is_empty():
+			first_seed_chosen.emit(choice.get("card", {}))
+		return
 	var plan := core.nooks.accept_offer(maxi(index, 0), index < 0)
 	close()
 	if plan != null:

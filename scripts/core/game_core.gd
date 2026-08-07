@@ -355,6 +355,66 @@ func new_game(new_profile: PlayerProfile) -> void:
 	save()
 
 
+## The Unfolding World opening: no authored canvas, no guided lesson. The
+## keeper answers one question — the first Nook's seed — and the world
+## unfolds from it. Same reveal system as every later expansion; the first
+## boot is just the same moment framed larger.
+func begin_seeded_game(new_profile: PlayerProfile, seed_card: Dictionary) -> void:
+	profile = new_profile
+	camping.reset()
+	fishing.reset()
+	onboarding.set_stage(OnboardingState.COMPLETE)
+	equipment.acquire("tool_rod_basic")
+	equipment.acquire("tool_axe_basic")
+	equipment.equip("tool_axe_basic")
+	_ensure_default_body_item()
+	collection.record("gear", "tool_rod_basic")
+	collection.record("gear", "tool_axe_basic")
+	var plan := nooks.reveal_nook(Vector2i.ZERO, seed_card)
+	if plan == null:
+		# Content failure fallback: never strand the player in a void.
+		_compose_starting_world()
+	else:
+		var record := nooks.world.nook(Vector2i.ZERO)
+		record.starter = true
+		if record.display_name == "":
+			record.display_name = "Home"
+	grid.home_cell = _first_home_cell()
+	profile.position = grid.cell_to_world(grid.home_cell)
+	for coord: Vector2i in grid.cells:
+		collection.record("tiles", grid.cell(coord).tile_id, 0)
+	save()
+
+
+## Centre-most walkable, unblocked cell of the first Nook.
+func _first_home_cell() -> Vector2i:
+	var origin := nooks.world.chunk_origin(Vector2i.ZERO)
+	var size := nooks.world.nook_size
+	var centre := origin + Vector2i(size / 2, size / 2)
+	var best := centre
+	var best_score := -INF
+	for y in size:
+		for x in size:
+			var cell := origin + Vector2i(x, y)
+			if not grid.is_walkable(cell):
+				continue
+			var state := grid.top_cell(cell)
+			var blocked := false
+			if state != null:
+				for structure: WorldGrid.StructureState in state.structures:
+					var definition := registries.structure(structure.structure_id)
+					if definition != null and definition.blocks_movement:
+						blocked = true
+						break
+			if blocked:
+				continue
+			var score := -Vector2(cell - centre).length()
+			if score > best_score:
+				best_score = score
+				best = cell
+	return best
+
+
 ## Authored first-session start. Unlike new_game(), this deliberately creates
 ## no land yet: the keeper arrives into an empty world and chooses the first
 ## tile during the portal sequence.
