@@ -92,6 +92,12 @@ func load_all(base_path := "res://data", report_issues := true) -> bool:
 		candidate, base_path + "/structures.json", "structures", "structures",
 		candidate.structures, Defs.StructureDefinition.from_dict, issues
 	)
+	var itch_structures_path := base_path + "/itch_structures.json"
+	if FileAccess.file_exists(itch_structures_path):
+		_load_list(
+			candidate, itch_structures_path, "structures", "structures",
+			candidate.structures, Defs.StructureDefinition.from_dict, issues
+		)
 	_load_list(
 		candidate, base_path + "/recipes.json", "recipes", "recipes",
 		candidate.recipes, Defs.RecipeDefinition.from_dict, issues
@@ -105,6 +111,11 @@ func load_all(base_path := "res://data", report_issues := true) -> bool:
 		"discovery_pools", candidate.discovery_pools,
 		Defs.DiscoveryPoolDefinition.from_dict, issues
 	)
+	var itch_rewards_path := base_path + "/itch_wish_rewards.json"
+	if FileAccess.file_exists(itch_rewards_path):
+		_load_discovery_reward_extension(
+			candidate, itch_rewards_path, issues
+		)
 	_load_list(
 		candidate, base_path + "/milestones.json", "milestones", "milestones",
 		candidate.milestones, Defs.MilestoneDefinition.from_dict, issues
@@ -478,6 +489,41 @@ func _load_list(
 		var definition: Resource = factory.call(raw_entry)
 		target[content_id] = definition
 		candidate.set_source(kind, content_id, source)
+
+
+## Large licensed art drops stay in their own generated file so the hand-authored
+## core wish table remains readable. The extension targets one already-parsed
+## pool and is subjected to the same progression/content validators afterwards.
+func _load_discovery_reward_extension(
+	candidate,
+	path: String,
+	issues: Array
+) -> void:
+	var root := _read_object(path, issues)
+	var pool_id := String(root.get("pool_id", ""))
+	var pool: Defs.DiscoveryPoolDefinition = candidate.discovery_pools.get(pool_id)
+	if pool == null:
+		issues.append(ValidationIssueScript.new(
+			ValidationIssueScript.Severity.ERROR, "discovery.extension.pool_missing",
+			null, path, "target pool '%s' does not exist" % pool_id
+		))
+		return
+	var raw_rewards: Variant = root.get("rewards", [])
+	if not raw_rewards is Array:
+		issues.append(ValidationIssueScript.new(
+			ValidationIssueScript.Severity.ERROR, "discovery.extension.invalid",
+			null, path + ".rewards", "expected an array"
+		))
+		return
+	for index in raw_rewards.size():
+		var raw_reward: Variant = raw_rewards[index]
+		if not raw_reward is Dictionary:
+			issues.append(ValidationIssueScript.new(
+				ValidationIssueScript.Severity.ERROR, "discovery.extension.entry_invalid",
+				null, "%s.rewards[%d]" % [path, index], "expected an object"
+			))
+			continue
+		pool.rewards.append((raw_reward as Dictionary).duplicate(true))
 
 
 func _adopt(candidate) -> void:

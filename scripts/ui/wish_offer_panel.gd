@@ -1,8 +1,8 @@
 class_name WishOfferPanel
 extends CanvasLayer
 ## A quiet, persistent corner prompt. It never interrupts play: the player
-## opens it when ready, chooses one of three physical pieces, then calls that
-## single copy into the world through the ordinary placement cursor.
+## opens it when ready, chooses one of three collections, then the sky resolves
+## one surprise piece from that category and calls it into the world.
 
 signal reveal_finished(entry: Dictionary)
 signal reveal_started(entry: Dictionary)
@@ -90,9 +90,9 @@ func _build_layout() -> void:
 		kit.palette.color("ui_accent")
 	)
 	column.add_child(eyebrow)
-	var heading := kit.label("What should the sky bring?", 18, false, true)
+	var heading := kit.label("What kind of thing should the sky bring?", 18, false, true)
 	column.add_child(heading)
-	var hint := kit.muted_label("Choose one. The others will drift away.", 13)
+	var hint := kit.muted_label("Wish for a collection. One surprise will answer.", 13)
 	column.add_child(hint)
 
 	_choice_row = HBoxContainer.new()
@@ -228,27 +228,47 @@ func _choice(entry: Dictionary, index: int) -> Control:
 	frame_style.set_content_margin_all(3)
 	preview_frame.add_theme_stylebox_override("panel", frame_style)
 	column.add_child(preview_frame)
-	var preview := TextureRect.new()
-	preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	preview_frame.add_child(preview)
-	_thumbnail_renderer.request(
-		String(entry.get("kind", "")),
-		String(entry.get("id", "")),
-		func(texture):
-			if is_instance_valid(preview):
-				preview.texture = texture
-	)
+	if entry.has("category"):
+		var category_column := VBoxContainer.new()
+		category_column.alignment = BoxContainer.ALIGNMENT_CENTER
+		category_column.add_theme_constant_override("separation", 2)
+		preview_frame.add_child(category_column)
+		var glyph := kit.label(String(entry.get("glyph", "✦")), 27, true, true)
+		glyph.add_theme_color_override(
+			"font_color",
+			kit.palette.color(String(entry.get("color_token", "ui_accent")))
+		)
+		category_column.add_child(glyph)
+		var description := kit.muted_label(
+			String(entry.get("description", "A surprise from this collection.")),
+			10
+		)
+		description.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		category_column.add_child(description)
+	else:
+		var preview := TextureRect.new()
+		preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		preview_frame.add_child(preview)
+		_thumbnail_renderer.request(
+			String(entry.get("kind", "")),
+			String(entry.get("id", "")),
+			func(texture):
+				if is_instance_valid(preview):
+					preview.texture = texture
+		)
 
 	var button := kit.button(_display_name(entry), false)
 	button.custom_minimum_size = Vector2(CHOICE_WIDTH, 38.0)
 	button.add_theme_font_size_override("font_size", 13)
 	button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	button.tooltip_text = "%s %s" % [
-		"New" if bool(entry.get("was_new", false)) else "Another",
-		"piece of land" if String(entry.get("kind", "")) == "tile" else "model",
-	]
+	button.tooltip_text = (
+		"Wish for %s. One fitting piece will fall." % _display_name(entry)
+		if entry.has("category")
+		else "Call this saved wish into the world."
+	)
 	button.pressed.connect(func(): _select(index))
 	column.add_child(button)
 	_choice_buttons.append(button)
@@ -279,6 +299,8 @@ func _select(index: int) -> void:
 
 
 func _display_name(entry: Dictionary) -> String:
+	if entry.has("category"):
+		return String(entry.get("name", entry.get("category", "Wish").capitalize()))
 	var content_id := String(entry.get("id", ""))
 	var definition: Variant = (
 		core.registries.tile(content_id)
@@ -291,6 +313,6 @@ func _display_name(entry: Dictionary) -> String:
 func _refresh_prompt() -> void:
 	if _chip == null or _input_service == null:
 		return
-	_chip.tooltip_text = "%s. Choose one piece to call into your world." % (
+	_chip.tooltip_text = "%s. Choose a collection to wish for." % (
 		_input_service.format_action(&"wish_menu", "Open wish")
 	)

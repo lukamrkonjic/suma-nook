@@ -24,6 +24,11 @@ fails loudly, never silently).
 - `anchors.json` — Resource Anchors (skill, cycle length, regen).
 - `structures.json` — placeable objects, object support policy, and optional
   capability references such as the shared tree/shrub/rock harvest source.
+- `itch_structures.json` — generated placeable definitions for the curated
+  free itch.io catalog. Do not hand-edit; rebuild it with
+  `art_source/blender/process_itch_free_packs.py`.
+- `itch_wish_rewards.json` — generated reward extension that makes each
+  imported placeable a single-instance sky-wish result in its collection.
 - `harvest_profiles.json` — hit counts, maturation/regrowth, visual presenter,
   and Forest/Rock Token yields for data-authored harvest sources.
 - `token_boxes.json` — themed box prices and references to their reward pool,

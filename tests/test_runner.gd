@@ -1114,6 +1114,15 @@ func _test_registries() -> void:
 		regs.discovery_pool("void_unknown") != null,
 		"the ferry's broad delivery pool loads"
 	)
+	var wish_pool := regs.discovery_pool("void_unknown")
+	var wish_category_ids: Array[String] = []
+	for category: Dictionary in wish_pool.wish_categories:
+		wish_category_ids.append(String(category.get("id", "")))
+	check(
+		wish_category_ids.size() >= DiscoverySystem.WISH_CHOICE_COUNT
+		and wish_pool.rewards.all(func(reward: Dictionary) -> bool: return wish_category_ids.has(String(reward.get("category", "")))),
+		"every sky reward belongs to a selectable wish category"
+	)
 	var delivery_pools := 0
 	var local_pools := 0
 	for pool: Defs.DiscoveryPoolDefinition in regs.discovery_pools.values():
@@ -2451,19 +2460,24 @@ func _test_sky_wish_flow() -> void:
 	var choices := discovery.current_wish_choices()
 	var unique := {}
 	for choice: Dictionary in choices:
-		unique["%s:%s" % [choice.get("kind", ""), choice.get("id", "")]] = true
+		unique[String(choice.get("category", ""))] = true
 	check(
 		choices.size() == DiscoverySystem.WISH_CHOICE_COUNT
 		and unique.size() == DiscoverySystem.WISH_CHOICE_COUNT,
-		"a ready sky wish offers three different physical pieces"
+		"a ready sky wish offers three different collections"
 	)
 	var selected: Dictionary = choices[0]
-	var stock_before := _entry_stock_count(core, selected)
+	var stock_before: Dictionary = {}
+	for reward: Dictionary in core.registries.discovery_pool("void_unknown").rewards:
+		var reward_key := "%s:%s" % [reward.get("kind", ""), reward.get("id", "")]
+		stock_before[reward_key] = _entry_stock_count(core, reward)
 	var granted := discovery.choose_wish(0)
+	var granted_key := "%s:%s" % [granted.get("kind", ""), granted.get("id", "")]
 	check(
 		not granted.is_empty()
-		and _entry_stock_count(core, selected) == stock_before + 1,
-		"choosing a wish grants exactly one copy"
+		and String(granted.get("category", "")) == String(selected.get("category", ""))
+		and _entry_stock_count(core, granted) == int(stock_before.get(granted_key, 0)) + 1,
+		"choosing a category resolves and grants exactly one fitting copy"
 	)
 	check(
 		discovery.wish_choices.is_empty()
@@ -2473,9 +2487,10 @@ func _test_sky_wish_flow() -> void:
 	)
 	var acknowledged := discovery.acknowledge_next()
 	check(
-		String(acknowledged.get("id", "")) == String(selected.get("id", ""))
+		String(acknowledged.get("id", "")) == String(granted.get("id", ""))
+		and String(acknowledged.get("category", "")) == String(selected.get("category", ""))
 		and not discovery.has_pending(),
-		"the selected copy can hand off to placement without duplicating"
+		"the category-resolved copy can hand off to placement without duplicating"
 	)
 	discovery.prepare_wish_offer(true)
 	var saved := discovery.to_save_dict()

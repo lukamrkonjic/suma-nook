@@ -1,0 +1,2471 @@
+{
+  "pool_id": "void_unknown",
+  "rewards": [
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_bush_1_a_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_bush_1_b_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_bush_1_c_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_bush_1_d_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_bush_1_e_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_bush_1_f_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_bush_1_g_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_bush_2_a_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_bush_2_b_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_bush_2_c_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_bush_2_d_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_bush_2_e_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_bush_2_f_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_bush_3_a_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_bush_3_b_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_bush_3_c_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_bush_4_a_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_bush_4_b_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_bush_4_c_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_bush_4_d_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_bush_4_e_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_bush_4_f_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_grass_1_a_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_grass_1_a_singlesided_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_grass_1_b_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_grass_1_b_singlesided_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_grass_1_c_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_grass_1_c_singlesided_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_grass_1_d_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_grass_1_d_singlesided_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_grass_1_mesh",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_grass_1_singlesided_mesh",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_grass_2_a_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_grass_2_a_singlesided_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_grass_2_b_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_grass_2_b_singlesided_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_grass_2_c_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_grass_2_c_singlesided_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_grass_2_d_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_grass_2_d_singlesided_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_grass_2_mesh",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_grass_2_singlesided_mesh",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_1_a_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_1_b_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_1_c_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_1_d_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_1_e_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_1_f_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_1_g_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_1_h_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_1_i_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_1_j_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_1_k_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_1_l_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_1_m_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_1_n_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_1_o_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_1_p_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_1_q_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_2_a_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_2_b_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_2_c_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_2_d_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_2_e_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_2_f_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_2_g_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_2_h_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_3_a_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_3_b_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_3_c_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_3_d_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_3_e_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_3_f_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_3_g_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_3_h_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_3_i_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_3_j_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_3_k_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_3_l_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_3_m_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_3_n_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_3_o_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_3_p_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_3_q_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_rock_3_r_color1",
+      "category": "stonework",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_tree_1_a_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_tree_1_b_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_tree_1_c_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_tree_2_a_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_tree_2_b_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_tree_2_c_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_tree_2_d_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_tree_2_e_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_tree_3_a_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_tree_3_b_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_tree_3_c_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_tree_4_a_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_tree_4_b_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_tree_4_c_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_tree_bare_1_a_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_tree_bare_1_b_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_tree_bare_1_c_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_tree_bare_2_a_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_tree_bare_2_b_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_forest_tree_bare_2_c_color1",
+      "category": "woodland",
+      "weight": 0.16
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_bench",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_bird",
+      "category": "waterside",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_bush",
+      "category": "garden",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_bush_large",
+      "category": "garden",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_cobble_stones",
+      "category": "stonework",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_cobble_stones_large",
+      "category": "stonework",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_floor_grass_sliced_a",
+      "category": "land",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_floor_grass_sliced_b",
+      "category": "land",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_floor_grass_sliced_base",
+      "category": "land",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_floor_grass_sliced_c",
+      "category": "land",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_floor_grass_sliced_d",
+      "category": "land",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_floor_grass_sliced_e",
+      "category": "land",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_floor_grass_sliced_f",
+      "category": "land",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_floor_grass_sliced_g",
+      "category": "land",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_floor_grass_sliced_h",
+      "category": "land",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_floor_grass_sliced_i",
+      "category": "land",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_flower_a",
+      "category": "garden",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_flower_b",
+      "category": "garden",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_fountain",
+      "category": "waterside",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_grass_a",
+      "category": "garden",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_grass_b",
+      "category": "garden",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_hedge_corner",
+      "category": "garden",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_hedge_straight",
+      "category": "garden",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_hedge_straight_long",
+      "category": "garden",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_street_lantern",
+      "category": "camp",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_tree",
+      "category": "woodland",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pretty_park_tree_large",
+      "category": "woodland",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_apple",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_apple_cut",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_apple_piece",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_bowl",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_cheese_a",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_cheese_b",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_cooler",
+      "category": "camp",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_fork",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_frisbee",
+      "category": "camp",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_grapes",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_grapes_bowl",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_jam",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_knife",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_mug",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_picnic_basket_round",
+      "category": "camp",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_picnic_basket_square",
+      "category": "camp",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_picnic_blanket_blue",
+      "category": "camp",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_picnic_blanket_blue_folded",
+      "category": "camp",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_picnic_blanket_green",
+      "category": "camp",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_picnic_blanket_green_folded",
+      "category": "camp",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_picnic_blanket_red",
+      "category": "camp",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_picnic_blanket_red_folded",
+      "category": "camp",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_pillow_large_blue",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_pillow_large_green",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_pillow_large_red",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_pillow_small_blue",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_pillow_small_green",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_pillow_small_red",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_plate_a",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_plate_b",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_radio",
+      "category": "camp",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_sandwich",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_serving_tray_round",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_serving_tray_square_a",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_serving_tray_square_b",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_spoon",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_teapot",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_thermos",
+      "category": "camp",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_wine_bottle",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_pleasant_picnic_wine_glass",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_bench_a",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_bench_b",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_boots",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_cobblestones",
+      "category": "stonework",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_doormat",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_fence_corner",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_fence_open",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_fence_open_long",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_fence_open_wide_long",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_fence_post",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_fence_rails",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_fence_rails_long",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_fence_straight",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_fence_straight_long",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_fence_wide_long",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_floor_base",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_foliage_a",
+      "category": "woodland",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_foliage_b",
+      "category": "woodland",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_gate_double_left",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_gate_double_right",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_gate_single",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_house",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_letter",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_mailbox",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_package",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_tree",
+      "category": "woodland",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_tiny_homely_house_tree_large",
+      "category": "woodland",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_bathtub",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_bird_1",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_bird_2",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_bird_3",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_branch_1a",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_branch_1b",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_branch_2a",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_branch_2b",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_branch_3a",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_branch_3b",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_cattail_1",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_cattail_2",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_cattail_3",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_clay_pot",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_dragonfly_1",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_dragonfly_2",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_dragonfly_3",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_frog_1",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_frog_2",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_frog_3",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_long_grass_patch_1",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_long_grass_patch_2",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_metal_tub",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_mini_plant_1",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_mini_plant_2",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_mini_plant_3",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_1a",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_1a_moss",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_1b",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_1b_moss",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_1c",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_1c_moss",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_2a",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_2a_moss",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_2b",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_2b_moss",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_2c",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_2c_moss",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_3a",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_3a_moss",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_3b",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_3b_moss",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_3c",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_3c_moss",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_4",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_4a",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_4a_moss",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_4b",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_4b_moss",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_4c",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pebble_4c_moss",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pond_1",
+      "category": "waterside",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pond_2",
+      "category": "waterside",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pond_3",
+      "category": "waterside",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_pond_4",
+      "category": "waterside",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_rock_1a",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_rock_1b",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_rock_1c",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_rock_2a",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_rock_2b",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_rock_2c",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_rock_3a",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_rock_3b",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_rock_3c",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_rock_4a",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_rock_4b",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_rock_4c",
+      "category": "stonework",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_short_grass_patch_1",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_short_grass_patch_2",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_swamp_calla_1",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_swamp_calla_2",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_swamp_calla_3",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_water_hyacinth_1",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_water_hyacinth_2",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_water_hyacinth_3",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_water_lettuce_1",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_water_lettuce_2",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_water_lettuce_3",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_water_lily_blossom_1",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_water_lily_blossom_2",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_water_lily_blossom_3",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_water_lily_leaf_1",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_water_lily_leaf_2",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_water_lily_leaf_3",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_water_lily_leaf_4",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_water_mint_1",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_water_mint_2",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_water_mint_3",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_assetquest_pond_wooden_tub",
+      "category": "waterside",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_th_chessboard",
+      "category": "furniture",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_th_steelbucket",
+      "category": "furniture",
+      "weight": 0.22
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_brokendoor",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_brokenplanka",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_brokenplankb",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_brokenwalla",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_brokenwallb",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_brokenwallc",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_chair",
+      "category": "furniture",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_chest_box",
+      "category": "furniture",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_corner_large",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_cornerpiece",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_door",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_doorway_clean",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_doorway_door",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_doorway_weathered",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_fence_broken_edge",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_fence_brokena",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_fence_brokenb",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_fence_edge",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_fence_long",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_fence_short",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_floor_1x1",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_floor_1x2",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_floor_2x1",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_floor_2x2",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_floor_brokena",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_floor_brokenb",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_floor_brokenc",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_floor_holecut_horizontal",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_floor_holecut_vertical",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_floor_trapdoor",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_hammer",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_ladder",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_planka",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_plankb",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_plankc",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_roof_corner",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_roof_noroof",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_roof_short",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_roof_simple",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_stool",
+      "category": "furniture",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_stool_broke",
+      "category": "furniture",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_table",
+      "category": "furniture",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_wall_corner_clean",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_wall_longa",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_wall_longb",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_wall_shorta_001",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_wall_shortb",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_wallcorner_weathered",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_windowwall_clean",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_windowwall_small",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_treehouse_modular_treehouse_windowwall_weathered",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_anvil",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_blueprint",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_blueprint_stacked",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_bucket_metal",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_chisel",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_compass_base",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_drafting_compass",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_file",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_grindstone",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_hammer",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_handdrill",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_handplane",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_journal_closed",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_journal_open",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_lantern",
+      "category": "camp",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_magnifying_glass",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_mallet",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_map",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_map_empty",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_map_rolled",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_nail",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_pencil_a_long",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_pencil_a_short",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_pencil_b_long",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_pencil_b_short",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_rope_bundle_a",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_rope_bundle_b",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_saw",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_scissors",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_screw_a",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_screw_b",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_screwdriver_a_long",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_screwdriver_a_long_color",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_screwdriver_a_short",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_screwdriver_a_short_color",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_screwdriver_b_long",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_screwdriver_b_long_color",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_screwdriver_b_short",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_screwdriver_b_short_color",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_shovel",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_tongs",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_trowel",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_wrench_a",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_rpg_tools_wrench_b",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_gobkit_animals_bat",
+      "category": "woodland",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_gobkit_animals_corgi",
+      "category": "woodland",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_gobkit_animals_duck",
+      "category": "waterside",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_gobkit_animals_platypus",
+      "category": "waterside",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_gobkit_animals_red",
+      "category": "woodland",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_city_bits_bench",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_city_bits_box_a",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_city_bits_box_b",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_city_bits_bush",
+      "category": "garden",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_city_bits_watertower",
+      "category": "homestead",
+      "weight": 0.12
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_adventurers_mug_empty",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_kaykit_adventurers_mug_full",
+      "category": "furniture",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_fishing_village_boat",
+      "category": "waterside",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_fishing_village_boat2",
+      "category": "waterside",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_fishing_village_boat3",
+      "category": "waterside",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_fishing_village_fence",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_fishing_village_fence2",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_fishing_village_fence_post",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_fishing_village_fence_rope",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_fishing_village_fence_rope2",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_fishing_village_fence_rope3",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_fishing_village_fishing_cabin",
+      "category": "waterside",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_fishing_village_net",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_fishing_village_platform",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_fishing_village_platform2",
+      "category": "homestead",
+      "weight": 0.38
+    },
+    {
+      "kind": "structure",
+      "id": "struct_itch_fishing_village_platfrom3",
+      "category": "homestead",
+      "weight": 0.38
+    }
+  ]
+}

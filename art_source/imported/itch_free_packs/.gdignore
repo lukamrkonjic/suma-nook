@@ -1,0 +1,2 @@
+# Source archives and extraction evidence are not runtime Godot resources.
+# Only palette-ported outputs under assets/3d/reworked are imported by Godot.

@@ -1,8 +1,8 @@
 class_name DiscoverySystem
 extends RefCounted
-## Periodic sky wishes. An offer is three physical possibilities; the player
-## chooses one, and only that one copy enters stock. The selected copy remains
-## loss-proof whether it is placed immediately or put into the Build Bag.
+## Periodic sky wishes. An offer is three broad collections; the player chooses
+## what kind of thing to wish for, then the sky resolves one physical piece
+## from that category. Only that copy enters stock and the world.
 
 signal discovery_ready(entry: Dictionary)
 signal wish_ready(choices: Array[Dictionary])
@@ -55,43 +55,33 @@ func current_wish_choices() -> Array[Dictionary]:
 	return wish_choices.duplicate(true)
 
 
-## Rolls without replacement so the compact selector never shows the same
-## tile or model twice. Nothing is granted before the player chooses.
+## Rolls categories without replacement. Exact pieces remain a surprise until
+## the player commits to the kind of collection they want.
 func prepare_wish_offer(force := false) -> Array[Dictionary]:
 	if has_wish_offer() or (has_pending() and not force):
 		return current_wish_choices()
 	var pool := _delivery_pool()
 	if pool == null:
 		return []
-	var available: Array = pool.rewards.duplicate(true)
+	var available: Array = pool.wish_categories.duplicate(true)
 	var offer: Array[Dictionary] = []
 	for choice_index in mini(WISH_CHOICE_COUNT, available.size()):
-		var choice: Dictionary = rng.weighted(
+		var category: Dictionary = rng.weighted(
 			"wish_offer:%d:%d" % [wishes_completed, choice_index],
 			available
 		)
-		if choice.is_empty():
+		if category.is_empty():
 			break
-		var kind := String(choice.get("kind", ""))
-		var content_id := String(choice.get("id", ""))
 		offer.append({
-			"kind": kind,
-			"id": content_id,
+			"category": String(category.get("id", "")),
+			"name": String(category.get("name", "Wish")),
+			"description": String(category.get("description", "")),
+			"glyph": String(category.get("glyph", "✦")),
+			"color_token": String(category.get("color_token", "ui_accent")),
 			"pool_id": pool.id,
 			"source": "wish",
-			"was_new": not collection.is_discovered(
-				"tiles" if kind == KIND_TILE else "structures",
-				content_id
-			),
 		})
-		for available_index in available.size():
-			var candidate: Dictionary = available[available_index]
-			if (
-				String(candidate.get("kind", "")) == kind
-				and String(candidate.get("id", "")) == content_id
-			):
-				available.remove_at(available_index)
-				break
+		available.erase(category)
 	wish_choices = offer
 	if not wish_choices.is_empty():
 		seconds_until_wish = 0.0
@@ -107,7 +97,7 @@ func choose_wish(index: int) -> Dictionary:
 	wish_choices.clear()
 	wishes_completed += 1
 	_schedule_next_wish(false)
-	var granted := _grant(choice)
+	var granted := _roll_category_and_grant(choice)
 	wish_changed.emit()
 	return granted
 
@@ -171,6 +161,33 @@ func _roll_and_grant(
 	})
 
 
+func _roll_category_and_grant(category_choice: Dictionary) -> Dictionary:
+	var pool := registries.discovery_pool(String(category_choice.get("pool_id", "")))
+	if pool == null:
+		pool = _delivery_pool()
+	if pool == null:
+		return {}
+	var category_id := String(category_choice.get("category", ""))
+	var category_rewards: Array[Dictionary] = []
+	for reward: Dictionary in pool.rewards:
+		if String(reward.get("category", "")) == category_id:
+			category_rewards.append(reward)
+	var reward := rng.weighted(
+		"wish_reward:%d:%s" % [wishes_completed, category_id],
+		category_rewards
+	)
+	if reward.is_empty():
+		return {}
+	return _grant({
+		"kind": String(reward.get("kind", "")),
+		"id": String(reward.get("id", "")),
+		"category": category_id,
+		"category_name": String(category_choice.get("name", category_id.capitalize())),
+		"pool_id": pool.id,
+		"source": "wish",
+	})
+
+
 func _grant(raw_entry: Dictionary) -> Dictionary:
 	var entry := raw_entry.duplicate(true)
 	var kind := String(entry.get("kind", ""))
@@ -217,10 +234,16 @@ func from_save_dict(data: Dictionary) -> void:
 	for raw_choice in data.get("wish_choices", []):
 		if not raw_choice is Dictionary:
 			continue
+		var category_id := String(raw_choice.get("category", ""))
+		if _valid_category(category_id):
+			wish_choices.append(raw_choice.duplicate(true))
+			continue
+		# Old exact-item wish saves are migrated to their authored collection.
 		var kind := String(raw_choice.get("kind", ""))
 		var content_id := String(raw_choice.get("id", ""))
-		if _valid_content(kind, content_id):
-			wish_choices.append(raw_choice.duplicate(true))
+		var migrated := _category_for_reward(kind, content_id)
+		if not migrated.is_empty():
+			wish_choices.append(migrated)
 	seconds_until_wish = maxf(
 		0.0,
 		float(data.get("seconds_until_wish", seconds_until_wish))
@@ -233,3 +256,39 @@ func _valid_content(kind: String, content_id: String) -> bool:
 		(kind == KIND_TILE and registries.tile(content_id) != null)
 		or (kind == KIND_STRUCTURE and registries.structure(content_id) != null)
 	)
+
+
+func _valid_category(category_id: String) -> bool:
+	var pool := _delivery_pool()
+	if pool == null:
+		return false
+	return pool.wish_categories.any(func(category: Dictionary) -> bool:
+		return String(category.get("id", "")) == category_id
+	)
+
+
+func _category_for_reward(kind: String, content_id: String) -> Dictionary:
+	var pool := _delivery_pool()
+	if pool == null or not _valid_content(kind, content_id):
+		return {}
+	var category_id := ""
+	for reward: Dictionary in pool.rewards:
+		if (
+			String(reward.get("kind", "")) == kind
+			and String(reward.get("id", "")) == content_id
+		):
+			category_id = String(reward.get("category", ""))
+			break
+	for category: Dictionary in pool.wish_categories:
+		if String(category.get("id", "")) != category_id:
+			continue
+		return {
+			"category": category_id,
+			"name": String(category.get("name", category_id.capitalize())),
+			"description": String(category.get("description", "")),
+			"glyph": String(category.get("glyph", "✦")),
+			"color_token": String(category.get("color_token", "ui_accent")),
+			"pool_id": pool.id,
+			"source": "wish",
+		}
+	return {}

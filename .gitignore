@@ -15,6 +15,16 @@ test_output/
 artifacts/
 __pycache__/
 
+# Re-created from the pinned itch.io source archives by
+# art_source/blender/process_itch_free_packs.py. The archives, license copies,
+# manifest, processed GLBs, and generation report remain tracked.
+/art_source/imported/itch_free_packs/extracted/
+
+# WizP permits use in games but prohibits redistributing the source asset. Keep
+# the pinned download locally for reproducible builds; ship only the adapted
+# runtime models and the recorded hash/license terms.
+/art_source/imported/itch_free_packs/archives/Fishing_village_pack.rar
+
 # Disposable source-model reconstruction and direct-preview experiments.
 # Keep the local Blender/GLB evidence without risking it in a production push.
 /tests/blender_reference_rebuild/

@@ -372,12 +372,7 @@ static func _validate_progression(
 		errors, wish_choices.size() <= DiscoverySystem.WISH_CHOICE_COUNT,
 		"progression.discovery.wish_choices may contain at most three entries"
 	)
-	_validate_discovery_entries(
-		errors,
-		wish_choices,
-		registries,
-		"progression.discovery.wish_choices"
-	)
+	_validate_wish_choices(errors, wish_choices, registries)
 	_require(
 		errors, float(discovery.get("seconds_until_wish", 0.0)) >= 0.0,
 		"progression.discovery.seconds_until_wish must be non-negative"
@@ -418,6 +413,38 @@ static func _validate_discovery_entries(
 			"%s[%d] references missing %s '%s'"
 			% [path, index, kind, content_id]
 		)
+
+
+static func _validate_wish_choices(
+	errors: PackedStringArray,
+	entries: Array,
+	registries: Registries
+) -> void:
+	var pool := registries.discovery_pool("void_unknown")
+	var category_ids: Array[String] = []
+	if pool != null:
+		for category: Dictionary in pool.wish_categories:
+			category_ids.append(String(category.get("id", "")))
+	for index in entries.size():
+		var entry: Variant = entries[index]
+		if not entry is Dictionary:
+			errors.append("progression.discovery.wish_choices[%d] must be an object" % index)
+			continue
+		var category_id := String(entry.get("category", ""))
+		if category_id != "":
+			_require(
+				errors,
+				category_ids.has(category_id),
+				"progression.discovery.wish_choices[%d] references missing category '%s'"
+				% [index, category_id]
+			)
+		else:
+			_validate_discovery_entries(
+				errors,
+				[entry],
+				registries,
+				"progression.discovery.wish_choices[%d]" % index
+			)
 
 
 static func _validate_landmarks(

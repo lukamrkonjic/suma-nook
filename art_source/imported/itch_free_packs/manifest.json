@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "description": "Pinned free itch.io packs curated for Suma's calm low-poly world. Only the listed free-tier files are processed; paid add-ons are deliberately absent.",
+  "packs": [
+    {
+      "id": "kaykit_forest",
+      "name": "KayKit Forest Nature Pack",
+      "creator": "Kay Lousberg",
+      "url": "https://kaylousberg.itch.io/kaykit-forest",
+      "license": "CC0 1.0",
+      "archive": "KayKit_Forest_Nature_Pack_1.0_FREE.zip",
+      "sha256": "2EE83E63BB7695F2D884EC27DDF6FCE020789A452E7D5C5B0BBDFC4F6EA1FC8C",
+      "source_glob": "**/Assets/gltf/*.gltf",
+      "include": [".*"],
+      "exclude": []
+    },
+    {
+      "id": "tiny_pretty_park",
+      "name": "Tiny Treats: Pretty Park",
+      "creator": "Tiny Treats",
+      "url": "https://tinytreats.itch.io/pretty-park",
+      "license": "CC0 1.0",
+      "archive": "Tiny_Treats_Pretty_Park_1.0_FREE.zip",
+      "sha256": "55C1954AC96DDC76B68E06A58B9780C945EC34440AB03749CCA7317BEC0591D2",
+      "source_glob": "**/Assets/gltf/*.gltf",
+      "include": [".*"],
+      "exclude": ["^trashcan\\.gltf$"]
+    },
+    {
+      "id": "tiny_pleasant_picnic",
+      "name": "Tiny Treats: Pleasant Picnic",
+      "creator": "Tiny Treats",
+      "url": "https://tinytreats.itch.io/pleasant-picnic",
+      "license": "CC0 1.0",
+      "archive": "Tiny_Treats_Pleasant_Picnic_1.0_FREE.zip",
+      "sha256": "695DDEEE1F7116130DA648EB2E4BB5D26FD2A04F2266B11FFD7B2D6ACFFA662A",
+      "source_glob": "**/Assets/gltf/*.gltf",
+      "include": [".*"],
+      "exclude": ["^drink_can\\.gltf$"]
+    },
+    {
+      "id": "tiny_homely_house",
+      "name": "Tiny Treats: Homely House",
+      "creator": "Tiny Treats",
+      "url": "https://tinytreats.itch.io/homely-house",
+      "license": "CC0 1.0",
+      "archive": "Tiny_Treats_Homely_House_1.0_FREE.zip",
+      "sha256": "A84AF014347CF7970BC71C6C64BA1AA65186AC28DE40CFD37E4F70E031E28929",
+      "source_glob": "**/Assets/gltf/*.gltf",
+      "include": [".*"],
+      "exclude": []
+    },
+    {
+      "id": "assetquest_pond",
+      "name": "Free Low Poly Pond Kit",
+      "creator": "AssetQuest",
+      "url": "https://assetquest.itch.io/free-low-poly-pond-kit",
+      "license": "CC0 1.0",
+      "archive": "Free_Pond_Kit_AssetQuest.zip",
+      "sha256": "C7E46B4479CAC89D2885ABEC0D087F099E2555C21D6AC6A6CE5EA7315DD90A68",
+      "source_glob": "Meshes/*.fbx",
+      "include": [".*"],
+      "exclude": []
+    },
+    {
+      "id": "treehouse_modular",
+      "name": "Modular Tree House Free Set",
+      "creator": "QN-Art / Quin-GS",
+      "url": "https://quin-gs.itch.io/treehouse",
+      "license": "CC0 1.0",
+      "archive": "Free (CC0).7z",
+      "sha256": "0AEDD6EB3612840F848ED33479BB022486F929B8130104B0EE445337D6B3BBE4",
+      "source_glob": "**/FBX/*.fbx",
+      "include": [".*"],
+      "exclude": ["^TH_(BulseyePaper|Dart|DartBoard|Hatchet|Nail|Nails|Nail_Bend|Slingshot|Wooden_Sword)\\.fbx$"]
+    },
+    {
+      "id": "kaykit_rpg_tools",
+      "name": "KayKit RPG Tools Bits",
+      "creator": "Kay Lousberg",
+      "url": "https://kaylousberg.itch.io/rpg-tools-bits",
+      "license": "CC0 1.0",
+      "archive": "KayKit_RPGToolsBits_1.0_FREE.zip",
+      "sha256": "A17C2A54DF93D525E90D960BAF3C68638DEFB4F424E204CEEAD6EA1F89E9C7DD",
+      "source_glob": "**/Assets/gltf/*.gltf",
+      "include": [".*"],
+      "exclude": ["^(axe|knife|pickaxe|torch|torch_burnt)\\.gltf$"]
+    },
+    {
+      "id": "gobkit_animals",
+      "name": "Gobkit Free Animal Pack",
+      "creator": "Ariescar",
+      "url": "https://ariescar.itch.io/gobkit-free-animal-pack",
+      "license": "CC0 1.0",
+      "archive": "gobkit-animal-pack.zip",
+      "sha256": "E9879F1CBA048E5BDC9BAEF9BE167C540FF6CD4FEC70B22F3DC7B2D346D21E9C",
+      "source_glob": "*.glb",
+      "include": ["^(Bat|Corgi|Duck|Platypus|Red)\\.glb$"],
+      "exclude": []
+    },
+    {
+      "id": "kaykit_city_bits",
+      "name": "KayKit City Builder Bits",
+      "creator": "Kay Lousberg",
+      "url": "https://kaylousberg.itch.io/city-builder-bits",
+      "license": "CC0 1.0",
+      "archive": "KayKit_City_Builder_Bits_1.0_FREE.zip",
+      "sha256": "AFF444E1D083DDAC331BE94EA4A7590E5604EF49715AE23DF71CD2E9659BD33F",
+      "source_glob": "**/Assets/gltf/*.gltf",
+      "include": ["^(bench|box_A|box_B|bush|watertower)\\.gltf$"],
+      "exclude": []
+    },
+    {
+      "id": "kaykit_adventurers",
+      "name": "KayKit Adventurers",
+      "creator": "Kay Lousberg",
+      "url": "https://kaylousberg.itch.io/kaykit-adventurers",
+      "license": "CC0 1.0",
+      "archive": "KayKit_Adventurers_2.0_FREE.zip",
+      "sha256": "ABE48F4763FBA0896BAB486EE9E6D08CA6B5B3884B9601F235C8847AE94DC479",
+      "source_glob": "**/Assets/gltf/*.gltf",
+      "include": ["^mug_(empty|full)\\.gltf$"],
+      "exclude": []
+    },
+    {
+      "id": "fishing_village",
+      "name": "Fishing Village",
+      "creator": "WizP",
+      "url": "https://wizp.itch.io/fishing-village",
+      "license": "Free use, including commercial; redistribution/resale prohibited",
+      "archive": "Fishing_village_pack.rar",
+      "sha256": "38A2799CE01671C4F33E02F689B7CFFE28359554902071F7C38CDBC199BC8C9F",
+      "source_glob": "fishing_village_pack.glb",
+      "include": [".*"],
+      "exclude": [],
+      "split_scene": true
+    }
+  ]
+}

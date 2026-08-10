@@ -40,6 +40,29 @@ static func _validate_discovery_pools(snapshot, issues: Array) -> void:
 				issues, "discovery.rewards.empty", source, "rewards",
 				"pool '%s' has no rewards" % pool.id
 			)
+		var category_ids: Array[String] = []
+		for category_index in pool.wish_categories.size():
+			var category: Dictionary = pool.wish_categories[category_index]
+			var category_id := String(category.get("id", ""))
+			if category_id == "" or category_ids.has(category_id):
+				_error(
+					issues, "discovery.category.invalid", source,
+					"wish_categories[%d].id" % category_index,
+					"wish category ids must be non-empty and unique"
+				)
+			else:
+				category_ids.append(category_id)
+			if float(category.get("weight", 0.0)) <= 0.0:
+				_error(
+					issues, "discovery.category.weight", source,
+					"wish_categories[%d].weight" % category_index,
+					"wish category weight must be positive"
+				)
+		if pool.wish_categories.size() < DiscoverySystem.WISH_CHOICE_COUNT:
+			_error(
+				issues, "discovery.category.count", source, "wish_categories",
+				"pool '%s' needs at least three wish categories" % pool.id
+			)
 		for index in pool.rewards.size():
 			var reward: Dictionary = pool.rewards[index]
 			var kind := String(reward.get("kind", ""))
@@ -60,6 +83,13 @@ static func _validate_discovery_pools(snapshot, issues: Array) -> void:
 					issues, "discovery.reward.weight", source,
 					"rewards[%d].weight" % index,
 					"reward weight must be positive"
+				)
+			var reward_category_id := String(reward.get("category", ""))
+			if not category_ids.has(reward_category_id):
+				_error(
+					issues, "discovery.reward.category", source,
+					"rewards[%d].category" % index,
+					"reward references unknown wish category '%s'" % reward_category_id
 				)
 	if delivery_count != 1:
 		_error(

@@ -99,7 +99,8 @@ class DiscoveryPoolDefinition:
 	var priority: int = 0
 	var actions_per_reward: int = 1
 	var fallback: bool = false
-	var rewards: Array[Dictionary] = [] # [{kind: tile|structure, id, weight}]
+	var wish_categories: Array[Dictionary] = []
+	var rewards: Array[Dictionary] = [] # [{kind: tile|structure, id, category, weight}]
 
 	static func from_dict(d: Dictionary) -> DiscoveryPoolDefinition:
 		var pool := DiscoveryPoolDefinition.new()
@@ -119,11 +120,22 @@ class DiscoveryPoolDefinition:
 		pool.priority = int(d.get("priority", 0))
 		pool.actions_per_reward = maxi(1, int(d.get("actions_per_reward", 1)))
 		pool.fallback = bool(d.get("fallback", false))
+		for raw_category in d.get("wish_categories", []):
+			if raw_category is Dictionary:
+				pool.wish_categories.append({
+					"id": String(raw_category.get("id", "")),
+					"name": String(raw_category.get("name", "Wish")),
+					"description": String(raw_category.get("description", "A surprise from this collection.")),
+					"glyph": String(raw_category.get("glyph", "✦")),
+					"color_token": String(raw_category.get("color_token", "ui_accent")),
+					"weight": maxf(0.0, float(raw_category.get("weight", 1.0))),
+				})
 		for raw_reward in d.get("rewards", []):
 			if raw_reward is Dictionary:
 				pool.rewards.append({
 					"kind": String(raw_reward.get("kind", "")),
 					"id": String(raw_reward.get("id", "")),
+					"category": String(raw_reward.get("category", "")),
 					"weight": maxf(0.0, float(raw_reward.get("weight", 1.0))),
 				})
 		return pool

@@ -1,0 +1,17 @@
+License: CC0 1.0 Universal (Public Domain Dedication)
+	Tree House Modular Set by Quin G. S. (AKA: QN_Art) 
+	Currently found in Itch.io in: https://quin-gs.itch.io/
+
+This asset pack is released under the Creative Commons CC0 1.0 Universal License.
+	You are free to:
+		—> Use, copy, modify, adapt, and build upon the assets.
+		—> Use the assets in personal, educational, or commercial projects.
+		—> Redistribute and share the assets as part of your works.
+		—> No attribution is legally required (though it is appreciated).
+		—> Credit is not required but appreciated.
+
+	Limitations:
+		—> The assets are provided “as-is”, without warranty of any kind.
+		—> Direct resale or redistribution of the unmodified pack is not allowed. Please integrate or adapt the content into your own work before distribution.
+
+For full details, see the official Creative Commons CC0 1.0 Universal legal code.
