@@ -63,7 +63,13 @@ func prepare_wish_offer(force := false) -> Array[Dictionary]:
 	var pool := _delivery_pool()
 	if pool == null:
 		return []
-	var available: Array = pool.wish_categories.duplicate(true)
+	var available: Array = pool.wish_categories.filter(
+		func(category: Dictionary) -> bool:
+			var category_id := String(category.get("id", ""))
+			return pool.rewards.any(func(reward: Dictionary) -> bool:
+				return String(reward.get("category", "")) == category_id
+			)
+	).duplicate(true)
 	var offer: Array[Dictionary] = []
 	for choice_index in mini(WISH_CHOICE_COUNT, available.size()):
 		var category: Dictionary = rng.weighted(
@@ -72,15 +78,7 @@ func prepare_wish_offer(force := false) -> Array[Dictionary]:
 		)
 		if category.is_empty():
 			break
-		offer.append({
-			"category": String(category.get("id", "")),
-			"name": String(category.get("name", "Wish")),
-			"description": String(category.get("description", "")),
-			"glyph": String(category.get("glyph", "✦")),
-			"color_token": String(category.get("color_token", "ui_accent")),
-			"pool_id": pool.id,
-			"source": "wish",
-		})
+		offer.append(_wish_entry(category, pool.id))
 		available.erase(category)
 	wish_choices = offer
 	if not wish_choices.is_empty():
@@ -282,13 +280,24 @@ func _category_for_reward(kind: String, content_id: String) -> Dictionary:
 	for category: Dictionary in pool.wish_categories:
 		if String(category.get("id", "")) != category_id:
 			continue
-		return {
-			"category": category_id,
-			"name": String(category.get("name", category_id.capitalize())),
-			"description": String(category.get("description", "")),
-			"glyph": String(category.get("glyph", "✦")),
-			"color_token": String(category.get("color_token", "ui_accent")),
-			"pool_id": pool.id,
-			"source": "wish",
-		}
+		return _wish_entry(category, pool.id)
 	return {}
+
+
+func _wish_entry(category: Dictionary, pool_id: String) -> Dictionary:
+	var category_id := String(category.get("id", ""))
+	var presentation := BuildCategoryResolver.category(category_id)
+	return {
+		"category": category_id,
+		"name": String(presentation.get(
+			"label", category.get("name", category_id.capitalize())
+		)),
+		"description": String(presentation.get(
+			"wish_description", category.get("description", "")
+		)),
+		"icon": String(category.get(
+			"icon", BuildCategoryResolver.icon_path(category_id)
+		)),
+		"pool_id": pool_id,
+		"source": "wish",
+	}

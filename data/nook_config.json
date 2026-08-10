@@ -1,5 +1,5 @@
 {
-  "nook_size": 4,
+  "nook_size": 6,
   "origin_cell": [
     -2,
     -2
@@ -19,8 +19,9 @@
   ],
   "stamps_min": 1,
   "stamps_max": 1,
-  "corner_cuts_min": 1,
-  "corner_cuts_max": 2,
+  "excluded_stamp_tags": [],
+  "corner_cuts_min": 0,
+  "corner_cuts_max": 0,
   "ruin_chance": 0.05,
   "dormant_chance": 0.85,
   "growth_lines": {
@@ -49,12 +50,31 @@
     "first_fired": 3.0,
     "presence_minute": 0.5
   },
-  "relief": {
-    "knolls_min": 1,
-    "knolls_max": 1,
-    "radius_min": 1,
-    "radius_max": 1,
-    "mountain_biome_tag": "rocky",
-    "mountain_chance": 0.7
+  "terrain_material_frequency": 0.13,
+  "terrain_material_patch_threshold": 0.28,
+  "safe_ground_tile_id": "tile_grass",
+  "safe_water_tile_id": "tile_open_water",
+  "biome_blend_width": 2,
+  "biome_blend_noise_frequency": 0.31,
+  "tagged_ground_weight": 0.35,
+  "habitat_frequency": 0.095,
+  "hydrology": {
+    "enabled": true,
+    "river_frequency": 0.045,
+    "river_warp_frequency": 0.018,
+    "river_width": 0.05,
+    "pond_frequency": 0.075,
+    "pond_threshold": 0.72
+  },
+  "terrain_height": {
+    "macro_frequency": 0.085,
+    "detail_frequency": 0.24,
+    "low_threshold": -0.16,
+    "high_threshold": 0.1,
+    "summit_threshold": 0.34,
+    "max_full_levels": 2,
+    "rocky_max_full_levels": 3,
+    "smoothing_passes": 3,
+    "mountain_biome_tag": "rocky"
   }
 }

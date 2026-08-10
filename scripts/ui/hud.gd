@@ -80,21 +80,8 @@ var _prompt_action := &""
 var _prompt_description := ""
 var _prompt_secondary: Array[Dictionary] = []
 
-const BUILD_CATEGORIES := [
-	{"id": "ground", "label": "Ground", "icon": "category_ground.svg"},
-	{"id": "woodland", "label": "Woodland", "icon": "category_woodland.svg"},
-	{"id": "stone", "label": "Stone", "icon": "category_stone.svg"},
-	{"id": "winter", "label": "Snow", "icon": "category_winter.svg"},
-	{"id": "nature", "label": "Nature", "icon": "category_nature.svg"},
-	{"id": "furniture", "label": "Furniture", "icon": "category_furniture.svg"},
-	{"id": "boundaries", "label": "Borders", "icon": "category_boundaries.svg"},
-	{"id": "utilities", "label": "Utilities", "icon": "category_utilities.svg"},
-	{"id": "buildings", "label": "Buildings", "icon": "category_buildings.svg"},
-	{"id": "storage", "label": "Storage", "icon": "category_storage.svg"},
-	{"id": "deeds", "label": "Deeds", "icon": "category_deeds.svg"},
-]
-
-const BUILD_ICON_DIRECTORY := "res://assets/ui/icons/"
+const BUILD_CATEGORIES := BuildCategoryResolver.CATEGORIES
+const BUILD_ICON_DIRECTORY := BuildCategoryResolver.ICON_DIRECTORY
 const HARVEST_ICON_FILES := {
 	"axe": "harvest_axe.svg",
 	"pickaxe": "harvest_pickaxe.svg",
@@ -618,9 +605,7 @@ func _refresh_build_strip() -> void:
 		)
 		category_button.name = "BuildCategory_%s" % category_id
 		category_button.custom_minimum_size = Vector2(54, 50)
-		category_button.icon = load(
-			BUILD_ICON_DIRECTORY + String(category["icon"])
-		)
+		category_button.icon = load(BuildCategoryResolver.icon_path(category_id))
 		category_button.expand_icon = false
 		category_button.tooltip_text = "%s · %d owned kinds" % [
 			category["label"],

@@ -3,6 +3,7 @@
     {
       "id": "tile_grass",
       "name": "Grass",
+      "tags": ["generation_ground"],
       "family": "home_meadow",
       "catalog_category": "meadow",
       "catalog_order": 10,
@@ -126,6 +127,8 @@
     {
       "id": "tile_grass_flower",
       "name": "Flowering Grass",
+      "tags": ["generation_ground"],
+      "biome_tags": ["meadow"],
       "family": "home_meadow",
       "catalog_category": "meadow",
       "catalog_order": 30,
@@ -669,6 +672,7 @@
     {
       "id": "tile_proc_mossy_forest_floor",
       "name": "Mossy Clearing",
+      "tags": ["generation_ground"],
       "family": "home_meadow",
       "catalog_category": "forest",
       "catalog_order": 60,
@@ -1092,6 +1096,8 @@
     {
       "id": "tile_dirt",
       "name": "Dirt Ground",
+      "tags": ["generation_ground"],
+      "biome_tags": ["meadow"],
       "family": "home_meadow",
       "catalog_category": "farm",
       "catalog_order": 10,
@@ -1577,6 +1583,7 @@
     {
       "id": "tile_proc_mud_bed",
       "name": "Mud Ground",
+      "tags": ["generation_ground"],
       "family": "home_meadow",
       "catalog_category": "swamp",
       "catalog_order": 40,
@@ -1697,6 +1704,7 @@
     {
       "id": "tile_sand",
       "name": "Beach Sand",
+      "tags": ["generation_ground"],
       "family": "home_meadow",
       "catalog_category": "beach",
       "catalog_order": 10,
@@ -1753,6 +1761,7 @@
     {
       "id": "tile_proc_sandy_ground",
       "name": "Sandy Ground",
+      "tags": ["generation_ground"],
       "family": "beach",
       "catalog_category": "beach",
       "catalog_order": 20,
@@ -1929,6 +1938,7 @@
     {
       "id": "tile_snowfield",
       "name": "Fresh Snow",
+      "tags": ["generation_ground"],
       "family": "winter",
       "catalog_category": "tundra",
       "catalog_order": 10,
@@ -1990,6 +2000,7 @@
     {
       "id": "tile_proc_snow_field",
       "name": "Snow Field",
+      "tags": ["generation_ground"],
       "family": "winter",
       "catalog_category": "tundra",
       "catalog_order": 20,
@@ -2220,6 +2231,8 @@
     {
       "id": "tile_frosted_stone",
       "name": "Frosted Stone",
+      "tags": ["generation_ground"],
+      "biome_tags": ["winter", "rocky"],
       "family": "winter",
       "catalog_category": "tundra",
       "catalog_order": 60,
@@ -2928,6 +2941,7 @@
     {
       "id": "tile_proc_gravel_yard",
       "name": "Gravel Ground",
+      "tags": ["generation_ground"],
       "family": "home_meadow",
       "catalog_category": "urban",
       "catalog_order": 70,
@@ -3050,6 +3064,8 @@
     {
       "id": "tile_stone_clearing",
       "name": "Stone Clearing",
+      "tags": ["generation_ground"],
+      "biome_tags": ["rocky"],
       "family": "stonebound",
       "catalog_category": "ruins",
       "catalog_order": 20,
@@ -3170,6 +3186,8 @@
     {
       "id": "tile_stone_mossy",
       "name": "Mossy Stone",
+      "tags": ["generation_ground"],
+      "biome_tags": ["rocky"],
       "family": "stonebound",
       "catalog_category": "ruins",
       "catalog_order": 40,

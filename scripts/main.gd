@@ -83,9 +83,11 @@ var pixel_look: PixelLook
 const LightingTunerScript := preload("res://scripts/ui/lighting_tuner.gd")
 const AssetViewerScript := preload("res://scripts/ui/asset_viewer.gd")
 const PerformanceHudScript := preload("res://scripts/ui/performance_hud.gd")
+const DebugMenuScript := preload("res://scripts/ui/debug_menu.gd")
 var lighting_tuner: CanvasLayer
 var asset_viewer: AssetViewer
 var performance_hud
+var debug_menu
 var panels: GamePanels
 var pause_menu: PauseMenu
 var wish_offer_panel: WishOfferPanel
@@ -107,6 +109,7 @@ var _hud_hidden := false
 var _hud_visible_before_hide := true
 var _input_hints_visible_before_hide := true
 var _performance_hud_visible_before_hide := false
+var _debug_menu_visible_before_hide := false
 var _controller_hud_hold_elapsed := 0.0
 var _controller_hud_hold_active := false
 var _controller_hud_hold_home_fired := false
@@ -179,6 +182,59 @@ func _ready() -> void:
 		_begin_seeded_opening(opening_profile)
 	_apply_debug_visual_overrides()
 	_schedule_debug_capture()
+	# Nook generation can select any registered biome. Stream its small model
+	# vocabulary and canonical terrain layers gradually while the player is
+	# already looking around, so the first Expand click does not pay cold GLB /
+	# baked-scene presentation costs. Structure assets go first because their
+	# smoothing profiles were the last measurable single-frame spike.
+	call_deferred("_prime_nook_generation_assets_async")
+
+
+func _prime_nook_generation_assets_async() -> void:
+	if assets == null or core == null:
+		return
+	var content_ids := {}
+	for biome: NookDefs.NookBiomeDefinition in (
+		core.registries.nook_biomes.values()
+	):
+		for pool_variant: Variant in biome.resolve.values():
+			var pool := pool_variant as NookDefs.SlotPool
+			if pool == null:
+				continue
+			for content_id: String in pool.ids:
+				content_ids[content_id] = true
+
+	var structure_assets: Array = []
+	var tile_assets: Array = []
+	var seen_structure_assets := {}
+	var seen_tile_assets := {}
+	for content_id: String in content_ids:
+		var structure_definition := core.registries.structure(content_id)
+		if structure_definition != null:
+			var structure_asset_id: String = structure_definition.asset_id
+			if not seen_structure_assets.has(structure_asset_id):
+				seen_structure_assets[structure_asset_id] = true
+				structure_assets.append(structure_asset_id)
+			continue
+		var tile_definition := core.registries.tile(content_id)
+		if tile_definition == null:
+			continue
+		if not tile_definition.uses_layered_visual():
+			if not seen_tile_assets.has(tile_definition.asset_id):
+				seen_tile_assets[tile_definition.asset_id] = true
+				tile_assets.append(tile_definition.asset_id)
+			continue
+		for layer: Defs.TileVisualLayerDefinition in (
+			tile_definition.visual_layers
+		):
+			if not seen_tile_assets.has(layer.asset_id):
+				seen_tile_assets[layer.asset_id] = true
+				tile_assets.append(layer.asset_id)
+
+	await assets.prime_packed_scenes_async(structure_assets)
+	await assets.prime_presentations_async(structure_assets)
+	await assets.prime_packed_scenes_async(tile_assets)
+	await assets.prime_presentations_async(tile_assets)
 
 
 # ------------------------------------------------------------------ scene assembly
@@ -384,7 +440,7 @@ func _build_ui() -> void:
 	add_child(hud)
 	hud.setup(core, kit, placement)
 	placement.set_ui_pointer_blocker(
-		Callable(hud, "blocks_world_pointer")
+		Callable(self, "_screen_position_blocked_by_ui")
 	)
 
 	panels = GamePanels.new()
@@ -428,6 +484,11 @@ func _build_ui() -> void:
 	performance_hud.setup(core, renderer)
 	if "--perf-overlay" in OS.get_cmdline_user_args():
 		performance_hud.show_profiler()
+	if OS.is_debug_build():
+		debug_menu = DebugMenuScript.new()
+		debug_menu.name = "DebugMenu"
+		add_child(debug_menu)
+		debug_menu.setup(core, kit, self)
 
 
 ## ReShade-style live lighting overlay (debug builds), toggled from the pause
@@ -468,6 +529,55 @@ func toggle_performance_hud() -> bool:
 	return wants_visible
 
 
+## Leaves the larger diagnostic tools in Pause -> Admin, while giving both
+## mouse and controller users a route into the compact live-world card.
+func open_debug_menu() -> void:
+	if not OS.is_debug_build() or debug_menu == null:
+		return
+	if pause_menu.is_open():
+		pause_menu.close()
+	debug_menu.show_and_focus()
+
+
+func debug_prompt_skyfall() -> bool:
+	if not OS.is_debug_build() or wish_offer_panel == null:
+		return false
+	var choices := core.progression.discovery.prepare_wish_offer(true)
+	if choices.is_empty() and not core.progression.discovery.has_pending():
+		return false
+	wish_offer_panel.notify_ready(false)
+	wish_offer_panel.open_pending()
+	return wish_offer_panel.is_open()
+
+
+func debug_grant_all_items(amount := 99) -> int:
+	if not OS.is_debug_build():
+		return 0
+	var grant_amount := maxi(1, amount)
+	for item_id in core.registries.items:
+		core.inventory.grant(String(item_id), grant_amount, false, true)
+	return core.registries.items.size()
+
+
+func debug_grant_all_tiles(amount := 99) -> int:
+	if not OS.is_debug_build():
+		return 0
+	var tile_ids := core.registries.obtainable_tile_ids()
+	var grant_amount := maxi(1, amount)
+	for tile_id in tile_ids:
+		core.stock.add_tile(String(tile_id), grant_amount)
+	return tile_ids.size()
+
+
+func debug_grant_all_models(amount := 99) -> int:
+	if not OS.is_debug_build():
+		return 0
+	var grant_amount := maxi(1, amount)
+	for structure_id in core.registries.structures:
+		core.stock.add_structure(String(structure_id), grant_amount)
+	return core.registries.structures.size()
+
+
 ## H hides the normal gameplay overlays for clean screenshots and immersion.
 ## Menus remain independent so the player can always pause and recover them.
 func toggle_all_hud() -> bool:
@@ -481,6 +591,8 @@ func toggle_all_hud() -> bool:
 			input_hints.visible = _input_hints_visible_before_hide
 		if performance_hud != null:
 			performance_hud.visible = _performance_hud_visible_before_hide
+		if debug_menu != null:
+			debug_menu.visible = _debug_menu_visible_before_hide
 		_refresh_controller_hints()
 		return false
 	_hud_visible_before_hide = hud != null and hud.visible
@@ -490,6 +602,7 @@ func toggle_all_hud() -> bool:
 	_performance_hud_visible_before_hide = (
 		performance_hud != null and performance_hud.visible
 	)
+	_debug_menu_visible_before_hide = debug_menu != null and debug_menu.visible
 	_hud_hidden = true
 	if hud != null:
 		hud.visible = false
@@ -497,6 +610,8 @@ func toggle_all_hud() -> bool:
 		input_hints.visible = false
 	if performance_hud != null:
 		performance_hud.visible = false
+	if debug_menu != null:
+		debug_menu.visible = false
 	return true
 
 
@@ -1090,6 +1205,8 @@ func _on_first_arrival_landed() -> void:
 func _start_gameplay(fresh: bool, show_welcome := true) -> void:
 	_gameplay_started = true
 	hud.visible = true
+	if debug_menu != null and not _hud_hidden:
+		debug_menu.show_for_gameplay()
 	player.set_state(PlayerController.State.FREE)
 	player_visual.apply_equipment(core.equipment)
 	camera_rig.restore_state(core.view_state)
@@ -1417,6 +1534,8 @@ func _screen_position_blocked_by_ui(screen_position: Vector2) -> bool:
 		wish_offer_panel != null
 		and wish_offer_panel.blocks_world_pointer(screen_position)
 	):
+		return true
+	if debug_menu != null and debug_menu.blocks_world_pointer(screen_position):
 		return true
 	if hud != null:
 		return hud.blocks_world_pointer(screen_position)
@@ -1921,14 +2040,50 @@ func _try_expand_frontier_at_cell(cell: Vector2i) -> bool:
 func _expand_nook_at(coord: Vector2i) -> bool:
 	if _nook_reveal_in_progress or not placement.held.is_empty():
 		return false
-	var plan := core.nooks.expand_random(coord)
+	# Claim the interaction immediately, then let the input frame finish.
+	# Generation/application and renderer construction continue in bounded
+	# batches instead of freezing the click that opened the frontier.
+	_nook_reveal_in_progress = true
+	_update_frontier_marker_availability()
+	call_deferred("_expand_nook_at_async", coord)
+	return true
+
+
+func _expand_nook_at_async(coord: Vector2i) -> void:
+	renderer.begin_bulk_update()
+	var staged_plan: NookGenerator.NookPlan
+	var staged_origin := core.nooks.world.chunk_origin(coord)
+	var prepared: Dictionary = await core.nooks.prepare_random_expansion_async(
+		coord,
+		1
+	)
+	if not prepared.is_empty():
+		var prepared_plan := prepared.get("plan") as NookGenerator.NookPlan
+		if prepared_plan != null:
+			staged_plan = prepared_plan
+			renderer.stage_nook_reveal(
+				staged_origin,
+				prepared_plan
+			)
+	await renderer.end_bulk_update_async(not prepared.is_empty())
+	var plan: NookGenerator.NookPlan = (
+		core.nooks.finish_prepared_expansion(prepared)
+		if not prepared.is_empty()
+		else null
+	)
 	if plan == null:
+		if staged_plan != null:
+			renderer.release_nook_reveal_staging(
+				staged_origin,
+				staged_plan
+			)
+		_nook_reveal_in_progress = false
+		_update_frontier_marker_availability()
 		audio.play_event("build_invalid")
-		return false
+		return
 	audio.play_event("parcel_reveal")
 	core.autosave_soon()
 	_refresh_controller_hints()
-	return true
 
 
 func _try_harvest_instance(instance_id: int) -> bool:

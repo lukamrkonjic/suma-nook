@@ -43,10 +43,10 @@ static func _validate_biomes(snapshot, issues: Array) -> void:
 			for content_id: String in pool.ids:
 				if not snapshot.tiles.has(content_id) \
 					and not snapshot.structures.has(content_id):
-					_error(
+					_warning(
 						issues, "nook.biome.slot.missing", source,
 						"resolve.%s" % slot,
-						"biome '%s' slot '%s' references unknown content '%s'"
+						"biome '%s' slot '%s' skips retired content '%s'"
 						% [biome.id, slot, content_id]
 					)
 		for band: String in DENSITY_BANDS:
@@ -280,4 +280,12 @@ static func _error(
 ) -> void:
 	issues.append(ValidationIssueScript.new(
 		ValidationIssueScript.Severity.ERROR, code, source, field, message
+	))
+
+
+static func _warning(
+	issues: Array, code: String, source, field: String, message: String
+) -> void:
+	issues.append(ValidationIssueScript.new(
+		ValidationIssueScript.Severity.WARNING, code, source, field, message
 	))

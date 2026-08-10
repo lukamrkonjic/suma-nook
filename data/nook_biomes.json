@@ -5,7 +5,8 @@
       "name": "Whisperpine Forest",
       "tags": [
         "forest",
-        "green"
+        "green",
+        "meadow"
       ],
       "resolve": {
         "ground": {
@@ -36,6 +37,16 @@
         "water_edge": {
           "pool": [
             "tile_grass_pond_edge"
+          ]
+        },
+        "riverbank": {
+          "pool": [
+            "tile_dirt",
+            "tile_proc_mud_bed"
+          ],
+          "weights": [
+            3,
+            1
           ]
         },
         "rock_ground": {
@@ -145,6 +156,16 @@
             "tile_grass_pond_edge"
           ]
         },
+        "riverbank": {
+          "pool": [
+            "tile_dirt",
+            "tile_grass"
+          ],
+          "weights": [
+            3,
+            1
+          ]
+        },
         "rock_ground": {
           "pool": [
             "tile_stone_clearing"
@@ -227,9 +248,11 @@
         "ground": {
           "pool": [
             "tile_stone_mossy",
-            "tile_stone_clearing"
+            "tile_stone_clearing",
+            "tile_proc_gravel_yard"
           ],
           "weights": [
+            2,
             2,
             1
           ]
@@ -247,6 +270,16 @@
         "water_edge": {
           "pool": [
             "tile_grass_pond_edge"
+          ]
+        },
+        "riverbank": {
+          "pool": [
+            "tile_proc_gravel_yard",
+            "tile_stone_clearing"
+          ],
+          "weights": [
+            2,
+            1
           ]
         },
         "rock_ground": {
@@ -324,6 +357,188 @@
       },
       "base_weight": 0.7,
       "neighbor_weight": 2.5
+    },
+    {
+      "id": "nook_biome_dunes",
+      "name": "Amber Dunes",
+      "tags": [
+        "desert",
+        "warm",
+        "beach"
+      ],
+      "resolve": {
+        "ground": {
+          "pool": [
+            "tile_sand",
+            "tile_proc_sandy_ground"
+          ],
+          "weights": [
+            3,
+            1
+          ]
+        },
+        "clearing": {
+          "pool": [
+            "tile_sand"
+          ]
+        },
+        "water": {
+          "pool": [
+            "tile_open_water"
+          ]
+        },
+        "riverbank": {
+          "pool": [
+            "tile_sand",
+            "tile_proc_sandy_ground"
+          ],
+          "weights": [
+            3,
+            1
+          ]
+        },
+        "rock_ground": {
+          "pool": [
+            "tile_proc_gravel_yard"
+          ]
+        },
+        "relic": {
+          "pool": [
+            "struct_stone_pillar"
+          ]
+        },
+        "shrub": {
+          "pool": [
+            "struct_bush"
+          ]
+        },
+        "stone": {
+          "pool": [
+            "struct_rock_outcrop"
+          ]
+        }
+      },
+      "scatter": {
+        "pool": [
+          "stone",
+          "shrub"
+        ],
+        "weights": [
+          5,
+          1
+        ]
+      },
+      "density": {
+        "open": 0.03,
+        "seeded": 0.1,
+        "grown": 0.22
+      },
+      "moods": [
+        "mood_clear_noon",
+        "mood_golden_dusk"
+      ],
+      "treasure_tables": {
+        "open": "ttable_open",
+        "seeded": "ttable_seeded",
+        "grown": "ttable_grown"
+      },
+      "base_weight": 0.8,
+      "neighbor_weight": 3.5
+    },
+    {
+      "id": "nook_biome_tundra",
+      "name": "Quiet Tundra",
+      "tags": [
+        "snow",
+        "cold",
+        "winter"
+      ],
+      "resolve": {
+        "ground": {
+          "pool": [
+            "tile_snowfield",
+            "tile_proc_snow_field",
+            "tile_frosted_stone"
+          ],
+          "weights": [
+            4,
+            2,
+            1
+          ]
+        },
+        "clearing": {
+          "pool": [
+            "tile_snowfield"
+          ]
+        },
+        "water": {
+          "pool": [
+            "tile_open_water"
+          ]
+        },
+        "riverbank": {
+          "pool": [
+            "tile_frosted_stone",
+            "tile_snowfield"
+          ],
+          "weights": [
+            2,
+            1
+          ]
+        },
+        "rock_ground": {
+          "pool": [
+            "tile_frosted_stone"
+          ]
+        },
+        "relic": {
+          "pool": [
+            "struct_stone_pillar"
+          ]
+        },
+        "tree": {
+          "pool": [
+            "struct_pine_young",
+            "struct_pine"
+          ],
+          "weights": [
+            2,
+            1
+          ]
+        },
+        "stone": {
+          "pool": [
+            "struct_rock_outcrop"
+          ]
+        }
+      },
+      "scatter": {
+        "pool": [
+          "tree",
+          "stone"
+        ],
+        "weights": [
+          2,
+          3
+        ]
+      },
+      "density": {
+        "open": 0.04,
+        "seeded": 0.12,
+        "grown": 0.27
+      },
+      "moods": [
+        "mood_first_snow",
+        "mood_soft_mist",
+        "mood_clear_noon"
+      ],
+      "treasure_tables": {
+        "open": "ttable_open",
+        "seeded": "ttable_seeded",
+        "grown": "ttable_grown"
+      },
+      "base_weight": 0.8,
+      "neighbor_weight": 3.5
     }
   ]
 }

@@ -156,6 +156,12 @@ func _roll_cards(coord: Vector2i, count_override := -1) -> Array:
 			"mood": mood_id,
 			"mood_name": _mood_name(mood_id),
 			"seed": rng.randi_range(stream + ":seed", 1, 0x7FFFFFFF),
+			# Shared world-space terrain noise lets neighboring 6x6 Nooks
+			# continue the same ridges even when their surface biomes differ.
+			"terrain_seed": rng.world_seed,
+			# Hydrology is another world field: an unseen river already has a
+			# deterministic course and continues through every later expansion.
+			"hydrology_seed": rng.world_seed,
 		})
 	return cards
 

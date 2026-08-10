@@ -461,32 +461,15 @@ func _build_admin_page() -> void:
 	list.add_theme_constant_override("separation", 8)
 	scroll.add_child(list)
 
-	var grant_items := func() -> void:
-		for item_id in core.registries.items:
-			core.inventory.grant(String(item_id), 99, false, true)
-		_admin_status("Granted 99 of every item (%d kinds)." % core.registries.items.size())
-	var grant_tiles := func() -> void:
-		var tile_ids := core.registries.obtainable_tile_ids()
-		for tile_id in tile_ids:
-			core.stock.add_tile(String(tile_id), 10)
-		_admin_status(
-			"Stocked 10 of every official tile (%d kinds)." % tile_ids.size()
-		)
-	var grant_structures := func() -> void:
-		for structure_id in core.registries.structures:
-			core.stock.add_structure(String(structure_id), 10)
-		_admin_status("Stocked 10 of every structure (%d kinds)." % core.registries.structures.size())
-	list.add_child(kit.section_label("Content library"))
-	_admin_action_row(list, "Every item", "Grant 99 of each registered item, quietly.", "Grant ×99", grant_items)
+	list.add_child(kit.section_label("Live debug card"))
 	_admin_action_row(
 		list,
-		"Every official tile",
-		"Stock 10 of every obtainable tile published through Asset Studio.",
-		"Grant ×10",
-		grant_tiles,
-		"AdminRowEveryTile"
+		"On-screen tools",
+		"Focus the compact live-world card for skyfalls and ×99 content grants.",
+		"Focus card",
+		func() -> void: settings_bridge.call_deferred("open_debug_menu"),
+		"AdminRowDebugMenu"
 	)
-	_admin_action_row(list, "Every structure", "Stock 10 of each structure and decoration.", "Grant ×10", grant_structures)
 
 	var toggle_tuner := func() -> void:
 		var now_visible: bool = settings_bridge.toggle_lighting_tuner()

@@ -27,6 +27,9 @@ const FireInteractionsScript := preload(
 const CurrentSaveValidatorScript := preload(
 	"res://scripts/systems/current_save_validator.gd"
 )
+const ContentRemovalMigratorScript := preload(
+	"res://scripts/systems/content_removal_migrator.gd"
+)
 const FishingModuleScript := preload(
 	"res://scripts/features/fishing/fishing_module.gd"
 )
@@ -890,6 +893,9 @@ func load_game() -> bool:
 	# become v2 (preserved verbatim under progression.archived_v1), then the
 	# validator applies its normal no-aliases strictness to the result.
 	var data: Dictionary = ProgressionModule.migrate_save_payload(raw_data)
+	var content_repair := ContentRemovalMigratorScript.repair(data, registries)
+	data = content_repair.get("data", data)
+	var retired_content_repaired := bool(content_repair.get("changed", false))
 	var save_errors := CurrentSaveValidatorScript.validate(data, registries)
 	if not save_errors.is_empty():
 		var reason := "development save references retired content: " + save_errors[0]
@@ -949,7 +955,8 @@ func load_game() -> bool:
 	# Dormant wakes crossed last session play out now — the player arrives
 	# and the place has changed. Presentation animates them on first sight.
 	dormants.apply_pending_wakes()
-	_dirty = wardrobe_migrated or showcase_placeables_migrated
+	_dirty = retired_content_repaired \
+		or wardrobe_migrated or showcase_placeables_migrated
 	return true
 
 

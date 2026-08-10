@@ -93,45 +93,174 @@ func expand_random(coord: Vector2i) -> NookGenerator.NookPlan:
 	return reveal_nook(choice["coord"], choice["card"])
 
 
+## Live expansion counterpart to expand_random(). Generation remains
+## deterministic, but command application yields between small batches so a
+## 6x6 Nook never monopolizes the main thread. The caller finishes renderer
+## reconciliation before calling finish_prepared_expansion(), which ensures
+## the reveal animation starts only after every visual holder exists.
+func prepare_random_expansion_async(
+	coord: Vector2i,
+	entries_per_frame := 1
+) -> Dictionary:
+	if not enabled:
+		return {}
+	var choice := offers.roll_direct(coord)
+	if choice.is_empty():
+		return {}
+	return await prepare_reveal_nook_async(
+		choice["coord"],
+		choice["card"],
+		entries_per_frame
+	)
+
+
+func prepare_reveal_nook_async(
+	coord: Vector2i,
+	seed_card: Dictionary,
+	entries_per_frame := 1
+) -> Dictionary:
+	if world.has_nook(coord):
+		return {}
+	# Let the click/press frame finish before procedural work begins.
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree != null:
+		await tree.process_frame
+	var plan := _generate_plan(coord, seed_card)
+	if plan == null or plan.biome_id == "":
+		return {}
+	var origin := world.chunk_origin(coord)
+	var ordered_tiles := _ordered_tiles(plan)
+	var batch_size := maxi(1, entries_per_frame)
+	var applied_this_frame := 0
+	for tile: Dictionary in ordered_tiles:
+		_apply_generated_tile(coord, origin, tile)
+		applied_this_frame += 1
+		if applied_this_frame >= batch_size and tree != null:
+			applied_this_frame = 0
+			await tree.process_frame
+	var dormant_instance := 0
+	for feature: Dictionary in plan.features:
+		var placed_dormant := _apply_generated_feature(coord, origin, feature)
+		if placed_dormant > 0:
+			dormant_instance = placed_dormant
+		applied_this_frame += 1
+		if applied_this_frame >= batch_size and tree != null:
+			applied_this_frame = 0
+			await tree.process_frame
+	return {
+		"coord": coord,
+		"plan": plan,
+		"dormant_instance": dormant_instance,
+	}
+
+
+func finish_prepared_expansion(prepared: Dictionary) -> NookGenerator.NookPlan:
+	if prepared.is_empty():
+		return null
+	var coord: Vector2i = prepared.get("coord", Vector2i.ZERO)
+	var plan := prepared.get("plan") as NookGenerator.NookPlan
+	if plan == null or world.has_nook(coord):
+		return null
+	_finalize_reveal(coord, plan, int(prepared.get("dormant_instance", 0)))
+	return plan
+
+
 ## Applies a seed card to the world: generation is deterministic from the
 ## card, application flows through the command reducer, and the resulting
 ## record carries the invisible discovery assignments.
 func reveal_nook(coord: Vector2i, seed_card: Dictionary) -> NookGenerator.NookPlan:
 	if world.has_nook(coord):
 		return null
-	var plan := generator.generate(coord, seed_card, world.nook_size)
-	if plan.biome_id == "":
+	var plan := _generate_plan(coord, seed_card)
+	if plan == null or plan.biome_id == "":
 		return null
 	var origin := world.chunk_origin(coord)
+	for tile: Dictionary in _ordered_tiles(plan):
+		_apply_generated_tile(coord, origin, tile)
+	var dormant_instance := 0
+	for feature: Dictionary in plan.features:
+		var placed_dormant := _apply_generated_feature(coord, origin, feature)
+		if placed_dormant > 0:
+			dormant_instance = placed_dormant
+	_finalize_reveal(coord, plan, dormant_instance)
+	return plan
+
+
+func _generate_plan(
+	coord: Vector2i,
+	seed_card: Dictionary
+) -> NookGenerator.NookPlan:
+	# Shared field seeds and neighbour context are supplied at reveal time, not
+	# stored as fragile generated-cell recipes. Once applied, tiles are ordinary
+	# saved world state and later content changes never regenerate them.
+	var generation_card := seed_card.duplicate(true)
+	if not generation_card.has("terrain_seed"):
+		generation_card["terrain_seed"] = int(generation_card.get("seed", rng.world_seed))
+	if not generation_card.has("hydrology_seed"):
+		generation_card["hydrology_seed"] = generation_card["terrain_seed"]
+	return generator.generate(
+		coord,
+		generation_card,
+		world.nook_size,
+		_generation_context(coord)
+	)
+
+
+func _ordered_tiles(plan: NookGenerator.NookPlan) -> Array:
 	# Ground before relief caps: stacked entries need their support first.
 	var ordered_tiles := plan.tiles.duplicate()
 	ordered_tiles.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return int(a.get("elevation", 0)) < int(b.get("elevation", 0))
 	)
-	for tile: Dictionary in ordered_tiles:
-		var cell: Vector2i = origin + (tile["local"] as Vector2i)
-		var elevation := int(tile.get("elevation", 0))
-		if elevation == 0 and grid.has_cell(cell):
-			continue
-		commands.apply("place_tile", {
-			"coord": cell,
-			"tile_id": String(tile["tile_id"]),
-			"elevation": elevation,
-			"nook": coord,
-			"source": "generation",
-		})
-	var dormant_instance := 0
-	for feature: Dictionary in plan.features:
-		var cell: Vector2i = origin + (feature["local"] as Vector2i)
-		var placed := commands.apply("place_feature", {
+	return ordered_tiles
+
+
+func _apply_generated_tile(
+	nook_coord: Vector2i,
+	origin: Vector2i,
+	tile: Dictionary
+) -> void:
+	var cell: Vector2i = origin + (tile["local"] as Vector2i)
+	var elevation := int(tile.get("elevation", 0))
+	if elevation == 0 and grid.has_cell(cell):
+		return
+	commands.apply("place_tile", {
+		"coord": cell,
+		"tile_id": String(tile["tile_id"]),
+		"elevation": elevation,
+		"nook": nook_coord,
+		"source": "generation",
+	})
+
+
+func _apply_generated_feature(
+	nook_coord: Vector2i,
+	origin: Vector2i,
+	feature: Dictionary
+) -> int:
+	var cell: Vector2i = origin + (feature["local"] as Vector2i)
+	var placed := commands.apply("place_feature", {
 			"coord": cell,
 			"structure_id": String(feature["structure_id"]),
 			# Features stand on whatever the relief pass left on top.
-			"elevation": maxi(0, grid.top_elevation(cell)),
-			"nook": coord,
-		})
-		if bool(feature.get("dormant", false)) and bool(placed.get("ok", false)):
-			dormant_instance = int(placed.get("instance_id", 0))
+		"elevation": maxi(0, grid.top_elevation(cell)),
+		"nook": nook_coord,
+	})
+	# Preserve the stable instance id on the presentation-only plan. The world
+	# state is already authoritative; this lets the reveal animate precisely the
+	# models born in this Nook instead of guessing by structure id or cell.
+	if bool(placed.get("ok", false)):
+		feature["instance_id"] = int(placed.get("instance_id", 0))
+	if bool(feature.get("dormant", false)) and bool(placed.get("ok", false)):
+		return int(placed.get("instance_id", 0))
+	return 0
+
+
+func _finalize_reveal(
+	coord: Vector2i,
+	plan: NookGenerator.NookPlan,
+	dormant_instance: int
+) -> void:
 	var record := NookWorld.NookRecord.new()
 	record.coord = coord
 	record.biome_id = plan.biome_id
@@ -160,7 +289,19 @@ func reveal_nook(coord: Vector2i, seed_card: Dictionary) -> NookGenerator.NookPl
 			"other": neighbor.coord,
 		})
 	nook_revealed.emit(coord, plan)
-	return plan
+
+
+func _generation_context(coord: Vector2i) -> Dictionary:
+	var neighbors: Array[Dictionary] = []
+	for offset: Vector2i in WorldGrid.NEIGHBORS:
+		var record := world.nook(coord + offset)
+		if record == null:
+			continue
+		neighbors.append({
+			"offset": offset,
+			"biome": record.biome_id,
+		})
+	return {"neighbors": neighbors}
 
 
 func name_nook(coord: Vector2i, name: String) -> bool:
@@ -208,6 +349,9 @@ func plant_sapling(coord: Vector2i, sapling_id: String) -> Dictionary:
 	var planted := commands.apply("plant_sapling", {
 		"coord": coord,
 		"structure_id": String(stages[0]),
+		# Biome terrain is genuinely vertical now. Plant on the visible top
+		# surface instead of silently targeting the buried elevation-zero tile.
+		"elevation": maxi(0, grid.top_elevation(coord)),
 		"nook": world.chunk_of_cell(coord),
 	})
 	if not bool(planted.get("ok", false)):

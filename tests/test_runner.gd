@@ -9,6 +9,9 @@ const GameContentCatalogScript := preload("res://scripts/core/game_content_catal
 const CurrentSaveValidatorScript := preload(
 	"res://scripts/systems/current_save_validator.gd"
 )
+const ContentRemovalMigratorScript := preload(
+	"res://scripts/systems/content_removal_migrator.gd"
+)
 const DebugWorldBuilderScript := preload(
 	"res://scripts/debug/debug_world_builder.gd"
 )
@@ -1118,10 +1121,52 @@ func _test_registries() -> void:
 	var wish_category_ids: Array[String] = []
 	for category: Dictionary in wish_pool.wish_categories:
 		wish_category_ids.append(String(category.get("id", "")))
+	var expected_wish_category_ids: Array[String] = []
+	for category: Dictionary in BuildCategoryResolver.categories():
+		if float(category.get("wish_weight", 0.0)) > 0.0:
+			expected_wish_category_ids.append(String(category.get("id", "")))
+	var every_reward_is_categorized := true
+	for reward: Dictionary in wish_pool.rewards:
+		if not wish_category_ids.has(String(reward.get("category", ""))):
+			every_reward_is_categorized = false
 	check(
-		wish_category_ids.size() >= DiscoverySystem.WISH_CHOICE_COUNT
-		and wish_pool.rewards.all(func(reward: Dictionary) -> bool: return wish_category_ids.has(String(reward.get("category", "")))),
-		"every sky reward belongs to a selectable wish category"
+		wish_category_ids == expected_wish_category_ids
+		and every_reward_is_categorized,
+		"sky wishes use the same categories as the Build Bag"
+	)
+	var every_category_has_an_icon := true
+	for category_id: String in wish_category_ids:
+		if not ResourceLoader.exists(BuildCategoryResolver.icon_path(category_id)):
+			every_category_has_an_icon = false
+	check(
+		every_category_has_an_icon,
+		"every wish category reuses its Build Bag icon"
+	)
+	var wished_tile_ids: Array[String] = []
+	for reward: Dictionary in wish_pool.rewards:
+		if String(reward.get("kind", "")) == "tile":
+			wished_tile_ids.append(String(reward.get("id", "")))
+	var every_active_tile_is_wishable := true
+	for tile_id: String in regs.active_tile_ids():
+		if not wished_tile_ids.has(tile_id):
+			every_active_tile_is_wishable = false
+	check(
+		every_active_tile_is_wishable,
+		"every active tile can fall from a category wish"
+	)
+	var imported_model_count := 0
+	for structure_id: String in regs.structures:
+		if structure_id.begins_with("struct_itch_"):
+			imported_model_count += 1
+	var imported_wish_reward_count := 0
+	for reward: Dictionary in wish_pool.rewards:
+		if String(reward.get("id", "")).begins_with("struct_itch_"):
+			imported_wish_reward_count += 1
+	check(
+		not regs.feature("itch_catalog_enabled", true)
+		and imported_model_count == 0
+		and imported_wish_reward_count == 0,
+		"the generated model catalog stays preserved but disabled in the live game"
 	)
 	var delivery_pools := 0
 	var local_pools := 0
@@ -3757,20 +3802,27 @@ func _test_unfolding_world_generation() -> void:
 		else:
 			raised_entries += 1
 	check(
-		size == 4
-		and ground_entries >= size * size - 2
-		and ground_entries < size * size,
-		"generated Nooks are compact four-by-four slates with cut-away corners"
+		size == 6
+		and ground_entries == size * size,
+		"generated Nooks are complete six-by-six biome slates without seam holes"
 	)
 	check(
 		raised_entries >= 3,
 		"every generated Nook arrives with a readable multi-cell landform"
 	)
 	var representative_relief_ok := true
+	var representative_terrain_is_safe := true
+	var representative_raised := 0
+	var representative_peak := 0
+	var representative_water := 0
+	var water_chunks := 0
+	var pond_shapes := 0
 	for biome_id in [
 		"nook_biome_forest",
 		"nook_biome_meadow",
 		"nook_biome_stonefell",
+		"nook_biome_dunes",
+		"nook_biome_tundra",
 	]:
 		for candidate_seed in range(1, 31):
 			var sample := core.nooks.generator.generate(
@@ -3785,20 +3837,157 @@ func _test_unfolding_world_generation() -> void:
 			)
 			var sample_ground := 0
 			var sample_raised := 0
+			var sample_peak := 0
+			var sample_water := {}
 			for tile: Dictionary in sample.tiles:
-				if int(tile.get("elevation", 0)) == 0:
+				var sample_elevation := int(tile.get("elevation", 0))
+				if sample_elevation == 0:
 					sample_ground += 1
 				else:
 					sample_raised += 1
+				sample_peak = maxi(sample_peak, sample_elevation)
+				var terrain_def := core.registries.tile(String(tile["tile_id"]))
+				if terrain_def != null \
+					and terrain_def.render_profile == "continuous_water":
+					if sample_elevation == 0:
+						sample_water[tile["local"]] = true
+						representative_water += 1
+				elif (
+					terrain_def == null
+					or terrain_def.height_fraction < 1.0
+					or not terrain_def.stackable
+					or not terrain_def.supports_tiles
+					or terrain_def.surface_kind != "flat"
+					or terrain_def.render_profile == "continuous_water"
+					or not terrain_def.water_cells.is_empty()
+					or terrain_def.collision_profile == "pond_basin"
+				):
+					representative_terrain_is_safe = false
 			if (
-				sample_ground < 14
-				or sample_ground > 15
-				or sample_raised < 3
+				sample_ground != size * size
+				or sample_raised < 0
 			):
 				representative_relief_ok = false
+			representative_raised += sample_raised
+			representative_peak = maxi(representative_peak, sample_peak)
+			water_chunks += int(not sample_water.is_empty())
+			for water_local: Vector2i in sample_water:
+				if sample_water.has(water_local + Vector2i.RIGHT) \
+					and sample_water.has(water_local + Vector2i.DOWN) \
+					and sample_water.has(water_local + Vector2i.ONE):
+					pond_shapes += 1
+					break
 	check(
 		representative_relief_ok,
-		"compact silhouettes and visible relief hold across representative biome seeds"
+		"six-by-six silhouettes stay complete across every biome"
+	)
+	check(
+		representative_terrain_is_safe,
+		"generated terrain uses only solid full blocks plus intentional continuous water"
+	)
+	check(
+		representative_raised >= 800 and representative_peak >= 2,
+		"world-space relief produces broad multi-block hills instead of isolated bumps"
+	)
+	check(
+		representative_water > 0 and water_chunks > 0 and pond_shapes > 0,
+		"world-space hydrology produces both streams and pond-sized water shapes"
+	)
+	var shared_card := {
+		"biome": "nook_biome_meadow", "density": "open",
+		"mood": "mood_clear_noon", "seed": 55,
+		"terrain_seed": 77, "hydrology_seed": 77,
+	}
+	var river_continues := false
+	for chunk_x in 40:
+		var left := core.nooks.generator.generate(
+			Vector2i(chunk_x, 2), shared_card, size
+		)
+		var right := core.nooks.generator.generate(
+			Vector2i(chunk_x + 1, 2), shared_card, size
+		)
+		var left_water := {}
+		var right_water := {}
+		for tile: Dictionary in left.tiles:
+			if int(tile.get("elevation", 0)) == 0 \
+				and String(tile.get("tile_id", "")) == "tile_open_water":
+				left_water[tile["local"]] = true
+		for tile: Dictionary in right.tiles:
+			if int(tile.get("elevation", 0)) == 0 \
+				and String(tile.get("tile_id", "")) == "tile_open_water":
+				right_water[tile["local"]] = true
+		for y in size:
+			if left_water.has(Vector2i(size - 1, y)) \
+				and right_water.has(Vector2i(0, y)):
+				river_continues = true
+		if river_continues:
+			break
+	check(
+		river_continues,
+		"one hydrology field carries rivers cleanly across later Nook generations"
+	)
+	var hydrology_config: Dictionary = core.registries.nook_config.get(
+		"hydrology", {}
+	)
+	var hydrology_enabled := bool(hydrology_config.get("enabled", true))
+	hydrology_config["enabled"] = false
+	var blended_plan := core.nooks.generator.generate(
+		Vector2i(20, 20),
+		{
+			"biome": "nook_biome_dunes", "density": "open",
+			"mood": "mood_clear_noon", "seed": 9876,
+		},
+		size,
+		{"neighbors": [{
+			"offset": Vector2i.LEFT,
+			"biome": "nook_biome_forest",
+		}]}
+	)
+	hydrology_config["enabled"] = hydrology_enabled
+	var inherited_edge_tiles := 0
+	var native_inner_tiles := 0
+	for tile: Dictionary in blended_plan.tiles:
+		if int(tile.get("elevation", 0)) != 0:
+			continue
+		var local: Vector2i = tile["local"]
+		var definition := core.registries.tile(String(tile.get("tile_id", "")))
+		if definition == null:
+			continue
+		if local.x < 2 and not definition.biome_tags.has("beach"):
+			inherited_edge_tiles += 1
+		if local.x >= 3 and definition.biome_tags.has("beach"):
+			native_inner_tiles += 1
+	check(
+		inherited_edge_tiles > 0 and native_inner_tiles > 0,
+		"new biomes dither their neighbour's palette through a two-cell transition band"
+	)
+	var retired_payload := {
+		"grid": {"cells": [{
+			"x": 0, "y": 0, "e": 0, "tile": "tile_retired_example",
+			"structs": [{"iid": 99, "id": "struct_retired_example"}],
+		}]},
+		"stock": {
+			"tiles": {"tile_retired_example": 4, "tile_grass": 2},
+			"structures": {"struct_retired_example": 3},
+			"structure_instances": [], "deeds": [],
+		},
+		"features": {}, "progression": {}, "collection": {
+			"entries": {"tiles/tile_retired_example": {
+				"count": 4, "placed": 2, "first_time": "old",
+			}}
+		}, "onboarding": {},
+	}
+	var repaired: Dictionary = ContentRemovalMigratorScript.repair(
+		retired_payload, core.registries
+	)
+	var repaired_data: Dictionary = repaired.get("data", {})
+	check(
+		bool(repaired.get("changed", false))
+		and String(repaired_data["grid"]["cells"][0]["tile"]) == "tile_grass"
+		and (repaired_data["grid"]["cells"][0]["structs"] as Array).is_empty()
+		and int(repaired_data["stock"]["tiles"]["tile_grass"]) == 6
+		and repaired_data["stock"]["structures"].is_empty(),
+		"retired build content repairs to grass without invalidating the save"
 	)
 	check(not plan_a.features.is_empty(), "a grown Nook scatters features")
 	var guaranteed_found := not plan_a.treasures.is_empty()
@@ -3927,6 +4116,42 @@ func _test_direct_frontier_expansion() -> void:
 		not reveal_presenter.has_method("_settle_mood"),
 		"expanding a Nook cannot change the global weather or time of day"
 	)
+	var reveal_holder := Node3D.new()
+	var reveal_visual := Node3D.new()
+	root.add_child(reveal_holder)
+	reveal_holder.add_child(reveal_visual)
+	var authoritative_landing := Vector3(2.0, 1.0, 3.0)
+	# Reproduce generation's same-frame placement-settle offset. The reveal
+	# must discard it instead of adopting it as the permanent landing plane.
+	reveal_holder.position = authoritative_landing + Vector3.UP * 0.1
+	reveal_visual.position = Vector3(0.0, -0.25, 0.0)
+	reveal_presenter._drop_tile(
+		reveal_holder,
+		authoritative_landing,
+		0.2,
+		6.0,
+		0.34,
+		0.08
+	)
+	check(
+		reveal_holder.position.is_equal_approx(authoritative_landing),
+		"the Nook reveal never adopts a placement tween's temporary holder offset"
+	)
+	check(
+		is_equal_approx(reveal_visual.position.y, 5.75),
+		"the reveal fall animates the visual child instead of authoritative tile position"
+	)
+	reveal_presenter._settle_reveal_tile(
+		reveal_holder,
+		authoritative_landing,
+		reveal_visual
+	)
+	check(
+		reveal_holder.position.is_equal_approx(authoritative_landing)
+			and reveal_visual.position.is_equal_approx(Vector3(0.0, -0.25, 0.0)),
+		"a completed or interrupted reveal snaps both holder and visual to rest"
+	)
+	reveal_holder.free()
 	reveal_presenter.free()
 	var targets := NookFrontierMarkers.frontier_targets(core.nooks.world)
 	var directions: Array[Vector2i] = []
@@ -4015,7 +4240,7 @@ func _test_direct_frontier_expansion() -> void:
 	check(
 		not gap_target.is_empty()
 		and core.nooks.world.chunk_of_cell(gap_cell) == gap_coord
-		and gap_cell == Vector2i(3, 3),
+		and gap_cell == Vector2i(6, 6),
 		"a concave void between two Nook rows gets one centered fill-in glow"
 	)
 	check(
@@ -4349,8 +4574,8 @@ func _test_unfolding_world_save_round_trip() -> void:
 			break
 	check(core.save(), "the unfolding world writes through the normal save")
 	check(
-		int(core.nooks.world.to_save_dict().get("nook_size", 0)) == 4,
-		"new saves freeze their compact Nook coordinate size"
+		int(core.nooks.world.to_save_dict().get("nook_size", 0)) == 6,
+		"new saves freeze their six-by-six Nook coordinate size"
 	)
 	var reloaded := GameCore.new()
 	reloaded.setup("res://data", 1)
@@ -4358,8 +4583,8 @@ func _test_unfolding_world_save_round_trip() -> void:
 	reloaded.save_manager.backup_path = core.save_manager.backup_path
 	check(reloaded.load_game(), "an unfolding-world save passes strict hydration")
 	check(
-		reloaded.nooks.world.nook_size == 4,
-		"compact Nook spacing survives reload"
+		reloaded.nooks.world.nook_size == 6,
+		"six-by-six Nook spacing survives reload"
 	)
 	var record := reloaded.nooks.world.nook(Vector2i(1, 0))
 	var original := core.nooks.world.nook(Vector2i(1, 0))
@@ -4539,6 +4764,21 @@ func _test_unfolding_world_relief() -> void:
 		core.grid.can_place_tile_at(Vector2i.ZERO, 1, "tile_grass_low"),
 		"a generated fractional cap remains legal to place after pickup"
 	)
+	check(
+		is_equal_approx(
+			core.grid.cell_to_world_for_tile(
+				Vector2i(20, 20), 1, "tile_grass_low"
+			).y,
+			core.grid.block_depth * low.height_fraction
+		)
+		and is_equal_approx(
+			core.grid.tile_stack_local_y(
+				"tile_grass", "tile_grass_low", 1
+			),
+			core.grid.block_depth * low.height_fraction
+		),
+		"detached and not-yet-placed fractional previews remain seated on their support"
+	)
 	core.grid.place_tile_at(Vector2i.ZERO, 1, "tile_grass_low")
 	check(
 		not core.grid.can_place_tile_at(Vector2i.ZERO, 2, "tile_grass"),
@@ -4596,12 +4836,12 @@ func _test_unfolding_world_relief() -> void:
 			break
 	check(
 		core.grid.has_cell_at(cap_cell, 1),
-		"the relief cap is real stacked world state"
+		"the generated relief layer is real stacked world state"
 	)
 	var cap_top := core.grid.cell_to_world(cap_cell, 1).y
 	check(
 		is_equal_approx(cap_top, core.grid.block_depth * cap_fraction),
-		"a fractional cap raises the surface by its fraction, not a full block"
+		"a generated solid relief layer lands on its exact integer terrain plane"
 	)
 	var ground_top := core.grid.cell_to_world(cap_cell, 0).y
 	check(
@@ -4626,7 +4866,7 @@ func _test_unfolding_world_relief() -> void:
 			break
 	check(
 		mountain_seed != 0,
-		"stonefell can raise a two-layer mountain shoulder with a half cap"
+		"stonefell can raise a multi-layer mountain shoulder"
 	)
 
 
@@ -4651,10 +4891,10 @@ func _test_unfolding_world_seeded_opening() -> void:
 		"the chosen seed becomes the starter Nook"
 	)
 	check(
-		core.nooks.world.nook_size == 4
-		and core.grid.cells.size() >= 14
-		and core.grid.cells.size() < 32,
-		"the first Nook is a compact generated slate, not the large authored canvas"
+		core.nooks.world.nook_size == 6
+		and core.grid.cells.size() >= 34
+		and core.grid.cells.size() < 72,
+		"the first Nook is a six-by-six generated biome, not the large authored canvas"
 	)
 	check(
 		core.grid.is_walkable(core.grid.home_cell),

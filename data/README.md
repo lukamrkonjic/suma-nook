@@ -44,3 +44,20 @@ fails loudly, never silently).
 
 Stable string ids are the only cross-reference currency. Never reuse a
 shipped id for different content.
+
+## Extending generated biomes safely
+
+- Add an ordinary full-height land tile to `tiles.json`, give it the common
+  trait tag `generation_ground`, and add a matching `biome_tags` value such as
+  `meadow`, `forest`, `rocky`, `beach`, or `winter`. Future Nooks can then pick
+  it automatically; already revealed Nooks remain untouched saved cells.
+- Explicit `resolve` pools in `nook_biomes.json` remain the higher-weight art
+  direction. A stale pool id is skipped with a warning, so removing a palette
+  entry cannot break generation.
+- Never reuse a retired stable id. If a tile definition is removed, existing
+  saves convert every occurrence (world and Build Bag) to
+  `nook_config.safe_ground_tile_id`, currently `tile_grass`. Removed structures
+  are omitted, along with unsupported children.
+- Rivers, ponds, height, material patches, and vegetation use absolute
+  world-cell noise seeded by the save. Editing their tuning changes only Nooks
+  generated afterward, matching chunked sandbox-world behavior.

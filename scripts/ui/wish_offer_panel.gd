@@ -9,7 +9,7 @@ signal reveal_started(entry: Dictionary)
 signal panel_toggled(open: bool)
 
 const PANEL_WIDTH := 516.0
-const CHOICE_WIDTH := 158.0
+const CHOICE_WIDTH := 148.0
 
 var core: GameCore
 var kit: UiKit
@@ -18,7 +18,7 @@ var _thumbnail_renderer: BuildThumbnailRenderer
 var _root: Control
 var _chip: Button
 var _panel: PanelContainer
-var _choice_row: HBoxContainer
+var _choice_grid: HFlowContainer
 var _choice_buttons: Array[Button] = []
 var _first_button: Button
 var _chip_tween: Tween
@@ -70,13 +70,18 @@ func _build_layout() -> void:
 	_chip.pressed.connect(toggle)
 	_root.add_child(_chip)
 
-	_panel = kit.card(Vector2(PANEL_WIDTH, 0.0))
+	_panel = kit.card()
 	_panel.name = "WishChoices"
-	_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_panel.anchor_left = 1.0
+	_panel.anchor_right = 1.0
+	_panel.anchor_top = 0.0
+	_panel.anchor_bottom = 0.0
+	_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_panel.grow_vertical = Control.GROW_DIRECTION_END
 	_panel.offset_left = -PANEL_WIDTH - 16.0
 	_panel.offset_right = -16.0
 	_panel.offset_top = 68.0
-	_panel.offset_bottom = 264.0
+	_panel.offset_bottom = 68.0
 	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	_panel.visible = false
 	_root.add_child(_panel)
@@ -95,9 +100,13 @@ func _build_layout() -> void:
 	var hint := kit.muted_label("Wish for a collection. One surprise will answer.", 13)
 	column.add_child(hint)
 
-	_choice_row = HBoxContainer.new()
-	_choice_row.add_theme_constant_override("separation", 8)
-	column.add_child(_choice_row)
+	_choice_grid = HFlowContainer.new()
+	_choice_grid.alignment = FlowContainer.ALIGNMENT_CENTER
+	_choice_grid.add_theme_constant_override("h_separation", 8)
+	_choice_grid.add_theme_constant_override("v_separation", 8)
+	_choice_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.add_child(_choice_grid)
+	_fit_panel_to_content()
 	_refresh_prompt()
 
 
@@ -193,14 +202,24 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _rebuild_choices() -> void:
-	for child in _choice_row.get_children():
+	for child in _choice_grid.get_children():
 		child.queue_free()
 	_choice_buttons.clear()
 	_first_button = null
 	var entries := _entries()
 	for index in entries.size():
 		var entry: Dictionary = entries[index]
-		_choice_row.add_child(_choice(entry, index))
+		_choice_grid.add_child(_choice(entry, index))
+	_fit_panel_to_content()
+
+
+func _fit_panel_to_content() -> void:
+	if not is_instance_valid(_panel):
+		return
+	var maximum_width := minf(PANEL_WIDTH, maxf(240.0, _root.size.x - 32.0))
+	_panel.custom_minimum_size.x = maximum_width
+	_panel.offset_left = -maximum_width - 16.0
+	_panel.offset_right = -16.0
 
 
 func _entries() -> Array[Dictionary]:
@@ -233,16 +252,23 @@ func _choice(entry: Dictionary, index: int) -> Control:
 		category_column.alignment = BoxContainer.ALIGNMENT_CENTER
 		category_column.add_theme_constant_override("separation", 2)
 		preview_frame.add_child(category_column)
-		var glyph := kit.label(String(entry.get("glyph", "✦")), 27, true, true)
-		glyph.add_theme_color_override(
-			"font_color",
-			kit.palette.color(String(entry.get("color_token", "ui_accent")))
-		)
-		category_column.add_child(glyph)
+		var category_id := String(entry.get("category", ""))
+		var icon_path := String(entry.get(
+			"icon", BuildCategoryResolver.icon_path(category_id)
+		))
+		var icon := TextureRect.new()
+		icon.custom_minimum_size = Vector2(30.0, 30.0)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if ResourceLoader.exists(icon_path):
+			icon.texture = load(icon_path)
+		category_column.add_child(icon)
 		var description := kit.muted_label(
 			String(entry.get("description", "A surprise from this collection.")),
 			10
 		)
+		description.custom_minimum_size = Vector2(CHOICE_WIDTH - 12.0, 30.0)
 		description.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		category_column.add_child(description)

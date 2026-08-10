@@ -29,6 +29,7 @@ var materials: MaterialLibrary
 var edits: AssetEditLibrary
 var _cache: Dictionary = {}
 var _batch_mesh_cache: Dictionary = {}
+var _presentation_warm_cache: Dictionary = {}
 
 
 func _init(material_library: MaterialLibrary) -> void:
@@ -76,6 +77,88 @@ func prime_packed_scene(asset_id: String, packed: PackedScene) -> void:
 		_cache[asset_id] = packed
 
 
+## Streams a group of scene assets concurrently and yields while Godot parses
+## them. MultiMesh terrain composition can then instantiate the already-cached
+## PackedScenes without turning the first appearance of a biome into a long
+## main-thread frame.
+func prime_packed_scenes_async(asset_ids: Array) -> void:
+	var pending := {}
+	for raw_id: Variant in asset_ids:
+		var asset_id := String(raw_id)
+		if (
+			asset_id.is_empty()
+			or PROCEDURAL_ASSET_IDS.has(asset_id)
+			or has_cached_scene(asset_id)
+		):
+			continue
+		var path := resolve_path(asset_id)
+		if path.is_empty():
+			continue
+		var status := ResourceLoader.load_threaded_get_status(path)
+		if status == ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+			var error := ResourceLoader.load_threaded_request(
+				path,
+				"PackedScene",
+				false
+			)
+			if error != OK and error != ERR_BUSY:
+				continue
+		pending[asset_id] = path
+	if pending.is_empty():
+		return
+	var tree := Engine.get_main_loop() as SceneTree
+	while not pending.is_empty():
+		var finished_asset := ""
+		for asset_id: String in pending:
+			var path: String = pending[asset_id]
+			var status := ResourceLoader.load_threaded_get_status(path)
+			if status == ResourceLoader.THREAD_LOAD_LOADED:
+				var packed := ResourceLoader.load_threaded_get(path) as PackedScene
+				if packed != null:
+					prime_packed_scene(asset_id, packed)
+				finished_asset = asset_id
+				break
+			elif (
+				status == ResourceLoader.THREAD_LOAD_FAILED
+				or status == ResourceLoader.THREAD_LOAD_INVALID_RESOURCE
+			):
+				finished_asset = asset_id
+				break
+		if not finished_asset.is_empty():
+			pending.erase(finished_asset)
+		# Requests parse concurrently, but finalizing several completed scenes in
+		# one render frame recreates the cold-biome hitch we are avoiding.
+		if not pending.is_empty() and tree != null:
+			await tree.process_frame
+		elif tree == null:
+			break
+
+
+## Warms saved smoothing/material presentation one asset per frame. Some baked
+## terrain detail scenes contain many disconnected shells; processing several
+## cold edit profiles inside one chunk build caused the last visible hitch.
+## Once warmed, normal instances reuse AssetEditLibrary's mesh cache.
+func prime_presentations_async(asset_ids: Array) -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	var unique := {}
+	for raw_id: Variant in asset_ids:
+		unique[String(raw_id)] = true
+	for asset_id: String in unique:
+		if (
+			asset_id.is_empty()
+			or PROCEDURAL_ASSET_IDS.has(asset_id)
+			or _presentation_warm_cache.has(asset_id)
+		):
+			continue
+		# Do not append mesh smoothing to the threaded-load completion frame.
+		if tree != null:
+			await tree.process_frame
+		var template := instantiate(asset_id)
+		if template != null:
+			template.free()
+		_presentation_warm_cache[asset_id] = true
+
+
 func has_cached_scene(asset_id: String) -> bool:
 	return _cache.has(asset_id) and _cache[asset_id] is PackedScene
 
@@ -84,6 +167,7 @@ func save_asset_profile(asset_id: String, profile: Dictionary) -> Error:
 	var error := edits.save_profile(asset_id, profile)
 	if error == OK:
 		_batch_mesh_cache.erase(asset_id)
+		_presentation_warm_cache.erase(asset_id)
 	return error
 
 
@@ -92,6 +176,7 @@ func clear_edit_caches() -> void:
 	## batch (layered tiles and structures flatten several assets together).
 	## WorldRenderer calls this before rebuilding its dependent caches.
 	_batch_mesh_cache.clear()
+	_presentation_warm_cache.clear()
 
 
 func apply_asset_profile_to_tree(

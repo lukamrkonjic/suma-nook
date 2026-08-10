@@ -175,15 +175,25 @@ func to_save_dict() -> Dictionary:
 
 func from_save_dict(data: Dictionary) -> void:
 	tiles.clear()
+	var fallback_tile_id := "tile_grass"
+	if registries != null:
+		fallback_tile_id = String(registries.nook_config.get(
+			"safe_ground_tile_id", fallback_tile_id
+		))
 	for raw_id: String in data.get("tiles", {}):
 		var amount := int(data["tiles"][raw_id])
 		if amount <= 0:
 			continue
-		tiles[raw_id] = amount
+		var tile_id := raw_id
+		if registries != null and registries.tile(tile_id) == null:
+			tile_id = fallback_tile_id
+		tiles[tile_id] = int(tiles.get(tile_id, 0)) + amount
 	structures.clear()
 	for raw_id: String in data.get("structures", {}):
 		var amount := int(data["structures"][raw_id])
 		if amount <= 0:
+			continue
+		if registries != null and registries.structure(raw_id) == null:
 			continue
 		structures[raw_id] = amount
 	structure_instances.clear()

@@ -340,17 +340,51 @@ func world_to_cell(world_pos: Vector3) -> Vector2i:
 
 
 func cell_to_world(coord: Vector2i, elevation: int = 0) -> Vector3:
-	# A fractional-height tile lowers its own top by the missing height, so
-	# a 0.25 cap over ground is a gentle step, not a cliff. This is the one
-	# place world height is derived; renderer holders, collision, structure
-	# transforms, and player anchoring all inherit it.
-	var y := elevation * block_depth
 	var state := cell_at(coord, elevation)
-	if state != null:
-		var definition := registries.tile(state.tile_id)
-		if definition != null and definition.height_fraction < 1.0:
-			y -= (1.0 - definition.height_fraction) * block_depth
-	return Vector3(coord.x * tile_size, y, coord.y * tile_size)
+	return cell_to_world_for_tile(
+		coord,
+		elevation,
+		state.tile_id if state != null else ""
+	)
+
+
+## Resolves a tile's seating plane before it has been inserted into the grid.
+## Placement previews and detached stack ghosts must use the prospective tile
+## definition rather than asking an empty destination cell for its height.
+## Otherwise a quarter/half-height cap is previewed at a full-block elevation
+## and visibly floats until the authoritative placement rebuild corrects it.
+func cell_to_world_for_tile(
+	coord: Vector2i,
+	elevation: int,
+	tile_id: String
+) -> Vector3:
+	return Vector3(
+		coord.x * tile_size,
+		elevation * block_depth + tile_vertical_offset(tile_id),
+		coord.y * tile_size
+	)
+
+
+func tile_vertical_offset(tile_id: String) -> float:
+	var definition := registries.tile(tile_id)
+	if definition == null or definition.height_fraction >= 1.0:
+		return 0.0
+	return -(1.0 - definition.height_fraction) * block_depth
+
+
+## Local Y of one detached tile-stack entry relative to the prospective base
+## holder. This keeps fractional terminal caps physically seated while the
+## authoritative cells are absent during pickup/drag.
+func tile_stack_local_y(
+	base_tile_id: String,
+	tile_id: String,
+	relative_elevation: int
+) -> float:
+	return (
+		relative_elevation * block_depth
+		+ tile_vertical_offset(tile_id)
+		- tile_vertical_offset(base_tile_id)
+	)
 
 
 ## Every direct tile-root object is centered. Socket ids remain stable
@@ -1178,10 +1212,22 @@ func to_save_dict() -> Dictionary:
 func from_save_dict(data: Dictionary) -> void:
 	cells.clear()
 	stacked_cells.clear()
+	var fallback_tile_id := String(
+		registries.nook_config.get("safe_ground_tile_id", "tile_grass")
+	)
+	if registries.tile(fallback_tile_id) == null:
+		fallback_tile_id = "tile_grass"
 	for entry in data.get("cells", []):
 		var coord := Vector2i(int(entry.get("x", 0)), int(entry.get("y", 0)))
 		var elevation := int(entry.get("e", 0))
 		var state := CellState.from_dict(entry)
+		if registries.tile(state.tile_id) == null:
+			state.tile_id = fallback_tile_id
+		var live_structures: Array[StructureState] = []
+		for structure: StructureState in state.structures:
+			if registries.structure(structure.structure_id) != null:
+				live_structures.append(structure)
+		state.structures = live_structures
 		if elevation == 0:
 			cells[coord] = state
 		else:

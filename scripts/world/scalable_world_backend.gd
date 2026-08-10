@@ -8,6 +8,7 @@ var _color_system := PaletteDefinition.shared()
 ## bounded to an 8x8 chunk.
 
 const CHUNK_SIZE := 8
+const DEFAULT_REBUILD_BUDGET_USEC := 1000
 
 var owner: WorldRenderer
 var core: GameCore
@@ -19,7 +20,10 @@ var structure_factory: StructureVisualFactory
 var chunks: Dictionary = {}
 var tile_holders: Dictionary = {}
 var tile_instances: Dictionary = {}
+var structure_instances: Dictionary = {}
 var chunk_model_counts: Dictionary = {}
+var reveal_tiles_in_flight: Dictionary = {}
+var reveal_structures_in_flight: Dictionary = {}
 
 
 func setup(
@@ -45,7 +49,10 @@ func clear() -> void:
 	chunks.clear()
 	tile_holders.clear()
 	tile_instances.clear()
+	structure_instances.clear()
 	chunk_model_counts.clear()
+	reveal_tiles_in_flight.clear()
+	reveal_structures_in_flight.clear()
 
 
 func rebuild_all() -> void:
@@ -85,17 +92,99 @@ func set_structure_burning(instance_id: int, _active: bool) -> void:
 	rebuild_chunk(chunk_of(found["coord"]))
 
 
-func rebuild_chunk(chunk_coord: Vector2i) -> void:
-	_erase_chunk_refs(chunk_coord)
-	chunk_model_counts.erase(chunk_coord)
-	if chunks.has(chunk_coord):
-		var previous: Node3D = chunks[chunk_coord]
-		owner._unregister_holder_structures(previous)
-		previous.queue_free()
-		chunks.erase(chunk_coord)
+## Streams every cold PackedScene needed by an update before chunk composition.
+## Node and mesh construction intentionally stays on the main thread: Godot's
+## RenderingServer resources are not safe to mutate from a gameplay worker.
+func prepare_update_async(dirty: Dictionary) -> void:
+	var slots := _preparation_slots(dirty)
+	var asset_ids := {}
+	for entry: Dictionary in slots:
+		var coord: Vector2i = entry["coord"]
+		var elevation := int(entry["elevation"])
+		var definition := core.grid.tile_def_at(coord, elevation)
+		var state := core.grid.cell_at(coord, elevation)
+		if definition == null or state == null:
+			continue
+		_collect_tile_asset_ids(
+			definition,
+			asset_ids,
+			tile_factory.connection_mask(
+				definition,
+				coord,
+				elevation,
+				state.rotation
+			)
+		)
+		for structure: WorldGrid.StructureState in state.structures:
+			var structure_definition := core.registries.structure(
+				structure.structure_id
+			)
+			if structure_definition == null:
+				continue
+			asset_ids[structure_definition.asset_id] = true
+	await assets.prime_packed_scenes_async(asset_ids.keys())
+	await assets.prime_presentations_async(asset_ids.keys())
+
+
+func _preparation_slots(dirty: Dictionary) -> Array:
+	var affected := dirty.duplicate(true)
+	for entry: Dictionary in dirty.values():
+		var coord: Vector2i = entry["coord"]
+		var elevation := int(entry["elevation"])
+		for offset: Vector2i in WorldGrid.NEIGHBORS:
+			var neighbour := coord + offset
+			affected[core.grid.slot_key(neighbour, elevation)] = {
+				"coord": neighbour,
+				"elevation": elevation,
+			}
+		if elevation > 0:
+			affected[core.grid.slot_key(coord, elevation - 1)] = {
+				"coord": coord,
+				"elevation": elevation - 1,
+			}
+	return affected.values()
+
+
+func _collect_tile_asset_ids(
+	definition: Defs.TileDefinition,
+	asset_ids: Dictionary,
+	neighbour_mask: int
+) -> void:
+	if not definition.uses_layered_visual():
+		asset_ids[definition.asset_id] = true
+		return
+	for layer: Defs.TileVisualLayerDefinition in definition.visual_layers:
+		asset_ids[layer.asset_id] = true
+		# Prime only the topology this cell will actually instantiate. Checking
+		# every possible n/x scene for every cell created its own synchronous scan.
+		var topology := neighbour_mask & 0x0F
+		if topology == 0:
+			continue
+		var candidate := ""
+		if (neighbour_mask & TileVisualFactory.MIXED_SURFACE_FLAG) != 0:
+			candidate = "%s_x%02d" % [layer.asset_id, topology]
+			if assets.exists(candidate):
+				asset_ids[candidate] = true
+				continue
+		candidate = "%s_n%02d" % [layer.asset_id, topology]
+		if assets.exists(candidate):
+			asset_ids[candidate] = true
+
+
+func rebuild_chunk(
+	chunk_coord: Vector2i,
+	cooperative := false,
+	frame_budget_usec := DEFAULT_REBUILD_BUDGET_USEC
+) -> void:
+	# Live Nook expansion uses the cooperative path. Keep the currently visible
+	# chunk intact while its replacement is prepared off-tree, then swap both in
+	# one frame. Ordinary edits still use the synchronous path for immediacy.
+	var tree := owner.get_tree() if cooperative else null
+	var frame_started := Time.get_ticks_usec()
+	var previous: Node3D = chunks.get(chunk_coord)
 
 	var batches := {}
-	var structure_surfaces := {}
+	var structure_batches := {}
 	var ground_faces := PackedVector3Array()
 	var edge_faces := PackedVector3Array()
 	var pick_faces := PackedVector3Array()
@@ -171,34 +260,67 @@ func rebuild_chunk(chunk_coord: Vector2i) -> void:
 				if (
 					elevation == 0
 					and definition.render_profile == "continuous_water"
+					and not owner.is_reveal_water(coord)
 				):
 					water_cells.append(coord)
 				if not state.structures.is_empty():
 					for structure: WorldGrid.StructureState in state.structures:
 						if _append_structure(
-							structure_surfaces,
+							structure_batches,
 							ground_faces,
 							warm_lights,
 							fire_effects,
 							state,
 							world_position,
-							structure
+							structure,
+							chunk_coord
 						):
 							structure_count += 1
 
 			if _has_physical_walk_surface(coord):
 				_append_edge_walls(edge_faces, coord)
+			if (
+				cooperative
+				and tree != null
+				and Time.get_ticks_usec() - frame_started >= frame_budget_usec
+			):
+				await tree.process_frame
+				frame_started = Time.get_ticks_usec()
 
 	if not has_content:
+		_erase_chunk_refs(chunk_coord)
+		chunk_model_counts.erase(chunk_coord)
+		if previous != null and is_instance_valid(previous):
+			owner._unregister_holder_structures(previous)
+			previous.queue_free()
+		chunks.erase(chunk_coord)
 		return
 	var chunk_root := Node3D.new()
 	chunk_root.name = "chunk_%d_%d" % [chunk_coord.x, chunk_coord.y]
-	owner.add_child(chunk_root)
-	chunks[chunk_coord] = chunk_root
+	_erase_chunk_refs(chunk_coord)
+	chunk_model_counts.erase(chunk_coord)
 
 	for batch: Dictionary in batches.values():
 		_build_batch(chunk_root, batch)
-	_build_static_structure_geometry(chunk_root, structure_surfaces)
+		if (
+			cooperative
+			and tree != null
+			and Time.get_ticks_usec() - frame_started >= frame_budget_usec
+		):
+			await tree.process_frame
+			frame_started = Time.get_ticks_usec()
+	for batch: Dictionary in structure_batches.values():
+		_build_batch(chunk_root, batch)
+		if (
+			cooperative
+			and tree != null
+			and Time.get_ticks_usec() - frame_started >= frame_budget_usec
+		):
+			await tree.process_frame
+			frame_started = Time.get_ticks_usec()
+	if cooperative and tree != null:
+		await tree.process_frame
+		frame_started = Time.get_ticks_usec()
 	for fire_entry: Dictionary in fire_effects:
 		var fire := structure_factory.instantiate_fire_effect(
 			fire_entry["definition"]
@@ -216,6 +338,13 @@ func rebuild_chunk(chunk_coord: Vector2i) -> void:
 		WorldRenderer.BLOCKER_LAYER,
 		"ChunkTerrain"
 	)
+	if (
+		cooperative
+		and tree != null
+		and Time.get_ticks_usec() - frame_started >= frame_budget_usec
+	):
+		await tree.process_frame
+		frame_started = Time.get_ticks_usec()
 	_build_collision_body(
 		chunk_root,
 		edge_faces,
@@ -257,6 +386,14 @@ func rebuild_chunk(chunk_coord: Vector2i) -> void:
 	for index in mini(4, warm_lights.size()):
 		_add_warm_light(chunk_root, warm_lights[index])
 
+	# The old chunk stayed rendered throughout preparation. Replace it only
+	# after every mesh and collider is ready, avoiding a blank async frame.
+	if previous != null and is_instance_valid(previous):
+		owner._unregister_holder_structures(previous)
+		previous.queue_free()
+	owner.add_child(chunk_root)
+	chunks[chunk_coord] = chunk_root
+
 
 func _build_batch(chunk_root: Node3D, batch: Dictionary) -> void:
 	var kind := String(batch["kind"])
@@ -273,7 +410,8 @@ func _build_batch(chunk_root: Node3D, batch: Dictionary) -> void:
 		)
 	else:
 		batch_mesh = structure_factory.batch_mesh(
-			definition as Defs.StructureDefinition
+			definition as Defs.StructureDefinition,
+			String(batch.get("harvest_state", "ready"))
 		)
 	if batch_mesh == null:
 		push_warning(
@@ -288,30 +426,94 @@ func _build_batch(chunk_root: Node3D, batch: Dictionary) -> void:
 	multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	multimesh.mesh = batch_mesh
 	multimesh.instance_count = entries.size()
+	var batch_bounds := AABB()
+	var has_batch_bounds := false
+	var source_bounds := batch_mesh.get_aabb()
 	for index in entries.size():
 		var entry: Dictionary = entries[index]
-		multimesh.set_instance_transform(index, entry["transform"])
+		var entry_transform: Transform3D = entry["transform"]
+		var initial_transform := entry_transform
+		var staged := false
+		if kind == "tile":
+			var tile_key: Vector3i = entry["key"]
+			staged = owner.is_tile_key_staged_for_reveal(tile_key)
+		else:
+			staged = owner.is_structure_staged_for_reveal(int(entry["key"]))
+		if staged:
+			initial_transform.basis = initial_transform.basis.scaled(
+				Vector3.ONE * 0.001
+			)
+		multimesh.set_instance_transform(index, initial_transform)
+		if staged:
+			owner.note_reveal_instance_built_hidden(
+				absf(initial_transform.basis.determinant()) <= 0.01
+			)
+		var entry_bounds: AABB = entry_transform * source_bounds
+		batch_bounds = (
+			batch_bounds.merge(entry_bounds)
+			if has_batch_bounds
+			else entry_bounds
+		)
+		has_batch_bounds = true
 		if kind == "tile":
 			tile_instances[entry["key"]] = {
 				"multimesh": multimesh,
 				"index": index,
 				"base": entry["transform"],
 			}
+		else:
+			structure_instances[int(entry["key"])] = {
+				"multimesh": multimesh,
+				"index": index,
+				"base": entry["transform"],
+				"chunk": entry["chunk"],
+			}
 	var instance := MultiMeshInstance3D.new()
 	instance.name = "%ss_%s" % [kind, definition.get("id")]
 	instance.multimesh = multimesh
+	if has_batch_bounds:
+		# MultiMesh culling normally derives a ground-level box. The reveal moves
+		# instances six metres upward, so without explicit headroom the renderer
+		# culls the sky portion and the intended falling wave appears to vanish.
+		var reveal_headroom := maxf(
+			0.0,
+			float(core.registries.reveal_config.get(
+				"tile_drop_height" if kind == "tile" else "model_drop_height",
+				6.0 if kind == "tile" else 1.45
+			))
+				+ float(core.registries.reveal_config.get(
+					"tile_overshoot" if kind == "tile" else "model_overshoot",
+					0.08
+				))
+				+ 0.5
+		)
+		var reveal_footroom := (
+			maxf(
+				0.0,
+				float(core.registries.reveal_config.get(
+					"water_rise_depth", 1.35
+				)) + 0.25
+			)
+			if kind == "tile"
+			else 0.0
+		)
+		batch_bounds.position.y -= reveal_footroom
+		batch_bounds.size.y += reveal_footroom
+		batch_bounds.size.y += reveal_headroom
+		multimesh.custom_aabb = batch_bounds
 	instance.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
 	chunk_root.add_child(instance)
 
 
 func _append_structure(
-	structure_surfaces: Dictionary,
+	structure_batches: Dictionary,
 	collision_faces: PackedVector3Array,
 	warm_lights: Array[Dictionary],
 	fire_effects: Array[Dictionary],
 	state: WorldGrid.CellState,
 	world_position: Vector3,
-	structure: WorldGrid.StructureState
+	structure: WorldGrid.StructureState,
+	chunk_coord: Vector2i
 ) -> bool:
 	var definition := core.registries.structure(structure.structure_id)
 	if definition == null:
@@ -324,32 +526,24 @@ func _append_structure(
 		Transform3D(Basis.IDENTITY, world_position) * local_transform
 	)
 	var harvest_runtime: Dictionary = structure.runtime_state.get("harvest", {})
-	var source_mesh := structure_factory.batch_mesh(
-		definition,
-		String(harvest_runtime.get("state", "ready"))
-	)
+	var harvest_state := String(harvest_runtime.get("state", "ready"))
 	var authored_model_scale: float = assets.edits.model_scale_for(
 		definition.asset_id
 	)
 	var model_scale: float = structure_factory.effective_model_scale(definition)
-	if source_mesh != null:
-		for surface in source_mesh.get_surface_count():
-			var active_material := source_mesh.surface_get_material(surface)
-			var material_key := (
-				"none"
-				if active_material == null
-				else str(active_material.get_instance_id())
-			)
-			if not structure_surfaces.has(material_key):
-				var tool := SurfaceTool.new()
-				tool.begin(Mesh.PRIMITIVE_TRIANGLES)
-				tool.set_material(active_material)
-				structure_surfaces[material_key] = tool
-			(structure_surfaces[material_key] as SurfaceTool).append_from(
-				source_mesh,
-				surface,
-				world_transform
-			)
+	var batch_key := "%s|%s" % [definition.id, harvest_state]
+	if not structure_batches.has(batch_key):
+		structure_batches[batch_key] = {
+			"kind": "structure",
+			"definition": definition,
+			"harvest_state": harvest_state,
+			"entries": [],
+		}
+	(structure_batches[batch_key]["entries"] as Array).append({
+		"key": structure.instance_id,
+		"transform": world_transform,
+		"chunk": chunk_coord,
+	})
 	match definition.collision_profile:
 		"blocker":
 			_append_box_faces(
@@ -395,25 +589,6 @@ func _append_structure(
 			"burning": core.fire.is_burning(structure.instance_id),
 		})
 	return true
-
-
-func _build_static_structure_geometry(
-	chunk_root: Node3D,
-	structure_surfaces: Dictionary
-) -> void:
-	if structure_surfaces.is_empty():
-		return
-	var combined := ArrayMesh.new()
-	combined.resource_name = chunk_root.name + "_structures"
-	for surface_tool: SurfaceTool in structure_surfaces.values():
-		surface_tool.commit(combined)
-	if combined.get_surface_count() == 0:
-		return
-	var instance := MeshInstance3D.new()
-	instance.name = "ChunkStructures"
-	instance.mesh = combined
-	instance.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
-	chunk_root.add_child(instance)
 
 
 func _add_warm_light(chunk_root: Node3D, data: Dictionary) -> void:
@@ -677,6 +852,246 @@ func animate_tile(coord: Vector2i, elevation: int = -1) -> void:
 	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
+## Keeps one newly built MultiMesh entry out of sight until the Nook reveal
+## owns it. Scaling only that instance preserves the already-visible terrain
+## sharing the same batch and avoids a pre-animation pop.
+func hide_tile_for_reveal(coord: Vector2i, elevation: int) -> bool:
+	var key := core.grid.slot_key(coord, elevation)
+	if not tile_instances.has(key):
+		return false
+	var data: Dictionary = tile_instances[key]
+	var multimesh: MultiMesh = data["multimesh"]
+	var index := int(data["index"])
+	var hidden: Transform3D = data["base"]
+	hidden.basis = hidden.basis.scaled(Vector3.ONE * 0.001)
+	multimesh.set_instance_transform(index, hidden)
+	return true
+
+
+## MultiMesh equivalent of NookRevealPresenter._drop_tile(). The instance is
+## hidden during its wave delay, then falls from the sky and lands on the
+## immutable base transform stored by the chunk builder.
+func animate_tile_reveal(
+	coord: Vector2i,
+	elevation: int,
+	delay: float,
+	drop_height: float,
+	drop_seconds: float,
+	overshoot: float
+) -> bool:
+	var key := core.grid.slot_key(coord, elevation)
+	if not tile_instances.has(key):
+		return false
+	var data: Dictionary = tile_instances[key]
+	var multimesh: MultiMesh = data["multimesh"]
+	var index := int(data["index"])
+	var target: Transform3D = data["base"]
+	var start := target
+	start.origin.y += drop_height
+	var overshot := target
+	overshot.origin.y -= overshoot
+	var hidden := start
+	hidden.basis = hidden.basis.scaled(Vector3.ONE * 0.001)
+	multimesh.set_instance_transform(index, hidden)
+	reveal_tiles_in_flight[key] = true
+	var tween := owner.create_tween()
+	tween.tween_interval(maxf(0.0, delay))
+	tween.tween_callback(
+		_set_reveal_transform.bind(multimesh, index, start)
+	)
+	tween.tween_method(
+		_interpolate_reveal_transform.bind(
+			multimesh,
+			index,
+			start,
+			overshot
+		),
+		0.0,
+		1.0,
+		drop_seconds
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_method(
+		_interpolate_reveal_transform.bind(
+			multimesh,
+			index,
+			overshot,
+			target
+		),
+		0.0,
+		1.0,
+		drop_seconds * 0.35
+	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_callback(
+		_finish_reveal_transform.bind(key, multimesh, index, target)
+	)
+	return true
+
+
+## Water owns a second phase: its bed and joined surface wait below the world
+## until every land block has seated, then rise together with a soft crest.
+func animate_water_tile_reveal(
+	coord: Vector2i,
+	elevation: int,
+	delay: float,
+	rise_depth: float,
+	rise_seconds: float,
+	overshoot: float
+) -> bool:
+	var key := core.grid.slot_key(coord, elevation)
+	if not tile_instances.has(key):
+		return false
+	var data: Dictionary = tile_instances[key]
+	var multimesh: MultiMesh = data["multimesh"]
+	var index := int(data["index"])
+	var target: Transform3D = data["base"]
+	var start := target
+	start.origin.y -= maxf(0.0, rise_depth)
+	var crest := target
+	crest.origin.y += maxf(0.0, overshoot)
+	var hidden := start
+	hidden.basis = hidden.basis.scaled(Vector3.ONE * 0.001)
+	multimesh.set_instance_transform(index, hidden)
+	reveal_tiles_in_flight[key] = true
+	var tween := owner.create_tween()
+	tween.tween_interval(maxf(0.0, delay))
+	tween.tween_callback(
+		_set_reveal_transform.bind(multimesh, index, start)
+	)
+	tween.tween_method(
+		_interpolate_reveal_transform.bind(
+			multimesh,
+			index,
+			start,
+			crest
+		),
+		0.0,
+		1.0,
+		rise_seconds
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_method(
+		_interpolate_reveal_transform.bind(
+			multimesh,
+			index,
+			crest,
+			target
+		),
+		0.0,
+		1.0,
+		rise_seconds * 0.28
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_callback(
+		_finish_reveal_transform.bind(key, multimesh, index, target)
+	)
+	return true
+
+
+## Models remain batched in large worlds, but every instance retains its own
+## immutable transform. That makes a true per-object drop possible without
+## restoring one scene tree per rock, wall, or tree.
+func animate_structure_reveal(
+	instance_id: int,
+	delay: float,
+	drop_height: float,
+	drop_seconds: float,
+	overshoot: float
+) -> bool:
+	if not structure_instances.has(instance_id):
+		return false
+	var data: Dictionary = structure_instances[instance_id]
+	var multimesh: MultiMesh = data["multimesh"]
+	var index := int(data["index"])
+	var target: Transform3D = data["base"]
+	var start := target
+	start.origin.y += maxf(0.0, drop_height)
+	start.basis = start.basis.scaled(Vector3.ONE * 0.88)
+	var landed := target
+	landed.origin.y -= maxf(0.0, overshoot)
+	landed.basis = landed.basis.scaled(Vector3.ONE * 1.035)
+	var hidden := start
+	hidden.basis = hidden.basis.scaled(Vector3.ONE * 0.001)
+	multimesh.set_instance_transform(index, hidden)
+	reveal_structures_in_flight[instance_id] = true
+	var tween := owner.create_tween()
+	tween.tween_interval(maxf(0.0, delay))
+	tween.tween_callback(
+		_set_reveal_transform.bind(multimesh, index, start)
+	)
+	tween.tween_method(
+		_interpolate_reveal_transform.bind(
+			multimesh,
+			index,
+			start,
+			landed
+		),
+		0.0,
+		1.0,
+		drop_seconds
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_method(
+		_interpolate_reveal_transform.bind(
+			multimesh,
+			index,
+			landed,
+			target
+		),
+		0.0,
+		1.0,
+		drop_seconds * 0.34
+	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_callback(
+		_finish_structure_reveal.bind(
+			instance_id,
+			multimesh,
+			index,
+			target
+		)
+	)
+	return true
+
+
+func _set_reveal_transform(
+	multimesh: MultiMesh,
+	index: int,
+	transform: Transform3D
+) -> void:
+	if multimesh != null and index >= 0 and index < multimesh.instance_count:
+		multimesh.set_instance_transform(index, transform)
+
+
+func _interpolate_reveal_transform(
+	weight: float,
+	multimesh: MultiMesh,
+	index: int,
+	from: Transform3D,
+	to: Transform3D
+) -> void:
+	_set_reveal_transform(
+		multimesh,
+		index,
+		from.interpolate_with(to, weight)
+	)
+
+
+func _finish_reveal_transform(
+	key: Vector3i,
+	multimesh: MultiMesh,
+	index: int,
+	transform: Transform3D
+) -> void:
+	_set_reveal_transform(multimesh, index, transform)
+	reveal_tiles_in_flight.erase(key)
+
+
+func _finish_structure_reveal(
+	instance_id: int,
+	multimesh: MultiMesh,
+	index: int,
+	transform: Transform3D
+) -> void:
+	_set_reveal_transform(multimesh, index, transform)
+	reveal_structures_in_flight.erase(instance_id)
+
+
 func _erase_chunk_refs(chunk_coord: Vector2i) -> void:
 	var base_coord := chunk_coord * CHUNK_SIZE
 	for local_y in CHUNK_SIZE:
@@ -686,6 +1101,13 @@ func _erase_chunk_refs(chunk_coord: Vector2i) -> void:
 				var key := core.grid.slot_key(coord, elevation)
 				tile_holders.erase(key)
 				tile_instances.erase(key)
+				reveal_tiles_in_flight.erase(key)
+	for instance_id: int in structure_instances.keys():
+		var data: Dictionary = structure_instances[instance_id]
+		if data.get("chunk", Vector2i.ZERO) != chunk_coord:
+			continue
+		structure_instances.erase(instance_id)
+		reveal_structures_in_flight.erase(instance_id)
 
 
 func debug_stats() -> Dictionary:
@@ -700,8 +1122,6 @@ func debug_stats() -> Dictionary:
 				batches += 1
 			elif child is WaterSurface:
 				water_chunks += 1
-			elif child is MeshInstance3D and child.name == "ChunkStructures":
-				batches += 1
 			elif child is StaticBody3D:
 				collision_chunks += 1
 		for light in chunk_root.find_children("*", "OmniLight3D", true, false):

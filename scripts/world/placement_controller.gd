@@ -619,7 +619,14 @@ func _build_tile_stack_ghost(
 		)
 		tile_visual.name = "ghost_tile_e%d" % relative
 		tile_visual.set_meta("ghost_relative_elevation", relative)
-		tile_visual.position.y = relative * core.grid.block_depth
+		# Detached stack entries no longer exist at their source coordinate, so
+		# cell_to_world() cannot infer a fractional cap's lowered seating plane.
+		# Keep every child relative to the base tile's own prospective holder.
+		tile_visual.position.y = core.grid.tile_stack_local_y(
+			base_state.tile_id,
+			state.tile_id,
+			relative
+		)
 		tile_visual.rotation.y = (state.rotation - base_state.rotation) * PI * 0.5
 		_tile_visual_factory.set_surface_covered(
 			tile_visual,
@@ -742,7 +749,7 @@ func _process(delta: float) -> void:
 	_emit_hover_info("", "", "")
 	_update_hover_target()
 	_hover_valid = _validate(_hover_cell, _hover_elevation)
-	var world := core.grid.cell_to_world(_hover_cell, _hover_elevation)
+	var world := _held_landing_world()
 	var landing_position := _resolved_landing_position(world)
 	if _ghost != null:
 		var was_visible := _ghost.visible
@@ -770,6 +777,16 @@ func _process(delta: float) -> void:
 		_sync_indicator_preview(glow_position)
 	else:
 		_sync_indicator_preview(landing_position)
+
+
+func _held_landing_world() -> Vector3:
+	if held.get("kind", "") == "tile":
+		return core.grid.cell_to_world_for_tile(
+			_hover_cell,
+			_hover_elevation,
+			String(held.get("id", ""))
+		)
+	return core.grid.cell_to_world(_hover_cell, _hover_elevation)
 
 
 func _resolved_landing_position(world: Vector3) -> Vector3:

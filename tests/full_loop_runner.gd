@@ -719,8 +719,8 @@ func _step_build_library_ui() -> void:
 		"overflow also exposes explicit previous and next controls"
 	)
 
-	# Admin controls: reachable from the pause menu in debug builds, and the
-	# grant actions really change stock (restored with the originals below).
+	# Admin controls retain a controller route into the compact live debug card;
+	# high-frequency content grants live on that card instead of in Pause.
 	if OS.is_debug_build():
 		main.pause_menu.open("admin")
 		await wait(0.1)
@@ -728,26 +728,21 @@ func _step_build_library_ui() -> void:
 			main.pause_menu.current_page() == "admin",
 			"the pause menu exposes the admin controls page in debug builds"
 		)
-		var grant_tiles_button := main.pause_menu.find_child("AdminRowEveryTile", true, false) as Button
-		check(grant_tiles_button != null, "the admin page offers the grant-every-tile action")
-		if grant_tiles_button != null:
-			var official_tile_ids := main.core.registries.obtainable_tile_ids()
-			var tile_stock_before := {}
-			for tile_id: String in official_tile_ids:
-				tile_stock_before[tile_id] = main.core.stock.tile_count(tile_id)
-			grant_tiles_button.pressed.emit()
-			await wait(0.05)
-			var all_official_tiles_granted := official_tile_ids.size() == 56
-			for tile_id: String in official_tile_ids:
-				all_official_tiles_granted = (
-					all_official_tiles_granted
-					and main.core.stock.tile_count(tile_id)
-						== int(tile_stock_before.get(tile_id, 0)) + 10
-				)
-			check(
-				all_official_tiles_granted,
-				"the admin grant action stocks all 56 official tiles"
-			)
+		var debug_card_button := main.pause_menu.find_child(
+			"AdminRowDebugMenu", true, false
+		) as Button
+		check(
+			debug_card_button != null,
+			"the admin page offers a controller route to the live debug card"
+		)
+		check(
+			main.debug_menu != null
+			and main.debug_menu.find_child("DebugSkyfallNow", true, false) != null
+			and main.debug_menu.find_child("DebugGrantItems99", true, false) != null
+			and main.debug_menu.find_child("DebugGrantTiles99", true, false) != null
+			and main.debug_menu.find_child("DebugGrantModels99", true, false) != null,
+			"the live card exposes skyfall plus compact ×99 content actions"
+		)
 		var tuner_button := main.pause_menu.find_child("AdminRowLightingTuner", true, false) as Button
 		check(tuner_button != null, "the admin page offers the lighting tuner toggle")
 		if tuner_button != null:
@@ -2134,7 +2129,7 @@ func _step_movement() -> void:
 	var pan_basis := main.camera_rig.horizontal_basis()
 	var world_per_pixel := main.camera_rig._size_target * 0.0008
 	var expected_pan := (
-		pan_basis.x * drag.x * world_per_pixel
+		-pan_basis.x * drag.x * world_per_pixel
 		- pan_basis.z * drag.y * world_per_pixel
 	)
 	var middle_press := InputEventMouseButton.new()
@@ -2147,7 +2142,7 @@ func _step_movement() -> void:
 	await wait(0.2)
 	check(
 		main.camera_rig._pan_offset.is_equal_approx(expected_pan),
-		"middle-mouse drag follows the reversed horizontal and vertical directions"
+		"middle-mouse drag inverts both horizontal and vertical pointer travel"
 	)
 	var distance_before_return := main.camera_rig.global_position.distance_to(
 		main.player.global_position

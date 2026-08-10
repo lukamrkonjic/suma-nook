@@ -5,9 +5,10 @@ extends RefCounted
 ## saves can replay generation and treasure assignment can never be farmed
 ## by re-rolling.
 ##
-## Pipeline: stamp placement -> ground fill -> scatter pass -> treasure &
-## dormant assignment. Compact Nooks allow stamps at the outer rim, while
-## footprint carving preserves the two middle seam cells on every side.
+## Pipeline: stamp placement -> blended biome material -> world-space water ->
+## noise-shaped solid columns -> ecological scatter -> treasure & dormant.
+## Every field samples absolute world cells, so rivers, ridges, and vegetation
+## continue through Nooks that have not been generated yet.
 
 const StampMargin := 1
 
@@ -20,7 +21,7 @@ class NookPlan:
 	var density: String = "seeded"
 	var seed_value: int = 0
 	var stamp_ids: PackedStringArray = PackedStringArray()
-	## [{"local": Vector2i, "tile_id": String}]
+	## [{"local": Vector2i, "tile_id": String, "elevation": int}]
 	var tiles: Array[Dictionary] = []
 	## [{"local": Vector2i, "structure_id": String, "dormant": bool}]
 	var features: Array[Dictionary] = []
@@ -39,7 +40,12 @@ func _init(regs: Registries) -> void:
 
 ## seed_card: {"biome": String, "density": String, "mood": String,
 ## "seed": int, "stamp_hint": String (optional)}.
-func generate(coord: Vector2i, seed_card: Dictionary, size: int) -> NookPlan:
+func generate(
+	coord: Vector2i,
+	seed_card: Dictionary,
+	size: int,
+	context: Dictionary = {}
+) -> NookPlan:
 	var plan := NookPlan.new()
 	plan.coord = coord
 	plan.biome_id = String(seed_card.get("biome", ""))
@@ -91,25 +97,50 @@ func generate(coord: Vector2i, seed_card: Dictionary, size: int) -> NookPlan:
 	# cells on every side remain intact, guaranteeing a clear seam to neighbors.
 	_carve_footprint(terrain_slots, size, rng)
 
-	# Resolve terrain slots to concrete tiles.
-	for local: Vector2i in terrain_slots:
-		var slot := String(terrain_slots[local])
-		var pool: NookDefs.SlotPool = biome.resolve.get(slot)
-		if pool == null or pool.is_empty():
-			pool = biome.resolve.get("ground")
-		var tile_id := pool.pick(rng) if pool != null else ""
-		if tile_id != "" and registries.tile(tile_id) != null:
-			plan.tiles.append({"local": local, "tile_id": tile_id, "elevation": 0})
-
-	# Relief pass: gentle knolls from fractional-height caps (quarter rims,
-	# half cores), and in rocky biomes an occasional full-block mountain
-	# shoulder with a half cap. Deterministic from the same seed.
-	var relief_exclusions: Dictionary = {}
+	# Resolve broad material patches and softly inherit the palette of revealed
+	# neighbours along shared seams. The transition happens only inside this new
+	# Nook, so generation never rewrites a player's established terrain.
+	var terrain_tiles := _resolve_terrain_tiles(
+		plan, biome, terrain_slots, size, rng, context
+	)
+	var relief_exclusions := {}
 	for feature: Dictionary in stamp_features:
 		relief_exclusions[feature["local"]] = true
 	if dormant_socket.x >= 0:
 		relief_exclusions[dormant_socket] = true
-	_carve_relief(plan, biome, terrain_slots, relief_exclusions, size, rng)
+	var water_cells := _apply_hydrology(
+		plan,
+		biome,
+		terrain_tiles,
+		relief_exclusions,
+		size,
+		int(seed_card.get("hydrology_seed", seed_card.get(
+			"terrain_seed", plan.seed_value
+		)))
+	)
+	for local: Vector2i in terrain_tiles:
+		plan.tiles.append({
+			"local": local,
+			"tile_id": String(terrain_tiles[local]),
+			"elevation": 0,
+		})
+
+	# A low-frequency world-space height field builds whole solid columns.
+	# Repeated full blocks create readable terraces and cliffs without relying
+	# on detached quarter/half caps that can look like floating sheets.
+	for local: Vector2i in water_cells:
+		relief_exclusions[local] = true
+		for offset: Vector2i in WorldGrid.NEIGHBORS:
+			if terrain_tiles.has(local + offset):
+				relief_exclusions[local + offset] = true
+	_shape_terrain(
+		plan,
+		biome,
+		terrain_tiles,
+		relief_exclusions,
+		size,
+		int(seed_card.get("terrain_seed", plan.seed_value))
+	)
 
 	# Scatter pass: features by density curve — thicker toward the chunk
 	# edge (the wild rim), thinner near stamps and the chunk core.
@@ -118,9 +149,9 @@ func generate(coord: Vector2i, seed_card: Dictionary, size: int) -> NookPlan:
 		var structure_pool: NookDefs.SlotPool = biome.resolve.get(
 			String(feature["slot"])
 		)
-		if structure_pool == null or structure_pool.is_empty():
+		var structure_id := _pick_live_structure(structure_pool, rng)
+		if structure_id == "" or water_cells.has(feature["local"]):
 			continue
-		var structure_id := structure_pool.pick(rng)
 		plan.features.append({
 			"local": feature["local"],
 			"structure_id": structure_id,
@@ -129,6 +160,14 @@ func generate(coord: Vector2i, seed_card: Dictionary, size: int) -> NookPlan:
 		authored_feature_cells[feature["local"]] = true
 	var base_density := float(biome.density.get(plan.density, 0.1))
 	var half := float(size - 1) / 2.0
+	var habitat_noise := FastNoiseLite.new()
+	habitat_noise.seed = int((int(seed_card.get(
+		"terrain_seed", plan.seed_value
+	)) ^ 0x5D71B1) & 0x7FFFFFFF)
+	habitat_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	habitat_noise.frequency = float(
+		registries.nook_config.get("habitat_frequency", 0.095)
+	)
 	for y in size:
 		for x in size:
 			var local := Vector2i(x, y)
@@ -141,20 +180,36 @@ func generate(coord: Vector2i, seed_card: Dictionary, size: int) -> NookPlan:
 			var terrain_slot := String(terrain_slots[local])
 			if terrain_slot != "ground":
 				continue
+			if water_cells.has(local):
+				continue
+			var surface_definition := registries.tile(String(terrain_tiles.get(
+				local, ""
+			)))
+			if surface_definition == null \
+				or not surface_definition.supports_decor:
+				continue
 			var edge_distance := minf(
 				minf(x, size - 1 - x), minf(y, size - 1 - y)
 			)
 			var rim := 1.0 - clampf(edge_distance / half, 0.0, 1.0)
-			var chance := base_density * (0.6 + 0.8 * rim)
+			var world_cell := plan.coord * size + local
+			var habitat := clampf(
+				habitat_noise.get_noise_2d(world_cell.x, world_cell.y) * 0.5 + 0.5,
+				0.0,
+				1.0
+			)
+			var chance := base_density * (0.55 + 0.55 * rim) \
+				* lerpf(0.55, 1.35, habitat)
 			if rng.randf() >= chance:
 				continue
 			var slot_name := biome.scatter.pick(rng)
 			var feature_pool: NookDefs.SlotPool = biome.resolve.get(slot_name)
-			if feature_pool == null or feature_pool.is_empty():
+			var structure_id := _pick_live_structure(feature_pool, rng)
+			if structure_id == "":
 				continue
 			plan.features.append({
 				"local": local,
-				"structure_id": feature_pool.pick(rng),
+				"structure_id": structure_id,
 				"dormant": false,
 			})
 
@@ -163,132 +218,420 @@ func generate(coord: Vector2i, seed_card: Dictionary, size: int) -> NookPlan:
 	return plan
 
 
-## Elevation vocabulary: 0.25 rims, 0.5 cores, and (rocky biomes) a full
-## block + half cap summit. All entries land at elevation 1/2 above the
-## already-generated ground, never under water or authored feature sockets.
-func _carve_relief(
+func _resolve_terrain_tiles(
 	plan: NookPlan,
 	biome: NookDefs.NookBiomeDefinition,
 	terrain_slots: Dictionary,
-	relief_exclusions: Dictionary,
 	size: int,
-	rng: RandomNumberGenerator
-) -> void:
-	var low_pool: NookDefs.SlotPool = biome.resolve.get("rise_low")
-	var half_pool: NookDefs.SlotPool = biome.resolve.get("rise_half")
-	if low_pool == null or low_pool.is_empty() \
-		or half_pool == null or half_pool.is_empty():
-		return
-	var config: Dictionary = registries.nook_config.get("relief", {})
-	var knolls := rng.randi_range(
-		int(config.get("knolls_min", 1)), int(config.get("knolls_max", 3))
+	rng: RandomNumberGenerator,
+	context: Dictionary
+) -> Dictionary:
+	var resolved := {}
+	var primary_by_slot := {}
+	var secondary_by_slot := {}
+	var patch_noise := FastNoiseLite.new()
+	patch_noise.seed = int((plan.seed_value ^ 0x51A7B3) & 0x7FFFFFFF)
+	patch_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	patch_noise.frequency = float(
+		registries.nook_config.get("terrain_material_frequency", 0.13)
 	)
-	var full_pool: NookDefs.SlotPool = biome.resolve.get("rise_full")
-	var mountain := (
-		full_pool != null and not full_pool.is_empty()
-		and biome.traits.has_tag(String(config.get("mountain_biome_tag", "rocky")))
-		and rng.randf() < float(config.get("mountain_chance", 0.5))
+	patch_noise.fractal_type = FastNoiseLite.FRACTAL_FBM
+	patch_noise.fractal_octaves = 2
+	var patch_threshold := float(
+		registries.nook_config.get("terrain_material_patch_threshold", 0.28)
 	)
-	var raised: Dictionary = {}
-	for knoll_index in knolls:
-		var radius := rng.randi_range(
-			int(config.get("radius_min", 1)), int(config.get("radius_max", 2))
-		)
-		var centre := _pick_relief_centre(
-			terrain_slots,
-			relief_exclusions,
-			raised,
+	var transition_noise := FastNoiseLite.new()
+	transition_noise.seed = int((plan.seed_value ^ 0x6B10D5) & 0x7FFFFFFF)
+	transition_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	transition_noise.frequency = float(
+		registries.nook_config.get("biome_blend_noise_frequency", 0.31)
+	)
+	var neighbors: Array = context.get("neighbors", [])
+	for local: Vector2i in terrain_slots:
+		var slot := String(terrain_slots[local])
+		var source_biome := _blended_biome_for_cell(
+			plan,
+			biome,
+			local,
 			size,
-			radius,
-			rng
+			neighbors,
+			transition_noise
 		)
-		if centre.x < 0:
-			continue
-		var is_mountain := mountain and knoll_index == 0
-		for y in range(centre.y - radius, centre.y + radius + 1):
-			for x in range(centre.x - radius, centre.x + radius + 1):
-				var local := Vector2i(x, y)
-				if x < 0 or y < 0 or x >= size or y >= size:
-					continue
-				if raised.has(local) or relief_exclusions.has(local):
-					continue
-				if not terrain_slots.has(local):
-					continue
-				# Ponds remain readable depressions, while clearings and rocky
-				# stamp ground are fair game for relief. Restricting knolls to the
-				# generic ground slot made compact stamped Nooks almost flat.
-				if not _terrain_accepts_relief(String(terrain_slots[local])):
-					continue
-				var distance := Vector2(local).distance_to(Vector2(centre))
-				if distance > float(radius) + 0.08:
-					continue
-				var core := distance <= float(radius) * 0.55
-				if is_mountain and core:
-					plan.tiles.append({
-						"local": local,
-						"tile_id": full_pool.pick(rng),
-						"elevation": 1,
-					})
-					plan.tiles.append({
-						"local": local,
-						"tile_id": half_pool.pick(rng),
-						"elevation": 2,
-					})
-				else:
-					var cap_pool := half_pool if core else low_pool
-					plan.tiles.append({
-						"local": local,
-						"tile_id": cap_pool.pick(rng),
-						"elevation": 1,
-					})
-				raised[local] = true
+		var pool: NookDefs.SlotPool = source_biome.resolve.get(slot)
+		if pool == null or pool.is_empty():
+			pool = source_biome.resolve.get("ground")
+		var cache_key := "%s|%s" % [source_biome.id, slot]
+		if not primary_by_slot.has(cache_key):
+			var primary := _pick_biome_ground_tile(source_biome, pool, rng)
+			if primary == "" and slot != "ground":
+				pool = source_biome.resolve.get("ground")
+				primary = _pick_biome_ground_tile(source_biome, pool, rng)
+			if primary == "":
+				primary = _safe_ground_tile_id()
+			primary_by_slot[cache_key] = primary
+			secondary_by_slot[cache_key] = _pick_biome_ground_tile(
+				source_biome, pool, rng, primary
+			)
+		var tile_id := String(primary_by_slot.get(cache_key, ""))
+		var secondary := String(secondary_by_slot.get(cache_key, ""))
+		if slot == "ground" and secondary != "":
+			var global_cell := plan.coord * size + local
+			if patch_noise.get_noise_2d(global_cell.x, global_cell.y) \
+				> patch_threshold:
+				tile_id = secondary
+		if tile_id != "":
+			resolved[local] = tile_id
+	return resolved
 
 
-func _pick_relief_centre(
-	terrain_slots: Dictionary,
-	relief_exclusions: Dictionary,
-	raised: Dictionary,
+func _blended_biome_for_cell(
+	plan: NookPlan,
+	biome: NookDefs.NookBiomeDefinition,
+	local: Vector2i,
 	size: int,
-	radius: int,
-	rng: RandomNumberGenerator
-) -> Vector2i:
-	# Compact 4x4 Nooks cannot reserve a one-cell perimeter for the centre:
-	# a 3x3 pond would occupy every candidate and erase the landform. Score
-	# every cell, then randomly select among the best usable silhouettes.
-	var best_score := 0
-	var best: Array[Vector2i] = []
-	for centre_y in size:
-		for centre_x in size:
-			var centre := Vector2i(centre_x, centre_y)
-			var score := 0
-			for y in range(centre.y - radius, centre.y + radius + 1):
-				for x in range(centre.x - radius, centre.x + radius + 1):
-					var local := Vector2i(x, y)
-					if x < 0 or y < 0 or x >= size or y >= size:
-						continue
-					if (
-						relief_exclusions.has(local)
-						or raised.has(local)
-						or not terrain_slots.has(local)
-						or not _terrain_accepts_relief(
-							String(terrain_slots[local])
-						)
-					):
-						continue
-					if Vector2(local).distance_to(Vector2(centre)) <= float(radius) + 0.08:
-						score += 1
-			if score > best_score:
-				best_score = score
-				best.assign([centre])
-			elif score == best_score and score > 0:
-				best.append(centre)
-	if best.is_empty():
-		return Vector2i(-1, -1)
-	return best[rng.randi_range(0, best.size() - 1)]
+	neighbors: Array,
+	noise: FastNoiseLite
+) -> NookDefs.NookBiomeDefinition:
+	var blend_width := clampi(int(
+		registries.nook_config.get("biome_blend_width", 2)
+	), 0, maxi(0, size / 2))
+	if blend_width <= 0:
+		return biome
+	var best_biome := biome
+	var best_influence := 0.0
+	for raw_neighbor: Variant in neighbors:
+		if not raw_neighbor is Dictionary:
+			continue
+		var entry: Dictionary = raw_neighbor
+		var offset: Vector2i = entry.get("offset", Vector2i.ZERO)
+		var distance := size
+		if offset == Vector2i.LEFT:
+			distance = local.x
+		elif offset == Vector2i.RIGHT:
+			distance = size - 1 - local.x
+		elif offset == Vector2i.UP:
+			distance = local.y
+		elif offset == Vector2i.DOWN:
+			distance = size - 1 - local.y
+		if distance >= blend_width:
+			continue
+		var neighbor_biome := registries.nook_biome(String(entry.get(
+			"biome", ""
+		)))
+		if neighbor_biome == null or neighbor_biome.id == biome.id:
+			continue
+		var influence := float(blend_width - distance) / float(blend_width + 1)
+		if influence > best_influence:
+			best_influence = influence
+			best_biome = neighbor_biome
+	if best_biome == biome:
+		return biome
+	var world_cell := plan.coord * size + local
+	var jitter := noise.get_noise_2d(world_cell.x, world_cell.y) * 0.16
+	var threshold := clampf(best_influence + jitter, 0.0, 0.9)
+	var selector := _cell_hash_01(world_cell, plan.seed_value ^ 0x314159)
+	return best_biome if selector < threshold else biome
 
 
-func _terrain_accepts_relief(slot: String) -> bool:
-	return slot not in ["water", "water_edge"]
+func _pick_biome_ground_tile(
+	biome: NookDefs.NookBiomeDefinition,
+	pool: NookDefs.SlotPool,
+	rng: RandomNumberGenerator,
+	exclude := ""
+) -> String:
+	var eligible: Array[String] = []
+	var weights: Array[float] = []
+	if pool != null:
+		for index in pool.ids.size():
+			var tile_id := String(pool.ids[index])
+			if tile_id == exclude or not _is_ordinary_terrain_tile(tile_id):
+				continue
+			eligible.append(tile_id)
+			weights.append(float(pool.weights[index]) \
+				if index < pool.weights.size() else 1.0)
+	var automatic_weight := float(
+		registries.nook_config.get("tagged_ground_weight", 0.35)
+	)
+	for definition: Defs.TileDefinition in registries.tiles.values():
+		if definition.id == exclude or eligible.has(definition.id):
+			continue
+		if not definition.traits.has_tag("generation_ground") \
+			or not _tile_matches_biome(definition, biome) \
+			or not _is_ordinary_terrain_tile(definition.id):
+			continue
+		eligible.append(definition.id)
+		weights.append(maxf(0.05, definition.weight * automatic_weight))
+	return _weighted_id_pick(eligible, weights, rng)
+
+
+func _tile_matches_biome(
+	definition: Defs.TileDefinition,
+	biome: NookDefs.NookBiomeDefinition
+) -> bool:
+	for tag: String in definition.biome_tags:
+		if biome.traits.has_tag(tag):
+			return true
+	return false
+
+
+func _pick_ordinary_tile(
+	pool: NookDefs.SlotPool,
+	rng: RandomNumberGenerator,
+	exclude := ""
+) -> String:
+	if pool == null:
+		return ""
+	var eligible: Array[String] = []
+	var weights: Array[float] = []
+	var total := 0.0
+	for index in pool.ids.size():
+		var tile_id := String(pool.ids[index])
+		if tile_id == exclude or not _is_ordinary_terrain_tile(tile_id):
+			continue
+		var weight := (
+			float(pool.weights[index])
+			if index < pool.weights.size()
+			else 1.0
+		)
+		eligible.append(tile_id)
+		weights.append(weight)
+		total += weight
+	if eligible.is_empty():
+		return ""
+	var roll := rng.randf() * maxf(total, 0.001)
+	for index in eligible.size():
+		roll -= weights[index]
+		if roll <= 0.0:
+			return eligible[index]
+	return eligible.back()
+
+
+func _weighted_id_pick(
+	ids: Array[String], weights: Array[float], rng: RandomNumberGenerator
+) -> String:
+	if ids.is_empty():
+		return ""
+	var total := 0.0
+	for weight: float in weights:
+		total += maxf(0.0, weight)
+	var roll := rng.randf() * maxf(total, 0.001)
+	for index in ids.size():
+		roll -= weights[index] if index < weights.size() else 1.0
+		if roll <= 0.0:
+			return ids[index]
+	return ids.back()
+
+
+func _safe_ground_tile_id() -> String:
+	var configured := String(
+		registries.nook_config.get("safe_ground_tile_id", "tile_grass")
+	)
+	return configured if _is_ordinary_terrain_tile(configured) else "tile_grass"
+
+
+func _pick_live_structure(
+	pool: NookDefs.SlotPool, rng: RandomNumberGenerator
+) -> String:
+	if pool == null:
+		return ""
+	var ids: Array[String] = []
+	var weights: Array[float] = []
+	for index in pool.ids.size():
+		var structure_id := String(pool.ids[index])
+		if registries.structure(structure_id) == null:
+			continue
+		ids.append(structure_id)
+		weights.append(float(pool.weights[index]) \
+			if index < pool.weights.size() else 1.0)
+	return _weighted_id_pick(ids, weights, rng)
+
+
+func _apply_hydrology(
+	plan: NookPlan,
+	biome: NookDefs.NookBiomeDefinition,
+	terrain_tiles: Dictionary,
+	exclusions: Dictionary,
+	size: int,
+	seed_value: int
+) -> Dictionary:
+	var water := {}
+	var config: Dictionary = registries.nook_config.get("hydrology", {})
+	if not bool(config.get("enabled", true)):
+		return water
+	var river := FastNoiseLite.new()
+	river.seed = int((seed_value ^ 0x17A2D9) & 0x7FFFFFFF)
+	river.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	river.frequency = float(config.get("river_frequency", 0.045))
+	river.fractal_type = FastNoiseLite.FRACTAL_FBM
+	river.fractal_octaves = 2
+	var river_warp := FastNoiseLite.new()
+	river_warp.seed = int((seed_value ^ 0x7F4A7C15) & 0x7FFFFFFF)
+	river_warp.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	river_warp.frequency = float(config.get("river_warp_frequency", 0.018))
+	var pond := FastNoiseLite.new()
+	pond.seed = int((seed_value ^ 0x43C6EF) & 0x7FFFFFFF)
+	pond.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	pond.frequency = float(config.get("pond_frequency", 0.075))
+	pond.fractal_type = FastNoiseLite.FRACTAL_FBM
+	pond.fractal_octaves = 3
+	var river_width := float(config.get("river_width", 0.075))
+	var pond_threshold := float(config.get("pond_threshold", 0.62))
+	for local: Vector2i in terrain_tiles:
+		if exclusions.has(local):
+			continue
+		var world_cell := plan.coord * size + local
+		var warp := river_warp.get_noise_2d(world_cell.x, world_cell.y) * 7.0
+		var river_distance := absf(river.get_noise_2d(
+			float(world_cell.x) + warp,
+			float(world_cell.y) - warp * 0.65
+		))
+		var pond_value := pond.get_noise_2d(world_cell.x, world_cell.y)
+		if river_distance <= river_width or pond_value >= pond_threshold:
+			water[local] = "pond" if pond_value >= pond_threshold else "river"
+	var water_id := _water_tile_id(biome)
+	if water_id == "":
+		return {}
+	for local: Vector2i in water:
+		terrain_tiles[local] = water_id
+	# A one-cell natural bank softens every shore. Banks use ordinary full land
+	# blocks, so water never introduces the framed basin tiles that caused holes.
+	var bank_id := _riverbank_tile_id(biome)
+	if bank_id != "":
+		for local: Vector2i in water:
+			for offset: Vector2i in WorldGrid.NEIGHBORS:
+				var bank: Vector2i = local + offset
+				if terrain_tiles.has(bank) and not water.has(bank):
+					terrain_tiles[bank] = bank_id
+	return water
+
+
+func _water_tile_id(biome: NookDefs.NookBiomeDefinition) -> String:
+	var pool: NookDefs.SlotPool = biome.resolve.get("water")
+	if pool != null:
+		for tile_id: String in pool.ids:
+			var definition := registries.tile(tile_id)
+			if definition != null and definition.render_profile == "continuous_water":
+				return tile_id
+	var fallback := String(registries.nook_config.get(
+		"safe_water_tile_id", "tile_open_water"
+	))
+	var definition := registries.tile(fallback)
+	return fallback if definition != null \
+		and definition.render_profile == "continuous_water" else ""
+
+
+func _riverbank_tile_id(biome: NookDefs.NookBiomeDefinition) -> String:
+	var pool: NookDefs.SlotPool = biome.resolve.get("riverbank")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = biome.id.hash()
+	var result := _pick_ordinary_tile(pool, rng)
+	return result if result != "" else _safe_ground_tile_id()
+
+
+static func _cell_hash_01(cell: Vector2i, seed_value: int) -> float:
+	var value := int(cell.x * 374761393 + cell.y * 668265263 + seed_value * 69069)
+	value = (value ^ (value >> 13)) * 1274126177
+	value = value ^ (value >> 16)
+	return float(value & 0x7FFFFFFF) / 2147483647.0
+
+
+func _is_ordinary_terrain_tile(tile_id: String) -> bool:
+	var definition := registries.tile(tile_id)
+	return (
+		definition != null
+		and definition.height_fraction >= 1.0
+		and definition.stackable
+		and definition.supports_tiles
+		and definition.surface_kind == "flat"
+		and definition.render_profile != "continuous_water"
+		and definition.water_cells.is_empty()
+		and definition.collision_profile != "pond_basin"
+	)
+
+
+func _shape_terrain(
+	plan: NookPlan,
+	biome: NookDefs.NookBiomeDefinition,
+	terrain_tiles: Dictionary,
+	relief_exclusions: Dictionary,
+	size: int,
+	terrain_seed: int
+) -> void:
+	if terrain_tiles.is_empty():
+		return
+	var config: Dictionary = registries.nook_config.get("terrain_height", {})
+	var max_levels := int(config.get("max_full_levels", 2))
+	if biome.traits.has_tag(String(config.get("mountain_biome_tag", "rocky"))):
+		max_levels = int(config.get("rocky_max_full_levels", 3))
+	max_levels = clampi(max_levels, 1, 4)
+
+	var macro_noise := FastNoiseLite.new()
+	macro_noise.seed = int(terrain_seed & 0x7FFFFFFF)
+	macro_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	macro_noise.frequency = float(config.get("macro_frequency", 0.085))
+	macro_noise.fractal_type = FastNoiseLite.FRACTAL_FBM
+	macro_noise.fractal_octaves = 3
+	macro_noise.fractal_gain = 0.52
+	var detail_noise := FastNoiseLite.new()
+	detail_noise.seed = int((terrain_seed ^ 0x2C9277) & 0x7FFFFFFF)
+	detail_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	detail_noise.frequency = float(config.get("detail_frequency", 0.24))
+	detail_noise.fractal_type = FastNoiseLite.FRACTAL_FBM
+	detail_noise.fractal_octaves = 2
+
+	var samples := {}
+	for local: Vector2i in terrain_tiles:
+		var definition := registries.tile(String(terrain_tiles[local]))
+		if definition == null or definition.surface_kind == "water" \
+			or definition.render_profile == "continuous_water":
+			continue
+		var world_cell := plan.coord * size + local
+		var sample := (
+			macro_noise.get_noise_2d(world_cell.x, world_cell.y) * 0.72
+			+ detail_noise.get_noise_2d(world_cell.x, world_cell.y) * 0.28
+		)
+		samples[local] = sample
+
+	var heights := {}
+	# Absolute world-space thresholds preserve a ridge when it crosses a Nook
+	# seam. Per-chunk min/max normalization made adjacent chunks disagree.
+	var low_threshold := float(config.get("low_threshold", -0.16))
+	var high_threshold := float(config.get("high_threshold", 0.10))
+	var summit_threshold := float(config.get("summit_threshold", 0.34))
+	for local: Vector2i in samples:
+		var sample := float(samples[local])
+		var height := 0
+		if not relief_exclusions.has(local) and sample >= low_threshold:
+			height = 1
+		if not relief_exclusions.has(local) \
+			and max_levels >= 2 and sample >= high_threshold:
+			height = 2
+		if not relief_exclusions.has(local) \
+			and max_levels >= 3 and sample >= summit_threshold:
+			height = 3
+		heights[local] = mini(height, max_levels)
+
+	# Quantized noise can produce needle cliffs. Relax only excessive local
+	# jumps while retaining broad level changes and a guaranteed high summit.
+	for _pass in int(config.get("smoothing_passes", 3)):
+		var relaxed := heights.duplicate()
+		for local: Vector2i in heights:
+			var height := int(heights[local])
+			for offset: Vector2i in WorldGrid.NEIGHBORS:
+				var neighbor := local + offset
+				if heights.has(neighbor):
+					height = mini(height, int(heights[neighbor]) + 1)
+			relaxed[local] = height
+		heights = relaxed
+
+	for local: Vector2i in heights:
+		var tile_id := String(terrain_tiles[local])
+		for elevation in range(1, int(heights[local]) + 1):
+			plan.tiles.append({
+				"local": local,
+				"tile_id": tile_id,
+				"elevation": elevation,
+			})
 
 
 func _roll_stamps(
@@ -299,9 +642,19 @@ func _roll_stamps(
 	var eligible: Array = []
 	var weights: Array[float] = []
 	var ruin_chance := float(registries.nook_config.get("ruin_chance", 0.05))
+	var excluded_tags: Array = registries.nook_config.get(
+		"excluded_stamp_tags", []
+	)
 	var allow_ruin := rng.randf() < ruin_chance
 	for stamp in registries.nook_stamps.values():
 		if not stamp.biome_ids.has(biome.id):
+			continue
+		var excluded := false
+		for excluded_tag: Variant in excluded_tags:
+			if stamp.traits.has_tag(String(excluded_tag)):
+				excluded = true
+				break
+		if excluded:
 			continue
 		if stamp.traits.has_tag("ruin") and not allow_ruin:
 			continue
@@ -315,8 +668,9 @@ func _roll_stamps(
 		int(registries.nook_config.get("stamps_max", 2))
 	)
 	var result: Array = []
-	if stamp_hint != "" and registries.nook_stamp(stamp_hint) != null:
-		result.append(registries.nook_stamp(stamp_hint))
+	var hinted_stamp := registries.nook_stamp(stamp_hint)
+	if stamp_hint != "" and hinted_stamp != null and eligible.has(hinted_stamp):
+		result.append(hinted_stamp)
 	while result.size() < count:
 		var picked: Variant = _weighted_pick(eligible, weights, rng)
 		if picked == null:

@@ -15,6 +15,9 @@ const PLACEABLE_PICK_LAYER := 1 << 7
 const OUTLINE_VISIBILITY_LAYER := 1 << 19
 const REST_TWEEN_SECONDS := 0.5
 const ROTATION_TWEEN_SECONDS := 0.18
+## Leave most of a 60 Hz frame to input, camera, animation, and rendering.
+## Cooperative terrain construction yields whenever it spends ~2 ms itself.
+const BULK_FRAME_BUDGET_USEC := 1000
 const StructureVisualFactoryScript := preload(
 	"res://scripts/world/structure_visual_factory.gd"
 )
@@ -49,6 +52,22 @@ var _outline_overlay: TextureRect
 var _outline_source_camera: Camera3D
 var _scalable_backend
 var _scalable_mode := false
+var _bulk_update_depth := 0
+var _bulk_flushing := false
+var _bulk_dirty_slots: Dictionary = {}
+var _bulk_original_slots: Dictionary = {}
+## Water born during a Nook reveal stays in its own joined surface after the
+## animation. The ordinary surface omits these cells, so the moving sheet can
+## rise independently without disturbing rivers that already exist.
+var _reveal_water_groups: Array[Dictionary] = []
+var reveal_water_in_flight: Dictionary = {}
+var _staged_reveal_tiles: Dictionary = {}
+var _staged_reveal_structures: Dictionary = {}
+## Construction-boundary diagnostics used by the expansion smoke test. A
+## staged reveal visual must be non-renderable before its off-tree chunk is
+## attached; checking later races the presenter's zero-delay tween callbacks.
+var reveal_staged_instances_built_hidden := 0
+var reveal_preflash_violations := 0
 
 
 func setup(game_core: GameCore, asset_library: AssetLibrary) -> void:
@@ -153,8 +172,146 @@ func refresh_asset_edits() -> void:
 	rebuild_all()
 
 
+## Suspends expensive scene reconciliation while a procedural Nook commits.
+## Grid state and domain events continue to update normally; only renderer
+## work is coalesced. This turns dozens of whole-world edge/water rebuilds
+## into one bounded pass.
+func begin_bulk_update() -> void:
+	_bulk_update_depth += 1
+	if _bulk_update_depth == 1 and not _bulk_flushing:
+		_bulk_dirty_slots.clear()
+		_bulk_original_slots.clear()
+
+
+func end_bulk_update_async(hide_new_visuals := false) -> void:
+	if _bulk_update_depth <= 0:
+		return
+	_bulk_update_depth -= 1
+	if _bulk_update_depth > 0:
+		return
+	_bulk_flushing = true
+	while not _bulk_dirty_slots.is_empty():
+		var dirty := _bulk_dirty_slots.duplicate(true)
+		var original := _bulk_original_slots.duplicate(true)
+		_bulk_dirty_slots.clear()
+		_bulk_original_slots.clear()
+		await _flush_bulk_snapshot(dirty, original, hide_new_visuals)
+	_bulk_flushing = false
+
+
+func _flush_bulk_snapshot(
+	dirty: Dictionary,
+	original: Dictionary,
+	hide_new_visuals: bool
+) -> void:
+	if dirty.is_empty():
+		return
+	var wants_scalable := (
+		core.grid.total_tile_count() >= SCALABLE_WORLD_THRESHOLD
+	)
+	if wants_scalable != _scalable_mode:
+		# The mode transition is intentionally singular. The former path could
+		# invoke it once per generated cell near the threshold.
+		rebuild_all()
+		return
+	var frame_started := Time.get_ticks_usec()
+	if _scalable_mode:
+		var chunks: Dictionary = {}
+		for entry: Dictionary in dirty.values():
+			var coord: Vector2i = entry["coord"]
+			chunks[_scalable_backend.chunk_of(coord)] = true
+			for offset: Vector2i in WorldGrid.NEIGHBORS:
+				chunks[_scalable_backend.chunk_of(coord + offset)] = true
+		await _scalable_backend.prepare_update_async(dirty)
+		frame_started = Time.get_ticks_usec()
+		for chunk_coord: Vector2i in chunks:
+			await _scalable_backend.rebuild_chunk(
+				chunk_coord,
+				true,
+				BULK_FRAME_BUDGET_USEC
+			)
+			if hide_new_visuals:
+				for key: Vector3i in dirty:
+					if bool(original.get(key, false)):
+						continue
+					var entry: Dictionary = dirty[key]
+					var coord: Vector2i = entry["coord"]
+					if _scalable_backend.chunk_of(coord) != chunk_coord:
+						continue
+					_scalable_backend.hide_tile_for_reveal(
+						coord,
+						int(entry["elevation"])
+					)
+			if Time.get_ticks_usec() - frame_started >= BULK_FRAME_BUDGET_USEC:
+				await get_tree().process_frame
+				frame_started = Time.get_ticks_usec()
+		return
+
+	var affected := dirty.duplicate(true)
+	for entry: Dictionary in dirty.values():
+		var coord: Vector2i = entry["coord"]
+		var elevation := int(entry["elevation"])
+		for offset: Vector2i in WorldGrid.NEIGHBORS:
+			var neighbour := coord + offset
+			var neighbour_key := core.grid.slot_key(neighbour, elevation)
+			affected[neighbour_key] = {
+				"coord": neighbour,
+				"elevation": elevation,
+			}
+		if elevation > 0:
+			var lower_key := core.grid.slot_key(coord, elevation - 1)
+			affected[lower_key] = {
+				"coord": coord,
+				"elevation": elevation - 1,
+			}
+	var entries: Array = affected.values()
+	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var elevation_a := int(a["elevation"])
+		var elevation_b := int(b["elevation"])
+		if elevation_a != elevation_b:
+			return elevation_a < elevation_b
+		var coord_a: Vector2i = a["coord"]
+		var coord_b: Vector2i = b["coord"]
+		return coord_a.y < coord_b.y if coord_a.y != coord_b.y else coord_a.x < coord_b.x
+	)
+	for entry: Dictionary in entries:
+		_remove_cell_node(entry["coord"], int(entry["elevation"]))
+	for entry: Dictionary in entries:
+		var coord: Vector2i = entry["coord"]
+		var elevation := int(entry["elevation"])
+		if core.grid.has_cell_at(coord, elevation):
+			_build_cell(coord, elevation, false)
+			var key := core.grid.slot_key(coord, elevation)
+			if (
+				hide_new_visuals
+				and dirty.has(key)
+				and not bool(original.get(key, false))
+			):
+				var holder := cell_holder(coord, elevation)
+				if holder != null:
+					holder.visible = false
+		if Time.get_ticks_usec() - frame_started >= BULK_FRAME_BUDGET_USEC:
+			await get_tree().process_frame
+			frame_started = Time.get_ticks_usec()
+	# Global topology is reconciled exactly once per batch.
+	_rebuild_edges()
+	_rebuild_water_surface()
+
+
 func _on_slot_changed(coord: Vector2i, elevation: int) -> void:
 	var changed_key := core.grid.slot_key(coord, elevation)
+	if _bulk_update_depth > 0 or _bulk_flushing:
+		if not _bulk_dirty_slots.has(changed_key):
+			_bulk_original_slots[changed_key] = (
+				_tile_nodes.has(changed_key)
+				if not _scalable_mode
+				else _scalable_backend.tile_instances.has(changed_key)
+			)
+		_bulk_dirty_slots[changed_key] = {
+			"coord": coord,
+			"elevation": elevation,
+		}
+		return
 	var rotation_refresh := _pending_rotation_slots.has(changed_key)
 	var wish_refresh := _pending_wish_slots.has(changed_key)
 	_pending_rotation_slots.erase(changed_key)
@@ -187,6 +344,8 @@ func _on_slot_changed(coord: Vector2i, elevation: int) -> void:
 
 
 func _on_grid_changed() -> void:
+	if _bulk_update_depth > 0 or _bulk_flushing:
+		return
 	if _scalable_mode:
 		return
 	_rebuild_edges()
@@ -203,6 +362,13 @@ func _build_cell(coord: Vector2i, elevation: int, animate := false) -> void:
 	holder.position = core.grid.cell_to_world(coord, elevation)
 	holder.set_meta("grid_coord", coord)
 	holder.set_meta("elevation", elevation)
+	# Reveal cells are born hidden before entering the scene tree. Hiding after
+	# add_child left a render-thread race where the final tile flashed once,
+	# then vanished until its delayed wave entry.
+	var staged_for_reveal := is_tile_staged_for_reveal(coord, elevation)
+	holder.visible = not staged_for_reveal
+	if staged_for_reveal:
+		note_reveal_instance_built_hidden(not holder.visible)
 	add_child(holder)
 	_tile_nodes[core.grid.slot_key(coord, elevation)] = holder
 
@@ -336,13 +502,20 @@ func _place_uw(root: Node3D, asset_id: String, pos: Vector3, rng: RandomNumberGe
 
 
 func _rebuild_water_surface() -> void:
-	var cells: Array = []
-	for coord: Vector2i in core.grid.cells:
-		var def := core.grid.tile_def(coord)
-		if def != null and def.render_profile == "continuous_water":
-			cells.append(coord)
-	_water_surface.rebuild(cells, func(c: Vector2i) -> Vector3: return core.grid.cell_to_world(c),
-			core.grid.tile_size, WATER_LEVEL, materials.material("water"))
+	var cells := _all_water_cells()
+	var settled_cells: Array = []
+	for coord: Vector2i in cells:
+		if not is_reveal_water(coord):
+			settled_cells.append(coord)
+	_water_surface.rebuild_with_topology(
+		settled_cells,
+		cells,
+		func(c: Vector2i) -> Vector3: return core.grid.cell_to_world(c),
+		core.grid.tile_size,
+		WATER_LEVEL,
+		materials.material("water")
+	)
+	_sync_reveal_water_surfaces(cells)
 
 
 func _build_structure(holder: Node3D, s: WorldGrid.StructureState) -> void:
@@ -356,6 +529,10 @@ func _build_structure(holder: Node3D, s: WorldGrid.StructureState) -> void:
 		int(harvest_runtime.get("visual_seed", s.instance_id))
 	)
 	visual.name = "struct_%d" % s.instance_id
+	var staged_for_reveal := is_structure_staged_for_reveal(s.instance_id)
+	visual.visible = not staged_for_reveal
+	if staged_for_reveal:
+		note_reveal_instance_built_hidden(not visual.visible)
 	# All visuals stay siblings under the tile holder so selecting a jar does
 	# not outline its stool (or vice versa). The persistent support graph is
 	# resolved into a composed transform instead of a scene-tree hierarchy.
@@ -1436,6 +1613,228 @@ func cell_holder(coord: Vector2i, elevation: int = 0) -> Node3D:
 		return null
 	var holder := _tile_nodes.get(core.grid.slot_key(coord, elevation)) as Node3D
 	return holder if holder != null and is_instance_valid(holder) else null
+
+
+## Called after generation commits but before the renderer flushes. Separating
+## new water at this boundary prevents its final surface from flashing for a
+## frame before the post-terrain rise begins.
+func stage_nook_reveal(
+	origin_cell: Vector2i,
+	plan: NookGenerator.NookPlan
+) -> void:
+	if plan == null:
+		return
+	var cells := {}
+	for tile: Dictionary in plan.tiles:
+		var cell := origin_cell + (tile["local"] as Vector2i)
+		var elevation := int(tile.get("elevation", 0))
+		_staged_reveal_tiles[core.grid.slot_key(cell, elevation)] = true
+		if int(tile.get("elevation", 0)) != 0:
+			continue
+		var definition := core.registries.tile(String(tile.get("tile_id", "")))
+		if definition == null \
+			or definition.render_profile != "continuous_water":
+			continue
+		cells[cell] = true
+	for feature: Dictionary in plan.features:
+		var instance_id := int(feature.get("instance_id", 0))
+		if instance_id > 0:
+			_staged_reveal_structures[instance_id] = true
+	if cells.is_empty():
+		return
+	var surface := WaterSurface.new()
+	surface.name = "NookRevealWater_%d" % _reveal_water_groups.size()
+	surface.visible = false
+	add_child(surface)
+	_reveal_water_groups.append({
+		"cells": cells,
+		"surface": surface,
+	})
+	_sync_reveal_water_surfaces(_all_water_cells())
+
+
+func is_tile_staged_for_reveal(coord: Vector2i, elevation: int) -> bool:
+	return _staged_reveal_tiles.has(core.grid.slot_key(coord, elevation))
+
+
+func is_tile_key_staged_for_reveal(key: Vector3i) -> bool:
+	return _staged_reveal_tiles.has(key)
+
+
+func is_structure_staged_for_reveal(instance_id: int) -> bool:
+	return _staged_reveal_structures.has(instance_id)
+
+
+func note_reveal_instance_built_hidden(hidden: bool) -> void:
+	if hidden:
+		reveal_staged_instances_built_hidden += 1
+	else:
+		reveal_preflash_violations += 1
+
+
+func release_nook_reveal_staging(
+	origin_cell: Vector2i,
+	plan: NookGenerator.NookPlan
+) -> void:
+	if plan == null:
+		return
+	for tile: Dictionary in plan.tiles:
+		var cell := origin_cell + (tile["local"] as Vector2i)
+		_staged_reveal_tiles.erase(
+			core.grid.slot_key(cell, int(tile.get("elevation", 0)))
+		)
+	for feature: Dictionary in plan.features:
+		_staged_reveal_structures.erase(int(feature.get("instance_id", 0)))
+
+
+func is_reveal_water(coord: Vector2i) -> bool:
+	for group: Dictionary in _reveal_water_groups:
+		if (group["cells"] as Dictionary).has(coord):
+			return true
+	return false
+
+
+func animate_nook_water_surface(
+	cells: Array[Vector2i],
+	delay: float,
+	rise_depth: float,
+	rise_seconds: float,
+	overshoot: float
+) -> bool:
+	if cells.is_empty():
+		return false
+	var cell_set := {}
+	for cell: Vector2i in cells:
+		cell_set[cell] = true
+	var surface: WaterSurface
+	for group: Dictionary in _reveal_water_groups:
+		var group_cells := group["cells"] as Dictionary
+		for cell: Vector2i in cell_set:
+			if group_cells.has(cell):
+				surface = group["surface"] as WaterSurface
+				break
+		if surface != null:
+			break
+	if surface == null or not is_instance_valid(surface) or surface.mesh == null:
+		return false
+	var identity := surface.position
+	var start := identity + Vector3.DOWN * maxf(0.0, rise_depth)
+	var crest := identity + Vector3.UP * maxf(0.0, overshoot)
+	surface.position = start
+	surface.visible = false
+	var reveal_key := surface.get_instance_id()
+	reveal_water_in_flight[reveal_key] = true
+	var tween := surface.create_tween()
+	tween.tween_interval(maxf(0.0, delay))
+	tween.tween_callback(func():
+		if is_instance_valid(surface):
+			surface.visible = true
+	)
+	tween.tween_property(
+		surface, "position", crest, rise_seconds
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(
+		surface, "position", identity, rise_seconds * 0.28
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_callback(func():
+		if is_instance_valid(surface):
+			surface.position = identity
+			surface.visible = true
+		reveal_water_in_flight.erase(reveal_key)
+	)
+	return true
+
+
+func _all_water_cells() -> Array:
+	var cells: Array = []
+	for coord: Vector2i in core.grid.cells:
+		var definition := core.grid.tile_def(coord)
+		if definition != null \
+			and definition.render_profile == "continuous_water":
+			cells.append(coord)
+	return cells
+
+
+func _sync_reveal_water_surfaces(all_water_cells: Array) -> void:
+	if _reveal_water_groups.is_empty():
+		return
+	var live_water := {}
+	for cell: Vector2i in all_water_cells:
+		live_water[cell] = true
+	for group: Dictionary in _reveal_water_groups:
+		var surface := group["surface"] as WaterSurface
+		if surface == null or not is_instance_valid(surface):
+			continue
+		var live_group_cells: Array = []
+		for cell: Vector2i in (group["cells"] as Dictionary):
+			if live_water.has(cell):
+				live_group_cells.append(cell)
+		surface.rebuild_with_topology(
+			live_group_cells,
+			all_water_cells,
+			func(c: Vector2i) -> Vector3: return core.grid.cell_to_world(c),
+			core.grid.tile_size,
+			WATER_LEVEL,
+			materials.material("water")
+		)
+
+
+func animate_scalable_nook_tile(
+	coord: Vector2i,
+	elevation: int,
+	delay: float,
+	drop_height: float,
+	drop_seconds: float,
+	overshoot: float
+) -> bool:
+	if not _scalable_mode:
+		return false
+	return _scalable_backend.animate_tile_reveal(
+		coord,
+		elevation,
+		delay,
+		drop_height,
+		drop_seconds,
+		overshoot
+	)
+
+
+func animate_scalable_nook_water_tile(
+	coord: Vector2i,
+	elevation: int,
+	delay: float,
+	rise_depth: float,
+	rise_seconds: float,
+	overshoot: float
+) -> bool:
+	if not _scalable_mode:
+		return false
+	return _scalable_backend.animate_water_tile_reveal(
+		coord,
+		elevation,
+		delay,
+		rise_depth,
+		rise_seconds,
+		overshoot
+	)
+
+
+func animate_scalable_nook_structure(
+	instance_id: int,
+	delay: float,
+	drop_height: float,
+	drop_seconds: float,
+	overshoot: float
+) -> bool:
+	if not _scalable_mode:
+		return false
+	return _scalable_backend.animate_structure_reveal(
+		instance_id,
+		delay,
+		drop_height,
+		drop_seconds,
+		overshoot
+	)
 
 
 func debug_stats() -> Dictionary:

@@ -92,8 +92,13 @@ func load_all(base_path := "res://data", report_issues := true) -> bool:
 		candidate, base_path + "/structures.json", "structures", "structures",
 		candidate.structures, Defs.StructureDefinition.from_dict, issues
 	)
+	# Keep the generated catalog ready to restore without exposing it in the
+	# live game. Re-enabling one flag loads both its models and wish rewards.
+	var itch_catalog_enabled := bool(
+		candidate.features.get("itch_catalog_enabled", false)
+	)
 	var itch_structures_path := base_path + "/itch_structures.json"
-	if FileAccess.file_exists(itch_structures_path):
+	if itch_catalog_enabled and FileAccess.file_exists(itch_structures_path):
 		_load_list(
 			candidate, itch_structures_path, "structures", "structures",
 			candidate.structures, Defs.StructureDefinition.from_dict, issues
@@ -112,10 +117,11 @@ func load_all(base_path := "res://data", report_issues := true) -> bool:
 		Defs.DiscoveryPoolDefinition.from_dict, issues
 	)
 	var itch_rewards_path := base_path + "/itch_wish_rewards.json"
-	if FileAccess.file_exists(itch_rewards_path):
+	if itch_catalog_enabled and FileAccess.file_exists(itch_rewards_path):
 		_load_discovery_reward_extension(
 			candidate, itch_rewards_path, issues
 		)
+	_normalize_void_wish_catalog(candidate)
 	_load_list(
 		candidate, base_path + "/milestones.json", "milestones", "milestones",
 		candidate.milestones, Defs.MilestoneDefinition.from_dict, issues
@@ -524,6 +530,74 @@ func _load_discovery_reward_extension(
 			))
 			continue
 		pool.rewards.append((raw_reward as Dictionary).duplicate(true))
+
+
+## Wishes and the Build Bag deliberately share one category vocabulary. Tile
+## rewards are derived from the active roster here, so activating a new tile is
+## enough to make it eligible to fall from the sky; no second list goes stale.
+func _normalize_void_wish_catalog(candidate) -> void:
+	for pool: Defs.DiscoveryPoolDefinition in candidate.discovery_pools.values():
+		if pool.source != "void":
+			continue
+		pool.wish_categories.clear()
+		for presentation: Dictionary in BuildCategoryResolver.categories():
+			var weight := float(presentation.get("wish_weight", 0.0))
+			if weight <= 0.0:
+				continue
+			var category_id := String(presentation.get("id", ""))
+			pool.wish_categories.append({
+				"id": category_id,
+				"name": String(presentation.get("label", category_id.capitalize())),
+				"description": String(presentation.get(
+					"wish_description", "A surprise from this collection."
+				)),
+				"icon": BuildCategoryResolver.icon_path(category_id),
+				"weight": weight,
+			})
+
+		var reward_keys: Dictionary = {}
+		for reward: Dictionary in pool.rewards:
+			var kind := String(reward.get("kind", ""))
+			var content_id := String(reward.get("id", ""))
+			var definition: Variant = (
+				candidate.tiles.get(content_id)
+				if kind == "tile"
+				else candidate.structures.get(content_id)
+			)
+			var category_id := BuildCategoryResolver.category_for(kind, definition)
+			if category_id != "":
+				reward["category"] = category_id
+			reward_keys["%s:%s" % [kind, content_id]] = true
+
+		for tile_id: String in _candidate_active_tile_ids(candidate):
+			var tile: Defs.TileDefinition = candidate.tiles.get(tile_id)
+			if tile == null or not tile.obtainable:
+				continue
+			var reward_key := "tile:%s" % tile_id
+			if reward_keys.has(reward_key):
+				continue
+			pool.rewards.append({
+				"kind": "tile",
+				"id": tile_id,
+				"category": BuildCategoryResolver.category_for_tile(tile),
+				"weight": maxf(0.1, tile.weight),
+			})
+			reward_keys[reward_key] = true
+
+
+func _candidate_active_tile_ids(candidate) -> Array[String]:
+	var result: Array[String] = []
+	var configured: Variant = candidate.tuning.get("active_tile_ids", [])
+	if configured is Array and not configured.is_empty():
+		for raw_tile_id: Variant in configured:
+			var tile_id := String(raw_tile_id)
+			if candidate.tiles.has(tile_id) and not result.has(tile_id):
+				result.append(tile_id)
+		return result
+	for tile: Defs.TileDefinition in candidate.tiles.values():
+		if tile.obtainable:
+			result.append(tile.id)
+	return result
 
 
 func _adopt(candidate) -> void:
