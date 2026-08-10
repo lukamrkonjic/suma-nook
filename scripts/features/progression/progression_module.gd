@@ -1,9 +1,8 @@
 class_name ProgressionModule
 extends RefCounted
-## Composition root for progression v4: lifetime practice, milestones, and the
-## ferry's periodic discovery gift. Building rewards now arrive exclusively
-## through the fishing feature module; this class only counts activity and
-## publishes narrow completion events other features may adapt.
+## Composition root for progression v4: lifetime practice, milestones, and
+## periodic sky wishes. Hobby cycles publish narrow completion events other
+## features may adapt without owning the wish cadence.
 
 ## Emitted when an activity finishes a full source cycle (a tree rests, a
 ## future stone seam is worked out). Adapters — not this module — decide what
@@ -53,6 +52,10 @@ func on_activity_cycle_completed(skill_id: String) -> void:
 func on_fishing_haul_committed() -> void:
 	activity_actions["fishing"] = int(activity_actions.get("fishing", 0)) + 1
 	milestones.check_all(activity_actions)
+
+
+func tick(delta: float) -> void:
+	discovery.tick(delta)
 
 
 func actions_done(skill_id: String) -> int:

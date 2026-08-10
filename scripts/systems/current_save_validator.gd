@@ -361,10 +361,51 @@ static func _validate_progression(
 		"progression.void_exchange was retired in v4"
 	)
 	var discovery: Dictionary = data.get("discovery", {})
-	for index in (discovery.get("pending", []) as Array).size():
-		var entry: Variant = discovery["pending"][index]
+	_validate_discovery_entries(
+		errors,
+		discovery.get("pending", []) as Array,
+		registries,
+		"progression.discovery.pending"
+	)
+	var wish_choices := discovery.get("wish_choices", []) as Array
+	_require(
+		errors, wish_choices.size() <= DiscoverySystem.WISH_CHOICE_COUNT,
+		"progression.discovery.wish_choices may contain at most three entries"
+	)
+	_validate_discovery_entries(
+		errors,
+		wish_choices,
+		registries,
+		"progression.discovery.wish_choices"
+	)
+	_require(
+		errors, float(discovery.get("seconds_until_wish", 0.0)) >= 0.0,
+		"progression.discovery.seconds_until_wish must be non-negative"
+	)
+	_require(
+		errors, int(discovery.get("wishes_completed", 0)) >= 0,
+		"progression.discovery.wishes_completed must be non-negative"
+	)
+	_validate_array_ids(
+		errors, data.get("milestones", {}).get("claimed", []), registries.milestones,
+		"progression.milestones.claimed"
+	)
+	_validate_dictionary_ids(
+		errors, data.get("activity_actions", {}), registries.skills,
+		"progression.activity_actions"
+	)
+
+
+static func _validate_discovery_entries(
+	errors: PackedStringArray,
+	entries: Array,
+	registries: Registries,
+	path: String
+) -> void:
+	for index in entries.size():
+		var entry: Variant = entries[index]
 		if not entry is Dictionary:
-			errors.append("progression.discovery.pending[%d] must be an object" % index)
+			errors.append("%s[%d] must be an object" % [path, index])
 			continue
 		var kind := String(entry.get("kind", ""))
 		var content_id := String(entry.get("id", ""))
@@ -374,17 +415,9 @@ static func _validate_progression(
 		)
 		_require(
 			errors, known,
-			"progression.discovery.pending[%d] references missing %s '%s'"
-			% [index, kind, content_id]
+			"%s[%d] references missing %s '%s'"
+			% [path, index, kind, content_id]
 		)
-	_validate_array_ids(
-		errors, data.get("milestones", {}).get("claimed", []), registries.milestones,
-		"progression.milestones.claimed"
-	)
-	_validate_dictionary_ids(
-		errors, data.get("activity_actions", {}), registries.skills,
-		"progression.activity_actions"
-	)
 
 
 static func _validate_landmarks(

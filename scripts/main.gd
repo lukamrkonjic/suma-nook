@@ -88,7 +88,7 @@ var asset_viewer: AssetViewer
 var performance_hud
 var panels: GamePanels
 var pause_menu: PauseMenu
-var discovery_reveal: DiscoveryReveal
+var wish_offer_panel: WishOfferPanel
 var arrival_picker: ArrivalLandPicker
 var nook_offer_panel: NookOfferPanel
 var nook_reveal_presenter: NookRevealPresenter
@@ -392,10 +392,10 @@ func _build_ui() -> void:
 	add_child(panels)
 	panels.setup(core, kit, self)
 
-	discovery_reveal = DiscoveryReveal.new()
-	discovery_reveal.name = "DiscoveryReveal"
-	add_child(discovery_reveal)
-	discovery_reveal.setup(core, kit, assets)
+	wish_offer_panel = WishOfferPanel.new()
+	wish_offer_panel.name = "WishOfferPanel"
+	add_child(wish_offer_panel)
+	wish_offer_panel.setup(core, kit, assets)
 
 	arrival_picker = ArrivalLandPicker.new()
 	arrival_picker.name = "ArrivalLandPicker"
@@ -882,9 +882,12 @@ func _connect_flows() -> void:
 		placement.store_held()
 		audio.play_event("store"))
 	arrival_picker.land_chosen.connect(_on_first_land_chosen)
-	discovery_reveal.reveal_finished.connect(_on_discovery_accepted)
-	discovery_reveal.reveal_started.connect(
+	wish_offer_panel.reveal_finished.connect(_on_discovery_accepted)
+	wish_offer_panel.reveal_started.connect(
 		func(_entry): _refresh_controller_hints()
+	)
+	wish_offer_panel.panel_toggled.connect(
+		func(_open): _refresh_controller_hints()
 	)
 	core.progression.discovery.discovery_ready.connect(func(entry):
 		hud.update_tutorial()
@@ -1114,6 +1117,7 @@ func _start_gameplay(fresh: bool, show_welcome := true) -> void:
 	if show_welcome:
 		hud.toast("Welcome%s, %s." % ["" if fresh else " back", core.profile.display_name], "good")
 	core.arrivals.announce_restored_delivery()
+	wish_offer_panel.notify_ready(false)
 	visitor_scene.call("sync_from_module")
 	_refresh_controller_hints()
 	if player.deployed and is_instance_valid(pigeon_controller):
@@ -1270,7 +1274,7 @@ func _update_frontier_marker_availability() -> void:
 		and not _nook_reveal_in_progress
 		and not pause_menu.is_open()
 		and not panels.is_open()
-		and not discovery_reveal.is_open()
+		and not wish_offer_panel.is_open()
 		and not nook_offer_panel.is_open()
 		and (asset_viewer == null or not asset_viewer.is_open())
 	)
@@ -1349,7 +1353,7 @@ func _input(event: InputEvent) -> void:
 		and event is InputEventKey
 		and event.is_action_pressed("pause")
 		and not pause_menu.is_open()
-		and not discovery_reveal.is_open()
+		and not wish_offer_panel.is_open()
 		and (asset_viewer == null or not asset_viewer.is_open())
 	):
 		open_pause_menu()
@@ -1359,7 +1363,7 @@ func _input(event: InputEvent) -> void:
 		_gameplay_started
 		and placement.active
 		and not pause_menu.is_open()
-		and not discovery_reveal.is_open()
+		and not wish_offer_panel.is_open()
 		and not panels.is_open()
 		and (asset_viewer == null or not asset_viewer.is_open())
 	):
@@ -1399,7 +1403,7 @@ func _input(event: InputEvent) -> void:
 		_gameplay_started
 		and not placement.active
 		and not panels.is_open()
-		and not discovery_reveal.is_open()
+		and not wish_offer_panel.is_open()
 		and not _interaction_at_screen(mouse.position).is_empty()
 	):
 		effects.click_marker(mouse.position, true)
@@ -1409,6 +1413,11 @@ func _screen_position_blocked_by_ui(screen_position: Vector2) -> bool:
 	# Any mouse-enabled Control shields the world, including empty panel space.
 	# Restricting this to buttons allowed selection and right-click actions to
 	# leak through the Build Bag background.
+	if (
+		wish_offer_panel != null
+		and wish_offer_panel.blocks_world_pointer(screen_position)
+	):
+		return true
 	if hud != null:
 		return hud.blocks_world_pointer(screen_position)
 	return get_viewport().gui_get_hovered_control() != null
@@ -1459,7 +1468,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if asset_viewer != null and asset_viewer.is_open():
 		return
-	if pause_menu.is_open() or discovery_reveal.is_open() or panels.is_open():
+	if (
+		wish_offer_panel != null
+		and wish_offer_panel.is_ready()
+		and event.is_action_pressed("wish_menu")
+	):
+		wish_offer_panel.toggle()
+		_refresh_controller_hints()
+		get_viewport().set_input_as_handled()
+		return
+	if pause_menu.is_open() or wish_offer_panel.is_open() or panels.is_open():
 		return
 	if _handle_hud_shortcut(event):
 		get_viewport().set_input_as_handled()
@@ -1549,7 +1567,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		if panels.is_open():
 			panels.close()
-		elif discovery_reveal.is_open():
+		elif wish_offer_panel.is_open():
 			return
 		elif placement.active:
 			_cancel_build_or_open_library()
@@ -1694,7 +1712,7 @@ func _is_controller_event(event: InputEvent) -> bool:
 
 
 func open_pause_menu(page := "menu") -> void:
-	if not _gameplay_started or discovery_reveal.is_open():
+	if not _gameplay_started or wish_offer_panel.is_open():
 		return
 	placement.prepare_for_save()
 	if panels.is_open():
@@ -1712,8 +1730,8 @@ func _on_input_method_changed(method: int) -> void:
 			pause_menu.focus_default()
 		elif panels.is_open():
 			panels.focus_default()
-		elif discovery_reveal.is_open():
-			discovery_reveal.focus_default()
+		elif wish_offer_panel.is_open():
+			wish_offer_panel.focus_default()
 		elif (
 			character_creator != null
 			and is_instance_valid(character_creator)
@@ -1766,9 +1784,10 @@ func _refresh_controller_hints() -> void:
 			{"action": &"ui_accept", "label": "Select"},
 			{"action": &"cancel", "label": "Back"},
 		]
-	elif discovery_reveal.is_open():
+	elif wish_offer_panel.is_open():
 		actions = [
-			{"action": &"ui_accept", "label": "Choose land"},
+			{"action": &"ui_accept", "label": "Choose wish"},
+			{"action": &"cancel", "label": "Not yet"},
 		]
 	elif panels.is_open():
 		actions = [
@@ -1820,6 +1839,8 @@ func _refresh_controller_hints() -> void:
 			{"action": &"build_mode", "label": "Build"},
 			{"action": &"panel_map", "label": "Map"},
 		]
+	if wish_offer_panel.is_ready() and not wish_offer_panel.is_open():
+		actions.push_front({"action": &"wish_menu", "label": "Open wish"})
 		if not player.focus().is_empty():
 			actions.insert(1, {"action": &"interact", "label": "Interact"})
 	var has_interact_prompt := false
@@ -1839,7 +1860,7 @@ func _refresh_controller_hints() -> void:
 # ------------------------------------------------------------------ click commands
 
 func _handle_world_click(screen_position: Vector2) -> void:
-	if panels.is_open() or discovery_reveal.is_open():
+	if panels.is_open() or wish_offer_panel.is_open():
 		return
 	var interaction := _interaction_at_screen(screen_position)
 	if interaction.is_empty():
@@ -2097,18 +2118,21 @@ func _on_discovery_accepted(entry: Dictionary) -> void:
 		display_name = core.registries.tile(content_id).display_name
 	elif kind == DiscoverySystem.KIND_STRUCTURE and core.registries.structure(content_id) != null:
 		display_name = core.registries.structure(content_id).display_name
-	hud.toast("%s added to your Build Bag." % display_name, "good")
-	placement.hold_new(kind, content_id)
+	if String(entry.get("source", "")) == "wish":
+		if not placement.drop_wish(kind, content_id):
+			hud.toast(
+				"No clear landing spot — %s is safe in your Build Bag." % display_name,
+				"warn"
+			)
+	else:
+		hud.toast("%s added to your Build Bag." % display_name, "good")
+		placement.hold_new(kind, content_id)
 
 
 func _open_pending_discovery_when_ready() -> void:
-	if discovery_reveal.is_open() or not core.progression.discovery.has_pending():
+	if not core.progression.discovery.has_pending():
 		return
-	if player.state != PlayerController.State.FREE:
-		await player.state_changed
-	if panels.is_open():
-		panels.close()
-	discovery_reveal.open_pending()
+	wish_offer_panel.notify_ready()
 
 
 func _on_placement_result(ok: bool, _message: String, kind: String) -> void:

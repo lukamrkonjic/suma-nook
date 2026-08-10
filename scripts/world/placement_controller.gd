@@ -115,15 +115,126 @@ func set_active(enabled: bool) -> void:
 
 
 ## HUD hands over a piece from stock (or a packed deed).
-func hold_new(kind: String, id: String) -> void:
+func hold_new(kind: String, id: String, arrival := "") -> void:
 	if not active:
 		set_active(true)
 	_cancel_held(true)
-	held = {"kind": kind, "id": id, "rotation": 0, "moving": null}
+	held = {
+		"kind": kind,
+		"id": id,
+		"rotation": 0,
+		"moving": null,
+		"arrival": arrival,
+	}
 	if _controller_mode:
 		_controller_cursor_active = true
 	_build_ghost()
 	held_changed.emit(held)
+
+
+## A chosen wish belongs to the world immediately: pick a valid, visible spot
+## near the current camera focus and commit the single stock copy there. The
+## caller never enters a cursor-placement step. Returns false only when the
+## current world has no legal landing spot; in that case the copy remains safe
+## in the Build Bag.
+func drop_wish(kind: String, id: String) -> bool:
+	var was_active := active
+	hold_new(kind, id, "wish")
+	var placed := false
+	for candidate: Dictionary in _wish_landing_candidates(kind):
+		if try_place_at(candidate["coord"]):
+			placed = true
+			break
+	if not placed:
+		_cancel_held(true)
+	if not was_active:
+		set_active(false)
+	return placed
+
+
+func _wish_landing_candidates(kind: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var seen: Dictionary = {}
+	var focus := camera_rig.focus_world_position()
+	if kind == "tile":
+		# New tiles prefer the visible shoreline, so each wish can gently grow
+		# the island. Existing columns remain a legal stacking fallback.
+		for base_coord: Vector2i in core.grid.cells:
+			for direction: Vector2i in WorldGrid.NEIGHBORS:
+				var frontier := base_coord + direction
+				if core.grid.has_cell(frontier) or seen.has(frontier):
+					continue
+				seen[frontier] = true
+				result.append(_wish_candidate(frontier, 0, 0, focus))
+		for stack_coord: Vector2i in core.grid.cells:
+			result.append(_wish_candidate(
+				stack_coord,
+				core.grid.top_elevation(stack_coord) + 1,
+				1,
+				focus
+			))
+	else:
+		# Models first seek uncluttered top surfaces. Placement validation still
+		# owns every support, collision, landmark, and walkability rule.
+		for model_coord: Vector2i in core.grid.cells:
+			var elevation := core.grid.top_elevation(model_coord)
+			var state := core.grid.cell_at(model_coord, elevation)
+			var clutter_priority := 0
+			if state == null or not state.structures.is_empty() or state.landmark_id != "":
+				clutter_priority = 1
+			result.append(_wish_candidate(
+				model_coord,
+				elevation,
+				clutter_priority,
+				focus
+			))
+	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return float(a["score"]) < float(b["score"])
+	)
+	return result
+
+
+func _wish_candidate(
+	coord: Vector2i,
+	elevation: int,
+	placement_priority: int,
+	focus: Vector3
+) -> Dictionary:
+	var world_position := core.grid.cell_to_world(coord, maxi(0, elevation))
+	var distance := Vector2(
+		world_position.x - focus.x,
+		world_position.z - focus.z
+	).length()
+	var visibility_priority := 0 if _wish_landing_is_visible(world_position) else 1
+	var jitter := core.rng.randf_range(
+		"wish_landing",
+		0.0,
+		core.grid.tile_size * 2.25
+	)
+	return {
+		"coord": coord,
+		"score": visibility_priority * 100000.0
+			+ placement_priority * 10000.0
+			+ distance
+			+ jitter,
+	}
+
+
+func _wish_landing_is_visible(world_position: Vector3) -> bool:
+	if camera_rig == null or camera_rig.camera == null:
+		return true
+	var active_camera := camera_rig.camera
+	if active_camera.is_position_behind(world_position):
+		return false
+	var screen_position := active_camera.unproject_position(world_position)
+	var view_size := get_viewport().get_visible_rect().size
+	var margin := minf(96.0, minf(view_size.x, view_size.y) * 0.12)
+	return (
+		screen_position.x >= margin
+		and screen_position.y >= margin
+		and screen_position.x <= view_size.x - margin
+		and screen_position.y <= view_size.y - margin
+	)
 
 
 ## Controller placement is an explicit grid cursor, not a simulated mouse.
@@ -1222,6 +1333,10 @@ func _invalid_message() -> String:
 func _place_tile() -> void:
 	var tile_id: String = held["id"]
 	var rotation_q: int = held["rotation"]
+	var wish_arrival := (
+		String(held.get("arrival", "")) == "wish"
+		and held["moving"] == null
+	)
 	if held["moving"] != null:
 		var from: Vector2i = held["moving"]["coord"]
 		var from_elevation := int(held["moving"].get("elevation", 0))
@@ -1249,7 +1364,17 @@ func _place_tile() -> void:
 		core.autosave_paused = false
 		core.autosave_soon()
 	else:
+		if wish_arrival:
+			world_renderer.prepare_wish_placement(
+				_hover_cell,
+				_hover_elevation
+			)
 		if not core.place_tile_from_stock(_hover_cell, tile_id, rotation_q, _hover_elevation):
+			if wish_arrival:
+				world_renderer.cancel_wish_placement(
+					_hover_cell,
+					_hover_elevation
+				)
 			action_result.emit(false, "That piece isn't in storage anymore.", "invalid")
 			return
 		_push_undo({
@@ -1260,19 +1385,26 @@ func _place_tile() -> void:
 			"rotation": rotation_q,
 		})
 		var remaining := core.stock.tile_count(tile_id)
-		if remaining <= 0:
+		if wish_arrival or remaining <= 0:
 			held = {}
 			held_changed.emit(held)
 			_build_ghost()
 	var def := core.registries.tile(tile_id)
-	effects.placement_poof(
-		core.grid.cell_to_world(_hover_cell, _hover_elevation),
-		def.placement_sound
+	var effect_position := core.grid.cell_to_world(
+		_hover_cell,
+		_hover_elevation
 	)
-	action_result.emit(
-		true,
+	var landing_tween: Tween = null
+	if wish_arrival:
+		landing_tween = world_renderer.animate_tile_wish_landing(
+			_hover_cell,
+			_hover_elevation
+		)
+	_finish_placement_feedback(
+		effect_position,
+		def.placement_sound,
 		"Stacked at level %d." % _hover_elevation if _hover_elevation > 0 else "",
-		"place_" + def.placement_sound
+		landing_tween
 	)
 
 
@@ -1292,6 +1424,10 @@ func _rotate_tile_stack(stack: Array, quarter_turn_delta: int) -> void:
 
 func _place_structure() -> void:
 	var structure_id: String = held["id"]
+	var wish_arrival := (
+		String(held.get("arrival", "")) == "wish"
+		and held["moving"] == null
+	)
 	var socket := (
 		-1
 		if _hover_support_instance_id > 0
@@ -1331,8 +1467,18 @@ func _place_structure() -> void:
 		held = {}
 		core.autosave_paused = false
 	else:
+		if wish_arrival:
+			world_renderer.prepare_wish_placement(
+				_hover_cell,
+				_hover_elevation
+			)
 		var stock_token := core.stock.take_structure_token(structure_id)
 		if stock_token.is_empty():
+			if wish_arrival:
+				world_renderer.cancel_wish_placement(
+					_hover_cell,
+					_hover_elevation
+				)
 			action_result.emit(false, "That piece isn't in storage anymore.", "invalid")
 			return
 		var stored_state: Dictionary = stock_token.get("state", {})
@@ -1364,6 +1510,11 @@ func _place_structure() -> void:
 			)
 		if placed == null:
 			core.stock.return_structure_token(stock_token)
+			if wish_arrival:
+				world_renderer.cancel_wish_placement(
+					_hover_cell,
+					_hover_elevation
+				)
 			action_result.emit(false, "That support changed before the item could settle.", "invalid")
 			return
 		core.collection.record_placed("structures", structure_id)
@@ -1379,7 +1530,7 @@ func _place_structure() -> void:
 			"support": _hover_support_slot,
 			"stack": [placed],
 		})
-		if core.stock.structure_count(structure_id) <= 0:
+		if wish_arrival or core.stock.structure_count(structure_id) <= 0:
 			held = {}
 	held_changed.emit(held)
 	_build_ghost()
@@ -1393,13 +1544,41 @@ func _place_structure() -> void:
 		else core.grid.cell_to_world(_hover_cell, _hover_elevation)
 			+ core.grid.socket_offset(socket)
 	)
-	effects.placement_poof(
-		effect_position,
-		"grass" if def.placement_sound == "grass" else "stone"
-	)
-	world_renderer.animate_structure_settle(placed.instance_id)
+	var landing_tween: Tween = null
+	if wish_arrival:
+		landing_tween = world_renderer.animate_structure_wish_landing(
+			placed.instance_id
+		)
+	else:
+		world_renderer.animate_structure_settle(placed.instance_id)
 	core.autosave_soon()
-	action_result.emit(true, "", "place_" + def.placement_sound)
+	_finish_placement_feedback(
+		effect_position,
+		"grass" if def.placement_sound == "grass" else "stone",
+		"",
+		landing_tween,
+		def.placement_sound
+	)
+
+
+func _finish_placement_feedback(
+	effect_position: Vector3,
+	effect_sound: String,
+	message: String,
+	landing_tween: Tween = null,
+	action_sound := ""
+) -> void:
+	var finish := func():
+		effects.placement_poof(effect_position, effect_sound)
+		action_result.emit(
+			true,
+			message,
+			"place_" + (action_sound if action_sound != "" else effect_sound)
+		)
+	if landing_tween != null and landing_tween.is_valid():
+		landing_tween.finished.connect(finish)
+	else:
+		finish.call()
 
 
 func _place_deed() -> void:
@@ -1449,6 +1628,13 @@ func _try_pick_up(screen_position: Variant = null) -> void:
 
 
 func _pick_up_placeable_hit(hit: Dictionary) -> void:
+	if world_renderer.placeable_is_wish_falling(
+		String(hit.get("kind", "")),
+		hit.get("coord", Vector2i.ZERO),
+		int(hit.get("elevation", 0)),
+		int(hit.get("instance_id", 0))
+	):
+		return
 	if hit.get("kind", "") == "structure":
 		_pick_up_from(
 			hit["coord"],

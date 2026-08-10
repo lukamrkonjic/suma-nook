@@ -122,6 +122,14 @@ func _run() -> void:
 			print("OPENING LOOP FAILED — %d/%d failed" % [failures.size(), checks])
 		await _finish()
 		return
+	if OS.get_cmdline_user_args().has("--wish-only"):
+		await _step_wish_drop()
+		if failures.is_empty():
+			print("WISH DROP PASSED — %d checks" % checks)
+		else:
+			print("WISH DROP FAILED — %d/%d failed" % [failures.size(), checks])
+		await _finish()
+		return
 	await _step_controller_input()
 	if OS.get_cmdline_user_args().has("--mock-shot"):
 		# Visual QA: build the admin showcase island and save one screenshot.
@@ -361,6 +369,78 @@ func _step_creation() -> void:
 	var tool_mount := main.player_visual.find_child("ToolMount", true, false)
 	check(tool_mount != null and tool_mount.get_child_count() == 0, "rod stays hidden during movement")
 	await shot("screenshot_starting_world")
+
+
+func _step_wish_drop() -> void:
+	print("STEP automatic single-copy wish drop")
+	main.placement.set_active(false)
+	var tile_id := "tile_grass"
+	var known_cells: Dictionary = {}
+	for coord: Vector2i in main.core.grid.cells:
+		known_cells[coord] = true
+	# Reproduce a developer account that already used Grant ×10, then add the
+	# one new wish copy on top of it.
+	main.core.stock.add_tile(tile_id, 10)
+	var tile_admin_stock := main.core.stock.tile_count(tile_id)
+	main.core.stock.add_tile(tile_id)
+	var tiles_before := main.core.grid.total_tile_count()
+	check(main.placement.drop_wish("tile", tile_id), "a wished tile chooses its own legal landing spot")
+	var landed_tile := Vector2i(9999, 9999)
+	for coord: Vector2i in main.core.grid.cells:
+		if not known_cells.has(coord):
+			landed_tile = coord
+			break
+	check(
+		main.core.grid.total_tile_count() == tiles_before + 1
+		and main.core.stock.tile_count(tile_id) == tile_admin_stock
+		and main.placement.held.is_empty(),
+		"one wished tile lands while the ten pre-existing admin copies stay in the bag"
+	)
+	check(
+		landed_tile != Vector2i(9999, 9999)
+		and main.placement._wish_landing_is_visible(
+			main.core.grid.cell_to_world(landed_tile)
+		),
+		"the automatic tile drop expands a visible edge of the island"
+	)
+	check(not main.placement.active, "the wish does not leave the player in manual placement mode")
+	await wait(1.2)
+
+	var structure_id := "struct_bench"
+	var known_instances := _structure_instance_ids(structure_id)
+	main.core.stock.add_structure(structure_id, 10)
+	var structure_admin_stock := main.core.stock.structure_count(structure_id)
+	main.core.stock.add_structure(structure_id)
+	check(
+		main.placement.drop_wish("structure", structure_id),
+		"a wished model chooses its own legal landing spot"
+	)
+	var landed_instance_id := 0
+	for instance_id: Variant in _structure_instance_ids(structure_id):
+		if not known_instances.has(instance_id):
+			landed_instance_id = int(instance_id)
+			break
+	check(
+		landed_instance_id > 0
+		and main.core.stock.structure_count(structure_id) == structure_admin_stock
+		and main.placement.held.is_empty(),
+		"one wished model lands while the ten pre-existing admin copies stay in the bag"
+	)
+	check(not main.placement.active, "the model wish also avoids a cursor-placement step")
+	await wait(0.28)
+	await shot("screenshot_wish_drop")
+	await wait(0.92)
+
+
+func _structure_instance_ids(structure_id: String) -> Dictionary:
+	var result: Dictionary = {}
+	for slot: Dictionary in main.core.grid.all_cell_slots():
+		var state := slot["state"] as WorldGrid.CellState
+		for structure: WorldGrid.StructureState in state.structures:
+			if structure.structure_id == structure_id:
+				result[structure.instance_id] = true
+	return result
+
 
 func _step_controller_input() -> void:
 	print("STEP controller input and hot switching")
@@ -2513,12 +2593,12 @@ func _step_woodcutting() -> void:
 	var reveal_deadline := Time.get_ticks_msec() + 1500
 	while (
 		main.core.progression.discovery.has_pending()
-		and not main.discovery_reveal.is_open()
+		and not main.wish_offer_panel.is_open()
 		and Time.get_ticks_msec() < reveal_deadline
 	):
 		await wait(0.05)
-	if main.discovery_reveal.is_open():
-		main.discovery_reveal._accept()
+	if main.wish_offer_panel.is_open():
+		main.wish_offer_panel._select(0)
 		await wait(0.4)
 		main.placement.store_held()
 	# The tree regenerates without mutating its supporting terrain.
@@ -2952,8 +3032,8 @@ func _step_save_while_holding() -> void:
 
 func _step_pause_menu() -> void:
 	print("STEP pause menu")
-	if main.discovery_reveal.is_open():
-		main.discovery_reveal._accept()
+	if main.wish_offer_panel.is_open():
+		main.wish_offer_panel._select(0)
 		await wait(0.4)
 		main.placement.store_held()
 	var performance_was_visible: bool = main.performance_hud.visible

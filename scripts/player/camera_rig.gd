@@ -75,6 +75,13 @@ func _process(delta: float) -> void:
 	core.view_state = save_state()
 
 
+## The world point currently framed by the camera. Systems that present an
+## event inside the visible diorama use this instead of reaching into the
+## camera's private pan state.
+func focus_world_position() -> Vector3:
+	return target.global_position + _pan_offset if target != null else global_position
+
+
 ## Mouse releases can be consumed by UI controls before reaching
 ## _unhandled_input. Observe an active middle-drag release here as a safety net
 ## so the camera can never remain stranded away from the player.

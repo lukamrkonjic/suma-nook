@@ -2,12 +2,12 @@
   "discovery_pools": [
     {
       "id": "void_unknown",
-      "name": "The Ferry's Find",
+      "name": "A Wish from Above",
       "icon": "✦",
       "color_token": "discovery_void",
       "source": "void",
       "actions_per_reward": 1,
-      "description": "The ferry's periodic gift can be almost any kind of world piece.",
+      "description": "A quiet wish can bring almost any kind of world piece.",
       "rewards": [
         {"kind": "tile", "id": "tile_open_water", "weight": 3.0},
         {"kind": "tile", "id": "tile_grass", "weight": 3.0},

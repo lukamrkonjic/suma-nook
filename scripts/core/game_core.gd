@@ -697,6 +697,7 @@ func tick(delta: float) -> void:
 	play_seconds += delta
 	fishing.tick(delta)
 	harvesting.tick(delta)
+	progression.tick(delta)
 	nooks.tick(delta)
 	visitors.tick(delta)
 	arrivals.tick(delta)

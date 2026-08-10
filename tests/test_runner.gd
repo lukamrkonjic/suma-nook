@@ -160,6 +160,7 @@ func _run() -> void:
 	_test_fish_journal_retired()
 	_test_out_of_scope_systems_disabled()
 	_test_retired_arrival_mechanic()
+	_test_sky_wish_flow()
 	_test_practice_milestones()
 	_test_journal_milestones()
 	_test_deterministic_rng()
@@ -905,6 +906,11 @@ func _test_input_bindings() -> void:
 	)
 	check(_action_has_key("cancel", KEY_ESCAPE), "Escape remains a keyboard back action")
 	check(_action_has_key("toggle_hud", KEY_H), "H hides and restores the HUD")
+	check(
+		_action_has_key("wish_menu", KEY_G)
+		and _action_has_joypad_button("wish_menu", JOY_BUTTON_BACK),
+		"G and the controller view button open a ready wish"
+	)
 	check(
 		_action_has_key("interact", KEY_F)
 		and not _action_has_key("interact", KEY_E)
@@ -2434,6 +2440,55 @@ func _test_retired_arrival_mechanic() -> void:
 		core.arrivals.state == ArrivalScheduler.IDLE
 		and core.arrivals.current_payload == null,
 		"legacy waiting gifts are discarded instead of restored"
+	)
+
+
+func _test_sky_wish_flow() -> void:
+	var core := fresh_core(707)
+	var discovery := core.progression.discovery
+	discovery.seconds_until_wish = 0.01
+	core.tick(0.02)
+	var choices := discovery.current_wish_choices()
+	var unique := {}
+	for choice: Dictionary in choices:
+		unique["%s:%s" % [choice.get("kind", ""), choice.get("id", "")]] = true
+	check(
+		choices.size() == DiscoverySystem.WISH_CHOICE_COUNT
+		and unique.size() == DiscoverySystem.WISH_CHOICE_COUNT,
+		"a ready sky wish offers three different physical pieces"
+	)
+	var selected: Dictionary = choices[0]
+	var stock_before := _entry_stock_count(core, selected)
+	var granted := discovery.choose_wish(0)
+	check(
+		not granted.is_empty()
+		and _entry_stock_count(core, selected) == stock_before + 1,
+		"choosing a wish grants exactly one copy"
+	)
+	check(
+		discovery.wish_choices.is_empty()
+		and discovery.pending.size() == 1
+		and discovery.seconds_until_wish > 0.0,
+		"a chosen wish clears the offer, queues its loss-proof copy, and reschedules"
+	)
+	var acknowledged := discovery.acknowledge_next()
+	check(
+		String(acknowledged.get("id", "")) == String(selected.get("id", ""))
+		and not discovery.has_pending(),
+		"the selected copy can hand off to placement without duplicating"
+	)
+	discovery.prepare_wish_offer(true)
+	var saved := discovery.to_save_dict()
+	var restored_core := fresh_core(708)
+	restored_core.progression.discovery.from_save_dict(saved)
+	check(
+		restored_core.progression.discovery.current_wish_choices()
+			== discovery.current_wish_choices()
+		and is_equal_approx(
+			restored_core.progression.discovery.seconds_until_wish,
+			discovery.seconds_until_wish
+		),
+		"an unchosen wish and its timer survive a save round trip"
 	)
 
 func _entry_stock_count(core: GameCore, entry: Dictionary) -> int:

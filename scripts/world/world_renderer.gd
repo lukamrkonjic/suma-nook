@@ -42,6 +42,7 @@ var _outlined_meshes: Array[MeshInstance3D] = []
 var _hovered_structure_id := -1
 var _hover_signature := ""
 var _pending_rotation_slots: Dictionary = {}
+var _pending_wish_slots: Dictionary = {}
 var _outline_viewport: SubViewport
 var _outline_camera: Camera3D
 var _outline_overlay: TextureRect
@@ -155,7 +156,9 @@ func refresh_asset_edits() -> void:
 func _on_slot_changed(coord: Vector2i, elevation: int) -> void:
 	var changed_key := core.grid.slot_key(coord, elevation)
 	var rotation_refresh := _pending_rotation_slots.has(changed_key)
+	var wish_refresh := _pending_wish_slots.has(changed_key)
 	_pending_rotation_slots.erase(changed_key)
+	_pending_wish_slots.erase(changed_key)
 	var wants_scalable := (
 		core.grid.total_tile_count() >= SCALABLE_WORLD_THRESHOLD
 	)
@@ -169,7 +172,7 @@ func _on_slot_changed(coord: Vector2i, elevation: int) -> void:
 		return
 	_remove_cell_node(coord, elevation)
 	if core.grid.has_cell_at(coord, elevation):
-		_build_cell(coord, elevation, not rotation_refresh)
+		_build_cell(coord, elevation, not rotation_refresh and not wish_refresh)
 	_refresh_connection_neighbours(coord, elevation)
 	if elevation > 0:
 		_refresh_covered_surface(coord, elevation - 1, true)
@@ -902,6 +905,167 @@ func prepare_rotation_refresh(coord: Vector2i, elevation: int) -> void:
 
 func cancel_rotation_refresh(coord: Vector2i, elevation: int) -> void:
 	_pending_rotation_slots.erase(core.grid.slot_key(coord, elevation))
+
+
+## Suppresses the ordinary tiny placement wobble. The placement controller
+## commits authoritative state first, then asks for the longer sky fall.
+func prepare_wish_placement(coord: Vector2i, elevation: int) -> void:
+	_pending_wish_slots[core.grid.slot_key(coord, elevation)] = true
+
+
+func cancel_wish_placement(coord: Vector2i, elevation: int) -> void:
+	_pending_wish_slots.erase(core.grid.slot_key(coord, elevation))
+
+
+func animate_tile_wish_landing(coord: Vector2i, elevation: int) -> Tween:
+	if _scalable_mode:
+		return null
+	var holder := tile_node(coord, elevation)
+	if holder == null or holder.get_child_count() == 0:
+		return null
+	return _animate_wish_fall(holder.get_child(0) as Node3D)
+
+
+func animate_structure_wish_landing(instance_id: int) -> Tween:
+	if _scalable_mode:
+		return null
+	return _animate_wish_fall(structure_node(instance_id))
+
+
+func placeable_is_wish_falling(
+	kind: String,
+	coord: Vector2i,
+	elevation: int,
+	instance_id := 0
+) -> bool:
+	var visual: Node3D
+	if kind == "structure":
+		visual = structure_node(instance_id)
+	else:
+		var holder := tile_node(coord, elevation)
+		if holder != null and holder.get_child_count() > 0:
+			visual = holder.get_child(0) as Node3D
+	return visual != null and bool(visual.get_meta("wish_falling", false))
+
+
+## Authored pseudo-physics: a diagonal shooting-star fall, a soft squash, one
+## crooked rebound, and a clean settle. It reads as playful physics while
+## remaining deterministic and unable to leave the valid placement cell.
+func _animate_wish_fall(visual: Node3D) -> Tween:
+	if visual == null:
+		return null
+	var target_position := visual.position
+	var target_global_position := visual.global_position
+	var target_rotation := visual.rotation
+	var target_scale := visual.scale
+	visual.set_meta("wish_falling", true)
+	visual.position = target_position + Vector3(-2.2, 4.4, -1.7)
+	visual.rotation = target_rotation + Vector3(0.48, -0.22, -0.72)
+	visual.scale = target_scale * 0.72
+	var trail := _wish_shooting_star_trail(visual.global_position)
+	var tween := visual.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(visual, "position", target_position, 0.72) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	if trail != null:
+		tween.tween_property(trail, "global_position", target_global_position, 0.72) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_property(
+		visual,
+		"rotation",
+		target_rotation + Vector3(-0.05, 0.03, 0.08),
+		0.72
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(
+		visual,
+		"scale",
+		target_scale * Vector3(1.10, 0.79, 1.10),
+		0.72
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.set_parallel(false)
+	tween.tween_property(
+		visual,
+		"position",
+		target_position + Vector3(0.035, 0.24, -0.02),
+		0.11
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(
+		visual,
+		"rotation",
+		target_rotation + Vector3(0.025, -0.015, -0.055),
+		0.11
+	)
+	tween.parallel().tween_property(
+		visual,
+		"scale",
+		target_scale * Vector3(0.97, 1.07, 0.97),
+		0.11
+	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(visual, "position", target_position, 0.18) \
+		.set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(visual, "rotation", target_rotation, 0.18) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(visual, "scale", target_scale, 0.18) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_callback(func():
+		if is_instance_valid(visual):
+			visual.set_meta("wish_falling", false)
+		if is_instance_valid(trail):
+			trail.emitting = false
+			get_tree().create_timer(trail.lifetime).timeout.connect(func():
+				if is_instance_valid(trail):
+					trail.queue_free()
+			)
+	)
+	return tween
+
+
+func _wish_shooting_star_trail(start_position: Vector3) -> GPUParticles3D:
+	var trail := GPUParticles3D.new()
+	trail.name = "WishStardust"
+	trail.amount = 34
+	trail.lifetime = 0.42
+	trail.preprocess = 0.06
+	trail.local_coords = false
+	trail.fixed_fps = 30
+	trail.visibility_aabb = AABB(Vector3(-8, -8, -8), Vector3(16, 16, 16))
+
+	var particle_material := ParticleProcessMaterial.new()
+	particle_material.gravity = Vector3(0, -0.08, 0)
+	particle_material.initial_velocity_min = 0.02
+	particle_material.initial_velocity_max = 0.08
+	particle_material.scale_min = 0.55
+	particle_material.scale_max = 1.15
+	var fade := Gradient.new()
+	fade.offsets = PackedFloat32Array([0.0, 0.45, 1.0])
+	fade.colors = PackedColorArray([
+		Color(1.0, 0.98, 0.78, 0.95),
+		Color(1.0, 0.64, 0.16, 0.72),
+		Color(1.0, 0.42, 0.08, 0.0),
+	])
+	var fade_texture := GradientTexture1D.new()
+	fade_texture.gradient = fade
+	particle_material.color_ramp = fade_texture
+	trail.process_material = particle_material
+
+	var mote := SphereMesh.new()
+	mote.radius = 0.045
+	mote.height = 0.09
+	mote.radial_segments = 6
+	mote.rings = 3
+	var mote_material := StandardMaterial3D.new()
+	mote_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mote_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mote_material.albedo_color = Color(1.0, 0.78, 0.25, 0.9)
+	mote_material.emission_enabled = true
+	mote_material.emission = Color(1.0, 0.48, 0.08)
+	mote_material.emission_energy_multiplier = 2.2
+	mote.material = mote_material
+	trail.draw_pass_1 = mote
+	add_child(trail)
+	trail.global_position = start_position
+	trail.emitting = true
+	return trail
 
 
 func prepare_tile_stack_rotation(coord: Vector2i, base_elevation: int) -> void:

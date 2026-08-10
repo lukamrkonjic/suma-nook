@@ -53,6 +53,7 @@ const REQUIRED_CONTROLLER_ACTIONS: Array[StringName] = [
 	&"panel_skills",
 	&"panel_collection",
 	&"panel_map",
+	&"wish_menu",
 	&"panel_previous",
 	&"panel_next",
 	&"return_home",

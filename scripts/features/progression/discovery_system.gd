@@ -1,14 +1,16 @@
 class_name DiscoverySystem
 extends RefCounted
-## The ferry's periodic gift: one owned discovery from the broad delivery
-## pool, staged through a loss-proof pending queue. Fishing rewards no longer
-## flow through here — the fishing feature module stages catches physically
-## in the Catch Basket instead.
+## Periodic sky wishes. An offer is three physical possibilities; the player
+## chooses one, and only that one copy enters stock. The selected copy remains
+## loss-proof whether it is placed immediately or put into the Build Bag.
 
 signal discovery_ready(entry: Dictionary)
+signal wish_ready(choices: Array[Dictionary])
+signal wish_changed
 
 const KIND_TILE := "tile"
 const KIND_STRUCTURE := "structure"
+const WISH_CHOICE_COUNT := 3
 
 var registries: Registries
 var rng: RngService
@@ -17,6 +19,9 @@ var stock: StockManager
 var collection: CollectionManager
 
 var pending: Array[Dictionary] = []
+var wish_choices: Array[Dictionary] = []
+var seconds_until_wish := -1.0
+var wishes_completed := 0
 
 
 func _init(
@@ -31,8 +36,83 @@ func _init(
 	grid = world_grid
 	stock = player_stock
 	collection = journal
+	_schedule_next_wish(true)
 
 
+func tick(delta: float) -> void:
+	if has_pending() or has_wish_offer():
+		return
+	seconds_until_wish = maxf(0.0, seconds_until_wish - delta)
+	if seconds_until_wish <= 0.0:
+		prepare_wish_offer()
+
+
+func has_wish_offer() -> bool:
+	return not wish_choices.is_empty()
+
+
+func current_wish_choices() -> Array[Dictionary]:
+	return wish_choices.duplicate(true)
+
+
+## Rolls without replacement so the compact selector never shows the same
+## tile or model twice. Nothing is granted before the player chooses.
+func prepare_wish_offer(force := false) -> Array[Dictionary]:
+	if has_wish_offer() or (has_pending() and not force):
+		return current_wish_choices()
+	var pool := _delivery_pool()
+	if pool == null:
+		return []
+	var available: Array = pool.rewards.duplicate(true)
+	var offer: Array[Dictionary] = []
+	for choice_index in mini(WISH_CHOICE_COUNT, available.size()):
+		var choice: Dictionary = rng.weighted(
+			"wish_offer:%d:%d" % [wishes_completed, choice_index],
+			available
+		)
+		if choice.is_empty():
+			break
+		var kind := String(choice.get("kind", ""))
+		var content_id := String(choice.get("id", ""))
+		offer.append({
+			"kind": kind,
+			"id": content_id,
+			"pool_id": pool.id,
+			"source": "wish",
+			"was_new": not collection.is_discovered(
+				"tiles" if kind == KIND_TILE else "structures",
+				content_id
+			),
+		})
+		for available_index in available.size():
+			var candidate: Dictionary = available[available_index]
+			if (
+				String(candidate.get("kind", "")) == kind
+				and String(candidate.get("id", "")) == content_id
+			):
+				available.remove_at(available_index)
+				break
+	wish_choices = offer
+	if not wish_choices.is_empty():
+		seconds_until_wish = 0.0
+		wish_ready.emit(current_wish_choices())
+		wish_changed.emit()
+	return current_wish_choices()
+
+
+func choose_wish(index: int) -> Dictionary:
+	if index < 0 or index >= wish_choices.size():
+		return {}
+	var choice := wish_choices[index].duplicate(true)
+	wish_choices.clear()
+	wishes_completed += 1
+	_schedule_next_wish(false)
+	var granted := _grant(choice)
+	wish_changed.emit()
+	return granted
+
+
+## Compatibility entry point for retired ferry saves and debug tools.
 func discover_delivery() -> Dictionary:
 	var pool := _delivery_pool()
 	return _roll_and_grant(pool, "delivery") if pool != null else {}
@@ -55,6 +135,25 @@ func _delivery_pool() -> Defs.DiscoveryPoolDefinition:
 		if pool.source == "void":
 			return pool
 	return null
+
+
+func _schedule_next_wish(first: bool) -> void:
+	var prefix := "first" if first else "later"
+	var fallback_min := 18.0 if first else 120.0
+	var fallback_max := 28.0 if first else 180.0
+	var minimum := registries.tunef(
+		"wish_%s_min_seconds" % prefix,
+		fallback_min
+	)
+	var maximum := registries.tunef(
+		"wish_%s_max_seconds" % prefix,
+		fallback_max
+	)
+	seconds_until_wish = rng.randf_range(
+		"wish_schedule",
+		minimum,
+		maxf(minimum, maximum)
+	)
 
 
 func _roll_and_grant(
@@ -99,6 +198,9 @@ func _grant(raw_entry: Dictionary) -> Dictionary:
 func to_save_dict() -> Dictionary:
 	return {
 		"pending": pending.duplicate(true),
+		"wish_choices": wish_choices.duplicate(true),
+		"seconds_until_wish": seconds_until_wish,
+		"wishes_completed": wishes_completed,
 	}
 
 
@@ -109,8 +211,25 @@ func from_save_dict(data: Dictionary) -> void:
 			continue
 		var kind := String(raw_entry.get("kind", ""))
 		var content_id := String(raw_entry.get("id", ""))
-		if (
-			(kind == KIND_TILE and registries.tile(content_id) != null)
-			or (kind == KIND_STRUCTURE and registries.structure(content_id) != null)
-		):
+		if _valid_content(kind, content_id):
 			pending.append(raw_entry.duplicate(true))
+	wish_choices.clear()
+	for raw_choice in data.get("wish_choices", []):
+		if not raw_choice is Dictionary:
+			continue
+		var kind := String(raw_choice.get("kind", ""))
+		var content_id := String(raw_choice.get("id", ""))
+		if _valid_content(kind, content_id):
+			wish_choices.append(raw_choice.duplicate(true))
+	seconds_until_wish = maxf(
+		0.0,
+		float(data.get("seconds_until_wish", seconds_until_wish))
+	)
+	wishes_completed = maxi(0, int(data.get("wishes_completed", 0)))
+
+
+func _valid_content(kind: String, content_id: String) -> bool:
+	return (
+		(kind == KIND_TILE and registries.tile(content_id) != null)
+		or (kind == KIND_STRUCTURE and registries.structure(content_id) != null)
+	)
