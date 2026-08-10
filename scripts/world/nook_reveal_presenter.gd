@@ -9,6 +9,7 @@ extends Node
 ## animation constant in this file worth tuning.
 
 signal reveal_started(coord: Vector2i, duration: float)
+signal terrain_cell_landed(coord: Vector2i, cell: Vector2i)
 signal reveal_finished(coord: Vector2i)
 
 const REVEAL_REST_POSITION_META := &"nook_reveal_rest_position"
@@ -103,6 +104,13 @@ func _on_nook_revealed(coord: Vector2i, plan: NookGenerator.NookPlan) -> void:
 			continue
 		animated += 1
 		land_finish = maxf(land_finish, delay + landing_seconds)
+		# The arrival blueprint is replaced cell-by-cell at first contact. Raised
+		# layers do not own another footprint marker, so only the base landing
+		# consumes it.
+		if elevation == 0:
+			_emit_terrain_cell_landed_after(
+				coord, cell, delay + drop_seconds
+			)
 
 	# Water is a joined sheet. Its bed and surface remain below the world until
 	# the complete land wave has settled, then rise as one fluid phase.
@@ -144,6 +152,9 @@ func _on_nook_revealed(coord: Vector2i, plan: NookGenerator.NookPlan) -> void:
 			)
 		if water_animated:
 			animated += 1
+			_emit_terrain_cell_landed_after(
+				coord, cell, water_start + water_seconds
+			)
 	if renderer.animate_nook_water_surface(
 		water_cells,
 		water_start,
@@ -219,18 +230,41 @@ func _on_nook_revealed(coord: Vector2i, plan: NookGenerator.NookPlan) -> void:
 		)
 
 	var duration := maxf(land_finish, maxf(water_finish, model_finish))
-	# Every visual now owns a hidden start transform. Releasing staging here is
-	# safe and ensures later topology rebuilds use normal settled transforms.
-	renderer.release_nook_reveal_staging(origin_cell, plan)
+	# Keep staging authoritative for the whole presentation. Settled boundary
+	# tiles deliberately treat staged neighbours as void, so their rim, side
+	# wall, water shoreline, and edge blocker cannot react before land exists.
 	reveal_started.emit(coord, duration)
 	if animated == 0:
+		renderer.release_nook_reveal_staging(origin_cell, plan)
+		await renderer.finalize_nook_reveal_topology_async(origin_cell, plan)
 		reveal_finished.emit(coord)
 		return
 	var finish := get_tree().create_timer(duration + 0.25)
-	finish.timeout.connect(func():
-		# Final authority pass: interrupted presentation can never alter seating.
-		_settle_plan_tiles(origin_cell, plan)
-		reveal_finished.emit(coord)
+	finish.timeout.connect(
+		_finish_reveal.bind(coord, origin_cell, plan)
+	)
+
+
+func _finish_reveal(
+	coord: Vector2i,
+	origin_cell: Vector2i,
+	plan: NookGenerator.NookPlan
+) -> void:
+	# Final authority pass: interrupted presentation can never alter seating.
+	_settle_plan_tiles(origin_cell, plan)
+	renderer.release_nook_reveal_staging(origin_cell, plan)
+	await renderer.finalize_nook_reveal_topology_async(origin_cell, plan)
+	reveal_finished.emit(coord)
+
+
+func _emit_terrain_cell_landed_after(
+	coord: Vector2i,
+	cell: Vector2i,
+	delay: float
+) -> void:
+	var timer := get_tree().create_timer(maxf(0.0, delay))
+	timer.timeout.connect(func():
+		terrain_cell_landed.emit(coord, cell)
 	)
 
 

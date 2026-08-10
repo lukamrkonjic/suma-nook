@@ -4190,6 +4190,18 @@ func _test_direct_frontier_expansion() -> void:
 		return target["direction"] == Vector2i.RIGHT
 	)[0]
 	var first_coord: Vector2i = east["nook"]
+	var authored_local := Vector2i(2, 2)
+	var authored_cell := (
+		core.nooks.world.chunk_origin(first_coord) + authored_local
+	)
+	core.grid.place_tile(authored_cell, "tile_grass")
+	var authored_tree := core.grid.add_structure(
+		authored_cell, "struct_pine", 1
+	)
+	check(
+		authored_tree != null,
+		"players can author content inside an unrevealed frontier footprint"
+	)
 	var cells_before := core.grid.cells.size()
 	var first_plan := core.nooks.expand_random(first_coord)
 	check(
@@ -4197,6 +4209,24 @@ func _test_direct_frontier_expansion() -> void:
 		and core.nooks.world.has_nook(first_coord)
 		and core.grid.cells.size() > cells_before,
 		"activating a glow immediately unfolds a complete generated Nook"
+	)
+	var authored_plan_content := false
+	for tile: Dictionary in first_plan.tiles:
+		if tile["local"] as Vector2i == authored_local:
+			authored_plan_content = true
+	for feature: Dictionary in first_plan.features:
+		if feature["local"] as Vector2i == authored_local:
+			authored_plan_content = true
+	var authored_tree_found := core.grid.find_structure(
+		authored_tree.instance_id
+	) if authored_tree != null else {}
+	check(
+		not authored_plan_content
+		and core.grid.tile_def(authored_cell).id == "tile_grass"
+		and core.grid.top_elevation(authored_cell) == 0
+		and not authored_tree_found.is_empty()
+		and (authored_tree_found["coord"] as Vector2i) == authored_cell,
+		"generation preserves authored columns and omits them from its reveal plan"
 	)
 	var first_record := core.nooks.world.nook(first_coord)
 	check(
@@ -4793,6 +4823,29 @@ func _test_unfolding_world_relief() -> void:
 		(low_mask & 2) == 0 and (low_mask & 4) != 0,
 		"short tiles expose height-mismatched sides but join equal-height sides"
 	)
+	var settled_probe := Vector2i(30, 30)
+	var staged_probe := settled_probe + Vector2i.RIGHT
+	core.grid.place_tile(settled_probe, "tile_grass")
+	core.grid.place_tile(staged_probe, "tile_grass")
+	tile_factory.set_staged_tile_query(
+		func(coord: Vector2i, elevation: int) -> bool:
+			return coord == staged_probe and elevation == 0
+	)
+	var settled_during_reveal := tile_factory.connection_mask(
+		full, settled_probe, 0, 0
+	)
+	var incoming_during_reveal := tile_factory.connection_mask(
+		full, staged_probe, 0, 0
+	)
+	check(
+		(settled_during_reveal & 2) == 0,
+		"settled boundary tiles ignore an invisible staged neighbour"
+	)
+	check(
+		(incoming_during_reveal & 8) != 0,
+		"incoming terrain is built with its final connection back to settled land"
+	)
+	tile_factory.set_staged_tile_query(Callable())
 	var moved_cap_stack := core.grid.detach_tile_stack(Vector2i.ZERO, 1)
 	check(
 		moved_cap_stack.size() == 1

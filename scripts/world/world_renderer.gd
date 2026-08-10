@@ -63,6 +63,7 @@ var _reveal_water_groups: Array[Dictionary] = []
 var reveal_water_in_flight: Dictionary = {}
 var _staged_reveal_tiles: Dictionary = {}
 var _staged_reveal_structures: Dictionary = {}
+var _staged_reveal_coords: Dictionary = {}
 ## Construction-boundary diagnostics used by the expansion smoke test. A
 ## staged reveal visual must be non-renderable before its off-tree chunk is
 ## attached; checking later races the presenter's zero-delay tween callbacks.
@@ -75,6 +76,9 @@ func setup(game_core: GameCore, asset_library: AssetLibrary) -> void:
 	assets = asset_library
 	materials = asset_library.materials
 	_tile_visual_factory = TileVisualFactory.new(assets, core.grid)
+	_tile_visual_factory.set_staged_tile_query(
+		Callable(self, "is_tile_staged_for_reveal")
+	)
 	_structure_visual_factory = StructureVisualFactoryScript.new(assets, core.grid)
 	_scalable_backend = ScalableWorldBackendScript.new()
 	_scalable_backend.setup(
@@ -275,10 +279,12 @@ func _flush_bulk_snapshot(
 		return coord_a.y < coord_b.y if coord_a.y != coord_b.y else coord_a.x < coord_b.x
 	)
 	for entry: Dictionary in entries:
-		_remove_cell_node(entry["coord"], int(entry["elevation"]))
-	for entry: Dictionary in entries:
 		var coord: Vector2i = entry["coord"]
 		var elevation := int(entry["elevation"])
+		# Replace one holder atomically before yielding. Removing the complete
+		# affected set first left the settled boundary row absent for several
+		# frames while hidden incoming cells were being constructed.
+		_remove_cell_node(coord, elevation)
 		if core.grid.has_cell_at(coord, elevation):
 			_build_cell(coord, elevation, false)
 			var key := core.grid.slot_key(coord, elevation)
@@ -504,12 +510,20 @@ func _place_uw(root: Node3D, asset_id: String, pos: Vector3, rng: RandomNumberGe
 func _rebuild_water_surface() -> void:
 	var cells := _all_water_cells()
 	var settled_cells: Array = []
+	var topology_cells: Array = []
 	for coord: Vector2i in cells:
 		if not is_reveal_water(coord):
 			settled_cells.append(coord)
+		# Previously revealed water groups remain valid shoreline neighbours.
+		# Only the currently staged cells are still physically absent.
+		if not is_coord_staged_for_reveal(coord):
+			topology_cells.append(coord)
 	_water_surface.rebuild_with_topology(
 		settled_cells,
-		cells,
+		# A staged river/pond is not a neighbour of settled water until its own
+		# rise phase completes. Including it here changed the old shoreline a
+		# few frames before any new water was visible.
+		topology_cells,
 		func(c: Vector2i) -> Vector3: return core.grid.cell_to_world(c),
 		core.grid.tile_size,
 		WATER_LEVEL,
@@ -1629,6 +1643,7 @@ func stage_nook_reveal(
 		var cell := origin_cell + (tile["local"] as Vector2i)
 		var elevation := int(tile.get("elevation", 0))
 		_staged_reveal_tiles[core.grid.slot_key(cell, elevation)] = true
+		_staged_reveal_coords[cell] = true
 		if int(tile.get("elevation", 0)) != 0:
 			continue
 		var definition := core.registries.tile(String(tile.get("tile_id", "")))
@@ -1661,6 +1676,10 @@ func is_tile_key_staged_for_reveal(key: Vector3i) -> bool:
 	return _staged_reveal_tiles.has(key)
 
 
+func is_coord_staged_for_reveal(coord: Vector2i) -> bool:
+	return _staged_reveal_coords.has(coord)
+
+
 func is_structure_staged_for_reveal(instance_id: int) -> bool:
 	return _staged_reveal_structures.has(instance_id)
 
@@ -1683,8 +1702,56 @@ func release_nook_reveal_staging(
 		_staged_reveal_tiles.erase(
 			core.grid.slot_key(cell, int(tile.get("elevation", 0)))
 		)
+		_staged_reveal_coords.erase(cell)
 	for feature: Dictionary in plan.features:
 		_staged_reveal_structures.erase(int(feature.get("instance_id", 0)))
+
+
+## Rebuilds only the reveal footprint and its settled seam after staging is
+## released. Until this point those cells were intentionally excluded from
+## settled topology, so the old island edge never reacts to invisible land.
+## The final swap happens after every tile has landed and is cooperative in a
+## large MultiMesh world.
+func finalize_nook_reveal_topology_async(
+	origin_cell: Vector2i,
+	plan: NookGenerator.NookPlan
+) -> void:
+	if plan == null:
+		return
+	var footprint := {}
+	var affected := {}
+	for tile: Dictionary in plan.tiles:
+		var cell := origin_cell + (tile["local"] as Vector2i)
+		footprint[cell] = true
+		affected[cell] = true
+	for cell: Vector2i in footprint:
+		for offset: Vector2i in WorldGrid.NEIGHBORS:
+			var neighbour := cell + offset
+			if not footprint.has(neighbour) and core.grid.has_cell(neighbour):
+				affected[neighbour] = true
+	if _scalable_mode:
+		var chunks := {}
+		for cell: Vector2i in affected:
+			chunks[_scalable_backend.chunk_of(cell)] = true
+		for chunk_coord: Vector2i in chunks:
+			await _scalable_backend.rebuild_chunk(
+				chunk_coord,
+				true,
+				BULK_FRAME_BUDGET_USEC
+			)
+		return
+	var frame_started := Time.get_ticks_usec()
+	for cell: Vector2i in affected:
+		var top := core.grid.top_elevation(cell)
+		for elevation in range(0, top + 1):
+			_remove_cell_node(cell, elevation)
+			if core.grid.has_cell_at(cell, elevation):
+				_build_cell(cell, elevation, false)
+		if Time.get_ticks_usec() - frame_started >= BULK_FRAME_BUDGET_USEC:
+			await get_tree().process_frame
+			frame_started = Time.get_ticks_usec()
+	_rebuild_edges()
+	_rebuild_water_surface()
 
 
 func is_reveal_water(coord: Vector2i) -> bool:
@@ -1984,6 +2051,8 @@ func _rebuild_edges() -> void:
 
 
 func _has_physical_walk_surface(coord: Vector2i) -> bool:
+	if is_coord_staged_for_reveal(coord):
+		return false
 	return (
 		core.grid.has_walkable_top_surface(coord)
 		or core.grid.has_walkable_structure_surface(coord)

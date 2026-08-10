@@ -2429,14 +2429,17 @@ func _step_retired_ferry() -> void:
 
 func _step_place_tile() -> void:
 	print("STEP tile placement")
+	main.hud.set_build_library_expanded(false, false)
 	main.core.stock.add_tile("tile_grass", 2)
 	main.placement.hold_new("tile", "tile_grass")
 	await wait(0.2)
 	check(main.placement.active, "build mode active with held piece")
 	await _tap_key(KEY_ESCAPE)
 	check(
-		main.placement.held.is_empty() and not main.pause_menu.is_open(),
-		"Escape cancels a held placement before the global pause shortcut"
+		main.placement.held.is_empty()
+		and not main.pause_menu.is_open()
+		and main.hud.build_library_collapsed(),
+		"Escape cancels held placement without opening pause or the Build Bag"
 	)
 	main.placement.hold_new("tile", "tile_grass")
 	await wait(0.1)
@@ -2452,6 +2455,21 @@ func _step_place_tile() -> void:
 	var target := Vector2i(2, 0)
 	check(main.placement.try_place_at(target), "connected placement remains accepted")
 	check(main.core.grid.tile_def(target).id == "tile_grass", "known walkable tile placed into the world")
+	main.placement.pick_up_at(target)
+	check(
+		not main.placement.held.is_empty()
+		and main.placement.held.get("moving") != null,
+		"placed world tile is picked up into a move transaction"
+	)
+	await _tap_key(KEY_ESCAPE)
+	check(
+		main.placement.held.is_empty()
+		and main.core.grid.has_cell(target)
+		and main.core.grid.tile_def(target).id == "tile_grass"
+		and not main.pause_menu.is_open()
+		and main.hud.build_library_collapsed(),
+		"Escape restores a moved world tile without opening either menu"
+	)
 	await wait(0.6)
 	await shot("screenshot_tile_placement")
 	main.placement.set_active(false)

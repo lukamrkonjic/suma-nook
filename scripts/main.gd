@@ -23,6 +23,9 @@ const ProceduralOwlMascotScript := preload(
 const DebugCreatureParadeScript := preload(
 	"res://scripts/debug/creature_parade.gd"
 )
+const NookArrivalGhostScript := preload(
+	"res://scripts/world/nook_arrival_ghost.gd"
+)
 const HarvestPresentationAdapterScript := preload(
 	"res://scripts/features/harvesting/presentation/harvest_presentation_adapter.gd"
 )
@@ -72,6 +75,7 @@ var pigeon_controller: PigeonMascotController
 var camera_rig: CameraRig
 var placement: PlacementController
 var frontier_markers: NookFrontierMarkers
+var nook_arrival_ghost
 var skill_actions: SkillActions
 var harvest_presentation: Node
 var reward_reveal: RewardRevealSceneAdapter
@@ -336,6 +340,10 @@ func _build_world_scene() -> void:
 	frontier_markers.name = "NookFrontierMarkers"
 	world_root.add_child(frontier_markers)
 	frontier_markers.setup(core, camera_rig.camera, placement, palette)
+	nook_arrival_ghost = NookArrivalGhostScript.new()
+	nook_arrival_ghost.name = "NookArrivalGhost"
+	world_root.add_child(nook_arrival_ghost)
+	nook_arrival_ghost.setup(core)
 
 	skill_actions = SkillActions.new()
 	skill_actions.name = "SkillActions"
@@ -1017,6 +1025,9 @@ func _connect_flows() -> void:
 	pause_menu.opened.connect(_refresh_controller_hints)
 	pause_menu.closed.connect(_refresh_controller_hints)
 	nook_reveal_presenter.reveal_started.connect(_on_nook_reveal_started)
+	nook_reveal_presenter.terrain_cell_landed.connect(
+		_on_nook_reveal_cell_landed
+	)
 	nook_reveal_presenter.reveal_finished.connect(_on_nook_reveal_finished)
 
 	skill_actions.action_feedback.connect(_on_action_feedback)
@@ -1397,13 +1408,22 @@ func _update_frontier_marker_availability() -> void:
 	)
 
 
-func _on_nook_reveal_started(_coord: Vector2i, _duration: float) -> void:
+func _on_nook_reveal_started(coord: Vector2i, duration: float) -> void:
 	_nook_reveal_in_progress = true
+	if nook_arrival_ghost != null:
+		nook_arrival_ghost.begin_landing(coord, duration)
 	_update_frontier_marker_availability()
 
 
-func _on_nook_reveal_finished(_coord: Vector2i) -> void:
+func _on_nook_reveal_cell_landed(coord: Vector2i, cell: Vector2i) -> void:
+	if nook_arrival_ghost != null:
+		nook_arrival_ghost.land_cell(coord, cell)
+
+
+func _on_nook_reveal_finished(coord: Vector2i) -> void:
 	_nook_reveal_in_progress = false
+	if nook_arrival_ghost != null and nook_arrival_ghost.is_previewing(coord):
+		nook_arrival_ghost.cancel_preview(coord)
 	if frontier_markers != null:
 		frontier_markers.rebuild()
 	_update_frontier_marker_availability()
@@ -1784,16 +1804,22 @@ func _handle_controller_build_input(event: InputEvent) -> void:
 func _cancel_build_or_open_library() -> void:
 	if not placement.active:
 		return
+	# A held piece is an in-progress placement transaction. Cancel owns this
+	# keypress completely: restore a moved world piece (or discard the unused
+	# stock preview), close the Build Bag, and return straight to the world.
+	# Opening the library here made one Escape perform two contradictory actions.
+	if not placement.held.is_empty():
+		placement.cancel_click()
+		hud.set_build_library_expanded(false)
+		hud.release_build_focus()
+		_pending_build_interaction = {}
+		return
 	if _guided_placement_locked():
 		hud.toast("This piece is part of your arrival — place it first.", "warn")
 		return
 	if hud.build_library_collapsed():
-		if not placement.held.is_empty():
-			placement.cancel_click()
 		hud.request_build_library_open()
 		return
-	if not placement.held.is_empty():
-		placement.cancel_click()
 	hud.set_build_library_expanded(false)
 
 
@@ -2044,6 +2070,11 @@ func _expand_nook_at(coord: Vector2i) -> bool:
 	# Generation/application and renderer construction continue in bounded
 	# batches instead of freezing the click that opened the frontier.
 	_nook_reveal_in_progress = true
+	if nook_arrival_ghost != null:
+		nook_arrival_ghost.preview_nook(
+			coord,
+			_expansion_seam_side(coord)
+		)
 	_update_frontier_marker_availability()
 	call_deferred("_expand_nook_at_async", coord)
 	return true
@@ -2078,12 +2109,21 @@ func _expand_nook_at_async(coord: Vector2i) -> void:
 				staged_plan
 			)
 		_nook_reveal_in_progress = false
+		if nook_arrival_ghost != null:
+			nook_arrival_ghost.cancel_preview(coord)
 		_update_frontier_marker_availability()
 		audio.play_event("build_invalid")
 		return
 	audio.play_event("parcel_reveal")
 	core.autosave_soon()
 	_refresh_controller_hints()
+
+
+func _expansion_seam_side(coord: Vector2i) -> Vector2i:
+	for offset: Vector2i in WorldGrid.NEIGHBORS:
+		if core.nooks.world.nook(coord + offset) != null:
+			return offset
+	return Vector2i.ZERO
 
 
 func _try_harvest_instance(instance_id: int) -> bool:

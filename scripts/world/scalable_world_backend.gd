@@ -669,6 +669,11 @@ func _append_tile_collision(
 
 
 func _has_physical_walk_surface(coord: Vector2i) -> bool:
+	# The grid commits reveal cells ahead of presentation. Treat them as void
+	# for perimeter topology until their landing wave has completed, otherwise
+	# the settled seam drops its blocker/edge one phase too early.
+	if owner.is_coord_staged_for_reveal(coord):
+		return false
 	return (
 		core.grid.has_walkable_top_surface(coord)
 		or core.grid.has_walkable_structure_surface(coord)

@@ -37,11 +37,28 @@ const MIXED_SURFACE_FLAG := 16
 var assets: AssetLibrary
 var grid: WorldGrid
 var _batch_mesh_cache: Dictionary = {}
+var _staged_tile_query := Callable()
 
 
 func _init(asset_library: AssetLibrary, world_grid: WorldGrid) -> void:
 	assets = asset_library
 	grid = world_grid
+
+
+## During an expansion the authoritative grid already contains the incoming
+## cells, while their visuals are still waiting above the world. Settled tiles
+## must continue to read that footprint as void until the reveal completes;
+## otherwise their connected rim changes early and the closest row appears to
+## tear/flicker. Incoming tiles still connect to the full final topology.
+func set_staged_tile_query(query: Callable) -> void:
+	_staged_tile_query = query
+
+
+func _is_staged_tile(coord: Vector2i, elevation: int) -> bool:
+	return (
+		_staged_tile_query.is_valid()
+		and bool(_staged_tile_query.call(coord, elevation))
+	)
 
 
 func instantiate_visual(
@@ -530,6 +547,7 @@ func connection_mask(
 		return 0
 	var world_mask := 0
 	var has_mixed_surface := false
+	var source_is_staged := _is_staged_tile(coord, elevation)
 	var directions := [
 		[1, Vector2i(0, -1)],
 		[2, Vector2i(1, 0)],
@@ -537,7 +555,15 @@ func connection_mask(
 		[8, Vector2i(-1, 0)],
 	]
 	for entry: Array in directions:
-		var neighbour := grid.tile_def_at(coord + entry[1], elevation)
+		var neighbour_coord := coord + (entry[1] as Vector2i)
+		# Preserve the settled boundary's old, self-contained silhouette while
+		# its new neighbour is only a hidden reveal instance. The staged source
+		# itself sees all neighbours so it lands with its final seamless mesh.
+		if not source_is_staged and _is_staged_tile(
+			neighbour_coord, elevation
+		):
+			continue
+		var neighbour := grid.tile_def_at(neighbour_coord, elevation)
 		if (
 			neighbour != null
 			and neighbour.connection_mode == "full_flush"

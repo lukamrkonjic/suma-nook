@@ -129,24 +129,50 @@ func prepare_reveal_nook_async(
 	if plan == null or plan.biome_id == "":
 		return {}
 	var origin := world.chunk_origin(coord)
+	# Players may freely build into an unrevealed frontier. Snapshot those
+	# authored columns before generation writes anything, then treat the whole
+	# column as protected: no generated base, relief cap, or feature may share it.
+	var protected_locals := _protected_plan_locals(origin, plan)
 	var ordered_tiles := _ordered_tiles(plan)
+	var applied_tiles: Array[Dictionary] = []
 	var batch_size := maxi(1, entries_per_frame)
 	var applied_this_frame := 0
 	for tile: Dictionary in ordered_tiles:
-		_apply_generated_tile(coord, origin, tile)
+		var local: Vector2i = tile["local"]
+		if not protected_locals.has(local):
+			if _apply_generated_tile(coord, origin, tile):
+				applied_tiles.append(tile)
+			else:
+				# Also protects against a player placing into this slot while the
+				# cooperative generation loop is in progress.
+				protected_locals[local] = true
 		applied_this_frame += 1
 		if applied_this_frame >= batch_size and tree != null:
 			applied_this_frame = 0
 			await tree.process_frame
+	plan.tiles = applied_tiles
 	var dormant_instance := 0
+	var applied_features: Array[Dictionary] = []
+	var applied_feature_cells := {}
 	for feature: Dictionary in plan.features:
-		var placed_dormant := _apply_generated_feature(coord, origin, feature)
-		if placed_dormant > 0:
-			dormant_instance = placed_dormant
+		var local: Vector2i = feature["local"]
+		if not protected_locals.has(local):
+			var placed_dormant := _apply_generated_feature(
+				coord, origin, feature
+			)
+			if int(feature.get("instance_id", 0)) > 0:
+				applied_features.append(feature)
+				applied_feature_cells[NookWorld.cell_key(local)] = true
+			if placed_dormant > 0:
+				dormant_instance = placed_dormant
 		applied_this_frame += 1
 		if applied_this_frame >= batch_size and tree != null:
 			applied_this_frame = 0
 			await tree.process_frame
+	plan.features = applied_features
+	_prune_unapplied_discoveries(
+		plan, applied_feature_cells, dormant_instance
+	)
 	return {
 		"coord": coord,
 		"plan": plan,
@@ -175,13 +201,34 @@ func reveal_nook(coord: Vector2i, seed_card: Dictionary) -> NookGenerator.NookPl
 	if plan == null or plan.biome_id == "":
 		return null
 	var origin := world.chunk_origin(coord)
+	var protected_locals := _protected_plan_locals(origin, plan)
+	var applied_tiles: Array[Dictionary] = []
 	for tile: Dictionary in _ordered_tiles(plan):
-		_apply_generated_tile(coord, origin, tile)
+		var local: Vector2i = tile["local"]
+		if protected_locals.has(local):
+			continue
+		if _apply_generated_tile(coord, origin, tile):
+			applied_tiles.append(tile)
+		else:
+			protected_locals[local] = true
+	plan.tiles = applied_tiles
 	var dormant_instance := 0
+	var applied_features: Array[Dictionary] = []
+	var applied_feature_cells := {}
 	for feature: Dictionary in plan.features:
+		var local: Vector2i = feature["local"]
+		if protected_locals.has(local):
+			continue
 		var placed_dormant := _apply_generated_feature(coord, origin, feature)
+		if int(feature.get("instance_id", 0)) > 0:
+			applied_features.append(feature)
+			applied_feature_cells[NookWorld.cell_key(local)] = true
 		if placed_dormant > 0:
 			dormant_instance = placed_dormant
+	plan.features = applied_features
+	_prune_unapplied_discoveries(
+		plan, applied_feature_cells, dormant_instance
+	)
 	_finalize_reveal(coord, plan, dormant_instance)
 	return plan
 
@@ -219,18 +266,48 @@ func _apply_generated_tile(
 	nook_coord: Vector2i,
 	origin: Vector2i,
 	tile: Dictionary
-) -> void:
+) -> bool:
 	var cell: Vector2i = origin + (tile["local"] as Vector2i)
 	var elevation := int(tile.get("elevation", 0))
-	if elevation == 0 and grid.has_cell(cell):
-		return
-	commands.apply("place_tile", {
+	if not grid.can_place_tile_at(
+		cell, elevation, String(tile["tile_id"])
+	):
+		return false
+	var result := commands.apply("place_tile", {
 		"coord": cell,
 		"tile_id": String(tile["tile_id"]),
 		"elevation": elevation,
 		"nook": nook_coord,
 		"source": "generation",
 	})
+	return bool(result.get("ok", false))
+
+
+func _protected_plan_locals(
+	origin: Vector2i,
+	plan: NookGenerator.NookPlan
+) -> Dictionary:
+	var protected := {}
+	for tile: Dictionary in plan.tiles:
+		var local: Vector2i = tile["local"]
+		if grid.has_cell(origin + local):
+			protected[local] = true
+	return protected
+
+
+func _prune_unapplied_discoveries(
+	plan: NookGenerator.NookPlan,
+	applied_feature_cells: Dictionary,
+	dormant_instance: int
+) -> void:
+	# Treasure belongs to its generated host. If a player's authored column
+	# displaced that host, silently retaining the buried assignment would leave
+	# an impossible discovery in the save.
+	for key: String in plan.treasures.keys():
+		if not applied_feature_cells.has(key):
+			plan.treasures.erase(key)
+	if dormant_instance <= 0:
+		plan.dormant = {}
 
 
 func _apply_generated_feature(

@@ -36,6 +36,21 @@ func _exercise_expansion() -> void:
 	if targets.is_empty():
 		return
 	var coord: Vector2i = targets[0]["nook"]
+	var protected_local := Vector2i(2, 2)
+	var protected_cell := (
+		_main.core.nooks.world.chunk_origin(coord) + protected_local
+	)
+	_main.core.grid.place_tile(protected_cell, "tile_grass")
+	var protected_structure := _main.core.grid.add_structure(
+		protected_cell, "struct_pine", 1
+	)
+	_expect(
+		protected_structure != null,
+		"the unrevealed frontier accepts a player-authored tile and model"
+	)
+	var expected_ghost_cells := (
+		_main.core.nooks.world.nook_size ** 2 - 1
+	)
 	# The legacy smoke opening starts with its tutorial tree held. Expansion is
 	# intentionally blocked while moving a piece, so clear that test fixture.
 	if not _main.placement.held.is_empty():
@@ -51,6 +66,10 @@ func _exercise_expansion() -> void:
 		"saw_model_plop": false,
 		"saw_water_rise": false,
 		"staged_without_preflash": false,
+		"ghost_held_for_landing": false,
+		"ghost_cell_consumed_on_contact": false,
+		"landed_cells": 0,
+		"protected_slot_omitted_from_plan": false,
 	}
 	var hidden_builds_before := (
 		_main.renderer.reveal_staged_instances_built_hidden
@@ -60,6 +79,16 @@ func _exercise_expansion() -> void:
 		func(revealed_coord: Vector2i, plan: NookGenerator.NookPlan):
 			if revealed_coord != coord:
 				return
+			var planned_protected_content := false
+			for tile: Dictionary in plan.tiles:
+				if tile["local"] as Vector2i == protected_local:
+					planned_protected_content = true
+			for feature: Dictionary in plan.features:
+				if feature["local"] as Vector2i == protected_local:
+					planned_protected_content = true
+			reveal_state["protected_slot_omitted_from_plan"] = (
+				not planned_protected_content
+			)
 			reveal_state["model_count"] = plan.features.size()
 			for tile: Dictionary in plan.tiles:
 				var definition := _main.core.registries.tile(
@@ -100,6 +129,15 @@ func _exercise_expansion() -> void:
 					_main.renderer._scalable_backend
 						.reveal_tiles_in_flight.is_empty()
 				)
+				var origin := _main.core.nooks.world.chunk_origin(coord)
+				reveal_state["staging_held_during_reveal"] = (
+					_main.renderer.is_coord_staged_for_reveal(origin)
+				)
+				reveal_state["ghost_held_for_landing"] = (
+					_main.nook_arrival_ghost.is_previewing(coord)
+					and _main.nook_arrival_ghost.remaining_cell_count()
+						== expected_ghost_cells
+				)
 				var backend = _main.renderer._scalable_backend
 				for tile: Dictionary in backend.tile_instances.values():
 					var multimesh: MultiMesh = tile["multimesh"]
@@ -117,6 +155,19 @@ func _exercise_expansion() -> void:
 					if bool(reveal_state["saw_reveal_headroom"]):
 						break
 	)
+	_main.nook_reveal_presenter.terrain_cell_landed.connect(
+		func(revealed_coord: Vector2i, _cell: Vector2i):
+			if revealed_coord != coord:
+				return
+			reveal_state["landed_cells"] = int(
+				reveal_state["landed_cells"]
+			) + 1
+			if int(reveal_state["landed_cells"]) == 1:
+				reveal_state["ghost_cell_consumed_on_contact"] = (
+					_main.nook_arrival_ghost.remaining_cell_count()
+						== expected_ghost_cells - 1
+				)
+	)
 	_main.nook_reveal_presenter.reveal_finished.connect(
 		func(revealed_coord: Vector2i):
 			if revealed_coord == coord:
@@ -124,6 +175,10 @@ func _exercise_expansion() -> void:
 	)
 	var accepted := _main._expand_nook_at(coord)
 	_expect(accepted, "frontier input schedules expansion immediately")
+	_expect(
+		_main.nook_arrival_ghost.is_previewing(coord),
+		"the terrain arrival ghost appears on the accepted input frame"
+	)
 	var responsive_frames := 0
 	var max_frame_gap_ms := 0.0
 	var previous_tick := Time.get_ticks_usec()
@@ -188,8 +243,33 @@ func _exercise_expansion() -> void:
 		"new tiles and models enter the scene hidden before reveal ownership"
 	)
 	_expect(
+		bool(reveal_state.get("staging_held_during_reveal", false)),
+		"incoming cells remain excluded from settled topology while falling"
+	)
+	_expect(
+		bool(reveal_state.get("ghost_held_for_landing", false)),
+		"the complete arrival ghost remains beneath the falling terrain"
+	)
+	_expect(
+		bool(reveal_state.get("ghost_cell_consumed_on_contact", false)),
+		"each ghost cell fades on its matching terrain contact"
+	)
+	var protected_found := _main.core.grid.find_structure(
+		protected_structure.instance_id
+	) if protected_structure != null else {}
+	_expect(
+		bool(reveal_state.get("protected_slot_omitted_from_plan", false))
+		and _main.core.grid.tile_def(protected_cell).id == "tile_grass"
+		and _main.core.grid.top_elevation(protected_cell) == 0
+		and not protected_found.is_empty()
+		and (protected_found["coord"] as Vector2i) == protected_cell,
+		"generation preserves player terrain and models in occupied frontier slots"
+	)
+	_expect(
 		all_seated
-		and _main.renderer._scalable_backend.reveal_tiles_in_flight.is_empty(),
+		and _main.renderer._scalable_backend.reveal_tiles_in_flight.is_empty()
+		and _main.renderer._staged_reveal_tiles.is_empty()
+		and not _main.nook_arrival_ghost.is_previewing(coord),
 		"every asynchronously generated tile finishes seated"
 	)
 	if int(reveal_state["model_count"]) > 0:
