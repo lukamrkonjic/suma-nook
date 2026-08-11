@@ -600,21 +600,20 @@ func _build_tile_stack_ghost(
 		if definition == null:
 			continue
 		var source_level := source_elevation + relative
-		var neighbour_mask := _tile_visual_factory.connection_mask(
-			definition,
-			source_coord,
-			source_level,
-			state.rotation
-		)
 		var detail_variant := TileVisualFactory.detail_variant_for_coord(
 			definition,
 			source_coord,
 			source_level
 		)
+		# A held stack floats free of the grid, so it must use the
+		# self-contained topology (mask 0). Sampling the source neighbours here
+		# instantiated an edge variant whose rim walls were consumed by tiles it
+		# no longer touches, leaving the cap hovering above the body while the
+		# piece was carried.
 		var tile_visual := _tile_visual_factory.instantiate_visual(
 			definition,
 			true,
-			neighbour_mask,
+			0,
 			detail_variant
 		)
 		tile_visual.name = "ghost_tile_e%d" % relative
