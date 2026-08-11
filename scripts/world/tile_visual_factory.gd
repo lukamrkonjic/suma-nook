@@ -40,6 +40,10 @@ var _batch_mesh_cache: Dictionary = {}
 var _staged_tile_query := Callable()
 
 
+static func cover_transition_seconds() -> float:
+	return COVER_FADE_DELAY + COVER_FADE_SECONDS
+
+
 func _init(asset_library: AssetLibrary, world_grid: WorldGrid) -> void:
 	assets = asset_library
 	grid = world_grid

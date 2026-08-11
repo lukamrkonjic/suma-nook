@@ -70,11 +70,38 @@ func _exercise_expansion() -> void:
 		"ghost_cell_consumed_on_contact": false,
 		"landed_cells": 0,
 		"protected_slot_omitted_from_plan": false,
+		"coverable_supports": 0,
+		"supports_kept_full_before_landing": false,
+		"cover_transitions_started": 0,
+		"cover_transition_started_with_full_top": true,
 	}
 	var hidden_builds_before := (
 		_main.renderer.reveal_staged_instances_built_hidden
 	)
 	var preflash_violations_before := _main.renderer.reveal_preflash_violations
+	_main.renderer.reveal_surface_cover_started.connect(
+		func(cell: Vector2i, elevation: int):
+			var origin := _main.core.nooks.world.chunk_origin(coord)
+			var local := cell - origin
+			if (
+				local.x < 0
+				or local.y < 0
+				or local.x >= _main.core.nooks.world.nook_size
+				or local.y >= _main.core.nooks.world.nook_size
+			):
+				return
+			reveal_state["cover_transitions_started"] = int(
+				reveal_state["cover_transitions_started"]
+			) + 1
+			var key := _main.core.grid.slot_key(cell, elevation)
+			var holder := _main.renderer._reveal_cover_transition_holders.get(
+				key
+			) as Node3D
+			reveal_state["cover_transition_started_with_full_top"] = (
+				bool(reveal_state["cover_transition_started_with_full_top"])
+				and _has_visible_authored_top(holder)
+			)
+	)
 	_main.core.nooks.nook_revealed.connect(
 		func(revealed_coord: Vector2i, plan: NookGenerator.NookPlan):
 			if revealed_coord != coord:
@@ -90,7 +117,36 @@ func _exercise_expansion() -> void:
 				not planned_protected_content
 			)
 			reveal_state["model_count"] = plan.features.size()
+			var coverable_supports := 0
+			var supports_kept_full := true
 			for tile: Dictionary in plan.tiles:
+				var elevation := int(tile.get("elevation", 0))
+				if elevation > 0:
+					var cell := (
+						_main.core.nooks.world.chunk_origin(coord)
+						+ (tile["local"] as Vector2i)
+					)
+					var support_definition := _main.core.grid.tile_def_at(
+						cell, elevation - 1
+					)
+					if (
+						support_definition != null
+						and support_definition.supports_tiles
+					):
+						coverable_supports += 1
+						var support_key := _main.core.grid.slot_key(
+							cell, elevation - 1
+						)
+						var support_data: Dictionary = (
+							_main.renderer._scalable_backend.tile_instances.get(
+								support_key, {}
+							)
+						)
+						if (
+							support_data.is_empty()
+							or bool(support_data.get("covered", true))
+						):
+							supports_kept_full = false
 				var definition := _main.core.registries.tile(
 					String(tile.get("tile_id", ""))
 				)
@@ -99,6 +155,10 @@ func _exercise_expansion() -> void:
 					reveal_state["water_count"] = int(
 						reveal_state["water_count"]
 					) + 1
+			reveal_state["coverable_supports"] = coverable_supports
+			reveal_state["supports_kept_full_before_landing"] = (
+				coverable_supports > 0 and supports_kept_full
+			)
 			reveal_state["saw_model_plop"] = not (
 				_main.renderer._scalable_backend
 					.reveal_structures_in_flight.is_empty()
@@ -254,6 +314,20 @@ func _exercise_expansion() -> void:
 		bool(reveal_state.get("ghost_cell_consumed_on_contact", false)),
 		"each ghost cell fades on its matching terrain contact"
 	)
+	_expect(
+		int(reveal_state["coverable_supports"]) > 0,
+		"the deterministic expansion fixture includes raised terrain"
+	)
+	_expect(
+		bool(reveal_state["supports_kept_full_before_landing"]),
+		"raised terrain supports keep their authored tops while upper tiles fall"
+	)
+	_expect(
+		int(reveal_state["cover_transitions_started"])
+			== int(reveal_state["coverable_supports"])
+		and bool(reveal_state["cover_transition_started_with_full_top"]),
+		"support tops cross-fade from their complete form on upper-tile approach"
+	)
 	var protected_found := _main.core.grid.find_structure(
 		protected_structure.instance_id
 	) if protected_structure != null else {}
@@ -269,6 +343,7 @@ func _exercise_expansion() -> void:
 		all_seated
 		and _main.renderer._scalable_backend.reveal_tiles_in_flight.is_empty()
 		and _main.renderer._staged_reveal_tiles.is_empty()
+		and _main.renderer._reveal_cover_transition_holders.is_empty()
 		and not _main.nook_arrival_ghost.is_previewing(coord),
 		"every asynchronously generated tile finishes seated"
 	)
@@ -288,6 +363,40 @@ func _exercise_expansion() -> void:
 			int(reveal_state["water_count"]),
 		]
 	)
+
+
+func _has_visible_authored_top(holder: Node3D) -> bool:
+	if holder == null or not is_instance_valid(holder) \
+		or holder.get_child_count() == 0:
+		return false
+	var visual := holder.get_child(0) as Node3D
+	if visual == null:
+		return false
+	for child in visual.find_children("*", "MeshInstance3D", true, false):
+		var mesh := child as MeshInstance3D
+		if (
+			mesh.name == TileVisualFactory.COVERED_INFILL_NAME
+			or mesh.name == TileVisualFactory.STACK_SEAM_NAME
+		):
+			continue
+		var layer_role := String(
+			mesh.get_meta(TileVisualFactory.LAYER_ROLE_META, "")
+		)
+		var cover_behavior := String(
+			mesh.get_meta(TileVisualFactory.LAYER_COVER_BEHAVIOR_META, "")
+		)
+		if (
+			layer_role == "base"
+			or cover_behavior == "persist"
+			or (
+				layer_role == ""
+				and mesh.name.to_lower().ends_with("_body")
+			)
+		):
+			continue
+		if mesh.visible and mesh.transparency < 0.01:
+			return true
+	return false
 
 
 func _expect(condition: bool, message: String) -> void:

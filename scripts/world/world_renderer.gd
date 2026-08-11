@@ -1,6 +1,8 @@
 class_name WorldRenderer
 extends Node3D
 
+signal reveal_surface_cover_started(coord: Vector2i, elevation: int)
+
 var _color_system := PaletteDefinition.shared()
 ## Reconciles WorldGrid state into scene nodes: tile visuals + walk colliders,
 ## structures, edge blockers, anchor rest states, and landmark phases.
@@ -64,6 +66,10 @@ var reveal_water_in_flight: Dictionary = {}
 var _staged_reveal_tiles: Dictionary = {}
 var _staged_reveal_structures: Dictionary = {}
 var _staged_reveal_coords: Dictionary = {}
+## Large worlds temporarily promote a support tile from MultiMesh to an exact
+## node while its authored top cross-fades beneath a landing reveal tile.
+## The final topology rebuild returns it to the ordinary covered batch.
+var _reveal_cover_transition_holders: Dictionary = {}
 ## Construction-boundary diagnostics used by the expansion smoke test. A
 ## staged reveal visual must be non-renderable before its off-tree chunk is
 ## attached; checking later races the presenter's zero-delay tween callbacks.
@@ -134,6 +140,7 @@ func _sync_outline_camera() -> void:
 
 
 func rebuild_all() -> void:
+	_clear_reveal_cover_transitions()
 	clear_structure_hover()
 	var wants_scalable := (
 		core.grid.total_tile_count() >= SCALABLE_WORLD_THRESHOLD
@@ -442,7 +449,7 @@ func _apply_covered_surface(
 ) -> void:
 	if not def.supports_tiles:
 		return
-	var covered := core.grid.has_cell_at(coord, elevation + 1)
+	var covered := is_tile_surface_covered_for_render(coord, elevation)
 	_tile_visual_factory.set_surface_covered(visual, covered, animate)
 
 
@@ -1676,6 +1683,19 @@ func is_tile_key_staged_for_reveal(key: Vector3i) -> bool:
 	return _staged_reveal_tiles.has(key)
 
 
+## A committed upper tile does not cover its support while it is still staged
+## in the sky. This keeps the complete authored top visible through the lower
+## layer's own fall and until the upper layer reaches its final approach.
+func is_tile_surface_covered_for_render(
+	coord: Vector2i,
+	elevation: int
+) -> bool:
+	return (
+		core.grid.has_cell_at(coord, elevation + 1)
+		and not is_tile_staged_for_reveal(coord, elevation + 1)
+	)
+
+
 func is_coord_staged_for_reveal(coord: Vector2i) -> bool:
 	return _staged_reveal_coords.has(coord)
 
@@ -1689,6 +1709,106 @@ func note_reveal_instance_built_hidden(hidden: bool) -> void:
 		reveal_staged_instances_built_hidden += 1
 	else:
 		reveal_preflash_violations += 1
+
+
+func reveal_surface_cover_transition_seconds() -> float:
+	return TileVisualFactory.cover_transition_seconds()
+
+
+## Starts the support-top cross-fade timed by NookRevealPresenter to the final
+## approach of the tile above. Exact worlds can animate the existing visual.
+## MultiMesh worlds briefly promote only this one settled support to a scene
+## node, preserving batching everywhere else and allowing its cap/detail
+## meshes to fade independently from the structural body.
+func begin_reveal_surface_cover(
+	coord: Vector2i,
+	elevation: int
+) -> bool:
+	var definition := core.grid.tile_def_at(coord, elevation)
+	var state := core.grid.cell_at(coord, elevation)
+	if (
+		definition == null
+		or state == null
+		or not definition.supports_tiles
+		or not core.grid.has_cell_at(coord, elevation + 1)
+	):
+		return false
+
+	var holder: Node3D
+	var key := core.grid.slot_key(coord, elevation)
+	if _scalable_mode:
+		holder = _reveal_cover_transition_holders.get(key) as Node3D
+		if holder == null or not is_instance_valid(holder):
+			holder = _build_reveal_cover_transition_holder(
+				coord, elevation, state, definition
+			)
+			if holder == null:
+				return false
+			_reveal_cover_transition_holders[key] = holder
+			add_child(holder)
+			# The exact visual is already at the identical full-top transform;
+			# remove only this instance from its shared batch in the same frame.
+			if not _scalable_backend.hide_tile_for_reveal(coord, elevation):
+				_reveal_cover_transition_holders.erase(key)
+				holder.queue_free()
+				return false
+	else:
+		holder = cell_holder(coord, elevation)
+	if holder == null or not is_instance_valid(holder) \
+		or holder.get_child_count() == 0:
+		return false
+	var visual := holder.get_child(0) as Node3D
+	if visual == null:
+		return false
+	_tile_visual_factory.set_surface_covered(visual, true, true)
+	reveal_surface_cover_started.emit(coord, elevation)
+	return true
+
+
+func _build_reveal_cover_transition_holder(
+	coord: Vector2i,
+	elevation: int,
+	state: WorldGrid.CellState,
+	definition: Defs.TileDefinition
+) -> Node3D:
+	var holder := Node3D.new()
+	holder.name = "RevealCover_%d_%d_e%d" % [coord.x, coord.y, elevation]
+	holder.position = core.grid.cell_to_world(coord, elevation)
+	var neighbour_mask := _tile_visual_factory.connection_mask(
+		definition,
+		coord,
+		elevation,
+		state.rotation
+	)
+	var visual := _tile_visual_factory.instantiate_visual(
+		definition,
+		false,
+		neighbour_mask,
+		TileVisualFactory.detail_variant_for_coord(
+			definition, coord, elevation
+		)
+	)
+	visual.rotation.y = state.rotation * PI * 0.5
+	holder.add_child(visual)
+	_tile_visual_factory.set_stack_seam_visible(visual, elevation > 0)
+	_tile_visual_factory.set_surface_covered(visual, false, false)
+	_tile_visual_factory.apply_surface_exclusion_masks(
+		visual,
+		_structure_visual_factory.surface_masks_for_tile(
+			state, state.rotation
+		),
+		definition.walk_surface_height
+	)
+	_apply_anchor_visual(holder, state, definition, false)
+	return holder
+
+
+func _clear_reveal_cover_transitions() -> void:
+	for holder_variant: Variant in _reveal_cover_transition_holders.values():
+		var holder := holder_variant as Node3D
+		if holder != null and is_instance_valid(holder):
+			holder.queue_free()
+	_reveal_cover_transition_holders.clear()
 
 
 func release_nook_reveal_staging(
@@ -1739,6 +1859,7 @@ func finalize_nook_reveal_topology_async(
 				true,
 				BULK_FRAME_BUDGET_USEC
 			)
+		_clear_reveal_cover_transitions()
 		return
 	var frame_started := Time.get_ticks_usec()
 	for cell: Vector2i in affected:
@@ -1752,6 +1873,7 @@ func finalize_nook_reveal_topology_async(
 			frame_started = Time.get_ticks_usec()
 	_rebuild_edges()
 	_rebuild_water_surface()
+	_clear_reveal_cover_transitions()
 
 
 func is_reveal_water(coord: Vector2i) -> bool:

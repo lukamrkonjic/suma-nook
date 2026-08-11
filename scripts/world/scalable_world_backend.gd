@@ -207,7 +207,9 @@ func rebuild_chunk(
 				if state == null or definition == null:
 					continue
 				var world_position := core.grid.cell_to_world(coord, elevation)
-				var covered := core.grid.has_cell_at(coord, elevation + 1)
+				var covered := owner.is_tile_surface_covered_for_render(
+					coord, elevation
+				)
 				var neighbour_mask := tile_factory.connection_mask(
 					definition,
 					coord,
@@ -460,6 +462,7 @@ func _build_batch(chunk_root: Node3D, batch: Dictionary) -> void:
 				"multimesh": multimesh,
 				"index": index,
 				"base": entry["transform"],
+				"covered": bool(batch["covered"]),
 			}
 		else:
 			structure_instances[int(entry["key"])] = {

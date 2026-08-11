@@ -102,6 +102,16 @@ func _on_nook_revealed(coord: Vector2i, plan: NookGenerator.NookPlan) -> void:
 			)
 		if not tile_animated:
 			continue
+		if elevation > 0:
+			# The support arrived with its complete authored top. Begin its
+			# covered-form cross-fade late enough that the visible fade occupies
+			# only the upper tile's final approach and completes at first contact.
+			_cover_support_surface_after(
+				cell,
+				elevation - 1,
+				delay + drop_seconds
+					- renderer.reveal_surface_cover_transition_seconds()
+			)
 		animated += 1
 		land_finish = maxf(land_finish, delay + landing_seconds)
 		# The arrival blueprint is replaced cell-by-cell at first contact. Raised
@@ -265,6 +275,17 @@ func _emit_terrain_cell_landed_after(
 	var timer := get_tree().create_timer(maxf(0.0, delay))
 	timer.timeout.connect(func():
 		terrain_cell_landed.emit(coord, cell)
+	)
+
+
+func _cover_support_surface_after(
+	cell: Vector2i,
+	elevation: int,
+	delay: float
+) -> void:
+	var timer := get_tree().create_timer(maxf(0.0, delay))
+	timer.timeout.connect(func():
+		renderer.begin_reveal_surface_cover(cell, elevation)
 	)
 
 
