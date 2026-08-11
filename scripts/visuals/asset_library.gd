@@ -251,7 +251,12 @@ func flatten_static_visual(root: Node3D, resource_name := "") -> ArrayMesh:
 func _locally_visible(node: Node3D, root: Node3D) -> bool:
 	var current: Node = node
 	while current != null and current != root:
-		if current is VisualInstance3D and not (current as VisualInstance3D).visible:
+		# Presentation wrappers such as AuthoredVisual and
+		# HarvestDepletedVisual are ordinary Node3Ds. Checking only
+		# VisualInstance3D descendants flattened both the hidden live resource
+		# and its visible stump/rubble into scalable-world batches, so a felled
+		# tree or shattered rock appeared to stand back up after the impact.
+		if current is Node3D and not (current as Node3D).visible:
 			return false
 		current = current.get_parent()
 	return true

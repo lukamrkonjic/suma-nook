@@ -2786,23 +2786,48 @@ func _step_woodcutting() -> void:
 		var project_runtime: Dictionary = project_tree.runtime_state[HarvestingModule.RUNTIME_KEY]
 		project_runtime["deadline_unix"] = 0.0
 		main.core.harvesting.status(project_tree.instance_id)
-		var interaction: Dictionary = main.core.harvesting.request_hit(project_tree.instance_id, "player")
-		var second_hit: Dictionary = main.core.harvesting.request_hit(project_tree.instance_id, "player")
-		var project_result: Dictionary = main.core.harvesting.complete_interaction(project_tree.instance_id)
-		main.renderer.refresh_structure_harvest(project_tree.instance_id, false)
+		var interaction: Dictionary = main.harvest_presentation.request_hit(
+			project_tree.instance_id, "player"
+		)
+		var second_hit: Dictionary = main.harvest_presentation.request_hit(
+			project_tree.instance_id, "player"
+		)
+		# complete_interaction emits the same hit_landed signal consumed by the
+		# presentation adapter while honoring each profile's authored hit count.
+		var project_result: Dictionary = main.core.harvesting.complete_interaction(
+			project_tree.instance_id
+		)
 		var project_visual := main.renderer.structure_node(project_tree.instance_id)
+		var authored_tree: Node3D = (
+			project_visual.get_node_or_null("AuthoredVisual") as Node3D
+			if project_visual != null else null
+		)
+		var stump: Node3D = (
+			project_visual.get_node_or_null("HarvestDepletedVisual") as Node3D
+			if project_visual != null else null
+		)
+		await wait(0.34)
+		var tree_falling: bool = (
+			project_visual != null
+			and project_visual.rotation.length() > 0.15
+			and authored_tree != null and authored_tree.visible
+			and stump != null and not stump.visible
+		)
+		await wait(0.55)
 		check(
 			bool(interaction.get("accepted", false))
 			and second_hit.get("hit", 0) == 2
-			and bool(project_result.get("final", false)),
-			"the reusable tree owns a three-hit gathering sequence"
+			and bool(project_result.get("final", false))
+			and tree_falling,
+			"the reusable tree's authored final hit visibly fells it"
 		)
 		check(
 			not main.core.grid.find_structure(project_tree.instance_id).is_empty()
 			and main.core.harvesting.status(project_tree.instance_id).get("state", "")
 				== HarvestingModule.STATE_REGROWING
-			and project_visual != null
-			and project_visual.get_node_or_null("HarvestDepletedVisual") != null,
+			and authored_tree != null and not authored_tree.visible
+			and stump != null and stump.visible
+			and project_visual.rotation.is_zero_approx(),
 			"the gathered tree becomes a visible stump state and keeps its persistent instance"
 		)
 	return

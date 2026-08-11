@@ -318,6 +318,31 @@ func _test_harvest_interaction_and_depleted_visuals() -> void:
 		depleted_contract and authored.visible and not stump.visible,
 		"tree lifecycle swaps to a persistent stump and restores the authored tree on regrowth"
 	)
+	var ready_batch := factory.batch_mesh(
+		definition, HarvestingModule.STATE_READY
+	)
+	var depleted_batch := factory.batch_mesh(
+		definition, HarvestingModule.STATE_REGROWING
+	)
+	check(
+		ready_batch != null
+		and depleted_batch != null
+		and ready_batch.get_aabb().size.y > depleted_batch.get_aabb().size.y * 1.5,
+		"scalable harvest batches exclude the hidden standing tree and retain only its stump"
+	)
+	var rock_definition := core.registries.structure("struct_rock_outcrop")
+	var ready_rock_batch := factory.batch_mesh(
+		rock_definition, HarvestingModule.STATE_READY
+	)
+	var rubble_batch := factory.batch_mesh(
+		rock_definition, HarvestingModule.STATE_REGROWING
+	)
+	check(
+		ready_rock_batch != null
+		and rubble_batch != null
+		and ready_rock_batch.get_aabb().size.y > rubble_batch.get_aabb().size.y * 1.2,
+		"scalable harvest batches exclude the hidden intact rock and retain only its rubble"
+	)
 	visual.free()
 
 

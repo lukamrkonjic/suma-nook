@@ -73,6 +73,8 @@ func _ready() -> void:
 func _exercise_scalable_presentation() -> Dictionary:
 	var instance_id := 0
 	var harvest_instance_id := 0
+	var tree_harvest_instance_id := 0
+	var rock_harvest_instance_id := 0
 	var cover_coord := Vector2i(999999, 999999)
 	var cover_tile_id := ""
 	for slot: Dictionary in _main.core.grid.all_cell_slots():
@@ -99,9 +101,29 @@ func _exercise_scalable_presentation() -> Dictionary:
 				and definition.has_capability("harvest_source")
 			):
 				harvest_instance_id = structure.instance_id
-		if instance_id > 0 and harvest_instance_id > 0 and cover_tile_id != "":
+			if definition != null and definition.has_capability("harvest_source"):
+				var profile: Defs.HarvestProfileDefinition = (
+					_main.core.harvesting.profile_for_structure(structure)
+				)
+				if profile != null and profile.presentation_profile == "clay_tree":
+					tree_harvest_instance_id = structure.instance_id
+				elif profile != null and profile.presentation_profile == "clay_rock":
+					rock_harvest_instance_id = structure.instance_id
+		if (
+			instance_id > 0
+			and harvest_instance_id > 0
+			and tree_harvest_instance_id > 0
+			and rock_harvest_instance_id > 0
+			and cover_tile_id != ""
+		):
 			break
-	if instance_id <= 0 or harvest_instance_id <= 0 or cover_tile_id == "":
+	if (
+		instance_id <= 0
+		or harvest_instance_id <= 0
+		or tree_harvest_instance_id <= 0
+		or rock_harvest_instance_id <= 0
+		or cover_tile_id == ""
+	):
 		return {"passed": false, "reason": "missing_fixture"}
 
 	_main.renderer.set_hovered_structure(instance_id)
@@ -160,6 +182,12 @@ func _exercise_scalable_presentation() -> Dictionary:
 		and multimesh_after != null
 		and multimesh_after != multimesh_before
 	)
+	var tree_transition: Dictionary = await _exercise_final_harvest_transition(
+		tree_harvest_instance_id, "clay_tree"
+	)
+	var rock_transition: Dictionary = await _exercise_final_harvest_transition(
+		rock_harvest_instance_id, "clay_rock"
+	)
 
 	# A scalable support belongs to a shared mesh batch, so this probes the
 	# deferred topology swap as well as the exact-node contract in full_loop.
@@ -197,6 +225,8 @@ func _exercise_scalable_presentation() -> Dictionary:
 	return {
 		"passed": hover_ok and fall_started and fall_settled
 			and impact_started and impact_finished and depleted_refresh
+			and bool(tree_transition.get("passed", false))
+			and bool(rock_transition.get("passed", false))
 			and cover_visible_during_flight and cover_hidden_after_landing,
 		"hover": hover_ok,
 		"fall_started": fall_started,
@@ -205,6 +235,71 @@ func _exercise_scalable_presentation() -> Dictionary:
 		"harvest_impact_started": impact_started,
 		"harvest_impact_finished": impact_finished,
 		"depleted_refresh": depleted_refresh,
+		"tree_final_transition": tree_transition,
+		"rock_final_transition": rock_transition,
 		"support_top_during_water_hop": cover_visible_during_flight,
 		"support_top_after_water_hop": cover_hidden_after_landing,
+	}
+
+
+func _exercise_final_harvest_transition(
+	instance_id: int,
+	presentation: String
+) -> Dictionary:
+	var found := _main.core.grid.find_structure(instance_id)
+	if found.is_empty():
+		return {"passed": false, "reason": "missing_structure"}
+	var structure: WorldGrid.StructureState = found["structure"]
+	_main.core.harvesting.status(instance_id)
+	var runtime: Dictionary = structure.runtime_state.get(
+		HarvestingModule.RUNTIME_KEY, {}
+	)
+	runtime["state"] = HarvestingModule.STATE_READY
+	runtime["deadline_unix"] = 0.0
+	runtime["hits"] = 0
+	_main.renderer.refresh_structure_harvest(instance_id, false)
+	var profile: Defs.HarvestProfileDefinition = (
+		_main.core.harvesting.profile_for_structure(structure)
+	)
+	if profile == null:
+		return {"passed": false, "reason": "missing_profile"}
+	for _hit_index in maxi(0, profile.hits_required - 1):
+		_main.harvest_presentation.request_hit(instance_id, "player")
+	var before: Dictionary = (
+		_main.renderer._scalable_backend.structure_instances.get(instance_id, {})
+		as Dictionary
+	)
+	var old_multimesh := before.get("multimesh") as MultiMesh
+	var final_hit: Dictionary = _main.harvest_presentation.request_hit(
+		instance_id, "player"
+	)
+	var animation_started: bool = (
+		_main.renderer._scalable_backend.structure_effect_tweens.has(instance_id)
+	)
+	await get_tree().create_timer(0.3 if presentation == "clay_tree" else 0.14).timeout
+	await get_tree().process_frame
+	var animation_active_during_impact: bool = (
+		_main.renderer._scalable_backend.structure_effect_tweens.has(instance_id)
+	)
+	await get_tree().create_timer(0.5 if presentation == "clay_tree" else 0.28).timeout
+	var after: Dictionary = (
+		_main.renderer._scalable_backend.structure_instances.get(instance_id, {})
+		as Dictionary
+	)
+	var new_multimesh := after.get("multimesh") as MultiMesh
+	var depleted := (
+		String(after.get("harvest_state", "")) == HarvestingModule.STATE_REGROWING
+		and new_multimesh != null
+		and new_multimesh != old_multimesh
+		and old_multimesh != null
+		and new_multimesh.mesh.get_aabb().size.y
+			< old_multimesh.mesh.get_aabb().size.y
+	)
+	return {
+		"passed": bool(final_hit.get("final", false))
+			and animation_started and animation_active_during_impact and depleted,
+		"final": bool(final_hit.get("final", false)),
+		"animation_started": animation_started,
+		"animation_active_during_impact": animation_active_during_impact,
+		"depleted_mesh": depleted,
 	}
