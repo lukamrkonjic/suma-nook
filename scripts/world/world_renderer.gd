@@ -48,6 +48,7 @@ var _hovered_structure_id := -1
 var _hover_signature := ""
 var _pending_rotation_slots: Dictionary = {}
 var _pending_wish_slots: Dictionary = {}
+var _pending_water_skip_slots: Dictionary = {}
 var _outline_viewport: SubViewport
 var _outline_camera: Camera3D
 var _outline_overlay: TextureRect
@@ -327,8 +328,10 @@ func _on_slot_changed(coord: Vector2i, elevation: int) -> void:
 		return
 	var rotation_refresh := _pending_rotation_slots.has(changed_key)
 	var wish_refresh := _pending_wish_slots.has(changed_key)
+	var water_skip_refresh := _pending_water_skip_slots.has(changed_key)
 	_pending_rotation_slots.erase(changed_key)
 	_pending_wish_slots.erase(changed_key)
+	_pending_water_skip_slots.erase(changed_key)
 	var wants_scalable := (
 		core.grid.total_tile_count() >= SCALABLE_WORLD_THRESHOLD
 	)
@@ -337,12 +340,16 @@ func _on_slot_changed(coord: Vector2i, elevation: int) -> void:
 		return
 	if _scalable_mode:
 		_scalable_backend.rebuild_around(coord)
-		if core.grid.has_cell_at(coord, elevation):
+		if core.grid.has_cell_at(coord, elevation) and not water_skip_refresh:
 			_scalable_backend.animate_tile(coord, elevation)
 		return
 	_remove_cell_node(coord, elevation)
 	if core.grid.has_cell_at(coord, elevation):
-		_build_cell(coord, elevation, not rotation_refresh and not wish_refresh)
+		_build_cell(
+			coord,
+			elevation,
+			not rotation_refresh and not wish_refresh and not water_skip_refresh
+		)
 	_refresh_connection_neighbours(coord, elevation)
 	if elevation > 0:
 		_refresh_covered_surface(coord, elevation - 1, true)
@@ -1172,6 +1179,103 @@ func prepare_wish_placement(coord: Vector2i, elevation: int) -> void:
 
 func cancel_wish_placement(coord: Vector2i, elevation: int) -> void:
 	_pending_wish_slots.erase(core.grid.slot_key(coord, elevation))
+
+
+## A water skip has its own long travel animation after the authoritative grid
+## commit. Marking the destination prevents the normal tiny placement wobble
+## from briefly showing the tile at its final position first.
+func prepare_water_skip_placement(coord: Vector2i, elevation: int) -> void:
+	_pending_water_skip_slots[core.grid.slot_key(coord, elevation)] = true
+
+
+func cancel_water_skip_placement(coord: Vector2i, elevation: int) -> void:
+	_pending_water_skip_slots.erase(core.grid.slot_key(coord, elevation))
+
+
+## Starts every tile in a moved stack at the same water contact, preserving its
+## vertical spacing while it hops to the resolved legal column. Returning the
+## first tween lets placement feedback wait until the visible landing.
+func animate_tile_stack_water_skip(
+	coord: Vector2i,
+	base_elevation: int,
+	relative_elevations: Array[int],
+	impact_position: Vector3
+) -> Tween:
+	var landing_tween: Tween = null
+	for relative: int in relative_elevations:
+		var tween: Tween = null
+		if _scalable_mode:
+			tween = _scalable_backend.animate_tile_water_skip(
+				coord,
+				base_elevation + relative,
+				impact_position,
+				relative
+			)
+		else:
+			var holder := tile_node(coord, base_elevation + relative)
+			if holder != null:
+				tween = _animate_tile_water_skip(
+					holder,
+					impact_position,
+					relative
+				)
+		if landing_tween == null:
+			landing_tween = tween
+	return landing_tween
+
+
+## The tile begins already squashed into the surface (the ripple is emitted by
+## PlacementController), springs through a compact arc, then compresses once
+## more against the landing cell before returning to its authored transform.
+func _animate_tile_water_skip(
+	holder: Node3D,
+	impact_position: Vector3,
+	relative_elevation: int
+) -> Tween:
+	var target_position := holder.global_position
+	var target_rotation := holder.rotation
+	var target_scale := holder.scale
+	var start_position := impact_position + Vector3.UP * (
+		0.035 + relative_elevation * core.grid.block_depth
+	)
+	var travel := target_position - start_position
+	var horizontal_distance := Vector2(travel.x, travel.z).length()
+	var arc_height := 0.46 + minf(0.5, horizontal_distance * 0.13)
+	var control_a := start_position + travel * 0.28 + Vector3.UP * arc_height
+	var control_b := target_position - travel * 0.18 + Vector3.UP * arc_height
+	var lean_axis := Vector3(travel.z, 0.0, -travel.x).normalized()
+	holder.global_position = start_position
+	holder.rotation = target_rotation + lean_axis * 0.22
+	holder.scale = target_scale * Vector3(1.12, 0.72, 1.12)
+	var tween := holder.create_tween()
+	tween.set_parallel(true)
+	tween.tween_method(
+		func(weight: float) -> void:
+			if is_instance_valid(holder):
+				holder.global_position = start_position.bezier_interpolate(
+					control_a,
+					control_b,
+					target_position,
+					weight
+				),
+		0.0,
+		1.0,
+		0.5
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.tween_property(holder, "rotation", target_rotation, 0.48) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(holder, "scale", target_scale, 0.46) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.set_parallel(false)
+	tween.tween_property(
+		holder,
+		"scale",
+		target_scale * Vector3(1.07, 0.86, 1.07),
+		0.055
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_property(holder, "scale", target_scale, 0.12) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	return tween
 
 
 func animate_tile_wish_landing(coord: Vector2i, elevation: int) -> Tween:

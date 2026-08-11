@@ -673,6 +673,9 @@ class TileDefinition:
 	var supports_tiles := false
 	var supports_decor := true
 	var surface_kind: String = "flat"  # flat|stairs|uneven|water
+	## Future floating/bridge-like tiles may opt into direct water placement.
+	## Current land tiles leave this false and playfully skip to nearby ground.
+	var placeable_on_water := false
 	var render_profile: String = "standard"       # standard|layered|continuous_water
 	# Layered tiles assemble shared structural shells, replaceable surface
 	# treatments, and optional dressing without destructively joining meshes.
@@ -754,6 +757,7 @@ class TileDefinition:
 		t.stackable = bool(d.get("stackable", flat_land))
 		t.supports_tiles = bool(d.get("supports_tiles", flat_land))
 		t.supports_decor = bool(d.get("supports_decor", t.walkable))
+		t.placeable_on_water = bool(d.get("placeable_on_water", false))
 		t.render_profile = d.get(
 			"render_profile",
 			"continuous_water" if t.water_cells.has("open_water") else "standard"

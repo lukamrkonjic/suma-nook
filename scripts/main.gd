@@ -1064,6 +1064,10 @@ func _connect_flows() -> void:
 		panels.show_landmark_choice(String(node.get_meta("landmark_id"))))
 
 	placement.action_result.connect(_on_placement_result)
+	placement.tile_splashed.connect(
+		func(_impact_position: Vector3, _landing_position: Vector3):
+			audio.play_event("fish_splash")
+	)
 	placement.mode_changed.connect(func(_active): _refresh_controller_hints())
 	placement.held_changed.connect(func(_held): _refresh_controller_hints())
 	player.interaction_focus_changed.connect(_on_focus_changed)

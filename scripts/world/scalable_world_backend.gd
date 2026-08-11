@@ -860,6 +860,77 @@ func animate_tile(coord: Vector2i, elevation: int = -1) -> void:
 	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
+## MultiMesh presentation equivalent of WorldRenderer's exact-node water hop.
+## Only the committed destination instance moves; chunk topology and collision
+## stay authoritative throughout the short flourish.
+func animate_tile_water_skip(
+	coord: Vector2i,
+	elevation: int,
+	impact_position: Vector3,
+	relative_elevation: int
+) -> Tween:
+	var key := core.grid.slot_key(coord, elevation)
+	if not tile_instances.has(key):
+		return null
+	var data: Dictionary = tile_instances[key]
+	var multimesh: MultiMesh = data["multimesh"]
+	var index := int(data["index"])
+	var target: Transform3D = data["base"]
+	var start := target
+	start.origin = impact_position + Vector3.UP * (
+		0.035 + relative_elevation * core.grid.block_depth
+	)
+	start.basis = start.basis.scaled(Vector3(1.12, 0.72, 1.12))
+	var travel := target.origin - start.origin
+	var horizontal_distance := Vector2(travel.x, travel.z).length()
+	var arc_height := 0.46 + minf(0.5, horizontal_distance * 0.13)
+	var control_a := start.origin + travel * 0.28 + Vector3.UP * arc_height
+	var control_b := target.origin - travel * 0.18 + Vector3.UP * arc_height
+	multimesh.set_instance_transform(index, start)
+	var tween := owner.create_tween()
+	tween.tween_method(
+		func(weight: float) -> void:
+			if multimesh == null:
+				return
+			var current := start.interpolate_with(target, weight)
+			current.origin = start.origin.bezier_interpolate(
+				control_a,
+				control_b,
+				target.origin,
+				weight
+			)
+			multimesh.set_instance_transform(index, current),
+		0.0,
+		1.0,
+		0.5
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	var squash := target
+	squash.basis = squash.basis.scaled(Vector3(1.07, 0.86, 1.07))
+	tween.tween_method(
+		func(weight: float) -> void:
+			if multimesh != null:
+				multimesh.set_instance_transform(
+					index,
+					target.interpolate_with(squash, weight)
+				),
+		0.0,
+		1.0,
+		0.055
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_method(
+		func(weight: float) -> void:
+			if multimesh != null:
+				multimesh.set_instance_transform(
+					index,
+					squash.interpolate_with(target, weight)
+				),
+		0.0,
+		1.0,
+		0.12
+	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	return tween
+
+
 ## Keeps one newly built MultiMesh entry out of sight until the Nook reveal
 ## owns it. Scaling only that instance preserves the already-visible terrain
 ## sharing the same batch and avoids a pre-animation pop.

@@ -1222,6 +1222,68 @@ func _step_build_mode_selection_rules() -> void:
 	await get_tree().physics_frame
 	main.placement.set_active(true)
 
+	# A land placement aimed at water stays one controller transaction: A/X
+	# splashes at the selected water cell, then the ordinary rules choose the
+	# deterministic nearest clear landing without consuming or replacing water.
+	var grass_stock_before_skip := main.core.stock.tile_count("tile_grass")
+	main.core.stock.add_tile("tile_grass")
+	main.placement.hold_new("tile", "tile_grass")
+	InputDeviceService.shared()._set_input_method(
+		InputDeviceService.InputMethod.CONTROLLER
+	)
+	main.placement.set_controller_mode(true)
+	main.placement._controller_cell = TEST_MOVABLE_WATER_COORD
+	main.placement._update_controller_hover_target()
+	main.placement._hover_valid = main.placement._validate(
+		main.placement._hover_cell,
+		main.placement._hover_elevation
+	)
+	var skip_target := main.placement.water_skip_target_for(
+		TEST_MOVABLE_WATER_COORD
+	)
+	var splash_events: Array[Dictionary] = []
+	var record_splash := func(
+		impact_position: Vector3,
+		landing_position: Vector3
+	):
+		splash_events.append({
+			"impact": impact_position,
+			"landing": landing_position,
+		})
+	main.placement.tile_splashed.connect(record_splash, CONNECT_ONE_SHOT)
+	await _tap_joy_button(JOY_BUTTON_A)
+	await wait(0.72)
+	var landed_coord: Vector2i = skip_target.get(
+		"coord",
+		Vector2i(9999, 9999)
+	)
+	var landed_elevation := int(skip_target.get("elevation", -1))
+	var landed_definition := main.core.grid.tile_def_at(
+		landed_coord,
+		landed_elevation
+	)
+	check(
+		not skip_target.is_empty()
+		and landed_definition != null
+		and landed_definition.id == "tile_grass",
+		"controller confirm skips land from water to the nearest rule-valid cell"
+	)
+	check(
+		main.core.grid.tile_def(TEST_MOVABLE_WATER_COORD).id
+			== "tile_open_water"
+		and splash_events.size() == 1,
+		"water stays intact and the placement emits exactly one splosh"
+	)
+	main.placement.undo()
+	if not main.placement.held.is_empty():
+		main.placement.cancel_click()
+	while main.core.stock.tile_count("tile_grass") > grass_stock_before_skip:
+		main.core.stock.take_tile("tile_grass")
+	main.placement.set_controller_mode(false)
+	InputDeviceService.shared()._set_input_method(
+		InputDeviceService.InputMethod.KEYBOARD_MOUSE
+	)
+
 	main.placement.pick_up_at(TEST_MOVABLE_WATER_COORD)
 	check(
 		main.placement.held.get("kind", "") == "tile"

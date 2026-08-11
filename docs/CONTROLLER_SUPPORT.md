@@ -67,8 +67,10 @@ use PlayStation names and Nintendo physical-button labels when detected.
 Keyboard WASD is reserved for persistent camera panning. Land placement
 targets any empty grid coordinate, including detached islands. The D-pad
 cursor can therefore travel through the void without requiring an existing
-neighbour. F activates the interaction under the pointer when the optional
-keeper is docked.
+neighbour. Confirming a current land tile over water uses this same cursor: it
+splashes there, then skips to the nearest cell accepted by the ordinary build
+rules. F activates the interaction under the pointer when the optional keeper
+is docked.
 
 ## Adding a player-facing feature
 

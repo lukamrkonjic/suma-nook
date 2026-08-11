@@ -9,6 +9,7 @@ signal mode_changed(active: bool)
 signal held_changed(held: Dictionary)
 signal action_result(ok: bool, message: String, kind: String)
 signal hover_changed(display_name: String, collection_name: String)
+signal tile_splashed(impact_position: Vector3, landing_position: Vector3)
 
 const StructureVisualFactoryScript := preload(
 	"res://scripts/world/structure_visual_factory.gd"
@@ -60,6 +61,10 @@ var _controller_cursor_active := false
 var _interaction_cursor_mode := false
 var _controller_cell := Vector2i.ZERO
 var _ui_pointer_blocker := Callable()
+var _water_skip_cache_key := ""
+var _water_skip_cache_target: Dictionary = {}
+var _water_skip_preview_target: Dictionary = {}
+var _pending_water_skip: Dictionary = {}
 
 func setup(
 	game_core: GameCore,
@@ -83,9 +88,11 @@ func setup(
 	_preview = PlacementPreviewScript.new(self, core.grid.tile_size)
 	core.before_save.connect(prepare_for_save)
 	held_changed.connect(func(value: Dictionary):
+		_invalidate_water_skip_cache()
 		if _controller_mode and value.is_empty():
 			_controller_cursor_active = false
 	)
+	core.grid.grid_changed.connect(_invalidate_water_skip_cache)
 
 
 func set_ui_pointer_blocker(blocker: Callable) -> void:
@@ -788,6 +795,11 @@ func _process(delta: float) -> void:
 	_emit_hover_info("", "", "")
 	_update_hover_target()
 	_hover_valid = _validate(_hover_cell, _hover_elevation)
+	_water_skip_preview_target = (
+		{}
+		if _hover_valid
+		else water_skip_target_for(_hover_cell)
+	)
 	var world := _held_landing_world()
 	var landing_position := _resolved_landing_position(world)
 	if _ghost != null:
@@ -809,7 +821,7 @@ func _process(delta: float) -> void:
 		_sync_ghost_yaw(target_yaw, delta, was_visible)
 		_sync_ghost_stack_seams()
 		_sync_ghost_water_topology()
-		_preview.set_validity(_ghost, _hover_valid)
+		_preview.set_validity(_ghost, _placement_action_valid())
 		var glow_position := landing_position
 		glow_position.x = _ghost.position.x
 		glow_position.z = _ghost.position.z
@@ -819,6 +831,8 @@ func _process(delta: float) -> void:
 
 
 func _held_landing_world() -> Vector3:
+	if not _water_skip_preview_target.is_empty():
+		return _water_skip_impact_position(_hover_cell)
 	if held.get("kind", "") == "tile":
 		return core.grid.cell_to_world_for_tile(
 			_hover_cell,
@@ -956,7 +970,9 @@ func _is_water_cell(coord: Vector2i) -> bool:
 ## Validity styling belongs to the model and remains readable throughout tall
 ## stacks; the legacy ground-plane compatibility node stays hidden.
 func _sync_indicator_preview(landing_position: Vector3) -> void:
-	_preview.sync_indicator(landing_position, _ghost != null, _hover_valid)
+	_preview.sync_indicator(
+		landing_position, _ghost != null, _placement_action_valid()
+	)
 
 
 func _update_placeable_hover() -> void:
@@ -1196,6 +1212,185 @@ func _target_socket(cell: Vector2i, elevation: int = 0) -> int:
 	return _rules.target_socket(held, cell, elevation)
 
 
+## A land tile aimed at authored water is still a valid placement intent. The
+## water itself is never replaced: the tile skips to the closest cell where
+## the ordinary placement rules (unlocking, stacking, occupancy, and player
+## safety) already say it can settle. Future tiles may opt out with the
+## `placeable_on_water` data flag and implement direct floating placement.
+func water_skip_target_for(water_cell: Vector2i) -> Dictionary:
+	if not _is_water_skip_source(water_cell):
+		return {}
+	var moving_signature := "new"
+	if held.get("moving") != null:
+		var moving: Dictionary = held["moving"]
+		moving_signature = "%s:%s" % [
+			moving.get("coord", Vector2i.ZERO),
+			moving.get("elevation", 0),
+		]
+	var cache_key := "%s|%s|%s|%s|%s" % [
+		held.get("id", ""),
+		moving_signature,
+		water_cell,
+		player.current_cell(),
+		core.grid.total_tile_count(),
+	]
+	if cache_key == _water_skip_cache_key:
+		return _water_skip_cache_target.duplicate(true)
+
+	var maximum_radius := maxi(1, core.nooks.world.nook_size)
+	for raw_coord: Variant in core.grid.cells:
+		var coord: Vector2i = raw_coord
+		maximum_radius = maxi(
+			maximum_radius,
+			maxi(
+				absi(coord.x - water_cell.x),
+				absi(coord.y - water_cell.y)
+			) + 1
+		)
+	var candidates: Array[Dictionary] = []
+	var best_distance_squared := 0x7FFFFFFF
+	for radius in range(1, maximum_radius + 1):
+		var ring_start := candidates.size()
+		for dx in range(-radius, radius + 1):
+			_append_water_skip_candidate(
+				candidates, water_cell + Vector2i(dx, -radius), water_cell
+			)
+			_append_water_skip_candidate(
+				candidates, water_cell + Vector2i(dx, radius), water_cell
+			)
+		for dy in range(-radius + 1, radius):
+			_append_water_skip_candidate(
+				candidates, water_cell + Vector2i(-radius, dy), water_cell
+			)
+			_append_water_skip_candidate(
+				candidates, water_cell + Vector2i(radius, dy), water_cell
+			)
+		for candidate_index in range(ring_start, candidates.size()):
+			best_distance_squared = mini(
+				best_distance_squared,
+				int(candidates[candidate_index]["distance_squared"])
+			)
+		# Chebyshev rings are cheap to enumerate and this Euclidean lower bound
+		# proves no later ring can beat the best result. Unlike stopping at the
+		# first non-empty ring, it stays exact when a diagonal is farther away
+		# than an axial cell on the following ring.
+		var next_radius := radius + 1
+		if next_radius * next_radius > best_distance_squared:
+			break
+	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if int(a["distance_squared"]) != int(b["distance_squared"]):
+			return int(a["distance_squared"]) < int(b["distance_squared"])
+		if int(a["elevation"]) != int(b["elevation"]):
+			return int(a["elevation"]) < int(b["elevation"])
+		var a_coord: Vector2i = a["coord"]
+		var b_coord: Vector2i = b["coord"]
+		return a_coord.y < b_coord.y or (
+			a_coord.y == b_coord.y and a_coord.x < b_coord.x
+		)
+	)
+	var resolved: Dictionary = (
+		candidates[0]
+		if not candidates.is_empty()
+		else {}
+	)
+	_water_skip_cache_key = cache_key
+	_water_skip_cache_target = resolved.duplicate(true)
+	return resolved.duplicate(true)
+
+
+func _append_water_skip_candidate(
+	result: Array[Dictionary],
+	candidate: Vector2i,
+	source: Vector2i
+) -> void:
+	var elevation := (
+		core.grid.top_elevation(candidate) + 1
+		if core.grid.has_cell(candidate)
+		else 0
+	)
+	if not _rules.validate(held, candidate, elevation, 0, ""):
+		return
+	result.append({
+		"coord": candidate,
+		"elevation": elevation,
+		"distance_squared": candidate.distance_squared_to(source),
+	})
+
+
+func _is_water_skip_source(cell: Vector2i) -> bool:
+	if held.get("kind", "") != "tile":
+		return false
+	# Authored water can exist in an unrevealed neighbouring Nook. It remains a
+	# hard boundary until that Nook opens; a splash must never tunnel the build
+	# intent back to some distant unlocked cell.
+	if not core.is_player_build_cell_unlocked(cell):
+		return false
+	var held_definition := core.registries.tile(String(held.get("id", "")))
+	if (
+		held_definition == null
+		or held_definition.placeable_on_water
+		or held_definition.surface_kind == "water"
+		or not held_definition.water_cells.is_empty()
+	):
+		return false
+	var top := core.grid.top_elevation(cell)
+	if top < 0:
+		return false
+	var target_definition := core.grid.tile_def_at(cell, top)
+	return (
+		target_definition != null
+		and (
+			target_definition.surface_kind == "water"
+			or target_definition.render_profile == "continuous_water"
+		)
+	)
+
+
+func _water_skip_impact_position(cell: Vector2i) -> Vector3:
+	var point := core.grid.cell_to_world(
+		cell, maxi(0, core.grid.top_elevation(cell))
+	)
+	point.y = core.registries.tunef("water_level_y", -0.14)
+	return point
+
+
+func _placement_action_valid() -> bool:
+	return (
+		_hover_valid
+		or not _water_skip_preview_target.is_empty()
+		or not water_skip_target_for(_hover_cell).is_empty()
+	)
+
+
+func _try_water_skip() -> bool:
+	var source := _hover_cell
+	var target := water_skip_target_for(source)
+	if target.is_empty():
+		return false
+	_pending_water_skip = {
+		"source": source,
+		"impact_position": _water_skip_impact_position(source),
+		"destination": target["coord"],
+		"elevation": int(target["elevation"]),
+	}
+	_hover_cell = target["coord"]
+	_hover_elevation = int(target["elevation"])
+	_hover_support_instance_id = 0
+	_hover_support_slot = ""
+	_hover_valid = _validate(_hover_cell, _hover_elevation)
+	_water_skip_preview_target = {}
+	if not _hover_valid:
+		_pending_water_skip = {}
+		return false
+	return _place_tile()
+
+
+func _invalidate_water_skip_cache() -> void:
+	_water_skip_cache_key = ""
+	_water_skip_cache_target = {}
+	_water_skip_preview_target = {}
+
+
 # ------------------------------------------------------------------ clicks
 
 ## Programmatic placement at an explicit cell — used by acceptance tests and
@@ -1214,7 +1409,7 @@ func try_place_at(cell: Vector2i) -> bool:
 			_hover_elevation = 0
 	_hover_valid = _validate(cell, _hover_elevation)
 	if not _hover_valid:
-		return false
+		return _try_water_skip()
 	click()
 	return true
 
@@ -1318,7 +1513,7 @@ func pointer_release(screen_position: Vector2) -> bool:
 	_pointer_screen_position = screen_position
 	var was_dragging := _pointer_down and _pointer_dragging
 	if _pointer_down and _pointer_dragging and _picked_on_pointer_press and not held.is_empty():
-		if _hover_valid:
+		if _placement_action_valid():
 			click()
 		else:
 			action_result.emit(false, _invalid_message(), "invalid")
@@ -1369,6 +1564,8 @@ func click() -> void:
 		_try_pick_up()
 		return
 	if not _hover_valid:
+		if _try_water_skip():
+			return
 		action_result.emit(false, _invalid_message(), "invalid")
 		return
 	match held["kind"]:
@@ -1381,14 +1578,29 @@ func click() -> void:
 
 
 func _invalid_message() -> String:
+	if _is_water_skip_source(_hover_cell):
+		return "Splosh — this land needs a nearby clear place to settle."
 	return _rules.invalid_message(
 		held, _hover_cell, _hover_elevation, _hover_support_instance_id
 	)
 
 
-func _place_tile() -> void:
+func _place_tile() -> bool:
 	var tile_id: String = held["id"]
 	var rotation_q: int = held["rotation"]
+	var water_skip := _pending_water_skip.duplicate(true)
+	_pending_water_skip = {}
+	var skip_relative_elevations: Array[int] = [0]
+	if not water_skip.is_empty() and held["moving"] != null:
+		skip_relative_elevations.clear()
+		for entry: Dictionary in held["moving"]["stack"]:
+			skip_relative_elevations.append(int(entry["relative_elevation"]))
+	if not water_skip.is_empty():
+		for relative: int in skip_relative_elevations:
+			world_renderer.prepare_water_skip_placement(
+				_hover_cell,
+				_hover_elevation + relative
+			)
 	var wish_arrival := (
 		String(held.get("arrival", "")) == "wish"
 		and held["moving"] == null
@@ -1401,8 +1613,12 @@ func _place_tile() -> void:
 		_rotate_tile_stack(stack, rotation_q - from_rotation)
 		if not core.grid.restore_tile_stack(_hover_cell, _hover_elevation, stack):
 			_rotate_tile_stack(stack, from_rotation - rotation_q)
+			_cancel_water_skip_refreshes(
+				water_skip,
+				skip_relative_elevations
+			)
 			action_result.emit(false, "That land stack changed before it could settle.", "invalid")
-			return
+			return false
 		_push_undo({
 			"type": "move_tile_stack",
 			"from": from,
@@ -1431,8 +1647,12 @@ func _place_tile() -> void:
 					_hover_cell,
 					_hover_elevation
 				)
+			_cancel_water_skip_refreshes(
+				water_skip,
+				skip_relative_elevations
+			)
 			action_result.emit(false, "That piece isn't in storage anymore.", "invalid")
-			return
+			return false
 		_push_undo({
 			"type": "place_tile",
 			"coord": _hover_cell,
@@ -1451,7 +1671,17 @@ func _place_tile() -> void:
 		_hover_elevation
 	)
 	var landing_tween: Tween = null
-	if wish_arrival:
+	if not water_skip.is_empty():
+		var impact_position: Vector3 = water_skip["impact_position"]
+		effects.ripple(impact_position)
+		tile_splashed.emit(impact_position, effect_position)
+		landing_tween = world_renderer.animate_tile_stack_water_skip(
+			_hover_cell,
+			_hover_elevation,
+			skip_relative_elevations,
+			impact_position
+		)
+	elif wish_arrival:
 		landing_tween = world_renderer.animate_tile_wish_landing(
 			_hover_cell,
 			_hover_elevation
@@ -1459,9 +1689,29 @@ func _place_tile() -> void:
 	_finish_placement_feedback(
 		effect_position,
 		def.placement_sound,
-		"Stacked at level %d." % _hover_elevation if _hover_elevation > 0 else "",
+		(
+			"Splosh! It bounced onto the nearest clear spot."
+			if not water_skip.is_empty()
+			else "Stacked at level %d." % _hover_elevation
+				if _hover_elevation > 0
+				else ""
+		),
 		landing_tween
 	)
+	return true
+
+
+func _cancel_water_skip_refreshes(
+	water_skip: Dictionary,
+	relative_elevations: Array[int]
+) -> void:
+	if water_skip.is_empty():
+		return
+	for relative: int in relative_elevations:
+		world_renderer.cancel_water_skip_placement(
+			_hover_cell,
+			_hover_elevation + relative
+		)
 
 
 func _rotate_tile_stack(stack: Array, quarter_turn_delta: int) -> void:

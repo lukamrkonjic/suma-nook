@@ -1102,8 +1102,9 @@ func _test_registries() -> void:
 	)
 	check(
 		regs.tile("tile_open_water").render_profile == "continuous_water"
-		and regs.tile("tile_open_water").collision_profile == "none",
-		"open water remains a real continuous-water tile"
+		and regs.tile("tile_open_water").collision_profile == "none"
+		and not regs.tile("tile_grass").placeable_on_water,
+		"open water remains continuous while current land opts into playful shoreline skipping"
 	)
 	check(
 		regs.active_tile_ids().size() == 60
