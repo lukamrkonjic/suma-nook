@@ -991,15 +991,9 @@
     {
       "id": "struct_stump_pine",
       "name": "Pine Stump",
-      "asset_id": "prop_log_pile",
+      "asset_id": "prop_stump",
       "kind": "decoration",
       "socket_type": "decor",
-      "preserve_instance_state": true,
-      "capabilities": {
-        "harvest_source": {
-          "profile_id": "harvest_stump_pry"
-        }
-      },
       "tags": [
         "biome_forest"
       ],
@@ -1011,6 +1005,32 @@
         "small",
         "stateful"
       ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_rock_remnant",
+      "name": "Stone Remnant",
+      "asset_id": "prop_uw_rocks_a",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "blocks_movement": false,
+      "placement_sound": "stone",
+      "placement_tags": ["rock", "nature", "small", "stateful"],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_reward_drop",
+      "name": "Fallen Gift",
+      "asset_id": "prop_crate",
+      "kind": "utility",
+      "socket_type": "decor",
+      "blocks_movement": false,
+      "preserve_instance_state": true,
+      "capabilities": {"reward_drop": {}},
+      "placement_sound": "stone",
+      "placement_tags": ["reward", "small", "stateful"],
       "can_be_stacked": false,
       "support_slots": []
     }

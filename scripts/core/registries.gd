@@ -21,6 +21,9 @@ const StructureDefinitionValidatorScript := preload(
 const CatalogReferenceValidatorScript := preload(
 	"res://scripts/core/content/validators/catalog_reference_validator.gd"
 )
+const ProjectDefinitionsScript := preload(
+	"res://scripts/features/projects/project_definitions.gd"
+)
 
 var snapshot
 var tuning: Dictionary = {}
@@ -46,6 +49,8 @@ var reward_roll_policies: Dictionary = {}
 var reward_reveal_profiles: Dictionary = {}
 var token_boxes: Dictionary = {}
 var harvest_profiles: Dictionary = {}
+var project_definitions: Dictionary = {}
+var special_finds: Dictionary = {}
 var visitor_presentations: Dictionary = {}
 var visitor_programs: Dictionary = {}
 var nook_biomes: Dictionary = {}
@@ -176,6 +181,16 @@ func load_all(base_path := "res://data", report_issues := true) -> bool:
 		candidate, base_path + "/harvest_profiles.json", "harvest_profiles",
 		"harvest_profiles", candidate.harvest_profiles,
 		Defs.HarvestProfileDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/projects.json", "projects",
+		"project_definitions", candidate.project_definitions,
+		ProjectDefinitionsScript.ProjectDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/special_finds.json", "special_finds",
+		"special_finds", candidate.special_finds,
+		ProjectDefinitionsScript.SpecialFindDefinition.from_dict, issues
 	)
 	_load_list(
 		candidate, base_path + "/visitor_presentations.json", "visitor_presentations",
@@ -322,6 +337,8 @@ func reward_roll_policy(id: String) -> Defs.RewardRollPolicyDefinition: return r
 func reward_reveal_profile(id: String) -> Defs.RewardRevealProfileDefinition: return reward_reveal_profiles.get(id)
 func token_box(id: String) -> Defs.TokenBoxDefinition: return token_boxes.get(id)
 func harvest_profile(id: String) -> Defs.HarvestProfileDefinition: return harvest_profiles.get(id)
+func project_definition(id: String): return project_definitions.get(id)
+func special_find(id: String): return special_finds.get(id)
 func visitor_presentation(id: String) -> Defs.VisitorPresentationDefinition: return visitor_presentations.get(id)
 func visitor_program(id: String) -> Defs.VisitorProgramDefinition: return visitor_programs.get(id)
 func nook_biome(id: String) -> NookDefs.NookBiomeDefinition: return nook_biomes.get(id)
@@ -625,6 +642,8 @@ func _adopt(candidate) -> void:
 	reward_reveal_profiles = candidate.reward_reveal_profiles
 	token_boxes = candidate.token_boxes
 	harvest_profiles = candidate.harvest_profiles
+	project_definitions = candidate.project_definitions
+	special_finds = candidate.special_finds
 	visitor_presentations = candidate.visitor_presentations
 	visitor_programs = candidate.visitor_programs
 	nook_biomes = candidate.nook_biomes

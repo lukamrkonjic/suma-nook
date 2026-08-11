@@ -9,6 +9,7 @@ var target_instance_id: int
 var enabled := true
 var disabled_reason: String
 var payload: Dictionary = {}
+var interaction_priority := 0
 
 
 func _init(
@@ -18,7 +19,8 @@ func _init(
 	option_target_instance_id: int,
 	option_enabled := true,
 	option_reason: String = "",
-	option_payload: Dictionary = {}
+	option_payload: Dictionary = {},
+	priority := 0
 ) -> void:
 	id = option_id
 	label = option_label
@@ -27,3 +29,8 @@ func _init(
 	enabled = option_enabled
 	disabled_reason = option_reason
 	payload = option_payload.duplicate(true)
+	interaction_priority = priority
+
+
+func is_busy() -> bool:
+	return bool(payload.get("busy", false))

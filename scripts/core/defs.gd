@@ -380,8 +380,9 @@ class TokenBoxDefinition:
 
 class HarvestProfileDefinition:
 	extends Resource
-	## Lifecycle and economy for a reusable harvest source. Structures opt in
-	## through a capability payload that references this stable id.
+	## Lifecycle and Project-contribution vocabulary for a reusable harvest
+	## source. Structures opt in through a capability payload that references
+	## this stable id.
 	var id: String
 	var display_name: String
 	var traits := DefinitionTraits.new()
@@ -392,9 +393,8 @@ class HarvestProfileDefinition:
 	var regrowth_seconds: float = 30.0
 	var reward_pool_id: String = ""
 	var first_reward_pool_id: String = ""
-	## A source may pay a themed pouch token instead of rolling a world piece.
-	## Keeping both reward modes in one profile leaves special-biome drops and
-	## future event sources free to opt back into direct rewards.
+	## Legacy reward fields remain loadable for retired profiles and old saves.
+	## Active ordinary resources use contribution_tags instead.
 	var token_id: String = ""
 	var token_min: int = 1
 	var token_max: int = 1
@@ -403,6 +403,14 @@ class HarvestProfileDefinition:
 	var reveal_profile_id: String = ""
 	var home_collection: String = ""
 	var presentation_profile: String = "soft_source"
+	## Project contribution vocabulary. Flexible slots (for example Provisions)
+	## decide which of these tags they accept; the source never knows a Project.
+	var contribution_tags: Array[String] = []
+	## One click starts one complete action. The centralized lifecycle deadline
+	## finishes it without one Timer/Process callback per world node.
+	var action_seconds: float = 0.75
+	## Optional state-specific model displayed while the original source regrows.
+	var depleted_structure_id: String = ""
 	## What the final hit does. "regrow" keeps the classic cycle;
 	## "clear" removes the feature from the world, leaving
 	## `leaves_structure_id` behind (stump, rubble) or nothing. Clearing is
@@ -437,6 +445,10 @@ class HarvestProfileDefinition:
 		profile.reveal_profile_id = String(d.get("reveal_profile", ""))
 		profile.home_collection = String(d.get("home_collection", ""))
 		profile.presentation_profile = String(d.get("presentation", "soft_source"))
+		for raw_tag: Variant in d.get("contribution_tags", []):
+			profile.contribution_tags.append(String(raw_tag).to_lower())
+		profile.action_seconds = maxf(0.0, float(d.get("action_seconds", 0.75)))
+		profile.depleted_structure_id = String(d.get("depleted_structure", ""))
 		profile.on_final = String(d.get("on_final", "regrow"))
 		profile.leaves_structure_id = String(d.get("leaves", ""))
 		profile.presentation_settings = (

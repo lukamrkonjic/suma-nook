@@ -25,10 +25,13 @@ func _init(
 	grid: WorldGrid,
 	stock: StockManager,
 	collection: CollectionManager,
-	equipment: EquipmentManager
+	equipment: EquipmentManager,
+	build_rewards: BuildRewardService = null
 ) -> void:
 	registries = regs
-	discovery = DiscoverySystem.new(regs, rng, grid, stock, collection)
+	discovery = DiscoverySystem.new(
+		regs, rng, grid, stock, collection, build_rewards
+	)
 	milestones = MilestoneSystem.new(regs, stock, equipment, collection)
 	collection.discovered.connect(func(_category: String, _id: String):
 		milestones.check_all(activity_actions)

@@ -27,6 +27,11 @@ func setup(
 		if adapter != null:
 			adapter._on_hit_landed(instance_id, hit)
 	)
+	module.connect("interaction_started", func(instance_id, interaction):
+		var adapter := adapter_ref.get_ref() as HarvestPresentationAdapter
+		if adapter != null:
+			adapter._on_interaction_started(instance_id, interaction)
+	)
 	module.connect("source_state_changed", func(instance_id, state, status):
 		var adapter := adapter_ref.get_ref() as HarvestPresentationAdapter
 		if adapter != null:
@@ -36,6 +41,18 @@ func setup(
 
 func request_hit(instance_id: int, actor := "player") -> Dictionary:
 	return module.call("request_hit", instance_id, actor)
+
+
+func _on_interaction_started(instance_id: int, interaction: Dictionary) -> void:
+	var presentation := String(interaction.get("presentation", "soft_source"))
+	if audio != null:
+		if presentation == "clay_rock":
+			audio.play_event("place_stone", -3.0, 1.12)
+		elif presentation == "berry_cluster":
+			audio.play_event("leaf_rustle", -4.0, 1.08)
+		else:
+			audio.play_event("chop_windup")
+	feedback.emit("started", interaction.duplicate(true))
 
 
 func _on_hit_landed(instance_id: int, hit: Dictionary) -> void:

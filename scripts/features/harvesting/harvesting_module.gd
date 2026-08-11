@@ -5,15 +5,17 @@ extends RefCounted
 ## storage, save, and future automation all share one state.
 
 signal source_state_changed(instance_id: int, state: String, status: Dictionary)
+signal interaction_started(instance_id: int, interaction: Dictionary)
 signal hit_landed(instance_id: int, hit: Dictionary)
 signal reward_granted(instance_id: int, reward: Dictionary)
-## Final hit on a profile with on_final == "clear". The module never mutates
-## the grid itself: the Nook clearing listener issues the clear_feature
-## command, keeping world mutation at the single command choke point.
+signal contribution_produced(instance_id: int, contribution: Dictionary)
+## Compatibility signal for retired clear-on-final profiles. Active Project
+## resources remain in the world and transition through a regrowth state.
 signal source_cleared(instance_id: int, clearing: Dictionary)
 
 const STATE_MATURING := "maturing"
 const STATE_READY := "ready"
+const STATE_INTERACTING := "interacting"
 const STATE_REGROWING := "regrowing"
 const STATE_CLEARED := "cleared"
 const RUNTIME_KEY := "harvest"
@@ -21,11 +23,11 @@ const RUNTIME_KEY := "harvest"
 var registries: Registries
 var rng: RngService
 var grid: WorldGrid
-var rewards: RefCounted
-var token_pouch: RefCounted
+var contributions: ContributionService
 var enabled := true
+## Preserved solely so pre-Project saves round-trip without data loss.
 var first_rewards_claimed: Dictionary = {}
-var reward_history: Dictionary = {} # home_collection -> recent tokens + rare misses
+var reward_history: Dictionary = {}
 var total_cycles := 0
 
 var _now_provider: Callable
@@ -36,15 +38,13 @@ func _init(
 	regs: Registries,
 	rng_service: RngService,
 	world_grid: WorldGrid,
-	reward_service: RefCounted,
-	pouch_service: RefCounted,
+	contribution_service: ContributionService,
 	now_provider: Callable = Callable()
 ) -> void:
 	registries = regs
 	rng = rng_service
 	grid = world_grid
-	rewards = reward_service
-	token_pouch = pouch_service
+	contributions = contribution_service
 	enabled = registries.feature("harvesting_enabled", true)
 	_now_provider = now_provider
 	var module_ref: WeakRef = weakref(self)
@@ -125,8 +125,8 @@ func status(instance_id: int) -> Dictionary:
 	return _status_dictionary(profile, runtime)
 
 
-## One call equals one deliberate click/confirm. Automation can use the same
-## port with actor="helper"; helpers are prevented from taking the final hit.
+## One call starts one complete interaction. A centralized deadline finishes
+## the action, so rapid input cannot add hits or duplicate a contribution.
 func request_hit(instance_id: int, actor := "player") -> Dictionary:
 	if not enabled:
 		return {"accepted": false, "reason": "disabled"}
@@ -146,92 +146,102 @@ func request_hit(instance_id: int, actor := "player") -> Dictionary:
 			"reason": String(runtime.get("state", STATE_MATURING)),
 			"remaining": maxf(0.0, float(runtime.get("deadline_unix", 0.0)) - _now()),
 		}
-	var next_hit := int(runtime.get("hits", 0)) + 1
-	if actor != "player" and next_hit >= profile.hits_required:
-		return {"accepted": false, "reason": "final_hit_reserved"}
-	runtime["hits"] = next_hit
-	var final := next_hit >= profile.hits_required
+	var target: Dictionary = contributions.target_for(profile.contribution_tags)
+	if target.is_empty():
+		return {
+			"accepted": false,
+			"reason": "not_needed",
+			"contribution_tags": profile.contribution_tags.duplicate(),
+		}
+	var action_id := "%d:%d" % [
+		instance_id,
+		int(runtime.get("cycles", 0)) + 1,
+	]
+	var deadline := _now() + profile.action_seconds
+	runtime["state"] = STATE_INTERACTING
+	runtime["hits"] = 0
+	runtime["deadline_unix"] = deadline
+	runtime["pending_action_id"] = action_id
+	runtime["pending_target"] = target.duplicate(true)
+	runtime["pending_actor"] = actor
+	var interaction := {
+		"accepted": true,
+		"instance_id": instance_id,
+		"actor": actor,
+		"action_id": action_id,
+		"duration": profile.action_seconds,
+		"deadline_unix": deadline,
+		"profile_id": profile.id,
+		"verb": profile.verb,
+		"presentation": profile.presentation_profile,
+		"contribution_tags": profile.contribution_tags.duplicate(),
+	}
+	_schedule_instance(instance_id, deadline)
+	source_state_changed.emit(
+		instance_id, STATE_INTERACTING, _status_dictionary(profile, runtime)
+	)
+	interaction_started.emit(instance_id, interaction.duplicate(true))
+	return interaction
+
+
+## Tests and scene adapters may force the central completion point; ordinary
+## play reaches it from tick() when the saved deadline becomes due.
+func complete_interaction(instance_id: int) -> Dictionary:
+	var found := grid.find_structure(instance_id)
+	if found.is_empty():
+		return {"accepted": false, "reason": "missing"}
+	var structure: WorldGrid.StructureState = found["structure"]
+	var profile := profile_for_structure(structure)
+	var runtime := _runtime(structure, false)
+	if profile == null or String(runtime.get("state", "")) != STATE_INTERACTING:
+		return {"accepted": false, "reason": "not_interacting"}
+	var action_id := String(runtime.get("pending_action_id", ""))
+	var contribution: Dictionary = contributions.contribute(
+		profile.contribution_tags,
+		"harvest:%s:%s" % [profile.id, action_id],
+		{
+			"source": "resource_node",
+			"instance_id": instance_id,
+			"profile_id": profile.id,
+		},
+		(runtime.get("pending_target", {}) as Dictionary)
+	)
+	if not bool(contribution.get("accepted", false)):
+		runtime["state"] = STATE_READY
+		runtime["deadline_unix"] = 0.0
+		_clear_pending(runtime)
+		source_state_changed.emit(
+			instance_id, STATE_READY, _status_dictionary(profile, runtime)
+		)
+		return contribution
+	var actor := String(runtime.get("pending_actor", "player"))
+	runtime["cycles"] = int(runtime.get("cycles", 0)) + 1
+	runtime["state"] = STATE_REGROWING
+	runtime["deadline_unix"] = _now() + profile.regrowth_seconds
+	total_cycles += 1
+	_clear_pending(runtime)
+	_schedule_instance(instance_id, float(runtime["deadline_unix"]))
 	var hit := {
 		"accepted": true,
 		"instance_id": instance_id,
 		"actor": actor,
-		"hit": next_hit,
-		"hits_required": profile.hits_required,
-		"progress": float(next_hit) / float(profile.hits_required),
-		"penultimate": next_hit == profile.hits_required - 1,
-		"final": final,
+		"hit": 1,
+		"hits_required": 1,
+		"progress": 1.0,
+		"penultimate": false,
+		"final": true,
 		"profile_id": profile.id,
 		"verb": profile.verb,
 		"presentation": profile.presentation_profile,
-		"reveal_profile_id": profile.reveal_profile_id,
+		"contribution": contribution.duplicate(true),
 	}
-	if final:
-		runtime["cycles"] = int(runtime.get("cycles", 0)) + 1
-		total_cycles += 1
-		var reward := _grant_harvest_reward(profile, int(runtime["cycles"]))
-		hit["reward"] = reward.duplicate(true)
-		reward_granted.emit(instance_id, reward.duplicate(true))
-		if profile.on_final == "clear":
-			runtime["state"] = STATE_CLEARED
-			hit["cleared"] = true
-			hit["leaves_structure_id"] = profile.leaves_structure_id
-			source_state_changed.emit(
-				instance_id, STATE_CLEARED, _status_dictionary(profile, runtime)
-			)
-			source_cleared.emit(instance_id, {
-				"instance_id": instance_id,
-				"profile_id": profile.id,
-				"verb": profile.verb,
-				"leaves_structure_id": profile.leaves_structure_id,
-				"actor": actor,
-			})
-		else:
-			runtime["state"] = STATE_REGROWING
-			runtime["hits"] = 0
-			runtime["deadline_unix"] = _now() + profile.regrowth_seconds
-			_schedule_instance(instance_id, float(runtime["deadline_unix"]))
-			source_state_changed.emit(
-				instance_id, STATE_REGROWING, _status_dictionary(profile, runtime)
-			)
+	contribution_produced.emit(instance_id, contribution.duplicate(true))
+	reward_granted.emit(instance_id, contribution.duplicate(true))
 	hit_landed.emit(instance_id, hit.duplicate(true))
-	return hit
-
-
-func _grant_harvest_reward(
-	profile: Defs.HarvestProfileDefinition,
-	cycle: int
-) -> Dictionary:
-	var first_claim := not bool(first_rewards_claimed.get(profile.id, false))
-	if profile.token_id != "":
-		var amount := rng.randi_range(
-			"harvest_token:%s:%d" % [profile.id, cycle],
-			profile.token_min,
-			profile.token_max
-		)
-		if first_claim:
-			amount += profile.first_token_bonus
-			first_rewards_claimed[profile.id] = true
-		var granted: Variant = token_pouch.call(
-			"grant",
-			profile.token_id,
-			amount,
-			"harvest:%s:%d" % [profile.id, cycle]
-		)
-		return granted as Dictionary
-	var pool_id := profile.reward_pool_id
-	if profile.first_reward_pool_id != "" and first_claim:
-		pool_id = profile.first_reward_pool_id
-		first_rewards_claimed[profile.id] = true
-	var history := _reward_history_for(profile.home_collection)
-	var reward: Dictionary = rewards.call(
-		"roll_and_grant",
-		pool_id,
-		"harvest:%s:%d" % [profile.id, cycle],
-		profile.roll_policy_id,
-		history
+	source_state_changed.emit(
+		instance_id, STATE_REGROWING, _status_dictionary(profile, runtime)
 	)
-	_update_reward_history(profile, reward)
-	return reward
+	return hit
 
 
 func remaining_seconds(instance_id: int) -> float:
@@ -341,9 +351,13 @@ func _normalize_due(
 	if runtime.is_empty():
 		return
 	var state := String(runtime.get("state", STATE_MATURING))
-	if state == STATE_READY or state == STATE_CLEARED \
-		or float(runtime.get("deadline_unix", 0.0)) > now:
+	if state == STATE_READY or float(runtime.get("deadline_unix", 0.0)) > now:
 		return
+	if state == STATE_INTERACTING:
+		complete_interaction(structure.instance_id)
+		return
+	# Legacy clear-state instances that still exist migrate into the reusable
+	# lifecycle. Old saves where the source was actually replaced remain intact.
 	runtime["state"] = STATE_READY
 	runtime["hits"] = 0
 	runtime["deadline_unix"] = 0.0
@@ -370,7 +384,16 @@ func _status_dictionary(
 		"tool_icon": profile.tool_icon,
 		"home_collection": profile.home_collection,
 		"presentation": profile.presentation_profile,
+		"contribution_tags": profile.contribution_tags.duplicate(),
+		"busy": String(runtime.get("state", "")) == STATE_INTERACTING,
+		"depleted_structure_id": profile.depleted_structure_id,
 	}
+
+
+func _clear_pending(runtime: Dictionary) -> void:
+	runtime.erase("pending_action_id")
+	runtime.erase("pending_target")
+	runtime.erase("pending_actor")
 
 
 func _schedule_instance(instance_id: int, deadline: float) -> void:

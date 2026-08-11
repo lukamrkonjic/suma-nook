@@ -1,0 +1,89 @@
+{
+  "projects": [
+    {
+      "id": "project_frontier_standard",
+      "name": "Frontier Project",
+      "type": "frontier",
+      "weight": 1.0,
+      "contributions": [
+        {"id": "timber", "name": "Timber", "accepts": ["timber"], "amount": 1, "icon": "res://assets/ui/icons/harvest_axe.svg"},
+        {"id": "stone", "name": "Stone", "accepts": ["stone"], "amount": 1, "icon": "res://assets/ui/icons/harvest_pickaxe.svg"},
+        {"id": "provisions", "name": "Provisions", "accepts": ["provisions", "fish", "crop", "fruit", "forage", "herb"], "amount": 1, "icon": "res://assets/ui/icons/harvest_sickle.svg"}
+      ],
+      "reward": {"kind": "frontier"},
+      "presentation": {"tone": "frontier", "preview": "A new place waits beyond the boundary."}
+    },
+    {
+      "id": "project_frontier_mountain",
+      "name": "Mountain Frontier",
+      "type": "frontier",
+      "rarity": "rare",
+      "special": true,
+      "weight": 0.0,
+      "contributions": [
+        {"id": "timber", "name": "Timber", "accepts": ["timber"], "amount": 1, "icon": "res://assets/ui/icons/harvest_axe.svg"},
+        {"id": "stone", "name": "Stone", "accepts": ["stone"], "amount": 1, "icon": "res://assets/ui/icons/harvest_pickaxe.svg"},
+        {"id": "crystal", "name": "Crystal", "accepts": ["find:crystal"], "amount": 1, "consumes_find": true, "icon": "res://assets/ui/icons/harvest_crack.svg"}
+      ],
+      "reward": {"kind": "frontier", "character": "mountain"},
+      "presentation": {"tone": "special", "preview": "Stone shoulders and a pale glint show through the mist."}
+    },
+    {
+      "id": "project_frontier_ancient",
+      "name": "Ancient Frontier",
+      "type": "frontier",
+      "rarity": "rare",
+      "special": true,
+      "weight": 0.0,
+      "contributions": [
+        {"id": "stone", "name": "Stone", "accepts": ["stone"], "amount": 1, "icon": "res://assets/ui/icons/harvest_pickaxe.svg"},
+        {"id": "provisions", "name": "Provisions", "accepts": ["provisions", "fish", "crop", "fruit", "forage", "herb"], "amount": 1, "icon": "res://assets/ui/icons/harvest_sickle.svg"},
+        {"id": "relic_fragment", "name": "Relic Fragment", "accepts": ["find:relic_fragment"], "amount": 1, "consumes_find": true, "icon": "res://assets/ui/icons/harvest_crack.svg"}
+      ],
+      "reward": {"kind": "frontier", "character": "ancient"},
+      "presentation": {"tone": "special", "preview": "Weathered shapes suggest an older place beyond."}
+    },
+    {
+      "id": "project_collection_forest",
+      "name": "Forest Collection Project",
+      "type": "collection",
+      "collection": "woodland",
+      "weight": 1.0,
+      "contributions": [
+        {"id": "timber", "name": "Timber", "accepts": ["timber"], "amount": 1, "icon": "res://assets/ui/icons/harvest_axe.svg"},
+        {"id": "provisions", "name": "Provisions", "accepts": ["provisions", "fish", "crop", "fruit", "forage", "herb"], "amount": 1, "icon": "res://assets/ui/icons/harvest_sickle.svg"},
+        {"id": "stone", "name": "Stone", "accepts": ["stone"], "amount": 1, "icon": "res://assets/ui/icons/harvest_pickaxe.svg"}
+      ],
+      "reward": {"kind": "collection_item", "concealed": true},
+      "presentation": {"tone": "forest"}
+    },
+    {
+      "id": "project_collection_cottage",
+      "name": "Cottage Collection Project",
+      "type": "collection",
+      "collection": "buildings",
+      "weight": 1.0,
+      "contributions": [
+        {"id": "timber", "name": "Timber", "accepts": ["timber"], "amount": 1, "icon": "res://assets/ui/icons/harvest_axe.svg"},
+        {"id": "stone", "name": "Stone", "accepts": ["stone"], "amount": 1, "icon": "res://assets/ui/icons/harvest_pickaxe.svg"},
+        {"id": "provisions", "name": "Provisions", "accepts": ["provisions", "fish", "crop", "fruit", "forage", "herb"], "amount": 1, "icon": "res://assets/ui/icons/harvest_sickle.svg"}
+      ],
+      "reward": {"kind": "collection_item", "concealed": true},
+      "presentation": {"tone": "cottage"}
+    },
+    {
+      "id": "project_collection_garden",
+      "name": "Garden Collection Project",
+      "type": "collection",
+      "collection": "nature",
+      "weight": 1.0,
+      "contributions": [
+        {"id": "provisions", "name": "Provisions", "accepts": ["provisions", "fish", "crop", "fruit", "forage", "herb"], "amount": 1, "icon": "res://assets/ui/icons/harvest_sickle.svg"},
+        {"id": "timber", "name": "Timber", "accepts": ["timber"], "amount": 1, "icon": "res://assets/ui/icons/harvest_axe.svg"},
+        {"id": "stone", "name": "Stone", "accepts": ["stone"], "amount": 1, "icon": "res://assets/ui/icons/harvest_pickaxe.svg"}
+      ],
+      "reward": {"kind": "collection_item", "concealed": true},
+      "presentation": {"tone": "garden"}
+    }
+  ]
+}

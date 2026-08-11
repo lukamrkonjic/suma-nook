@@ -132,12 +132,38 @@ static func _validate_harvest_profiles(snapshot, issues: Array) -> void:
 		var source = snapshot.source("harvest_profiles", profile.id)
 		var pays_tokens := profile.token_id != ""
 		var pays_direct_reward := profile.reward_pool_id != ""
+		var pays_contribution := not profile.contribution_tags.is_empty()
+		var reward_mode_count := (
+			int(pays_tokens) + int(pays_direct_reward) + int(pays_contribution)
+		)
 		_require(
-			issues, pays_tokens != pays_direct_reward,
-			"harvest.profile.reward_mode", source, "token",
-			"harvest profile '%s' must define exactly one of token or reward_pool"
+			issues, reward_mode_count == 1,
+			"harvest.profile.reward_mode", source, "contribution_tags",
+			(
+				"harvest profile '%s' must define exactly one of token, "
+				+ "reward_pool, or contribution_tags"
+			)
 			% profile.id
 		)
+		if pays_contribution:
+			var unique_tags: Dictionary = {}
+			for tag: String in profile.contribution_tags:
+				_require(
+					issues, not tag.is_empty(),
+					"harvest.profile.contribution_tag", source,
+					"contribution_tags", "contribution tags cannot be empty"
+				)
+				unique_tags[tag] = true
+			_require(
+				issues, unique_tags.size() == profile.contribution_tags.size(),
+				"harvest.profile.contribution_tags", source,
+				"contribution_tags", "contribution tags must be unique"
+			)
+			_require(
+				issues, profile.action_seconds > 0.0,
+				"harvest.profile.action_seconds", source, "action_seconds",
+				"contribution actions must take a positive amount of time"
+			)
 		_require(
 			issues,
 			not pays_direct_reward
@@ -188,7 +214,9 @@ static func _validate_harvest_profiles(snapshot, issues: Array) -> void:
 			"hits", "harvest sources require at least one hit"
 		)
 		_require(
-			issues, profile.home_collection != "", "harvest.profile.collection",
+			issues,
+			pays_contribution or profile.home_collection != "",
+			"harvest.profile.collection",
 			source, "home_collection", "harvest profile needs a home collection"
 		)
 		_require(

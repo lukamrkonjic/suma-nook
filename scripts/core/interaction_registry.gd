@@ -24,6 +24,9 @@ func options_for(actor_id: String, instance_id: int) -> Array:
 		if provider == null or not provider.has_method("options_for"):
 			continue
 		result.append_array(provider.options_for(actor_id, instance_id))
+	result.sort_custom(func(a, b) -> bool:
+		return int(a.interaction_priority) > int(b.interaction_priority)
+	)
 	return result
 
 

@@ -23,7 +23,8 @@ func options_for(_actor_id: String, instance_id: int) -> Array:
 		instance_id,
 		true,
 		"",
-		{"burning": burning}
+		{"burning": burning, "busy": false},
+		60
 	)]
 
 

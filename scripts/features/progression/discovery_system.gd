@@ -17,11 +17,13 @@ var rng: RngService
 var grid: WorldGrid
 var stock: StockManager
 var collection: CollectionManager
+var build_rewards: BuildRewardService
 
 var pending: Array[Dictionary] = []
 var wish_choices: Array[Dictionary] = []
 var seconds_until_wish := -1.0
 var wishes_completed := 0
+var event_blocked := false
 
 
 func _init(
@@ -29,18 +31,20 @@ func _init(
 	rng_service: RngService,
 	world_grid: WorldGrid,
 	player_stock: StockManager,
-	journal: CollectionManager
+	journal: CollectionManager,
+	reward_service: BuildRewardService = null
 ) -> void:
 	registries = regs
 	rng = rng_service
 	grid = world_grid
 	stock = player_stock
 	collection = journal
+	build_rewards = reward_service
 	_schedule_next_wish(true)
 
 
 func tick(delta: float) -> void:
-	if has_pending() or has_wish_offer():
+	if event_blocked or has_pending() or has_wish_offer():
 		return
 	seconds_until_wish = maxf(0.0, seconds_until_wish - delta)
 	if seconds_until_wish <= 0.0:
@@ -95,7 +99,7 @@ func choose_wish(index: int) -> Dictionary:
 	wish_choices.clear()
 	wishes_completed += 1
 	_schedule_next_wish(false)
-	var granted := _roll_category_and_grant(choice)
+	var granted := _roll_category_and_queue(choice)
 	wish_changed.emit()
 	return granted
 
@@ -159,13 +163,34 @@ func _roll_and_grant(
 	})
 
 
-func _roll_category_and_grant(category_choice: Dictionary) -> Dictionary:
+func set_event_blocked(blocked: bool) -> void:
+	event_blocked = blocked
+
+
+func _roll_category_and_queue(category_choice: Dictionary) -> Dictionary:
 	var pool := registries.discovery_pool(String(category_choice.get("pool_id", "")))
 	if pool == null:
 		pool = _delivery_pool()
 	if pool == null:
 		return {}
 	var category_id := String(category_choice.get("category", ""))
+	if build_rewards != null:
+		var pre_rolled := build_rewards.roll_collection(
+			category_id,
+			"wish_reward:%d:%s" % [wishes_completed, category_id]
+		)
+		if pre_rolled.is_empty():
+			return {}
+		pre_rolled["category"] = category_id
+		pre_rolled["category_name"] = String(
+			category_choice.get("name", category_id.capitalize())
+		)
+		pre_rolled["source"] = "wish"
+		pre_rolled["ownership_deferred"] = true
+		pre_rolled["pregranted"] = false
+		pending.append(pre_rolled)
+		discovery_ready.emit(pre_rolled.duplicate(true))
+		return pre_rolled
 	var category_rewards: Array[Dictionary] = []
 	for reward: Dictionary in pool.rewards:
 		if String(reward.get("category", "")) == category_id:
@@ -176,14 +201,20 @@ func _roll_category_and_grant(category_choice: Dictionary) -> Dictionary:
 	)
 	if reward.is_empty():
 		return {}
-	return _grant({
+	var entry := {
 		"kind": String(reward.get("kind", "")),
 		"id": String(reward.get("id", "")),
 		"category": category_id,
 		"category_name": String(category_choice.get("name", category_id.capitalize())),
 		"pool_id": pool.id,
 		"source": "wish",
-	})
+		"amount": 1,
+		"ownership_deferred": true,
+		"pregranted": false,
+	}
+	pending.append(entry)
+	discovery_ready.emit(entry.duplicate(true))
+	return entry
 
 
 func _grant(raw_entry: Dictionary) -> Dictionary:
@@ -227,7 +258,12 @@ func from_save_dict(data: Dictionary) -> void:
 		var kind := String(raw_entry.get("kind", ""))
 		var content_id := String(raw_entry.get("id", ""))
 		if _valid_content(kind, content_id):
-			pending.append(raw_entry.duplicate(true))
+			var migrated_entry: Dictionary = raw_entry.duplicate(true)
+			if not bool(migrated_entry.get("ownership_deferred", false)):
+				# Older pending wishes granted stock before acknowledgement. Keep
+				# that ownership and let the landed prop be claimed cosmetically.
+				migrated_entry["pregranted"] = true
+			pending.append(migrated_entry)
 	wish_choices.clear()
 	for raw_choice in data.get("wish_choices", []):
 		if not raw_choice is Dictionary:
@@ -242,11 +278,16 @@ func from_save_dict(data: Dictionary) -> void:
 		var migrated := _category_for_reward(kind, content_id)
 		if not migrated.is_empty():
 			wish_choices.append(migrated)
+	wishes_completed = maxi(0, int(data.get("wishes_completed", 0)))
 	seconds_until_wish = maxf(
 		0.0,
 		float(data.get("seconds_until_wish", seconds_until_wish))
 	)
-	wishes_completed = maxi(0, int(data.get("wishes_completed", 0)))
+	if seconds_until_wish <= 0.0 and not has_pending() and not has_wish_offer():
+		# A timer that expired during shutdown should not interrupt the first
+		# loaded frame. Persisted offers remain untouched; only bare due timers
+		# receive one normal active-play interval.
+		_schedule_next_wish(wishes_completed == 0)
 
 
 func _valid_content(kind: String, content_id: String) -> bool:

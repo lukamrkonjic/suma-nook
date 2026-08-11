@@ -45,6 +45,30 @@ const HarvestingInteractionsScript := preload(
 const TokenPouchServiceScript := preload(
 	"res://scripts/features/rewards/token_pouch_service.gd"
 )
+const FindsReserveServiceScript := preload(
+	"res://scripts/features/projects/finds_reserve_service.gd"
+)
+const ProjectServiceScript := preload(
+	"res://scripts/features/projects/project_service.gd"
+)
+const ContributionServiceScript := preload(
+	"res://scripts/features/projects/contribution_service.gd"
+)
+const FrontierProjectServiceScript := preload(
+	"res://scripts/features/projects/frontier_project_service.gd"
+)
+const SpecialFindServiceScript := preload(
+	"res://scripts/features/projects/special_find_service.gd"
+)
+const SpecialFindInteractionsScript := preload(
+	"res://scripts/features/projects/special_find_interactions.gd"
+)
+const RewardDropServiceScript := preload(
+	"res://scripts/features/rewards/reward_drop_service.gd"
+)
+const RewardDropInteractionsScript := preload(
+	"res://scripts/features/rewards/reward_drop_interactions.gd"
+)
 const VisitorModuleScript := preload(
 	"res://scripts/features/visitors/visitor_module.gd"
 )
@@ -70,6 +94,12 @@ var fire
 var fishing
 var build_rewards
 var token_pouch
+var finds: FindsReserveService
+var projects: ProjectService
+var contributions: ContributionService
+var frontiers: FrontierProjectService
+var special_finds: SpecialFindService
+var reward_drops: RewardDropService
 var harvesting
 var visitors
 var interactions
@@ -86,6 +116,7 @@ var keepsakes: KeepsakeSystem
 
 var autosave_timer := 0.0
 var autosave_paused := false
+var major_events_blocked := false
 var play_seconds := 0.0
 var view_state: Dictionary = {"yaw": 45.0, "distance": 37.0, "pan": [0.0, 0.0]}
 var visual_state: Dictionary = {
@@ -132,8 +163,11 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 	token_pouch = TokenPouchServiceScript.new(
 		registries, inventory, build_rewards
 	)
+	finds = FindsReserveServiceScript.new(registries)
+	projects = ProjectServiceScript.new(registries, rng, build_rewards, finds)
+	contributions = ContributionServiceScript.new(projects)
 	harvesting = HarvestingModuleScript.new(
-		registries, rng, grid, build_rewards, token_pouch
+		registries, rng, grid, contributions
 	)
 	interactions.register_provider(
 		"harvesting",
@@ -145,6 +179,21 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 	events = WorldEvents.new()
 	commands = WorldCommandService.new(grid, registries, events)
 	nooks = NookModule.new(registries, rng, grid, events, commands)
+	frontiers = FrontierProjectServiceScript.new(
+		registries, rng, nooks, projects, finds
+	)
+	special_finds = SpecialFindServiceScript.new(registries, rng, grid, finds)
+	reward_drops = RewardDropServiceScript.new(
+		registries, rng, grid, build_rewards
+	)
+	interactions.register_provider(
+		"special_find",
+		SpecialFindInteractionsScript.new(special_finds, registries)
+	)
+	interactions.register_provider(
+		"reward_drop",
+		RewardDropInteractionsScript.new(reward_drops)
+	)
 	journal = DiscoveryJournal.new(registries, stock)
 	treasures = TreasureSystem.new(
 		registries, nooks.world, events, build_rewards, journal
@@ -162,7 +211,9 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 		for sapling_structure_id: String in nooks.sapling_stage_zero_ids():
 			stock.set_unlimited_structure(sapling_structure_id)
 	equipment = EquipmentManager.new(registries)
-	progression = ProgressionModule.new(registries, rng, grid, stock, collection, equipment)
+	progression = ProgressionModule.new(
+		registries, rng, grid, stock, collection, equipment, build_rewards
+	)
 	fishing = FishingModuleScript.new(
 		registries, rng, grid, stock, collection, progression
 	)
@@ -177,6 +228,61 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 	# must not retain the root, otherwise root -> manager -> callable -> root
 	# forms a permanent reference cycle each time a game session is rebuilt.
 	var owner_ref: WeakRef = weakref(self)
+	projects.project_progressed.connect(func(_project, _slot):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._dirty = true
+			owner.autosave_soon()
+	)
+	projects.project_created.connect(func(_project):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._dirty = true
+			owner.autosave_soon()
+	)
+	projects.tracked_project_changed.connect(func(_project):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._dirty = true
+			owner.autosave_soon()
+	)
+	projects.project_completed.connect(func(_project):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._dirty = true
+			owner.save()
+	)
+	finds.reserve_changed.connect(func():
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._dirty = true
+	)
+	special_finds.special_find_spawned.connect(func(_instance_id, _find_id):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._dirty = true
+			owner.autosave_soon()
+	)
+	special_finds.special_find_collected.connect(func(_instance_id, _find_id):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner.save()
+	)
+	reward_drops.reward_landed.connect(func(_instance_id, _entry):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner.save()
+	)
+	reward_drops.reward_claimed.connect(func(_instance_id, _reward):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner.save()
+	)
+	nooks.nook_revealed.connect(func(_coord, plan):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner.special_finds.spawn_for_new_land(plan)
+	)
 	fishing.session.haul_committed.connect(func(haul):
 		var owner := owner_ref.get_ref() as GameCore
 		if owner != null:
@@ -347,8 +453,11 @@ func new_game(new_profile: PlayerProfile) -> void:
 	equipment.acquire("tool_axe_basic")
 	equipment.equip("tool_rod_basic")
 	_ensure_default_body_item()
-	# Trees begin unplaced in the Build Bag for established/non-authored starts.
+	# The reusable Timber and Provisions sources begin unplaced in the Build
+	# Bag; the starter Stone outcrop is already in the world. This guarantees
+	# every first Project can be completed without deploying the legacy keeper.
 	stock.add_structure("struct_pine")
+	stock.add_structure("struct_bush")
 	_ensure_showcase_placeables()
 	collection.record("gear", "tool_rod_basic")
 	collection.record("gear", "tool_axe_basic")
@@ -373,6 +482,12 @@ func begin_seeded_game(new_profile: PlayerProfile, seed_card: Dictionary) -> voi
 	_ensure_default_body_item()
 	collection.record("gear", "tool_rod_basic")
 	collection.record("gear", "tool_axe_basic")
+	# Seed content varies, but the first Project must never depend on a lucky
+	# procedural roll. These reusable sources may be placed anywhere the player
+	# likes and do not create common-material inventory.
+	stock.add_structure("struct_pine")
+	stock.add_structure("struct_bush")
+	stock.add_structure("struct_rock_outcrop")
 	var plan := nooks.reveal_nook(Vector2i.ZERO, seed_card)
 	if plan == null:
 		# Content failure fallback: never strand the player in a void.
@@ -485,6 +600,11 @@ func advance_onboarding_after_placement() -> Dictionary:
 ## hands its piece to the guided placement lesson (the tutorial performs the
 ## basket "take" for the player).
 func _on_fishing_haul_committed(haul) -> void:
+	contributions.contribute(
+		["provisions", "fish"],
+		"fishing:%d" % int(haul.haul_id),
+		{"source": "fishing_haul", "haul_id": int(haul.haul_id)}
+	)
 	autosave_soon()
 
 
@@ -722,7 +842,11 @@ func tick(delta: float) -> void:
 	play_seconds += delta
 	fishing.tick(delta)
 	harvesting.tick(delta)
+	progression.discovery.set_event_blocked(
+		major_events_blocked or reward_drops.has_unclaimed()
+	)
 	progression.tick(delta)
+	special_finds.tick(delta)
 	nooks.tick(delta)
 	visitors.tick(delta)
 	arrivals.tick(delta)
@@ -846,11 +970,17 @@ func _save_payload() -> Dictionary:
 		"landmarks": landmarks.to_save_dict(),
 		"combat": combat.to_save_dict(),
 		"features": {
+			"project_progression_version": 1,
 			"camping": camping.to_save_dict(),
 			"fishing": fishing.to_save_dict(),
 			"harvesting": harvesting.to_save_dict(),
 			"visitors": visitors.to_save_dict(),
 			"nooks": nooks.to_save_dict(),
+			"projects": projects.to_save_dict(),
+			"frontiers": frontiers.to_save_dict(),
+			"finds_reserve": finds.to_save_dict(),
+			"special_finds": special_finds.to_save_dict(),
+			"reward_drops": reward_drops.to_save_dict(),
 			"discovery": {
 				"journal": journal.to_save_dict(),
 				"treasures": treasures.to_save_dict(),
@@ -930,6 +1060,7 @@ func load_game() -> bool:
 	_rebuild_resting_anchors()
 	inventory.from_save_dict(data.get("inventory", {}))
 	stock.from_save_dict(data.get("stock", {}))
+	collection.from_save_dict(data.get("collection", {}))
 	harvesting.from_save_dict(
 		(data.get("features", {}) as Dictionary).get("harvesting", {})
 	)
@@ -945,9 +1076,16 @@ func load_game() -> bool:
 	nooks.from_save_dict(
 		(data.get("features", {}) as Dictionary).get("nooks", {})
 	)
+	var feature_data: Dictionary = data.get("features", {})
+	finds.from_save_dict(feature_data.get("finds_reserve", {}) as Dictionary)
+	projects.from_save_dict(feature_data.get("projects", {}) as Dictionary)
+	frontiers.from_save_dict(feature_data.get("frontiers", {}) as Dictionary)
+	special_finds.from_save_dict(feature_data.get("special_finds", {}) as Dictionary)
+	reward_drops.from_save_dict(feature_data.get("reward_drops", {}) as Dictionary)
 	# A pre-Nooks save (or a deleted nooks section) heals itself: the starter
 	# zone re-registers as the first Nook and play continues.
 	nooks.bootstrap_starter_nook()
+	frontiers.migrate_existing_points()
 	var discovery: Dictionary = (
 		data.get("features", {}) as Dictionary
 	).get("discovery", {})
@@ -955,7 +1093,6 @@ func load_game() -> bool:
 	treasures.from_save_dict(discovery.get("treasures", {}) as Dictionary)
 	firsts.from_save_dict(discovery.get("firsts", {}) as Dictionary)
 	keepsakes.from_save_dict(discovery.get("keepsakes", {}) as Dictionary)
-	collection.from_save_dict(data.get("collection", {}))
 	progression.from_save_dict(data.get("progression", {}))
 	onboarding.from_save_dict(data.get("onboarding", {}))
 	arrivals.from_save_dict(data.get("arrivals", {}))

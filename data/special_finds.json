@@ -1,0 +1,31 @@
+{
+  "special_finds": [
+    {
+      "id": "crystal",
+      "name": "Crystal",
+      "contribution_tag": "find:crystal",
+      "presentation": "crystal",
+      "eligible_source_tags": ["biome_rocky"],
+      "weight": 1.0,
+      "icon": "res://assets/ui/icons/harvest_crack.svg"
+    },
+    {
+      "id": "relic_fragment",
+      "name": "Relic Fragment",
+      "contribution_tag": "find:relic_fragment",
+      "presentation": "relic",
+      "eligible_source_tags": ["biome_rocky", "ancient"],
+      "weight": 0.65,
+      "icon": "res://assets/ui/icons/harvest_crack.svg"
+    },
+    {
+      "id": "heartwood",
+      "name": "Heartwood",
+      "contribution_tag": "find:heartwood",
+      "presentation": "heartwood",
+      "eligible_source_tags": ["biome_forest"],
+      "weight": 0.8,
+      "icon": "res://assets/ui/icons/harvest_axe.svg"
+    }
+  ]
+}

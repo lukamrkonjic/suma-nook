@@ -57,6 +57,44 @@ func roll_and_grant(
 	return grant(roll(pool_id, stream_name, policy_id, history))
 
 
+## Shared collection selector used by both Collection Projects and Falling
+## Objects. It consumes the existing Build Bag category registry and void pool;
+## no second catalogue can drift away from player ownership.
+func roll_collection(
+	collection_id: String,
+	stream_name: String,
+	history: Dictionary = {},
+	policy_id := "roll_policy_harvest_biome"
+) -> Dictionary:
+	var entries: Array[Dictionary] = []
+	var pool_id := ""
+	for pool: Defs.DiscoveryPoolDefinition in registries.discovery_pools.values():
+		if pool.source != "void":
+			continue
+		pool_id = pool.id
+		for raw_entry: Dictionary in pool.rewards:
+			if String(raw_entry.get("category", "")) == collection_id:
+				entries.append(raw_entry.duplicate(true))
+		break
+	if entries.is_empty():
+		return {}
+	var chosen := rng.weighted(
+		stream_name,
+		_weighted_candidates(entries, policy_id, history)
+	)
+	if chosen.is_empty():
+		return {}
+	return {
+		"pool_id": pool_id,
+		"collection_id": collection_id,
+		"kind": String(chosen.get("kind", "")),
+		"id": String(chosen.get("id", "")),
+		"amount": 1,
+		"rarity": String(chosen.get("rarity", "common")),
+		"roll_policy_id": policy_id,
+	}
+
+
 func _weighted_candidates(
 	entries: Array[Dictionary],
 	policy_id: String,
