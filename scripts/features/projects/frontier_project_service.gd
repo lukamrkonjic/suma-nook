@@ -1,9 +1,11 @@
 class_name FrontierProjectService
 extends RefCounted
 ## Owns the durable boundary between Project completion and Nook generation.
-## Clicking only creates/tracks state; the scene generates after expansion_ready.
+## Frontier progress can become ready without changing the world. A deliberate
+## activation of that ready frontier is the only thing that emits expansion_ready.
 
 signal frontier_opened(frontier: Dictionary, project: Dictionary)
+signal frontier_became_ready(frontier: Dictionary, project: Dictionary)
 signal expansion_ready(coord: Vector2i, project_id: String, seed_card: Dictionary)
 signal frontier_generated(coord: Vector2i, project_id: String)
 
@@ -36,6 +38,9 @@ func _init(
 
 
 func open(coord: Vector2i) -> Dictionary:
+	# Compatibility entry point for the full Projects panel. Opening/tracking an
+	# incomplete frontier never grows land, and completion alone is not consent
+	# to grow it either. The world dot calls activate() for the one-click path.
 	var frontier := ensure_frontier(coord)
 	if frontier.is_empty():
 		return {}
@@ -43,9 +48,52 @@ func open(coord: Vector2i) -> Dictionary:
 	projects.track(project_id)
 	var project := projects.project(project_id)
 	frontier_opened.emit(frontier.duplicate(true), project.duplicate(true))
-	if bool(project.get("complete", false)) and not bool(frontier.get("generated", false)):
-		_request_expansion(frontier)
 	return project
+
+
+## The single world-facing action. An incomplete frontier becomes the tracked
+## gathering goal; a ready frontier immediately requests its reserved land.
+func activate(coord: Vector2i) -> Dictionary:
+	var frontier := ensure_frontier(coord)
+	if frontier.is_empty():
+		return {"accepted": false, "reason": "missing_frontier"}
+	var project_id := String(frontier.get("project_id", ""))
+	projects.track(project_id)
+	var project := projects.project(project_id)
+	frontier_opened.emit(frontier.duplicate(true), project.duplicate(true))
+	var ready := bool(project.get("complete", false))
+	if ready:
+		_request_expansion(frontiers[id_for_coord(coord)])
+	return {
+		"accepted": true,
+		"ready": ready,
+		"frontier": frontier_for_coord(coord),
+		"project": projects.project(project_id),
+	}
+
+
+## Presentation-safe snapshot used by the world-anchored requirements card.
+## Ensuring here reserves the deterministic card once; it does not track,
+## contribute, reroll, or generate anything.
+func status(coord: Vector2i) -> Dictionary:
+	var frontier := ensure_frontier(coord)
+	if frontier.is_empty():
+		return {}
+	var project_id := String(frontier.get("project_id", ""))
+	var project := projects.project(project_id)
+	var missing_total := 0
+	for slot: Dictionary in project.get("slots", []):
+		missing_total += maxi(
+			0,
+			int(slot.get("required", 1)) - int(slot.get("current", 0))
+		)
+	return {
+		"frontier": frontier,
+		"project": project,
+		"ready": bool(project.get("complete", false)),
+		"tracked": projects.tracked_project_id == project_id,
+		"missing_total": missing_total,
+	}
 
 
 func ensure_frontier(coord: Vector2i) -> Dictionary:
@@ -70,6 +118,7 @@ func ensure_frontier(coord: Vector2i) -> Dictionary:
 		"seed_card": seed_card.duplicate(true),
 		"generated": false,
 		"generation_requested": false,
+		"expansion_confirmed": false,
 		"special": definition_id != "project_frontier_standard",
 	}
 	frontiers[frontier_id] = frontier
@@ -101,7 +150,10 @@ func pending_expansions() -> Array[Dictionary]:
 		if bool(frontier.get("generated", false)):
 			continue
 		var project := projects.project(String(frontier.get("project_id", "")))
-		if bool(project.get("complete", false)):
+		if (
+			bool(project.get("complete", false))
+			and bool(frontier.get("expansion_confirmed", false))
+		):
 			result.append(frontier.duplicate(true))
 	return result
 
@@ -115,6 +167,7 @@ func mark_generated(coord: Vector2i) -> bool:
 		return false
 	frontier["generated"] = true
 	frontier["generation_requested"] = false
+	frontier["expansion_confirmed"] = true
 	var project_id := String(frontier.get("project_id", ""))
 	projects.mark_frontier_rewarded(project_id)
 	frontier_generated.emit(coord, project_id)
@@ -139,8 +192,13 @@ func from_save_dict(data: Dictionary) -> void:
 		var coord := _coord_from(frontier.get("coord", []))
 		if nooks.world.has_nook(coord):
 			frontier["generated"] = true
-		# Async scene work cannot survive a process restart. Completed Projects
-		# become pending again and Main resumes them after loading.
+		# Old completed Projects were automatically expanded. Missing confirmation
+		# now means "ready for the player's click", which is the safer migration.
+		frontier["expansion_confirmed"] = bool(
+			frontier.get("expansion_confirmed", false)
+		)
+		# Async scene work cannot survive a process restart. Only explicitly
+		# confirmed expansions become pending again and Main resumes those.
 		frontier["generation_requested"] = false
 
 
@@ -163,7 +221,10 @@ func _on_project_completed(project: Dictionary) -> void:
 	var frontier_id := String(project.get("expansion_point_id", ""))
 	if not frontiers.has(frontier_id):
 		return
-	_request_expansion(frontiers[frontier_id])
+	frontier_became_ready.emit(
+		(frontiers[frontier_id] as Dictionary).duplicate(true),
+		project.duplicate(true)
+	)
 
 
 func _request_expansion(frontier: Dictionary) -> void:
@@ -172,6 +233,7 @@ func _request_expansion(frontier: Dictionary) -> void:
 		or bool(frontier.get("generation_requested", false))
 	):
 		return
+	frontier["expansion_confirmed"] = true
 	frontier["generation_requested"] = true
 	expansion_ready.emit(
 		_coord_from(frontier.get("coord", [])),

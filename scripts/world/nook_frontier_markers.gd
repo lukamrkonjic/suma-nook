@@ -2,7 +2,8 @@ class_name NookFrontierMarkers
 extends Node3D
 ## Clear world-space glows in every open Nook slot touching revealed land.
 ## Pointer hit testing projects the dots to screen space; controllers use the
-## existing deterministic Shape Land grid cursor and build_confirm action.
+## existing deterministic world cursor and build_confirm action. Completed
+## requirements give their dot a stronger resting pulse before activation.
 
 const DIRECTIONS: Array[Vector2i] = [
 	Vector2i.UP,
@@ -37,6 +38,12 @@ func setup(
 	placement = placement_controller
 	palette = color_palette
 	core.nooks.world.nook_added.connect(func(_coord): rebuild())
+	core.projects.project_progressed.connect(func(_project, _slot):
+		_refresh_ready_states()
+	)
+	core.projects.project_completed.connect(func(_project):
+		_refresh_ready_states()
+	)
 	rebuild()
 
 
@@ -65,6 +72,7 @@ func rebuild() -> void:
 			"direction": direction,
 			"inner": root.get_node("Dot"),
 			"halo": root.get_node("Halo"),
+			"ready": bool(core.frontiers.status(nook_coord).get("ready", false)),
 		}
 	visible = interaction_enabled and not _markers.is_empty()
 
@@ -83,7 +91,11 @@ func _process(delta: float) -> void:
 	for marker: Dictionary in _markers.values():
 		var root := marker["root"] as Node3D
 		var is_selected: bool = marker["cell"] == selected
-		var pulse := 1.0 + sin(_elapsed * 3.0) * 0.16
+		var is_ready := bool(marker.get("ready", false))
+		var resting_scale := 1.18 if is_ready else 1.0
+		var pulse := resting_scale + sin(_elapsed * 3.0) * (
+			0.2 if is_ready else 0.16
+		)
 		var target_scale := 1.52 if is_selected else pulse
 		root.scale = root.scale.lerp(
 			Vector3.ONE * target_scale,
@@ -111,6 +123,7 @@ func marker_at_screen(screen_position: Vector2) -> Dictionary:
 				"nook": nook_coord,
 				"cell": marker["cell"],
 				"direction": marker["direction"],
+				"ready": bool(marker.get("ready", false)),
 			}
 	return result
 
@@ -125,8 +138,19 @@ func marker_at_cell(cell: Vector2i) -> Dictionary:
 				"nook": nook_coord,
 				"cell": cell,
 				"direction": marker["direction"],
+				"ready": bool(marker.get("ready", false)),
 			}
 	return {}
+
+
+func _refresh_ready_states() -> void:
+	if core == null:
+		return
+	for nook_coord: Vector2i in _markers:
+		var marker: Dictionary = _markers[nook_coord]
+		marker["ready"] = bool(
+			core.frontiers.status(nook_coord).get("ready", false)
+		)
 
 
 func marker_count() -> int:

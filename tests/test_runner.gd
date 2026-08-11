@@ -2276,8 +2276,32 @@ func _test_project_progression_loop() -> void:
 		reserved_frontier.get("seed_card", {}) == reserved_again.get("seed_card", {})
 		and bool(core.projects.project(frontier_id).get("complete", false))
 		and not core.nooks.world.has_nook(frontier_coord)
-		and expansion_requests.size() == 1,
-		"a frontier reserves stable content, opens a Project, and only requests generation after completion"
+		and expansion_requests.is_empty()
+		and core.frontiers.pending_expansions().is_empty(),
+		"a frontier reserves stable content and waits at ready after its requirements complete"
+	)
+	var legacy_ready_save := core.frontiers.to_save_dict()
+	for saved_frontier: Dictionary in (
+		legacy_ready_save.get("frontiers", {}) as Dictionary
+	).values():
+		saved_frontier.erase("expansion_confirmed")
+	core.frontiers.from_save_dict(legacy_ready_save)
+	check(
+		bool(core.frontiers.status(frontier_coord).get("ready", false))
+		and core.frontiers.pending_expansions().is_empty(),
+		"an older completed save migrates to Ready without generating behind the player's back"
+	)
+	var ready_status := core.frontiers.status(frontier_coord)
+	var activated_frontier := core.frontiers.activate(frontier_coord)
+	core.frontiers.activate(frontier_coord)
+	var confirmed_save := core.frontiers.to_save_dict()
+	core.frontiers.from_save_dict(confirmed_save)
+	check(
+		bool(ready_status.get("ready", false))
+		and bool(activated_frontier.get("ready", false))
+		and expansion_requests.size() == 1
+		and core.frontiers.pending_expansions().size() == 1,
+		"one deliberate ready-dot activation requests once and survives an interrupted save"
 	)
 	check(
 		core.frontiers.mark_generated(frontier_coord)
@@ -4603,7 +4627,7 @@ func _test_direct_frontier_expansion() -> void:
 	check(
 		InputDeviceServiceScript.new().action_has_controller_binding(&"ui_accept")
 		and InputDeviceServiceScript.new().action_has_controller_binding(&"cancel"),
-		"frontier generation choices retain controller accept and back bindings"
+		"frontier requirements retain controller accept and back bindings"
 	)
 	var main_bridge := Main.new()
 	main_bridge.core = core
@@ -4625,25 +4649,27 @@ func _test_direct_frontier_expansion() -> void:
 		null,
 		null
 	)
-	var natural_choice := picker.find_child("ShapeNatural", true, false) as Button
-	var flat_choice := picker.find_child("ShapeFlat", true, false) as Button
-	var rolling_choice := picker.find_child("ShapeRolling", true, false) as Button
-	var biome_choice := picker.find_child("Biome", true, false) as Button
-	var grow_choice := picker.find_child("Grow", true, false) as Button
+	var picker_coord: Vector2i = targets[0]["nook"]
+	core.frontiers.ensure_frontier(picker_coord)
+	picker.call("_show_for_coord", picker_coord)
+	var frontier_action := picker.find_child(
+		"FrontierAction", true, false
+	) as Button
+	var timber_requirement := picker.find_child(
+		"Requirement_timber", true, false
+	) as PanelContainer
 	check(
-		natural_choice != null
-		and natural_choice.button_pressed
-		and flat_choice != null
-		and rolling_choice != null
-		and biome_choice != null
-		and grow_choice != null
-		and flat_choice.focus_mode == Control.FOCUS_ALL
-		and flat_choice.tooltip_text != ""
-		and biome_choice.tooltip_text != ""
-		and grow_choice.tooltip_text != ""
-		and not rolling_choice.focus_neighbor_bottom.is_empty()
-		and not biome_choice.focus_neighbor_right.is_empty(),
-		"the picker defaults to original Natural terrain and keeps full controller focus"
+		frontier_action != null
+		and frontier_action.focus_mode == Control.FOCUS_ALL
+		and frontier_action.text == "Track requirements"
+		and frontier_action.tooltip_text.contains("left")
+		and timber_requirement != null
+		and timber_requirement.tooltip_text.contains("Timber: 0 of 1")
+		and timber_requirement.find_child("Icon", true, false) is TextureRect
+		and timber_requirement.find_child("Count", true, false) is Label
+		and picker.find_child("ShapeNatural", true, false) == null
+		and picker.find_child("Biome", true, false) == null,
+		"the frontier card shows icon counts and one controller-focusable action without terrain choices"
 	)
 	picker.free()
 	var original_card := {

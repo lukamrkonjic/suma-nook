@@ -62,10 +62,13 @@ inventory or token pouch. Fishing commits one Provisions receipt per haul.
 ## Frontiers and Special Finds
 
 `FrontierProjectService` stores a stable seed card the first time a frontier is
-opened (and migrates existing expansion points on load). Completion emits a
-single generation request; Main hands the saved card to the existing
-cooperative Nook generator. Interrupted completed expansions resume after
-load.
+seen (and migrates existing expansion points on load). The world-anchored card
+shows each requirement as an icon plus `current/required`; clicking an
+incomplete point tracks it without opening the Projects modal. Completion only
+makes the point Ready. A deliberate click on that ready point emits the single
+generation request, and Main hands the saved card to the cooperative Nook
+generator. Interrupted, explicitly confirmed expansions resume after load;
+older completed saves migrate to Ready and wait for a click.
 
 `SpecialFindService` owns one world-level opportunity clock and a small active
 cap. It marks an eligible existing resource object with persistent visible

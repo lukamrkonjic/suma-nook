@@ -251,7 +251,12 @@ func _add_project_detail(project: Dictionary) -> void:
 			pill.tooltip_text = "%d of %d contributed" % [current, required]
 			slots.add_child(pill)
 	if bool(project.get("complete", false)):
-		_content.add_child(kit.label("Complete — the reward is on its way.", 14, false, true))
+		var complete_copy := (
+			"Ready — click its frontier dot to unfold the land."
+			if String(project.get("type", "")) == ProjectService.TYPE_FRONTIER
+			else "Complete — the reward is on its way."
+		)
+		_content.add_child(kit.label(complete_copy, 14, false, true))
 	elif String(project.get("type", "")) == ProjectService.TYPE_FRONTIER:
 		var metadata: Dictionary = project.get("frontier_metadata", {})
 		_content.add_child(kit.muted_label(

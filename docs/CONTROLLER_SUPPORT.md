@@ -37,7 +37,10 @@ Projects use the `project_menu` action (Guide) and the tracked HUD chip. The
 modal assigns the first actionable control focus, exposes focused tooltips,
 uses `ui_accept`, and closes with `cancel`. Special Find spending uses ordinary
 focused buttons. Frontier glows are selected by the same deterministic world
-cursor and open their Project instead of generating land immediately.
+cursor. Their card shows the same icon counts as pointer hover; confirm tracks
+an incomplete point or unfolds a Ready point directly. The card's one action
+has visible focus, `ui_accept`, a focused summary tooltip, and `cancel` back
+whenever tracking or unfolding is available.
 
 Harvest sources reuse `interact`: one press starts the complete authored
 action and commits one eligible Project contribution. Repeated input while the

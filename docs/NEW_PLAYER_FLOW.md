@@ -42,10 +42,12 @@ then presses it again to return to interaction mode.
 
 ## 5. Grow the frontier
 
-Clicking a boundary glow opens that point's Frontier Project. The glow does
-not generate terrain. Its small shared requirements appear in Projects; when
-complete, the reserved deterministic Nook arrives through the normal reveal
-wave. Reloading or reopening the point cannot reroll its requirements or land.
+Hovering a boundary glow shows its complete gathering goal as icon counts
+(`current/required`). Clicking a locked glow tracks that goal without opening a
+modal. When every count is complete the glow reads Ready; one more click unfolds
+the reserved deterministic Nook through the normal reveal wave. Terrain and
+biome are chosen naturally from the saved world seed, never from a picker.
+Reloading or revisiting the point cannot reroll its requirements or land.
 
 ## 6. Notice rare opportunities
 

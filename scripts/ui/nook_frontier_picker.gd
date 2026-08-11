@@ -1,34 +1,16 @@
 class_name NookFrontierPicker
 extends CanvasLayer
-## A tiny world-anchored choice panel for frontier glows. Mouse players reveal
-## it by hovering a dot; controller players reveal it with the deterministic
-## build cursor and enter it with build_confirm.
+## A compact world-anchored requirements card for frontier glows. Hovering a
+## dot explains the exact gathering goal; controller players see the same card
+## at their deterministic world cursor. There are no terrain-generation choices.
 
-signal generation_requested(coord: Vector2i, preferences: Dictionary)
+signal frontier_activated(coord: Vector2i)
 signal panel_toggled(open: bool)
 
 const NO_COORD := Vector2i(2147483647, 2147483647)
 const MOUSE_LEAVE_GRACE := 0.24
 const PANEL_GAP := 18.0
 const VIEWPORT_MARGIN := 12.0
-const SHAPES: Array[Dictionary] = [
-	{
-		"label": "Natural",
-		"id": "natural",
-		"tooltip": "Original varied terrain, shaped by the world.",
-	},
-	{"label": "Flat", "id": "flat", "tooltip": "Quiet, level ground."},
-	{"label": "Rolling", "id": "rolling", "tooltip": "Soft hills and low terraces."},
-	{"label": "Peaks", "id": "mountains", "tooltip": "High ridges and steep terraces."},
-]
-const BIOMES: Array[Dictionary] = [
-	{"label": "Natural", "id": ""},
-	{"label": "Forest", "id": "nook_biome_forest"},
-	{"label": "Meadow", "id": "nook_biome_meadow"},
-	{"label": "Stone", "id": "nook_biome_stonefell"},
-	{"label": "Dunes", "id": "nook_biome_dunes"},
-	{"label": "Tundra", "id": "nook_biome_tundra"},
-]
 
 var core: GameCore
 var kit: UiKit
@@ -38,12 +20,11 @@ var placement: PlacementController
 var _input_service: InputDeviceService
 var _root: Control
 var _panel: PanelContainer
-var _shape_buttons: Array[Button] = []
-var _biome_button: Button
-var _grow_button: Button
+var _title_label: Label
+var _state_label: Label
+var _requirements_row: HBoxContainer
+var _action_button: Button
 var _target_coord := NO_COORD
-var _terrain_shape := "natural"
-var _biome_index := 0
 var _leave_time := 0.0
 var _interaction_enabled := true
 var _suppressed_controller_coord := NO_COORD
@@ -61,6 +42,19 @@ func setup(
 	placement = placement_controller
 	_input_service = InputDeviceService.shared()
 	_build_panel()
+	core.projects.project_progressed.connect(func(project: Dictionary, _slot: Dictionary):
+		_refresh_if_current(project)
+	)
+	core.projects.project_completed.connect(func(project: Dictionary):
+		_refresh_if_current(project)
+	)
+	core.projects.tracked_project_changed.connect(func(_project: Dictionary):
+		_refresh_content()
+	)
+	core.frontiers.frontier_became_ready.connect(
+		func(_frontier: Dictionary, project: Dictionary):
+			_refresh_if_current(project)
+	)
 
 
 func is_open() -> bool:
@@ -103,19 +97,23 @@ func focus_for_cell(cell: Vector2i) -> bool:
 	var marker := markers.marker_at_cell(cell)
 	if marker.is_empty():
 		return false
-	var coord: Vector2i = marker.get("nook", NO_COORD)
 	_suppressed_controller_coord = NO_COORD
-	_show_for_coord(coord)
-	var preferred := _selected_shape_button()
-	_input_service.focus_first(_panel, preferred)
+	_show_for_coord(marker.get("nook", NO_COORD))
+	if _input_service != null:
+		_input_service.focus_first(_panel, _action_button)
 	return true
 
 
 func close_controller_focus() -> void:
 	if _target_coord != NO_COORD:
 		_suppressed_controller_coord = _target_coord
-	_input_service.release_focus_in(_panel)
+	if _input_service != null:
+		_input_service.release_focus_in(_panel)
 	_hide_panel()
+
+
+func refresh() -> void:
+	_refresh_content()
 
 
 func _process(delta: float) -> void:
@@ -124,7 +122,11 @@ func _process(delta: float) -> void:
 	if has_focus():
 		_position_panel()
 		return
-	if _input_service.is_controller() and placement.controller_cursor_active():
+	if (
+		_input_service != null
+		and _input_service.is_controller()
+		and placement.controller_cursor_active()
+	):
 		var controller_marker := markers.marker_at_cell(
 			placement.controller_cursor_cell()
 		)
@@ -161,20 +163,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	close_controller_focus()
 	get_viewport().set_input_as_handled()
-	panel_toggled.emit(false)
 
 
 func _build_panel() -> void:
 	_root = Control.new()
-	_root.name = "FrontierPickerRoot"
+	_root.name = "FrontierRequirementsRoot"
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.theme = kit.theme
 	add_child(_root)
 
 	_panel = PanelContainer.new()
-	_panel.name = "FrontierPicker"
-	_panel.custom_minimum_size = Vector2(356.0, 130.0)
+	_panel.name = "FrontierRequirements"
+	_panel.custom_minimum_size = Vector2(314.0, 150.0)
 	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	var style := kit.panel_style(false, 16)
 	style.set_content_margin_all(11)
@@ -188,79 +189,40 @@ func _build_panel() -> void:
 	var content := VBoxContainer.new()
 	content.add_theme_constant_override("separation", 7)
 	_panel.add_child(content)
-	var title := kit.label("NEW LAND", 12, false, true)
-	title.add_theme_color_override(
+
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 8)
+	content.add_child(header)
+	_title_label = kit.label("FRONTIER", 12, false, true)
+	_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_title_label.add_theme_color_override(
 		"font_color", kit.palette.color("ui_text_muted")
 	)
-	content.add_child(title)
+	header.add_child(_title_label)
+	_state_label = kit.label("LOCKED", 11, false, true)
+	header.add_child(_state_label)
 
-	var shape_row := HBoxContainer.new()
-	shape_row.add_theme_constant_override("separation", 6)
-	content.add_child(shape_row)
-	var group := ButtonGroup.new()
-	for shape: Dictionary in SHAPES:
-		var button := kit.choice_button(
-			String(shape["label"]), shape["id"] == _terrain_shape
-		)
-		button.name = "Shape%s" % String(shape["label"])
-		button.button_group = group
-		button.custom_minimum_size = Vector2(78.0, 36.0)
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.add_theme_font_size_override("font_size", 14)
-		button.tooltip_text = String(shape["tooltip"])
-		button.pressed.connect(_select_shape.bind(String(shape["id"])))
-		shape_row.add_child(button)
-		_shape_buttons.append(button)
+	_requirements_row = HBoxContainer.new()
+	_requirements_row.name = "Requirements"
+	_requirements_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_requirements_row.add_theme_constant_override("separation", 7)
+	content.add_child(_requirements_row)
 
-	var action_row := HBoxContainer.new()
-	action_row.add_theme_constant_override("separation", 7)
-	content.add_child(action_row)
-	_biome_button = kit.button("")
-	_biome_button.name = "Biome"
-	_biome_button.custom_minimum_size = Vector2(190.0, 38.0)
-	_biome_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_biome_button.add_theme_font_size_override("font_size", 14)
-	_biome_button.tooltip_text = "Choose a biome. Natural follows nearby land."
-	_biome_button.pressed.connect(_cycle_biome)
-	action_row.add_child(_biome_button)
-	_grow_button = kit.button("Grow", true)
-	_grow_button.name = "Grow"
-	_grow_button.custom_minimum_size = Vector2(83.0, 38.0)
-	_grow_button.add_theme_font_size_override("font_size", 14)
-	_grow_button.tooltip_text = "Unfold this Nook."
-	_grow_button.pressed.connect(_request_generation)
-	action_row.add_child(_grow_button)
-	_update_biome_label()
-	_wire_focus_neighbors()
-
-
-func _wire_focus_neighbors() -> void:
-	for index in _shape_buttons.size():
-		var button := _shape_buttons[index]
-		button.focus_neighbor_left = button.get_path_to(
-			_shape_buttons[maxi(0, index - 1)]
-		)
-		button.focus_neighbor_right = button.get_path_to(
-			_shape_buttons[mini(_shape_buttons.size() - 1, index + 1)]
-		)
-		button.focus_neighbor_bottom = button.get_path_to(_biome_button)
-	_biome_button.focus_neighbor_top = _biome_button.get_path_to(
-		_selected_shape_button()
-	)
-	_biome_button.focus_neighbor_right = _biome_button.get_path_to(_grow_button)
-	_grow_button.focus_neighbor_left = _grow_button.get_path_to(_biome_button)
-	_grow_button.focus_neighbor_top = _grow_button.get_path_to(
-		_shape_buttons[_shape_buttons.size() - 1]
-	)
+	_action_button = kit.button("Track requirements", true)
+	_action_button.name = "FrontierAction"
+	_action_button.custom_minimum_size = Vector2(0.0, 38.0)
+	_action_button.add_theme_font_size_override("font_size", 14)
+	_action_button.pressed.connect(_activate_target)
+	content.add_child(_action_button)
 
 
 func _show_for_coord(coord: Vector2i) -> void:
-	if coord == NO_COORD:
+	if coord == NO_COORD or core.frontiers.status(coord).is_empty():
 		return
 	var was_open := is_open()
 	if coord != _target_coord:
 		_target_coord = coord
-		_reset_choices()
+		_refresh_content()
 	_panel.visible = true
 	_position_panel()
 	if not was_open:
@@ -270,7 +232,8 @@ func _show_for_coord(coord: Vector2i) -> void:
 func _hide_panel() -> void:
 	if not is_open():
 		return
-	_input_service.release_focus_in(_panel)
+	if _input_service != null:
+		_input_service.release_focus_in(_panel)
 	_panel.visible = false
 	_target_coord = NO_COORD
 	panel_toggled.emit(false)
@@ -286,67 +249,162 @@ func _position_panel() -> void:
 	if panel_size.x <= 0.0 or panel_size.y <= 0.0:
 		panel_size = _panel.custom_minimum_size
 	var viewport_size := get_viewport().get_visible_rect().size
-	var position := marker_position - Vector2(
+	var panel_position := marker_position - Vector2(
 		panel_size.x * 0.5, panel_size.y + PANEL_GAP
 	)
-	position.x = clampf(
-		position.x,
+	panel_position.x = clampf(
+		panel_position.x,
 		VIEWPORT_MARGIN,
 		maxf(VIEWPORT_MARGIN, viewport_size.x - panel_size.x - VIEWPORT_MARGIN)
 	)
-	position.y = clampf(
-		position.y,
+	panel_position.y = clampf(
+		panel_position.y,
 		VIEWPORT_MARGIN,
 		maxf(VIEWPORT_MARGIN, viewport_size.y - panel_size.y - VIEWPORT_MARGIN)
 	)
-	_panel.position = position
+	_panel.position = panel_position
 
 
-func _reset_choices() -> void:
-	_terrain_shape = "natural"
-	_biome_index = 0
-	for index in _shape_buttons.size():
-		_shape_buttons[index].set_pressed_no_signal(index == 0)
-	_update_biome_label()
+func _refresh_if_current(project: Dictionary) -> void:
+	if _target_coord == NO_COORD:
+		return
+	var frontier := core.frontiers.frontier_for_coord(_target_coord)
+	if String(frontier.get("project_id", "")) == String(project.get("id", "")):
+		_refresh_content()
 
 
-func _select_shape(shape_id: String) -> void:
-	_terrain_shape = NookGenerator.normalize_terrain_shape(shape_id)
-	if _biome_button != null:
-		_biome_button.focus_neighbor_top = _biome_button.get_path_to(
-			_selected_shape_button()
+func _refresh_content() -> void:
+	if _target_coord == NO_COORD or _requirements_row == null:
+		return
+	var frontier_status := core.frontiers.status(_target_coord)
+	if frontier_status.is_empty():
+		_hide_panel()
+		return
+	var project: Dictionary = frontier_status.get("project", {})
+	for child in _requirements_row.get_children():
+		_requirements_row.remove_child(child)
+		child.queue_free()
+	for slot: Dictionary in project.get("slots", []):
+		_requirements_row.add_child(_requirement_card(slot))
+
+	var ready := bool(frontier_status.get("ready", false))
+	var tracked := bool(frontier_status.get("tracked", false))
+	var missing_total := int(frontier_status.get("missing_total", 0))
+	_title_label.text = String(project.get("name", "Frontier")).to_upper()
+	if ready:
+		_action_button.disabled = false
+		_action_button.focus_mode = Control.FOCUS_ALL
+		_state_label.text = "READY"
+		_state_label.add_theme_color_override(
+			"font_color", kit.palette.color("ui_good").darkened(0.12)
+		)
+		_action_button.text = "Unfold land"
+		_action_button.tooltip_text = (
+			"All requirements are complete. Unfold the reserved natural land. "
+			+ _accept_prompt("Unfold land")
+		)
+	elif tracked:
+		_action_button.disabled = true
+		_action_button.focus_mode = Control.FOCUS_NONE
+		_state_label.text = "TRACKING"
+		_state_label.add_theme_color_override(
+			"font_color", kit.palette.color("ui_accent").darkened(0.12)
+		)
+		_action_button.text = "%d remaining" % missing_total
+		_action_button.tooltip_text = (
+			_requirement_summary(project) + " Gathering now contributes here."
+		)
+	else:
+		_action_button.disabled = false
+		_action_button.focus_mode = Control.FOCUS_ALL
+		_state_label.text = "LOCKED"
+		_state_label.add_theme_color_override(
+			"font_color", kit.palette.color("ui_text_muted")
+		)
+		_action_button.text = "Track requirements"
+		_action_button.tooltip_text = (
+			_requirement_summary(project) + " "
+			+ _accept_prompt("Track this frontier")
 		)
 
 
-func _cycle_biome() -> void:
-	if BIOMES.is_empty():
-		return
-	_biome_index = (_biome_index + 1) % BIOMES.size()
-	_update_biome_label()
-
-
-func _update_biome_label() -> void:
-	if _biome_button == null or BIOMES.is_empty():
-		return
-	_biome_button.text = "Biome · %s  ›" % String(
-		BIOMES[_biome_index]["label"]
+func _requirement_card(slot: Dictionary) -> PanelContainer:
+	var card := PanelContainer.new()
+	card.name = "Requirement_%s" % String(slot.get("id", "unknown"))
+	card.custom_minimum_size = Vector2(70.0, 58.0)
+	card.mouse_filter = Control.MOUSE_FILTER_PASS
+	var current := int(slot.get("current", 0))
+	var required := int(slot.get("required", 1))
+	var complete := current >= required
+	var accent := (
+		kit.palette.color("ui_good")
+		if complete else kit.palette.color("ui_accent")
 	)
+	var style := kit.surface_style(
+		accent.lightened(0.5), 11, accent.lightened(0.18), 1
+	)
+	style.set_content_margin_all(5)
+	card.add_theme_stylebox_override("panel", style)
+	var remaining := maxi(0, required - current)
+	card.tooltip_text = "%s: %d of %d%s" % [
+		String(slot.get("name", "Requirement")),
+		current,
+		required,
+		" · complete" if remaining == 0 else " · %d left" % remaining,
+	]
+
+	var column := VBoxContainer.new()
+	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.add_theme_constant_override("separation", 1)
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(column)
+	var icon := TextureRect.new()
+	icon.name = "Icon"
+	icon.custom_minimum_size = Vector2(28.0, 28.0)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var icon_path := String(slot.get("icon", ""))
+	if not icon_path.is_empty() and ResourceLoader.exists(icon_path):
+		icon.texture = load(icon_path)
+	column.add_child(icon)
+	var count := kit.label("%d/%d" % [current, required], 13, false, true)
+	count.name = "Count"
+	count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	count.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(count)
+	return card
 
 
-func _selected_shape_button() -> Button:
-	for index in SHAPES.size():
-		if String(SHAPES[index]["id"]) == _terrain_shape:
-			return _shape_buttons[index]
-	return _shape_buttons[0]
+func _requirement_summary(project: Dictionary) -> String:
+	var parts: Array[String] = []
+	for slot: Dictionary in project.get("slots", []):
+		var current := int(slot.get("current", 0))
+		var required := int(slot.get("required", 1))
+		var remaining := maxi(0, required - current)
+		parts.append("%s %d/%d%s" % [
+			String(slot.get("name", "Requirement")),
+			current,
+			required,
+			"" if remaining == 0 else " (%d left)" % remaining,
+		])
+	return " · ".join(parts)
 
 
-func _request_generation() -> void:
+func _accept_prompt(description: String) -> String:
+	if _input_service == null:
+		return description
+	return _input_service.format_action(&"ui_accept", description)
+
+
+func _activate_target() -> void:
 	if _target_coord == NO_COORD:
 		return
+	var frontier_status := core.frontiers.status(_target_coord)
+	var ready := bool(frontier_status.get("ready", false))
 	var coord := _target_coord
-	var biome_id := String(BIOMES[_biome_index]["id"])
-	var preferences := {"terrain_shape": _terrain_shape}
-	if biome_id != "":
-		preferences["biome"] = biome_id
-	_hide_panel()
-	generation_requested.emit(coord, preferences)
+	if ready:
+		_hide_panel()
+	frontier_activated.emit(coord)
+	if not ready:
+		_refresh_content()

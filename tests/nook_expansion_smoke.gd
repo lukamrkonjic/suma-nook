@@ -36,6 +36,11 @@ func _exercise_expansion() -> void:
 	if targets.is_empty():
 		return
 	var coord: Vector2i = targets[0]["nook"]
+	var frontier_cell := NookFrontierMarkers.marker_cell(
+		_main.core.nooks.world,
+		coord,
+		targets[0]["direction"]
+	)
 	var protected_local := Vector2i(2, 2)
 	var protected_cell := (
 		_main.core.nooks.world.chunk_origin(coord) + protected_local
@@ -67,27 +72,39 @@ func _exercise_expansion() -> void:
 	var expected_ghost_cells := (
 		_main.core.nooks.world.nook_size ** 2 - 1
 	)
+	_main.placement.set_active(false)
 	_main._update_frontier_marker_availability()
-	_main._perform_interaction({
-		"kind": "frontier_project",
-		"coord": coord,
-	})
+	_main._try_expand_frontier_at_cell(frontier_cell)
 	var frontier_project := _main.core.projects.tracked_project()
 	_expect(
-		_main.project_panel.is_open()
+		not _main.project_panel.is_open()
 		and frontier_project.get("type", "") == ProjectService.TYPE_FRONTIER
 		and not bool(frontier_project.get("complete", false))
 		and not _main._nook_reveal_in_progress,
-		"clicking a live frontier opens its Project without generating land"
+		"clicking a locked frontier tracks its requirements without modal friction or generation"
 	)
+	_main.frontier_picker.call("_show_for_coord", coord)
+	var requirement_row := _main.frontier_picker.find_child(
+		"Requirements", true, false
+	) as HBoxContainer
+	var frontier_action := _main.frontier_picker.find_child(
+		"FrontierAction", true, false
+	) as Button
 	_expect(
 		(frontier_project.get("slots", []) as Array).size() == 3
+		and requirement_row != null
+		and requirement_row.get_child_count() == 3
+		and frontier_action != null
+		and frontier_action.disabled
+		and frontier_action.text.contains("remaining")
+		and _main.frontier_picker.find_child(
+			"Requirement_timber", true, false
+		) != null
 		and not (frontier_project.get("frontier_metadata", {}) as Dictionary).get(
 			"preview", ""
 		).is_empty(),
-		"the Frontier Project exposes three small contributions and a reserved preview"
+		"the dot card exposes three icon-count requirements backed by one reserved frontier"
 	)
-	_main.project_panel.close()
 	var reveal_state := {
 		"started": false,
 		"finished": false,
@@ -304,8 +321,15 @@ func _exercise_expansion() -> void:
 				slot_index,
 				"nook-smoke:%d" % slot_index
 			)
+	_expect(
+		not _main._nook_reveal_in_progress
+		and not frontier_action.disabled
+		and frontier_action.text == "Unfold land",
+		"finishing the requirements leaves the frontier visibly ready"
+	)
+	_main._try_expand_frontier_at_cell(frontier_cell)
 	var accepted := _main._nook_reveal_in_progress
-	_expect(accepted, "the final Frontier contribution schedules expansion once")
+	_expect(accepted, "clicking the ready frontier schedules expansion once")
 	_expect(
 		_main.nook_arrival_ghost.is_previewing(coord),
 		"the terrain arrival ghost appears on the accepted input frame"

@@ -485,15 +485,14 @@ func _build_ui() -> void:
 	project_panel.setup(core, kit)
 	project_panel.panel_toggled.connect(func(_open): _refresh_controller_hints())
 
-	# Optional composition: disabling this feature flag removes the picker node
-	# entirely and the marker input below falls back to the original direct,
-	# naturally generated expansion path.
+	# Optional composition: the world-facing requirements card can be removed
+	# without changing the direct click/controller activation path.
 	if _frontier_picker_enabled():
 		frontier_picker = NookFrontierPickerScript.new()
 		frontier_picker.name = "NookFrontierPicker"
 		add_child(frontier_picker)
 		frontier_picker.call("setup", core, kit, frontier_markers, placement)
-		frontier_picker.connect("generation_requested", _open_frontier_project)
+		frontier_picker.connect("frontier_activated", _activate_frontier)
 		frontier_picker.connect(
 			"panel_toggled", func(_open): _refresh_controller_hints()
 		)
@@ -2115,9 +2114,16 @@ func _refresh_controller_hints() -> void:
 					placement.controller_cursor_cell()
 				).is_empty()
 			):
+				var frontier_marker := frontier_markers.marker_at_cell(
+					placement.controller_cursor_cell()
+				)
+				var frontier_status := core.frontiers.status(
+					frontier_marker.get("nook", Vector2i.ZERO)
+				)
 				confirm_label = (
-					"Shape land" if _frontier_picker_enabled()
-					else "Grow land"
+					"Unfold land"
+					if bool(frontier_status.get("ready", false))
+					else "Track frontier"
 				)
 			actions = [
 				{"action": &"build_cursor_up", "label": "Move cursor"},
@@ -2198,7 +2204,7 @@ func _try_expand_frontier_at_screen(screen_position: Vector2) -> bool:
 	var marker := frontier_markers.marker_at_screen(screen_position)
 	if marker.is_empty():
 		return false
-	return project_panel.open_frontier(marker.get("nook", Vector2i.ZERO))
+	return _activate_frontier(marker.get("nook", Vector2i.ZERO))
 
 
 func _try_expand_frontier_at_cell(cell: Vector2i) -> bool:
@@ -2207,20 +2213,24 @@ func _try_expand_frontier_at_cell(cell: Vector2i) -> bool:
 	var marker := frontier_markers.marker_at_cell(cell)
 	if marker.is_empty():
 		return false
-	return project_panel.open_frontier(marker.get("nook", Vector2i.ZERO))
+	return _activate_frontier(marker.get("nook", Vector2i.ZERO))
 
 
-func _open_frontier_project(
-	coord: Vector2i,
-	_preferences: Dictionary = {}
-) -> bool:
-	return project_panel.open_frontier(coord)
+func _activate_frontier(coord: Vector2i) -> bool:
+	var result := core.frontiers.activate(coord)
+	if not bool(result.get("accepted", false)):
+		return false
+	core.autosave_soon()
+	if frontier_picker != null:
+		frontier_picker.call("refresh")
+	_refresh_controller_hints()
+	return true
 
 
-## Compatibility port for old scene fixtures. The behavior is intentionally
-## no longer immediate: opening a frontier only creates/tracks its Project.
-func _expand_nook_at(coord: Vector2i, preferences: Dictionary = {}) -> bool:
-	return _open_frontier_project(coord, preferences)
+## Compatibility port for old scene fixtures. Preferences are intentionally
+## ignored: the reserved deterministic world card owns the generated terrain.
+func _expand_nook_at(coord: Vector2i, _preferences: Dictionary = {}) -> bool:
+	return _activate_frontier(coord)
 
 
 func _begin_frontier_expansion(
@@ -2625,7 +2635,7 @@ func _on_click_interaction_reached(interaction: Dictionary) -> void:
 func _perform_interaction(interaction: Dictionary) -> void:
 	match interaction.get("kind", ""):
 		"frontier_project":
-			project_panel.open_frontier(interaction.get("coord", Vector2i.ZERO))
+			_activate_frontier(interaction.get("coord", Vector2i.ZERO))
 		"delivery_package":
 			_open_delivery_package()
 		"feature_interaction":
