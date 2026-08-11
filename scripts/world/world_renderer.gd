@@ -49,6 +49,10 @@ var _hover_signature := ""
 var _pending_rotation_slots: Dictionary = {}
 var _pending_wish_slots: Dictionary = {}
 var _pending_water_skip_slots: Dictionary = {}
+## Incoming animated tiles are authoritative before they visually arrive. Keep
+## their support keyed here so topology still renders the exposed authored top
+## until the landing tween has completely sealed the seam.
+var _deferred_surface_cover_slots: Dictionary = {}
 var _outline_viewport: SubViewport
 var _outline_camera: Camera3D
 var _outline_overlay: TextureRect
@@ -335,6 +339,13 @@ func _on_slot_changed(coord: Vector2i, elevation: int) -> void:
 	_pending_rotation_slots.erase(changed_key)
 	_pending_wish_slots.erase(changed_key)
 	_pending_water_skip_slots.erase(changed_key)
+	# Cancelling/undoing a landing can delete its visual before Tween.finished.
+	# The authoritative removal is therefore also a transaction cleanup point.
+	if (
+		_deferred_surface_cover_slots.has(changed_key)
+		and not core.grid.has_cell_at(coord, elevation)
+	):
+		_deferred_surface_cover_slots.erase(changed_key)
 	var wants_scalable := (
 		core.grid.total_tile_count() >= SCALABLE_WORLD_THRESHOLD
 	)
@@ -1181,23 +1192,41 @@ func cancel_rotation_refresh(coord: Vector2i, elevation: int) -> void:
 
 ## Suppresses the ordinary tiny placement wobble. The placement controller
 ## commits authoritative state first, then asks for the longer sky fall.
-func prepare_wish_placement(coord: Vector2i, elevation: int) -> void:
-	_pending_wish_slots[core.grid.slot_key(coord, elevation)] = true
+func prepare_wish_placement(
+	coord: Vector2i,
+	elevation: int,
+	defer_support_cover := false
+) -> void:
+	var key := core.grid.slot_key(coord, elevation)
+	_pending_wish_slots[key] = true
+	if defer_support_cover and elevation > 0:
+		_deferred_surface_cover_slots[key] = true
 
 
 func cancel_wish_placement(coord: Vector2i, elevation: int) -> void:
-	_pending_wish_slots.erase(core.grid.slot_key(coord, elevation))
+	var key := core.grid.slot_key(coord, elevation)
+	_pending_wish_slots.erase(key)
+	_deferred_surface_cover_slots.erase(key)
 
 
 ## A water skip has its own long travel animation after the authoritative grid
 ## commit. Marking the destination prevents the normal tiny placement wobble
 ## from briefly showing the tile at its final position first.
-func prepare_water_skip_placement(coord: Vector2i, elevation: int) -> void:
-	_pending_water_skip_slots[core.grid.slot_key(coord, elevation)] = true
+func prepare_water_skip_placement(
+	coord: Vector2i,
+	elevation: int,
+	defer_support_cover := true
+) -> void:
+	var key := core.grid.slot_key(coord, elevation)
+	_pending_water_skip_slots[key] = true
+	if defer_support_cover and elevation > 0:
+		_deferred_surface_cover_slots[key] = true
 
 
 func cancel_water_skip_placement(coord: Vector2i, elevation: int) -> void:
-	_pending_water_skip_slots.erase(core.grid.slot_key(coord, elevation))
+	var key := core.grid.slot_key(coord, elevation)
+	_pending_water_skip_slots.erase(key)
+	_deferred_surface_cover_slots.erase(key)
 
 
 ## Starts every tile in a moved stack at the same water contact, preserving its
@@ -1229,6 +1258,11 @@ func animate_tile_stack_water_skip(
 				)
 		if landing_tween == null:
 			landing_tween = tween
+		_schedule_surface_cover_after_landing(
+			coord,
+			base_elevation + relative,
+			tween
+		)
 	return landing_tween
 
 
@@ -1287,12 +1321,45 @@ func _animate_tile_water_skip(
 
 
 func animate_tile_wish_landing(coord: Vector2i, elevation: int) -> Tween:
+	var tween: Tween = null
 	if _scalable_mode:
-		return _scalable_backend.animate_tile_wish_landing(coord, elevation)
-	var holder := tile_node(coord, elevation)
-	if holder == null or holder.get_child_count() == 0:
-		return null
-	return _animate_wish_fall(holder.get_child(0) as Node3D)
+		tween = _scalable_backend.animate_tile_wish_landing(coord, elevation)
+	else:
+		var holder := tile_node(coord, elevation)
+		if holder != null and holder.get_child_count() > 0:
+			tween = _animate_wish_fall(holder.get_child(0) as Node3D)
+	_schedule_surface_cover_after_landing(coord, elevation, tween)
+	return tween
+
+
+func _schedule_surface_cover_after_landing(
+	coord: Vector2i,
+	incoming_elevation: int,
+	landing_tween: Tween
+) -> void:
+	var key := core.grid.slot_key(coord, incoming_elevation)
+	if not _deferred_surface_cover_slots.has(key):
+		return
+	if landing_tween != null and landing_tween.is_valid():
+		landing_tween.finished.connect(
+			_finish_deferred_surface_cover.bind(coord, incoming_elevation),
+			CONNECT_ONE_SHOT
+		)
+	else:
+		_finish_deferred_surface_cover(coord, incoming_elevation)
+
+
+func _finish_deferred_surface_cover(
+	coord: Vector2i,
+	incoming_elevation: int
+) -> void:
+	var key := core.grid.slot_key(coord, incoming_elevation)
+	if not _deferred_surface_cover_slots.erase(key) or incoming_elevation <= 0:
+		return
+	if _scalable_mode:
+		_scalable_backend.rebuild_around(coord)
+	else:
+		_refresh_covered_surface(coord, incoming_elevation - 1, false)
 
 
 func animate_structure_wish_landing(instance_id: int) -> Tween:
@@ -1908,6 +1975,9 @@ func is_tile_surface_covered_for_render(
 	return (
 		core.grid.has_cell_at(coord, elevation + 1)
 		and not is_tile_staged_for_reveal(coord, elevation + 1)
+		and not _deferred_surface_cover_slots.has(
+			core.grid.slot_key(coord, elevation + 1)
+		)
 	)
 
 
@@ -1924,10 +1994,6 @@ func note_reveal_instance_built_hidden(hidden: bool) -> void:
 		reveal_staged_instances_built_hidden += 1
 	else:
 		reveal_preflash_violations += 1
-
-
-func reveal_surface_cover_transition_seconds() -> float:
-	return TileVisualFactory.cover_transition_seconds()
 
 
 ## Starts the support-top cross-fade timed by NookRevealPresenter to the final

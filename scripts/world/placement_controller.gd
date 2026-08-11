@@ -1621,7 +1621,8 @@ func _place_tile() -> bool:
 		for relative: int in skip_relative_elevations:
 			world_renderer.prepare_water_skip_placement(
 				_hover_cell,
-				_hover_elevation + relative
+				_hover_elevation + relative,
+				relative == 0
 			)
 	var wish_arrival := (
 		String(held.get("arrival", "")) == "wish"
@@ -1661,7 +1662,8 @@ func _place_tile() -> bool:
 		if wish_arrival:
 			world_renderer.prepare_wish_placement(
 				_hover_cell,
-				_hover_elevation
+				_hover_elevation,
+				true
 			)
 		if not core.place_tile_from_stock(_hover_cell, tile_id, rotation_q, _hover_elevation):
 			if wish_arrival:

@@ -40,10 +40,6 @@ var _batch_mesh_cache: Dictionary = {}
 var _staged_tile_query := Callable()
 
 
-static func cover_transition_seconds() -> float:
-	return COVER_FADE_DELAY + COVER_FADE_SECONDS
-
-
 func _init(asset_library: AssetLibrary, world_grid: WorldGrid) -> void:
 	assets = asset_library
 	grid = world_grid
@@ -689,9 +685,9 @@ func set_stack_seam_visible(visual: Node3D, visible: bool) -> void:
 
 
 ## A covered tile keeps its structural body but loses its authored top cap and
-## any raised surface dressing. During live placement the old surface remains
-## until the incoming tile is nearly touching it, then cross-fades into a
-## body-coloured infill. Static rebuilds and held stack ghosts resolve instantly.
+## any raised surface dressing. Short live placement keeps the old surface into
+## the final approach; long arrivals are deferred by WorldRenderer until the
+## incoming tile has made contact. Static rebuilds and held ghosts resolve at once.
 func set_surface_covered(
 	visual: Node3D,
 	covered: bool,

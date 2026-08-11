@@ -1283,6 +1283,30 @@ func _step_build_mode_selection_rules() -> void:
 	InputDeviceService.shared()._set_input_method(
 		InputDeviceService.InputMethod.KEYBOARD_MOUSE
 	)
+	# Renderer-level timing probe for the elevated form of the same splash. The
+	# committed upper tile must not make its support hollow during the hop.
+	var cover_probe_support := main.renderer.tile_node(STACK_COORD, 0)
+	main.renderer.prepare_water_skip_placement(STACK_COORD, 1, true)
+	main.core.grid.place_tile_at(STACK_COORD, 1, "tile_grass")
+	var cover_probe_tween := main.renderer.animate_tile_stack_water_skip(
+		STACK_COORD,
+		1,
+		[0],
+		main.core.grid.cell_to_world(TEST_MOVABLE_WATER_COORD)
+	)
+	await wait(0.28)
+	check(
+		cover_probe_tween != null
+		and _tile_has_visible_authored_top(cover_probe_support),
+		"a water-skipped elevated tile keeps its support top throughout flight"
+	)
+	await wait(0.48)
+	check(
+		not _tile_has_visible_authored_top(cover_probe_support),
+		"the support top hides only after the skipped tile seals the landing"
+	)
+	main.core.grid.remove_tile_at(STACK_COORD, 1)
+	await wait(0.22)
 
 	main.placement.pick_up_at(TEST_MOVABLE_WATER_COORD)
 	check(
@@ -3506,6 +3530,40 @@ func _node_mesh_bounds(root: Node3D) -> AABB:
 			maximum = maximum.max(point)
 			found = true
 	return AABB(minimum, maximum - minimum) if found else AABB()
+
+
+func _tile_has_visible_authored_top(holder: Node3D) -> bool:
+	if holder == null or not is_instance_valid(holder) \
+		or holder.get_child_count() == 0:
+		return false
+	var visual := holder.get_child(0) as Node3D
+	if visual == null:
+		return false
+	for child in visual.find_children("*", "MeshInstance3D", true, false):
+		var mesh := child as MeshInstance3D
+		if (
+			mesh.name == TileVisualFactory.COVERED_INFILL_NAME
+			or mesh.name == TileVisualFactory.STACK_SEAM_NAME
+		):
+			continue
+		var layer_role := String(
+			mesh.get_meta(TileVisualFactory.LAYER_ROLE_META, "")
+		)
+		var cover_behavior := String(
+			mesh.get_meta(TileVisualFactory.LAYER_COVER_BEHAVIOR_META, "")
+		)
+		if (
+			layer_role == "base"
+			or cover_behavior == "persist"
+			or (
+				layer_role == ""
+				and mesh.name.to_lower().ends_with("_body")
+			)
+		):
+			continue
+		if mesh.visible and mesh.transparency < 0.01:
+			return true
+	return false
 
 
 func _entry_stock_count_for_loop(entry: Dictionary) -> int:

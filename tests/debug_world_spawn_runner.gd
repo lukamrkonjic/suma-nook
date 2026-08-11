@@ -73,8 +73,22 @@ func _ready() -> void:
 func _exercise_scalable_presentation() -> Dictionary:
 	var instance_id := 0
 	var harvest_instance_id := 0
+	var cover_coord := Vector2i(999999, 999999)
+	var cover_tile_id := ""
 	for slot: Dictionary in _main.core.grid.all_cell_slots():
 		var state: WorldGrid.CellState = slot["state"]
+		var coord: Vector2i = slot["coord"]
+		var elevation := int(slot["elevation"])
+		var tile_definition := _main.core.grid.tile_def_at(coord, elevation)
+		if (
+			cover_tile_id == ""
+			and elevation == 0
+			and state.structures.is_empty()
+			and tile_definition != null
+			and tile_definition.supports_tiles
+		):
+			cover_coord = coord
+			cover_tile_id = tile_definition.id
 		for structure: WorldGrid.StructureState in state.structures:
 			if instance_id == 0:
 				instance_id = structure.instance_id
@@ -85,9 +99,9 @@ func _exercise_scalable_presentation() -> Dictionary:
 				and definition.has_capability("harvest_source")
 			):
 				harvest_instance_id = structure.instance_id
-		if instance_id > 0 and harvest_instance_id > 0:
+		if instance_id > 0 and harvest_instance_id > 0 and cover_tile_id != "":
 			break
-	if instance_id <= 0 or harvest_instance_id <= 0:
+	if instance_id <= 0 or harvest_instance_id <= 0 or cover_tile_id == "":
 		return {"passed": false, "reason": "missing_fixture"}
 
 	_main.renderer.set_hovered_structure(instance_id)
@@ -146,9 +160,44 @@ func _exercise_scalable_presentation() -> Dictionary:
 		and multimesh_after != null
 		and multimesh_after != multimesh_before
 	)
+
+	# A scalable support belongs to a shared mesh batch, so this probes the
+	# deferred topology swap as well as the exact-node contract in full_loop.
+	_main.renderer.prepare_water_skip_placement(cover_coord, 1, true)
+	_main.core.grid.place_tile_at(cover_coord, 1, cover_tile_id)
+	var cover_tween := _main.renderer.animate_tile_stack_water_skip(
+		cover_coord,
+		1,
+		[0],
+		_main.core.grid.cell_to_world(cover_coord + Vector2i(2, 0))
+	)
+	var cover_key := _main.core.grid.slot_key(cover_coord, 0)
+	var incoming_key := _main.core.grid.slot_key(cover_coord, 1)
+	var support_during_flight: Dictionary = (
+		_main.renderer._scalable_backend.tile_instances.get(
+			cover_key, {}
+		) as Dictionary
+	)
+	var cover_visible_during_flight := (
+		cover_tween != null
+		and not bool(support_during_flight.get("covered", true))
+		and _main.renderer._deferred_surface_cover_slots.has(incoming_key)
+	)
+	await get_tree().create_timer(0.78).timeout
+	var support_after_landing: Dictionary = (
+		_main.renderer._scalable_backend.tile_instances.get(
+			cover_key, {}
+		) as Dictionary
+	)
+	var cover_hidden_after_landing := (
+		bool(support_after_landing.get("covered", false))
+		and not _main.renderer._deferred_surface_cover_slots.has(incoming_key)
+	)
+	_main.core.grid.remove_tile_at(cover_coord, 1)
 	return {
 		"passed": hover_ok and fall_started and fall_settled
-			and impact_started and impact_finished and depleted_refresh,
+			and impact_started and impact_finished and depleted_refresh
+			and cover_visible_during_flight and cover_hidden_after_landing,
 		"hover": hover_ok,
 		"fall_started": fall_started,
 		"fall_settled": fall_settled,
@@ -156,4 +205,6 @@ func _exercise_scalable_presentation() -> Dictionary:
 		"harvest_impact_started": impact_started,
 		"harvest_impact_finished": impact_finished,
 		"depleted_refresh": depleted_refresh,
+		"support_top_during_water_hop": cover_visible_during_flight,
+		"support_top_after_water_hop": cover_hidden_after_landing,
 	}

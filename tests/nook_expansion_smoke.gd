@@ -107,6 +107,7 @@ func _exercise_expansion() -> void:
 		"supports_kept_full_before_landing": false,
 		"cover_transitions_started": 0,
 		"cover_transition_started_with_full_top": true,
+		"cover_transition_started_after_contact": true,
 	}
 	var hidden_builds_before := (
 		_main.renderer.reveal_staged_instances_built_hidden
@@ -133,6 +134,28 @@ func _exercise_expansion() -> void:
 			reveal_state["cover_transition_started_with_full_top"] = (
 				bool(reveal_state["cover_transition_started_with_full_top"])
 				and _has_visible_authored_top(holder)
+			)
+			var incoming_key := _main.core.grid.slot_key(cell, elevation + 1)
+			var incoming: Dictionary = (
+				_main.renderer._scalable_backend.tile_instances.get(
+					incoming_key, {}
+				) as Dictionary
+			)
+			var multimesh := incoming.get("multimesh") as MultiMesh
+			var index := int(incoming.get("index", -1))
+			var reached_contact := false
+			if (
+				multimesh != null
+				and index >= 0
+				and index < multimesh.instance_count
+				and incoming.has("base")
+			):
+				var current := multimesh.get_instance_transform(index)
+				var target: Transform3D = incoming["base"]
+				reached_contact = current.origin.y <= target.origin.y + 0.12
+			reveal_state["cover_transition_started_after_contact"] = (
+				bool(reveal_state["cover_transition_started_after_contact"])
+				and reached_contact
 			)
 	)
 	_main.core.nooks.nook_revealed.connect(
@@ -373,8 +396,9 @@ func _exercise_expansion() -> void:
 	_expect(
 		int(reveal_state["cover_transitions_started"])
 			== int(reveal_state["coverable_supports"])
-		and bool(reveal_state["cover_transition_started_with_full_top"]),
-		"support tops cross-fade from their complete form on upper-tile approach"
+		and bool(reveal_state["cover_transition_started_with_full_top"])
+		and bool(reveal_state["cover_transition_started_after_contact"]),
+		"support tops begin covering from their complete form only after contact"
 	)
 	var protected_found := _main.core.grid.find_structure(
 		protected_structure.instance_id
