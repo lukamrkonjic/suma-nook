@@ -1057,6 +1057,12 @@ func _test_input_bindings() -> void:
 		"F is universal world interact while left-click remains available"
 	)
 	check(
+		PlacementController.ACTIONABLE_PICKUP_HOLD_SECONDS >= 0.25
+		and PlacementController.ACTIONABLE_PICKUP_HOLD_SECONDS <= 0.6
+		and PlacementController.POINTER_DRAG_DISTANCE >= 8.0,
+		"actionable pointer targets require a deliberate hold while controller interaction stays semantic"
+	)
+	check(
 		not _action_has_key("return_home", KEY_H)
 		and _action_has_key("return_home", KEY_HOME),
 		"Home returns the player home without conflicting with the HUD shortcut"

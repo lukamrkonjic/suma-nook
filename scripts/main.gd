@@ -1673,11 +1673,15 @@ func _begin_build_pointer(screen_position: Vector2) -> void:
 	if placement.active:
 		placement.pointer_press(screen_position)
 		return
-	# In interaction mode a click still interacts, while crossing the drag
-	# threshold turns the same gesture into direct world editing. This keeps
-	# harvesting and moving a tree unambiguous without requiring a mode toggle.
+	# In interaction mode a short click always interacts. Actionable targets
+	# require an intentional hold before the same gesture may become direct
+	# world editing, so normal click jitter can never steal a harvest or fish.
 	_pending_build_interaction = _interaction_at_screen(screen_position)
-	placement.pointer_press(screen_position, true)
+	placement.pointer_press(
+		screen_position,
+		true,
+		not _pending_build_interaction.is_empty()
+	)
 
 
 func _finish_build_pointer(screen_position: Vector2) -> void:

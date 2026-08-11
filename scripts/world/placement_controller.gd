@@ -11,6 +11,9 @@ signal action_result(ok: bool, message: String, kind: String)
 signal hover_changed(display_name: String, collection_name: String)
 signal tile_splashed(impact_position: Vector3, landing_position: Vector3)
 
+const POINTER_DRAG_DISTANCE := 8.0
+const ACTIONABLE_PICKUP_HOLD_SECONDS := 0.32
+
 const StructureVisualFactoryScript := preload(
 	"res://scripts/world/structure_visual_factory.gd"
 )
@@ -54,6 +57,9 @@ var _pointer_press_position := Vector2.ZERO
 var _pointer_screen_position := Vector2.ZERO
 var _picked_on_pointer_press := false
 var _deferred_pickup_hit: Dictionary = {}
+var _deferred_pickup_requires_hold := false
+var _deferred_pickup_attempted := false
+var _pointer_hold_elapsed := 0.0
 ## A mouse drag may temporarily borrow build preview/validation while the game
 ## stays in interaction mode. Keeping this separate from `active` prevents a
 ## mid-gesture camera reframe and leaves explicit controller Build mode intact.
@@ -767,6 +773,7 @@ func _stack_relative_transform(
 # ------------------------------------------------------------------ per-frame preview
 
 func _process(delta: float) -> void:
+	_tick_actionable_pickup_hold(delta)
 	if not active and not _transient_pointer_edit:
 		if _ghost != null:
 			_ghost.visible = false
@@ -1473,7 +1480,8 @@ func pick_up_at(cell: Vector2i, elevation: int = -1) -> void:
 
 func pointer_press(
 	screen_position: Vector2,
-	pick_up_on_drag_only := false
+	pick_up_on_drag_only := false,
+	require_hold_for_pickup := false
 ) -> void:
 	camera_rig.begin_pointer_edit()
 	_pointer_down = true
@@ -1481,12 +1489,16 @@ func pointer_press(
 	_pointer_press_position = screen_position
 	_pointer_screen_position = screen_position
 	_picked_on_pointer_press = false
-	_deferred_pickup_hit = {}
+	_reset_deferred_pickup_intent()
 	if held.is_empty():
 		if pick_up_on_drag_only:
 			if not _pointer_is_over_ui(screen_position):
 				_deferred_pickup_hit = _placeable_hit_with_grid_fallback(
 					screen_position
+				)
+				_deferred_pickup_requires_hold = (
+					require_hold_for_pickup
+					and not _deferred_pickup_hit.is_empty()
 				)
 		else:
 			_try_pick_up(screen_position)
@@ -1507,21 +1519,61 @@ func begin_pointer_drag_for_held(screen_position: Vector2) -> void:
 	_pointer_press_position = screen_position
 	_pointer_screen_position = screen_position
 	_picked_on_pointer_press = true
-	_deferred_pickup_hit = {}
+	_reset_deferred_pickup_intent()
 
 
 func pointer_motion(screen_position: Vector2) -> void:
 	_pointer_screen_position = screen_position
 	if not _pointer_down or _pointer_dragging:
 		return
-	if screen_position.distance_to(_pointer_press_position) < 8.0:
+	if (
+		screen_position.distance_to(_pointer_press_position)
+		< POINTER_DRAG_DISTANCE
+	):
+		return
+	if (
+		not _picked_on_pointer_press
+		and not _deferred_pickup_hit.is_empty()
+	):
+		if _deferred_pickup_requires_hold:
+			return
+		_begin_deferred_pickup()
 		return
 	_pointer_dragging = true
-	if not _picked_on_pointer_press and not _deferred_pickup_hit.is_empty():
-		_pick_up_placeable_hit(_deferred_pickup_hit)
-		_picked_on_pointer_press = not held.is_empty()
-		if _picked_on_pointer_press and not active:
-			_transient_pointer_edit = true
+
+
+func _tick_actionable_pickup_hold(delta: float) -> void:
+	if (
+		not _pointer_down
+		or _picked_on_pointer_press
+		or _deferred_pickup_attempted
+		or not _deferred_pickup_requires_hold
+		or _deferred_pickup_hit.is_empty()
+	):
+		return
+	_pointer_hold_elapsed += maxf(0.0, delta)
+	if _pointer_hold_elapsed >= ACTIONABLE_PICKUP_HOLD_SECONDS:
+		_begin_deferred_pickup()
+
+
+func _begin_deferred_pickup() -> void:
+	if _deferred_pickup_attempted or _deferred_pickup_hit.is_empty():
+		return
+	_deferred_pickup_attempted = true
+	_pick_up_placeable_hit(_deferred_pickup_hit)
+	_picked_on_pointer_press = not held.is_empty()
+	if not _picked_on_pointer_press:
+		return
+	_pointer_dragging = true
+	if not active:
+		_transient_pointer_edit = true
+
+
+func _reset_deferred_pickup_intent() -> void:
+	_deferred_pickup_hit = {}
+	_deferred_pickup_requires_hold = false
+	_deferred_pickup_attempted = false
+	_pointer_hold_elapsed = 0.0
 
 
 func pointer_release(screen_position: Vector2) -> bool:
@@ -1539,7 +1591,7 @@ func pointer_release(screen_position: Vector2) -> bool:
 	_pointer_down = false
 	_pointer_dragging = false
 	_picked_on_pointer_press = false
-	_deferred_pickup_hit = {}
+	_reset_deferred_pickup_intent()
 	camera_rig.end_pointer_edit()
 	return was_dragging
 
@@ -1576,7 +1628,7 @@ func cancel_pointer_gesture() -> void:
 	_pointer_down = false
 	_pointer_dragging = false
 	_picked_on_pointer_press = false
-	_deferred_pickup_hit = {}
+	_reset_deferred_pickup_intent()
 
 
 func click() -> void:
@@ -2149,7 +2201,7 @@ func store_held() -> void:
 	_pointer_down = false
 	_pointer_dragging = false
 	_picked_on_pointer_press = false
-	_deferred_pickup_hit = {}
+	_reset_deferred_pickup_intent()
 	held_changed.emit(held)
 	_build_ghost()
 	core.autosave_soon()
@@ -2214,7 +2266,7 @@ func _cancel_held(restore: bool) -> void:
 	_pointer_down = false
 	_pointer_dragging = false
 	_picked_on_pointer_press = false
-	_deferred_pickup_hit = {}
+	_reset_deferred_pickup_intent()
 	held_changed.emit(held)
 	if _ghost != null:
 		_ghost.queue_free()

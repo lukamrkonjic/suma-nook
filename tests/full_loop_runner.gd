@@ -241,15 +241,81 @@ func _step_creation() -> void:
 		var runtime: Dictionary = tree.runtime_state[HarvestingModule.RUNTIME_KEY]
 		runtime["deadline_unix"] = 0.0
 		main.core.harvesting.status(tree.instance_id)
-		var started: Dictionary = main.core.harvesting.request_hit(tree.instance_id, "player")
-		var second_hit: Dictionary = main.core.harvesting.request_hit(tree.instance_id, "player")
-		var completed: Dictionary = main.core.harvesting.complete_interaction(tree.instance_id)
+		await get_tree().process_frame
+		await get_tree().physics_frame
+		var tree_point := (
+			main.core.grid.cell_to_world(Vector2i.ZERO)
+			+ main.core.grid.structure_local_transform(tree.instance_id).origin
+		)
+		var tree_screen := main.camera_rig.camera.unproject_position(
+			tree_point + Vector3.UP * 0.65
+		)
+		var tree_interaction := main._interaction_at_screen(tree_screen)
 		check(
-			bool(started.get("accepted", false))
-			and second_hit.get("hit", 0) == 2
-			and bool(completed.get("final", false))
+			tree_interaction.get("kind", "") == "feature_interaction"
+			and String(tree_interaction.get("feature", "")) == "harvesting",
+			"a tree click resolves harvesting before edit pickup"
+		)
+
+		# Even motion beyond the ordinary drag threshold remains a click until
+		# the actionable hold threshold has actually elapsed.
+		send_main_pointer_button(tree_screen, true)
+		var jittered_screen := tree_screen + Vector2(
+			PlacementController.POINTER_DRAG_DISTANCE + 4.0,
+			0.0
+		)
+		send_main_pointer_motion(
+			jittered_screen,
+			jittered_screen - tree_screen
+		)
+		send_main_pointer_button(jittered_screen, false)
+		await get_tree().process_frame
+		check(
+			main.placement.held.is_empty()
+			and int(main.core.harvesting.status(tree.instance_id).get("hits", 0)) == 1,
+			"a short jittery tree click harvests instead of picking the tree up"
+		)
+
+		# Holding the same target is the explicit edit gesture. Releasing it on
+		# its origin restores it without accidentally adding another harvest hit.
+		send_main_pointer_button(tree_screen, true)
+		await wait(PlacementController.ACTIONABLE_PICKUP_HOLD_SECONDS + 0.08)
+		check(
+			int(main.placement.held.get("moving", {}).get(
+				"origin", {}
+			).get("iid", 0)) == tree.instance_id,
+			"holding an actionable tree begins its move transaction"
+		)
+		send_main_pointer_button(tree_screen, false)
+		await get_tree().process_frame
+		check(
+			main.placement.held.is_empty()
+			and not main.core.grid.find_structure(tree.instance_id).is_empty()
+			and int(main.core.harvesting.status(tree.instance_id).get("hits", 0)) == 1,
+			"hold-to-move preserves the tree and does not also harvest it"
+		)
+
+		var hits_required := int(main.core.harvesting.status(
+			tree.instance_id
+		).get("hits_required", 0))
+		for expected_hit in range(2, hits_required + 1):
+			await wait(0.1)
+			send_main_pointer_button(tree_screen, true)
+			send_main_pointer_button(tree_screen, false)
+			await get_tree().process_frame
+			if expected_hit < hits_required:
+				check(
+					int(main.core.harvesting.status(tree.instance_id).get(
+						"hits", 0
+					)) == expected_hit,
+					"short click %d lands the next deliberate tree hit"
+					% expected_hit
+				)
+		var completed: Dictionary = main.core.harvesting.status(tree.instance_id)
+		check(
+			completed.get("state", "") == HarvestingModule.STATE_REGROWING
 			and not main.core.grid.find_structure(tree.instance_id).is_empty(),
-			"three deliberate hits complete one Timber action and leave a regrowing stump"
+			"all authored clicks complete one Timber action and leave a regrowing stump"
 		)
 	else:
 		check(false, "the opening tree remains addressable as a stateful resource")
@@ -1898,11 +1964,16 @@ func _step_universal_interaction() -> void:
 		and String(main.player.focus().get("feature", "")) == "fire",
 		"proximity focus resolves registered feature interactions"
 	)
-	await _tap_key(KEY_F)
+	var fire_screen := main.camera_rig.camera.unproject_position(
+		fire_point + Vector3.UP * 0.35
+	)
+	send_main_pointer_button(fire_screen, true)
+	send_main_pointer_button(fire_screen, false)
 	await wait(0.1)
 	check(
-		main.core.fire.is_burning(fire.instance_id),
-		"F lights a focused fire through the same shared dispatcher"
+		main.core.fire.is_burning(fire.instance_id)
+		and main.placement.held.is_empty(),
+		"a short fire click lights it instead of picking it up"
 	)
 	var fire_option = main.core.interactions.primary_for(
 		"player", fire.instance_id
@@ -1914,7 +1985,7 @@ func _step_universal_interaction() -> void:
 	check(
 		not main.core.fire.is_burning(fire.instance_id)
 		and main.placement.held.is_empty(),
-		"the interaction route extinguishes the fire without picking it up"
+		"the shared fire interaction extinguishes it without picking it up"
 	)
 	main.placement.set_active(true)
 	main.placement._pick_up_from(fire_coord, 0, fire.instance_id)
