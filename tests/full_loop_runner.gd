@@ -2993,6 +2993,36 @@ func _step_elevation_stacking() -> void:
 	)
 	main.placement.cancel_click()
 
+	var elevated_model_ids := [
+		"struct_campfire",
+		"struct_firepit_polished",
+		"struct_ruin_arch",
+		"struct_stone_pillar",
+		"struct_stone_well",
+		"struct_wooden_arch",
+	]
+	for structure_id: String in elevated_model_ids:
+		main.core.stock.add_structure(structure_id)
+		main.placement.hold_new("structure", structure_id)
+		check(
+			main.placement.try_place_at(STACK_COORD),
+			"%s places through the shared pointer/controller path on elevated terrain"
+			% structure_id
+		)
+		var elevated_state := main.core.grid.cell_at(STACK_COORD, 1)
+		check(
+			elevated_state != null
+			and elevated_state.structures.size() == 1
+			and elevated_state.structures[0].structure_id == structure_id,
+			"%s is owned by the elevated tile layer" % structure_id
+		)
+		main.placement.undo()
+		await get_tree().process_frame
+		check(
+			main.core.grid.cell_at(STACK_COORD, 1).structures.is_empty(),
+			"undo clears elevated %s without disturbing its tile" % structure_id
+		)
+
 	main.core.stock.add_structure("struct_pot")
 	main.placement.hold_new("structure", "struct_pot")
 	check(

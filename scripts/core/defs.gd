@@ -896,7 +896,11 @@ class StructureDefinition:
 		s.light_flicker = bool(d.get("light_flicker", false))
 		s.placement_sound = d.get("placement_sound", "wood")
 		s.preserve_instance_state = bool(d.get("preserve_instance_state", false))
-		s.allow_elevated = bool(d.get("allow_elevated", s.socket_type == "decor"))
+		# Elevation is a property of the supporting tile, not of the socket used
+		# to reserve space on it. Full-tile structures such as hearths, arches,
+		# tents, and wells belong on a clear elevated surface just like decor.
+		# Exceptional ground-only content can still opt out explicitly.
+		s.allow_elevated = bool(d.get("allow_elevated", true))
 		s.allowed_surface_kinds.clear()
 		for surface in d.get("allowed_surfaces", ["flat", "stairs", "uneven"]):
 			s.allowed_surface_kinds.append(String(surface))

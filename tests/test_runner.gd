@@ -3352,6 +3352,125 @@ func _test_elevation_stacking() -> void:
 		not core.grid.can_place_tile_at(coord, 3, "tile_grass"),
 		"a decorated support rejects a land block that would overlap it"
 	)
+	core.grid.remove_structure(coord, elevated_pot.instance_id, 2)
+	var expected_elevated_models := [
+		"struct_campfire",
+		"struct_firepit_polished",
+		"struct_ruin_arch",
+		"struct_stone_pillar",
+		"struct_stone_well",
+		"struct_wooden_arch",
+	]
+	var shared_placement_rules := PlacementRules.new(core, null)
+	for structure_id: String in expected_elevated_models:
+		var definition := core.registries.structure(structure_id)
+		check(
+			definition != null and definition.allow_elevated,
+			"%s is authored for elevated terrain" % structure_id
+		)
+		if definition == null:
+			continue
+		var socket := core.grid.free_socket(coord, definition.socket_type, 2)
+		check(
+			core.grid.can_place_structure_at(coord, 2, structure_id),
+			"%s can be placed on a clear elevated land tile" % structure_id
+		)
+		check(
+			shared_placement_rules.validate(
+				{
+					"kind": "structure",
+					"id": structure_id,
+					"rotation": 0,
+					"moving": null,
+				},
+				coord,
+				2,
+				0,
+				""
+			),
+			"pointer and controller placement accept elevated %s"
+			% structure_id
+		)
+		var elevated_structure := core.grid.add_structure(
+			coord, structure_id, socket, 0, 2
+		)
+		check(
+			elevated_structure != null,
+			"%s survives authoritative elevated placement" % structure_id
+		)
+		if elevated_structure != null:
+			core.grid.remove_structure(
+				coord, elevated_structure.instance_id, 2
+			)
+
+	# Imported and future content uses this same default. Audit every model that
+	# accepts a flat surface so another structure-socket definition cannot
+	# silently regress to ground-only placement.
+	var audited_elevated_models := 0
+	for candidate_variant: Variant in core.registries.structures.values():
+		var candidate := candidate_variant as Defs.StructureDefinition
+		if candidate == null or not candidate.supports_surface("flat"):
+			continue
+		audited_elevated_models += 1
+		var socket := core.grid.free_socket(coord, candidate.socket_type, 2)
+		var can_place_elevated := core.grid.can_place_structure_at(
+			coord, 2, candidate.id
+		)
+		var elevated_candidate := core.grid.add_structure(
+			coord, candidate.id, socket, 0, 2
+		) if socket >= 0 else null
+		check(
+			candidate.allow_elevated
+			and can_place_elevated
+			and elevated_candidate != null,
+			"solid-surface model %s follows the elevated-placement contract"
+			% candidate.id
+		)
+		if elevated_candidate != null:
+			core.grid.remove_structure(
+				coord, elevated_candidate.instance_id, 2
+			)
+	check(
+		audited_elevated_models >= 40,
+		"the elevated placement audit covers the live solid-surface catalogue"
+	)
+	var imported_catalog: Dictionary = JSON.parse_string(
+		FileAccess.get_file_as_string("res://data/itch_structures.json")
+	)
+	var audited_imported_models := 0
+	for raw_candidate: Variant in imported_catalog.get("structures", []):
+		var candidate := Defs.StructureDefinition.from_dict(
+			raw_candidate as Dictionary
+		)
+		if not candidate.supports_surface("flat"):
+			continue
+		audited_imported_models += 1
+		core.registries.structures[candidate.id] = candidate
+		var socket := core.grid.free_socket(coord, candidate.socket_type, 2)
+		var elevated_candidate := core.grid.add_structure(
+			coord, candidate.id, socket, 0, 2
+		) if socket >= 0 else null
+		check(
+			candidate.allow_elevated and elevated_candidate != null,
+			"imported solid-surface model %s supports elevated placement"
+			% candidate.id
+		)
+		if elevated_candidate != null:
+			core.grid.remove_structure(
+				coord, elevated_candidate.instance_id, 2
+			)
+		core.registries.structures.erase(candidate.id)
+	check(
+		audited_imported_models >= 400,
+		"the elevated placement audit covers the disabled imported catalogue"
+	)
+	elevated_pot = core.grid.add_structure(
+		coord, "struct_pot", pot_socket, 0, 2
+	)
+	check(
+		elevated_pot != null,
+		"the elevated save fixture is restored after the catalogue audit"
+	)
 	check(
 		core.registries.tile("tile_grass_flower").stackable
 		and core.registries.tile("tile_grass_flower").supports_tiles,
