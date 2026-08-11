@@ -14,7 +14,7 @@ const HAIRLINE := 1
 const FOCUS_LINE := 2
 const CORNER_SMALL := 2
 const CORNER_SHEET := 6
-const PAPER_ALPHA := 0.96
+const PAPER_ALPHA := 0.985
 
 var palette: CozyPalette
 var font: Font
@@ -243,7 +243,7 @@ func place_hud_chip(
 func hud_chip_style(accent: Color, state := "normal") -> StyleBoxFlat:
 	var style := panel_style(false, CORNER_SMALL)
 	style.bg_color = paper_color(
-		0.98 if state in ["hover", "focus"] else 0.9
+		1.0 if state in ["hover", "focus"] else 0.985
 	)
 	style.set_content_margin_all(10)
 	style.content_margin_left = 16
@@ -260,7 +260,7 @@ func hud_chip_style(accent: Color, state := "normal") -> StyleBoxFlat:
 
 func hud_dock_style() -> StyleBoxFlat:
 	var style := panel_style(false, CORNER_SHEET)
-	style.bg_color = Color(palette.color("ui_surface_raised"), 0.975)
+	style.bg_color = Color(palette.color("ui_surface_raised"), 0.995)
 	style.set_content_margin_all(22)
 	style.border_color = hairline_color()
 	style.set_border_width_all(HAIRLINE)
@@ -270,7 +270,7 @@ func hud_dock_style() -> StyleBoxFlat:
 
 func hud_tooltip_style(accent := Color.TRANSPARENT) -> StyleBoxFlat:
 	var style := panel_style(false, CORNER_SMALL)
-	style.bg_color = paper_color(0.9)
+	style.bg_color = paper_color(0.975)
 	style.set_content_margin_all(10)
 	style.content_margin_left = 14
 	style.content_margin_right = 14
@@ -282,7 +282,7 @@ func hud_tooltip_style(accent := Color.TRANSPARENT) -> StyleBoxFlat:
 
 func controller_hint_style() -> StyleBoxFlat:
 	var style := hud_tooltip_style()
-	style.bg_color = paper_color(0.86)
+	style.bg_color = paper_color(0.985)
 	style.content_margin_left = 18
 	style.content_margin_right = 18
 	style.content_margin_top = 8
@@ -397,7 +397,7 @@ func library_category_button(text: String, selected := false) -> Button:
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("focus", focus)
-	b.add_theme_color_override("font_color", palette.color("ui_text_primary").lightened(0.09))
+	b.add_theme_color_override("font_color", palette.color("ui_text_primary"))
 	b.add_theme_color_override("font_hover_color", palette.color("ui_text_primary"))
 	b.add_theme_color_override("font_pressed_color", palette.color("ui_text_primary"))
 	b.add_theme_color_override("font_focus_color", palette.color("ui_text_primary"))
@@ -433,7 +433,7 @@ func library_item_button(display_name: String, count: int) -> Button:
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("focus", focus)
-	b.add_theme_color_override("font_color", palette.color("ui_text_primary").lightened(0.05))
+	b.add_theme_color_override("font_color", palette.color("ui_text_primary"))
 	b.add_theme_color_override("font_hover_color", palette.color("ui_text_primary"))
 	b.add_theme_color_override("font_pressed_color", palette.color("ui_white"))
 	b.add_theme_color_override("font_focus_color", palette.color("ui_text_primary"))
@@ -575,7 +575,7 @@ func library_arrow_button(text: String) -> Button:
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("focus", focus)
 	b.add_theme_stylebox_override("disabled", disabled)
-	b.add_theme_color_override("font_color", palette.color("ui_text_primary").lightened(0.1))
+	b.add_theme_color_override("font_color", palette.color("ui_text_primary"))
 	b.add_theme_color_override("font_hover_color", palette.color("ui_text_primary"))
 	b.add_theme_color_override("font_pressed_color", palette.color("ui_white"))
 	b.add_theme_color_override(
@@ -630,7 +630,7 @@ func menu_button(text: String, accent := false) -> Button:
 
 func section_label(text: String) -> Label:
 	var l := utility_label(text, 12)
-	l.add_theme_color_override("font_color", palette.color("ui_good").darkened(0.08))
+	l.add_theme_color_override("font_color", palette.color("ui_text_secondary"))
 	return l
 
 

@@ -42,7 +42,7 @@ func _build() -> void:
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_root)
 
-	_panel = _kit.card(Vector2(420, 0))
+	_panel = _kit.card(Vector2(640, 0))
 	_panel.add_theme_stylebox_override(
 		"panel", _kit.controller_hint_style()
 	)
@@ -60,12 +60,18 @@ func _build() -> void:
 	_panel.add_child(column)
 	_tooltip_label = _kit.label("", 13)
 	_tooltip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_tooltip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_tooltip_label.custom_minimum_size.x = 390
+	_tooltip_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_tooltip_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_tooltip_label.clip_text = true
+	_tooltip_label.custom_minimum_size.x = 600
 	_tooltip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(_tooltip_label)
 	_action_label = _kit.utility_label("", 12, _kit.palette.color("ui_accent"))
 	_action_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_action_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_action_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_action_label.clip_text = true
+	_action_label.custom_minimum_size.x = 600
 	_action_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(_action_label)
 

@@ -667,14 +667,17 @@ func _admin_status(message: String) -> void:
 
 
 func _build_exit_page() -> void:
-	_card.custom_minimum_size = Vector2(500, 370)
-	_add_page_header("LEAVE THE NOOK?", "Your garden will be saved before the game closes.")
-	var note := kit.label("Nothing in progress will be lost. You can return to this exact world next time.", 17)
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_card.custom_minimum_size = Vector2(500, 300)
+	_add_page_header("LEAVE THE NOOK?", "Your world saves before closing.")
+	var note := kit.label(
+		"Your progress is safe. Continue from here next time.",
+		15
+	)
+	note.autowrap_mode = TextServer.AUTOWRAP_OFF
 	note.custom_minimum_size.x = 420
 	_content.add_child(note)
 	var spacer := Control.new()
-	spacer.custom_minimum_size.y = 28
+	spacer.custom_minimum_size.y = 8
 	_content.add_child(spacer)
 	var actions := HBoxContainer.new()
 	actions.alignment = BoxContainer.ALIGNMENT_END

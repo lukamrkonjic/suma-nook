@@ -44,6 +44,31 @@ func check(condition: bool, message: String) -> void:
 		failures.append(message)
 
 
+func _srgb_channel_to_linear(channel: float) -> float:
+	return (
+		channel / 12.92
+		if channel <= 0.04045
+		else pow((channel + 0.055) / 1.055, 2.4)
+	)
+
+
+func _ui_contrast_ratio(first: Color, second: Color) -> float:
+	var first_luminance := (
+		0.2126 * _srgb_channel_to_linear(first.r)
+		+ 0.7152 * _srgb_channel_to_linear(first.g)
+		+ 0.0722 * _srgb_channel_to_linear(first.b)
+	)
+	var second_luminance := (
+		0.2126 * _srgb_channel_to_linear(second.r)
+		+ 0.7152 * _srgb_channel_to_linear(second.g)
+		+ 0.0722 * _srgb_channel_to_linear(second.b)
+	)
+	return (
+		(maxf(first_luminance, second_luminance) + 0.05)
+		/ (minf(first_luminance, second_luminance) + 0.05)
+	)
+
+
 func fresh_core(seed_value := 12345) -> GameCore:
 	var core := GameCore.new()
 	core.setup("res://data", seed_value)
@@ -1559,7 +1584,8 @@ func _test_build_library_categories() -> void:
 
 
 func _test_hud_design_system() -> void:
-	var kit := UiKit.new(PaletteDefinition.shared())
+	var palette := PaletteDefinition.shared()
+	var kit := UiKit.new(palette)
 	check(
 		ResourceLoader.exists(UiKit.FONT_BODY_PATH)
 		and ResourceLoader.exists(UiKit.FONT_DISPLAY_PATH),
@@ -1591,6 +1617,45 @@ func _test_hud_design_system() -> void:
 		and kit.collection_accent("land") != kit.collection_accent("fish"),
 		"collection accents stay centralized and semantically distinct"
 	)
+	var paper := palette.color("ui_surface")
+	check(
+		paper.r > paper.g
+		and paper.g > paper.b
+		and paper.r - paper.b >= 0.1,
+		"the centralized HUD paper is visibly warm beige rather than gray"
+	)
+	check(
+		_ui_contrast_ratio(paper, palette.color("ui_text_primary")) >= 7.0
+		and _ui_contrast_ratio(
+			paper, palette.color("ui_text_secondary")
+		) >= 4.5
+		and _ui_contrast_ratio(paper, palette.color("ui_text_muted")) >= 4.5,
+		"primary, secondary, and muted HUD text retain accessible paper contrast"
+	)
+	check(
+		kit.controller_hint_style().bg_color.a >= 0.98,
+		"controller and edit-mode hints use opaque paper instead of losing contrast to the world"
+	)
+	var hint_overlay := InputHintOverlay.new()
+	hint_overlay._kit = kit
+	hint_overlay.call("_build")
+	check(
+		hint_overlay._panel.custom_minimum_size.x >= 640.0
+		and hint_overlay._action_label.autowrap_mode
+			== TextServer.AUTOWRAP_OFF
+		and hint_overlay._action_label.clip_text,
+		"edit-mode action hints stay in one compact row instead of becoming tall"
+	)
+	hint_overlay.free()
+	var pause := PauseMenu.new()
+	pause.kit = kit
+	pause.call("_build_shell")
+	pause.call("_build_exit_page")
+	check(
+		pause._card.custom_minimum_size.y <= 300.0,
+		"the Save & Exit confirmation remains a compact editorial sheet"
+	)
+	pause.free()
 	chip.free()
 
 
