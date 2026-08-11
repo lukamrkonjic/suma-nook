@@ -640,8 +640,8 @@ func _shape_terrain(
 	# of the continuous field happens to sit in a valley. Seed one broad summit
 	# at the highest eligible sample, then let the normal relaxation pass blend
 	# it back into the surrounding field.
+	var peak_local := Vector2i(-1, -1)
 	if terrain_shape == "mountains":
-		var peak_local := Vector2i(-1, -1)
 		var peak_sample := -INF
 		for local: Vector2i in samples:
 			if relief_exclusions.has(local):
@@ -661,7 +661,12 @@ func _shape_terrain(
 
 	# Quantized noise can produce needle cliffs. Relax only excessive local
 	# jumps while retaining broad level changes and a guaranteed high summit.
-	for _pass in int(config.get("smoothing_passes", 3)):
+	var smoothing_passes := int(config.get("smoothing_passes", 3))
+	if terrain_shape == "mountains":
+		# The seeded shoulder already prevents a needle; one pass keeps the
+		# deliberately taller silhouette from relaxing back into rolling hills.
+		smoothing_passes = 1
+	for _pass in smoothing_passes:
 		var relaxed := heights.duplicate()
 		for local: Vector2i in heights:
 			var height := int(heights[local])
@@ -671,6 +676,13 @@ func _shape_terrain(
 					height = mini(height, int(heights[neighbor]) + 1)
 			relaxed[local] = height
 		heights = relaxed
+	if terrain_shape == "mountains" and peak_local.x >= 0:
+		# Bank and authored-feature exclusions can surround the best sample and
+		# relax it too aggressively. Keep one readable two-step-or-higher crown;
+		# player-selected Peaks must never arrive looking like Rolling terrain.
+		heights[peak_local] = maxi(
+			int(heights[peak_local]), mini(3, max_levels)
+		)
 
 	for local: Vector2i in heights:
 		var tile_id := String(terrain_tiles[local])

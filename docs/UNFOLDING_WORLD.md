@@ -74,10 +74,14 @@ once, it reads correctly in every biome.
   Pre-4×4 saves keep their original 8×8 coordinate spacing.
 - **Frontier glows**: every unrevealed Nook slot beside the world gets one
   small dot, including concave gaps between two branches. Hovering reveals a
-  compact picker for Flat, Rolling, or Peaks terrain and a one-click biome
-  cycle. Natural keeps neighboring-biome drift; a named biome overrides it.
+  compact picker whose default Natural terrain is the original varied
+  generator, alongside Flat, Rolling, or Peaks and a one-click biome cycle.
+  Natural biome keeps neighboring-biome drift; a named biome overrides it.
   Controller confirm focuses the same picker with deterministic accept, back,
   navigation, and tooltips. Growth still has no activity or inventory cost.
+  The picker is optional composition: set `nook_frontier_picker_enabled` to
+  `false` in `data/features.json` to omit it and restore direct click/confirm
+  expansion with the original natural generation path.
 - **Revealed-zone building boundary**: player-authored land may be placed or
   moved only inside revealed square Nook zones, including empty silhouette
   cells within those zones. Unrevealed frontier footprints stay reserved for

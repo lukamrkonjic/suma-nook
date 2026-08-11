@@ -67,6 +67,37 @@ func _exercise_expansion() -> void:
 	var expected_ghost_cells := (
 		_main.core.nooks.world.nook_size ** 2 - 1
 	)
+	_main._update_frontier_marker_availability()
+	var marker_screen := _main.frontier_markers.marker_screen_position(coord)
+	var picker_shown := bool(_main.frontier_picker.call(
+		"show_for_screen", marker_screen
+	))
+	var picker_panel := _main.frontier_picker.find_child(
+		"FrontierPicker", true, false
+	) as PanelContainer
+	_expect(
+		picker_shown
+		and picker_panel != null
+		and picker_panel.visible
+		and picker_panel.global_position.y < marker_screen.y,
+		"hovering a live frontier dot opens its compact picker above the glow"
+	)
+	var peaks_choice := _main.frontier_picker.find_child(
+		"ShapePeaks", true, false
+	) as Button
+	var natural_choice := _main.frontier_picker.find_child(
+		"ShapeNatural", true, false
+	) as Button
+	var grow_choice := _main.frontier_picker.find_child(
+		"Grow", true, false
+	) as Button
+	_expect(
+		natural_choice != null
+		and natural_choice.button_pressed
+		and peaks_choice != null
+		and grow_choice != null,
+		"the live picker defaults to Natural and exposes optional shape controls"
+	)
 	var reveal_state := {
 		"started": false,
 		"finished": false,
@@ -245,7 +276,11 @@ func _exercise_expansion() -> void:
 			if revealed_coord == coord:
 				reveal_state["finished"] = true
 	)
-	var accepted := _main._expand_nook_at(coord)
+	if peaks_choice != null:
+		peaks_choice.pressed.emit()
+	if grow_choice != null:
+		grow_choice.pressed.emit()
+	var accepted := _main._nook_reveal_in_progress
 	_expect(accepted, "frontier input schedules expansion immediately")
 	_expect(
 		_main.nook_arrival_ghost.is_previewing(coord),

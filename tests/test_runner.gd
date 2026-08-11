@@ -4226,6 +4226,17 @@ func _test_direct_frontier_expansion() -> void:
 		and InputDeviceServiceScript.new().action_has_controller_binding(&"cancel"),
 		"frontier generation choices retain controller accept and back bindings"
 	)
+	var main_bridge := Main.new()
+	main_bridge.core = core
+	var picker_flag_defaults_on := main_bridge._frontier_picker_enabled()
+	core.registries.features["nook_frontier_picker_enabled"] = false
+	var picker_flag_turns_off := not main_bridge._frontier_picker_enabled()
+	core.registries.features["nook_frontier_picker_enabled"] = true
+	main_bridge.free()
+	check(
+		picker_flag_defaults_on and picker_flag_turns_off,
+		"one feature flag cleanly removes the optional frontier picker"
+	)
 	var picker := NookFrontierPicker.new()
 	picker.set_process(false)
 	root.add_child(picker)
@@ -4235,12 +4246,15 @@ func _test_direct_frontier_expansion() -> void:
 		null,
 		null
 	)
+	var natural_choice := picker.find_child("ShapeNatural", true, false) as Button
 	var flat_choice := picker.find_child("ShapeFlat", true, false) as Button
 	var rolling_choice := picker.find_child("ShapeRolling", true, false) as Button
 	var biome_choice := picker.find_child("Biome", true, false) as Button
 	var grow_choice := picker.find_child("Grow", true, false) as Button
 	check(
-		flat_choice != null
+		natural_choice != null
+		and natural_choice.button_pressed
+		and flat_choice != null
 		and rolling_choice != null
 		and biome_choice != null
 		and grow_choice != null
@@ -4250,9 +4264,29 @@ func _test_direct_frontier_expansion() -> void:
 		and grow_choice.tooltip_text != ""
 		and not rolling_choice.focus_neighbor_bottom.is_empty()
 		and not biome_choice.focus_neighbor_right.is_empty(),
-		"the compact frontier picker has visible focus paths and focused tooltips"
+		"the picker defaults to original Natural terrain and keeps full controller focus"
 	)
 	picker.free()
+	var original_card := {
+		"biome": "nook_biome_forest",
+		"density": "seeded",
+		"mood": "mood_clear_noon",
+		"seed": 87123,
+	}
+	var explicit_natural_card := original_card.duplicate(true)
+	explicit_natural_card["terrain_shape"] = "natural"
+	var original_plan := core.nooks.generator.generate(
+		Vector2i(7, 3), original_card, core.nooks.world.nook_size
+	)
+	var explicit_natural_plan := core.nooks.generator.generate(
+		Vector2i(7, 3), explicit_natural_card, core.nooks.world.nook_size
+	)
+	check(
+		explicit_natural_plan.terrain_shape == "natural"
+		and explicit_natural_plan.tiles == original_plan.tiles
+		and explicit_natural_plan.features == original_plan.features,
+		"the default Natural selection is bit-for-bit the original terrain generator"
+	)
 
 	var east: Dictionary = targets.filter(func(target: Dictionary) -> bool:
 		return target["direction"] == Vector2i.RIGHT

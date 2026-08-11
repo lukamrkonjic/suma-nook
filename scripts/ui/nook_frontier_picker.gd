@@ -12,6 +12,11 @@ const MOUSE_LEAVE_GRACE := 0.24
 const PANEL_GAP := 18.0
 const VIEWPORT_MARGIN := 12.0
 const SHAPES: Array[Dictionary] = [
+	{
+		"label": "Natural",
+		"id": "natural",
+		"tooltip": "Original varied terrain, shaped by the world.",
+	},
 	{"label": "Flat", "id": "flat", "tooltip": "Quiet, level ground."},
 	{"label": "Rolling", "id": "rolling", "tooltip": "Soft hills and low terraces."},
 	{"label": "Peaks", "id": "mountains", "tooltip": "High ridges and steep terraces."},
@@ -37,7 +42,7 @@ var _shape_buttons: Array[Button] = []
 var _biome_button: Button
 var _grow_button: Button
 var _target_coord := NO_COORD
-var _terrain_shape := "rolling"
+var _terrain_shape := "natural"
 var _biome_index := 0
 var _leave_time := 0.0
 var _interaction_enabled := true
@@ -169,7 +174,7 @@ func _build_panel() -> void:
 
 	_panel = PanelContainer.new()
 	_panel.name = "FrontierPicker"
-	_panel.custom_minimum_size = Vector2(304.0, 0.0)
+	_panel.custom_minimum_size = Vector2(356.0, 130.0)
 	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	var style := kit.panel_style(false, 16)
 	style.set_content_margin_all(11)
@@ -199,7 +204,7 @@ func _build_panel() -> void:
 		)
 		button.name = "Shape%s" % String(shape["label"])
 		button.button_group = group
-		button.custom_minimum_size = Vector2(90.0, 36.0)
+		button.custom_minimum_size = Vector2(78.0, 36.0)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.add_theme_font_size_override("font_size", 14)
 		button.tooltip_text = String(shape["tooltip"])
@@ -240,11 +245,13 @@ func _wire_focus_neighbors() -> void:
 		)
 		button.focus_neighbor_bottom = button.get_path_to(_biome_button)
 	_biome_button.focus_neighbor_top = _biome_button.get_path_to(
-		_shape_buttons[1]
+		_selected_shape_button()
 	)
 	_biome_button.focus_neighbor_right = _biome_button.get_path_to(_grow_button)
 	_grow_button.focus_neighbor_left = _grow_button.get_path_to(_biome_button)
-	_grow_button.focus_neighbor_top = _grow_button.get_path_to(_shape_buttons[2])
+	_grow_button.focus_neighbor_top = _grow_button.get_path_to(
+		_shape_buttons[_shape_buttons.size() - 1]
+	)
 
 
 func _show_for_coord(coord: Vector2i) -> void:
@@ -296,15 +303,19 @@ func _position_panel() -> void:
 
 
 func _reset_choices() -> void:
-	_terrain_shape = "rolling"
+	_terrain_shape = "natural"
 	_biome_index = 0
 	for index in _shape_buttons.size():
-		_shape_buttons[index].set_pressed_no_signal(index == 1)
+		_shape_buttons[index].set_pressed_no_signal(index == 0)
 	_update_biome_label()
 
 
 func _select_shape(shape_id: String) -> void:
 	_terrain_shape = NookGenerator.normalize_terrain_shape(shape_id)
+	if _biome_button != null:
+		_biome_button.focus_neighbor_top = _biome_button.get_path_to(
+			_selected_shape_button()
+		)
 
 
 func _cycle_biome() -> void:
@@ -326,7 +337,7 @@ func _selected_shape_button() -> Button:
 	for index in SHAPES.size():
 		if String(SHAPES[index]["id"]) == _terrain_shape:
 			return _shape_buttons[index]
-	return _shape_buttons[1]
+	return _shape_buttons[0]
 
 
 func _request_generation() -> void:

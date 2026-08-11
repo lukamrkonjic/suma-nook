@@ -475,14 +475,18 @@ func _build_ui() -> void:
 	add_child(nook_offer_panel)
 	nook_offer_panel.setup(core, kit)
 
-	frontier_picker = NookFrontierPickerScript.new()
-	frontier_picker.name = "NookFrontierPicker"
-	add_child(frontier_picker)
-	frontier_picker.call("setup", core, kit, frontier_markers, placement)
-	frontier_picker.connect("generation_requested", _expand_nook_at)
-	frontier_picker.connect(
-		"panel_toggled", func(_open): _refresh_controller_hints()
-	)
+	# Optional composition: disabling this feature flag removes the picker node
+	# entirely and the marker input below falls back to the original direct,
+	# naturally generated expansion path.
+	if _frontier_picker_enabled():
+		frontier_picker = NookFrontierPickerScript.new()
+		frontier_picker.name = "NookFrontierPicker"
+		add_child(frontier_picker)
+		frontier_picker.call("setup", core, kit, frontier_markers, placement)
+		frontier_picker.connect("generation_requested", _expand_nook_at)
+		frontier_picker.connect(
+			"panel_toggled", func(_open): _refresh_controller_hints()
+		)
 
 	nook_reveal_presenter = NookRevealPresenter.new()
 	nook_reveal_presenter.name = "NookRevealPresenter"
@@ -1421,7 +1425,17 @@ func _update_frontier_marker_availability() -> void:
 	)
 	frontier_markers.set_interaction_enabled(enabled)
 	if frontier_picker != null:
-		frontier_picker.call("set_interaction_enabled", enabled)
+		frontier_picker.call(
+			"set_interaction_enabled",
+			enabled and _frontier_picker_enabled()
+		)
+
+
+func _frontier_picker_enabled() -> bool:
+	return (
+		core != null
+		and core.registries.feature("nook_frontier_picker_enabled", true)
+	)
 
 
 func _on_nook_reveal_started(coord: Vector2i, duration: float) -> void:
@@ -2011,7 +2025,10 @@ func _refresh_controller_hints() -> void:
 					placement.controller_cursor_cell()
 				).is_empty()
 			):
-				confirm_label = "Shape land"
+				confirm_label = (
+					"Shape land" if _frontier_picker_enabled()
+					else "Grow land"
+				)
 			actions = [
 				{"action": &"build_cursor_up", "label": "Move cursor"},
 				{"action": &"camera_pan_up", "label": "Pan camera"},
@@ -2091,15 +2108,25 @@ func _try_build_world_action_at_cell(cell: Vector2i) -> bool:
 
 
 func _try_expand_frontier_at_screen(screen_position: Vector2) -> bool:
-	if frontier_picker == null:
+	if frontier_markers == null:
 		return false
-	return bool(frontier_picker.call("show_for_screen", screen_position))
+	var marker := frontier_markers.marker_at_screen(screen_position)
+	if marker.is_empty():
+		return false
+	if _frontier_picker_enabled() and frontier_picker != null:
+		return bool(frontier_picker.call("show_for_screen", screen_position))
+	return _expand_nook_at(marker.get("nook", Vector2i.ZERO))
 
 
 func _try_expand_frontier_at_cell(cell: Vector2i) -> bool:
-	if frontier_picker == null:
+	if frontier_markers == null:
 		return false
-	return bool(frontier_picker.call("focus_for_cell", cell))
+	var marker := frontier_markers.marker_at_cell(cell)
+	if marker.is_empty():
+		return false
+	if _frontier_picker_enabled() and frontier_picker != null:
+		return bool(frontier_picker.call("focus_for_cell", cell))
+	return _expand_nook_at(marker.get("nook", Vector2i.ZERO))
 
 
 func _expand_nook_at(
