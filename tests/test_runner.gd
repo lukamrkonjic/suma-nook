@@ -145,6 +145,8 @@ func _run() -> void:
 	_test_game_preferences()
 	_test_starting_world()
 	_test_project_progression_loop()
+	_test_harvest_interaction_and_depleted_visuals()
+	_test_provision_fishing_spots()
 	_test_unfolding_world_generation()
 	_test_unfolding_world_offers_and_reveal()
 	_test_direct_frontier_expansion()
@@ -187,6 +189,111 @@ func _run() -> void:
 	_test_progression_v1_migration()
 	_test_progression_v3_to_v4_migration()
 	_test_player_defeat_safety()
+
+
+func _test_provision_fishing_spots() -> void:
+	var core := fresh_core(9191)
+	var water_coord := Vector2i(18, 18)
+	core.grid.place_tile(water_coord, "tile_open_water")
+	for offer: Dictionary in core.projects.collection_offers():
+		if String(offer.get("definition_id", "")) == "project_collection_forest":
+			core.projects.track(String(offer.get("id", "")))
+			break
+	var palette := load(
+		"res://assets/palettes/gg_material_palette.tres"
+	) as CozyPalette
+	var assets := AssetLibrary.new(MaterialLibrary.new(palette))
+	var host := Node3D.new()
+	root.add_child(host)
+	var effects := EffectsManager.new()
+	host.add_child(effects)
+	effects.setup(assets)
+	var spots := ProvisionFishingSpots.new()
+	host.add_child(spots)
+	spots.setup(core, assets, effects)
+	check(
+		spots.has_spot(water_coord)
+		and spots.interaction_at_cell(water_coord).get("kind", "")
+			== "provision_fishing_spot",
+		"open water deterministically exposes a pointer/controller fishing target"
+	)
+	check(
+		spots.interact(water_coord)
+		and spots.prompt_for(water_coord).begins_with("Watch for bubbles"),
+		"the first semantic interact arms the shoal instead of granting a catch"
+	)
+	for hit in ProvisionFishingSpots.HITS_REQUIRED:
+		spots.debug_force_cue(water_coord)
+		check(
+			spots.interact(water_coord),
+			"timed interact %d is accepted during the bubble cue" % (hit + 1)
+		)
+	var state := spots.debug_state(water_coord)
+	var persisted := (
+		core.visual_state.get("provision_fishing_spots", {}) as Dictionary
+	).get("18:18", {}) as Dictionary
+	check(
+		state.get("phase", "") == ProvisionFishingSpots.PHASE_COOLDOWN
+		and int(persisted.get("cycle", 0)) == 1
+		and float(persisted.get("cooldown_until", 0.0))
+			> Time.get_unix_time_from_system(),
+		"three bubble-timed interacts commit one provision cycle and persistent cooldown"
+	)
+	check(core.save(), "provision fishing cooldown saves through the normal boundary")
+	var reloaded := GameCore.new()
+	reloaded.setup("res://data", 9292)
+	reloaded.save_manager.save_path = core.save_manager.save_path
+	reloaded.save_manager.backup_path = core.save_manager.backup_path
+	check(
+		reloaded.load_game()
+		and int(((
+			reloaded.visual_state.get("provision_fishing_spots", {}) as Dictionary
+		).get("18:18", {}) as Dictionary).get("cycle", 0)) == 1,
+		"provision fishing cycles and cooldowns survive save hydration"
+	)
+	host.free()
+
+
+func _test_harvest_interaction_and_depleted_visuals() -> void:
+	var core := fresh_core(8188)
+	check(core.stock.take_structure("struct_pine"), "harvest routing test checks out a tree")
+	var tree := core.grid.add_structure(Vector2i.ZERO, "struct_pine", 1, 1)
+	check(tree != null, "harvest routing test places a tree")
+	if tree == null:
+		return
+	var runtime: Dictionary = tree.runtime_state[HarvestingModule.RUNTIME_KEY]
+	runtime["deadline_unix"] = 0.0
+	core.harvesting.status(tree.instance_id)
+	var definition := core.registries.structure("struct_pine")
+	var options: Array = core.interactions.options_for("player", tree.instance_id)
+	check(
+		not PlayerController.uses_legacy_structure_anchor(definition)
+		and not options.is_empty()
+		and options[0].feature_id == "harvesting",
+		"nearby interact resolves harvest presentation instead of the retired grove anchor"
+	)
+	var palette := load(
+		"res://assets/palettes/gg_material_palette.tres"
+	) as CozyPalette
+	var assets := AssetLibrary.new(MaterialLibrary.new(palette))
+	var factory := StructureVisualFactory.new(assets, core.grid)
+	var visual := factory.instantiate_visual(definition, false, tree.instance_id)
+	var authored := visual.get_node_or_null("AuthoredVisual") as Node3D
+	var stump := visual.get_node_or_null("HarvestDepletedVisual") as Node3D
+	factory.sync_harvest_visual(
+		visual, definition, HarvestingModule.STATE_REGROWING, false
+	)
+	var depleted_contract := (
+		authored != null and not authored.visible and stump != null and stump.visible
+	)
+	factory.sync_harvest_visual(
+		visual, definition, HarvestingModule.STATE_READY, false
+	)
+	check(
+		depleted_contract and authored.visible and not stump.visible,
+		"tree lifecycle swaps to a persistent stump and restores the authored tree on regrowth"
+	)
+	visual.free()
 
 
 func _test_tile_library_contract() -> void:

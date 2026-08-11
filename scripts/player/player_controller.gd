@@ -43,6 +43,7 @@ const MIN_GROUND_IMPACT_SPEED := 2.0
 var core: GameCore
 var camera_rig: CameraRig
 var visual: PlayerVisual
+var provision_fishing_spots: ProvisionFishingSpots
 
 var state: State = State.FREE
 var move_locked := false
@@ -78,6 +79,18 @@ func setup(game_core: GameCore, rig: CameraRig, player_visual: PlayerVisual) -> 
 	# the edge remains a real choice. Pushable NPCs are the only extra mask.
 	collision_mask = GROUND_MASK | PUSHABLE_NPC_LAYER
 	suspend_water_rescue()
+
+
+func set_provision_fishing_spots(spots: ProvisionFishingSpots) -> void:
+	provision_fishing_spots = spots
+
+
+static func uses_legacy_structure_anchor(definition: Defs.StructureDefinition) -> bool:
+	return (
+		definition != null
+		and definition.anchor_id != ""
+		and not definition.has_capability("harvest_source")
+	)
 
 
 func _physics_process(delta: float) -> void:
@@ -932,7 +945,7 @@ func _update_focus() -> void:
 					)
 					var struct_distance := position.distance_to(struct_pos)
 					if (
-						struct_def.anchor_id != ""
+						uses_legacy_structure_anchor(struct_def)
 						and not structure.anchor_resting
 						and struct_distance < best_distance
 					):
@@ -978,6 +991,14 @@ func _update_focus() -> void:
 							"point": struct_pos,
 						}
 						best_distance = struct_distance
+	if provision_fishing_spots != null:
+		var fishing_spot := provision_fishing_spots.interaction_near(
+			position, best_distance
+		)
+		if not fishing_spot.is_empty():
+			best_distance = float(fishing_spot.get("distance", best_distance))
+			fishing_spot.erase("distance")
+			best = fishing_spot
 	# Any exposed walkable edge is a fishing target, including a player-built
 	# dock surface. Ordinary nearby objects still win the focus contest.
 	if (

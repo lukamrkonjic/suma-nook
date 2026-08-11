@@ -33,6 +33,9 @@ const ProjectPanelScript := preload("res://scripts/ui/project_panel.gd")
 const HarvestPresentationAdapterScript := preload(
 	"res://scripts/features/harvesting/presentation/harvest_presentation_adapter.gd"
 )
+const ProvisionFishingSpotsScript := preload(
+	"res://scripts/features/fishing/presentation/provision_fishing_spots.gd"
+)
 const WorldBudRewardPresenterScript := preload(
 	"res://scripts/features/rewards/presentation/world_bud_reward_presenter.gd"
 )
@@ -83,6 +86,7 @@ var frontier_picker: CanvasLayer
 var nook_arrival_ghost
 var skill_actions: SkillActions
 var harvest_presentation: Node
+var provision_fishing_spots: ProvisionFishingSpots
 var reward_reveal: RewardRevealSceneAdapter
 var reward_reveal_presenter_registry: RewardRevealPresenterRegistry
 var visitor_scene: Node3D
@@ -274,6 +278,10 @@ func _build_world_scene() -> void:
 	harvest_presentation = HarvestPresentationAdapterScript.new()
 	harvest_presentation.name = "HarvestPresentation"
 	add_child(harvest_presentation)
+	provision_fishing_spots = ProvisionFishingSpotsScript.new()
+	provision_fishing_spots.name = "ProvisionFishingSpots"
+	world_root.add_child(provision_fishing_spots)
+	provision_fishing_spots.setup(core, assets, effects)
 
 	delivery_point = DeliveryPoint.new()
 	world_root.add_child(delivery_point)
@@ -338,6 +346,7 @@ func _build_world_scene() -> void:
 		delivery_point,
 		renderer
 	)
+	interaction_targets.call("set_provision_fishing_spots", provision_fishing_spots)
 
 	placement = PlacementController.new()
 	placement.name = "Placement"
@@ -392,6 +401,7 @@ func _build_world_scene() -> void:
 		visitor_presenter_registry
 	)
 	player.setup(core, camera_rig, player_visual)
+	player.set_provision_fishing_spots(provision_fishing_spots)
 	pigeon_mascot = PIGEON_MASCOT_SCENE.instantiate() as CharacterBody3D
 	pigeon_mascot.name = "PigeonMascot"
 	world_root.add_child(pigeon_mascot)
@@ -1106,6 +1116,10 @@ func _connect_flows() -> void:
 	)
 	core.onboarding.stage_changed.connect(_on_onboarding_stage_changed)
 	harvest_presentation.connect("feedback", _on_harvest_feedback)
+	provision_fishing_spots.feedback.connect(_on_provision_fishing_feedback)
+	provision_fishing_spots.spot_state_changed.connect(
+		_on_provision_fishing_state_changed
+	)
 	reward_reveal.reveal_started.connect(func(_reward):
 		_refresh_controller_hints()
 	)
@@ -2352,6 +2366,9 @@ func _interaction_at_controller_cursor() -> Dictionary:
 			"coord": marker.get("nook", Vector2i.ZERO),
 			"point": core.grid.cell_to_world(cell),
 		}
+	var fishing_spot := provision_fishing_spots.interaction_at_cell(cell)
+	if not fishing_spot.is_empty():
+		return fishing_spot
 	var instance_id := placement.controller_target_instance_id()
 	if instance_id <= 0:
 		return {}
@@ -2429,6 +2446,51 @@ func _on_harvest_feedback(kind: String, data: Dictionary) -> void:
 			if core.onboarding.stage == OnboardingState.HARVEST_TREE:
 				hud.toast("Your tree is ready.", "good")
 	hud.update_tutorial()
+
+
+func _on_provision_fishing_feedback(kind: String, data: Dictionary) -> void:
+	match kind:
+		"armed":
+			audio.play_event("fish_splash")
+			hud.toast("The shoal is circling — watch for the bubbles.", "common")
+		"bubble":
+			audio.play_event("fish_bite")
+		"early":
+			audio.play_event("fish_splash")
+		"hit":
+			audio.play_event("fish_bite")
+			hud.toast(
+				"Good timing · %d/%d" % [
+					int(data.get("progress", 0)),
+					int(data.get("hits_required", 3)),
+				],
+				"good"
+			)
+		"complete":
+			audio.play_event("fish_catch")
+			var contribution: Dictionary = data.get("contribution", {})
+			hud.toast(
+				(
+					"Provision caught — the shoal will return."
+					if bool(contribution.get("accepted", false))
+					else "A fine catch — no Project needs provisions right now."
+				),
+				"good"
+			)
+		"cooldown":
+			audio.play_event("fish_splash")
+	hud.update_tutorial()
+
+
+func _on_provision_fishing_state_changed(coord: Vector2i) -> void:
+	var current_focus := player.focus()
+	if (
+		String(current_focus.get("kind", "")) == "provision_fishing_spot"
+		and current_focus.get("coord", Vector2i.ZERO) == coord
+	):
+		_on_focus_changed(current_focus)
+	else:
+		_refresh_controller_hints()
 
 
 func _open_onboarding_token_pouch() -> void:
@@ -2593,6 +2655,13 @@ func _on_placement_result(ok: bool, _message: String, kind: String) -> void:
 
 func _on_focus_changed(focus: Dictionary) -> void:
 	match focus.get("kind", ""):
+		"provision_fishing_spot":
+			hud.set_prompt(
+				&"interact",
+				provision_fishing_spots.prompt_for(
+					focus.get("coord", Vector2i.ZERO)
+				)
+			)
 		"void_fishing":
 			hud.set_prompt(&"interact", "Fish into the unknown")
 		"anchor":
@@ -2634,6 +2703,10 @@ func _on_click_interaction_reached(interaction: Dictionary) -> void:
 
 func _perform_interaction(interaction: Dictionary) -> void:
 	match interaction.get("kind", ""):
+		"provision_fishing_spot":
+			provision_fishing_spots.interact(
+				interaction.get("coord", Vector2i.ZERO)
+			)
 		"frontier_project":
 			_activate_frontier(interaction.get("coord", Vector2i.ZERO))
 		"delivery_package":
@@ -2650,6 +2723,14 @@ func _execute_feature_interaction(interaction: Dictionary) -> void:
 		return
 	if not option.enabled:
 		hud.toast(option.disabled_reason, "warn")
+		return
+	# Harvesting owns a presentation adapter because a hit is more than a data
+	# mutation: the same call must drive impact, felling/shattering, and the
+	# persistent depleted visual. Sending it through the generic registry first
+	# used to consume the hit before any of that presentation could run.
+	if String(option.feature_id) == "harvesting":
+		if _try_harvest_instance(option.target_instance_id):
+			core.autosave_soon()
 		return
 	if not core.interactions.execute(option, "player"):
 		return

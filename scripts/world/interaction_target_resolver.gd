@@ -9,6 +9,7 @@ var camera: Camera3D
 var delivery_point: DeliveryPoint
 var renderer: WorldRenderer
 var frontier_markers
+var provision_fishing_spots: ProvisionFishingSpots
 
 
 func _init(
@@ -27,6 +28,10 @@ func _init(
 
 func set_frontier_markers(markers) -> void:
 	frontier_markers = markers
+
+
+func set_provision_fishing_spots(spots: ProvisionFishingSpots) -> void:
+	provision_fishing_spots = spots
 
 
 func ground_point(screen_position: Vector2) -> Variant:
@@ -57,6 +62,12 @@ func interaction_at(screen_position: Vector2) -> Dictionary:
 					frontier.get("cell", core.grid.home_cell)
 				),
 			}
+	if provision_fishing_spots != null:
+		var fishing_spot := provision_fishing_spots.interaction_at_screen(
+			camera, screen_position, base_radius * 1.25
+		)
+		if not fishing_spot.is_empty():
+			return fishing_spot
 
 	# Structures already expose exact mesh pick targets for build mode. Reuse
 	# those shapes for gameplay so a click on a flame, chest, tree, or shelter
@@ -185,7 +196,10 @@ func interaction_at(screen_position: Vector2) -> Dictionary:
 							structure.instance_id
 						).origin
 					)
-					if definition.anchor_id != "" and not structure.anchor_resting:
+					if (
+						PlayerController.uses_legacy_structure_anchor(definition)
+						and not structure.anchor_resting
+					):
 						var anchor := core.registries.anchor(definition.anchor_id)
 						if anchor != null and core.progression.is_activity_playable(anchor.skill_id):
 							var candidate := _candidate(
@@ -286,7 +300,10 @@ func _structure_interaction(instance_id: int) -> Dictionary:
 			"instance_id": instance_id,
 			"point": point,
 		}
-	if definition.anchor_id != "" and not structure.anchor_resting:
+	if (
+		PlayerController.uses_legacy_structure_anchor(definition)
+		and not structure.anchor_resting
+	):
 		var anchor := core.registries.anchor(definition.anchor_id)
 		if anchor != null and core.progression.is_activity_playable(anchor.skill_id):
 			return {

@@ -406,20 +406,115 @@ func fell_structure(instance_id: int, finished: Callable = Callable()) -> void:
 			finished.call()
 		return
 	var base_rotation := visual.rotation
+	var base_position := visual.position
+	var direction: float = -1.0 if (absi(instance_id) % 2) == 0 else 1.0
+	var fall_on_x: bool = (absi(instance_id) % 4) < 2
+	var counter_lean := base_rotation
+	var fallen := base_rotation
+	if fall_on_x:
+		counter_lean.x -= direction * 0.09
+		fallen.x += direction * 1.54
+	else:
+		counter_lean.z -= direction * 0.09
+		fallen.z += direction * 1.54
 	var tween := visual.create_tween()
-	tween.tween_property(
-		visual, "rotation:x", base_rotation.x + 1.28, 0.34
-	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	# The tiny opposite lean makes the final release read as stored force rather
+	# than a model being rotated by code. The origin is at the trunk contact, so
+	# the long turn naturally pivots the crown into the ground.
+	tween.tween_property(visual, "rotation", counter_lean, 0.1).set_trans(
+		Tween.TRANS_BACK
+	).set_ease(Tween.EASE_OUT)
+	tween.tween_property(visual, "rotation", fallen, 0.48).set_trans(
+		Tween.TRANS_QUAD
+	).set_ease(Tween.EASE_IN)
 	tween.parallel().tween_property(
-		visual, "position:y", visual.position.y + 0.06, 0.22
+		visual, "position:y", base_position.y + 0.035, 0.48
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	tween.tween_interval(0.06)
+	tween.tween_interval(0.075)
 	tween.tween_callback(func():
-		visual.rotation = base_rotation
-		visual.position.y -= 0.06
+		# Swap to the stump before restoring the wrapper so the standing tree is
+		# never exposed for a frame between the fall and depleted state.
 		if finished.is_valid():
 			finished.call()
+		visual.rotation = base_rotation
+		visual.position = base_position
 	)
+
+
+func shatter_structure(instance_id: int, finished: Callable = Callable()) -> void:
+	var renderer := get_parent().find_child("WorldRenderer", false, false) as WorldRenderer
+	if renderer == null:
+		if finished.is_valid():
+			finished.call()
+		return
+	var visual := renderer.structure_node(instance_id)
+	if visual == null:
+		if finished.is_valid():
+			finished.call()
+		return
+	var base_scale := visual.scale
+	var base_rotation := visual.rotation
+	var tween := visual.create_tween()
+	tween.tween_property(visual, "scale", base_scale * Vector3(1.14, 0.82, 1.14), 0.08).set_trans(
+		Tween.TRANS_BACK
+	).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(
+		visual, "rotation:y", base_rotation.y + 0.12, 0.08
+	)
+	tween.tween_property(visual, "scale", base_scale * Vector3(1.28, 0.04, 1.28), 0.14).set_trans(
+		Tween.TRANS_QUAD
+	).set_ease(Tween.EASE_IN)
+	tween.tween_callback(func():
+		if finished.is_valid():
+			finished.call()
+		visual.scale = base_scale
+		visual.rotation = base_rotation
+	)
+
+
+## Low-poly fragments use a true rise-and-fall arc so the final mining hit
+## reads as stone breaking apart, not a smoke poof standing in for impact.
+func rock_burst(point: Vector3, count := 11) -> void:
+	var stone_material := assets.materials.material("stone")
+	for index in count:
+		var fragment := MeshInstance3D.new()
+		fragment.name = "RockFragment"
+		var mesh := BoxMesh.new()
+		mesh.size = Vector3(
+			randf_range(0.07, 0.16),
+			randf_range(0.05, 0.13),
+			randf_range(0.06, 0.15)
+		)
+		fragment.mesh = mesh
+		fragment.material_override = stone_material
+		fragment.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		fragment.position = point + Vector3(
+			randf_range(-0.08, 0.08),
+			randf_range(-0.02, 0.07),
+			randf_range(-0.08, 0.08)
+		)
+		fragment.rotation = Vector3(randf() * TAU, randf() * TAU, randf() * TAU)
+		add_child(fragment)
+		var start := fragment.position
+		var angle := TAU * (float(index) / float(maxi(1, count))) + randf_range(-0.2, 0.2)
+		var horizontal := Vector3(cos(angle), 0.0, sin(angle)) * randf_range(0.45, 0.95)
+		var lift := randf_range(0.35, 0.78)
+		var duration := randf_range(0.42, 0.62)
+		var spin := fragment.rotation + Vector3(
+			randf_range(2.0, 5.0), randf_range(1.0, 4.0), randf_range(2.0, 5.0)
+		)
+		var tween := fragment.create_tween()
+		var fly := func(t: float) -> void:
+			fragment.position = start + horizontal * t + Vector3.UP * (
+				lift * 4.0 * t * (1.0 - t) - 0.08 * t
+			)
+		tween.set_parallel()
+		tween.tween_method(fly, 0.0, 1.0, duration).set_trans(Tween.TRANS_LINEAR)
+		tween.tween_property(fragment, "rotation", spin, duration)
+		tween.tween_property(fragment, "scale", Vector3.ONE * 0.12, duration).set_delay(
+			duration * 0.62
+		).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tween.chain().tween_callback(fragment.queue_free)
 
 
 func placement_poof(point: Vector3, kind: String) -> void:

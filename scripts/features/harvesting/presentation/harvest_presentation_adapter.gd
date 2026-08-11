@@ -68,10 +68,22 @@ func _present_tree_hit(instance_id: int, hit: Dictionary) -> void:
 			"clay_tree",
 			func() -> void:
 				if bool(hit.get("final", false)):
+					effects.burst(
+						"fx_wood_chip",
+						renderer.structure_effect_position(instance_id, 0.08),
+						7,
+						1.15
+					)
+					effects.burst(
+						"fx_leaf",
+						renderer.structure_effect_position(instance_id, 0.12),
+						6,
+						1.35
+					)
 					renderer.refresh_structure_harvest(instance_id, true)
 		)
 	effects.flash_structure(instance_id, 0.075 if not hit["final"] else 0.13)
-	if visual != null:
+	if visual != null and not bool(hit.get("final", false)):
 		effects.shake_structure_impact(instance_id, float(hit.get("progress", 0.0)))
 	effects.burst(
 		"fx_wood_chip", point,
@@ -79,6 +91,18 @@ func _present_tree_hit(instance_id: int, hit: Dictionary) -> void:
 	)
 	if bool(hit.get("final", false)) and visual != null:
 		effects.fell_structure(instance_id, func():
+			effects.burst(
+				"fx_wood_chip",
+				renderer.structure_effect_position(instance_id, 0.08),
+				7,
+				1.15
+			)
+			effects.burst(
+				"fx_leaf",
+				renderer.structure_effect_position(instance_id, 0.12),
+				6,
+				1.35
+			)
 			renderer.refresh_structure_harvest(instance_id, true)
 		)
 
@@ -125,15 +149,19 @@ func _present_rock_hit(instance_id: int, hit: Dictionary) -> void:
 					renderer.refresh_structure_harvest(instance_id, true)
 		)
 	effects.flash_structure(instance_id, 0.085 if not hit["final"] else 0.14)
-	if visual != null:
+	if visual != null and not bool(hit.get("final", false)):
 		effects.shake_structure_impact(instance_id, float(hit.get("progress", 0.0)))
 	effects.burst(
 		"fx_smoke_puff", point,
-		9 if bool(hit.get("final", false)) else 3 + int(hit.get("hit", 1)),
+		6 if bool(hit.get("final", false)) else 3 + int(hit.get("hit", 1)),
 		1.5
 	)
-	if bool(hit.get("final", false)) and visual != null:
-		renderer.refresh_structure_harvest(instance_id, true)
+	if bool(hit.get("final", false)):
+		effects.rock_burst(point, 13)
+		if visual != null:
+			effects.shatter_structure(instance_id, func():
+				renderer.refresh_structure_harvest(instance_id, true)
+			)
 
 
 func _on_source_state_changed(

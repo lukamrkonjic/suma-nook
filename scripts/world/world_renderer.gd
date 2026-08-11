@@ -1127,8 +1127,16 @@ func refresh_structure_harvest(instance_id: int, animate := true) -> void:
 	var found := core.grid.find_structure(instance_id)
 	if _scalable_mode:
 		if not found.is_empty():
+			var previous_state: String = _scalable_backend.structure_harvest_state(instance_id)
+			var structure: WorldGrid.StructureState = found["structure"]
+			var runtime: Dictionary = structure.runtime_state.get("harvest", {})
+			var next_state := String(runtime.get("state", "maturing"))
 			clear_structure_hover()
 			_scalable_backend.rebuild_around(found["coord"])
+			if animate and previous_state != "" and previous_state != next_state:
+				_scalable_backend.animate_structure_harvest_arrival(
+					instance_id, next_state
+				)
 		return
 	var visual := structure_node(instance_id)
 	if found.is_empty() or visual == null:

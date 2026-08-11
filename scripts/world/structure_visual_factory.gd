@@ -41,6 +41,7 @@ func instantiate_visual(
 	authored.name = "AuthoredVisual"
 	visual.add_child(authored)
 	_prepare_authored_visual(authored, definition)
+	authored.set_meta("harvest_base_scale", authored.scale)
 	_attach_harvest_presentation(visual, definition, visual_seed)
 	if definition.has_capability("fire"):
 		_hide_authored_fire(authored, definition.capability("fire"))
@@ -76,6 +77,7 @@ func _attach_harvest_presentation(
 			depleted.name = "HarvestDepletedVisual"
 			depleted.set_meta("exclude_from_structural_bounds", true)
 			_prepare_authored_visual(depleted, depleted_definition)
+			depleted.set_meta("harvest_base_scale", depleted.scale)
 			depleted.visible = false
 			visual.add_child(depleted)
 	if profile.presentation_profile != "berry_cluster":
@@ -105,13 +107,88 @@ func sync_harvest_visual(
 	var authored := visual.get_node_or_null("AuthoredVisual") as Node3D
 	var depleted := visual.get_node_or_null("HarvestDepletedVisual") as Node3D
 	var is_depleted := state == HarvestingModule.STATE_REGROWING
-	if authored != null:
-		authored.visible = not is_depleted or depleted == null
-	if depleted != null:
-		depleted.visible = is_depleted
+	var previous_state := String(visual.get_meta("harvest_visual_state", state))
+	visual.set_meta("harvest_visual_state", state)
+	var old_tween: Tween = null
+	if visual.has_meta("harvest_transition_tween"):
+		old_tween = visual.get_meta("harvest_transition_tween") as Tween
+	if old_tween != null and old_tween.is_valid():
+		old_tween.kill()
+	var old_retreat: Tween = null
+	if visual.has_meta("harvest_retreat_tween"):
+		old_retreat = visual.get_meta("harvest_retreat_tween") as Tween
+	if old_retreat != null and old_retreat.is_valid():
+		old_retreat.kill()
+	var authored_base := _harvest_part_base_scale(authored)
+	var depleted_base := _harvest_part_base_scale(depleted)
+	if not animate or previous_state == state:
+		if authored != null:
+			authored.visible = not is_depleted or depleted == null
+			authored.scale = authored_base
+		if depleted != null:
+			depleted.visible = is_depleted
+			depleted.scale = depleted_base
+	elif is_depleted and depleted != null:
+		# The source's impact animation completes first. Bring the persistent
+		# stump/remnant into the contact patch with a compact earthen pop.
+		if authored != null:
+			authored.visible = false
+			authored.scale = authored_base
+		depleted.visible = true
+		depleted.scale = depleted_base * Vector3(0.55, 0.18, 0.55)
+		var depleted_tween := visual.create_tween()
+		visual.set_meta("harvest_transition_tween", depleted_tween)
+		depleted_tween.tween_property(
+			depleted, "scale", depleted_base * Vector3(1.08, 0.92, 1.08), 0.18
+		).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		depleted_tween.tween_property(depleted, "scale", depleted_base, 0.16).set_trans(
+			Tween.TRANS_SINE
+		).set_ease(Tween.EASE_OUT)
+	elif previous_state == HarvestingModule.STATE_REGROWING and authored != null:
+		# Regrowth grows upward from the old contact point. Keep the depleted
+		# silhouette until the new source has visibly taken its place.
+		authored.visible = true
+		authored.scale = authored_base * Vector3(0.16, 0.025, 0.16)
+		var growth_tween := visual.create_tween()
+		visual.set_meta("harvest_transition_tween", growth_tween)
+		growth_tween.tween_property(
+			authored, "scale", authored_base * Vector3(0.92, 1.07, 0.92), 0.68
+		).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		growth_tween.tween_property(authored, "scale", authored_base, 0.22).set_trans(
+			Tween.TRANS_SINE
+		).set_ease(Tween.EASE_OUT)
+		if depleted != null:
+			depleted.visible = true
+			depleted.scale = depleted_base
+			var retreat := depleted.create_tween()
+			visual.set_meta("harvest_retreat_tween", retreat)
+			retreat.tween_interval(0.12)
+			retreat.tween_property(
+				depleted, "scale", depleted_base * Vector3(0.22, 0.04, 0.22), 0.24
+			).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+			retreat.tween_callback(func() -> void:
+				if is_instance_valid(depleted):
+					depleted.visible = false
+					depleted.scale = depleted_base
+			)
+	else:
+		if authored != null:
+			authored.visible = true
+			authored.scale = authored_base
+		if depleted != null:
+			depleted.visible = false
+			depleted.scale = depleted_base
 	var yield_visual := visual.find_child("HarvestYieldVisual", true, false)
 	if yield_visual != null and yield_visual.has_method("set_harvest_state"):
 		yield_visual.call("set_harvest_state", state, animate)
+
+
+func _harvest_part_base_scale(part: Node3D) -> Vector3:
+	if part == null:
+		return Vector3.ONE
+	if not part.has_meta("harvest_base_scale"):
+		part.set_meta("harvest_base_scale", part.scale)
+	return part.get_meta("harvest_base_scale", part.scale) as Vector3
 
 
 func instantiate_fire_effect(

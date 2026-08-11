@@ -522,6 +522,7 @@ func _build_batch(chunk_root: Node3D, batch: Dictionary) -> void:
 				"index": index,
 				"base": entry["transform"],
 				"chunk": entry["chunk"],
+				"harvest_state": String(batch.get("harvest_state", "ready")),
 			}
 	var instance := MultiMeshInstance3D.new()
 	instance.name = "%ss_%s" % [kind, definition.get("id")]
@@ -1107,11 +1108,15 @@ func animate_structure_harvest_impact(
 	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	if final and presentation == "clay_tree":
 		var felled := target
-		felled.origin.y += 0.06
-		felled.basis = target.basis.rotated(Vector3.RIGHT, 1.28)
+		felled.origin.y += 0.035
+		var fall_axis: Vector3 = (
+			Vector3.RIGHT if (absi(instance_id) % 4) < 2 else Vector3.FORWARD
+		)
+		var fall_direction: float = -1.0 if (absi(instance_id) % 2) == 0 else 1.0
+		felled.basis = target.basis.rotated(fall_axis, 1.54 * fall_direction)
 		tween.tween_method(
 			_interpolate_reveal_transform.bind(multimesh, index, impact, felled),
-			0.0, 1.0, 0.34
+			0.0, 1.0, 0.48
 		).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	elif final and presentation == "clay_rock":
 		var crushed := target
@@ -1135,6 +1140,47 @@ func animate_structure_harvest_impact(
 		if finished.is_valid():
 			finished.call()
 	)
+	return true
+
+
+func structure_harvest_state(instance_id: int) -> String:
+	if not structure_instances.has(instance_id):
+		return ""
+	return String((structure_instances[instance_id] as Dictionary).get(
+		"harvest_state", "ready"
+	))
+
+
+## A chunk rebuild swaps the mesh (tree -> stump or rubble -> source). This
+## per-instance settle hides that necessary batch replacement inside the same
+## tactile state transition used by exact-mode scene nodes.
+func animate_structure_harvest_arrival(instance_id: int, state: String) -> bool:
+	if not structure_instances.has(instance_id):
+		return false
+	var data: Dictionary = structure_instances[instance_id]
+	var multimesh := data.get("multimesh") as MultiMesh
+	var index := int(data.get("index", -1))
+	if multimesh == null or index < 0 or index >= multimesh.instance_count:
+		return false
+	var target: Transform3D = data["base"]
+	var start := target
+	var overshoot := target
+	if state == HarvestingModule.STATE_REGROWING:
+		start.basis = target.basis.scaled(Vector3(0.55, 0.12, 0.55))
+		overshoot.basis = target.basis.scaled(Vector3(1.08, 0.92, 1.08))
+	else:
+		start.basis = target.basis.scaled(Vector3(0.16, 0.025, 0.16))
+		overshoot.basis = target.basis.scaled(Vector3(0.92, 1.07, 0.92))
+	multimesh.set_instance_transform(index, start)
+	var tween := owner.create_tween()
+	tween.tween_method(
+		_interpolate_reveal_transform.bind(multimesh, index, start, overshoot),
+		0.0, 1.0, 0.62 if state != HarvestingModule.STATE_REGROWING else 0.18
+	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_method(
+		_interpolate_reveal_transform.bind(multimesh, index, overshoot, target),
+		0.0, 1.0, 0.22 if state != HarvestingModule.STATE_REGROWING else 0.16
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	return true
 
 
