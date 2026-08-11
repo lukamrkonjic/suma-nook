@@ -8,6 +8,7 @@ var core: GameCore
 var camera: Camera3D
 var delivery_point: DeliveryPoint
 var renderer: WorldRenderer
+var frontier_markers
 
 
 func _init(
@@ -22,6 +23,10 @@ func _init(
 	camera = game_camera
 	delivery_point = delivery
 	renderer = world_renderer
+
+
+func set_frontier_markers(markers) -> void:
+	frontier_markers = markers
 
 
 func ground_point(screen_position: Vector2) -> Variant:
@@ -41,6 +46,17 @@ func interaction_at(screen_position: Vector2) -> Dictionary:
 	var best: Dictionary = {}
 	var best_distance := INF
 	var base_radius := core.registries.tunef("click_target_screen_radius", 54.0)
+	if frontier_markers != null:
+		var frontier: Dictionary = frontier_markers.marker_at_screen(screen_position)
+		if not frontier.is_empty():
+			var coord: Vector2i = frontier.get("nook", Vector2i.ZERO)
+			return {
+				"kind": "frontier_project",
+				"coord": coord,
+				"point": core.grid.cell_to_world(
+					frontier.get("cell", core.grid.home_cell)
+				),
+			}
 
 	# Structures already expose exact mesh pick targets for build mode. Reuse
 	# those shapes for gameplay so a click on a flame, chest, tree, or shelter

@@ -226,7 +226,17 @@ func _entries() -> Array[Dictionary]:
 	if core.progression.discovery.has_wish_offer():
 		return core.progression.discovery.current_wish_choices()
 	if core.progression.discovery.has_pending():
-		return [core.progression.discovery.peek_pending()]
+		var pending := core.progression.discovery.peek_pending()
+		var category_id := String(pending.get("category", ""))
+		return [{
+			"category": category_id,
+			"name": String(pending.get(
+				"category_name", category_id.capitalize()
+			)),
+			"icon": BuildCategoryResolver.icon_path(category_id),
+			"description": "A concealed piece is waiting to fall.",
+			"pending_reward": true,
+		}]
 	return []
 
 
@@ -291,7 +301,9 @@ func _choice(entry: Dictionary, index: int) -> Control:
 	button.add_theme_font_size_override("font_size", 13)
 	button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	button.tooltip_text = (
-		"Wish for %s. One fitting piece will fall." % _display_name(entry)
+		"Call the concealed %s wish into the world." % _display_name(entry)
+		if bool(entry.get("pending_reward", false))
+		else "Wish for %s. One fitting piece will fall." % _display_name(entry)
 		if entry.has("category")
 		else "Call this saved wish into the world."
 	)
@@ -315,9 +327,6 @@ func _select(index: int) -> void:
 		for button in _choice_buttons:
 			button.disabled = false
 		return
-	var acknowledged := core.progression.discovery.acknowledge_next()
-	if not acknowledged.is_empty():
-		entry = acknowledged
 	core.autosave_soon()
 	close()
 	notify_ready(false)

@@ -29,6 +29,7 @@ const NookArrivalGhostScript := preload(
 const NookFrontierPickerScript := preload(
 	"res://scripts/ui/nook_frontier_picker.gd"
 )
+const ProjectPanelScript := preload("res://scripts/ui/project_panel.gd")
 const HarvestPresentationAdapterScript := preload(
 	"res://scripts/features/harvesting/presentation/harvest_presentation_adapter.gd"
 )
@@ -101,6 +102,7 @@ var pause_menu: PauseMenu
 var wish_offer_panel: WishOfferPanel
 var arrival_picker: ArrivalLandPicker
 var nook_offer_panel: NookOfferPanel
+var project_panel: ProjectPanel
 var nook_reveal_presenter: NookRevealPresenter
 var catch_basket_view: CatchBasketView
 var input_hints: InputHintOverlay
@@ -125,6 +127,7 @@ var _player_dock_busy := false
 var _player_drop_target: Dictionary = {}
 var _pending_build_interaction: Dictionary = {}
 var _nook_reveal_in_progress := false
+var _queued_frontier_expansions: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -344,6 +347,7 @@ func _build_world_scene() -> void:
 	frontier_markers.name = "NookFrontierMarkers"
 	world_root.add_child(frontier_markers)
 	frontier_markers.setup(core, camera_rig.camera, placement, palette)
+	interaction_targets.call("set_frontier_markers", frontier_markers)
 	nook_arrival_ghost = NookArrivalGhostScript.new()
 	nook_arrival_ghost.name = "NookArrivalGhost"
 	world_root.add_child(nook_arrival_ghost)
@@ -475,6 +479,12 @@ func _build_ui() -> void:
 	add_child(nook_offer_panel)
 	nook_offer_panel.setup(core, kit)
 
+	project_panel = ProjectPanelScript.new()
+	project_panel.name = "ProjectPanel"
+	add_child(project_panel)
+	project_panel.setup(core, kit)
+	project_panel.panel_toggled.connect(func(_open): _refresh_controller_hints())
+
 	# Optional composition: disabling this feature flag removes the picker node
 	# entirely and the marker input below falls back to the original direct,
 	# naturally generated expansion path.
@@ -483,7 +493,7 @@ func _build_ui() -> void:
 		frontier_picker.name = "NookFrontierPicker"
 		add_child(frontier_picker)
 		frontier_picker.call("setup", core, kit, frontier_markers, placement)
-		frontier_picker.connect("generation_requested", _expand_nook_at)
+		frontier_picker.connect("generation_requested", _open_frontier_project)
 		frontier_picker.connect(
 			"panel_toggled", func(_open): _refresh_controller_hints()
 		)
@@ -1062,6 +1072,11 @@ func _connect_flows() -> void:
 	player.arrival_landed.connect(_on_first_arrival_landed)
 	player.deployment_changed.connect(_on_player_deployment_changed)
 	core.fire.burning_changed.connect(_on_fire_burning_changed)
+	core.frontiers.expansion_ready.connect(_begin_frontier_expansion)
+	core.projects.project_reward_granted.connect(_on_project_reward_granted)
+	core.special_finds.special_find_spawned.connect(_on_special_find_spawned)
+	core.special_finds.special_find_collected.connect(_on_special_find_collected)
+	core.reward_drops.reward_claimed.connect(_on_reward_drop_claimed)
 
 	core.progression.milestones.milestone_reached.connect(_on_milestone_reached)
 	core.equipment.equipment_changed.connect(func():
@@ -1252,15 +1267,27 @@ func _start_gameplay(fresh: bool, show_welcome := true) -> void:
 		hud._refresh_all()
 	if lighting.current_profile != null:
 		_on_profile_applied(lighting.current_profile)
-	# Shape Land is the permanent god-view mode. Keep the legacy player body
-	# docked and invisible; no live HUD path can deploy it.
-	placement.set_active(true)
+	# Calm god-view interaction is the default. Build/edit mode is an explicit
+	# intent so a fire click can never also pick the firepit up.
+	placement.set_active(false)
 	player.dock_for_placement()
 	player_drop_preview.visible = false
 	frontier_markers.rebuild()
+	for frontier: Dictionary in core.frontiers.pending_expansions():
+		call_deferred(
+			"_begin_frontier_expansion",
+			Vector2i(frontier["coord"][0], frontier["coord"][1]),
+			String(frontier.get("project_id", "")),
+			(frontier.get("seed_card", {}) as Dictionary).duplicate(true)
+		)
 	hud.update_tutorial()
 	if show_welcome:
 		hud.toast("Welcome%s, %s." % ["" if fresh else " back", core.profile.display_name], "good")
+	if fresh and core.projects.tracked_project().is_empty():
+		hud.toast(
+			"Choose a Project and contribute a few things from your world.",
+			"good"
+		)
 	core.arrivals.announce_restored_delivery()
 	wish_offer_panel.notify_ready(false)
 	visitor_scene.call("sync_from_module")
@@ -1405,6 +1432,14 @@ func _process(delta: float) -> void:
 	if not _gameplay_started:
 		return
 	_tick_controller_hud_hold(delta)
+	core.major_events_blocked = (
+		pause_menu.is_open()
+		or panels.is_open()
+		or project_panel.is_open()
+		or wish_offer_panel.is_open()
+		or nook_offer_panel.is_open()
+		or (asset_viewer != null and asset_viewer.is_open())
+	)
 	core.tick(delta)
 	_tick_footsteps(delta)
 
@@ -1414,11 +1449,12 @@ func _update_frontier_marker_availability() -> void:
 		return
 	var enabled := (
 		_gameplay_started
-		and placement.active
+		and not placement.active
 		and placement.held.is_empty()
 		and not _nook_reveal_in_progress
 		and not pause_menu.is_open()
 		and not panels.is_open()
+		and not project_panel.is_open()
 		and not wish_offer_panel.is_open()
 		and not nook_offer_panel.is_open()
 		and (asset_viewer == null or not asset_viewer.is_open())
@@ -1458,6 +1494,7 @@ func _on_nook_reveal_finished(coord: Vector2i) -> void:
 		frontier_markers.rebuild()
 	_update_frontier_marker_availability()
 	_refresh_controller_hints()
+	_start_next_frontier_expansion()
 
 
 func _tick_controller_hud_hold(delta: float) -> void:
@@ -1533,6 +1570,7 @@ func _input(event: InputEvent) -> void:
 		and event.is_action_pressed("pause")
 		and not pause_menu.is_open()
 		and not wish_offer_panel.is_open()
+		and not project_panel.is_open()
 		and (asset_viewer == null or not asset_viewer.is_open())
 	):
 		open_pause_menu()
@@ -1543,6 +1581,7 @@ func _input(event: InputEvent) -> void:
 		and placement.active
 		and not pause_menu.is_open()
 		and not wish_offer_panel.is_open()
+		and not project_panel.is_open()
 		and not panels.is_open()
 		and (asset_viewer == null or not asset_viewer.is_open())
 	):
@@ -1597,6 +1636,8 @@ func _screen_position_blocked_by_ui(screen_position: Vector2) -> bool:
 		and wish_offer_panel.blocks_world_pointer(screen_position)
 	):
 		return true
+	if project_panel != null and project_panel.blocks_world_pointer(screen_position):
+		return true
 	if (
 		frontier_picker != null
 		and bool(frontier_picker.call(
@@ -1613,22 +1654,6 @@ func _screen_position_blocked_by_ui(screen_position: Vector2) -> bool:
 
 func _begin_build_pointer(screen_position: Vector2) -> void:
 	_pending_build_interaction = {}
-	if not placement.held.is_empty():
-		placement.pointer_press(screen_position)
-		return
-	if _try_expand_frontier_at_screen(screen_position):
-		return
-	# The retired guided-canvas fixture still teaches its old click-to-harvest
-	# lesson. In the shipped god-view flow, direct manipulation wins: pressing
-	# any tile or model picks it up immediately for click-place or drag-drop.
-	if core.onboarding.is_active():
-		var interaction := _interaction_at_screen(screen_position)
-		if interaction.get("kind", "") == "feature_interaction":
-			_pending_build_interaction = interaction
-			placement.pointer_press(screen_position, true)
-			return
-		if _try_build_world_action_at_screen(screen_position):
-			return
 	placement.pointer_press(screen_position)
 
 
@@ -1665,7 +1690,17 @@ func _unhandled_input(event: InputEvent) -> void:
 		_refresh_controller_hints()
 		get_viewport().set_input_as_handled()
 		return
-	if pause_menu.is_open() or wish_offer_panel.is_open() or panels.is_open():
+	if event.is_action_pressed("project_menu"):
+		project_panel.toggle()
+		_refresh_controller_hints()
+		get_viewport().set_input_as_handled()
+		return
+	if (
+		pause_menu.is_open()
+		or wish_offer_panel.is_open()
+		or panels.is_open()
+		or project_panel.is_open()
+	):
 		return
 	if _handle_hud_shortcut(event):
 		get_viewport().set_input_as_handled()
@@ -1686,8 +1721,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if placement.active and placement.controller_mode():
 		_handle_controller_build_input(event)
 		return
+	if not placement.active and placement.controller_mode():
+		if _handle_controller_interaction_input(event):
+			return
 	if event.is_action_pressed("build_mode"):
-		if hud.build_library_collapsed():
+		placement.set_active(not placement.active)
+		if placement.active:
 			hud.request_build_library_open()
 		else:
 			hud.set_build_library_expanded(false)
@@ -1736,6 +1775,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			)
 		):
 			placement.click()
+		elif (
+			not placement.active
+			and not player.deployed
+			and not _is_controller_event(event)
+		):
+			_perform_interaction(
+				_interaction_at_screen(get_viewport().get_mouse_position())
+			)
 		elif player.deployed and player.state == PlayerController.State.FREE:
 			player.cancel_click_command()
 			_perform_interaction(player.focus())
@@ -1792,13 +1839,10 @@ func _handle_controller_build_input(event: InputEvent) -> void:
 		# ui_accept and directional navigation belong to the focused controls.
 		return
 	if event.is_action_pressed("build_mode"):
-		if placement.held.is_empty():
-			if placement.controller_cursor_active():
-				placement.show_controller_library()
-				hud.request_build_library_open()
-				hud.focus_build_library()
-			else:
-				_begin_controller_world_browse()
+		if placement.held.is_empty() and not _guided_placement_locked():
+			placement.set_active(false)
+			hud.set_build_library_expanded(false)
+			hud.release_build_focus()
 		get_viewport().set_input_as_handled()
 		_refresh_controller_hints()
 		return
@@ -1829,13 +1873,7 @@ func _handle_controller_build_input(event: InputEvent) -> void:
 		event.is_action_pressed("build_confirm")
 		and placement.controller_cursor_active()
 	):
-		if (
-			not placement.held.is_empty()
-			or not _try_build_world_action_at_cell(
-				placement.controller_cursor_cell()
-			)
-		):
-			placement.click()
+		placement.click()
 	elif event.is_action_pressed("move_piece") and placement.held.is_empty():
 		placement.pick_up_at(
 			placement.controller_cursor_cell(),
@@ -1854,6 +1892,38 @@ func _handle_controller_build_input(event: InputEvent) -> void:
 	else:
 		return
 	get_viewport().set_input_as_handled()
+
+
+func _handle_controller_interaction_input(event: InputEvent) -> bool:
+	if event.is_action_pressed("build_mode"):
+		placement.set_active(true)
+		hud.request_build_library_open()
+		hud.focus_build_library()
+		get_viewport().set_input_as_handled()
+		_refresh_controller_hints()
+		return true
+	var direction := Vector2i.ZERO
+	if event.is_action_pressed("build_cursor_left"):
+		direction = Vector2i.LEFT
+	elif event.is_action_pressed("build_cursor_right"):
+		direction = Vector2i.RIGHT
+	elif event.is_action_pressed("build_cursor_up"):
+		direction = Vector2i.UP
+	elif event.is_action_pressed("build_cursor_down"):
+		direction = Vector2i.DOWN
+	if direction != Vector2i.ZERO:
+		placement.move_controller_cursor(direction)
+		get_viewport().set_input_as_handled()
+		_refresh_controller_hints()
+		return true
+	if (
+		event.is_action_pressed("interact")
+		or event.is_action_pressed("build_confirm")
+	):
+		_perform_interaction(_interaction_at_controller_cursor())
+		get_viewport().set_input_as_handled()
+		return true
+	return false
 
 
 func _cancel_build_or_open_library() -> void:
@@ -1876,6 +1946,8 @@ func _cancel_build_or_open_library() -> void:
 		hud.request_build_library_open()
 		return
 	hud.set_build_library_expanded(false)
+	if placement.controller_mode():
+		_begin_controller_world_browse()
 
 
 func _handle_hud_shortcut(event: InputEvent) -> bool:
@@ -1912,7 +1984,7 @@ func _is_controller_event(event: InputEvent) -> bool:
 
 
 func open_pause_menu(page := "menu") -> void:
-	if not _gameplay_started or wish_offer_panel.is_open():
+	if not _gameplay_started or wish_offer_panel.is_open() or project_panel.is_open():
 		return
 	placement.prepare_for_save()
 	if panels.is_open():
@@ -1932,6 +2004,8 @@ func _on_input_method_changed(method: int) -> void:
 			panels.focus_default()
 		elif wish_offer_panel.is_open():
 			wish_offer_panel.focus_default()
+		elif project_panel.is_open():
+			project_panel.focus_default()
 		elif (
 			character_creator != null
 			and is_instance_valid(character_creator)
@@ -1989,6 +2063,11 @@ func _refresh_controller_hints() -> void:
 			{"action": &"ui_accept", "label": "Choose wish"},
 			{"action": &"cancel", "label": "Not yet"},
 		]
+	elif project_panel.is_open():
+		actions = [
+			{"action": &"ui_accept", "label": "Track / contribute"},
+			{"action": &"cancel", "label": "Back to world"},
+		]
 	elif panels.is_open():
 		actions = [
 			{"action": &"panel_previous", "label": "Previous page"},
@@ -2045,10 +2124,10 @@ func _refresh_controller_hints() -> void:
 			]
 	else:
 		actions = [
-			{"action": &"move_up", "label": "Move"},
-			{"action": &"jump", "label": "Jump"},
-			{"action": &"build_mode", "label": "Build"},
-			{"action": &"panel_map", "label": "Map"},
+			{"action": &"build_cursor_up", "label": "Move world cursor"},
+			{"action": &"interact", "label": "Interact"},
+			{"action": &"project_menu", "label": "Projects"},
+			{"action": &"build_mode", "label": "Edit mode"},
 		]
 	if wish_offer_panel.is_ready() and not wish_offer_panel.is_open():
 		actions.push_front({"action": &"wish_menu", "label": "Open wish"})
@@ -2071,18 +2150,13 @@ func _refresh_controller_hints() -> void:
 # ------------------------------------------------------------------ click commands
 
 func _handle_world_click(screen_position: Vector2) -> void:
-	if panels.is_open() or wish_offer_panel.is_open():
+	if panels.is_open() or wish_offer_panel.is_open() or project_panel.is_open():
 		return
 	var interaction := _interaction_at_screen(screen_position)
 	if interaction.is_empty():
 		return
-	var destination: Variant = interaction.get("point")
-	if not destination is Vector3:
-		return
 	skill_actions.cancel_all()
-	if player.state != PlayerController.State.FREE:
-		player.set_state(PlayerController.State.FREE)
-	player.set_click_command(destination, interaction)
+	_perform_interaction(interaction)
 
 
 func _try_build_world_action_at_screen(screen_position: Vector2) -> bool:
@@ -2113,9 +2187,7 @@ func _try_expand_frontier_at_screen(screen_position: Vector2) -> bool:
 	var marker := frontier_markers.marker_at_screen(screen_position)
 	if marker.is_empty():
 		return false
-	if _frontier_picker_enabled() and frontier_picker != null:
-		return bool(frontier_picker.call("show_for_screen", screen_position))
-	return _expand_nook_at(marker.get("nook", Vector2i.ZERO))
+	return project_panel.open_frontier(marker.get("nook", Vector2i.ZERO))
 
 
 func _try_expand_frontier_at_cell(cell: Vector2i) -> bool:
@@ -2124,42 +2196,58 @@ func _try_expand_frontier_at_cell(cell: Vector2i) -> bool:
 	var marker := frontier_markers.marker_at_cell(cell)
 	if marker.is_empty():
 		return false
-	if _frontier_picker_enabled() and frontier_picker != null:
-		return bool(frontier_picker.call("focus_for_cell", cell))
-	return _expand_nook_at(marker.get("nook", Vector2i.ZERO))
+	return project_panel.open_frontier(marker.get("nook", Vector2i.ZERO))
 
 
-func _expand_nook_at(
+func _open_frontier_project(
 	coord: Vector2i,
-	preferences: Dictionary = {}
+	_preferences: Dictionary = {}
 ) -> bool:
-	if _nook_reveal_in_progress or not placement.held.is_empty():
-		return false
-	# Claim the interaction immediately, then let the input frame finish.
-	# Generation/application and renderer construction continue in bounded
-	# batches instead of freezing the click that opened the frontier.
-	_nook_reveal_in_progress = true
-	if nook_arrival_ghost != null:
-		nook_arrival_ghost.preview_nook(
-			coord,
-			_expansion_seam_side(coord)
-		)
-	_update_frontier_marker_availability()
-	call_deferred("_expand_nook_at_async", coord, preferences)
-	return true
+	return project_panel.open_frontier(coord)
 
 
-func _expand_nook_at_async(
+## Compatibility port for old scene fixtures. The behavior is intentionally
+## no longer immediate: opening a frontier only creates/tracks its Project.
+func _expand_nook_at(coord: Vector2i, preferences: Dictionary = {}) -> bool:
+	return _open_frontier_project(coord, preferences)
+
+
+func _begin_frontier_expansion(
 	coord: Vector2i,
-	preferences: Dictionary = {}
+	project_id: String,
+	seed_card: Dictionary
+) -> void:
+	if core.nooks.world.has_nook(coord):
+		core.frontiers.mark_generated(coord)
+		return
+	if _nook_reveal_in_progress:
+		for queued: Dictionary in _queued_frontier_expansions:
+			if queued.get("coord", Vector2i.ZERO) == coord:
+				return
+		_queued_frontier_expansions.append({
+			"coord": coord,
+			"project_id": project_id,
+			"seed_card": seed_card.duplicate(true),
+		})
+		return
+	_nook_reveal_in_progress = true
+	project_panel.close()
+	if nook_arrival_ghost != null:
+		nook_arrival_ghost.preview_nook(coord, _expansion_seam_side(coord))
+	_update_frontier_marker_availability()
+	call_deferred("_expand_frontier_project_async", coord, project_id, seed_card)
+
+
+func _expand_frontier_project_async(
+	coord: Vector2i,
+	project_id: String,
+	seed_card: Dictionary
 ) -> void:
 	renderer.begin_bulk_update()
 	var staged_plan: NookGenerator.NookPlan
 	var staged_origin := core.nooks.world.chunk_origin(coord)
-	var prepared: Dictionary = await core.nooks.prepare_random_expansion_async(
-		coord,
-		1,
-		preferences
+	var prepared: Dictionary = await core.nooks.prepare_reveal_nook_async(
+		coord, seed_card, 1
 	)
 	if not prepared.is_empty():
 		var prepared_plan := prepared.get("plan") as NookGenerator.NookPlan
@@ -2185,11 +2273,26 @@ func _expand_nook_at_async(
 		if nook_arrival_ghost != null:
 			nook_arrival_ghost.cancel_preview(coord)
 		_update_frontier_marker_availability()
+		core.frontiers.mark_generation_failed(coord)
 		audio.play_event("build_invalid")
+		_start_next_frontier_expansion()
 		return
+	core.frontiers.mark_generated(coord)
 	audio.play_event("parcel_reveal")
+	hud.toast("Frontier Project complete — new land is arriving.", "rare")
 	core.autosave_soon()
 	_refresh_controller_hints()
+
+
+func _start_next_frontier_expansion() -> void:
+	if _nook_reveal_in_progress or _queued_frontier_expansions.is_empty():
+		return
+	var queued: Dictionary = _queued_frontier_expansions.pop_front()
+	_begin_frontier_expansion(
+		queued.get("coord", Vector2i.ZERO),
+		String(queued.get("project_id", "")),
+		queued.get("seed_card", {}) as Dictionary
+	)
 
 
 func _expansion_seam_side(coord: Vector2i) -> Vector2i:
@@ -2217,6 +2320,35 @@ func _try_harvest_instance(instance_id: int) -> bool:
 
 func _interaction_at_screen(screen_position: Vector2) -> Dictionary:
 	return interaction_targets.interaction_at(screen_position)
+
+
+func _interaction_at_controller_cursor() -> Dictionary:
+	var cell := placement.controller_cursor_cell()
+	var marker: Dictionary = frontier_markers.marker_at_cell(cell)
+	if not marker.is_empty():
+		return {
+			"kind": "frontier_project",
+			"coord": marker.get("nook", Vector2i.ZERO),
+			"point": core.grid.cell_to_world(cell),
+		}
+	var instance_id := placement.controller_target_instance_id()
+	if instance_id <= 0:
+		return {}
+	var found := core.grid.find_structure(instance_id)
+	if found.is_empty():
+		return {}
+	var options: Array = core.interactions.options_for("player", instance_id)
+	if options.is_empty():
+		return {}
+	return {
+		"kind": "feature_interaction",
+		"feature": options[0].feature_id,
+		"option": options[0],
+		"instance_id": instance_id,
+		"point": core.grid.cell_to_world(
+			found["coord"], int(found["elevation"])
+		),
+	}
 
 
 # ------------------------------------------------------------------ cross-cutting flows
@@ -2376,7 +2508,9 @@ func _on_basket_model_taken(haul_id: int, entry_index: int) -> void:
 
 func _on_discovery_accepted(entry: Dictionary) -> void:
 	audio.play_event("parcel_select")
-	if String(entry.get("source", "")) == "delivery":
+	var source := String(entry.get("source", ""))
+	if source == "delivery":
+		core.progression.discovery.acknowledge_next()
 		core.arrivals.resolve_delivery()
 	hud.update_tutorial()
 	var kind := String(entry.get("kind", ""))
@@ -2386,15 +2520,36 @@ func _on_discovery_accepted(entry: Dictionary) -> void:
 		display_name = core.registries.tile(content_id).display_name
 	elif kind == DiscoverySystem.KIND_STRUCTURE and core.registries.structure(content_id) != null:
 		display_name = core.registries.structure(content_id).display_name
-	if String(entry.get("source", "")) == "wish":
-		if not placement.drop_wish(kind, content_id):
+	if source == "wish":
+		var preferred_coord := core.grid.world_to_cell(
+			camera_rig.focus_world_position()
+		)
+		var landed: Dictionary = core.reward_drops.land(entry, preferred_coord)
+		if not bool(landed.get("accepted", false)):
 			hud.toast(
-				"No clear landing spot — %s is safe in your Build Bag." % display_name,
+				"The sky is waiting for a clear landing spot for %s." % display_name,
 				"warn"
 			)
+			wish_offer_panel.notify_ready(false)
+			return
+		core.progression.discovery.acknowledge_next()
+		call_deferred(
+			"_animate_reward_drop_landing",
+			int(landed.get("instance_id", 0))
+		)
+		hud.toast(
+			"A star has landed. Find its golden glint and claim it.",
+			"rare"
+		)
+		core.save()
 	else:
 		hud.toast("%s added to your Build Bag." % display_name, "good")
 		placement.hold_new(kind, content_id)
+
+
+func _animate_reward_drop_landing(instance_id: int) -> void:
+	renderer.refresh_structure_opportunity(instance_id)
+	renderer.animate_structure_wish_landing(instance_id)
 
 
 func _open_pending_discovery_when_ready() -> void:
@@ -2458,6 +2613,8 @@ func _on_click_interaction_reached(interaction: Dictionary) -> void:
 
 func _perform_interaction(interaction: Dictionary) -> void:
 	match interaction.get("kind", ""):
+		"frontier_project":
+			project_panel.open_frontier(interaction.get("coord", Vector2i.ZERO))
 		"delivery_package":
 			_open_delivery_package()
 		"feature_interaction":
@@ -2487,6 +2644,57 @@ func _execute_feature_interaction(interaction: Dictionary) -> void:
 				"good"
 			)
 	core.autosave_soon()
+
+
+func _on_project_reward_granted(
+	project: Dictionary,
+	reward: Dictionary
+) -> void:
+	var display_name: String = core.build_rewards.display_name(reward)
+	hud.toast(
+		"%s complete — %s joins your Build Bag." % [
+			project.get("name", "Collection Project"), display_name,
+		],
+		"rare"
+	)
+	reward_reveal.enqueue(
+		reward,
+		core.grid.cell_to_world(core.grid.home_cell),
+		"reveal_world_bud_evergreen"
+	)
+	audio.play_event("discovery")
+
+
+func _on_special_find_spawned(instance_id: int, find_id: String) -> void:
+	renderer.refresh_structure_opportunity(instance_id)
+	var definition = core.registries.special_find(find_id)
+	hud.toast(
+		"A %s glints somewhere in the world." % (
+			definition.display_name if definition != null else "Special Find"
+		),
+		"rare"
+	)
+
+
+func _on_special_find_collected(instance_id: int, find_id: String) -> void:
+	renderer.refresh_structure_opportunity(instance_id)
+	var definition = core.registries.special_find(find_id)
+	hud.toast(
+		"%s saved in your Special Finds reserve." % (
+			definition.display_name if definition != null else "Special Find"
+		),
+		"good"
+	)
+	audio.play_event("discovery")
+
+
+func _on_reward_drop_claimed(_instance_id: int, reward: Dictionary) -> void:
+	hud.toast(
+		"%s claimed for your Build Bag." % core.build_rewards.display_name(reward),
+		"rare"
+	)
+	audio.play_event("discovery")
+	core.save()
 
 
 func _on_fire_burning_changed(instance_id: int, burning: bool) -> void:

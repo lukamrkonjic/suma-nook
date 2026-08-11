@@ -57,6 +57,7 @@ var _hover_info_signature := ""
 var _animate_ghost_rotation := false
 var _controller_mode := false
 var _controller_cursor_active := false
+var _interaction_cursor_mode := false
 var _controller_cell := Vector2i.ZERO
 var _ui_pointer_blocker := Callable()
 
@@ -101,6 +102,7 @@ func set_active(enabled: bool) -> void:
 	if active == enabled:
 		return
 	active = enabled
+	_interaction_cursor_mode = false
 	if active and _controller_mode:
 		_controller_cell = player.current_cell()
 		_controller_cursor_active = not held.is_empty()
@@ -109,6 +111,8 @@ func set_active(enabled: bool) -> void:
 		world_renderer.clear_structure_hover()
 		_emit_hover_info("", "", "")
 		_cancel_held(true)
+		if _controller_mode:
+			begin_controller_interaction_browse()
 	camera_rig.set_build_mode(active)
 	player.set_state(PlayerController.State.BUILDING if active else PlayerController.State.FREE)
 	mode_changed.emit(active)
@@ -247,10 +251,36 @@ func set_controller_mode(enabled: bool) -> void:
 	world_renderer.clear_structure_hover()
 	_emit_hover_info("", "", "")
 	if not enabled:
+		_interaction_cursor_mode = false
 		_controller_cursor_active = false
 		return
 	_controller_cell = player.current_cell()
-	_controller_cursor_active = active and not held.is_empty()
+	if active:
+		_controller_cursor_active = not held.is_empty()
+	else:
+		begin_controller_interaction_browse()
+
+
+func begin_controller_interaction_browse() -> void:
+	if active or not _controller_mode:
+		return
+	_interaction_cursor_mode = true
+	_controller_cursor_active = true
+	if not core.grid.has_cell(_controller_cell):
+		_controller_cell = core.grid.home_cell
+
+
+func end_controller_interaction_browse() -> void:
+	_interaction_cursor_mode = false
+	if not active:
+		_controller_cursor_active = false
+		_preview.hide_indicator()
+		world_renderer.clear_structure_hover()
+		_emit_hover_info("", "", "")
+
+
+func interaction_cursor_active() -> bool:
+	return not active and _interaction_cursor_mode and controller_cursor_active()
 
 
 func begin_controller_browse() -> void:
@@ -371,7 +401,7 @@ func player_drop_target_at_cell(
 
 
 func move_controller_cursor(screen_direction: Vector2i) -> void:
-	if not active or not controller_cursor_active():
+	if (not active and not _interaction_cursor_mode) or not controller_cursor_active():
 		return
 	var quarter_turn := posmod(
 		roundi((camera_rig.rotation_degrees.y - 45.0) / 90.0),
@@ -726,10 +756,20 @@ func _stack_relative_transform(
 
 func _process(delta: float) -> void:
 	if not active:
-		_preview.hide_indicator()
-		_emit_hover_info("", "", "")
 		if _ghost != null:
 			_ghost.visible = false
+		if interaction_cursor_active():
+			var elevation := core.grid.top_elevation(_controller_cell)
+			var indicator_elevation := maxi(0, elevation)
+			_preview.sync_indicator(
+				core.grid.cell_to_world(_controller_cell, indicator_elevation),
+				false,
+				elevation >= 0
+			)
+			_update_controller_placeable_hover()
+		else:
+			_preview.hide_indicator()
+			_emit_hover_info("", "", "")
 		return
 	if held.is_empty():
 		_preview.hide_indicator()
@@ -1678,6 +1718,17 @@ func _pick_up_from(cell: Vector2i, elevation: int, preferred_instance_id := -1) 
 		else:
 			s = state.structures.back()
 		if s == null:
+			return
+		var picked_definition := core.registries.structure(s.structure_id)
+		if (
+			picked_definition != null
+			and picked_definition.has_capability("reward_drop")
+		):
+			action_result.emit(
+				false,
+				"Claim this fallen reward in interaction mode first.",
+				"invalid"
+			)
 			return
 		var origin := {
 			"coord": cell,

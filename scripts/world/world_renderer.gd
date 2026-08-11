@@ -608,10 +608,65 @@ func _build_structure(holder: Node3D, s: WorldGrid.StructureState) -> void:
 			visual,
 			core.fire.is_burning(s.instance_id)
 		)
+	_sync_opportunity_markers(visual, s, def)
 	if "tree" in def.placement_tags:
 		_attach_tree_wind(visual, s.instance_id)
 	else:
 		_attach_ambient_motion(visual, Vector2i(s.instance_id, s.rotation))
+
+
+func refresh_structure_opportunity(instance_id: int) -> void:
+	var visual := structure_node(instance_id)
+	var found := core.grid.find_structure(instance_id)
+	if visual == null or found.is_empty():
+		return
+	var structure: WorldGrid.StructureState = found["structure"]
+	_sync_opportunity_markers(
+		visual,
+		structure,
+		core.registries.structure(structure.structure_id)
+	)
+
+
+func _sync_opportunity_markers(
+	visual: Node3D,
+	structure: WorldGrid.StructureState,
+	definition
+) -> void:
+	for marker_name: String in ["SpecialFindMarker", "RewardDropMarker"]:
+		var existing := visual.get_node_or_null(marker_name)
+		if existing != null:
+			existing.queue_free()
+	var find: Dictionary = structure.runtime_state.get("special_find", {})
+	if not find.is_empty() and not bool(find.get("collected", false)):
+		visual.add_child(_opportunity_marker(
+			"SpecialFindMarker", Color(0.45, 0.92, 1.0), 1.15
+		))
+	if definition != null and definition.has_capability("reward_drop"):
+		visual.add_child(_opportunity_marker(
+			"RewardDropMarker", Color(1.0, 0.72, 0.24), 1.0
+		))
+
+
+func _opportunity_marker(marker_name: String, color: Color, height: float) -> Node3D:
+	var root := Node3D.new()
+	root.name = marker_name
+	root.position = Vector3(0.0, height, 0.0)
+	root.rotation_degrees = Vector3(18.0, 0.0, 45.0)
+	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.name = "Glint"
+	var mesh := PrismMesh.new()
+	mesh.size = Vector3(0.18, 0.38, 0.18)
+	mesh_instance.mesh = mesh
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.emission_enabled = true
+	material.emission = color
+	material.emission_energy_multiplier = 2.1
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mesh_instance.material_override = material
+	root.add_child(mesh_instance)
+	return root
 
 
 func _configure_stone_wall_junctions(
@@ -1079,9 +1134,13 @@ func _harvest_visual_scale(structure: WorldGrid.StructureState) -> float:
 	if profile != null and profile.presentation_profile == "berry_cluster":
 		# Fruit changes state; the replaceable host model remains fully grown.
 		return 1.0
+	if profile != null and profile.depleted_structure_id != "":
+		# Tree stump / rock remnant owns the depleted silhouette explicitly.
+		return 1.0
 	match String(runtime.get("state", "maturing")):
 		"ready": return 1.0
 		"regrowing": return 0.28
+		"interacting": return 1.0
 		_: return 0.72
 
 

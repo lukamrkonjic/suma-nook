@@ -55,6 +55,7 @@ const REQUIRED_CONTROLLER_ACTIONS: Array[StringName] = [
 	&"panel_collection",
 	&"panel_map",
 	&"wish_menu",
+	&"project_menu",
 	&"panel_previous",
 	&"panel_next",
 	&"return_home",
@@ -404,6 +405,8 @@ func _controller_event_prompt(event: InputEvent) -> String:
 				if controller_family() == ControllerFamily.PLAYSTATION
 				else "View"
 			)
+		JOY_BUTTON_GUIDE:
+			return "PS" if controller_family() == ControllerFamily.PLAYSTATION else "Guide"
 		JOY_BUTTON_START:
 			return "Options" if controller_family() == ControllerFamily.PLAYSTATION else "Menu"
 		JOY_BUTTON_LEFT_STICK:

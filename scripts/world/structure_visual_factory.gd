@@ -65,7 +65,20 @@ func _attach_harvest_presentation(
 		definition.capability("harvest_source").get("profile_id", "")
 	)
 	var profile := grid.registries.harvest_profile(profile_id)
-	if profile == null or profile.presentation_profile != "berry_cluster":
+	if profile == null:
+		return
+	if profile.depleted_structure_id != "":
+		var depleted_definition := grid.registries.structure(
+			profile.depleted_structure_id
+		)
+		if depleted_definition != null:
+			var depleted := assets.instantiate(depleted_definition.asset_id)
+			depleted.name = "HarvestDepletedVisual"
+			depleted.set_meta("exclude_from_structural_bounds", true)
+			_prepare_authored_visual(depleted, depleted_definition)
+			depleted.visible = false
+			visual.add_child(depleted)
+	if profile.presentation_profile != "berry_cluster":
 		return
 	var bounds_data := local_mesh_bounds(visual)
 	if not bool(bounds_data.get("found", false)):
@@ -89,6 +102,13 @@ func sync_harvest_visual(
 ) -> void:
 	if visual == null or definition == null:
 		return
+	var authored := visual.get_node_or_null("AuthoredVisual") as Node3D
+	var depleted := visual.get_node_or_null("HarvestDepletedVisual") as Node3D
+	var is_depleted := state == HarvestingModule.STATE_REGROWING
+	if authored != null:
+		authored.visible = not is_depleted or depleted == null
+	if depleted != null:
+		depleted.visible = is_depleted
 	var yield_visual := visual.find_child("HarvestYieldVisual", true, false)
 	if yield_visual != null and yield_visual.has_method("set_harvest_state"):
 		yield_visual.call("set_harvest_state", state, animate)
