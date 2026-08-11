@@ -235,14 +235,14 @@ func _step_creation() -> void:
 		runtime["deadline_unix"] = 0.0
 		main.core.harvesting.status(tree.instance_id)
 		var started: Dictionary = main.core.harvesting.request_hit(tree.instance_id, "player")
-		var duplicate: Dictionary = main.core.harvesting.request_hit(tree.instance_id, "player")
+		var second_hit: Dictionary = main.core.harvesting.request_hit(tree.instance_id, "player")
 		var completed: Dictionary = main.core.harvesting.complete_interaction(tree.instance_id)
 		check(
 			bool(started.get("accepted", false))
-			and duplicate.get("reason", "") == HarvestingModule.STATE_INTERACTING
+			and second_hit.get("hit", 0) == 2
 			and bool(completed.get("final", false))
 			and not main.core.grid.find_structure(tree.instance_id).is_empty(),
-			"one interaction completes one Timber action without duplicate clicks or destruction"
+			"three deliberate hits complete one Timber action and leave a regrowing stump"
 		)
 	else:
 		check(false, "the opening tree remains addressable as a stateful resource")
@@ -1388,12 +1388,18 @@ func _step_build_mode_selection_rules() -> void:
 			"an explicit rotation advances by a bounded amount per frame"
 		)
 		main.placement.cancel_click()
+		main.placement.set_active(false)
 		var drag_destination := Vector2i(0, 1)
 		var destination_screen := main.camera_rig.camera.unproject_position(
 			main.core.grid.cell_to_world(drag_destination, 0)
 		)
 		Input.warp_mouse(screen_point)
 		send_main_pointer_button(screen_point, true)
+		check(
+			main.placement.held.is_empty()
+			and main.camera_rig.pointer_edit_locked(),
+			"interaction-mode press waits for drag intent with stable camera framing"
+		)
 		Input.warp_mouse(destination_screen)
 		send_main_pointer_motion(
 			destination_screen,
@@ -1405,8 +1411,16 @@ func _step_build_mode_selection_rules() -> void:
 		var dragged := main.core.grid.find_structure(chest_iid)
 		check(
 			not dragged.is_empty()
-			and dragged.get("coord", chest_cell) == drag_destination,
-			"the live Main input path drag-drops a model onto another tile"
+			and dragged.get("coord", chest_cell) == drag_destination
+			and not main.placement.active
+			and not main.camera_rig.pointer_edit_locked(),
+			"interaction-mode hover drag-drops a model onto another tile "
+			+ "(coord=%s held=%s hover=%s valid=%s)" % [
+				str(dragged.get("coord", chest_cell)),
+				str(main.placement.held.get("id", "")),
+				str(main.placement._hover_cell),
+				str(main.placement._hover_valid),
+			]
 		)
 		main.placement.undo()
 		await get_tree().process_frame
@@ -2671,15 +2685,15 @@ func _step_woodcutting() -> void:
 		project_runtime["deadline_unix"] = 0.0
 		main.core.harvesting.status(project_tree.instance_id)
 		var interaction: Dictionary = main.core.harvesting.request_hit(project_tree.instance_id, "player")
-		var rapid_duplicate: Dictionary = main.core.harvesting.request_hit(project_tree.instance_id, "player")
+		var second_hit: Dictionary = main.core.harvesting.request_hit(project_tree.instance_id, "player")
 		var project_result: Dictionary = main.core.harvesting.complete_interaction(project_tree.instance_id)
 		main.renderer.refresh_structure_harvest(project_tree.instance_id, false)
 		var project_visual := main.renderer.structure_node(project_tree.instance_id)
 		check(
 			bool(interaction.get("accepted", false))
-			and rapid_duplicate.get("reason", "") == HarvestingModule.STATE_INTERACTING
+			and second_hit.get("hit", 0) == 2
 			and bool(project_result.get("final", false)),
-			"one click owns one complete gathering sequence and rejects rapid repeats"
+			"the reusable tree owns a three-hit gathering sequence"
 		)
 		check(
 			not main.core.grid.find_structure(project_tree.instance_id).is_empty()

@@ -1582,7 +1582,6 @@ func _input(event: InputEvent) -> void:
 		return
 	if (
 		_gameplay_started
-		and placement.active
 		and not pause_menu.is_open()
 		and not wish_offer_panel.is_open()
 		and not project_panel.is_open()
@@ -1658,7 +1657,14 @@ func _screen_position_blocked_by_ui(screen_position: Vector2) -> bool:
 
 func _begin_build_pointer(screen_position: Vector2) -> void:
 	_pending_build_interaction = {}
-	placement.pointer_press(screen_position)
+	if placement.active:
+		placement.pointer_press(screen_position)
+		return
+	# In interaction mode a click still interacts, while crossing the drag
+	# threshold turns the same gesture into direct world editing. This keeps
+	# harvesting and moving a tree unambiguous without requiring a mode toggle.
+	_pending_build_interaction = _interaction_at_screen(screen_position)
+	placement.pointer_press(screen_position, true)
 
 
 func _finish_build_pointer(screen_position: Vector2) -> void:
@@ -1667,6 +1673,7 @@ func _finish_build_pointer(screen_position: Vector2) -> void:
 		var interaction := _pending_build_interaction
 		_pending_build_interaction = {}
 		if not was_dragging:
+			effects.click_marker(screen_position, true)
 			_perform_interaction(interaction)
 
 

@@ -26,12 +26,6 @@ func options_for(_actor_id: String, instance_id: int) -> Array:
 			float(status.get("remaining", 0.0))
 		)
 		label = reason
-	elif not harvesting.contributions.accepts_any(
-		status.get("contribution_tags", []) as Array[String]
-	):
-		ready = false
-		reason = "The tracked Project does not need this contribution."
-		label = reason
 	return [InteractionOptionScript.new(
 		"harvest",
 		label,

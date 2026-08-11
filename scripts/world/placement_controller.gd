@@ -54,6 +54,10 @@ var _pointer_press_position := Vector2.ZERO
 var _pointer_screen_position := Vector2.ZERO
 var _picked_on_pointer_press := false
 var _deferred_pickup_hit: Dictionary = {}
+## A mouse drag may temporarily borrow build preview/validation while the game
+## stays in interaction mode. Keeping this separate from `active` prevents a
+## mid-gesture camera reframe and leaves explicit controller Build mode intact.
+var _transient_pointer_edit := false
 var _hover_info_signature := ""
 var _animate_ghost_rotation := false
 var _controller_mode := false
@@ -108,6 +112,7 @@ func toggle() -> void:
 func set_active(enabled: bool) -> void:
 	if active == enabled:
 		return
+	_transient_pointer_edit = false
 	active = enabled
 	_interaction_cursor_mode = false
 	if active and _controller_mode:
@@ -762,7 +767,7 @@ func _stack_relative_transform(
 # ------------------------------------------------------------------ per-frame preview
 
 func _process(delta: float) -> void:
-	if not active:
+	if not active and not _transient_pointer_edit:
 		if _ghost != null:
 			_ghost.visible = false
 		if interaction_cursor_active():
@@ -776,7 +781,10 @@ func _process(delta: float) -> void:
 			_update_controller_placeable_hover()
 		else:
 			_preview.hide_indicator()
-			_emit_hover_info("", "", "")
+			if _controller_mode:
+				_emit_hover_info("", "", "")
+			else:
+				_update_placeable_hover()
 		return
 	if held.is_empty():
 		_preview.hide_indicator()
@@ -1126,7 +1134,11 @@ func _cell_under_mouse() -> Vector2i:
 func _update_hover_target() -> void:
 	_hover_support_instance_id = 0
 	_hover_support_slot = ""
-	if _controller_mode and _controller_cursor_active:
+	if (
+		not _transient_pointer_edit
+		and _controller_mode
+		and _controller_cursor_active
+	):
 		_update_controller_hover_target()
 		return
 	var pointer_position := (
@@ -1463,6 +1475,7 @@ func pointer_press(
 	screen_position: Vector2,
 	pick_up_on_drag_only := false
 ) -> void:
+	camera_rig.begin_pointer_edit()
 	_pointer_down = true
 	_pointer_dragging = false
 	_pointer_press_position = screen_position
@@ -1472,8 +1485,7 @@ func pointer_press(
 	if held.is_empty():
 		if pick_up_on_drag_only:
 			if not _pointer_is_over_ui(screen_position):
-				_deferred_pickup_hit = world_renderer.pick_placeable_at_screen(
-					camera_rig.camera,
+				_deferred_pickup_hit = _placeable_hit_with_grid_fallback(
 					screen_position
 				)
 		else:
@@ -1489,6 +1501,7 @@ func pointer_press(
 func begin_pointer_drag_for_held(screen_position: Vector2) -> void:
 	if held.is_empty():
 		return
+	camera_rig.begin_pointer_edit()
 	_pointer_down = true
 	_pointer_dragging = false
 	_pointer_press_position = screen_position
@@ -1507,20 +1520,27 @@ func pointer_motion(screen_position: Vector2) -> void:
 	if not _picked_on_pointer_press and not _deferred_pickup_hit.is_empty():
 		_pick_up_placeable_hit(_deferred_pickup_hit)
 		_picked_on_pointer_press = not held.is_empty()
+		if _picked_on_pointer_press and not active:
+			_transient_pointer_edit = true
 
 
 func pointer_release(screen_position: Vector2) -> bool:
 	_pointer_screen_position = screen_position
 	var was_dragging := _pointer_down and _pointer_dragging
+	var transient_edit := _transient_pointer_edit
 	if _pointer_down and _pointer_dragging and _picked_on_pointer_press and not held.is_empty():
 		if _placement_action_valid():
 			click()
 		else:
 			action_result.emit(false, _invalid_message(), "invalid")
+			if transient_edit:
+				_cancel_held(true)
+	_transient_pointer_edit = false
 	_pointer_down = false
 	_pointer_dragging = false
 	_picked_on_pointer_press = false
 	_deferred_pickup_hit = {}
+	camera_rig.end_pointer_edit()
 	return was_dragging
 
 
@@ -1551,6 +1571,8 @@ func pointer_dragging_catalogue_piece() -> bool:
 ## Ends a catalogue click that never became a world drag. The selected piece
 ## remains held, preserving the original click-to-select workflow.
 func cancel_pointer_gesture() -> void:
+	_transient_pointer_edit = false
+	camera_rig.end_pointer_edit()
 	_pointer_down = false
 	_pointer_dragging = false
 	_picked_on_pointer_press = false
@@ -1558,7 +1580,7 @@ func cancel_pointer_gesture() -> void:
 
 
 func click() -> void:
-	if not active:
+	if not active and not _transient_pointer_edit:
 		return
 	if held.is_empty():
 		_try_pick_up()
@@ -1933,6 +1955,39 @@ func _try_pick_up(screen_position: Variant = null) -> void:
 		_pick_up_from(slot_hit["coord"], elevation)
 
 
+## Renderer refreshes replace physics bodies asynchronously. A click ray is
+## normally authoritative, but the deterministic grid ray keeps a just-restored
+## object draggable during the one physics frame before its new body registers.
+func _placeable_hit_with_grid_fallback(screen_position: Vector2) -> Dictionary:
+	var hit := world_renderer.pick_placeable_at_screen(
+		camera_rig.camera,
+		screen_position
+	)
+	if not hit.is_empty():
+		return hit
+	var slot_hit := _slot_under_mouse(screen_position)
+	var coord: Vector2i = slot_hit["coord"]
+	var elevation := int(slot_hit["elevation"])
+	if elevation < 0:
+		return {}
+	var state := core.grid.cell_at(coord, elevation)
+	if state == null:
+		return {}
+	var instance_id := _highest_structure_instance_at(coord, elevation)
+	if instance_id > 0:
+		return {
+			"kind": "structure",
+			"coord": coord,
+			"elevation": elevation,
+			"instance_id": instance_id,
+		}
+	return {
+		"kind": "tile",
+		"coord": coord,
+		"elevation": elevation,
+	}
+
+
 func _pick_up_placeable_hit(hit: Dictionary) -> void:
 	if world_renderer.placeable_is_wish_falling(
 		String(hit.get("kind", "")),
@@ -2087,6 +2142,8 @@ func store_held() -> void:
 			return
 	held = {}
 	core.autosave_paused = false
+	_transient_pointer_edit = false
+	camera_rig.end_pointer_edit()
 	_pointer_down = false
 	_pointer_dragging = false
 	_picked_on_pointer_press = false
@@ -2116,6 +2173,7 @@ func prepare_for_save() -> void:
 func _cancel_held(restore: bool) -> void:
 	if held.is_empty():
 		core.autosave_paused = false
+		_transient_pointer_edit = false
 		cancel_pointer_gesture()
 		if _ghost != null:
 			_ghost.queue_free()
@@ -2149,6 +2207,8 @@ func _cancel_held(restore: bool) -> void:
 		pass  # piece stays in stock — nothing was consumed until placement
 	held = {}
 	core.autosave_paused = false
+	_transient_pointer_edit = false
+	camera_rig.end_pointer_edit()
 	_pointer_down = false
 	_pointer_dragging = false
 	_picked_on_pointer_press = false

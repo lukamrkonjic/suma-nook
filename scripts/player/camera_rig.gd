@@ -21,6 +21,7 @@ var _pan_offset := Vector3.ZERO
 var _middle_panning := false
 var _middle_pan_origin := Vector3.ZERO
 var _creator_focus := false
+var _pointer_edit_locked := false
 
 
 func setup(game_core: GameCore, follow_target: Node3D) -> void:
@@ -54,6 +55,13 @@ func setup(game_core: GameCore, follow_target: Node3D) -> void:
 
 
 func _process(delta: float) -> void:
+	# A world drag resolves both ends through screen-space rays. Hold the live
+	# camera transform steady for that short gesture so an already-settling
+	# zoom, orbit, follow, or pan cannot slide the destination under the cursor.
+	# Targets keep their intended values and resume damping on release.
+	if _pointer_edit_locked:
+		core.view_state = save_state()
+		return
 	_apply_continuous_pan(delta)
 	if target != null:
 		var goal := target.global_position + _pan_offset
@@ -97,7 +105,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _creator_focus:
+	if _creator_focus or _pointer_edit_locked:
 		return
 	var controller := target as PlayerController
 	if (
@@ -246,6 +254,18 @@ func set_build_mode(enabled: bool) -> void:
 	var base := core.registries.tunef("camera_default_size", 37.0)
 	_size_target = base + (core.registries.tunef("build_mode_size_bonus", 3.0) if enabled else 0.0)
 	zoom_changed.emit(_size_target)
+
+
+func begin_pointer_edit() -> void:
+	_pointer_edit_locked = true
+
+
+func end_pointer_edit() -> void:
+	_pointer_edit_locked = false
+
+
+func pointer_edit_locked() -> bool:
+	return _pointer_edit_locked
 
 
 func zoom_for_creator() -> void:

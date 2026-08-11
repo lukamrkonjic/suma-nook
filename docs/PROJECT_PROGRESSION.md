@@ -14,14 +14,16 @@ same `ProjectService` state and `ContributionService` transaction boundary.
 Normal play starts in interaction mode. A click resolves exactly one
 highest-priority action through `InteractionTargetResolver` and
 `InteractionRegistry`: claim a Reward Drop, gather a Special Find, toggle a
-fire, gather a needed resource, or open a Frontier Project. Disabled resource
-actions explain that the tracked Project does not need the contribution.
+fire, harvest a resource, or open a Frontier Project. Resource nodes remain
+tactile even when the tracked Project does not currently need their material.
 
 `build_mode` enters explicit edit mode. In that mode clicks only pick up,
 move, place, rotate, or store world pieces. They never execute gameplay
-interactions. Reward Drops cannot be moved before claim. The controller uses
-the same two intents through its deterministic grid cursor; it never emulates
-or warps a mouse.
+interactions. With a pointer, interaction mode also distinguishes the same two
+intents by gesture: click interacts, while hover-drag lifts and moves a world
+piece. Reward Drops cannot be moved before claim. The controller uses the same
+two intents through its deterministic grid cursor and named move action; it
+never emulates or warps a mouse.
 
 ## Shared Project state
 
@@ -36,8 +38,8 @@ available in god view without deploying the legacy keeper.
 
 Only one Project is tracked in the HUD, but all created Projects retain their
 progress. Contribution receipts make commits idempotent. Completion and reward
-granting are independently guarded, so rapid clicks, reloaded timers, and
-duplicate signals cannot advance or grant twice.
+granting are independently guarded, so a final hit, reload, or duplicate
+signal cannot advance or grant twice.
 
 ## Resource nodes
 
@@ -46,14 +48,16 @@ Structures opt into `harvest_source` with a profile from
 
 1. `maturing`
 2. `ready`
-3. `interacting`
+3. deliberate hit progress stored on the stable instance
 4. `regrowing`
 5. back to `ready`
 
-One click reserves an eligible slot and starts one authored action. Its single
-deadline commits one contribution. Trees and rocks swap to explicit depleted
-visuals while their stable placed instance regrows. Common results never enter
-the inventory or token pouch. Fishing commits one Provisions receipt per haul.
+One click is one authored impact. Young trees fall in three hits, larger trees
+take four or five, and rocks crack in four. The final blow commits one eligible
+Project contribution when needed, but the source still visibly depletes when
+no Project slot is available. Trees and rocks swap to explicit depleted visuals
+while their stable placed instance regrows. Common results never enter the
+inventory or token pouch. Fishing commits one Provisions receipt per haul.
 
 ## Frontiers and Special Finds
 

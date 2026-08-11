@@ -128,6 +128,9 @@ func _process(_delta: float) -> void:
 
 
 func _sync_outline_camera() -> void:
+	# Layer 20 belongs only to the outline viewport. Exact visuals also retain
+	# their ordinary world layer; scalable hover proxies live exclusively here.
+	_outline_source_camera.cull_mask &= ~OUTLINE_VISIBILITY_LAYER
 	_outline_camera.global_transform = _outline_source_camera.global_transform
 	_outline_camera.projection = _outline_source_camera.projection
 	_outline_camera.fov = _outline_source_camera.fov
@@ -1111,6 +1114,11 @@ func refresh_structure_anchor(instance_id: int, animate := true) -> void:
 
 func refresh_structure_harvest(instance_id: int, animate := true) -> void:
 	var found := core.grid.find_structure(instance_id)
+	if _scalable_mode:
+		if not found.is_empty():
+			clear_structure_hover()
+			_scalable_backend.rebuild_around(found["coord"])
+		return
 	var visual := structure_node(instance_id)
 	if found.is_empty() or visual == null:
 		return
@@ -1280,7 +1288,7 @@ func _animate_tile_water_skip(
 
 func animate_tile_wish_landing(coord: Vector2i, elevation: int) -> Tween:
 	if _scalable_mode:
-		return null
+		return _scalable_backend.animate_tile_wish_landing(coord, elevation)
 	var holder := tile_node(coord, elevation)
 	if holder == null or holder.get_child_count() == 0:
 		return null
@@ -1289,7 +1297,7 @@ func animate_tile_wish_landing(coord: Vector2i, elevation: int) -> Tween:
 
 func animate_structure_wish_landing(instance_id: int) -> Tween:
 	if _scalable_mode:
-		return null
+		return _scalable_backend.animate_structure_wish_landing(instance_id)
 	return _animate_wish_fall(structure_node(instance_id))
 
 
@@ -1299,6 +1307,10 @@ func placeable_is_wish_falling(
 	elevation: int,
 	instance_id := 0
 ) -> bool:
+	if _scalable_mode:
+		return _scalable_backend.placeable_is_wish_falling(
+			kind, coord, elevation, instance_id
+		)
 	var visual: Node3D
 	if kind == "structure":
 		visual = structure_node(instance_id)
@@ -1693,6 +1705,7 @@ func set_hovered_structure(instance_id: int, include_descendants := true) -> voi
 	var signature := "structure:%d:%s" % [instance_id, str(include_descendants)]
 	if _hover_signature == signature:
 		return
+	clear_structure_hover()
 	var nodes: Array[Node3D] = []
 	var structures := (
 		core.grid.structure_subtree(instance_id)
@@ -1704,7 +1717,11 @@ func set_hovered_structure(instance_id: int, include_descendants := true) -> voi
 		if not found.is_empty():
 			structures = [found["structure"]]
 	for structure: WorldGrid.StructureState in structures:
-		var visual := structure_node(structure.instance_id)
+		var visual: Node3D = (
+			_scalable_backend.hover_structure_node(structure.instance_id)
+			if _scalable_mode
+			else structure_node(structure.instance_id)
+		)
 		if visual != null:
 			nodes.append(visual)
 	_set_hover_nodes(nodes, signature, instance_id)
@@ -1723,10 +1740,15 @@ func set_hovered_tile(
 	]
 	if _hover_signature == signature:
 		return
+	clear_structure_hover()
 	var nodes: Array[Node3D] = []
 	var top := core.grid.top_elevation(coord) if include_above else elevation
 	for layer in range(elevation, top + 1):
-		var holder := tile_node(coord, layer)
+		var holder: Node3D = (
+			_scalable_backend.hover_tile_node(coord, layer)
+			if _scalable_mode
+			else tile_node(coord, layer)
+		)
 		if holder != null:
 			nodes.append(holder)
 	_set_hover_nodes(nodes, signature, -1)
@@ -1737,7 +1759,6 @@ func _set_hover_nodes(
 	signature: String,
 	structure_instance_id: int
 ) -> void:
-	clear_structure_hover()
 	if nodes.is_empty():
 		return
 	if _outline_source_camera == null or not is_instance_valid(_outline_source_camera):
@@ -1775,6 +1796,37 @@ func clear_structure_hover() -> void:
 		_outline_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	_hovered_structure_id = -1
 	_hover_signature = ""
+	if _scalable_backend != null:
+		_scalable_backend.clear_hover_proxies()
+
+
+func structure_effect_position(instance_id: int, height := 0.0) -> Vector3:
+	var visual := structure_node(instance_id)
+	if visual != null:
+		return visual.global_position + Vector3.UP * height
+	var found := core.grid.find_structure(instance_id)
+	if found.is_empty():
+		return Vector3.ZERO
+	return (
+		core.grid.cell_to_world(found["coord"], int(found["elevation"]))
+		+ core.grid.structure_local_transform(instance_id).origin
+		+ Vector3.UP * height
+	)
+
+
+func animate_scalable_structure_harvest_impact(
+	instance_id: int,
+	progress: float,
+	final: bool,
+	presentation: String,
+	finished: Callable = Callable()
+) -> bool:
+	if not _scalable_mode:
+		return false
+	clear_structure_hover()
+	return _scalable_backend.animate_structure_harvest_impact(
+		instance_id, progress, final, presentation, finished
+	)
 
 
 func hovered_structure_id() -> int:

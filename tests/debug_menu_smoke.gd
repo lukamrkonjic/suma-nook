@@ -26,6 +26,16 @@ func _exercise_card() -> void:
 	_expect(menu != null and menu.visible, "debug builds show the live debug card")
 	if menu == null:
 		return
+	var card := menu.find_child("DebugMenuCard", true, false) as Control
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	_expect(
+		card != null
+		and card.get_global_rect().end.x <= viewport_size.x - 12.0
+		and card.get_global_rect().end.y <= viewport_size.y - 12.0
+		and card.get_global_rect().get_center().x > viewport_size.x * 0.5
+		and card.get_global_rect().get_center().y > viewport_size.y * 0.5,
+		"the admin card stays in the bottom-right clear of the top-left HUD"
+	)
 	var skyfall := menu.find_child("DebugSkyfallNow", true, false) as Button
 	var items := menu.find_child("DebugGrantItems99", true, false) as Button
 	var tiles := menu.find_child("DebugGrantTiles99", true, false) as Button

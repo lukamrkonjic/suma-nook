@@ -1259,9 +1259,9 @@ func _test_content_catalog_architecture() -> void:
 		and young_profile != null
 		and young_profile.token_id.is_empty()
 		and "timber" in young_profile.contribution_tags
-		and young_profile.action_seconds > 0.0
+		and young_profile.hits_required == 3
 		and young_profile.depleted_structure_id == "struct_stump_pine",
-		"harvest sources resolve to timed Project contributions and regrowth visuals"
+		"harvest sources resolve deliberate hits into Project contributions and regrowth visuals"
 	)
 	check(
 		forest_box != null
@@ -2096,16 +2096,16 @@ func _test_project_progression_loop() -> void:
 	tree_runtime["deadline_unix"] = 0.0
 	core.harvesting.status(tree.instance_id)
 	var started: Dictionary = core.harvesting.request_hit(tree.instance_id, "player")
-	var rapid_repeat: Dictionary = core.harvesting.request_hit(tree.instance_id, "player")
+	var second_hit: Dictionary = core.harvesting.request_hit(tree.instance_id, "player")
 	var timber_result: Dictionary = core.harvesting.complete_interaction(tree.instance_id)
 	var timber_project := core.projects.project(forest_id)
 	check(
 		bool(started.get("accepted", false))
-		and started.get("hit", 0) == 0
-		and rapid_repeat.get("reason", "") == HarvestingModule.STATE_INTERACTING
+		and started.get("hit", 0) == 1
+		and second_hit.get("hit", 0) == 2
 		and bool(timber_result.get("final", false))
 		and int((timber_project["slots"][0] as Dictionary).get("current", 0)) == 1,
-		"one tree click starts one timed action and rapid input cannot duplicate Timber"
+		"three deliberate tree hits produce exactly one Timber contribution"
 	)
 	check(
 		not core.grid.find_structure(tree.instance_id).is_empty()
@@ -2141,19 +2141,20 @@ func _test_project_progression_loop() -> void:
 		and not core.grid.find_structure(rock.instance_id).is_empty()
 		and core.harvesting.status(rock.instance_id).get("depleted_structure_id", "")
 			== "struct_rock_remnant",
-		"one rock click contributes one Stone and uses its own regrowing remnant"
+		"four deliberate rock hits contribute one Stone and leave a regrowing remnant"
 	)
 	rock_runtime["state"] = HarvestingModule.STATE_READY
 	rock_runtime["deadline_unix"] = 0.0
-	var unneeded_rock: Dictionary = core.harvesting.request_hit(
-		rock.instance_id, "player"
+	var unneeded_rock: Dictionary = core.harvesting.complete_interaction(
+		rock.instance_id
 	)
 	check(
-		unneeded_rock.get("reason", "") == "not_needed"
+		bool(unneeded_rock.get("final", false))
+		and not unneeded_rock.has("contribution")
 		and not core.grid.find_structure(rock.instance_id).is_empty()
 		and core.harvesting.status(rock.instance_id).get("state", "")
-			== HarvestingModule.STATE_READY,
-		"an unneeded resource stays intact and clearly refuses the interaction"
+			== HarvestingModule.STATE_REGROWING,
+		"an unneeded resource still cracks and depletes without minting Project progress"
 	)
 	var collection_completions: Array[Dictionary] = []
 	core.projects.project_completed.connect(func(project: Dictionary):

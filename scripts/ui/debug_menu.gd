@@ -105,10 +105,13 @@ func _build() -> void:
 
 	_card = PanelContainer.new()
 	_card.name = "DebugMenuCard"
-	_card.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	_card.offset_left = 14.0
-	_card.offset_top = 14.0
-	_card.offset_right = 14.0 + CARD_WIDTH
+	_card.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_card.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_card.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_card.offset_left = -14.0 - CARD_WIDTH
+	_card.offset_top = -14.0
+	_card.offset_right = -14.0
+	_card.offset_bottom = -14.0
 	_card.mouse_filter = Control.MOUSE_FILTER_STOP
 	var card_style := kit.panel_style(false, 14)
 	card_style.bg_color = kit.palette.color("ui_surface_raised")

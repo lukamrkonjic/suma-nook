@@ -5,7 +5,6 @@ extends RefCounted
 ## storage, save, and future automation all share one state.
 
 signal source_state_changed(instance_id: int, state: String, status: Dictionary)
-signal interaction_started(instance_id: int, interaction: Dictionary)
 signal hit_landed(instance_id: int, hit: Dictionary)
 signal reward_granted(instance_id: int, reward: Dictionary)
 signal contribution_produced(instance_id: int, contribution: Dictionary)
@@ -125,8 +124,9 @@ func status(instance_id: int) -> Dictionary:
 	return _status_dictionary(profile, runtime)
 
 
-## One call starts one complete interaction. A centralized deadline finishes
-## the action, so rapid input cannot add hits or duplicate a contribution.
+## One call is one deliberate hit. Project progression is committed only on
+## the final hit, preserving the tactile chop/crack cadence without allowing
+## partial clicks to duplicate contributions.
 func request_hit(instance_id: int, actor := "player") -> Dictionary:
 	if not enabled:
 		return {"accepted": false, "reason": "disabled"}
@@ -140,52 +140,72 @@ func request_hit(instance_id: int, actor := "player") -> Dictionary:
 	var runtime := _runtime(structure)
 	_normalize_due(structure, _now())
 	runtime = _runtime(structure, false)
-	if String(runtime.get("state", STATE_MATURING)) != STATE_READY:
+	var state := String(runtime.get("state", STATE_MATURING))
+	if state != STATE_READY:
 		return {
 			"accepted": false,
-			"reason": String(runtime.get("state", STATE_MATURING)),
+			"reason": state,
 			"remaining": maxf(0.0, float(runtime.get("deadline_unix", 0.0)) - _now()),
 		}
-	var target: Dictionary = contributions.target_for(profile.contribution_tags)
+	var next_hit := int(runtime.get("hits", 0)) + 1
+	var target: Dictionary = runtime.get("pending_target", {}) as Dictionary
 	if target.is_empty():
-		return {
-			"accepted": false,
-			"reason": "not_needed",
-			"contribution_tags": profile.contribution_tags.duplicate(),
-		}
-	var action_id := "%d:%d" % [
-		instance_id,
-		int(runtime.get("cycles", 0)) + 1,
-	]
-	var deadline := _now() + profile.action_seconds
-	runtime["state"] = STATE_INTERACTING
-	runtime["hits"] = 0
-	runtime["deadline_unix"] = deadline
-	runtime["pending_action_id"] = action_id
-	runtime["pending_target"] = target.duplicate(true)
-	runtime["pending_actor"] = actor
-	var interaction := {
+		target = contributions.target_for(profile.contribution_tags)
+	if actor != "player" and next_hit >= profile.hits_required:
+		return {"accepted": false, "reason": "final_hit_reserved"}
+	runtime["hits"] = next_hit
+	if not target.is_empty():
+		runtime["pending_target"] = target.duplicate(true)
+	var final := next_hit >= profile.hits_required
+	var hit := {
 		"accepted": true,
 		"instance_id": instance_id,
 		"actor": actor,
-		"action_id": action_id,
-		"duration": profile.action_seconds,
-		"deadline_unix": deadline,
+		"hit": next_hit,
+		"hits_required": profile.hits_required,
+		"progress": float(next_hit) / float(profile.hits_required),
+		"penultimate": next_hit == profile.hits_required - 1,
+		"final": final,
 		"profile_id": profile.id,
 		"verb": profile.verb,
 		"presentation": profile.presentation_profile,
 		"contribution_tags": profile.contribution_tags.duplicate(),
 	}
-	_schedule_instance(instance_id, deadline)
-	source_state_changed.emit(
-		instance_id, STATE_INTERACTING, _status_dictionary(profile, runtime)
-	)
-	interaction_started.emit(instance_id, interaction.duplicate(true))
-	return interaction
+	if final:
+		var cycle := int(runtime.get("cycles", 0)) + 1
+		var contribution: Dictionary = {}
+		if not target.is_empty():
+			contribution = contributions.contribute(
+				profile.contribution_tags,
+				"harvest:%s:%d:%d" % [profile.id, instance_id, cycle],
+				{
+					"source": "resource_node",
+					"instance_id": instance_id,
+					"profile_id": profile.id,
+				},
+				target
+			)
+		runtime["cycles"] = cycle
+		runtime["state"] = STATE_REGROWING
+		runtime["hits"] = 0
+		runtime["deadline_unix"] = _now() + profile.regrowth_seconds
+		runtime.erase("pending_target")
+		total_cycles += 1
+		_schedule_instance(instance_id, float(runtime["deadline_unix"]))
+		if bool(contribution.get("accepted", false)):
+			hit["contribution"] = contribution.duplicate(true)
+			contribution_produced.emit(instance_id, contribution.duplicate(true))
+			reward_granted.emit(instance_id, contribution.duplicate(true))
+	hit_landed.emit(instance_id, hit.duplicate(true))
+	if final:
+		source_state_changed.emit(
+			instance_id, STATE_REGROWING, _status_dictionary(profile, runtime)
+		)
+	return hit
 
 
-## Tests and scene adapters may force the central completion point; ordinary
-## play reaches it from tick() when the saved deadline becomes due.
+## Compatibility helper for saved timed interactions and older callers. It
+## completes the remaining authored hits through the same public hit port.
 func complete_interaction(instance_id: int) -> Dictionary:
 	var found := grid.find_structure(instance_id)
 	if found.is_empty():
@@ -193,55 +213,21 @@ func complete_interaction(instance_id: int) -> Dictionary:
 	var structure: WorldGrid.StructureState = found["structure"]
 	var profile := profile_for_structure(structure)
 	var runtime := _runtime(structure, false)
-	if profile == null or String(runtime.get("state", "")) != STATE_INTERACTING:
-		return {"accepted": false, "reason": "not_interacting"}
-	var action_id := String(runtime.get("pending_action_id", ""))
-	var contribution: Dictionary = contributions.contribute(
-		profile.contribution_tags,
-		"harvest:%s:%s" % [profile.id, action_id],
-		{
-			"source": "resource_node",
-			"instance_id": instance_id,
-			"profile_id": profile.id,
-		},
-		(runtime.get("pending_target", {}) as Dictionary)
-	)
-	if not bool(contribution.get("accepted", false)):
+	if profile == null:
+		return {"accepted": false, "reason": "not_harvestable"}
+	if String(runtime.get("state", "")) == STATE_INTERACTING:
 		runtime["state"] = STATE_READY
 		runtime["deadline_unix"] = 0.0
+		runtime["hits"] = 0
 		_clear_pending(runtime)
-		source_state_changed.emit(
-			instance_id, STATE_READY, _status_dictionary(profile, runtime)
-		)
-		return contribution
-	var actor := String(runtime.get("pending_actor", "player"))
-	runtime["cycles"] = int(runtime.get("cycles", 0)) + 1
-	runtime["state"] = STATE_REGROWING
-	runtime["deadline_unix"] = _now() + profile.regrowth_seconds
-	total_cycles += 1
-	_clear_pending(runtime)
-	_schedule_instance(instance_id, float(runtime["deadline_unix"]))
-	var hit := {
-		"accepted": true,
-		"instance_id": instance_id,
-		"actor": actor,
-		"hit": 1,
-		"hits_required": 1,
-		"progress": 1.0,
-		"penultimate": false,
-		"final": true,
-		"profile_id": profile.id,
-		"verb": profile.verb,
-		"presentation": profile.presentation_profile,
-		"contribution": contribution.duplicate(true),
-	}
-	contribution_produced.emit(instance_id, contribution.duplicate(true))
-	reward_granted.emit(instance_id, contribution.duplicate(true))
-	hit_landed.emit(instance_id, hit.duplicate(true))
-	source_state_changed.emit(
-		instance_id, STATE_REGROWING, _status_dictionary(profile, runtime)
-	)
-	return hit
+	if String(runtime.get("state", "")) != STATE_READY:
+		return {"accepted": false, "reason": String(runtime.get("state", ""))}
+	var result: Dictionary = {}
+	while int(runtime.get("hits", 0)) < profile.hits_required:
+		result = request_hit(instance_id, "player")
+		if not bool(result.get("accepted", false)) or bool(result.get("final", false)):
+			break
+	return result
 
 
 func remaining_seconds(instance_id: int) -> float:

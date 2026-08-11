@@ -24,6 +24,10 @@ var structure_instances: Dictionary = {}
 var chunk_model_counts: Dictionary = {}
 var reveal_tiles_in_flight: Dictionary = {}
 var reveal_structures_in_flight: Dictionary = {}
+var wish_tiles_in_flight: Dictionary = {}
+var wish_structures_in_flight: Dictionary = {}
+var structure_effect_tweens: Dictionary = {}
+var hover_proxies: Array[Node3D] = []
 
 
 func setup(
@@ -53,6 +57,10 @@ func clear() -> void:
 	chunk_model_counts.clear()
 	reveal_tiles_in_flight.clear()
 	reveal_structures_in_flight.clear()
+	wish_tiles_in_flight.clear()
+	wish_structures_in_flight.clear()
+	structure_effect_tweens.clear()
+	clear_hover_proxies()
 
 
 func rebuild_all() -> void:
@@ -83,6 +91,50 @@ func chunk_of(coord: Vector2i) -> Vector2i:
 
 func tile_node(coord: Vector2i, elevation: int) -> Node3D:
 	return tile_holders.get(core.grid.slot_key(coord, elevation))
+
+
+## Batched entries do not have scene nodes of their own. These outline-only
+## proxies mirror one exact MultiMesh entry into the dedicated outline camera;
+## the gameplay camera never renders their visibility layer.
+func hover_structure_node(instance_id: int) -> Node3D:
+	if not structure_instances.has(instance_id):
+		return null
+	return _hover_proxy(structure_instances[instance_id], "HoverStructure_%d" % instance_id)
+
+
+func hover_tile_node(coord: Vector2i, elevation: int) -> Node3D:
+	var key := core.grid.slot_key(coord, elevation)
+	if not tile_instances.has(key):
+		return null
+	return _hover_proxy(
+		tile_instances[key],
+		"HoverTile_%d_%d_%d" % [coord.x, coord.y, elevation]
+	)
+
+
+func _hover_proxy(data: Dictionary, proxy_name: String) -> Node3D:
+	var multimesh := data.get("multimesh") as MultiMesh
+	var index := int(data.get("index", -1))
+	if multimesh == null or index < 0 or index >= multimesh.instance_count:
+		return null
+	var proxy := Node3D.new()
+	proxy.name = proxy_name
+	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.name = "OutlineMesh"
+	mesh_instance.mesh = multimesh.mesh
+	mesh_instance.layers = WorldRenderer.OUTLINE_VISIBILITY_LAYER
+	proxy.add_child(mesh_instance)
+	owner.add_child(proxy)
+	proxy.transform = multimesh.get_instance_transform(index)
+	hover_proxies.append(proxy)
+	return proxy
+
+
+func clear_hover_proxies() -> void:
+	for proxy: Node3D in hover_proxies:
+		if is_instance_valid(proxy):
+			proxy.queue_free()
+	hover_proxies.clear()
 
 
 func set_structure_burning(instance_id: int, _active: bool) -> void:
@@ -479,7 +531,7 @@ func _build_batch(chunk_root: Node3D, batch: Dictionary) -> void:
 		# instances six metres upward, so without explicit headroom the renderer
 		# culls the sky portion and the intended falling wave appears to vanish.
 		var reveal_headroom := maxf(
-			0.0,
+			5.2,
 			float(core.registries.reveal_config.get(
 				"tile_drop_height" if kind == "tile" else "model_drop_height",
 				6.0 if kind == "tile" else 1.45
@@ -929,6 +981,161 @@ func animate_tile_water_skip(
 		0.12
 	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	return tween
+
+
+## Per-instance equivalent of the exact renderer's shooting-star fall. The
+## authoritative object is already landed; only its MultiMesh transform takes
+## the diagonal fall, squash, crooked rebound, and final settle.
+func animate_tile_wish_landing(coord: Vector2i, elevation: int) -> Tween:
+	var key := core.grid.slot_key(coord, elevation)
+	if not tile_instances.has(key):
+		return null
+	wish_tiles_in_flight[key] = true
+	return _animate_wish_instance(
+		tile_instances[key],
+		func() -> void: wish_tiles_in_flight.erase(key)
+	)
+
+
+func animate_structure_wish_landing(instance_id: int) -> Tween:
+	if not structure_instances.has(instance_id):
+		return null
+	wish_structures_in_flight[instance_id] = true
+	return _animate_wish_instance(
+		structure_instances[instance_id],
+		func() -> void: wish_structures_in_flight.erase(instance_id)
+	)
+
+
+func placeable_is_wish_falling(
+	kind: String,
+	coord: Vector2i,
+	elevation: int,
+	instance_id: int
+) -> bool:
+	return (
+		wish_structures_in_flight.has(instance_id)
+		if kind == "structure"
+		else wish_tiles_in_flight.has(core.grid.slot_key(coord, elevation))
+	)
+
+
+func _animate_wish_instance(data: Dictionary, finished: Callable) -> Tween:
+	var multimesh := data.get("multimesh") as MultiMesh
+	var index := int(data.get("index", -1))
+	if multimesh == null or index < 0 or index >= multimesh.instance_count:
+		finished.call()
+		return null
+	var target: Transform3D = data["base"]
+	var start := target
+	start.origin += Vector3(-2.2, 4.4, -1.7)
+	start.basis = Basis.from_euler(Vector3(0.48, -0.22, -0.72)) \
+		* target.basis.scaled(Vector3.ONE * 0.72)
+	var impact := target
+	impact.basis = target.basis.scaled(Vector3(1.10, 0.79, 1.10))
+	var rebound := target
+	rebound.origin += Vector3(0.035, 0.24, -0.02)
+	rebound.basis = Basis.from_euler(Vector3(0.025, -0.015, -0.055)) \
+		* target.basis.scaled(Vector3(0.97, 1.07, 0.97))
+	multimesh.set_instance_transform(index, start)
+	var trail := owner._wish_shooting_star_trail(start.origin)
+	var tween := owner.create_tween()
+	tween.tween_method(
+		_interpolate_reveal_transform.bind(multimesh, index, start, impact),
+		0.0, 1.0, 0.72
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	if trail != null:
+		var trail_tween := trail.create_tween()
+		trail_tween.tween_property(trail, "global_position", target.origin, 0.72) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_method(
+		_interpolate_reveal_transform.bind(multimesh, index, impact, rebound),
+		0.0, 1.0, 0.11
+	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_method(
+		_interpolate_reveal_transform.bind(multimesh, index, rebound, target),
+		0.0, 1.0, 0.18
+	).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+	tween.tween_callback(func() -> void:
+		_set_reveal_transform(multimesh, index, target)
+		finished.call()
+		if is_instance_valid(trail):
+			trail.emitting = false
+			owner.get_tree().create_timer(trail.lifetime).timeout.connect(func():
+				if is_instance_valid(trail):
+					trail.queue_free()
+			)
+	)
+	return tween
+
+
+## Tactile harvesting for MultiMesh structures. Ordinary hits squash and kick
+## sideways; final tree hits topple, while rocks compress into their remnant.
+func animate_structure_harvest_impact(
+	instance_id: int,
+	progress: float,
+	final: bool,
+	presentation: String,
+	finished: Callable = Callable()
+) -> bool:
+	if not structure_instances.has(instance_id):
+		if finished.is_valid():
+			finished.call()
+		return false
+	var data: Dictionary = structure_instances[instance_id]
+	var multimesh := data.get("multimesh") as MultiMesh
+	var index := int(data.get("index", -1))
+	if multimesh == null or index < 0 or index >= multimesh.instance_count:
+		if finished.is_valid():
+			finished.call()
+		return false
+	var previous := structure_effect_tweens.get(instance_id) as Tween
+	if previous != null and previous.is_valid():
+		previous.kill()
+	var target: Transform3D = data["base"]
+	multimesh.set_instance_transform(index, target)
+	var amount := lerpf(0.045, 0.11, clampf(progress, 0.0, 1.0))
+	var impact := target
+	impact.basis = target.basis.rotated(Vector3.FORWARD, amount).scaled(
+		Vector3(1.08, 0.9, 1.08)
+	)
+	var tween := owner.create_tween()
+	structure_effect_tweens[instance_id] = tween
+	tween.tween_method(
+		_interpolate_reveal_transform.bind(multimesh, index, target, impact),
+		0.0, 1.0, 0.055
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	if final and presentation == "clay_tree":
+		var felled := target
+		felled.origin.y += 0.06
+		felled.basis = target.basis.rotated(Vector3.RIGHT, 1.28)
+		tween.tween_method(
+			_interpolate_reveal_transform.bind(multimesh, index, impact, felled),
+			0.0, 1.0, 0.34
+		).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	elif final and presentation == "clay_rock":
+		var crushed := target
+		crushed.basis = target.basis.rotated(Vector3.UP, 0.16).scaled(
+			Vector3(1.22, 0.12, 1.22)
+		)
+		crushed.origin.y -= 0.08
+		tween.tween_method(
+			_interpolate_reveal_transform.bind(multimesh, index, impact, crushed),
+			0.0, 1.0, 0.19
+		).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	else:
+		tween.tween_method(
+			_interpolate_reveal_transform.bind(multimesh, index, impact, target),
+			0.0, 1.0, 0.14
+		).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_callback(func() -> void:
+		structure_effect_tweens.erase(instance_id)
+		if not final:
+			_set_reveal_transform(multimesh, index, target)
+		if finished.is_valid():
+			finished.call()
+	)
+	return true
 
 
 ## Keeps one newly built MultiMesh entry out of sight until the Nook reveal
