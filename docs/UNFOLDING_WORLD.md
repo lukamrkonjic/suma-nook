@@ -73,10 +73,17 @@ once, it reads correctly in every biome.
   guaranteed readable knoll; rocky Nooks may form a two-level shoulder.
   Pre-4×4 saves keep their original 8×8 coordinate spacing.
 - **Frontier glows**: every unrevealed Nook slot beside the world gets one
-  small dot, including concave gaps between two branches. Clicking one, or
-  targeting it with the build cursor and confirming, immediately rolls a Nook
-  from the authored biome/density/mood/stamp pools. Neighboring biomes still
-  multiply their own weight, but growth has no activity or inventory cost.
+  small dot, including concave gaps between two branches. Hovering reveals a
+  compact picker for Flat, Rolling, or Peaks terrain and a one-click biome
+  cycle. Natural keeps neighboring-biome drift; a named biome overrides it.
+  Controller confirm focuses the same picker with deterministic accept, back,
+  navigation, and tooltips. Growth still has no activity or inventory cost.
+- **Revealed-zone building boundary**: player-authored land may be placed or
+  moved only inside revealed square Nook zones, including empty silhouette
+  cells within those zones. Unrevealed frontier footprints stay reserved for
+  procedural generation, so pre-building can never force a future Nook's mass
+  to generate around player tiles. Pointer and controller placement share the
+  same rule.
 - **Clearing**: harvest profiles gained `on_final: "clear"` and `leaves`.
   Trees chop down to a pryable stump; stones crack to nothing; the
   `source_cleared` signal routes through `NookModule` into the

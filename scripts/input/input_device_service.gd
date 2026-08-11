@@ -21,6 +21,7 @@ const MOUSE_SWITCH_DISTANCE := 3.0
 ## suite enforces this list so a future feature cannot silently become
 ## keyboard-only.
 const REQUIRED_CONTROLLER_ACTIONS: Array[StringName] = [
+	&"ui_accept",
 	&"move_left",
 	&"move_right",
 	&"move_up",

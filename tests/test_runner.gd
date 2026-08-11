@@ -2634,22 +2634,52 @@ func _test_legacy_reward_paths_removed() -> void:
 
 func _test_free_tile_placement_overlap_rotation() -> void:
 	var core := fresh_core()
-	var detached := Vector2i(5, 5)
-	check(core.grid.can_place_tile(detached), "an empty detached grid cell accepts land")
+	var nook_origin := core.nooks.world.chunk_origin(Vector2i.ZERO)
+	var detached := nook_origin + Vector2i(0, core.nooks.world.nook_size - 1)
+	var locked := (
+		core.nooks.world.chunk_origin(Vector2i.RIGHT) + Vector2i(2, 2)
+	)
+	check(
+		core.nooks.world.is_cell_unlocked(detached)
+		and not core.grid.has_cell(detached),
+		"an empty silhouette cell inside a revealed Nook is buildable"
+	)
+	check(
+		not core.nooks.world.is_cell_unlocked(locked),
+		"an unrevealed square Nook zone remains locked"
+	)
 	check(not core.grid.can_place_tile(Vector2i.ZERO), "overlap rejected")
-	core.stock.add_tile("tile_grass")
+	core.stock.add_tile("tile_grass", 2)
+	check(
+		not core.place_tile_from_stock(locked, "tile_grass", 0)
+		and core.stock.tile_count("tile_grass") == 2,
+		"player placement cannot consume stock or pre-build inside a locked Nook"
+	)
 	check(core.place_tile_from_stock(detached, "tile_grass", 3), "detached placement from stock succeeds")
 	check(core.grid.cell(detached).rotation == 3, "rotation persists on the detached cell")
 	var stack := core.grid.detach_tile_stack(detached, 0)
-	var moved := Vector2i(-8, 11)
+	var player := PlayerController.new()
+	player.core = core
+	var movement_rules := PlacementRules.new(core, player)
+	check(
+		not movement_rules.validate({
+			"kind": "tile",
+			"id": "tile_grass",
+			"rotation": 3,
+			"moving": {"stack": stack, "elevation": 0},
+		}, locked, 0, 0, ""),
+		"an existing tile stack cannot be moved into a locked Nook"
+	)
+	player.free()
+	var moved := nook_origin + Vector2i(0, core.nooks.world.nook_size - 2)
 	check(
 		core.grid.can_restore_tile_stack(moved, 0, stack)
 		and core.grid.restore_tile_stack(moved, 0, stack),
-		"a detached tile stack can move directly to another empty void cell"
+		"a detached tile stack can move to another empty cell in the revealed square"
 	)
 	check(core.grid.cell(moved).rotation == 3, "detached tile movement preserves rotation")
 	check(not core.place_tile_from_stock(moved, "tile_grass", 0), "double placement rejected")
-	check(core.stock.tile_count("tile_grass") == 0, "stock consumed exactly once")
+	check(core.stock.tile_count("tile_grass") == 1, "stock consumed exactly once")
 
 
 func _test_elevation_stacking() -> void:
@@ -3132,6 +3162,12 @@ func _test_equipment() -> void:
 
 
 func _make_revealed_landmark(core: GameCore) -> LandmarkManager.LandmarkState:
+	# Hostile landmarks are a retired, feature-flagged legacy system whose test
+	# grows a freeform bridge through the old world model. Disable Nook zoning
+	# for this isolated compatibility probe; active Unfolding World placement is
+	# covered by _test_free_tile_placement_overlap_rotation and
+	# _test_direct_frontier_expansion.
+	core.nooks.enabled = false
 	# Grow east until the watchpost spawns, then bridge to it.
 	for i in range(2, 12):
 		core.stock.add_tile("tile_grass")
@@ -4185,6 +4221,38 @@ func _test_direct_frontier_expansion() -> void:
 		),
 		"controller confirm activates the same deterministic frontier target as a click"
 	)
+	check(
+		InputDeviceServiceScript.new().action_has_controller_binding(&"ui_accept")
+		and InputDeviceServiceScript.new().action_has_controller_binding(&"cancel"),
+		"frontier generation choices retain controller accept and back bindings"
+	)
+	var picker := NookFrontierPicker.new()
+	picker.set_process(false)
+	root.add_child(picker)
+	picker.setup(
+		core,
+		UiKit.new(load("res://assets/palettes/gg_material_palette.tres")),
+		null,
+		null
+	)
+	var flat_choice := picker.find_child("ShapeFlat", true, false) as Button
+	var rolling_choice := picker.find_child("ShapeRolling", true, false) as Button
+	var biome_choice := picker.find_child("Biome", true, false) as Button
+	var grow_choice := picker.find_child("Grow", true, false) as Button
+	check(
+		flat_choice != null
+		and rolling_choice != null
+		and biome_choice != null
+		and grow_choice != null
+		and flat_choice.focus_mode == Control.FOCUS_ALL
+		and flat_choice.tooltip_text != ""
+		and biome_choice.tooltip_text != ""
+		and grow_choice.tooltip_text != ""
+		and not rolling_choice.focus_neighbor_bottom.is_empty()
+		and not biome_choice.focus_neighbor_right.is_empty(),
+		"the compact frontier picker has visible focus paths and focused tooltips"
+	)
+	picker.free()
 
 	var east: Dictionary = targets.filter(func(target: Dictionary) -> bool:
 		return target["direction"] == Vector2i.RIGHT
@@ -4194,21 +4262,56 @@ func _test_direct_frontier_expansion() -> void:
 	var authored_cell := (
 		core.nooks.world.chunk_origin(first_coord) + authored_local
 	)
+	core.stock.add_tile("tile_grass")
+	var player := PlayerController.new()
+	player.core = core
+	var shared_rules := PlacementRules.new(core, player)
+	var held_tile := {
+		"kind": "tile",
+		"id": "tile_grass",
+		"rotation": 0,
+		"moving": null,
+	}
+	check(
+		not core.place_tile_from_stock(authored_cell, "tile_grass", 0)
+		and core.stock.tile_count("tile_grass") == 1
+		and not shared_rules.validate(held_tile, authored_cell, 0, 0, "")
+		and shared_rules.invalid_message(
+			held_tile, authored_cell, 0, 0
+		) == "Reveal this Nook before placing land here.",
+		"pointer and controller placement share the locked-frontier rejection"
+	)
+	player.free()
+	# Simulate an old save authored before the frontier boundary existed. New
+	# placement is blocked above, but generation still preserves grandfathered
+	# content rather than destructively rewriting a player's world.
 	core.grid.place_tile(authored_cell, "tile_grass")
 	var authored_tree := core.grid.add_structure(
 		authored_cell, "struct_pine", 1
 	)
 	check(
 		authored_tree != null,
-		"players can author content inside an unrevealed frontier footprint"
+		"legacy frontier content can be represented for migration safety"
 	)
 	var cells_before := core.grid.cells.size()
-	var first_plan := core.nooks.expand_random(first_coord)
+	var first_plan := core.nooks.expand_random(first_coord, {
+		"biome": "nook_biome_meadow",
+		"terrain_shape": "flat",
+	})
+	var first_max_elevation := 0
+	if first_plan != null:
+		for tile: Dictionary in first_plan.tiles:
+			first_max_elevation = maxi(
+				first_max_elevation, int(tile.get("elevation", 0))
+			)
 	check(
 		first_plan != null
 		and core.nooks.world.has_nook(first_coord)
-		and core.grid.cells.size() > cells_before,
-		"activating a glow immediately unfolds a complete generated Nook"
+		and core.grid.cells.size() > cells_before
+		and first_plan.biome_id == "nook_biome_meadow"
+		and first_plan.terrain_shape == "flat"
+		and first_max_elevation == 0,
+		"frontier choices unfold the requested biome as genuinely flat land"
 	)
 	var authored_plan_content := false
 	for tile: Dictionary in first_plan.tiles:
@@ -4226,15 +4329,19 @@ func _test_direct_frontier_expansion() -> void:
 		and core.grid.top_elevation(authored_cell) == 0
 		and not authored_tree_found.is_empty()
 		and (authored_tree_found["coord"] as Vector2i) == authored_cell,
-		"generation preserves authored columns and omits them from its reveal plan"
+		"generation preserves grandfathered columns and omits them from its reveal plan"
 	)
 	var first_record := core.nooks.world.nook(first_coord)
 	check(
 		first_record != null
 		and core.registries.nook_biome(first_record.biome_id) != null
 		and core.registries.nook_mood(first_record.mood_id) != null
-		and first_record.seed_value != 0,
-		"direct growth still uses the authored biome, density, mood, and seed pools"
+		and first_record.seed_value != 0
+		and first_record.terrain_shape == "flat"
+		and NookWorld.NookRecord.from_dict(
+			first_record.to_dict()
+		).terrain_shape == "flat",
+		"direct growth stores its biome, shape, mood, density, and seed save-safely"
 	)
 	check(
 		not core.nooks.offers.can_offer(),
@@ -4251,10 +4358,23 @@ func _test_direct_frontier_expansion() -> void:
 		return target["nook"] == Vector2i(0, 1)
 	)[0]
 	var second_coord: Vector2i = south["nook"]
+	var mountain_plan := core.nooks.expand_random(second_coord, {
+		"biome": "nook_biome_forest",
+		"terrain_shape": "mountains",
+	})
+	var mountain_max_elevation := 0
+	if mountain_plan != null:
+		for tile: Dictionary in mountain_plan.tiles:
+			mountain_max_elevation = maxi(
+				mountain_max_elevation, int(tile.get("elevation", 0))
+			)
 	check(
-		core.nooks.expand_random(second_coord) != null
-		and core.nooks.world.has_nook(second_coord),
-		"another glow can grow the world immediately without activity or inventory"
+		mountain_plan != null
+		and core.nooks.world.has_nook(second_coord)
+		and mountain_plan.terrain_shape == "mountains"
+		and mountain_max_elevation >= 2,
+		"the Peaks choice produces high relief without an activity or inventory gate (max=%d)"
+		% mountain_max_elevation
 	)
 	var gap_coord := Vector2i(1, 1)
 	var gap_target: Dictionary = {}

@@ -2445,11 +2445,18 @@ func _step_place_tile() -> void:
 	await wait(0.1)
 	main.placement.rotate_held()
 	check(int(main.placement.held["rotation"]) == 1, "rotation steps")
-	var detached := Vector2i(6, 6)
-	check(main.placement.try_place_at(detached), "detached placement succeeds")
+	var locked := Vector2i(6, 6)
+	check(
+		not main.placement.try_place_at(locked)
+		and not main.core.grid.has_cell(locked)
+		and main.core.stock.tile_count("tile_grass") == 2,
+		"pointer/controller placement cannot build into an unrevealed Nook"
+	)
+	var detached := Vector2i(-2, 2)
+	check(main.placement.try_place_at(detached), "detached placement inside the revealed square succeeds")
 	check(
 		main.core.grid.tile_def(detached).id == "tile_grass",
-		"detached land is authored as a normal saved world cell"
+		"revealed-zone land is authored as a normal saved world cell"
 	)
 	main.placement.hold_new("tile", "tile_grass")
 	var target := Vector2i(2, 0)

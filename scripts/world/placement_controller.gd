@@ -1342,7 +1342,7 @@ func click() -> void:
 
 func _invalid_message() -> String:
 	return _rules.invalid_message(
-		held, _hover_elevation, _hover_support_instance_id
+		held, _hover_cell, _hover_elevation, _hover_support_instance_id
 	)
 
 

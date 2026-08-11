@@ -98,7 +98,7 @@ func choose_surprise() -> Dictionary:
 ## Rolls one procedural seed directly into a player-selected frontier coord.
 ## This intentionally ignores the retired activity gate: direction is the
 ## choice now, and growing the world never costs an earned item.
-func roll_direct(coord: Vector2i) -> Dictionary:
+func roll_direct(coord: Vector2i, preferences: Dictionary = {}) -> Dictionary:
 	if (
 		not registries.feature("nooks_enabled", true)
 		or world.has_nook(coord)
@@ -106,7 +106,7 @@ func roll_direct(coord: Vector2i) -> Dictionary:
 	):
 		return {}
 	offers_made += 1
-	var cards := _roll_cards(coord, 1)
+	var cards := _roll_cards(coord, 1, preferences)
 	if cards.is_empty():
 		return {}
 	# Old saves may carry a waiting three-card offer. Direct growth supersedes
@@ -130,7 +130,11 @@ func reroll() -> Dictionary:
 
 ## Biome drifts instead of checkerboarding: revealed neighbors multiply
 ## their biome's weight. Density and mood roll from data-declared weights.
-func _roll_cards(coord: Vector2i, count_override := -1) -> Array:
+func _roll_cards(
+	coord: Vector2i,
+	count_override := -1,
+	preferences: Dictionary = {}
+) -> Array:
 	var cards: Array = []
 	var count := (
 		count_override
@@ -142,7 +146,12 @@ func _roll_cards(coord: Vector2i, count_override := -1) -> Array:
 		var stream := "nook_offer:%d:%d:%d:%d" % [
 			coord.x, coord.y, offers_made, index
 		]
-		var biome := _roll_biome(coord, stream, used_biomes)
+		var biome: NookDefs.NookBiomeDefinition
+		var preferred_biome := String(preferences.get("biome", ""))
+		if preferred_biome != "":
+			biome = registries.nook_biome(preferred_biome)
+		if biome == null:
+			biome = _roll_biome(coord, stream, used_biomes)
 		if biome == null:
 			continue
 		# Prefer biome variety across the three cards when possible.
@@ -153,6 +162,9 @@ func _roll_cards(coord: Vector2i, count_override := -1) -> Array:
 			"biome": biome.id,
 			"biome_name": biome.display_name,
 			"density": density,
+			"terrain_shape": NookGenerator.normalize_terrain_shape(
+				String(preferences.get("terrain_shape", "natural"))
+			),
 			"mood": mood_id,
 			"mood_name": _mood_name(mood_id),
 			"seed": rng.randi_range(stream + ":seed", 1, 0x7FFFFFFF),

@@ -19,6 +19,7 @@ class NookPlan:
 	var biome_id: String = ""
 	var mood_id: String = ""
 	var density: String = "seeded"
+	var terrain_shape: String = "natural"
 	var seed_value: int = 0
 	var stamp_ids: PackedStringArray = PackedStringArray()
 	## [{"local": Vector2i, "tile_id": String, "elevation": int}]
@@ -51,6 +52,9 @@ func generate(
 	plan.biome_id = String(seed_card.get("biome", ""))
 	plan.mood_id = String(seed_card.get("mood", ""))
 	plan.density = String(seed_card.get("density", "seeded"))
+	plan.terrain_shape = normalize_terrain_shape(
+		String(seed_card.get("terrain_shape", "natural"))
+	)
 	plan.seed_value = int(seed_card.get("seed", 0))
 	var biome := registries.nook_biome(plan.biome_id)
 	if biome == null:
@@ -139,7 +143,8 @@ func generate(
 		terrain_tiles,
 		relief_exclusions,
 		size,
-		int(seed_card.get("terrain_seed", plan.seed_value))
+		int(seed_card.get("terrain_seed", plan.seed_value)),
+		plan.terrain_shape
 	)
 
 	# Scatter pass: features by density curve — thicker toward the chunk
@@ -555,14 +560,22 @@ func _shape_terrain(
 	terrain_tiles: Dictionary,
 	relief_exclusions: Dictionary,
 	size: int,
-	terrain_seed: int
+	terrain_seed: int,
+	terrain_shape := "natural"
 ) -> void:
 	if terrain_tiles.is_empty():
+		return
+	terrain_shape = normalize_terrain_shape(terrain_shape)
+	if terrain_shape == "flat":
 		return
 	var config: Dictionary = registries.nook_config.get("terrain_height", {})
 	var max_levels := int(config.get("max_full_levels", 2))
 	if biome.traits.has_tag(String(config.get("mountain_biome_tag", "rocky"))):
 		max_levels = int(config.get("rocky_max_full_levels", 3))
+	if terrain_shape == "rolling":
+		max_levels = 2
+	elif terrain_shape == "mountains":
+		max_levels = maxi(3, max_levels)
 	max_levels = clampi(max_levels, 1, 4)
 
 	var macro_noise := FastNoiseLite.new()
@@ -598,6 +611,18 @@ func _shape_terrain(
 	var low_threshold := float(config.get("low_threshold", -0.16))
 	var high_threshold := float(config.get("high_threshold", 0.10))
 	var summit_threshold := float(config.get("summit_threshold", 0.34))
+	if terrain_shape == "rolling":
+		# Broad, low terraces: visible relief without turning a Nook into a
+		# vertical obstacle course.
+		low_threshold = -0.12
+		high_threshold = 0.18
+	elif terrain_shape == "mountains":
+		# Pull each contour downward so three-level ridges are common enough to
+		# read as a deliberate player choice, while keeping the same continuous
+		# world-space field as neighboring Nooks.
+		low_threshold = -0.30
+		high_threshold = -0.04
+		summit_threshold = 0.18
 	for local: Vector2i in samples:
 		var sample := float(samples[local])
 		var height := 0
@@ -610,6 +635,29 @@ func _shape_terrain(
 			and max_levels >= 3 and sample >= summit_threshold:
 			height = 3
 		heights[local] = mini(height, max_levels)
+
+	# A Peaks choice should always read as Peaks, even if this particular slice
+	# of the continuous field happens to sit in a valley. Seed one broad summit
+	# at the highest eligible sample, then let the normal relaxation pass blend
+	# it back into the surrounding field.
+	if terrain_shape == "mountains":
+		var peak_local := Vector2i(-1, -1)
+		var peak_sample := -INF
+		for local: Vector2i in samples:
+			if relief_exclusions.has(local):
+				continue
+			var sample := float(samples[local])
+			if sample > peak_sample:
+				peak_sample = sample
+				peak_local = local
+		if peak_local.x >= 0:
+			heights[peak_local] = max_levels
+			for offset: Vector2i in WorldGrid.NEIGHBORS:
+				var shoulder := peak_local + offset
+				if heights.has(shoulder) and not relief_exclusions.has(shoulder):
+					heights[shoulder] = maxi(
+						int(heights[shoulder]), mini(2, max_levels)
+					)
 
 	# Quantized noise can produce needle cliffs. Relax only excessive local
 	# jumps while retaining broad level changes and a guaranteed high summit.
@@ -632,6 +680,13 @@ func _shape_terrain(
 				"tile_id": tile_id,
 				"elevation": elevation,
 			})
+
+
+static func normalize_terrain_shape(value: String) -> String:
+	var normalized := value.strip_edges().to_lower()
+	if normalized in ["natural", "flat", "rolling", "mountains"]:
+		return normalized
+	return "natural"
 
 
 func _roll_stamps(

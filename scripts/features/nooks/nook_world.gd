@@ -17,6 +17,7 @@ class NookRecord:
 	var biome_id: String = ""
 	var mood_id: String = ""
 	var density: String = "seeded"
+	var terrain_shape: String = "natural"
 	var seed_value: int = 0
 	var stamp_ids: PackedStringArray = PackedStringArray()
 	var display_name: String = ""
@@ -41,6 +42,7 @@ class NookRecord:
 			"biome": biome_id,
 			"mood": mood_id,
 			"density": density,
+			"terrain_shape": terrain_shape,
 			"seed": seed_value,
 			"stamps": Array(stamp_ids),
 			"name": display_name,
@@ -60,6 +62,9 @@ class NookRecord:
 		record.biome_id = String(d.get("biome", ""))
 		record.mood_id = String(d.get("mood", ""))
 		record.density = String(d.get("density", "seeded"))
+		record.terrain_shape = NookGenerator.normalize_terrain_shape(
+			String(d.get("terrain_shape", "natural"))
+		)
 		record.seed_value = int(d.get("seed", 0))
 		for stamp: Variant in d.get("stamps", []):
 			record.stamp_ids.append(String(stamp))
@@ -157,6 +162,14 @@ func chunk_of_cell(cell: Vector2i) -> Vector2i:
 		int(floor(float(local.x) / float(nook_size))),
 		int(floor(float(local.y) / float(nook_size)))
 	)
+
+
+## True when the square Nook zone owning this world cell has already been
+## revealed. Empty silhouette cells inside that square are still unlocked:
+## players may reshape a revealed Nook freely, but cannot pre-build into a
+## frontier slot and thereby constrain its future procedural generation.
+func is_cell_unlocked(cell: Vector2i) -> bool:
+	return has_nook(chunk_of_cell(cell))
 
 
 func local_cell(chunk: Vector2i, world_cell: Vector2i) -> Vector2i:

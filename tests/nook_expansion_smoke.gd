@@ -40,21 +40,33 @@ func _exercise_expansion() -> void:
 	var protected_cell := (
 		_main.core.nooks.world.chunk_origin(coord) + protected_local
 	)
+	# The legacy smoke opening starts with its tutorial tree held. Clear that
+	# fixture before probing the live player-placement boundary.
+	if not _main.placement.held.is_empty():
+		_main.placement.cancel_click()
+	_main.core.stock.add_tile("tile_grass")
+	_main.placement.hold_new("tile", "tile_grass")
+	_expect(
+		not _main.placement.try_place_at(protected_cell)
+		and not _main.core.grid.has_cell(protected_cell)
+		and _main.core.stock.tile_count("tile_grass") == 1,
+		"the unrevealed frontier rejects pointer/controller tile placement"
+	)
+	_main.placement.cancel_click()
+	# Grandfathered saves from before the boundary may still contain a column
+	# here. Simulate one directly so asynchronous generation remains proven
+	# non-destructive for those worlds.
 	_main.core.grid.place_tile(protected_cell, "tile_grass")
 	var protected_structure := _main.core.grid.add_structure(
 		protected_cell, "struct_pine", 1
 	)
 	_expect(
 		protected_structure != null,
-		"the unrevealed frontier accepts a player-authored tile and model"
+		"a grandfathered frontier tile and model can be represented safely"
 	)
 	var expected_ghost_cells := (
 		_main.core.nooks.world.nook_size ** 2 - 1
 	)
-	# The legacy smoke opening starts with its tutorial tree held. Expansion is
-	# intentionally blocked while moving a piece, so clear that test fixture.
-	if not _main.placement.held.is_empty():
-		_main.placement.cancel_click()
 	var reveal_state := {
 		"started": false,
 		"finished": false,

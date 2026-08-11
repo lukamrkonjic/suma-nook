@@ -26,6 +26,9 @@ const DebugCreatureParadeScript := preload(
 const NookArrivalGhostScript := preload(
 	"res://scripts/world/nook_arrival_ghost.gd"
 )
+const NookFrontierPickerScript := preload(
+	"res://scripts/ui/nook_frontier_picker.gd"
+)
 const HarvestPresentationAdapterScript := preload(
 	"res://scripts/features/harvesting/presentation/harvest_presentation_adapter.gd"
 )
@@ -75,6 +78,7 @@ var pigeon_controller: PigeonMascotController
 var camera_rig: CameraRig
 var placement: PlacementController
 var frontier_markers: NookFrontierMarkers
+var frontier_picker: CanvasLayer
 var nook_arrival_ghost
 var skill_actions: SkillActions
 var harvest_presentation: Node
@@ -470,6 +474,15 @@ func _build_ui() -> void:
 	nook_offer_panel.name = "NookOfferPanel"
 	add_child(nook_offer_panel)
 	nook_offer_panel.setup(core, kit)
+
+	frontier_picker = NookFrontierPickerScript.new()
+	frontier_picker.name = "NookFrontierPicker"
+	add_child(frontier_picker)
+	frontier_picker.call("setup", core, kit, frontier_markers, placement)
+	frontier_picker.connect("generation_requested", _expand_nook_at)
+	frontier_picker.connect(
+		"panel_toggled", func(_open): _refresh_controller_hints()
+	)
 
 	nook_reveal_presenter = NookRevealPresenter.new()
 	nook_reveal_presenter.name = "NookRevealPresenter"
@@ -1395,7 +1408,7 @@ func _process(delta: float) -> void:
 func _update_frontier_marker_availability() -> void:
 	if frontier_markers == null:
 		return
-	frontier_markers.set_interaction_enabled(
+	var enabled := (
 		_gameplay_started
 		and placement.active
 		and placement.held.is_empty()
@@ -1406,6 +1419,9 @@ func _update_frontier_marker_availability() -> void:
 		and not nook_offer_panel.is_open()
 		and (asset_viewer == null or not asset_viewer.is_open())
 	)
+	frontier_markers.set_interaction_enabled(enabled)
+	if frontier_picker != null:
+		frontier_picker.call("set_interaction_enabled", enabled)
 
 
 func _on_nook_reveal_started(coord: Vector2i, duration: float) -> void:
@@ -1470,6 +1486,18 @@ func _on_anchor_regenerated(
 # ------------------------------------------------------------------ input routing
 
 func _input(event: InputEvent) -> void:
+	# Return focus from the compact frontier picker before Escape's global pause
+	# alias gets a chance to open another layer over it.
+	if (
+		_gameplay_started
+		and frontier_picker != null
+		and bool(frontier_picker.call("has_focus"))
+		and event.is_action_pressed("cancel")
+	):
+		frontier_picker.call("close_controller_focus")
+		_refresh_controller_hints()
+		get_viewport().set_input_as_handled()
+		return
 	# A held placement owns Escape even when a Build Bag control has focus.
 	# Handle it before the global pause shortcut so the piece is restored or
 	# returned to stock instead of trapping the player behind the pause menu.
@@ -1553,6 +1581,13 @@ func _screen_position_blocked_by_ui(screen_position: Vector2) -> bool:
 	if (
 		wish_offer_panel != null
 		and wish_offer_panel.blocks_world_pointer(screen_position)
+	):
+		return true
+	if (
+		frontier_picker != null
+		and bool(frontier_picker.call(
+			"blocks_world_pointer", screen_position
+		))
 	):
 		return true
 	if debug_menu != null and debug_menu.blocks_world_pointer(screen_position):
@@ -1736,6 +1771,12 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _handle_controller_build_input(event: InputEvent) -> void:
+	if (
+		frontier_picker != null
+		and bool(frontier_picker.call("has_focus"))
+	):
+		# ui_accept and directional navigation belong to the focused controls.
+		return
 	if event.is_action_pressed("build_mode"):
 		if placement.held.is_empty():
 			if placement.controller_cursor_active():
@@ -1940,6 +1981,14 @@ func _refresh_controller_hints() -> void:
 			{"action": &"panel_next", "label": "Next page"},
 			{"action": &"cancel", "label": "Close"},
 		]
+	elif (
+		frontier_picker != null
+		and bool(frontier_picker.call("has_focus"))
+	):
+		actions = [
+			{"action": &"ui_accept", "label": "Choose"},
+			{"action": &"cancel", "label": "Back to world"},
+		]
 	elif placement.active:
 		if not placement.held.is_empty():
 			actions = [
@@ -1962,7 +2011,7 @@ func _refresh_controller_hints() -> void:
 					placement.controller_cursor_cell()
 				).is_empty()
 			):
-				confirm_label = "Grow land"
+				confirm_label = "Shape land"
 			actions = [
 				{"action": &"build_cursor_up", "label": "Move cursor"},
 				{"action": &"camera_pan_up", "label": "Pan camera"},
@@ -2042,28 +2091,21 @@ func _try_build_world_action_at_cell(cell: Vector2i) -> bool:
 
 
 func _try_expand_frontier_at_screen(screen_position: Vector2) -> bool:
-	if frontier_markers == null:
+	if frontier_picker == null:
 		return false
-	var marker := frontier_markers.marker_at_screen(screen_position)
-	return (
-		_expand_nook_at(marker.get("nook", Vector2i.ZERO))
-		if not marker.is_empty()
-		else false
-	)
+	return bool(frontier_picker.call("show_for_screen", screen_position))
 
 
 func _try_expand_frontier_at_cell(cell: Vector2i) -> bool:
-	if frontier_markers == null:
+	if frontier_picker == null:
 		return false
-	var marker := frontier_markers.marker_at_cell(cell)
-	return (
-		_expand_nook_at(marker.get("nook", Vector2i.ZERO))
-		if not marker.is_empty()
-		else false
-	)
+	return bool(frontier_picker.call("focus_for_cell", cell))
 
 
-func _expand_nook_at(coord: Vector2i) -> bool:
+func _expand_nook_at(
+	coord: Vector2i,
+	preferences: Dictionary = {}
+) -> bool:
 	if _nook_reveal_in_progress or not placement.held.is_empty():
 		return false
 	# Claim the interaction immediately, then let the input frame finish.
@@ -2076,17 +2118,21 @@ func _expand_nook_at(coord: Vector2i) -> bool:
 			_expansion_seam_side(coord)
 		)
 	_update_frontier_marker_availability()
-	call_deferred("_expand_nook_at_async", coord)
+	call_deferred("_expand_nook_at_async", coord, preferences)
 	return true
 
 
-func _expand_nook_at_async(coord: Vector2i) -> void:
+func _expand_nook_at_async(
+	coord: Vector2i,
+	preferences: Dictionary = {}
+) -> void:
 	renderer.begin_bulk_update()
 	var staged_plan: NookGenerator.NookPlan
 	var staged_origin := core.nooks.world.chunk_origin(coord)
 	var prepared: Dictionary = await core.nooks.prepare_random_expansion_async(
 		coord,
-		1
+		1,
+		preferences
 	)
 	if not prepared.is_empty():
 		var prepared_plan := prepared.get("plan") as NookGenerator.NookPlan

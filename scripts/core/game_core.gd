@@ -668,7 +668,7 @@ func place_tile_from_stock(
 	rotation: int,
 	elevation: int = 0
 ) -> bool:
-	if not grid.can_place_tile_at(coord, elevation, tile_id) or not stock.take_tile(tile_id):
+	if not can_place_player_tile_at(coord, elevation, tile_id) or not stock.take_tile(tile_id):
 		return false
 	grid.place_tile_at(coord, elevation, tile_id, rotation)
 	collection.record_placed("tiles", tile_id)
@@ -691,6 +691,28 @@ func place_tile_from_stock(
 			events.publish("path_linked", payload)
 	autosave_soon()
 	return true
+
+
+## Player-authored land is confined to revealed square Nook zones. Generation
+## bypasses this facade through WorldCommandService, so a Nook can still write
+## its planned terrain before its record is finalized and presented.
+func is_player_build_cell_unlocked(coord: Vector2i) -> bool:
+	return (
+		nooks == null
+		or not nooks.enabled
+		or nooks.world.is_cell_unlocked(coord)
+	)
+
+
+func can_place_player_tile_at(
+	coord: Vector2i,
+	elevation: int,
+	tile_id: String
+) -> bool:
+	return (
+		is_player_build_cell_unlocked(coord)
+		and grid.can_place_tile_at(coord, elevation, tile_id)
+	)
 
 
 # ------------------------------------------------------------------ tick & persistence

@@ -21,6 +21,8 @@ func validate(
 ) -> bool:
 	match held.get("kind", ""):
 		"tile":
+			if not core.is_player_build_cell_unlocked(cell):
+				return false
 			if held["moving"] != null and held["moving"].has("stack"):
 				if player.current_cell() == cell and elevation > 0:
 					return false
@@ -86,9 +88,15 @@ func target_socket(held: Dictionary, cell: Vector2i, elevation: int) -> int:
 
 func invalid_message(
 	held: Dictionary,
+	cell: Vector2i,
 	elevation: int,
 	support_instance_id: int
 ) -> String:
+	if (
+		held.get("kind", "") == "tile"
+		and not core.is_player_build_cell_unlocked(cell)
+	):
+		return "Reveal this Nook before placing land here."
 	if held.get("kind", "") == "tile" and elevation > 0:
 		return "That surface can't support another land tile — use a flat, clear block."
 	if held.get("kind", "") == "structure":

@@ -84,10 +84,13 @@ func accept_offer(index: int, surprise := false) -> NookGenerator.NookPlan:
 ## Expands immediately in the open slot selected by a frontier glow. The
 ## authored procedural pools still decide biome, density, mood, stamp, relief,
 ## features, and discoveries; there is no activity or inventory gate.
-func expand_random(coord: Vector2i) -> NookGenerator.NookPlan:
+func expand_random(
+	coord: Vector2i,
+	preferences: Dictionary = {}
+) -> NookGenerator.NookPlan:
 	if not enabled:
 		return null
-	var choice := offers.roll_direct(coord)
+	var choice := offers.roll_direct(coord, preferences)
 	if choice.is_empty():
 		return null
 	return reveal_nook(choice["coord"], choice["card"])
@@ -100,11 +103,12 @@ func expand_random(coord: Vector2i) -> NookGenerator.NookPlan:
 ## the reveal animation starts only after every visual holder exists.
 func prepare_random_expansion_async(
 	coord: Vector2i,
-	entries_per_frame := 1
+	entries_per_frame := 1,
+	preferences: Dictionary = {}
 ) -> Dictionary:
 	if not enabled:
 		return {}
-	var choice := offers.roll_direct(coord)
+	var choice := offers.roll_direct(coord, preferences)
 	if choice.is_empty():
 		return {}
 	return await prepare_reveal_nook_async(
@@ -129,9 +133,9 @@ func prepare_reveal_nook_async(
 	if plan == null or plan.biome_id == "":
 		return {}
 	var origin := world.chunk_origin(coord)
-	# Players may freely build into an unrevealed frontier. Snapshot those
-	# authored columns before generation writes anything, then treat the whole
-	# column as protected: no generated base, relief cap, or feature may share it.
+	# Current placement rules keep unrevealed frontier zones clear. Preserve
+	# this protection for legacy saves that may already contain authored columns
+	# there: generation must never overwrite existing player work.
 	var protected_locals := _protected_plan_locals(origin, plan)
 	var ordered_tiles := _ordered_tiles(plan)
 	var applied_tiles: Array[Dictionary] = []
@@ -343,6 +347,7 @@ func _finalize_reveal(
 	record.biome_id = plan.biome_id
 	record.mood_id = plan.mood_id
 	record.density = plan.density
+	record.terrain_shape = plan.terrain_shape
 	record.seed_value = plan.seed_value
 	record.stamp_ids = plan.stamp_ids.duplicate()
 	record.revealed_unix = _now()
@@ -359,6 +364,7 @@ func _finalize_reveal(
 		"biome": record.biome_id,
 		"mood": record.mood_id,
 		"density": record.density,
+		"terrain_shape": record.terrain_shape,
 	})
 	for neighbor in world.revealed_neighbors(coord):
 		events.publish("nook_connected", {
