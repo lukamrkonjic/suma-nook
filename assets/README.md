@@ -11,7 +11,9 @@
   alteration presets.
 - `visual_profiles/` — day/rain lighting presets for the LightingRig.
 - `inbox/luka/` — drop zone for Modly/Blender deliveries before integration.
-- `fonts/` — Fredoka Medium and SemiBold ([Google Fonts](https://fonts.google.com/specimen/Fredoka), SIL Open Font License).
+- `fonts/` — Manrope for body/utility UI, Libre Baskerville for editorial
+  display UI, and the retained Fredoka files used by older tooling. All are
+  distributed under their included SIL Open Font License files.
 
 Provenance for everything: `docs/ASSET_PROVENANCE.md`. Pipeline contract:
 `docs/ASSET_PIPELINE.md`.

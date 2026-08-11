@@ -179,9 +179,8 @@ func _build_panel() -> void:
 	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	var style := kit.panel_style(false, 16)
 	style.set_content_margin_all(11)
-	style.shadow_color = kit.palette.color("ui_shadow")
-	style.shadow_size = 10
-	style.shadow_offset = Vector2(0.0, 5.0)
+	style.border_width_top = 3
+	style.border_color = kit.collection_accent("land")
 	_panel.add_theme_stylebox_override("panel", style)
 	_panel.visible = false
 	_root.add_child(_panel)
@@ -193,13 +192,15 @@ func _build_panel() -> void:
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 8)
 	content.add_child(header)
-	_title_label = kit.label("FRONTIER", 12, false, true)
+	_title_label = kit.utility_label(
+		"FRONTIER", 11, kit.collection_accent("land")
+	)
 	_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_title_label.add_theme_color_override(
 		"font_color", kit.palette.color("ui_text_muted")
 	)
 	header.add_child(_title_label)
-	_state_label = kit.label("LOCKED", 11, false, true)
+	_state_label = kit.utility_label("LOCKED", 10)
 	header.add_child(_state_label)
 
 	_requirements_row = HBoxContainer.new()
@@ -341,7 +342,7 @@ func _requirement_card(slot: Dictionary) -> PanelContainer:
 		if complete else kit.palette.color("ui_accent")
 	)
 	var style := kit.surface_style(
-		accent.lightened(0.5), 11, accent.lightened(0.18), 1
+		Color(accent, 0.1), UiKit.CORNER_SMALL, accent, 1
 	)
 	style.set_content_margin_all(5)
 	card.add_theme_stylebox_override("panel", style)

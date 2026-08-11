@@ -115,6 +115,13 @@ func _ready() -> void:
 func _run() -> void:
 	await wait(0.5)
 	await _step_creation()
+	if OS.get_cmdline_user_args().has("--project-shot"):
+		main.project_panel.open()
+		await wait(0.25)
+		await shot("screenshot_project_panel")
+		main.project_panel.close()
+		await _finish()
+		return
 	if OS.get_cmdline_user_args().has("--opening-only"):
 		if failures.is_empty():
 			print("OPENING LOOP PASSED — %d checks" % checks)
@@ -640,7 +647,7 @@ func _step_build_library_ui() -> void:
 	check(
 		main.hud.build_library_collapsed()
 		and main.hud._build_bar.custom_minimum_size.x <= 72.0,
-		"build mode starts with only the minimal circular Bag control"
+		"build mode starts with only the minimal Bag control"
 	)
 	await shot("screenshot_build_bag_compact")
 	Input.warp_mouse(main.hud._build_bar.get_global_rect().get_center())

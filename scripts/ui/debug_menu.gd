@@ -108,19 +108,13 @@ func _build() -> void:
 	_card.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 	_card.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_card.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_card.offset_left = -14.0 - CARD_WIDTH
-	_card.offset_top = -14.0
-	_card.offset_right = -14.0
-	_card.offset_bottom = -14.0
+	_card.offset_left = -UiKit.HUD_MARGIN - CARD_WIDTH
+	_card.offset_top = -UiKit.HUD_MARGIN
+	_card.offset_right = -UiKit.HUD_MARGIN
+	_card.offset_bottom = -UiKit.HUD_MARGIN
 	_card.mouse_filter = Control.MOUSE_FILTER_STOP
-	var card_style := kit.panel_style(false, 14)
-	card_style.bg_color = kit.palette.color("ui_surface_raised")
-	card_style.border_color = kit.palette.color("ui_border")
-	card_style.set_border_width_all(1)
+	var card_style := kit.hud_dock_style()
 	card_style.set_content_margin_all(10)
-	card_style.shadow_color = kit.palette.color("ui_shadow")
-	card_style.shadow_size = 7
-	card_style.shadow_offset = Vector2(0, 3)
 	_card.add_theme_stylebox_override("panel", card_style)
 	_root.add_child(_card)
 
@@ -131,7 +125,7 @@ func _build() -> void:
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 6)
 	column.add_child(header)
-	var title := kit.label("DEBUG", 12, false, true)
+	var title := kit.utility_label("DEBUG", 11, kit.palette.color("ui_accent"))
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title.add_theme_color_override("font_color", kit.palette.color("ui_accent"))
@@ -205,7 +199,7 @@ func _section(section_id: String, title: String) -> HFlowContainer:
 	var section := VBoxContainer.new()
 	section.name = "DebugSection" + section_id.to_pascal_case()
 	section.add_theme_constant_override("separation", 3)
-	var heading := kit.label(title.to_upper(), 10, false, true)
+	var heading := kit.utility_label(title, 9)
 	heading.add_theme_color_override(
 		"font_color", kit.palette.color("ui_text_primary").lightened(0.22)
 	)
@@ -225,18 +219,4 @@ func _section(section_id: String, title: String) -> HFlowContainer:
 
 
 func _small_button(text: String) -> Button:
-	var button := kit.button(text)
-	button.custom_minimum_size = Vector2(0, SMALL_BUTTON_HEIGHT)
-	button.add_theme_font_size_override("font_size", 12)
-	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var source := button.get_theme_stylebox(state)
-		if source == null:
-			continue
-		var style := source.duplicate() as StyleBoxFlat
-		style.set_corner_radius_all(9)
-		style.content_margin_left = 9
-		style.content_margin_right = 9
-		style.content_margin_top = 5
-		style.content_margin_bottom = 5
-		button.add_theme_stylebox_override(state, style)
-	return button
+	return kit.compact_button(text, SMALL_BUTTON_HEIGHT)

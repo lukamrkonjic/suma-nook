@@ -115,7 +115,7 @@ func _build_shell() -> void:
 	_content.add_theme_constant_override("separation", 16)
 	_card.add_child(_content)
 
-	var footer := kit.label("SUMA NOOK  |  grow gently, save often", 14, false, true)
+	var footer := kit.utility_label("SUMA NOOK  |  grow gently, save often", 11)
 	footer.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	footer.position.y = -24
 	footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -697,7 +697,7 @@ func _add_brand_header(kicker: String, subtitle: String) -> void:
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	text.add_theme_constant_override("separation", 3)
 	row.add_child(text)
-	var brand := kit.label("Suma Nook", 32, false, true)
+	var brand := kit.display_label("Suma Nook", 32)
 	text.add_child(brand)
 	var sub := kit.label(subtitle, 16)
 	sub.add_theme_color_override("font_color", kit.palette.color("ui_pause_subtitle"))
@@ -720,7 +720,7 @@ func _add_page_header(title: String, subtitle: String) -> void:
 	var text := VBoxContainer.new()
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(text)
-	text.add_child(kit.label(title, 30, false, true))
+	text.add_child(kit.display_label(title, 30))
 	var sub := kit.label(subtitle, 15)
 	sub.add_theme_color_override("font_color", kit.palette.color("ui_pause_subtle"))
 	text.add_child(sub)

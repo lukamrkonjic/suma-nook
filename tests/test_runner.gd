@@ -136,6 +136,7 @@ func _run() -> void:
 	_test_soft_terrain_contract()
 	_test_content_catalog_architecture()
 	_test_build_library_categories()
+	_test_hud_design_system()
 	_test_content_assets()
 	_test_tile_slot_fill()
 	_test_world_model_scale_contract()
@@ -1448,6 +1449,42 @@ func _test_build_library_categories() -> void:
 		"the Build Bag visibly labels the final copy instead of implying infinite stock"
 	)
 	(finite_card["button"] as Button).free()
+
+
+func _test_hud_design_system() -> void:
+	var kit := UiKit.new(PaletteDefinition.shared())
+	check(
+		ResourceLoader.exists(UiKit.FONT_BODY_PATH)
+		and ResourceLoader.exists(UiKit.FONT_DISPLAY_PATH),
+		"the centralized HUD body and display fonts are bundled"
+	)
+	check(
+		kit.font is FontVariation and kit.font_display is FontVariation,
+		"the HUD exposes centralized variable-font body and display roles"
+	)
+	var sheet := kit.cloud_panel_style()
+	check(
+		sheet.corner_radius_top_left <= UiKit.CORNER_SHEET
+		and sheet.shadow_size == 0
+		and sheet.border_width_top == UiKit.HAIRLINE,
+		"editorial HUD sheets use quiet corners and hairlines without shadows"
+	)
+	var chip := kit.hud_chip(
+		"COLLECTION / 2 / 5", kit.collection_accent("fish")
+	)
+	var normal := chip.get_theme_stylebox("normal") as StyleBoxFlat
+	check(
+		normal != null
+		and normal.border_width_left == 4
+		and normal.border_width_bottom == UiKit.HAIRLINE,
+		"HUD chips reserve strong color for a small semantic edge marker"
+	)
+	check(
+		kit.collection_accent("fish") != kit.collection_accent("woodland")
+		and kit.collection_accent("land") != kit.collection_accent("fish"),
+		"collection accents stay centralized and semantically distinct"
+	)
+	chip.free()
 
 
 ## The slot-fill contract — the root guarantee behind "no seams ever": every

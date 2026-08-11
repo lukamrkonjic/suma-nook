@@ -57,13 +57,11 @@ func _build_layout() -> void:
 	_root.theme = kit.theme
 	add_child(_root)
 
-	_chip = kit.button("Wish ready", true)
+	_chip = kit.hud_chip(
+		"WISH  /  READY", kit.collection_accent("collections")
+	)
 	_chip.name = "WishReady"
-	_chip.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_chip.offset_left = -176.0
-	_chip.offset_right = -16.0
-	_chip.offset_top = 16.0
-	_chip.offset_bottom = 58.0
+	kit.place_hud_chip(_chip, true, 190.0)
 	_chip.focus_mode = Control.FOCUS_ALL
 	_chip.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	_chip.visible = false
@@ -79,9 +77,10 @@ func _build_layout() -> void:
 	_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_panel.grow_vertical = Control.GROW_DIRECTION_END
 	_panel.offset_left = -PANEL_WIDTH - 16.0
-	_panel.offset_right = -16.0
-	_panel.offset_top = 68.0
-	_panel.offset_bottom = 68.0
+	_panel.offset_right = -UiKit.HUD_MARGIN
+	_panel.offset_top = UiKit.HUD_MARGIN + 56.0
+	_panel.offset_bottom = UiKit.HUD_MARGIN + 56.0
+	_panel.add_theme_stylebox_override("panel", kit.cloud_panel_style())
 	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	_panel.visible = false
 	_root.add_child(_panel)
@@ -95,8 +94,11 @@ func _build_layout() -> void:
 		kit.palette.color("ui_accent")
 	)
 	column.add_child(eyebrow)
-	var heading := kit.label("What kind of thing should the sky bring?", 18, false, true)
+	var heading := kit.display_label(
+		"What kind of thing should the sky bring?", 24
+	)
 	column.add_child(heading)
+	column.add_child(kit.divider())
 	var hint := kit.muted_label("Wish for a collection. One surprise will answer.", 13)
 	column.add_child(hint)
 
@@ -218,8 +220,8 @@ func _fit_panel_to_content() -> void:
 		return
 	var maximum_width := minf(PANEL_WIDTH, maxf(240.0, _root.size.x - 32.0))
 	_panel.custom_minimum_size.x = maximum_width
-	_panel.offset_left = -maximum_width - 16.0
-	_panel.offset_right = -16.0
+	_panel.offset_left = -maximum_width - UiKit.HUD_MARGIN
+	_panel.offset_right = -UiKit.HUD_MARGIN
 
 
 func _entries() -> Array[Dictionary]:
@@ -247,11 +249,13 @@ func _choice(entry: Dictionary, index: int) -> Control:
 
 	var preview_frame := PanelContainer.new()
 	preview_frame.custom_minimum_size = Vector2(CHOICE_WIDTH, 86.0)
-	var accent := kit.palette.color("ui_accent")
+	var accent := kit.collection_accent(
+		String(entry.get("category", entry.get("kind", "collections")))
+	)
 	var frame_style := kit.surface_style(
-		kit.palette.color("ui_surface"),
-		10,
-		accent.lightened(0.36),
+		Color(kit.palette.color("ui_surface"), 0.36),
+		UiKit.CORNER_SMALL,
+		accent,
 		1
 	)
 	frame_style.set_content_margin_all(3)

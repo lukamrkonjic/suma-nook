@@ -150,8 +150,10 @@ func _build_layout() -> void:
 	# press away at all times.
 	_token_pouch_button = kit.button("", false)
 	_token_pouch_button.name = "TokenPouch"
-	_token_pouch_button.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	_token_pouch_button.position = Vector2(16, 16)
+	kit.place_hud_chip(_token_pouch_button, false, 210.0, 42.0)
+	kit.apply_hud_chip_style(
+		_token_pouch_button, kit.collection_accent("collections")
+	)
 	_token_pouch_button.custom_minimum_size = Vector2(210, 42)
 	_token_pouch_button.add_theme_font_size_override("font_size", 15)
 	_token_pouch_button.focus_mode = Control.FOCUS_NONE
@@ -169,14 +171,17 @@ func _build_layout() -> void:
 	_hover_tooltip.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_hover_tooltip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hover_tooltip.visible = false
+	_hover_tooltip.add_theme_stylebox_override(
+		"panel", kit.hud_tooltip_style(kit.collection_accent("land"))
+	)
 	root.add_child(_hover_tooltip)
 	var hover_col := VBoxContainer.new()
 	hover_col.add_theme_constant_override("separation", 0)
 	_hover_tooltip.add_child(hover_col)
-	_hover_name_label = kit.label("", 18, false, true)
+	_hover_name_label = kit.display_label("", 18)
 	_hover_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hover_col.add_child(_hover_name_label)
-	_hover_collection_label = kit.label("", 13)
+	_hover_collection_label = kit.utility_label("", 11)
 	_hover_collection_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hover_collection_label.add_theme_color_override(
 		"font_color",
@@ -194,14 +199,19 @@ func _build_layout() -> void:
 	_context_column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_context_column)
 	_hint_panel = kit.card(Vector2(440, 0))
+	_hint_panel.add_theme_stylebox_override(
+		"panel", kit.hud_tooltip_style(kit.palette.color("ui_accent"))
+	)
 	_hint_panel.visible = false
 	_hint_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_context_column.add_child(_hint_panel)
-	_hint_label = kit.label("", 17, true)
+	_hint_label = kit.label("", 15)
 	_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_hint_label.custom_minimum_size.x = 400
-	_hint_label.add_theme_color_override("font_color", kit.palette.color("ui_hint_dark"))
+	_hint_label.add_theme_color_override(
+		"font_color", kit.palette.color("ui_text_primary")
+	)
 	_hint_panel.add_child(_hint_label)
 	_prompt_label = kit.label("", 20)
 	_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -220,7 +230,7 @@ func _build_layout() -> void:
 	_build_bar.custom_minimum_size = Vector2(54, 0)
 	_build_panel_collapsed_style = StyleBoxEmpty.new()
 	_build_panel_collapsed_style.set_content_margin_all(0)
-	_build_panel_expanded_style = kit.cloud_panel_style(28)
+	_build_panel_expanded_style = kit.hud_dock_style()
 	_build_panel_expanded_style.content_margin_left = 24
 	_build_panel_expanded_style.content_margin_right = 24
 	_build_panel_expanded_style.content_margin_top = 22
@@ -240,9 +250,9 @@ func _build_layout() -> void:
 	_build_compact_row.custom_minimum_size = Vector2(54, 42)
 	_build_compact_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	_build_bar_column.add_child(_build_compact_row)
-	_build_expand_button = Button.new()
+	_build_expand_button = kit.icon_button("", 42.0)
 	_build_expand_button.name = "BuildExpandLibrary"
-	_build_expand_button.custom_minimum_size = Vector2(50, 38)
+	_build_expand_button.custom_minimum_size = Vector2(46, 38)
 	_build_expand_button.icon = load(BUILD_ICON_DIRECTORY + "chevron_up.svg")
 	_build_expand_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_build_expand_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -250,27 +260,6 @@ func _build_layout() -> void:
 	_build_expand_button.tooltip_text = "Build Bag"
 	_build_expand_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	_build_expand_button.focus_mode = Control.FOCUS_ALL
-	var bag_normal := StyleBoxFlat.new()
-	bag_normal.bg_color = kit.palette.color("ui_bag_surface")
-	bag_normal.border_color = kit.palette.color("ui_bag_border")
-	bag_normal.set_border_width_all(1)
-	bag_normal.set_corner_radius_all(19)
-	bag_normal.shadow_color = kit.palette.color("ui_bag_shadow")
-	bag_normal.shadow_size = 6
-	bag_normal.shadow_offset = Vector2(0, 3)
-	var bag_hover := bag_normal.duplicate()
-	bag_hover.bg_color = kit.palette.color("ui_white")
-	bag_hover.border_color = kit.palette.color("ui_bag_hover")
-	bag_hover.shadow_size = 9
-	bag_hover.shadow_offset = Vector2(0, 4)
-	var bag_pressed := bag_hover.duplicate()
-	bag_pressed.bg_color = kit.palette.color("ui_bag_pressed")
-	bag_pressed.shadow_size = 5
-	bag_pressed.shadow_offset = Vector2(0, 2)
-	_build_expand_button.add_theme_stylebox_override("normal", bag_normal)
-	_build_expand_button.add_theme_stylebox_override("hover", bag_hover)
-	_build_expand_button.add_theme_stylebox_override("pressed", bag_pressed)
-	_build_expand_button.add_theme_stylebox_override("focus", bag_hover)
 	_build_expand_button.pressed.connect(
 		func(): set_build_library_expanded(true)
 	)
@@ -301,21 +290,7 @@ func _build_layout() -> void:
 	_build_search.custom_minimum_size.y = 42
 	_build_search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_build_search.tooltip_text = "Find owned tiles, furniture, structures, or deeds by name"
-	_build_search.add_theme_font_override("font", kit.font)
-	_build_search.add_theme_font_size_override("font_size", 16)
-	var search_style := StyleBoxFlat.new()
-	search_style.bg_color = kit.palette.color("ui_search_surface")
-	search_style.border_color = kit.palette.color("ui_search_border")
-	search_style.set_border_width_all(1)
-	search_style.set_corner_radius_all(12)
-	search_style.content_margin_left = 15
-	search_style.content_margin_right = 12
-	_build_search.add_theme_stylebox_override("normal", search_style)
-	_build_search.add_theme_stylebox_override("read_only", search_style)
-	var search_focus := search_style.duplicate() as StyleBoxFlat
-	search_focus.border_color = kit.palette.color("ui_accent").lightened(0.15)
-	search_focus.set_border_width_all(2)
-	_build_search.add_theme_stylebox_override("focus", search_focus)
+	kit.style_line_edit(_build_search)
 	_build_search.text_changed.connect(_on_build_search_changed)
 	build_header.add_child(_build_search)
 
@@ -407,14 +382,9 @@ func _build_layout() -> void:
 	_build_drop_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	_build_drop_overlay.visible = false
 	_build_drop_overlay.gui_input.connect(_on_build_drop_overlay_input)
-	var drop_style := StyleBoxFlat.new()
-	drop_style.bg_color = kit.palette.color("ui_drop_surface")
-	drop_style.border_color = kit.palette.color("ui_drop_border")
-	drop_style.set_border_width_all(4)
-	drop_style.set_corner_radius_all(16)
-	drop_style.shadow_color = kit.palette.color("ui_drop_shadow")
-	drop_style.shadow_size = 10
-	_build_drop_overlay.add_theme_stylebox_override("panel", drop_style)
+	_build_drop_overlay.add_theme_stylebox_override(
+		"panel", kit.drop_target_style()
+	)
 	_build_drop_label = kit.label(
 		"Release to return this piece to your Build Bag",
 		20,
@@ -433,42 +403,8 @@ func _build_layout() -> void:
 	_store_bubble.name = "StoreHeldWorldPiece"
 	_store_bubble.custom_minimum_size = Vector2(190, 52)
 	_store_bubble.tooltip_text = "Return this placed piece to storage"
-	var store_normal := StyleBoxFlat.new()
-	store_normal.bg_color = kit.palette.color("ui_store_surface")
-	store_normal.border_color = kit.palette.color("ui_store_border")
-	store_normal.set_border_width_all(2)
-	store_normal.set_corner_radius_all(24)
-	store_normal.content_margin_left = 22
-	store_normal.content_margin_right = 22
-	store_normal.content_margin_top = 13
-	store_normal.content_margin_bottom = 13
-	store_normal.shadow_color = kit.palette.color("ui_store_shadow")
-	store_normal.shadow_size = 10
-	store_normal.shadow_offset = Vector2(0, 5)
-	var store_hover := store_normal.duplicate()
-	store_hover.bg_color = kit.palette.color("ui_white")
-	store_hover.border_color = kit.palette.color("ui_store_hover")
-	store_hover.shadow_size = 13
-	var store_pressed := store_hover.duplicate()
-	store_pressed.bg_color = kit.palette.color("ui_store_pressed")
-	store_pressed.shadow_size = 5
-	store_pressed.shadow_offset = Vector2(0, 2)
-	_store_bubble.add_theme_stylebox_override("normal", store_normal)
-	_store_bubble.add_theme_stylebox_override("hover", store_hover)
-	_store_bubble.add_theme_stylebox_override("pressed", store_pressed)
-	_store_bubble.add_theme_stylebox_override("focus", store_hover)
-	_store_bubble.add_theme_color_override(
-		"font_color",
-		kit.palette.color("ui_store_text")
-	)
-	_store_bubble.add_theme_color_override(
-		"font_hover_color", kit.palette.color("ui_store_text_active")
-	)
-	_store_bubble.add_theme_color_override(
-		"font_pressed_color", kit.palette.color("ui_store_text_active")
-	)
-	_store_bubble.add_theme_color_override(
-		"font_focus_color", kit.palette.color("ui_store_text_active")
+	kit.apply_hud_chip_style(
+		_store_bubble, kit.collection_accent("build_bag")
 	)
 	_store_bubble.visible = false
 	_store_bubble.pressed.connect(_store_held_from_bubble)
@@ -817,13 +753,9 @@ func _add_harvest_badge(button: Button, icon_id: String) -> void:
 	badge.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	badge.position = Vector2(9, 9)
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var style := StyleBoxFlat.new()
-	style.bg_color = kit.palette.color("ui_card").lightened(0.08)
-	style.set_corner_radius_all(11)
-	style.set_content_margin_all(5)
-	style.shadow_color = kit.palette.color("ui_badge_shadow")
-	style.shadow_size = 3
-	style.shadow_offset = Vector2(0, 2)
+	var style := kit.badge_style(
+		kit.collection_accent(icon_id), 5
+	)
 	badge.add_theme_stylebox_override("panel", style)
 	var icon := TextureRect.new()
 	icon.name = "Icon"

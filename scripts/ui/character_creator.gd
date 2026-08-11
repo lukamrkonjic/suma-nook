@@ -64,7 +64,7 @@ func _build() -> void:
 	shell.add_theme_constant_override("separation", 13)
 	card.add_child(shell)
 	shell.add_child(kit.eyebrow("Keeper profile", palette.color("ui_accent")))
-	shell.add_child(kit.label("Who tends this world?", 28, false, true))
+	shell.add_child(kit.display_label("Who tends this world?", 28))
 	var intro := kit.muted_label(
 		"Shape your keeper, then choose the first patch of land to call home.",
 		14
@@ -189,17 +189,7 @@ func _section_header(text: String) -> Control:
 
 
 func _style_text_field(field: LineEdit) -> void:
-	var normal := kit.surface_style(palette.color("ui_creator_surface"), 12)
-	normal.content_margin_left = 14
-	normal.content_margin_right = 14
-	var hover := normal.duplicate()
-	hover.bg_color = palette.color("ui_creator_hover")
-	var focus := hover.duplicate()
-	focus.border_color = palette.color("ui_accent").lightened(0.15)
-	focus.set_border_width_all(3)
-	field.add_theme_stylebox_override("normal", normal)
-	field.add_theme_stylebox_override("read_only", normal)
-	field.add_theme_stylebox_override("focus", focus)
+	kit.style_line_edit(field)
 	field.add_theme_color_override("font_color", kit.text_color())
 	field.add_theme_color_override("caret_color", palette.color("ui_accent"))
 	field.add_theme_color_override(

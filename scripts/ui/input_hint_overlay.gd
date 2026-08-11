@@ -42,7 +42,10 @@ func _build() -> void:
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_root)
 
-	_panel = _kit.card(Vector2(420, 0), true)
+	_panel = _kit.card(Vector2(420, 0))
+	_panel.add_theme_stylebox_override(
+		"panel", _kit.controller_hint_style()
+	)
 	_panel.name = "ControllerHints"
 	_panel.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_panel.position.y = -18
@@ -55,13 +58,13 @@ func _build() -> void:
 	column.add_theme_constant_override("separation", 3)
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_panel.add_child(column)
-	_tooltip_label = _kit.label("", 14, true)
+	_tooltip_label = _kit.label("", 13)
 	_tooltip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_tooltip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_tooltip_label.custom_minimum_size.x = 390
 	_tooltip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(_tooltip_label)
-	_action_label = _kit.label("", 15, true, true)
+	_action_label = _kit.utility_label("", 12, _kit.palette.color("ui_accent"))
 	_action_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_action_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(_action_label)

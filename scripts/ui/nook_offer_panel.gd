@@ -131,10 +131,10 @@ func _build_modal() -> void:
 	)
 	eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	shell.add_child(eyebrow)
-	var title := kit.label(
+	var title := kit.display_label(
 		"Choose where the world begins" if first_boot
 		else "Choose the next Nook's seed",
-		34, true, true
+		34, true
 	)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	shell.add_child(title)
@@ -208,8 +208,8 @@ func _seed_card(card: Dictionary, index: int) -> Control:
 
 	var density := String(card.get("density", "seeded"))
 	col.add_child(_centered(kit.pill(density.to_upper(), accent)))
-	var name_label := kit.label(
-		String(card.get("biome_name", "Unknown")), 21, false, true
+	var name_label := kit.display_label(
+		String(card.get("biome_name", "Unknown")), 21
 	)
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(name_label)

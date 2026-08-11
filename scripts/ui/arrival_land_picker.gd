@@ -66,7 +66,7 @@ func open(tile_ids: Array) -> void:
 		kit.palette.color("ui_arrival_eyebrow")
 	)
 	shell.add_child(eyebrow)
-	var title := kit.label("Choose where you land", 34, true, true)
+	var title := kit.display_label("Choose where you land", 34, true)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	shell.add_child(title)
 	var subtitle := kit.label(
@@ -142,7 +142,7 @@ func _land_card(definition: Defs.TileDefinition) -> Control:
 		_starting_label(definition.id),
 		accent
 	)))
-	var name_label := kit.label(definition.display_name, 21, false, true)
+	var name_label := kit.display_label(definition.display_name, 21)
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(name_label)
 	var preview := _preview(definition.id, accent)

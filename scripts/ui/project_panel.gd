@@ -43,13 +43,12 @@ func _build_root() -> void:
 	_root.theme = kit.theme
 	add_child(_root)
 
-	_chip = kit.button("Choose a Project", true)
+	_chip = kit.hud_chip(
+		"PROJECTS  /  Choose a goal",
+		kit.collection_accent("projects")
+	)
 	_chip.name = "TrackedProject"
-	_chip.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	_chip.offset_left = 16.0
-	_chip.offset_right = 390.0
-	_chip.offset_top = 16.0
-	_chip.offset_bottom = 66.0
+	kit.place_hud_chip(_chip, false, 348.0)
 	_chip.focus_mode = Control.FOCUS_ALL
 	_chip.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_chip.pressed.connect(toggle)
@@ -61,13 +60,20 @@ func refresh() -> void:
 		return
 	var project: Dictionary = core.projects.tracked_project()
 	if project.is_empty():
-		_chip.text = "Choose a Project"
+		_chip.text = "PROJECTS  /  Choose a goal"
+		kit.apply_hud_chip_style(
+			_chip, kit.collection_accent("projects")
+		)
 		_chip.tooltip_text = _open_prompt("Choose a Project and contribute a few things from your world.")
 	else:
-		_chip.text = "%s  %s" % [
+		_chip.text = "%s  /  %s" % [
 			String(project.get("name", "Project")),
-			_progress_text(project),
+			_chip_progress_text(project),
 		]
+		var accent_key := String(project.get("collection_id", ""))
+		if accent_key.is_empty():
+			accent_key = String(project.get("definition_id", "projects"))
+		kit.apply_hud_chip_style(_chip, kit.collection_accent(accent_key))
 		_chip.tooltip_text = _open_prompt("Inspect the tracked Project.")
 	if is_open():
 		_rebuild_content()
@@ -114,6 +120,7 @@ func open(project_id := "") -> void:
 
 	_card = kit.card()
 	_card.custom_minimum_size = Vector2(620.0, 420.0)
+	_card.add_theme_stylebox_override("panel", kit.cloud_panel_style())
 	_card.mouse_filter = Control.MOUSE_FILTER_STOP
 	center.add_child(_card)
 	_content = VBoxContainer.new()
@@ -172,7 +179,8 @@ func _rebuild_content() -> void:
 		child.queue_free()
 	_first_button = null
 	_content.add_child(kit.eyebrow("PROJECTS", kit.palette.color("ui_accent")))
-	_content.add_child(kit.label("Choose one clear goal", 28, false, true))
+	_content.add_child(kit.display_label("Choose one clear goal", 30))
+	_content.add_child(kit.divider())
 	_content.add_child(kit.muted_label(
 		"Common gathering goes straight to the tracked Project. Progress stays when you switch.",
 		13
@@ -198,10 +206,19 @@ func _rebuild_content() -> void:
 	offers.add_theme_constant_override("v_separation", 8)
 	_content.add_child(offers)
 	for project: Dictionary in core.projects.collection_offers():
+		var is_tracked := (
+			String(project.get("id", ""))
+			== core.projects.tracked_project_id
+		)
 		var button := kit.button("%s\n%s" % [
 			String(project.get("name", "Collection Project")).trim_suffix(" Project"),
 			_progress_text(project),
-		], String(project.get("id", "")) == core.projects.tracked_project_id)
+		])
+		if is_tracked:
+			kit.apply_hud_chip_style(
+				button,
+				kit.collection_accent(String(project.get("definition_id", "projects")))
+			)
 		button.custom_minimum_size = Vector2(180.0, 64.0)
 		button.tooltip_text = "Track this Project. Its exact reward is already reserved and cannot reroll."
 		var project_id := String(project.get("id", ""))
@@ -219,7 +236,9 @@ func _rebuild_content() -> void:
 
 
 func _add_project_detail(project: Dictionary) -> void:
-	var heading := kit.label(String(project.get("name", "Project")), 20, false, true)
+	var heading := kit.display_label(
+		String(project.get("name", "Project")), 21
+	)
 	_content.add_child(heading)
 	var slots := HFlowContainer.new()
 	slots.add_theme_constant_override("h_separation", 7)
@@ -283,8 +302,17 @@ func _progress_text(project: Dictionary) -> String:
 	for slot: Dictionary in project.get("slots", []):
 		var current := int(slot.get("current", 0))
 		var required := int(slot.get("required", 1))
-		words.append("%s %s" % ["✓" if current >= required else "○", slot.get("name", "")])
+		words.append("%s %d/%d" % [slot.get("name", ""), current, required])
 	return "  ".join(words)
+
+
+func _chip_progress_text(project: Dictionary) -> String:
+	var current_total := 0
+	var required_total := 0
+	for slot: Dictionary in project.get("slots", []):
+		current_total += int(slot.get("current", 0))
+		required_total += int(slot.get("required", 1))
+	return "%d / %d" % [current_total, required_total]
 
 
 func _find_id(slot: Dictionary) -> String:

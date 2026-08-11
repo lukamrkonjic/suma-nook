@@ -81,7 +81,7 @@ func _show(entry: Dictionary) -> void:
 		if definition != null
 		else String(entry.get("id", "")).capitalize()
 	)
-	var title := kit.label(display_name, 28, true, true)
+	var title := kit.display_label(display_name, 28, true)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(title)
