@@ -47,13 +47,19 @@ capability own lifecycle/save data, while `asset_id` is presentation-only.
 Generated yields such as berries use profile settings plus measured model
 bounds, so art can be replaced without changing behavior or saved instances.
 
-World-piece gacha follows two further boundaries. `RewardPoolDefinition` owns
-eligible results, `RewardRollPolicyDefinition` owns reusable weight modifiers,
-and the feature that invokes a roll owns its bounded history/pity state.
-`RewardRevealProfileDefinition` is presentation-only: the reward transaction
-commits and saves before `RewardRevealSceneAdapter` asks an application-owned
-presenter registry to animate it. Concrete reveal scenes may therefore be
-added, replaced, accelerated, or removed without changing rewards or saves.
+Progression follows three further boundaries. `ProjectService` owns persistent
+goals, deterministic concealed rewards, receipts, completion, and tracking;
+`ContributionService` is the only common-source input port; and
+`BuildRewardService` is the shared ownership/grant boundary for Collection
+Projects and Falling Objects. `FrontierProjectService` reserves procedural
+metadata but never generates terrain itself. `RewardDropService` owns the gap
+between a pre-rolled falling bonus and actual ownership.
+
+`RewardRevealProfileDefinition` remains presentation-only: Project rewards
+commit before `RewardRevealSceneAdapter` animates them. Falling Objects are
+different by design—the landed locator persists first and grants only when
+claimed. Concrete presentation may therefore change without rerolling either
+transaction.
 
 ## Repository structure
 
@@ -76,10 +82,12 @@ scripts/
     camping/                  # definitions, validation, systems,
                               # interactions, save and presentation adapters
     harvesting/               # source lifecycle, hit transactions, scheduler,
-                              # reward port and replaceable presentation
+                              # contribution port and replaceable presentation
+    projects/                 # Projects, contribution routing, Frontiers,
+                              # Special Finds and tiny reserve
+    rewards/                  # shared build rewards and claimable landed drops
     visitors/                 # global heartbeat, pending gifts and scene adapter
-    progression/              # discovery, biome context, duplicate exchange,
-                              # milestones and versioned migration
+    progression/              # rare sky schedule, milestones and migration
   systems/                    # cross-feature runtime services
   world/
     placement/                # rules, target resolver, preview, history

@@ -143,12 +143,10 @@ func _run() -> void:
 	_test_gg_render_contract()
 	_test_game_preferences()
 	_test_starting_world()
-	_test_authored_onboarding_flow()
-	_test_harvesting_and_visitors()
+	_test_project_progression_loop()
 	_test_unfolding_world_generation()
 	_test_unfolding_world_offers_and_reveal()
 	_test_direct_frontier_expansion()
-	_test_unfolding_world_clearing_and_treasure()
 	_test_unfolding_world_firsts()
 	_test_unfolding_world_growth_and_keepsakes()
 	_test_unfolding_world_dormants()
@@ -915,6 +913,11 @@ func _test_input_bindings() -> void:
 		"G and the controller view button open a ready wish"
 	)
 	check(
+		_action_has_key("project_menu", KEY_P)
+		and _action_has_joypad_button("project_menu", JOY_BUTTON_GUIDE),
+		"P and the controller guide button open Projects"
+	)
+	check(
 		_action_has_key("interact", KEY_F)
 		and not _action_has_key("interact", KEY_E)
 		and _action_has_mouse_button("interact", MOUSE_BUTTON_LEFT),
@@ -1204,8 +1207,9 @@ func _test_content_catalog_architecture() -> void:
 		"discovery_pools", "milestones", "anchors", "capabilities",
 		"enemies", "landmarks", "fishing_loot", "spirits", "keepsakes",
 		"reward_pools", "reward_roll_policies", "reward_reveal_profiles",
-		"token_boxes", "harvest_profiles", "visitor_presentations",
-		"visitor_programs", "nook_biomes", "nook_stamps", "nook_moods",
+		"token_boxes", "harvest_profiles", "project_definitions",
+		"special_finds", "visitor_presentations", "visitor_programs",
+		"nook_biomes", "nook_stamps", "nook_moods",
 		"treasure_tables", "firsts", "dormants", "moments",
 	]
 	check(
@@ -1252,21 +1256,22 @@ func _test_content_catalog_architecture() -> void:
 		young_tree != null
 		and young_tree.has_capability("harvest_source")
 		and young_profile != null
-		and young_profile.token_id == "token_forest"
-		and young_profile.token_min >= 1
-		and regs.item(young_profile.token_id).category == "token",
-		"harvest sources resolve capability → typed profile → pouch tokens"
+		and young_profile.token_id.is_empty()
+		and "timber" in young_profile.contribution_tags
+		and young_profile.action_seconds > 0.0
+		and young_profile.depleted_structure_id == "struct_stump_pine",
+		"harvest sources resolve to timed Project contributions and regrowth visuals"
 	)
 	check(
 		forest_box != null
-		and forest_box.token_id == young_profile.token_id
+		and forest_box.token_id == "token_forest"
 		and regs.reward_pool(forest_box.reward_pool_id) != null
 		and regs.reward_roll_policy(forest_box.roll_policy_id) != null
 		and regs.reward_reveal_profile(forest_box.reveal_profile_id) != null
 		and regs.reward_reveal_profile(
 			forest_box.reveal_profile_id
 		).presenter_type == "world_bud",
-		"token boxes resolve their price, shared pool, roll policy, and reveal"
+		"retired token boxes remain resolvable for old-save compatibility"
 	)
 	check(
 		berry_bush != null
@@ -1275,7 +1280,8 @@ func _test_content_catalog_architecture() -> void:
 		and berry_profile != null
 		and berry_profile.presentation_profile == "berry_cluster"
 		and int(berry_profile.presentation_settings.get("count", 0)) >= 1
-		and berry_profile.token_id == "token_forest",
+		and "provisions" in berry_profile.contribution_tags
+		and berry_profile.token_id.is_empty(),
 		"generic berry sources resolve model-independent growth presentation data"
 	)
 	check(
@@ -1284,11 +1290,13 @@ func _test_content_catalog_architecture() -> void:
 		and rock.has_capability("harvest_source")
 		and rock_profile != null
 		and rock_profile.presentation_profile == "clay_rock"
-		and rock_profile.token_id == "token_rock"
+		and rock_profile.token_id.is_empty()
+		and "stone" in rock_profile.contribution_tags
+		and rock_profile.depleted_structure_id == "struct_rock_remnant"
 		and rock_box != null
-		and rock_box.token_id == rock_profile.token_id
+		and rock_box.token_id == "token_rock"
 		and regs.reward_pool(rock_box.reward_pool_id) != null,
-		"rock outcrops resolve through the shared harvest, pouch, and box contracts"
+		"rock outcrops resolve through the shared Project contribution contract"
 	)
 	check(
 		visitor_program != null
@@ -2028,8 +2036,371 @@ func _test_starting_world() -> void:
 		"retired progression structures never enter starter stock"
 	)
 	check(core.stock.structure_count("struct_pine") == 1, "the starter tree waits in build stock")
+	check(
+		core.stock.structure_count("struct_bush") == 1
+		and core.registries.structure("struct_bush").has_capability("harvest_source"),
+		"a reusable Provisions source is available in the opening Build Bag"
+	)
 	check(core.grid.is_walkable(Vector2i.ZERO), "home cell is safely walkable")
 	check(core.equipment.owns("tool_rod_basic"), "starter rod is owned for void fishing")
+
+
+func _test_project_progression_loop() -> void:
+	var core := fresh_core(20260811)
+	var discovery := core.progression.discovery
+	var active_timer_before := discovery.seconds_until_wish
+	core.major_events_blocked = true
+	core.tick(5.0)
+	var timer_while_blocked := discovery.seconds_until_wish
+	core.major_events_blocked = false
+	core.tick(1.0)
+	check(
+		is_equal_approx(timer_while_blocked, active_timer_before)
+		and discovery.seconds_until_wish < timer_while_blocked,
+		"Falling Object scheduling advances only during unblocked active play"
+	)
+	var offers := core.projects.collection_offers()
+	var initial_offer_ids: Array[String] = []
+	var offer_ids: Dictionary = {}
+	for offer: Dictionary in offers:
+		initial_offer_ids.append(String(offer.get("id", "")))
+		offer_ids[String(offer.get("definition_id", ""))] = String(offer.get("id", ""))
+	check(
+		offers.size() == ProjectService.OFFER_COUNT
+		and offer_ids.has("project_collection_forest")
+		and offer_ids.has("project_collection_cottage")
+		and offer_ids.has("project_collection_garden"),
+		"three stable data-driven Collection Project offers start the reliable loop"
+	)
+	var forest_id := String(offer_ids.get("project_collection_forest", ""))
+	check(core.projects.track(forest_id), "one Project is explicitly tracked")
+	var forest_before := core.projects.project(forest_id)
+	var reserved_reward: Dictionary = forest_before.get("reward", {}).duplicate(true)
+	var token_balance_before: int = core.token_pouch.balance("token_forest")
+	var common_inventory_before := core.inventory.to_save_dict()
+	check(
+		core.contributions.target_for(["clay"]).is_empty()
+		and not bool(core.contributions.contribute(
+			["clay"], "test:unneeded:clay"
+		).get("accepted", false)),
+		"an unaccepted common tag does not fill an unrelated Project slot"
+	)
+
+	check(core.stock.take_structure("struct_pine"), "the project test checks out one tree")
+	var tree := core.grid.add_structure(Vector2i.ZERO, "struct_pine", 1, 1)
+	check(tree != null, "a common resource node remains an ordinary placed model")
+	if tree == null:
+		return
+	var tree_runtime: Dictionary = tree.runtime_state[HarvestingModule.RUNTIME_KEY]
+	tree_runtime["deadline_unix"] = 0.0
+	core.harvesting.status(tree.instance_id)
+	var started: Dictionary = core.harvesting.request_hit(tree.instance_id, "player")
+	var rapid_repeat: Dictionary = core.harvesting.request_hit(tree.instance_id, "player")
+	var timber_result: Dictionary = core.harvesting.complete_interaction(tree.instance_id)
+	var timber_project := core.projects.project(forest_id)
+	check(
+		bool(started.get("accepted", false))
+		and started.get("hit", 0) == 0
+		and rapid_repeat.get("reason", "") == HarvestingModule.STATE_INTERACTING
+		and bool(timber_result.get("final", false))
+		and int((timber_project["slots"][0] as Dictionary).get("current", 0)) == 1,
+		"one tree click starts one timed action and rapid input cannot duplicate Timber"
+	)
+	check(
+		not core.grid.find_structure(tree.instance_id).is_empty()
+		and core.harvesting.status(tree.instance_id).get("state", "")
+			== HarvestingModule.STATE_REGROWING
+		and core.harvesting.status(tree.instance_id).get("depleted_structure_id", "")
+			== "struct_stump_pine"
+		and core.token_pouch.balance("token_forest") == token_balance_before,
+		"the tree visibly depletes and regrows without creating a common inventory currency"
+	)
+	check(
+		core.inventory.to_save_dict() == common_inventory_before,
+		"common Timber contributions never enter the general material inventory"
+	)
+
+	var cottage_id := String(offer_ids.get("project_collection_cottage", ""))
+	check(
+		core.projects.track(cottage_id)
+		and core.projects.track(forest_id)
+		and core.projects.project(forest_id) == timber_project,
+		"switching the tracked Project preserves its exact contribution progress"
+	)
+
+	var rock: WorldGrid.StructureState = core.grid.cell(Vector2i(-1, -1)).structures[0]
+	var rock_runtime: Dictionary = rock.runtime_state[HarvestingModule.RUNTIME_KEY]
+	rock_runtime["deadline_unix"] = 0.0
+	core.harvesting.status(rock.instance_id)
+	var rock_started: Dictionary = core.harvesting.request_hit(rock.instance_id, "player")
+	var stone_result: Dictionary = core.harvesting.complete_interaction(rock.instance_id)
+	check(
+		bool(rock_started.get("accepted", false))
+		and bool(stone_result.get("final", false))
+		and not core.grid.find_structure(rock.instance_id).is_empty()
+		and core.harvesting.status(rock.instance_id).get("depleted_structure_id", "")
+			== "struct_rock_remnant",
+		"one rock click contributes one Stone and uses its own regrowing remnant"
+	)
+	rock_runtime["state"] = HarvestingModule.STATE_READY
+	rock_runtime["deadline_unix"] = 0.0
+	var unneeded_rock: Dictionary = core.harvesting.request_hit(
+		rock.instance_id, "player"
+	)
+	check(
+		unneeded_rock.get("reason", "") == "not_needed"
+		and not core.grid.find_structure(rock.instance_id).is_empty()
+		and core.harvesting.status(rock.instance_id).get("state", "")
+			== HarvestingModule.STATE_READY,
+		"an unneeded resource stays intact and clearly refuses the interaction"
+	)
+	var collection_completions: Array[Dictionary] = []
+	core.projects.project_completed.connect(func(project: Dictionary):
+		if project.get("id", "") == forest_id:
+			collection_completions.append(project)
+	)
+	var provisions := core.contributions.contribute(
+		["provisions", "fish"],
+		"test:fishing:1",
+		{"source": "fishing_haul"}
+	)
+	var completed_forest := core.projects.project(forest_id)
+	check(
+		bool(provisions.get("accepted", false))
+		and bool(completed_forest.get("complete", false))
+		and bool(completed_forest.get("rewarded", false))
+		and collection_completions.size() == 1
+		and completed_forest.get("reward", {}) == reserved_reward
+		and _entry_stock_count(core, reserved_reward) >= 1,
+		"a small shared Timber/Stone/Provisions Project completes once and reveals its pre-rolled item"
+	)
+	var offers_after_completion := core.projects.collection_offers()
+	var surviving_offer_ids: Array[String] = []
+	var offer_ids_after: Array[String] = []
+	for offer: Dictionary in offers_after_completion:
+		var offer_id := String(offer.get("id", ""))
+		offer_ids_after.append(offer_id)
+		if offer_id in initial_offer_ids:
+			surviving_offer_ids.append(offer_id)
+	check(
+		offers_after_completion.size() == ProjectService.OFFER_COUNT
+		and surviving_offer_ids.size() == ProjectService.OFFER_COUNT - 1
+		and not offer_ids_after.has(forest_id),
+		"completion replaces only the finished offer and preserves the other choices"
+	)
+	var tree_receipt := "harvest:%s:%s" % [
+		started.get("profile_id", ""), started.get("action_id", ""),
+	]
+	check(
+		not bool(core.projects.contribute(
+			forest_id, 0, tree_receipt
+		).get("accepted", false))
+		and collection_completions.size() == 1,
+		"a committed contribution receipt and Project completion are both idempotent"
+	)
+
+	check(
+		core.special_finds.spawn_for_instance(tree.instance_id, "crystal")
+		and core.special_finds.active_for_instance(tree.instance_id).get("id", "") == "crystal",
+		"a globally scheduled Special Find is visible state on an eligible world object"
+	)
+	var first_find := core.special_finds.collect(tree.instance_id)
+	var duplicate_find := core.special_finds.collect(tree.instance_id)
+	check(
+		bool(first_find.get("accepted", false))
+		and not bool(duplicate_find.get("accepted", false))
+		and core.finds.amount("crystal") == 1,
+		"a Special Find enters the tiny reserve exactly once"
+	)
+	var mountain_project := core.projects.create_frontier(
+		"test:mountain",
+		"project_frontier_mountain",
+		4242,
+		"test:mountain:point"
+	)
+	var mountain_find_slot := -1
+	for slot_index in (mountain_project.get("slots", []) as Array).size():
+		if bool(mountain_project["slots"][slot_index].get("consumes_find", false)):
+			mountain_find_slot = slot_index
+			break
+	var spent_crystal := core.projects.spend_find(
+		"test:mountain", mountain_find_slot
+	)
+	check(
+		bool(spent_crystal.get("accepted", false))
+		and spent_crystal.get("find_id", "") == "crystal"
+		and core.finds.amount("crystal") == 0,
+		"the small Finds Reserve spends a visible rare material on a special Project"
+	)
+	var cap_probe := core.grid.add_structure(
+		Vector2i(1, 1), "struct_bush", 1
+	)
+	var persistent_relic := core.special_finds.spawn_for_instance(
+		rock.instance_id, "relic_fragment"
+	)
+	var persistent_heartwood := core.special_finds.spawn_for_instance(
+		tree.instance_id, "heartwood"
+	)
+	var over_cap_spawn := (
+		core.special_finds.spawn_for_instance(cap_probe.instance_id, "crystal")
+		if cap_probe != null else true
+	)
+	check(
+		persistent_relic
+		and persistent_heartwood
+		and core.special_finds.active_count() == core.special_finds.active_cap()
+		and not over_cap_spawn,
+		"Special Finds use one global persisted cap independent of resource count"
+	)
+
+	var frontier_coord: Vector2i = core.nooks.world.frontier_coords()[0]
+	var reserved_frontier := core.frontiers.ensure_frontier(frontier_coord)
+	var reserved_again := core.frontiers.ensure_frontier(frontier_coord)
+	var frontier_project := core.frontiers.open(frontier_coord)
+	var expansion_requests: Array[Dictionary] = []
+	core.frontiers.expansion_ready.connect(func(coord, project_id, card):
+		expansion_requests.append({"coord": coord, "project_id": project_id, "card": card})
+	)
+	var frontier_id := String(frontier_project.get("id", ""))
+	for slot_index in (frontier_project.get("slots", []) as Array).size():
+		var slot: Dictionary = frontier_project["slots"][slot_index]
+		if bool(slot.get("consumes_find", false)):
+			core.projects.spend_find(frontier_id, slot_index)
+		else:
+			core.projects.contribute(
+				frontier_id, slot_index, "test:frontier:%d" % slot_index
+			)
+	check(
+		reserved_frontier.get("seed_card", {}) == reserved_again.get("seed_card", {})
+		and bool(core.projects.project(frontier_id).get("complete", false))
+		and not core.nooks.world.has_nook(frontier_coord)
+		and expansion_requests.size() == 1,
+		"a frontier reserves stable content, opens a Project, and only requests generation after completion"
+	)
+	check(
+		core.frontiers.mark_generated(frontier_coord)
+		and not core.frontiers.mark_generated(frontier_coord)
+		and bool(core.projects.project(frontier_id).get("rewarded", false)),
+		"a completed Frontier commits its procedural reward boundary exactly once"
+	)
+
+	var wish_choices := discovery.prepare_wish_offer(true)
+	var chosen_reward := discovery.choose_wish(0)
+	var reward_stock_before := _entry_stock_count(core, chosen_reward)
+	var landed := core.reward_drops.land(chosen_reward, core.grid.home_cell)
+	var drop_id := int(landed.get("instance_id", 0))
+	var landed_coord: Vector2i = landed.get("coord", Vector2i(999, 999))
+	var landed_tile := core.grid.tile_def(landed_coord)
+	var second_drop := core.reward_drops.land(chosen_reward, core.grid.home_cell)
+	check(
+		wish_choices.size() == DiscoverySystem.WISH_CHOICE_COUNT
+		and reward_stock_before == _entry_stock_count(core, chosen_reward)
+		and bool(landed.get("accepted", false))
+		and core.reward_drops.has_unclaimed()
+		and not bool(second_drop.get("accepted", false))
+		and landed_tile != null
+		and landed_tile.walkable
+		and landed_tile.surface_kind != "water",
+		"one Falling Object pre-rolls a bonus and lands safely without granting ownership"
+	)
+	check(
+		discovery.acknowledge_next() == chosen_reward
+		and not discovery.has_pending(),
+		"landing acknowledges the pending sky event without acknowledging ownership"
+	)
+
+	check(core.save(), "Project, frontier, reserve, resource, and bonus state save together")
+	var restored := GameCore.new()
+	restored.setup("res://data", 1)
+	restored.save_manager.save_path = core.save_manager.save_path
+	restored.save_manager.backup_path = core.save_manager.backup_path
+	var restored_ok := restored.load_game()
+	check(restored_ok, "the complete Project rewrite save passes strict hydration")
+	var restored_forest := restored.projects.project(forest_id)
+	var original_forest := core.projects.project(forest_id)
+	var project_progress_matches := (
+		(restored_forest.get("slots", []) as Array).size()
+		== (original_forest.get("slots", []) as Array).size()
+	)
+	for slot_index in (original_forest.get("slots", []) as Array).size():
+		var restored_slot: Dictionary = restored_forest["slots"][slot_index]
+		var original_slot: Dictionary = original_forest["slots"][slot_index]
+		project_progress_matches = project_progress_matches and (
+			int(restored_slot.get("current", -1)) == int(original_slot.get("current", -2))
+			and int(restored_slot.get("required", -1)) == int(original_slot.get("required", -2))
+		)
+	check(
+		restored_ok
+		and restored_forest.get("reward", {}).get("id", "")
+			== original_forest.get("reward", {}).get("id", "")
+		and restored_forest.get("reward", {}).get("kind", "")
+			== original_forest.get("reward", {}).get("kind", "")
+		and project_progress_matches
+		and bool(restored_forest.get("complete", false)),
+		"Project requirements, hidden reward, and completion round-trip exactly"
+	)
+	var restored_frontier := restored.frontiers.frontier_for_coord(frontier_coord)
+	var restored_card: Dictionary = restored_frontier.get("seed_card", {})
+	var original_card: Dictionary = reserved_frontier.get("seed_card", {})
+	check(
+		restored_ok
+		and int(restored_frontier.get("seed", 0)) == int(reserved_frontier.get("seed", -1))
+		and restored_card.get("biome", "") == original_card.get("biome", "")
+		and restored_card.get("density", "") == original_card.get("density", "")
+		and restored_card.get("mood", "") == original_card.get("mood", ""),
+		"Frontier seed metadata cannot reroll across save and load"
+	)
+	check(
+		restored_ok
+		and bool(restored_frontier.get("generated", false))
+		and restored.finds.amount("crystal") == core.finds.amount("crystal")
+		and restored.special_finds.active_count() == core.special_finds.active_count()
+		and restored.special_finds.active_for_instance(rock.instance_id).get("id", "")
+			== "relic_fragment",
+		"the Frontier boundary, Finds Reserve, and visible Special Finds round-trip"
+	)
+	var restored_tree_found := restored.grid.find_structure(tree.instance_id)
+	var restored_tree: WorldGrid.StructureState = restored_tree_found.get("structure")
+	check(
+		restored_tree != null
+		and restored_tree.structure_id == tree.structure_id
+		and restored_tree.rotation == tree.rotation
+		and restored.harvesting.status(tree.instance_id).get("state", "")
+			== HarvestingModule.STATE_REGROWING,
+		"a regrowing tree preserves its variant, transform state, and deadline across load"
+	)
+	var restored_find := restored.special_finds.collect(rock.instance_id)
+	var restored_find_duplicate := restored.special_finds.collect(rock.instance_id)
+	check(
+		bool(restored_find.get("accepted", false))
+		and not bool(restored_find_duplicate.get("accepted", false))
+		and restored.finds.amount("relic_fragment") == 1,
+		"a reloaded visible Special Find remains collectable exactly once"
+	)
+	var restored_drop_entry := restored.reward_drops.entry_for_instance(drop_id)
+	var restored_stock_before := _entry_stock_count(restored, chosen_reward)
+	var restored_claim := restored.reward_drops.claim(drop_id)
+	var restored_duplicate_claim := restored.reward_drops.claim(drop_id)
+	check(
+		not restored_drop_entry.is_empty()
+		and restored_drop_entry.get("id", "") == chosen_reward.get("id", "")
+		and bool(restored_claim.get("accepted", false))
+		and not bool(restored_duplicate_claim.get("accepted", false))
+		and _entry_stock_count(restored, chosen_reward) == restored_stock_before + 1
+		and not restored.reward_drops.has_unclaimed(),
+		"a landed reward survives reload, grants once on claim, and removes its locator"
+	)
+	var restored_tree_coord: Vector2i = restored_tree_found.get("coord", Vector2i.ZERO)
+	var restored_tree_elevation := int(restored_tree_found.get("elevation", 0))
+	restored.grid.remove_structure(
+		restored_tree_coord, tree.instance_id, restored_tree_elevation
+	)
+	restored.harvesting.rebuild_schedule()
+	restored.harvesting.tick(1_000_000.0)
+	check(
+		restored.grid.find_structure(tree.instance_id).is_empty(),
+		"explicit edit removal of a stump cancels its future regrowth"
+	)
 
 func _test_authored_onboarding_flow() -> void:
 	var core := GameCore.new()
@@ -2521,8 +2892,9 @@ func _test_sky_wish_flow() -> void:
 	check(
 		not granted.is_empty()
 		and String(granted.get("category", "")) == String(selected.get("category", ""))
-		and _entry_stock_count(core, granted) == int(stock_before.get(granted_key, 0)) + 1,
-		"choosing a category resolves and grants exactly one fitting copy"
+		and _entry_stock_count(core, granted) == int(stock_before.get(granted_key, 0))
+		and bool(granted.get("ownership_deferred", false)),
+		"choosing a category resolves one fitting copy without granting ownership"
 	)
 	check(
 		discovery.wish_choices.is_empty()
@@ -2530,12 +2902,17 @@ func _test_sky_wish_flow() -> void:
 		and discovery.seconds_until_wish > 0.0,
 		"a chosen wish clears the offer, queues its loss-proof copy, and reschedules"
 	)
+	var landed := core.reward_drops.land(granted, core.grid.home_cell)
 	var acknowledged := discovery.acknowledge_next()
+	var claimed := core.reward_drops.claim(int(landed.get("instance_id", 0)))
 	check(
-		String(acknowledged.get("id", "")) == String(granted.get("id", ""))
+		bool(landed.get("accepted", false))
+		and String(acknowledged.get("id", "")) == String(granted.get("id", ""))
 		and String(acknowledged.get("category", "")) == String(selected.get("category", ""))
+		and bool(claimed.get("accepted", false))
+		and _entry_stock_count(core, granted) == int(stock_before.get(granted_key, 0)) + 1
 		and not discovery.has_pending(),
-		"the category-resolved copy can hand off to placement without duplicating"
+		"the landed bonus grants exactly once through its dedicated claim interaction"
 	)
 	discovery.prepare_wish_offer(true)
 	var saved := discovery.to_save_dict()
@@ -5117,6 +5494,12 @@ func _test_unfolding_world_seeded_opening() -> void:
 	check(
 		core.onboarding.stage == OnboardingState.COMPLETE,
 		"the seeded opening has no guided lesson to resume"
+	)
+	check(
+		core.stock.structure_count("struct_pine") == 1
+		and core.stock.structure_count("struct_bush") == 1
+		and core.stock.structure_count("struct_rock_outcrop") == 1,
+		"every seed guarantees reusable Timber, Provisions, and Stone sources"
 	)
 	var reloaded := GameCore.new()
 	reloaded.setup("res://data", 1)

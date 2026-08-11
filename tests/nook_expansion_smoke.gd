@@ -68,36 +68,26 @@ func _exercise_expansion() -> void:
 		_main.core.nooks.world.nook_size ** 2 - 1
 	)
 	_main._update_frontier_marker_availability()
-	var marker_screen := _main.frontier_markers.marker_screen_position(coord)
-	var picker_shown := bool(_main.frontier_picker.call(
-		"show_for_screen", marker_screen
-	))
-	var picker_panel := _main.frontier_picker.find_child(
-		"FrontierPicker", true, false
-	) as PanelContainer
+	_main._perform_interaction({
+		"kind": "frontier_project",
+		"coord": coord,
+	})
+	var frontier_project := _main.core.projects.tracked_project()
 	_expect(
-		picker_shown
-		and picker_panel != null
-		and picker_panel.visible
-		and picker_panel.global_position.y < marker_screen.y,
-		"hovering a live frontier dot opens its compact picker above the glow"
+		_main.project_panel.is_open()
+		and frontier_project.get("type", "") == ProjectService.TYPE_FRONTIER
+		and not bool(frontier_project.get("complete", false))
+		and not _main._nook_reveal_in_progress,
+		"clicking a live frontier opens its Project without generating land"
 	)
-	var peaks_choice := _main.frontier_picker.find_child(
-		"ShapePeaks", true, false
-	) as Button
-	var natural_choice := _main.frontier_picker.find_child(
-		"ShapeNatural", true, false
-	) as Button
-	var grow_choice := _main.frontier_picker.find_child(
-		"Grow", true, false
-	) as Button
 	_expect(
-		natural_choice != null
-		and natural_choice.button_pressed
-		and peaks_choice != null
-		and grow_choice != null,
-		"the live picker defaults to Natural and exposes optional shape controls"
+		(frontier_project.get("slots", []) as Array).size() == 3
+		and not (frontier_project.get("frontier_metadata", {}) as Dictionary).get(
+			"preview", ""
+		).is_empty(),
+		"the Frontier Project exposes three small contributions and a reserved preview"
 	)
+	_main.project_panel.close()
 	var reveal_state := {
 		"started": false,
 		"finished": false,
@@ -276,12 +266,23 @@ func _exercise_expansion() -> void:
 			if revealed_coord == coord:
 				reveal_state["finished"] = true
 	)
-	if peaks_choice != null:
-		peaks_choice.pressed.emit()
-	if grow_choice != null:
-		grow_choice.pressed.emit()
+	var frontier_id := String(frontier_project.get("id", ""))
+	for slot_index in (frontier_project.get("slots", []) as Array).size():
+		var slot: Dictionary = frontier_project["slots"][slot_index]
+		if bool(slot.get("consumes_find", false)):
+			var accepted_find_id := String(
+				(slot.get("accepted_tags", []) as Array)[0]
+			).trim_prefix("find:")
+			_main.core.finds.add(accepted_find_id)
+			_main.core.projects.spend_find(frontier_id, slot_index)
+		else:
+			_main.core.projects.contribute(
+				frontier_id,
+				slot_index,
+				"nook-smoke:%d" % slot_index
+			)
 	var accepted := _main._nook_reveal_in_progress
-	_expect(accepted, "frontier input schedules expansion immediately")
+	_expect(accepted, "the final Frontier contribution schedules expansion once")
 	_expect(
 		_main.nook_arrival_ghost.is_previewing(coord),
 		"the terrain arrival ghost appears on the accepted input frame"

@@ -26,18 +26,22 @@ Context owners resolve intentional overlaps. For example, the triggers zoom
 during exploration and become undo/redo while building; the shoulders rotate
 the camera in the world and change journal pages while a journal is open.
 
-Build mode uses a camera-relative grid cursor. It never moves the OS pointer,
-so switching back to mouse input resumes at the player's real pointer
-position.
+Interaction and edit modes share a camera-relative grid cursor. It never moves
+the OS pointer, so switching back to mouse input resumes at the player's real
+pointer position. In interaction mode X/West or A/South executes the one
+highest-priority action at the cursor. In edit mode A/South places, while
+X/West moves or stores according to the focused context. Y/North is the
+explicit mode boundary; one press can never reach both routers.
 
-Harvest sources reuse the ordinary `interact` action: X/West hits the focused
-tree, shrub, or Stone Outcrop once. Biome tokens enter the Pouch automatically.
-The existing `panel_inventory` action opens **Pouch & Build Libraries**;
-affordable box buttons receive deterministic focus and A/South opens the
-selected box. Its non-modal reveal completes automatically, while `interact`
-accelerates it without consuming the current build/world action. Pointer users
-may click the physical reveal directly. No controller-only cursor or new
-conflicting action is needed.
+Projects use the `project_menu` action (Guide) and the tracked HUD chip. The
+modal assigns the first actionable control focus, exposes focused tooltips,
+uses `ui_accept`, and closes with `cancel`. Special Find spending uses ordinary
+focused buttons. Frontier glows are selected by the same deterministic world
+cursor and open their Project instead of generating land immediately.
+
+Harvest sources reuse `interact`: one press starts the complete authored
+action and commits one eligible Project contribution. Repeated input while the
+source is busy is rejected. No common token or inventory UI enters the path.
 
 ## Default controller layout
 
@@ -46,23 +50,25 @@ use PlayStation names and Nintendo physical-button labels when detected.
 
 | Input | Exploration | Build context |
 | --- | --- | --- |
-| Left stick / L3 | Move / sprint | Move keeper / sprint |
-| A / south | Jump, UI select | Place or pick up |
-| B / east | Back; dodge if combat is active | Cancel held piece / exit |
-| X / west | Interact | Store a moved piece |
-| Y / north | Enter build mode | Toggle library / world cursor |
-| D-pad | Open journal pages | Navigate UI or move grid cursor |
+| Left stick / L3 | Optional keeper movement | Optional keeper movement |
+| A / south | Interact cursor / UI select | Place / UI select |
+| B / east | Back; dodge if combat is active | Cancel held piece / close library |
+| X / west | Interact | Move/store a piece |
+| Y / north | Enter edit mode | Return to interaction mode |
+| D-pad | Move interaction cursor / navigate UI | Move edit cursor / navigate UI |
 | LB / RB | Rotate camera | Rotate camera; change open journal page |
 | LT / RT | Zoom | Undo / redo |
 | R3 | Return home | Rotate held piece |
 | View/Create | Open map | Open map |
+| Guide | Open Projects | Open Projects |
 | Menu/Options | Pause | Pause |
 | Right stick | Pan camera | Pan camera; orbit in the debug asset viewer |
 
-Keyboard WASD is reserved for persistent camera panning; keeper movement on
-desktop uses click-to-walk. Land placement targets any empty grid coordinate,
-including detached islands. The D-pad cursor can therefore travel through the
-void without requiring an existing neighbour.
+Keyboard WASD is reserved for persistent camera panning. Land placement
+targets any empty grid coordinate, including detached islands. The D-pad
+cursor can therefore travel through the void without requiring an existing
+neighbour. F activates the interaction under the pointer when the optional
+keeper is docked.
 
 ## Adding a player-facing feature
 

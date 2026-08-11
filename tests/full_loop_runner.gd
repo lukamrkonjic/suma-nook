@@ -198,6 +198,81 @@ func _finish() -> void:
 
 
 func _step_creation() -> void:
+	print("STEP Project-first god-view opening")
+	main.core.new_game(main.core.profile)
+	main.renderer.rebuild_all()
+	main.player.position = main.core.profile.position
+	main.hud._refresh_all()
+	main.placement.set_active(false)
+	check(
+		main._gameplay_started
+		and not main.placement.active
+		and main.core.projects.collection_offers().size() == ProjectService.OFFER_COUNT,
+		"free play opens in interaction mode with three Project choices"
+	)
+	var forest_id := ""
+	for offer: Dictionary in main.core.projects.collection_offers():
+		if offer.get("definition_id", "") == "project_collection_forest":
+			forest_id = String(offer.get("id", ""))
+	check(
+		not forest_id.is_empty() and main.core.projects.track(forest_id),
+		"the opening asks for one clear tracked Project"
+	)
+	main.placement.set_active(true)
+	main.placement.hold_new("structure", "struct_pine")
+	check(
+		main.placement.try_place_at(Vector2i.ZERO),
+		"edit mode places the opening resource model"
+	)
+	main.placement.set_active(false)
+	var tree: WorldGrid.StructureState
+	for structure: WorldGrid.StructureState in main.core.grid.cell(Vector2i.ZERO).structures:
+		if structure.structure_id == "struct_pine":
+			tree = structure
+			break
+	if tree != null:
+		var runtime: Dictionary = tree.runtime_state[HarvestingModule.RUNTIME_KEY]
+		runtime["deadline_unix"] = 0.0
+		main.core.harvesting.status(tree.instance_id)
+		var started: Dictionary = main.core.harvesting.request_hit(tree.instance_id, "player")
+		var duplicate: Dictionary = main.core.harvesting.request_hit(tree.instance_id, "player")
+		var completed: Dictionary = main.core.harvesting.complete_interaction(tree.instance_id)
+		check(
+			bool(started.get("accepted", false))
+			and duplicate.get("reason", "") == HarvestingModule.STATE_INTERACTING
+			and bool(completed.get("final", false))
+			and not main.core.grid.find_structure(tree.instance_id).is_empty(),
+			"one interaction completes one Timber action without duplicate clicks or destruction"
+		)
+	else:
+		check(false, "the opening tree remains addressable as a stateful resource")
+	check(
+		int((main.core.projects.project(forest_id)["slots"][0] as Dictionary).get("current", 0)) == 1
+		and main.core.token_pouch.balance("token_forest") == 0,
+		"Timber flows directly to the tracked Project instead of a token inventory"
+	)
+	InputDeviceService.shared()._set_input_method(
+		InputDeviceService.InputMethod.CONTROLLER
+	)
+	main.project_panel.open()
+	await get_tree().process_frame
+	check(
+		main.project_panel.is_open()
+		and get_viewport().gui_get_focus_owner() != null,
+		"the compact Project display opens a focused controller-completable modal"
+	)
+	main.project_panel.close()
+	InputDeviceService.shared()._set_input_method(
+		InputDeviceService.InputMethod.KEYBOARD_MOUSE
+	)
+	check(main.try_place_player_at_cell(Vector2i(-1, 0)), "legacy movement fixture can still deploy")
+	await wait(0.8)
+	await _tap_key(KEY_B)
+	check(main.placement.active, "B enters explicit edit mode")
+	await _tap_key(KEY_B)
+	check(not main.placement.active, "B returns to interaction mode")
+	return
+
 	print("STEP build-first harvesting and visitor onboarding")
 	check(
 		main.find_child("Creator", false, false) == null
@@ -474,26 +549,27 @@ func _step_controller_input() -> void:
 
 	await _tap_joy_button(JOY_BUTTON_Y)
 	await wait(0.1)
-	check(
-		main.placement.active and main.placement.controller_cursor_active(),
-		"Y/north face browses the world while permanent build mode stays active"
-	)
-	await _tap_joy_button(JOY_BUTTON_Y)
-	await wait(0.1)
 	var build_focus := get_viewport().gui_get_focus_owner()
 	check(
-		build_focus != null
+		main.placement.active
+		and build_focus != null
 		and main.hud._build_bar.is_ancestor_of(build_focus),
-		"a second Y returns focus to the categorized library"
+		"Y/north face enters explicit edit mode with deterministic library focus"
 	)
 	check(
 		build_focus != null and build_focus.tooltip_text != "",
 		"focused build controls expose controller-visible tooltips"
 	)
 	await _tap_joy_button(JOY_BUTTON_B)
+	await wait(0.1)
 	check(
-		main.placement.active,
-		"B/east face closes library context without leaving permanent build mode"
+		main.placement.active and main.placement.controller_cursor_active(),
+		"B/east face closes the library into deterministic edit-world browse"
+	)
+	await _tap_joy_button(JOY_BUTTON_Y)
+	check(
+		not main.placement.active and main.placement.interaction_cursor_active(),
+		"Y/north face returns to interaction mode and its controller world cursor"
 	)
 
 	var mouse_motion := InputEventMouseMotion.new()
@@ -1721,12 +1797,31 @@ func _step_universal_interaction() -> void:
 		main.core.fire.is_burning(fire.instance_id),
 		"F lights a focused fire through the same shared dispatcher"
 	)
-	await _tap_key(KEY_F)
-	await wait(0.1)
+	var fire_option = main.core.interactions.primary_for(
+		"player", fire.instance_id
+	)
+	main._perform_interaction({
+		"kind": "feature_interaction",
+		"option": fire_option,
+	})
+	check(
+		not main.core.fire.is_burning(fire.instance_id)
+		and main.placement.held.is_empty(),
+		"the interaction route extinguishes the fire without picking it up"
+	)
+	main.placement.set_active(true)
+	main.placement._pick_up_from(fire_coord, 0, fire.instance_id)
+	check(
+		not main.placement.held.is_empty()
+		and main.placement.held.get("moving") != null,
+		"the explicit edit route picks up the same fire"
+	)
+	main.placement.cancel_click()
 	check(
 		not main.core.fire.is_burning(fire.instance_id),
-		"F also executes the fire's updated Extinguish interaction"
+		"edit-mode pickup preserves the fire state instead of also interacting"
 	)
+	main.placement.set_active(false)
 	main.core.grid.remove_structure(fire_coord, fire.instance_id)
 	main.core.grid.remove_tile(fire_coord)
 	await get_tree().process_frame
@@ -2490,6 +2585,50 @@ func _step_place_tile() -> void:
 	check(main.player.position.y > -0.5, "player walks onto the new tile without falling")
 
 func _step_woodcutting() -> void:
+	print("STEP one-action reusable resource node")
+	var project_grove := Vector2i(2, 0)
+	var garden_id := ""
+	for offer: Dictionary in main.core.projects.collection_offers():
+		if offer.get("definition_id", "") == "project_collection_garden":
+			garden_id = String(offer.get("id", ""))
+	if not garden_id.is_empty():
+		main.core.projects.track(garden_id)
+	main.core.stock.add_structure("struct_pine")
+	main.placement.set_active(true)
+	main.placement.hold_new("structure", "struct_pine")
+	check(main.placement.try_place_at(project_grove), "edit mode places a reusable tree independently")
+	main.placement.set_active(false)
+	var project_tree: WorldGrid.StructureState
+	for structure: WorldGrid.StructureState in main.core.grid.cell(project_grove).structures:
+		if structure.structure_id == "struct_pine":
+			project_tree = structure
+			break
+	check(project_tree != null, "the placed tree remains an addressable resource model")
+	if project_tree != null:
+		var project_runtime: Dictionary = project_tree.runtime_state[HarvestingModule.RUNTIME_KEY]
+		project_runtime["deadline_unix"] = 0.0
+		main.core.harvesting.status(project_tree.instance_id)
+		var interaction: Dictionary = main.core.harvesting.request_hit(project_tree.instance_id, "player")
+		var rapid_duplicate: Dictionary = main.core.harvesting.request_hit(project_tree.instance_id, "player")
+		var project_result: Dictionary = main.core.harvesting.complete_interaction(project_tree.instance_id)
+		main.renderer.refresh_structure_harvest(project_tree.instance_id, false)
+		var project_visual := main.renderer.structure_node(project_tree.instance_id)
+		check(
+			bool(interaction.get("accepted", false))
+			and rapid_duplicate.get("reason", "") == HarvestingModule.STATE_INTERACTING
+			and bool(project_result.get("final", false)),
+			"one click owns one complete gathering sequence and rejects rapid repeats"
+		)
+		check(
+			not main.core.grid.find_structure(project_tree.instance_id).is_empty()
+			and main.core.harvesting.status(project_tree.instance_id).get("state", "")
+				== HarvestingModule.STATE_REGROWING
+			and project_visual != null
+			and project_visual.get_node_or_null("HarvestDepletedVisual") != null,
+			"the gathered tree becomes a visible stump state and keeps its persistent instance"
+		)
+	return
+
 	print("STEP woodcutting")
 	var grove := Vector2i(2, 0)
 	check(
