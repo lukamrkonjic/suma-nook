@@ -178,6 +178,26 @@ func _on_nook_revealed(coord: Vector2i, plan: NookGenerator.NookPlan) -> void:
 		else land_finish
 	)
 
+	# If the player built into this footprint before spending the Ripple, their
+	# complete tile columns were restored above the generated terrain. Once the
+	# land wave is solid, spring those authored stacks from their former spots
+	# onto their lossless landing columns.
+	var displaced_start := land_finish + 0.04
+	var displaced_finish := land_finish
+	for displaced_index in plan.displaced_tiles.size():
+		var displaced: Dictionary = plan.displaced_tiles[displaced_index]
+		var delay := displaced_start + displaced_index * 0.045
+		_bounce_displaced_after(displaced, delay)
+		var base_elevation := int(displaced.get("base_elevation", 0))
+		if base_elevation > 0:
+			_cover_support_surface_after(
+				displaced.get("cell", origin_cell),
+				base_elevation - 1,
+				delay + 0.5
+			)
+		animated += 1
+		displaced_finish = maxf(displaced_finish, delay + 0.68)
+
 	# Models ripple outward after the terrain, with a shorter weighted drop and
 	# a small squash at contact so walls, rocks, and trees visibly plop in.
 	var model_locals: Array[Vector2i] = []
@@ -193,7 +213,7 @@ func _on_nook_revealed(coord: Vector2i, plan: NookGenerator.NookPlan) -> void:
 	var model_delays := {}
 	for entry: Dictionary in model_entries:
 		model_delays[entry["local"] as Vector2i] = float(entry["delay"])
-	var model_start := land_finish + maxf(
+	var model_start := maxf(land_finish, displaced_finish) + maxf(
 		0.0, float(config.get("model_phase_delay", 0.12))
 	)
 	var model_height := maxf(
@@ -238,7 +258,10 @@ func _on_nook_revealed(coord: Vector2i, plan: NookGenerator.NookPlan) -> void:
 			delay + model_seconds * 1.34
 		)
 
-	var duration := maxf(land_finish, maxf(water_finish, model_finish))
+	var duration := maxf(
+		displaced_finish,
+		maxf(land_finish, maxf(water_finish, model_finish))
+	)
 	# Keep staging authoritative for the whole presentation. Settled boundary
 	# tiles deliberately treat staged neighbours as void, so their rim, side
 	# wall, water shoreline, and edge blocker cannot react before land exists.
@@ -285,6 +308,13 @@ func _cover_support_surface_after(
 	var timer := get_tree().create_timer(maxf(0.0, delay))
 	timer.timeout.connect(func():
 		renderer.begin_reveal_surface_cover(cell, elevation)
+	)
+
+
+func _bounce_displaced_after(displaced: Dictionary, delay: float) -> void:
+	var timer := get_tree().create_timer(maxf(0.0, delay))
+	timer.timeout.connect(func():
+		renderer.animate_displaced_tile_stack(displaced)
 	)
 
 
@@ -406,6 +436,22 @@ func _settle_plan_tiles(
 			core.grid.cell_to_world(cell, elevation),
 			visual
 		)
+	for displaced: Dictionary in plan.displaced_tiles:
+		var cell: Vector2i = displaced.get("cell", origin_cell)
+		var base_elevation := int(displaced.get("base_elevation", 0))
+		for relative: Variant in displaced.get("relative_elevations", []):
+			var elevation := base_elevation + int(relative)
+			var holder := renderer.cell_holder(cell, elevation)
+			if holder == null:
+				continue
+			var visual: Node3D = null
+			if holder.get_child_count() > 0:
+				visual = holder.get_child(0) as Node3D
+			_settle_reveal_tile(
+				holder,
+				core.grid.cell_to_world(cell, elevation),
+				visual
+			)
 
 
 func _drop_feature(

@@ -673,11 +673,9 @@ func _sync_opportunity_markers(
 		var existing := visual.get_node_or_null(marker_name)
 		if existing != null:
 			existing.queue_free()
-	var find: Dictionary = structure.runtime_state.get("special_find", {})
-	if not find.is_empty() and not bool(find.get("collected", false)):
-		visual.add_child(_opportunity_marker(
-			"SpecialFindMarker", Color(0.45, 0.92, 1.0), 1.15
-		))
+	# Special Finds remain available through the ordinary object interaction;
+	# the cyan floating prism was visual clutter and did not belong to the
+	# tangible world. Reward drops keep their warm locator until claimed.
 	if definition != null and definition.has_capability("reward_drop"):
 		visual.add_child(_opportunity_marker(
 			"RewardDropMarker", Color(1.0, 0.72, 0.24), 1.0
@@ -1287,6 +1285,48 @@ func animate_tile_stack_water_skip(
 			tween
 		)
 	return landing_tween
+
+
+## Revealed terrain owns the lower column. A player-authored stack that was
+## already there springs from its former cell and settles intact on the new
+## generated surface. Exact holders carry their model children; scalable
+## models receive the matching translation explicitly.
+func animate_displaced_tile_stack(displaced: Dictionary) -> Tween:
+	var coord: Vector2i = displaced.get("cell", Vector2i.ZERO)
+	var from_cell: Vector2i = displaced.get("from_cell", coord)
+	var base_elevation := int(displaced.get("base_elevation", 0))
+	var relative_elevations: Array[int] = []
+	for relative: Variant in displaced.get("relative_elevations", []):
+		relative_elevations.append(int(relative))
+	var impact_position := Vector3(
+		from_cell.x * core.grid.tile_size,
+		core.grid.cell_to_world(coord, base_elevation).y,
+		from_cell.y * core.grid.tile_size
+	)
+	if not _scalable_mode:
+		for relative: int in relative_elevations:
+			var holder := tile_node(coord, base_elevation + relative)
+			if holder != null:
+				holder.visible = true
+		for instance_id: Variant in displaced.get("instance_ids", []):
+			var visual := structure_node(int(instance_id))
+			if visual != null:
+				visual.visible = true
+	var landing := animate_tile_stack_water_skip(
+		coord,
+		base_elevation,
+		relative_elevations,
+		impact_position
+	)
+	if _scalable_mode:
+		var target_tile_position := core.grid.cell_to_world(
+			coord, base_elevation
+		)
+		for instance_id: Variant in displaced.get("instance_ids", []):
+			_scalable_backend.animate_structure_water_skip(
+				int(instance_id), impact_position, target_tile_position
+			)
+	return landing
 
 
 ## The tile begins already squashed into the surface (the ripple is emitted by
@@ -1981,6 +2021,16 @@ func stage_nook_reveal(
 		var instance_id := int(feature.get("instance_id", 0))
 		if instance_id > 0:
 			_staged_reveal_structures[instance_id] = true
+	for displaced: Dictionary in plan.displaced_tiles:
+		var cell: Vector2i = displaced.get("cell", origin_cell)
+		var base_elevation := int(displaced.get("base_elevation", 0))
+		for relative: Variant in displaced.get("relative_elevations", []):
+			_staged_reveal_tiles[
+				core.grid.slot_key(cell, base_elevation + int(relative))
+			] = true
+			_staged_reveal_coords[cell] = true
+		for instance_id: Variant in displaced.get("instance_ids", []):
+			_staged_reveal_structures[int(instance_id)] = true
 	if cells.is_empty():
 		return
 	var surface := WaterSurface.new()
@@ -2143,6 +2193,16 @@ func release_nook_reveal_staging(
 		_staged_reveal_coords.erase(cell)
 	for feature: Dictionary in plan.features:
 		_staged_reveal_structures.erase(int(feature.get("instance_id", 0)))
+	for displaced: Dictionary in plan.displaced_tiles:
+		var cell: Vector2i = displaced.get("cell", origin_cell)
+		var base_elevation := int(displaced.get("base_elevation", 0))
+		for relative: Variant in displaced.get("relative_elevations", []):
+			_staged_reveal_tiles.erase(
+				core.grid.slot_key(cell, base_elevation + int(relative))
+			)
+		_staged_reveal_coords.erase(cell)
+		for instance_id: Variant in displaced.get("instance_ids", []):
+			_staged_reveal_structures.erase(int(instance_id))
 
 
 ## Rebuilds only the reveal footprint and its settled seam after staging is
@@ -2162,6 +2222,11 @@ func finalize_nook_reveal_topology_async(
 		var cell := origin_cell + (tile["local"] as Vector2i)
 		footprint[cell] = true
 		affected[cell] = true
+	for displaced: Dictionary in plan.displaced_tiles:
+		var cell: Vector2i = displaced.get("cell", origin_cell)
+		footprint[cell] = true
+		affected[cell] = true
+		affected[displaced.get("from_cell", cell) as Vector2i] = true
 	for cell: Vector2i in footprint:
 		for offset: Vector2i in WorldGrid.NEIGHBORS:
 			var neighbour := cell + offset

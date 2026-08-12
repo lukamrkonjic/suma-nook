@@ -164,10 +164,9 @@ func chunk_of_cell(cell: Vector2i) -> Vector2i:
 	)
 
 
-## True when the square Nook zone owning this world cell has already been
-## revealed. Empty silhouette cells inside that square are still unlocked:
-## players may reshape a revealed Nook freely, but cannot pre-build into a
-## frontier slot and thereby constrain its future procedural generation.
+## True when procedural terrain has unfolded in the square Nook zone owning
+## this cell. This is generation/discovery state only; player build placement
+## is intentionally unbounded and resolves later overlap by displacement.
 func is_cell_unlocked(cell: Vector2i) -> bool:
 	return has_nook(chunk_of_cell(cell))
 

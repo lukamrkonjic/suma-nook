@@ -1322,8 +1322,8 @@ func _target_socket(cell: Vector2i, elevation: int = 0) -> int:
 
 ## A land tile aimed at authored water is still a valid placement intent. The
 ## water itself is never replaced: the tile skips to the closest cell where
-## the ordinary placement rules (unlocking, stacking, occupancy, and player
-## safety) already say it can settle. Future tiles may opt out with the
+## the ordinary placement rules (stacking, occupancy, and player safety)
+## already say it can settle. Future tiles may opt out with the
 ## `placeable_on_water` data flag and implement direct floating placement.
 func water_skip_target_for(water_cell: Vector2i) -> Dictionary:
 	if not _is_water_skip_source(water_cell):
@@ -1427,11 +1427,6 @@ func _append_water_skip_candidate(
 
 func _is_water_skip_source(cell: Vector2i) -> bool:
 	if held.get("kind", "") != "tile":
-		return false
-	# Authored water can exist in an unrevealed neighbouring Nook. It remains a
-	# hard boundary until that Nook opens; a splash must never tunnel the build
-	# intent back to some distant unlocked cell.
-	if not core.is_player_build_cell_unlocked(cell):
 		return false
 	var held_definition := core.registries.tile(String(held.get("id", "")))
 	if (

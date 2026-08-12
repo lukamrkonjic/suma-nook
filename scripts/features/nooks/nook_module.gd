@@ -133,34 +133,34 @@ func prepare_reveal_nook_async(
 	if plan == null or plan.biome_id == "":
 		return {}
 	var origin := world.chunk_origin(coord)
-	# Current placement rules keep unrevealed frontier zones clear. Preserve
-	# this protection for legacy saves that may already contain authored columns
-	# there: generation must never overwrite existing player work.
-	var protected_locals := _protected_plan_locals(origin, plan)
+	# Players may build anywhere, including across a future generated footprint.
+	# Detach those authored columns losslessly, let generation own its terrain,
+	# then settle the player's complete stacks on top of the new land.
+	var detached_stacks := _detach_generation_overlaps(origin, plan)
 	var ordered_tiles := _ordered_tiles(plan)
 	var applied_tiles: Array[Dictionary] = []
 	var batch_size := maxi(1, entries_per_frame)
 	var applied_this_frame := 0
 	for tile: Dictionary in ordered_tiles:
-		var local: Vector2i = tile["local"]
-		if not protected_locals.has(local):
-			if _apply_generated_tile(coord, origin, tile):
-				applied_tiles.append(tile)
-			else:
-				# Also protects against a player placing into this slot while the
-				# cooperative generation loop is in progress.
-				protected_locals[local] = true
+		if _apply_generated_tile(coord, origin, tile):
+			applied_tiles.append(tile)
 		applied_this_frame += 1
 		if applied_this_frame >= batch_size and tree != null:
 			applied_this_frame = 0
 			await tree.process_frame
 	plan.tiles = applied_tiles
+	plan.displaced_tiles = _restore_generation_overlaps(
+		origin, plan, detached_stacks
+	)
+	var displaced_landing_locals := _displaced_landing_locals(
+		origin, plan.displaced_tiles
+	)
 	var dormant_instance := 0
 	var applied_features: Array[Dictionary] = []
 	var applied_feature_cells := {}
 	for feature: Dictionary in plan.features:
 		var local: Vector2i = feature["local"]
-		if not protected_locals.has(local):
+		if not displaced_landing_locals.has(local):
 			var placed_dormant := _apply_generated_feature(
 				coord, origin, feature
 			)
@@ -205,23 +205,24 @@ func reveal_nook(coord: Vector2i, seed_card: Dictionary) -> NookGenerator.NookPl
 	if plan == null or plan.biome_id == "":
 		return null
 	var origin := world.chunk_origin(coord)
-	var protected_locals := _protected_plan_locals(origin, plan)
+	var detached_stacks := _detach_generation_overlaps(origin, plan)
 	var applied_tiles: Array[Dictionary] = []
 	for tile: Dictionary in _ordered_tiles(plan):
-		var local: Vector2i = tile["local"]
-		if protected_locals.has(local):
-			continue
 		if _apply_generated_tile(coord, origin, tile):
 			applied_tiles.append(tile)
-		else:
-			protected_locals[local] = true
 	plan.tiles = applied_tiles
+	plan.displaced_tiles = _restore_generation_overlaps(
+		origin, plan, detached_stacks
+	)
+	var displaced_landing_locals := _displaced_landing_locals(
+		origin, plan.displaced_tiles
+	)
 	var dormant_instance := 0
 	var applied_features: Array[Dictionary] = []
 	var applied_feature_cells := {}
 	for feature: Dictionary in plan.features:
 		var local: Vector2i = feature["local"]
-		if protected_locals.has(local):
+		if displaced_landing_locals.has(local):
 			continue
 		var placed_dormant := _apply_generated_feature(coord, origin, feature)
 		if int(feature.get("instance_id", 0)) > 0:
@@ -287,16 +288,144 @@ func _apply_generated_tile(
 	return bool(result.get("ok", false))
 
 
-func _protected_plan_locals(
+func _detach_generation_overlaps(
 	origin: Vector2i,
 	plan: NookGenerator.NookPlan
-) -> Dictionary:
-	var protected := {}
+) -> Array[Dictionary]:
+	var detached: Array[Dictionary] = []
+	var seen := {}
 	for tile: Dictionary in plan.tiles:
 		var local: Vector2i = tile["local"]
-		if grid.has_cell(origin + local):
-			protected[local] = true
-	return protected
+		if int(tile.get("elevation", 0)) != 0 or seen.has(local):
+			continue
+		seen[local] = true
+		var cell := origin + local
+		if not grid.has_cell(cell):
+			continue
+		var stack := grid.detach_tile_stack(cell, 0)
+		if stack.is_empty():
+			continue
+		detached.append({
+			"from_cell": cell,
+			"from_local": local,
+			"stack": stack,
+		})
+	return detached
+
+
+func _restore_generation_overlaps(
+	origin: Vector2i,
+	plan: NookGenerator.NookPlan,
+	detached_stacks: Array[Dictionary]
+) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var reserved_cells := {}
+	var generated_cells: Array[Vector2i] = []
+	var seen_generated := {}
+	for tile: Dictionary in plan.tiles:
+		if int(tile.get("elevation", 0)) != 0:
+			continue
+		var cell := origin + (tile["local"] as Vector2i)
+		if not seen_generated.has(cell):
+			seen_generated[cell] = true
+			generated_cells.append(cell)
+	for detached: Dictionary in detached_stacks:
+		var from_cell: Vector2i = detached["from_cell"]
+		var stack: Array = detached["stack"]
+		var candidates := generated_cells.duplicate()
+		candidates.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+			var a_distance := a.distance_squared_to(from_cell)
+			var b_distance := b.distance_squared_to(from_cell)
+			if a_distance != b_distance:
+				return a_distance < b_distance
+			return a.y < b.y or (a.y == b.y and a.x < b.x)
+		)
+		var landing_cell := Vector2i(2147483647, 2147483647)
+		var landing_elevation := -1
+		var landed_on_generated := false
+		for candidate: Vector2i in candidates:
+			if reserved_cells.has(candidate):
+				continue
+			var elevation := grid.top_elevation(candidate) + 1
+			if grid.can_restore_tile_stack(candidate, elevation, stack):
+				landing_cell = candidate
+				landing_elevation = elevation
+				landed_on_generated = true
+				break
+		if landing_elevation < 0:
+			# Non-stackable water/pond tiles and a maximum-height player column
+			# cannot physically sit above another tile. Keep them lossless in the
+			# closest empty silhouette cell instead of ever deleting player work.
+			landing_cell = _nearest_empty_displacement_cell(
+				from_cell, reserved_cells, stack
+			)
+			if landing_cell != Vector2i(2147483647, 2147483647):
+				landing_elevation = 0
+		if landing_elevation < 0 or not grid.restore_tile_stack(
+			landing_cell, landing_elevation, stack
+		):
+			push_error("NookModule: could not restore displaced player terrain")
+			continue
+		reserved_cells[landing_cell] = true
+		if grid.home_cell == from_cell:
+			grid.home_cell = landing_cell
+		var relative_elevations: Array[int] = []
+		var instance_ids: Array[int] = []
+		for entry: Dictionary in stack:
+			relative_elevations.append(int(entry["relative_elevation"]))
+			var state: WorldGrid.CellState = entry["state"]
+			for structure: WorldGrid.StructureState in state.structures:
+				instance_ids.append(structure.instance_id)
+		result.append({
+			"from_cell": from_cell,
+			"from_local": detached["from_local"],
+			"cell": landing_cell,
+			"local": landing_cell - origin,
+			"base_elevation": landing_elevation,
+			"relative_elevations": relative_elevations,
+			"instance_ids": instance_ids,
+			"landed_on_generated": landed_on_generated,
+		})
+	return result
+
+
+func _nearest_empty_displacement_cell(
+	from_cell: Vector2i,
+	reserved_cells: Dictionary,
+	stack: Array
+) -> Vector2i:
+	for radius in range(1, world.nook_size * 4 + 1):
+		for y in range(-radius, radius + 1):
+			for x in range(-radius, radius + 1):
+				if maxi(absi(x), absi(y)) != radius:
+					continue
+				var candidate := from_cell + Vector2i(x, y)
+				if (
+					reserved_cells.has(candidate)
+					or not grid.can_restore_tile_stack(candidate, 0, stack)
+				):
+					continue
+				return candidate
+	# The grid is finite and the build plane is not. This deterministic point
+	# just beyond current bounds guarantees a lossless final fallback even for
+	# an unusually dense frontier or a maximum-height authored stack.
+	var bounds := grid.bounds()
+	var outside := bounds.end + Vector2i.RIGHT
+	while reserved_cells.has(outside) or not grid.can_restore_tile_stack(
+		outside, 0, stack
+	):
+		outside += Vector2i.RIGHT
+	return outside
+
+
+func _displaced_landing_locals(
+	origin: Vector2i,
+	displaced_tiles: Array[Dictionary]
+) -> Dictionary:
+	var result := {}
+	for displaced: Dictionary in displaced_tiles:
+		result[(displaced["cell"] as Vector2i) - origin] = true
+	return result
 
 
 func _prune_unapplied_discoveries(

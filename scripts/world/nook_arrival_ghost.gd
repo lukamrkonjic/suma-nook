@@ -40,8 +40,9 @@ func preview_nook(coord: Vector2i, seam: Vector2i) -> void:
 		for local_x in nook_size:
 			var local := Vector2i(local_x, local_y)
 			var cell := origin + local
-			# Player-authored frontier pieces are already real and stay exactly
-			# where they are; the loading blueprint only claims empty slots.
+			# Player-authored pieces are already tangible, so do not cover them
+			# with a loading plate. Generation later springs those stacks onto
+			# the finished terrain instead of replacing them.
 			if core.grid.has_cell(cell):
 				continue
 			var holder := Node3D.new()

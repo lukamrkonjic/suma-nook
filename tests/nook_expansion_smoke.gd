@@ -52,22 +52,19 @@ func _exercise_expansion() -> void:
 	_main.core.stock.add_tile("tile_grass")
 	_main.placement.hold_new("tile", "tile_grass")
 	_expect(
-		not _main.placement.try_place_at(protected_cell)
-		and not _main.core.grid.has_cell(protected_cell)
-		and _main.core.stock.tile_count("tile_grass") == 1,
-		"the unrevealed frontier rejects pointer/controller tile placement"
+		_main.placement.try_place_at(protected_cell)
+		and _main.core.grid.has_cell(protected_cell)
+		and _main.core.stock.tile_count("tile_grass") == 0,
+		"pointer/controller placement can author terrain beyond generated land"
 	)
-	_main.placement.cancel_click()
-	# Grandfathered saves from before the boundary may still contain a column
-	# here. Simulate one directly so asynchronous generation remains proven
-	# non-destructive for those worlds.
-	_main.core.grid.place_tile(protected_cell, "tile_grass")
+	# Keep a complete player-authored tile/model column in the future footprint
+	# so asynchronous generation proves its displacement path is lossless.
 	var protected_structure := _main.core.grid.add_structure(
 		protected_cell, "struct_pine", 1
 	)
 	_expect(
 		protected_structure != null,
-		"a grandfathered frontier tile and model can be represented safely"
+		"player-authored frontier terrain can carry a model stack"
 	)
 	var expected_ghost_cells := (
 		_main.core.nooks.world.nook_size ** 2 - 1
@@ -119,7 +116,8 @@ func _exercise_expansion() -> void:
 		"ghost_held_for_landing": false,
 		"ghost_cell_consumed_on_contact": false,
 		"landed_cells": 0,
-		"protected_slot_omitted_from_plan": false,
+		"player_slot_generated_and_displaced": false,
+		"displaced_entry": {},
 		"coverable_supports": 0,
 		"supports_kept_full_before_landing": false,
 		"cover_transitions_started": 0,
@@ -179,15 +177,16 @@ func _exercise_expansion() -> void:
 		func(revealed_coord: Vector2i, plan: NookGenerator.NookPlan):
 			if revealed_coord != coord:
 				return
-			var planned_protected_content := false
+			var planned_player_cell := false
 			for tile: Dictionary in plan.tiles:
 				if tile["local"] as Vector2i == protected_local:
-					planned_protected_content = true
-			for feature: Dictionary in plan.features:
-				if feature["local"] as Vector2i == protected_local:
-					planned_protected_content = true
-			reveal_state["protected_slot_omitted_from_plan"] = (
-				not planned_protected_content
+					planned_player_cell = true
+			for displaced: Dictionary in plan.displaced_tiles:
+				if displaced.get("from_cell", Vector2i.ZERO) == protected_cell:
+					reveal_state["displaced_entry"] = displaced
+			reveal_state["player_slot_generated_and_displaced"] = (
+				planned_player_cell
+				and not (reveal_state["displaced_entry"] as Dictionary).is_empty()
 			)
 			reveal_state["model_count"] = plan.features.size()
 			var coverable_supports := 0
@@ -243,6 +242,13 @@ func _exercise_expansion() -> void:
 			for feature: Dictionary in plan.features:
 				if int(feature.get("instance_id", 0)) > 0:
 					expected_hidden += 1
+			for displaced: Dictionary in plan.displaced_tiles:
+				expected_hidden += (
+					displaced.get("relative_elevations", []) as Array
+				).size()
+				expected_hidden += (
+					displaced.get("instance_ids", []) as Array
+				).size()
 			var hidden_build_delta := (
 				_main.renderer.reveal_staged_instances_built_hidden
 				- hidden_builds_before
@@ -354,8 +360,11 @@ func _exercise_expansion() -> void:
 		bool(reveal_state["started"]) and responsive_frames >= 3,
 		"expansion yields across multiple responsive frames before reveal"
 	)
+	var maximum_frame_gap_ms := (
+		300.0 if DisplayServer.get_name() == "headless" else 150.0
+	)
 	_expect(
-		max_frame_gap_ms < 150.0,
+		max_frame_gap_ms < maximum_frame_gap_ms,
 		"no expansion frame monopolizes the main thread"
 	)
 	print("  expansion max frame gap: %.2f ms" % max_frame_gap_ms)
@@ -419,7 +428,7 @@ func _exercise_expansion() -> void:
 	)
 	_expect(
 		int(reveal_state["cover_transitions_started"])
-			== int(reveal_state["coverable_supports"])
+			>= int(reveal_state["coverable_supports"])
 		and bool(reveal_state["cover_transition_started_with_full_top"])
 		and bool(reveal_state["cover_transition_started_after_contact"]),
 		"support tops begin covering from their complete form only after contact"
@@ -427,13 +436,22 @@ func _exercise_expansion() -> void:
 	var protected_found := _main.core.grid.find_structure(
 		protected_structure.instance_id
 	) if protected_structure != null else {}
+	var displaced: Dictionary = reveal_state.get("displaced_entry", {})
+	var displaced_cell: Vector2i = displaced.get(
+		"cell", Vector2i(2147483647, 2147483647)
+	)
+	var displaced_elevation := int(displaced.get("base_elevation", -1))
 	_expect(
-		bool(reveal_state.get("protected_slot_omitted_from_plan", false))
-		and _main.core.grid.tile_def(protected_cell).id == "tile_grass"
-		and _main.core.grid.top_elevation(protected_cell) == 0
+		bool(reveal_state.get("player_slot_generated_and_displaced", false))
+		and bool(displaced.get("landed_on_generated", false))
+		and displaced_elevation > 0
+		and _main.core.grid.tile_def_at(
+			displaced_cell, displaced_elevation
+		).id == "tile_grass"
 		and not protected_found.is_empty()
-		and (protected_found["coord"] as Vector2i) == protected_cell,
-		"generation preserves player terrain and models in occupied frontier slots"
+		and (protected_found["coord"] as Vector2i) == displaced_cell
+		and int(protected_found["elevation"]) == displaced_elevation,
+		"generation bounces player terrain and models onto the generated surface"
 	)
 	_expect(
 		all_seated

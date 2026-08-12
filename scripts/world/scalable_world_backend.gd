@@ -926,13 +926,37 @@ func animate_tile_water_skip(
 	if not tile_instances.has(key):
 		return null
 	var data: Dictionary = tile_instances[key]
+	var start_origin := impact_position + Vector3.UP * (
+		0.035 + relative_elevation * core.grid.block_depth
+	)
+	return _animate_water_skip_instance(data, start_origin)
+
+
+## A displaced tile holder carries its structures in exact-node worlds. In a
+## MultiMesh world the structure is a separate instance, so give it the same
+## translation arc as its supporting tile instead of letting it pop in later.
+func animate_structure_water_skip(
+	instance_id: int,
+	impact_position: Vector3,
+	target_tile_position: Vector3
+) -> Tween:
+	if not structure_instances.has(instance_id):
+		return null
+	var data: Dictionary = structure_instances[instance_id]
+	var target: Transform3D = data["base"]
+	var start_origin := target.origin + impact_position - target_tile_position
+	return _animate_water_skip_instance(data, start_origin)
+
+
+func _animate_water_skip_instance(
+	data: Dictionary,
+	start_origin: Vector3
+) -> Tween:
 	var multimesh: MultiMesh = data["multimesh"]
 	var index := int(data["index"])
 	var target: Transform3D = data["base"]
 	var start := target
-	start.origin = impact_position + Vector3.UP * (
-		0.035 + relative_elevation * core.grid.block_depth
-	)
+	start.origin = start_origin
 	start.basis = start.basis.scaled(Vector3(1.12, 0.72, 1.12))
 	var travel := target.origin - start.origin
 	var horizontal_distance := Vector2(travel.x, travel.z).length()

@@ -488,7 +488,10 @@ func new_game(new_profile: PlayerProfile) -> void:
 	camping.reset()
 	fishing.reset()
 	onboarding.set_stage(OnboardingState.COMPLETE)
-	_compose_starting_world()
+	if diorama.enabled:
+		_compose_empty_diorama_world()
+	else:
+		_compose_starting_world()
 	grid.home_cell = Vector2i.ZERO
 	profile.position = grid.cell_to_world(Vector2i.ZERO)
 	# Starter kit: rod + axe owned, plus the current body-slot wardrobe sample.
@@ -733,6 +736,16 @@ func _compose_starting_world() -> void:
 	grid.rebuild_structure_index()
 
 
+## The live diorama begins as a true blank canvas. The persistent Discovery
+## Tray supplies the first terrain piece, and ground placement works on the
+## infinite grid, so no generated or authored island has to be chosen first.
+func _compose_empty_diorama_world() -> void:
+	grid.cells.clear()
+	grid.stacked_cells.clear()
+	grid.next_instance_id = 1
+	grid.rebuild_structure_index()
+
+
 func _compose_onboarding_world() -> void:
 	grid.cells.clear()
 	grid.stacked_cells.clear()
@@ -837,7 +850,9 @@ func place_tile_from_stock(
 ) -> bool:
 	if not can_place_player_tile_at(coord, elevation, tile_id) or not stock.take_tile(tile_id):
 		return false
+	var was_empty := grid.cells.is_empty()
 	grid.place_tile_at(coord, elevation, tile_id, rotation)
+	_adopt_first_player_land(coord, elevation, was_empty)
 	collection.record_placed("tiles", tile_id)
 	if elevation == 0 and registries.feature("hostile_landmarks_enabled", false):
 		landmarks.on_world_grown()
@@ -898,10 +913,12 @@ func place_tile_from_diorama_offer(
 		or not can_place_player_tile_at(coord, elevation, tile_id)
 	):
 		return false
+	var was_empty := grid.cells.is_empty()
 	grid.place_tile_at(coord, elevation, tile_id, rotation)
 	if commit_diorama_offer(offer_id, "tile", tile_id).is_empty():
 		grid.remove_tile_at(coord, elevation)
 		return false
+	_adopt_first_player_land(coord, elevation, was_empty)
 	world_grown.emit(coord)
 	var payload := {
 		"coord": coord,
@@ -915,15 +932,10 @@ func place_tile_from_diorama_offer(
 	return true
 
 
-## Player-authored land is confined to revealed square Nook zones. Generation
-## bypasses this facade through WorldCommandService, so a Nook can still write
-## its planned terrain before its record is finalized and presented.
-func is_player_build_cell_unlocked(coord: Vector2i) -> bool:
-	return (
-		nooks == null
-		or not nooks.enabled
-		or nooks.world.is_cell_unlocked(coord)
-	)
+## The build grid is intentionally infinite. Nooks describe where procedural
+## land has unfolded; they never fence off the player's own diorama pieces.
+func is_player_build_cell_unlocked(_coord: Vector2i) -> bool:
+	return true
 
 
 func can_place_player_tile_at(
@@ -931,10 +943,18 @@ func can_place_player_tile_at(
 	elevation: int,
 	tile_id: String
 ) -> bool:
-	return (
-		is_player_build_cell_unlocked(coord)
-		and grid.can_place_tile_at(coord, elevation, tile_id)
-	)
+	return grid.can_place_tile_at(coord, elevation, tile_id)
+
+
+func _adopt_first_player_land(
+	coord: Vector2i,
+	elevation: int,
+	was_empty: bool
+) -> void:
+	if not was_empty or elevation != 0:
+		return
+	grid.home_cell = coord
+	profile.position = grid.cell_to_world(coord)
 
 
 # ------------------------------------------------------------------ tick & persistence

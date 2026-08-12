@@ -1429,8 +1429,9 @@ func _test_endless_diorama_progression() -> void:
 	check(
 		core.diorama.enabled
 		and offers.size() == 3
-		and roles.size() == 3,
-		"the live diorama loop begins with three distinct physical offer roles"
+		and roles.size() == 3
+		and core.grid.cells.is_empty(),
+		"the live diorama loop begins on a blank canvas with three physical offer roles"
 	)
 	check(
 		core.stock.total_tiles() == 0
@@ -1454,17 +1455,11 @@ func _test_endless_diorama_progression() -> void:
 		"a different piece cannot consume a reserved tray offer"
 	)
 
-	var placement_cell := Vector2i(2147483647, 2147483647)
-	for y in range(-8, 9):
-		for x in range(-8, 9):
-			var candidate := Vector2i(x, y)
-			if core.can_place_player_tile_at(candidate, 0, tile_id):
-				placement_cell = candidate
-				break
-		if placement_cell.x != 2147483647:
-			break
+	# Deliberately begin beyond the registered starter Nook. Generated regions
+	# are expansion targets, never fences around player-authored land.
+	var placement_cell := Vector2i(core.nooks.world.nook_size + 3, -2)
 	var placed := (
-		placement_cell.x != 2147483647
+		core.can_place_player_tile_at(placement_cell, 0, tile_id)
 		and core.place_tile_from_diorama_offer(
 			placement_cell, tile_id, 0, 0, first_id
 		)
@@ -1482,6 +1477,11 @@ func _test_endless_diorama_progression() -> void:
 	check(
 		stored_tile != null and core.stock.tile_count(tile_id) == 1,
 		"a tray-owned piece can subsequently return to the persistent Build Bag"
+	)
+	check(
+		core.place_tile_from_stock(Vector2i.ZERO, tile_id, 0)
+		and core.grid.home_cell == Vector2i.ZERO,
+		"the first stored terrain piece can re-establish the blank world's home cell"
 	)
 
 	var gift_before := core.diorama.gifts.count("expansion_ripple")
@@ -3612,15 +3612,16 @@ func _test_free_tile_placement_overlap_rotation() -> void:
 		"an empty silhouette cell inside a revealed Nook is buildable"
 	)
 	check(
-		not core.nooks.world.is_cell_unlocked(locked),
-		"an unrevealed square Nook zone remains locked"
+		not core.nooks.world.is_cell_unlocked(locked)
+		and core.is_player_build_cell_unlocked(locked),
+		"procedural Nook state does not fence the infinite player build grid"
 	)
 	check(not core.grid.can_place_tile(Vector2i.ZERO), "overlap rejected")
 	core.stock.add_tile("tile_grass", 2)
 	check(
-		not core.place_tile_from_stock(locked, "tile_grass", 0)
-		and core.stock.tile_count("tile_grass") == 2,
-		"player placement cannot consume stock or pre-build inside a locked Nook"
+		core.place_tile_from_stock(locked, "tile_grass", 0)
+		and core.stock.tile_count("tile_grass") == 1,
+		"player placement can build beyond generated land and consumes stock once"
 	)
 	check(core.place_tile_from_stock(detached, "tile_grass", 3), "detached placement from stock succeeds")
 	check(core.grid.cell(detached).rotation == 3, "rotation persists on the detached cell")
@@ -3628,14 +3629,15 @@ func _test_free_tile_placement_overlap_rotation() -> void:
 	var player := PlayerController.new()
 	player.core = core
 	var movement_rules := PlacementRules.new(core, player)
+	var farther_frontier := locked + Vector2i.RIGHT
 	check(
-		not movement_rules.validate({
+		movement_rules.validate({
 			"kind": "tile",
 			"id": "tile_grass",
 			"rotation": 3,
 			"moving": {"stack": stack, "elevation": 0},
-		}, locked, 0, 0, ""),
-		"an existing tile stack cannot be moved into a locked Nook"
+		}, farther_frontier, 0, 0, ""),
+		"the shared controller policy can move an existing stack beyond generated land"
 	)
 	player.free()
 	var moved := nook_origin + Vector2i(0, core.nooks.world.nook_size - 2)
@@ -3646,7 +3648,7 @@ func _test_free_tile_placement_overlap_rotation() -> void:
 	)
 	check(core.grid.cell(moved).rotation == 3, "detached tile movement preserves rotation")
 	check(not core.place_tile_from_stock(moved, "tile_grass", 0), "double placement rejected")
-	check(core.stock.tile_count("tile_grass") == 1, "stock consumed exactly once")
+	check(core.stock.tile_count("tile_grass") == 0, "each successful placement consumes stock exactly once")
 
 
 func _test_elevation_stacking() -> void:
@@ -5394,26 +5396,25 @@ func _test_direct_frontier_expansion() -> void:
 		"rotation": 0,
 		"moving": null,
 	}
+	var controller_policy_allows_frontier := shared_rules.validate(
+		held_tile, authored_cell, 0, 0, ""
+	)
 	check(
-		not core.place_tile_from_stock(authored_cell, "tile_grass", 0)
-		and core.stock.tile_count("tile_grass") == 1
-		and not shared_rules.validate(held_tile, authored_cell, 0, 0, "")
-		and shared_rules.invalid_message(
-			held_tile, authored_cell, 0, 0
-		) == "Reveal this Nook before placing land here.",
-		"pointer and controller placement share the locked-frontier rejection"
+		core.place_tile_from_stock(authored_cell, "tile_grass", 0)
+		and core.stock.tile_count("tile_grass") == 0
+		and core.is_player_build_cell_unlocked(authored_cell)
+		and controller_policy_allows_frontier,
+		"pointer and controller placement both allow empty cells beyond generated land"
 	)
 	player.free()
-	# Simulate an old save authored before the frontier boundary existed. New
-	# placement is blocked above, but generation still preserves grandfathered
-	# content rather than destructively rewriting a player's world.
-	core.grid.place_tile(authored_cell, "tile_grass")
+	# The policy probe now sees its own committed tile as occupied. Put a model
+	# on that player-authored column before procedural land reaches it.
 	var authored_tree := core.grid.add_structure(
 		authored_cell, "struct_pine", 1
 	)
 	check(
 		authored_tree != null,
-		"legacy frontier content can be represented for migration safety"
+		"player-authored frontier terrain can carry a complete model stack"
 	)
 	var cells_before := core.grid.cells.size()
 	var first_plan := core.nooks.expand_random(first_coord, {
@@ -5445,13 +5446,27 @@ func _test_direct_frontier_expansion() -> void:
 	var authored_tree_found := core.grid.find_structure(
 		authored_tree.instance_id
 	) if authored_tree != null else {}
+	var displaced_entry: Dictionary = {}
+	for displaced: Dictionary in first_plan.displaced_tiles:
+		if displaced.get("from_cell", Vector2i.ZERO) == authored_cell:
+			displaced_entry = displaced
+			break
+	var displaced_cell: Vector2i = displaced_entry.get(
+		"cell", Vector2i(2147483647, 2147483647)
+	)
+	var displaced_elevation := int(displaced_entry.get("base_elevation", -1))
 	check(
-		not authored_plan_content
-		and core.grid.tile_def(authored_cell).id == "tile_grass"
-		and core.grid.top_elevation(authored_cell) == 0
+		authored_plan_content
+		and not displaced_entry.is_empty()
+		and bool(displaced_entry.get("landed_on_generated", false))
+		and displaced_elevation > 0
+		and core.grid.tile_def_at(
+			displaced_cell, displaced_elevation
+		).id == "tile_grass"
 		and not authored_tree_found.is_empty()
-		and (authored_tree_found["coord"] as Vector2i) == authored_cell,
-		"generation preserves grandfathered columns and omits them from its reveal plan"
+		and (authored_tree_found["coord"] as Vector2i) == displaced_cell
+		and int(authored_tree_found["elevation"]) == displaced_elevation,
+		"generation fills the footprint and bounces the complete player column onto its terrain"
 	)
 	var first_record := core.nooks.world.nook(first_coord)
 	check(

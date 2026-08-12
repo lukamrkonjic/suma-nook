@@ -204,12 +204,15 @@ func _ready() -> void:
 			_start_gameplay(false)
 			call_deferred("_resume_guided_onboarding")
 	else:
-		# The Unfolding World opening: one question — the first Nook's seed
-		# — then the same falling-tile reveal as every later expansion. The
-		# legacy nine-tile guided canvas remains only for tests.
+		# The live loop starts on a blank, infinite build grid. The three
+		# Discovery Tray miniatures are the whole opening: no seed/world prompt.
 		var opening_profile := PlayerProfile.new()
 		opening_profile.display_name = "Keeper"
-		_begin_seeded_opening(opening_profile)
+		core.new_game(opening_profile)
+		player.position = core.profile.position
+		player_visual.apply_profile(core.profile)
+		player_visual.apply_equipment(core.equipment)
+		_start_gameplay(true, false)
 	_apply_debug_visual_overrides()
 	_schedule_debug_capture()
 	# Nook generation can select any registered biome. Stream its small model
@@ -1248,9 +1251,8 @@ func _starter_land_option_ids() -> Array:
 	return options
 
 
-## Fresh boot: the seed question comes first; the world unfolds from the
-## answer. State commits inside begin_seeded_game before the reveal wave
-## plays, so quitting mid-animation loses nothing.
+## Compatibility hook for archived seeded-opening fixtures. The live fresh-save
+## path starts directly on the blank Discovery Tray canvas above.
 func _begin_seeded_opening(opening_profile: PlayerProfile) -> void:
 	if OS.get_environment("SUMA_LEGACY_OPENING") == "1" \
 		or not core.registries.feature("nooks_enabled", true):

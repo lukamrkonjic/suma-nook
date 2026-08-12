@@ -26,6 +26,10 @@ class NookPlan:
 	var tiles: Array[Dictionary] = []
 	## [{"local": Vector2i, "structure_id": String, "dormant": bool}]
 	var features: Array[Dictionary] = []
+	## Player-authored tile stacks displaced by this generated footprint.
+	## Entries are presentation metadata only; the stacks already live at their
+	## authoritative landing cells when nook_revealed is emitted.
+	var displaced_tiles: Array[Dictionary] = []
 	## local "x:y" -> {"pool": String, "host_tag": String, "found": false}
 	var treasures: Dictionary = {}
 	## {"id": String, "cell": [x, y]} or empty.

@@ -31,16 +31,14 @@ func _ready() -> void:
 
 func _run() -> void:
 	await get_tree().create_timer(0.4).timeout
-	main.nook_offer_panel.close()
-	var profile := PlayerProfile.new()
-	profile.display_name = "Diorama Keeper"
-	main.core.new_game(profile)
-	main.renderer.rebuild_all()
-	main.player.position = main.core.profile.position
-	main.player_visual.apply_profile(main.core.profile)
-	main._start_gameplay(true, false)
 	await get_tree().process_frame
 	await get_tree().process_frame
+	check(
+		main._gameplay_started
+		and not main.nook_offer_panel.is_open()
+		and main.core.grid.cells.is_empty(),
+		"a fresh save enters the blank build canvas without a starting-world prompt"
+	)
 
 	var tray := main.discovery_tray_panel
 	check(
@@ -67,17 +65,12 @@ func _run() -> void:
 		"accepting a focused offer hands its exact receipt to the controller grid cursor"
 	)
 
-	var placement_cell := Vector2i(2147483647, 2147483647)
-	for y in range(-8, 9):
-		for x in range(-8, 9):
-			var candidate := Vector2i(x, y)
-			if main.core.can_place_player_tile_at(candidate, 0, tile_id):
-				placement_cell = candidate
-				break
-		if placement_cell.x != 2147483647:
-			break
+	var placement_cell := Vector2i(
+		main.core.nooks.world.nook_size + 4,
+		-main.core.nooks.world.nook_size - 2
+	)
 	var placed := (
-		placement_cell.x != 2147483647
+		main.core.can_place_player_tile_at(placement_cell, 0, tile_id)
 		and main.placement.try_place_at_layer(placement_cell, 0)
 	)
 	await get_tree().process_frame
@@ -89,6 +82,17 @@ func _run() -> void:
 		"first placement refills the tray and returns to calm play without an extra back action"
 	)
 
+	# A lone home tile is deliberately protected from pickup until another safe
+	# surface exists. Place the refilled terrain offer beside it, then exercise
+	# the ordinary move-to-Build-Bag path on the first tile.
+	var second_terrain := main.core.diorama.tray.offer_at(0)
+	tray._select(0)
+	var second_cell := placement_cell + Vector2i.RIGHT
+	check(
+		String(second_terrain.get("kind", "")) == "tile"
+		and main.placement.try_place_at_layer(second_cell, 0),
+		"the terrain tray role can extend the blank canvas one tile at a time"
+	)
 	main.placement.set_active(true)
 	main.placement.pick_up_at(placement_cell, 0)
 	check(
