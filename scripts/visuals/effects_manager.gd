@@ -517,6 +517,64 @@ func rock_burst(point: Vector3, count := 11) -> void:
 		tween.chain().tween_callback(fragment.queue_free)
 
 
+## Painted ceramic fragments make the visitor gift read as a real vase that
+## breaks, rather than borrowing the gray rubble language used by mining.
+func ceramic_burst(point: Vector3, count := 16) -> void:
+	var materials: Array[Material] = [
+		assets.materials.material("terracotta_primary"),
+		assets.materials.material("terracotta_light"),
+		assets.materials.material("warm_white"),
+	]
+	for index in count:
+		var fragment := MeshInstance3D.new()
+		fragment.name = "CeramicFragment"
+		var mesh := BoxMesh.new()
+		mesh.size = Vector3(
+			randf_range(0.035, 0.095),
+			randf_range(0.018, 0.048),
+			randf_range(0.07, 0.16)
+		)
+		fragment.mesh = mesh
+		fragment.material_override = materials[index % materials.size()]
+		fragment.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		fragment.position = point + Vector3(
+			randf_range(-0.08, 0.08),
+			randf_range(-0.02, 0.08),
+			randf_range(-0.08, 0.08)
+		)
+		fragment.rotation = Vector3(randf() * TAU, randf() * TAU, randf() * TAU)
+		add_child(fragment)
+		var start := fragment.position
+		var angle := (
+			TAU * float(index) / float(maxi(1, count))
+			+ randf_range(-0.18, 0.18)
+		)
+		var horizontal := Vector3(cos(angle), 0.0, sin(angle)) * randf_range(
+			0.5, 1.12
+		)
+		var lift := randf_range(0.46, 0.92)
+		var duration := randf_range(0.46, 0.7)
+		var spin := fragment.rotation + Vector3(
+			randf_range(3.0, 7.0),
+			randf_range(2.0, 6.0),
+			randf_range(3.0, 7.0)
+		)
+		var tween := fragment.create_tween()
+		var fly := func(progress: float) -> void:
+			fragment.position = start + horizontal * progress + Vector3.UP * (
+				lift * 4.0 * progress * (1.0 - progress) - 0.1 * progress
+			)
+		tween.set_parallel()
+		tween.tween_method(fly, 0.0, 1.0, duration)
+		tween.tween_property(fragment, "rotation", spin, duration)
+		tween.tween_property(
+			fragment, "scale", Vector3.ONE * 0.08, duration * 0.38
+		).set_delay(duration * 0.62).set_trans(Tween.TRANS_QUAD).set_ease(
+			Tween.EASE_IN
+		)
+		tween.chain().tween_callback(fragment.queue_free)
+
+
 func placement_poof(point: Vector3, kind: String) -> void:
 	burst("fx_leaf" if kind == "grass" else "fx_smoke_puff", point + Vector3(0, 0.15, 0), 7, 1.6)
 

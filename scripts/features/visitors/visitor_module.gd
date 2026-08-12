@@ -5,6 +5,7 @@ extends RefCounted
 ## rerolled by reloading or by changing scene adapters.
 
 signal visitor_available(event: Dictionary)
+signal visitor_vase_ready(event: Dictionary)
 signal visitor_collected(event: Dictionary, reward: Dictionary)
 signal timer_changed(seconds_remaining: float)
 
@@ -38,7 +39,19 @@ func _init(
 
 
 func tick(delta: float) -> void:
-	if not enabled or program == null or not current_event.is_empty():
+	if not enabled or program == null:
+		return
+	if not current_event.is_empty():
+		if String(current_event.get("phase", "visiting")) != "visiting":
+			return
+		var visit_left := maxf(
+			0.0,
+			float(current_event.get("visit_seconds_left", 0.0))
+				- maxf(0.0, delta)
+		)
+		current_event["visit_seconds_left"] = visit_left
+		if visit_left <= 0.0:
+			leave_vase(int(current_event.get("event_id", 0)))
 		return
 	time_until_next = maxf(0.0, time_until_next - maxf(0.0, delta))
 	timer_changed.emit(time_until_next)
@@ -79,13 +92,36 @@ func trigger_now() -> Dictionary:
 		"cell": [cell.x, cell.y],
 		"reward": pre_rolled,
 		"first": first,
+		"phase": "visiting",
+		"visit_seconds_left": rng.randf_range(
+			"visitors:stay",
+			program.visit_min_seconds,
+			program.visit_max_seconds
+		),
 	}
 	visitor_available.emit(current_event.duplicate(true))
 	return current_event.duplicate(true)
 
 
+func leave_vase(event_id: int) -> bool:
+	if (
+		current_event.is_empty()
+		or int(current_event.get("event_id", 0)) != event_id
+		or String(current_event.get("phase", "visiting")) != "visiting"
+	):
+		return false
+	current_event["phase"] = "vase"
+	current_event["visit_seconds_left"] = 0.0
+	visitor_vase_ready.emit(current_event.duplicate(true))
+	return true
+
+
 func collect(event_id: int) -> Dictionary:
-	if current_event.is_empty() or int(current_event.get("event_id", 0)) != event_id:
+	if (
+		current_event.is_empty()
+		or int(current_event.get("event_id", 0)) != event_id
+		or String(current_event.get("phase", "visiting")) != "vase"
+	):
 		return {}
 	var event := current_event.duplicate(true)
 	var granted: Dictionary = rewards.call(
@@ -221,6 +257,12 @@ func _normalize_event(event: Dictionary) -> Dictionary:
 		event["cell"] = [int(raw_cell[0]), int(raw_cell[1])]
 	event["event_id"] = int(event.get("event_id", 0))
 	event["first"] = bool(event.get("first", false))
+	event["phase"] = String(event.get("phase", "vase"))
+	if event["phase"] not in ["visiting", "vase"]:
+		event["phase"] = "vase"
+	event["visit_seconds_left"] = maxf(
+		0.0, float(event.get("visit_seconds_left", 0.0))
+	)
 	reward["amount"] = int(reward.get("amount", 0))
 	event["reward"] = reward
 	return event

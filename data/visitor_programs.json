@@ -17,10 +17,12 @@
       ],
       "first_reward_pool": "reward_non_forest_foundations",
       "reward_pool": "reward_global_world_gifts",
-      "first_min_seconds": 180.0,
-      "first_max_seconds": 360.0,
-      "later_min_seconds": 900.0,
-      "later_max_seconds": 1800.0
+      "first_min_seconds": 2.0,
+      "first_max_seconds": 4.0,
+      "later_min_seconds": 2.0,
+      "later_max_seconds": 4.0,
+      "visit_min_seconds": 13.0,
+      "visit_max_seconds": 26.0
     }
   ]
 }

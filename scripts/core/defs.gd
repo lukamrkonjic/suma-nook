@@ -498,6 +498,8 @@ class VisitorProgramDefinition:
 	var first_max_seconds: float = 360.0
 	var later_min_seconds: float = 900.0
 	var later_max_seconds: float = 1800.0
+	var visit_min_seconds: float = 15.0
+	var visit_max_seconds: float = 30.0
 
 	static func from_dict(d: Dictionary) -> VisitorProgramDefinition:
 		var program := VisitorProgramDefinition.new()
@@ -512,6 +514,11 @@ class VisitorProgramDefinition:
 		program.first_max_seconds = maxf(program.first_min_seconds, float(d.get("first_max_seconds", 360.0)))
 		program.later_min_seconds = maxf(0.0, float(d.get("later_min_seconds", 900.0)))
 		program.later_max_seconds = maxf(program.later_min_seconds, float(d.get("later_max_seconds", 1800.0)))
+		program.visit_min_seconds = maxf(1.0, float(d.get("visit_min_seconds", 15.0)))
+		program.visit_max_seconds = maxf(
+			program.visit_min_seconds,
+			float(d.get("visit_max_seconds", 30.0))
+		)
 		return program
 
 

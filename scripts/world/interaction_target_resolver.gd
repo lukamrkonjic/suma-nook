@@ -10,6 +10,7 @@ var delivery_point: DeliveryPoint
 var renderer: WorldRenderer
 var frontier_markers
 var provision_fishing_spots: ProvisionFishingSpots
+var visitor_scene: Node3D
 
 
 func _init(
@@ -32,6 +33,10 @@ func set_frontier_markers(markers) -> void:
 
 func set_provision_fishing_spots(spots: ProvisionFishingSpots) -> void:
 	provision_fishing_spots = spots
+
+
+func set_visitor_scene(visitors: Node3D) -> void:
+	visitor_scene = visitors
 
 
 func ground_point(screen_position: Vector2) -> Variant:
@@ -68,6 +73,12 @@ func interaction_at(screen_position: Vector2) -> Dictionary:
 		)
 		if not fishing_spot.is_empty():
 			return fishing_spot
+	if visitor_scene != null:
+		var vase: Dictionary = visitor_scene.call(
+			"event_at_screen", camera, screen_position
+		)
+		if not vase.is_empty():
+			return vase
 
 	# Structures already expose exact mesh pick targets for build mode. Reuse
 	# those shapes for gameplay so a click on a flame, chest, tree, or shelter

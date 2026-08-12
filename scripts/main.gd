@@ -45,6 +45,9 @@ const RewardRevealPresenterRegistryScript := preload(
 const RewardRevealSceneAdapterScript := preload(
 	"res://scripts/features/rewards/presentation/reward_reveal_scene_adapter.gd"
 )
+const DirectRewardPresenterScript := preload(
+	"res://scripts/features/rewards/presentation/direct_reward_presenter.gd"
+)
 const VisitorSceneAdapterScript := preload(
 	"res://scripts/features/visitors/presentation/visitor_scene_adapter.gd"
 )
@@ -377,6 +380,10 @@ func _build_world_scene() -> void:
 		"world_bud",
 		func(): return WorldBudRewardPresenterScript.new() as Node3D
 	)
+	reward_reveal_presenter_registry.register(
+		"direct_reward",
+		func(): return DirectRewardPresenterScript.new() as Node3D
+	)
 	reward_reveal = RewardRevealSceneAdapterScript.new()
 	reward_reveal.name = "WorldBudRewards"
 	world_root.add_child(reward_reveal)
@@ -400,6 +407,9 @@ func _build_world_scene() -> void:
 		"setup", core.visitors, core.registries, core.grid,
 		visitor_presenter_registry
 	)
+	# VisitorScene is assembled after the generic resolver. Bind it here, once
+	# the real adapter exists, so mouse clicks can reach gift vases.
+	interaction_targets.call("set_visitor_scene", visitor_scene)
 	player.setup(core, camera_rig, player_visual)
 	player.set_provision_fishing_spots(provision_fishing_spots)
 	pigeon_mascot = PIGEON_MASCOT_SCENE.instantiate() as CharacterBody3D
@@ -1128,9 +1138,14 @@ func _connect_flows() -> void:
 	)
 	core.token_pouch.box_opened.connect(_on_token_box_opened)
 	visitor_scene.connect("reward_presented", _on_visitor_reward_presented)
+	visitor_scene.connect("vase_smashed", _on_visitor_vase_smashed)
 	core.visitors.visitor_available.connect(func(_event):
 		hud.toast("A curious visitor has arrived.", "rare")
 		audio.play_event("parcel_appear")
+	)
+	core.visitors.visitor_vase_ready.connect(func(_event):
+		hud.toast("Your visitor left a little gift behind.", "good")
+		_refresh_controller_hints()
 	)
 	if ferry_presentation != null:
 		ferry_presentation.arrival_started.connect(_on_presentation_arrival_started)
@@ -2158,9 +2173,17 @@ func _refresh_controller_hints() -> void:
 				{"action": &"cancel", "label": "Exit"},
 			]
 	else:
+		var interact_label := "Interact"
+		if placement.interaction_cursor_active():
+			var cursor_interaction := _interaction_at_controller_cursor()
+			match String(cursor_interaction.get("kind", "")):
+				"visitor_vase":
+					interact_label = "Break gift vase"
+				"provision_fishing_spot":
+					interact_label = "Fish"
 		actions = [
 			{"action": &"build_cursor_up", "label": "Move world cursor"},
-			{"action": &"interact", "label": "Interact"},
+			{"action": &"interact", "label": interact_label},
 			{"action": &"project_menu", "label": "Projects"},
 			{"action": &"build_mode", "label": "Edit mode"},
 		]
@@ -2373,6 +2396,9 @@ func _interaction_at_controller_cursor() -> Dictionary:
 	var fishing_spot := provision_fishing_spots.interaction_at_cell(cell)
 	if not fishing_spot.is_empty():
 		return fishing_spot
+	var visitor_vase: Dictionary = visitor_scene.call("event_at_cell", cell)
+	if not visitor_vase.is_empty():
+		return visitor_vase
 	var instance_id := placement.controller_target_instance_id()
 	if instance_id <= 0:
 		return {}
@@ -2519,16 +2545,20 @@ func _on_token_box_opened(_box_id: String, reward: Dictionary) -> void:
 
 func _on_visitor_reward_presented(reward: Dictionary) -> void:
 	var name: String = core.build_rewards.call("display_name", reward)
-	audio.play_event(
-		"reward_rare" if String(reward.get("rarity", "common")) == "rare"
-		else "reward_common"
-	)
 	hud.toast(
 		"%d × %s dropped into your Build Library."
 		% [int(reward.get("amount", 1)), name],
 		"rare"
 	)
 	hud.update_tutorial()
+
+
+func _on_visitor_vase_smashed(position: Vector3, reward: Dictionary) -> void:
+	audio.play_event("place_stone", 1.5, 1.35)
+	effects.ceramic_burst(position + Vector3.UP * 0.18, 18)
+	effects.burst("fx_spark", position + Vector3.UP * 0.22, 14, 3.8)
+	effects.burst("fx_smoke_puff", position + Vector3.UP * 0.08, 8, 1.7)
+	reward_reveal.enqueue(reward, position + Vector3.UP * 0.16, "reveal_visitor_vase")
 
 
 func _on_onboarding_stage_changed(_stage: String) -> void:
@@ -2659,6 +2689,8 @@ func _on_placement_result(ok: bool, _message: String, kind: String) -> void:
 
 func _on_focus_changed(focus: Dictionary) -> void:
 	match focus.get("kind", ""):
+		"visitor_vase":
+			hud.set_prompt(&"interact", "Break the visitor's gift vase")
 		"provision_fishing_spot":
 			hud.set_prompt(
 				&"interact",
@@ -2707,6 +2739,8 @@ func _on_click_interaction_reached(interaction: Dictionary) -> void:
 
 func _perform_interaction(interaction: Dictionary) -> void:
 	match interaction.get("kind", ""):
+		"visitor_vase":
+			visitor_scene.call("interact", int(interaction.get("event_id", 0)))
 		"provision_fishing_spot":
 			provision_fishing_spots.interact(
 				interaction.get("coord", Vector2i.ZERO)

@@ -1466,9 +1466,17 @@ func _test_content_catalog_architecture() -> void:
 	check(
 		visitor_program != null
 		and regs.reward_pool(visitor_program.first_reward_pool_id) != null
+		and visitor_program.first_min_seconds + visitor_program.visit_min_seconds
+			>= 15.0
+		and visitor_program.later_max_seconds + visitor_program.visit_max_seconds
+			<= 30.0
 		and not visitor_program.presentation_ids.is_empty()
-		and regs.visitor_presentation(visitor_program.presentation_ids[0]) != null,
-		"visitor programs resolve replaceable presentations and shared reward pools"
+		and regs.visitor_presentation(visitor_program.presentation_ids[0]) != null
+		and regs.reward_reveal_profile("reveal_visitor_vase") != null
+		and regs.reward_reveal_profile(
+			"reveal_visitor_vase"
+		).presenter_type == "direct_reward",
+		"visitor programs resolve calm cadence, replaceable looks, pools, and vase reveals"
 	)
 	var original_token_id := young_profile.token_id
 	young_profile.token_id = "retired_token"
@@ -2784,10 +2792,21 @@ func _test_authored_onboarding_flow() -> void:
 	var visitor_event: Dictionary = core.visitors.trigger_now()
 	check(
 		not visitor_event.is_empty()
+		and visitor_event.get("phase", "") == "visiting"
+		and float(visitor_event.get("visit_seconds_left", 0.0)) >= 13.0
+		and float(visitor_event.get("visit_seconds_left", 0.0)) <= 26.0
 		and core.registries.visitor_presentation(
 			String(visitor_event.get("presentation_id", ""))
 		) != null,
-		"the first visitor selects a replaceable retained-SDF presentation"
+		"the first visitor selects a retained-SDF look and a calm visit duration"
+	)
+	check(
+		core.visitors.collect(int(visitor_event.get("event_id", 0))).is_empty(),
+		"a visitor cannot be clicked for its reward while it is still visiting"
+	)
+	check(
+		core.visitors.leave_vase(int(visitor_event.get("event_id", 0))),
+		"the visitor finishes its visit by leaving a breakable gift vase"
 	)
 	var visitor_reward: Dictionary = core.visitors.collect(
 		int(visitor_event.get("event_id", 0))
@@ -2796,7 +2815,7 @@ func _test_authored_onboarding_flow() -> void:
 		visitor_reward.get("kind", "") == "tile"
 		and int(visitor_reward.get("amount", 0)) >= 4
 		and core.onboarding.stage == OnboardingState.PLACE_VISITOR_REWARD,
-		"clicking the first visitor grants a useful non-forest foundation bundle"
+		"breaking the first visitor vase grants a useful non-forest foundation bundle"
 	)
 	check(
 		core.place_tile_from_stock(
@@ -3025,13 +3044,31 @@ func _test_harvesting_and_visitors() -> void:
 		disk_loaded and disk_pending == pending,
 		"visitor arrival immediately persists its look, cell, and pre-rolled gift"
 	)
+	check(
+		core.visitors.collect(int(pending.get("event_id", 0))).is_empty(),
+		"the pre-rolled gift stays locked while its visitor is walking around"
+	)
+	check(
+		core.visitors.leave_vase(int(pending.get("event_id", 0)))
+		and core.visitors.waiting_event().get("phase", "") == "vase",
+		"the completed visit transitions to a durable unattended vase"
+	)
+	var vase_disk_core := GameCore.new()
+	vase_disk_core.setup("res://data", 9293)
+	vase_disk_core.save_manager.save_path = core.save_manager.save_path
+	vase_disk_core.save_manager.backup_path = core.save_manager.backup_path
+	check(
+		vase_disk_core.load_game()
+		and vase_disk_core.visitors.waiting_event().get("phase", "") == "vase",
+		"the vase phase saves immediately and does not replay the departing visitor"
+	)
 	var persisted: Dictionary = core.visitors.to_save_dict()
 	var restored_core := fresh_core(9191)
 	restored_core.visitors.from_save_dict(persisted)
 	check(
 		not pending.is_empty()
 		and restored_core.visitors.waiting_event() == pending,
-		"a pending visitor keeps its exact presentation and pre-rolled gift"
+		"a pending vase keeps its exact presentation and pre-rolled gift"
 	)
 	var pending_reward: Dictionary = pending.get("reward", {})
 	var before := (
@@ -3051,7 +3088,7 @@ func _test_harvesting_and_visitors() -> void:
 		not granted.is_empty()
 		and after - before == int(granted.get("amount", 0))
 		and not restored_core.visitors.has_waiting_visitor(),
-		"visitor collection grants its saved gift once and schedules the next event"
+		"vase collection grants its saved gift once and schedules the next event"
 	)
 
 func _test_skills_grant_no_direct_placeables() -> void:

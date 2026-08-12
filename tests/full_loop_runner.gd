@@ -115,6 +115,17 @@ func _ready() -> void:
 func _run() -> void:
 	await wait(0.5)
 	await _step_creation()
+	if OS.get_cmdline_user_args().has("--visitor-only"):
+		await _step_visitor_vase_loop()
+		if failures.is_empty():
+			print("VISITOR VASE LOOP PASSED — %d checks" % checks)
+		else:
+			print(
+				"VISITOR VASE LOOP FAILED — %d/%d failed"
+				% [failures.size(), checks]
+			)
+		await _finish()
+		return
 	if OS.get_cmdline_user_args().has("--project-shot"):
 		main.project_panel.open()
 		await wait(0.25)
@@ -464,19 +475,69 @@ func _step_creation() -> void:
 	)
 	var visitor_event: Dictionary = main.core.visitors.trigger_now()
 	await wait(0.2)
+	var visitor_cell_raw: Array = visitor_event.get("cell", [0, 0])
+	var visitor_cell := Vector2i(
+		int(visitor_cell_raw[0]), int(visitor_cell_raw[1])
+	)
 	check(
 		not visitor_event.is_empty()
-		and main.visitor_scene.call(
+		and main.visitor_scene.current_presenter != null
+		and main.visitor_scene.current_vase == null,
+		"a retained SDF visitor arrives and strolls before leaving its reward"
+	)
+	check(
+		not main.visitor_scene.call(
 			"interact", int(visitor_event.get("event_id", 0))
 		),
-		"a retained SDF visitor is clickable through its replaceable presenter"
+		"clicking the strolling visitor cannot collect or pick it up"
+	)
+	check(
+		main.core.visitors.leave_vase(int(visitor_event.get("event_id", 0))),
+		"the completed visit starts the visitor's autonomous departure"
 	)
 	await wait(0.55)
 	check(
-		main.core.onboarding.stage == OnboardingState.PLACE_VISITOR_REWARD
-		and main.placement.held.get("kind", "") == "tile",
-		"the visitor fades away and leaves its pre-rolled non-forest gift"
+		main.core.onboarding.stage == OnboardingState.WAIT_VISITOR
+		and main.visitor_scene.current_presenter == null
+		and main.visitor_scene.current_vase != null,
+		"the visitor leaves while its reward remains locked inside a ceramic vase"
 	)
+	main.placement.set_active(false)
+	InputDeviceService.shared()._set_input_method(
+		InputDeviceService.InputMethod.CONTROLLER
+	)
+	main.placement.set_controller_mode(true)
+	main.placement._controller_cell = visitor_cell
+	main._refresh_controller_hints()
+	var controller_vase_target: Dictionary = (
+		main._interaction_at_controller_cursor()
+	)
+	var has_vase_prompt := false
+	for action: Dictionary in main.input_hints._context:
+		if (
+			action.get("action", &"") == &"interact"
+			and action.get("label", "") == "Break gift vase"
+		):
+			has_vase_prompt = true
+			break
+	check(
+		controller_vase_target.get("kind", "") == "visitor_vase"
+		and has_vase_prompt,
+		"the grid cursor deterministically targets the vase with a contextual controller prompt"
+	)
+	await _tap_joy_button(JOY_BUTTON_X)
+	await wait(0.25)
+	check(
+		main.core.onboarding.stage == OnboardingState.PLACE_VISITOR_REWARD
+		and main.placement.held.get("kind", "") == "tile"
+		and main.visitor_scene.current_vase == null
+		and main.reward_reveal.is_revealing(),
+		"controller Interact smashes the vase and starts the gacha-style reward reveal"
+	)
+	InputDeviceService.shared()._set_input_method(
+		InputDeviceService.InputMethod.KEYBOARD_MOUSE
+	)
+	main.placement.set_controller_mode(false)
 	check(
 		main.placement.try_place_at(Vector2i(1, 2)),
 		"the visitor gift places as an ordinary reusable world piece"
@@ -518,6 +579,108 @@ func _step_creation() -> void:
 	check(tool_mount != null and tool_mount.get_child_count() == 0, "rod stays hidden during movement")
 	await shot("screenshot_starting_world")
 
+
+func _step_visitor_vase_loop() -> void:
+	print("STEP wandering visitor and gacha vase")
+	main.placement.set_active(false)
+	var visitor_event: Dictionary = main.core.visitors.waiting_event()
+	if visitor_event.is_empty():
+		visitor_event = main.core.visitors.trigger_now()
+	await wait(0.2)
+	var event_id := int(visitor_event.get("event_id", 0))
+	var cell_raw: Array = visitor_event.get("cell", [0, 0])
+	var visitor_cell := Vector2i(int(cell_raw[0]), int(cell_raw[1]))
+	var reward: Dictionary = visitor_event.get("reward", {})
+	var stock_before := (
+		main.core.stock.tile_count(String(reward.get("id", "")))
+		if reward.get("kind", "") == "tile"
+		else main.core.stock.structure_count(String(reward.get("id", "")))
+	)
+	check(
+		event_id > 0
+		and visitor_event.get("phase", "") == "visiting"
+		and main.visitor_scene.current_presenter != null
+		and main.visitor_scene.current_vase == null,
+		"the visitor arrives as a strolling world character rather than a reward button"
+	)
+	check(
+		main.core.visitors.collect(event_id).is_empty()
+		and not main.visitor_scene.call("interact", event_id),
+		"short interactions cannot collect or pick up the visitor"
+	)
+	check(
+		main.core.visitors.leave_vase(event_id),
+		"the elapsed visit starts an autonomous departure"
+	)
+	await wait(0.55)
+	var vase: Node3D = main.visitor_scene.current_vase
+	check(
+		main.visitor_scene.current_presenter == null
+		and vase != null
+		and main.core.visitors.waiting_event().get("phase", "") == "vase",
+		"the departing visitor leaves one persistent ceramic vase"
+	)
+	if vase == null:
+		return
+	var vase_screen := main.camera_rig.camera.unproject_position(
+		vase.global_position + Vector3.UP * 0.28
+	)
+	var direct_vase_target: Dictionary = main.visitor_scene.event_at_screen(
+		main.camera_rig.camera, vase_screen
+	)
+	var resolved_vase_target: Dictionary = main._interaction_at_screen(vase_screen)
+	check(
+		direct_vase_target.get("kind", "") == "visitor_vase"
+		and resolved_vase_target.get("kind", "") == "visitor_vase",
+		"the visible vase is the mouse interaction target (direct=%s resolved=%s behind=%s)"
+		% [
+			direct_vase_target.get("kind", "empty"),
+			resolved_vase_target.get("kind", "empty"),
+			main.camera_rig.camera.is_position_behind(
+				vase.global_position + Vector3.UP * 0.28
+			),
+		]
+	)
+	await shot("visitor_gift_vase")
+	InputDeviceService.shared()._set_input_method(
+		InputDeviceService.InputMethod.CONTROLLER
+	)
+	main.placement.set_controller_mode(true)
+	main.placement._controller_cell = visitor_cell
+	main._refresh_controller_hints()
+	var controller_target := main._interaction_at_controller_cursor()
+	var has_vase_prompt := false
+	for action: Dictionary in main.input_hints._context:
+		if (
+			action.get("action", &"") == &"interact"
+			and action.get("label", "") == "Break gift vase"
+		):
+			has_vase_prompt = true
+			break
+	check(
+		controller_target.get("kind", "") == "visitor_vase"
+		and has_vase_prompt,
+		"the grid cursor targets the vase with an InputService controller prompt"
+	)
+	await _tap_joy_button(JOY_BUTTON_X)
+	await wait(0.25)
+	var stock_after := (
+		main.core.stock.tile_count(String(reward.get("id", "")))
+		if reward.get("kind", "") == "tile"
+		else main.core.stock.structure_count(String(reward.get("id", "")))
+	)
+	check(
+		main.visitor_scene.current_vase == null
+		and stock_after - stock_before == int(reward.get("amount", 0))
+		and main.reward_reveal.is_revealing(),
+		"controller Interact shatters the vase, grants exactly once, and starts the surprise reveal"
+	)
+	await _tap_joy_button(JOY_BUTTON_X)
+	await wait(0.65)
+	check(
+		not main.reward_reveal.is_revealing(),
+		"the same semantic controller action can hurry the non-blocking reveal"
+	)
 
 func _step_wish_drop() -> void:
 	print("STEP automatic single-copy wish drop")

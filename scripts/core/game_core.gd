@@ -395,6 +395,13 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 			# quitting can never reroll an already-arrived visitor.
 			owner.save()
 	)
+	visitors.visitor_vase_ready.connect(func(_event):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			# The unattended vase is a durable world state. Reloading after the
+			# visitor leaves must not replay the visit or its departure.
+			owner.save()
+	)
 	visitors.visitor_collected.connect(func(event, reward):
 		var owner := owner_ref.get_ref() as GameCore
 		if owner != null:

@@ -10,7 +10,7 @@ const REWARD_RARITIES := ["common", "uncommon", "rare"]
 const HARVEST_PRESENTATIONS := [
 	"clay_tree", "clay_rock", "berry_cluster", "soft_source"
 ]
-const REVEAL_PRESENTERS := ["world_bud"]
+const REVEAL_PRESENTERS := ["world_bud", "direct_reward"]
 const WORLD_BUD_SHAPES := ["acorn", "berry", "box"]
 
 
