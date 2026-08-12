@@ -1541,7 +1541,8 @@ func pick_up_at(cell: Vector2i, elevation: int = -1) -> void:
 func pointer_press(
 	screen_position: Vector2,
 	pick_up_on_drag_only := false,
-	require_hold_for_pickup := false
+	require_hold_for_pickup := false,
+	allow_deferred_pickup := true
 ) -> void:
 	camera_rig.begin_pointer_edit()
 	_pointer_down = true
@@ -1553,9 +1554,10 @@ func pointer_press(
 	if held.is_empty():
 		if pick_up_on_drag_only:
 			if not _pointer_is_over_ui(screen_position):
-				_deferred_pickup_hit = _placeable_hit_with_grid_fallback(
-					screen_position
-				)
+				if allow_deferred_pickup:
+					_deferred_pickup_hit = _placeable_hit_with_grid_fallback(
+						screen_position
+					)
 				_deferred_pickup_requires_hold = (
 					require_hold_for_pickup
 					and not _deferred_pickup_hit.is_empty()

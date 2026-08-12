@@ -74,11 +74,11 @@ func interaction_at(screen_position: Vector2) -> Dictionary:
 		if not fishing_spot.is_empty():
 			return fishing_spot
 	if visitor_scene != null:
-		var vase: Dictionary = visitor_scene.call(
+		var visitor_target: Dictionary = visitor_scene.call(
 			"event_at_screen", camera, screen_position
 		)
-		if not vase.is_empty():
-			return vase
+		if not visitor_target.is_empty():
+			return visitor_target
 
 	# Structures already expose exact mesh pick targets for build mode. Reuse
 	# those shapes for gameplay so a click on a flame, chest, tree, or shelter

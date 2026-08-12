@@ -8,6 +8,9 @@ signal vase_smashed(
 	reward: Dictionary,
 	container_style: Dictionary
 )
+signal visitor_greeted(position: Vector3, display_name: String)
+
+const VISUAL_POINTER_MARGIN := 12.0
 
 var module: RefCounted
 var registries: Registries
@@ -52,14 +55,72 @@ func sync_from_module() -> void:
 
 
 func event_at_screen(camera: Camera3D, screen_position: Vector2) -> Dictionary:
-	var target := current_vase
-	if target == null or camera == null or _collecting:
+	if camera == null:
 		return {}
-	var point := target.global_position + Vector3(0.0, 0.28, 0.0)
-	if camera.is_position_behind(point):
-		return {}
-	if camera.unproject_position(point).distance_to(screen_position) > 72.0:
-		return {}
+	if current_vase != null and not _collecting:
+		if _screen_hits_visual(camera, screen_position, current_vase):
+			return _vase_target(current_vase)
+	if current_presenter != null and not _presenter_is_departing():
+		if _screen_hits_visual(camera, screen_position, current_presenter):
+			return _visitor_target(current_presenter)
+	return {}
+
+
+func event_at_cell(cell: Vector2i) -> Dictionary:
+	if (
+		current_vase != null
+		and not _collecting
+		and current_vase.get_meta(
+			"visitor_cell", Vector2i(999999, 999999)
+		) == cell
+	):
+		return _vase_target(current_vase)
+	if (
+		current_presenter != null
+		and not _presenter_is_departing()
+		and current_presenter.get_meta(
+			"visitor_cell", Vector2i(999999, 999999)
+		) == cell
+	):
+		return _visitor_target(current_presenter)
+	return {}
+
+
+func interact(event_id: int) -> bool:
+	if (
+		current_presenter != null
+		and not _presenter_is_departing()
+		and int(current_presenter.get_meta("visitor_event_id", 0)) == event_id
+	):
+		if (
+			not current_presenter.has_method("greet")
+			or not bool(current_presenter.call("greet"))
+		):
+			return false
+		visitor_greeted.emit(
+			current_presenter.global_position,
+			String(current_presenter.get_meta("visitor_display_name", "Visitor"))
+		)
+		return true
+	return _smash_vase(event_id)
+
+
+func _visitor_target(target: Node3D) -> Dictionary:
+	var interaction_point := target.global_position + Vector3.UP * 0.35
+	if target.has_method("interaction_world_point"):
+		interaction_point = target.call("interaction_world_point")
+	return {
+		"kind": "visitor",
+		"event_id": int(target.get_meta("visitor_event_id", 0)),
+		"cell": target.get_meta("visitor_cell", Vector2i.ZERO),
+		"point": interaction_point,
+		"visual": target,
+		"display_name": target.get_meta("visitor_display_name", "Visitor"),
+		"collection_name": "Wandering Visitors",
+	}
+
+
+func _vase_target(target: Node3D) -> Dictionary:
 	return {
 		"kind": "visitor_vase",
 		"event_id": int(target.get_meta("visitor_event_id", 0)),
@@ -75,31 +136,47 @@ func event_at_screen(camera: Camera3D, screen_position: Vector2) -> Dictionary:
 	}
 
 
-func event_at_cell(cell: Vector2i) -> Dictionary:
-	var target := current_vase
-	if (
-		target == null
-		or _collecting
-		or target.get_meta("visitor_cell", Vector2i(999999, 999999)) != cell
-	):
-		return {}
-	return {
-		"kind": "visitor_vase",
-		"event_id": int(target.get_meta("visitor_event_id", 0)),
-		"cell": cell,
-		"point": target.global_position,
-		"visual": target,
-		"display_name": target.get_meta(
-			"visitor_container_name", "Visitor Gift"
-		),
-		"collection_name": target.get_meta(
-			"visitor_collection_name", "Visitor Collection"
-		),
-	}
+func _presenter_is_departing() -> bool:
+	return (
+		current_presenter == null
+		or (
+			current_presenter.has_method("is_departing")
+			and bool(current_presenter.call("is_departing"))
+		)
+	)
 
 
-func interact(event_id: int) -> bool:
-	return _smash_vase(event_id)
+## Screen-space bounds follow the actual procedural meshes. This keeps the
+## generous visitor target on the creature itself instead of selecting the tile
+## under it, and works for every body plan without a hand-authored collider.
+func _screen_hits_visual(
+	camera: Camera3D,
+	screen_position: Vector2,
+	visual: Node3D
+) -> bool:
+	var screen_bounds := Rect2()
+	var has_bounds := false
+	for child in visual.find_children("*", "MeshInstance3D", true, false):
+		var mesh_instance := child as MeshInstance3D
+		if mesh_instance.mesh == null or not mesh_instance.is_visible_in_tree():
+			continue
+		var bounds := mesh_instance.get_aabb()
+		for endpoint_index in range(8):
+			var world_point := mesh_instance.to_global(
+				bounds.get_endpoint(endpoint_index)
+			)
+			if camera.is_position_behind(world_point):
+				continue
+			var projected := camera.unproject_position(world_point)
+			if not has_bounds:
+				screen_bounds = Rect2(projected, Vector2.ZERO)
+				has_bounds = true
+			else:
+				screen_bounds = screen_bounds.expand(projected)
+	return (
+		has_bounds
+		and screen_bounds.grow(VISUAL_POINTER_MARGIN).has_point(screen_position)
+	)
 
 
 func _on_visitor_available(event: Dictionary) -> void:
@@ -119,6 +196,7 @@ func _on_visitor_available(event: Dictionary) -> void:
 	current_presenter = presenter
 	add_child(current_presenter)
 	current_presenter.call("setup", event, presentation)
+	current_presenter.set_meta("visitor_display_name", presentation.display_name)
 	var raw_cell: Array = event.get("cell", [0, 0])
 	var cell := Vector2i(int(raw_cell[0]), int(raw_cell[1]))
 	current_presenter.global_position = grid.cell_to_world(

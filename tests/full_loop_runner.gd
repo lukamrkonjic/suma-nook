@@ -486,10 +486,12 @@ func _step_creation() -> void:
 		"a retained SDF visitor arrives and strolls before leaving its reward"
 	)
 	check(
-		not main.visitor_scene.call(
+		main.visitor_scene.call(
 			"interact", int(visitor_event.get("event_id", 0))
-		),
-		"clicking the strolling visitor cannot collect or pick it up"
+		)
+		and main.core.visitors.waiting_event().get("phase", "") == "visiting"
+		and main.visitor_scene.current_presenter != null,
+		"greeting the strolling visitor reacts without collecting or picking it up"
 	)
 	check(
 		main.core.visitors.leave_vase(int(visitor_event.get("event_id", 0))),
@@ -622,11 +624,85 @@ func _step_visitor_vase_loop() -> void:
 		"all visitors inherit the shared 2× scale multiplier with no ground ring"
 	)
 	await shot("visitor_scaled_no_ring")
+	var visitor_point: Vector3 = main.visitor_scene.current_presenter.call(
+		"interaction_world_point"
+	)
+	var visitor_screen := main.camera_rig.camera.unproject_position(visitor_point)
+	var direct_visitor_target: Dictionary = main.visitor_scene.event_at_screen(
+		main.camera_rig.camera, visitor_screen
+	)
+	var resolved_visitor_target: Dictionary = main._interaction_at_screen(
+		visitor_screen
+	)
+	main.placement._update_placeable_hover(visitor_screen)
+	var outlined_visitor_meshes := 0
+	var outlined_visitor_tile_meshes := 0
+	var visitor_tile_root := main.renderer.tile_node(
+		visitor_cell, main.core.grid.top_elevation(visitor_cell)
+	)
+	for outlined: MeshInstance3D in main.renderer._outlined_meshes:
+		if main.visitor_scene.current_presenter.is_ancestor_of(outlined):
+			outlined_visitor_meshes += 1
+		if (
+			visitor_tile_root != null
+			and visitor_tile_root.is_ancestor_of(outlined)
+		):
+			outlined_visitor_tile_meshes += 1
+	check(
+		direct_visitor_target.get("kind", "") == "visitor"
+		and resolved_visitor_target.get("kind", "") == "visitor"
+		and outlined_visitor_meshes >= 4
+		and outlined_visitor_tile_meshes == 0
+		and main.hud._hover_name_label.text
+			== String(direct_visitor_target.get("display_name", "")),
+		"hover targets and outlines the visitor model instead of the tile below"
+	)
+	var greet_count_before := int(
+		main.visitor_scene.current_presenter.get("greet_count")
+	)
+	send_main_pointer_button(visitor_screen, true)
+	send_main_pointer_button(visitor_screen, false)
+	await wait(0.08)
 	check(
 		main.core.visitors.collect(event_id).is_empty()
-		and not main.visitor_scene.call("interact", event_id),
-		"short interactions cannot collect or pick up the visitor"
+		and main.visitor_scene.current_presenter != null
+		and int(main.visitor_scene.current_presenter.get("greet_count"))
+			== greet_count_before + 1
+		and main.core.visitors.waiting_event().get("phase", "") == "visiting"
+		and main.placement.held.is_empty(),
+		"a real mouse click safely greets the visitor without collecting or moving it"
 	)
+	InputDeviceService.shared()._set_input_method(
+		InputDeviceService.InputMethod.CONTROLLER
+	)
+	main.placement.set_controller_mode(true)
+	main.placement._controller_cell = visitor_cell
+	main._refresh_controller_hints()
+	var controller_visitor_target := main._interaction_at_controller_cursor()
+	var has_visitor_prompt := false
+	for action: Dictionary in main.input_hints._context:
+		if (
+			action.get("action", &"") == &"interact"
+			and action.get("label", "") == "Greet visitor"
+		):
+			has_visitor_prompt = true
+			break
+	var controller_greet_count := int(
+		main.visitor_scene.current_presenter.get("greet_count")
+	)
+	await _tap_joy_button(JOY_BUTTON_X)
+	await wait(0.08)
+	check(
+		controller_visitor_target.get("kind", "") == "visitor"
+		and has_visitor_prompt
+		and int(main.visitor_scene.current_presenter.get("greet_count"))
+			== controller_greet_count + 1,
+		"the grid cursor greets the visitor through semantic controller Interact"
+	)
+	InputDeviceService.shared()._set_input_method(
+		InputDeviceService.InputMethod.KEYBOARD_MOUSE
+	)
+	main.placement.set_controller_mode(false)
 	check(
 		main.core.visitors.leave_vase(event_id),
 		"the elapsed visit starts an autonomous departure"
@@ -699,7 +775,12 @@ func _step_visitor_vase_loop() -> void:
 		and has_vase_prompt,
 		"the grid cursor targets the vase with an InputService controller prompt"
 	)
-	await _tap_joy_button(JOY_BUTTON_X)
+	InputDeviceService.shared()._set_input_method(
+		InputDeviceService.InputMethod.KEYBOARD_MOUSE
+	)
+	main.placement.set_controller_mode(false)
+	send_main_pointer_button(vase_screen, true)
+	send_main_pointer_button(vase_screen, false)
 	await wait(0.25)
 	var stock_after := (
 		main.core.stock.tile_count(String(reward.get("id", "")))
@@ -710,8 +791,12 @@ func _step_visitor_vase_loop() -> void:
 		main.visitor_scene.current_vase == null
 		and stock_after - stock_before == int(reward.get("amount", 0))
 		and main.reward_reveal.is_revealing(),
-		"controller Interact shatters the vase, grants exactly once, and starts the surprise reveal"
+		"a real mouse click shatters the outlined vase, grants once, and stays crash-safe"
 	)
+	InputDeviceService.shared()._set_input_method(
+		InputDeviceService.InputMethod.CONTROLLER
+	)
+	main.placement.set_controller_mode(true)
 	await _tap_joy_button(JOY_BUTTON_X)
 	await wait(0.65)
 	check(

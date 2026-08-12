@@ -408,7 +408,8 @@ func _build_world_scene() -> void:
 		visitor_presenter_registry
 	)
 	# VisitorScene is assembled after the generic resolver. Bind it here, once
-	# the real adapter exists, so mouse clicks can reach gift vases.
+	# the real adapter exists, so mouse and controller targeting can reach live
+	# visitors as well as the gifts they leave behind.
 	interaction_targets.call("set_visitor_scene", visitor_scene)
 	placement.set_interaction_hover_provider(visitor_scene)
 	player.setup(core, camera_rig, player_visual)
@@ -1140,6 +1141,7 @@ func _connect_flows() -> void:
 	core.token_pouch.box_opened.connect(_on_token_box_opened)
 	visitor_scene.connect("reward_presented", _on_visitor_reward_presented)
 	visitor_scene.connect("vase_smashed", _on_visitor_vase_smashed)
+	visitor_scene.connect("visitor_greeted", _on_visitor_greeted)
 	core.visitors.visitor_available.connect(func(_event):
 		hud.toast("A curious visitor has arrived.", "rare")
 		audio.play_event("parcel_appear")
@@ -1693,10 +1695,14 @@ func _begin_build_pointer(screen_position: Vector2) -> void:
 	# require an intentional hold before the same gesture may become direct
 	# world editing, so normal click jitter can never steal a harvest or fish.
 	_pending_build_interaction = _interaction_at_screen(screen_position)
+	var interaction_kind := String(
+		_pending_build_interaction.get("kind", "")
+	)
 	placement.pointer_press(
 		screen_position,
 		true,
-		not _pending_build_interaction.is_empty()
+		not _pending_build_interaction.is_empty(),
+		interaction_kind not in ["visitor", "visitor_vase"]
 	)
 
 
@@ -2178,6 +2184,8 @@ func _refresh_controller_hints() -> void:
 		if placement.interaction_cursor_active():
 			var cursor_interaction := _interaction_at_controller_cursor()
 			match String(cursor_interaction.get("kind", "")):
+				"visitor":
+					interact_label = "Greet visitor"
 				"visitor_vase":
 					interact_label = "Break gift vase"
 				"provision_fishing_spot":
@@ -2397,9 +2405,9 @@ func _interaction_at_controller_cursor() -> Dictionary:
 	var fishing_spot := provision_fishing_spots.interaction_at_cell(cell)
 	if not fishing_spot.is_empty():
 		return fishing_spot
-	var visitor_vase: Dictionary = visitor_scene.call("event_at_cell", cell)
-	if not visitor_vase.is_empty():
-		return visitor_vase
+	var visitor_target: Dictionary = visitor_scene.call("event_at_cell", cell)
+	if not visitor_target.is_empty():
+		return visitor_target
 	var instance_id := placement.controller_target_instance_id()
 	if instance_id <= 0:
 		return {}
@@ -2570,6 +2578,11 @@ func _on_visitor_vase_smashed(
 	reward_reveal.enqueue(reward, position + Vector3.UP * 0.16, "reveal_visitor_vase")
 
 
+func _on_visitor_greeted(position: Vector3, _display_name: String) -> void:
+	audio.play_event("parcel_select", -3.0, 1.18)
+	effects.burst("fx_spark", position + Vector3.UP * 0.38, 5, 1.4)
+
+
 func _on_onboarding_stage_changed(_stage: String) -> void:
 	if hud == null:
 		return
@@ -2698,6 +2711,11 @@ func _on_placement_result(ok: bool, _message: String, kind: String) -> void:
 
 func _on_focus_changed(focus: Dictionary) -> void:
 	match focus.get("kind", ""):
+		"visitor":
+			hud.set_prompt(
+				&"interact",
+				"Greet %s" % String(focus.get("display_name", "the visitor"))
+			)
 		"visitor_vase":
 			hud.set_prompt(&"interact", "Break the visitor's gift vase")
 		"provision_fishing_spot":
@@ -2748,7 +2766,10 @@ func _on_click_interaction_reached(interaction: Dictionary) -> void:
 
 func _perform_interaction(interaction: Dictionary) -> void:
 	match interaction.get("kind", ""):
-		"visitor_vase":
+		"visitor", "visitor_vase":
+			# Release transient outline RIDs before a visitor visual starts a tween
+			# or the vase is queued for deletion.
+			renderer.clear_structure_hover()
 			visitor_scene.call("interact", int(interaction.get("event_id", 0)))
 		"provision_fishing_spot":
 			provision_fishing_spots.interact(
