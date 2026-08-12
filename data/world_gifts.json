@@ -1,0 +1,12 @@
+{
+  "world_gifts": [
+    {
+      "id": "expansion_ripple",
+      "name": "Expansion Ripple",
+      "description": "Choose an edge and let a small new place fall into the world.",
+      "kind": "expand_nook",
+      "icon": "res://assets/ui/icons/category_ground.svg",
+      "max_stack": 99
+    }
+  ]
+}

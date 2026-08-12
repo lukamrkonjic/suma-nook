@@ -18,6 +18,9 @@ const WorldRewardDefinitionValidatorScript := preload(
 const NookDefinitionValidatorScript := preload(
 	"res://scripts/features/nooks/nook_definition_validator.gd"
 )
+const DioramaDefinitionValidatorScript := preload(
+	"res://scripts/features/diorama/diorama_definition_validator.gd"
+)
 
 
 static func create() -> Registries:
@@ -27,4 +30,5 @@ static func create() -> Registries:
 	registries.register_validator(FishingDefinitionValidatorScript.validate)
 	registries.register_validator(WorldRewardDefinitionValidatorScript.validate)
 	registries.register_validator(NookDefinitionValidatorScript.validate)
+	registries.register_validator(DioramaDefinitionValidatorScript.validate)
 	return registries

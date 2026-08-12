@@ -72,6 +72,12 @@ const RewardDropInteractionsScript := preload(
 const VisitorModuleScript := preload(
 	"res://scripts/features/visitors/visitor_module.gd"
 )
+const DioramaModuleScript := preload(
+	"res://scripts/features/diorama/diorama_module.gd"
+)
+const WorldCuriosityInteractionsScript := preload(
+	"res://scripts/features/diorama/world_curiosity_interactions.gd"
+)
 
 var registries: Registries
 var rng: RngService
@@ -102,6 +108,7 @@ var special_finds: SpecialFindService
 var reward_drops: RewardDropService
 var harvesting
 var visitors
+var diorama: DioramaModule
 var interactions
 # --- Unfolding World: explicit wiring, no autoloads. `events` is a scoped
 # hub owned here; every discovery system below is a deletable listener.
@@ -179,6 +186,13 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 	events = WorldEvents.new()
 	commands = WorldCommandService.new(grid, registries, events)
 	nooks = NookModule.new(registries, rng, grid, events, commands)
+	diorama = DioramaModuleScript.new(
+		registries, rng, grid, collection, nooks, build_rewards
+	)
+	interactions.register_provider(
+		"world_curiosity",
+		WorldCuriosityInteractionsScript.new(diorama.curiosities)
+	)
 	frontiers = FrontierProjectServiceScript.new(
 		registries, rng, nooks, projects, finds
 	)
@@ -207,7 +221,7 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 	keepsakes = KeepsakeSystem.new(
 		registries, grid, nooks.world, events, journal
 	)
-	if nooks.enabled:
+	if nooks.enabled and not registries.feature("endless_diorama_enabled", true):
 		for sapling_structure_id: String in nooks.sapling_stage_zero_ids():
 			stock.set_unlimited_structure(sapling_structure_id)
 	equipment = EquipmentManager.new(registries)
@@ -422,6 +436,28 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 		if owner != null:
 			owner.save()
 	)
+	diorama.tray.offer_committed.connect(func(_reward, _replacement, _slot):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._dirty = true
+			owner.save()
+	)
+	diorama.gifts.inventory_changed.connect(func():
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._dirty = true
+			owner.autosave_soon()
+	)
+	diorama.curiosities.curiosity_landed.connect(func(_instance_id, _state):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner.save()
+	)
+	diorama.curiosities.curiosity_opened.connect(func(_instance_id, _result):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner.save()
+	)
 	fire.burning_changed.connect(func(_instance_id, _burning):
 		var owner := owner_ref.get_ref() as GameCore
 		if owner != null:
@@ -463,14 +499,16 @@ func new_game(new_profile: PlayerProfile) -> void:
 	# The reusable Timber and Provisions sources begin unplaced in the Build
 	# Bag; the starter Stone outcrop is already in the world. This guarantees
 	# every first Project can be completed without deploying the legacy keeper.
-	stock.add_structure("struct_pine")
-	stock.add_structure("struct_bush")
-	_ensure_showcase_placeables()
+	if not diorama.enabled:
+		stock.add_structure("struct_pine")
+		stock.add_structure("struct_bush")
+		_ensure_showcase_placeables()
 	collection.record("gear", "tool_rod_basic")
 	collection.record("gear", "tool_axe_basic")
 	for coord: Vector2i in grid.cells:
 		collection.record("tiles", grid.cell(coord).tile_id, 0)
 	nooks.bootstrap_starter_nook()
+	diorama.new_game()
 	save()
 
 
@@ -492,9 +530,10 @@ func begin_seeded_game(new_profile: PlayerProfile, seed_card: Dictionary) -> voi
 	# Seed content varies, but the first Project must never depend on a lucky
 	# procedural roll. These reusable sources may be placed anywhere the player
 	# likes and do not create common-material inventory.
-	stock.add_structure("struct_pine")
-	stock.add_structure("struct_bush")
-	stock.add_structure("struct_rock_outcrop")
+	if not diorama.enabled:
+		stock.add_structure("struct_pine")
+		stock.add_structure("struct_bush")
+		stock.add_structure("struct_rock_outcrop")
 	var plan := nooks.reveal_nook(Vector2i.ZERO, seed_card)
 	if plan == null:
 		# Content failure fallback: never strand the player in a void.
@@ -508,6 +547,7 @@ func begin_seeded_game(new_profile: PlayerProfile, seed_card: Dictionary) -> voi
 	profile.position = grid.cell_to_world(grid.home_cell)
 	for coord: Vector2i in grid.cells:
 		collection.record("tiles", grid.cell(coord).tile_id, 0)
+	diorama.new_game()
 	save()
 
 
@@ -820,6 +860,61 @@ func place_tile_from_stock(
 	return true
 
 
+func can_commit_diorama_offer(
+	offer_id: String,
+	kind: String,
+	content_id: String
+) -> bool:
+	return (
+		diorama != null
+		and diorama.enabled
+		and diorama.tray.can_commit(offer_id, kind, content_id)
+	)
+
+
+func commit_diorama_offer(
+	offer_id: String,
+	kind: String,
+	content_id: String
+) -> Dictionary:
+	if not can_commit_diorama_offer(offer_id, kind, content_id):
+		return {}
+	collection.record_placed(
+		"tiles" if kind == "tile" else "structures",
+		content_id
+	)
+	return diorama.tray.commit(offer_id, kind, content_id)
+
+
+func place_tile_from_diorama_offer(
+	coord: Vector2i,
+	tile_id: String,
+	rotation: int,
+	elevation: int,
+	offer_id: String
+) -> bool:
+	if (
+		not can_commit_diorama_offer(offer_id, "tile", tile_id)
+		or not can_place_player_tile_at(coord, elevation, tile_id)
+	):
+		return false
+	grid.place_tile_at(coord, elevation, tile_id, rotation)
+	if commit_diorama_offer(offer_id, "tile", tile_id).is_empty():
+		grid.remove_tile_at(coord, elevation)
+		return false
+	world_grown.emit(coord)
+	var payload := {
+		"coord": coord,
+		"elevation": elevation,
+		"tile_id": tile_id,
+		"nook": nooks.world.chunk_of_cell(coord),
+		"source": "discovery_tray",
+	}
+	events.publish("tile_placed", payload)
+	autosave_soon()
+	return true
+
+
 ## Player-authored land is confined to revealed square Nook zones. Generation
 ## bypasses this facade through WorldCommandService, so a Nook can still write
 ## its planned terrain before its record is finalized and presented.
@@ -847,16 +942,17 @@ func can_place_player_tile_at(
 func tick(delta: float) -> void:
 	_poll_autosave()
 	play_seconds += delta
-	fishing.tick(delta)
-	harvesting.tick(delta)
-	progression.discovery.set_event_blocked(
-		major_events_blocked or reward_drops.has_unclaimed()
-	)
-	progression.tick(delta)
-	special_finds.tick(delta)
-	nooks.tick(delta)
-	visitors.tick(delta)
-	arrivals.tick(delta)
+	if not diorama.enabled:
+		fishing.tick(delta)
+		harvesting.tick(delta)
+		progression.discovery.set_event_blocked(
+			major_events_blocked or reward_drops.has_unclaimed()
+		)
+		progression.tick(delta)
+		special_finds.tick(delta)
+		nooks.tick(delta)
+		visitors.tick(delta)
+		arrivals.tick(delta)
 	if registries.feature("combat_enabled", false):
 		combat.tick(delta)
 	_tick_anchors(delta)
@@ -977,6 +1073,7 @@ func _save_payload() -> Dictionary:
 		"landmarks": landmarks.to_save_dict(),
 		"combat": combat.to_save_dict(),
 		"features": {
+			"diorama": diorama.to_save_dict(),
 			"project_progression_version": 1,
 			"camping": camping.to_save_dict(),
 			"fishing": fishing.to_save_dict(),
@@ -1089,10 +1186,17 @@ func load_game() -> bool:
 	frontiers.from_save_dict(feature_data.get("frontiers", {}) as Dictionary)
 	special_finds.from_save_dict(feature_data.get("special_finds", {}) as Dictionary)
 	reward_drops.from_save_dict(feature_data.get("reward_drops", {}) as Dictionary)
+	diorama.from_save_dict(feature_data.get("diorama", {}) as Dictionary)
 	# A pre-Nooks save (or a deleted nooks section) heals itself: the starter
 	# zone re-registers as the first Nook and play continues.
 	nooks.bootstrap_starter_nook()
-	frontiers.migrate_existing_points()
+	var diorama_migrated := false
+	if diorama.enabled and not feature_data.has("diorama"):
+		diorama_migrated = _migrate_legacy_progression_to_diorama()
+	if diorama.enabled:
+		diorama.gifts.recover_pending()
+	else:
+		frontiers.migrate_existing_points()
 	var discovery: Dictionary = (
 		data.get("features", {}) as Dictionary
 	).get("discovery", {})
@@ -1109,7 +1213,7 @@ func load_game() -> bool:
 	var wardrobe_migrated := _ensure_default_body_item()
 	var showcase_placeables_migrated := (
 		_ensure_showcase_placeables()
-		if not onboarding.is_active()
+		if not onboarding.is_active() and not diorama.enabled
 		else false
 	)
 	view_state = data.get("view", view_state).duplicate(true)
@@ -1122,8 +1226,64 @@ func load_game() -> bool:
 	# and the place has changed. Presentation animates them on first sight.
 	dormants.apply_pending_wakes()
 	_dirty = retired_content_repaired \
-		or wardrobe_migrated or showcase_placeables_migrated
+		or wardrobe_migrated or showcase_placeables_migrated or diorama_migrated
 	return true
+
+
+func _migrate_legacy_progression_to_diorama() -> bool:
+	var changed := diorama.curiosities.migrate_legacy_reward_drops() > 0
+	var waiting_visitor: Dictionary = visitors.waiting_event()
+	if not waiting_visitor.is_empty():
+		var migrated_visitor := diorama.curiosities.migrate_legacy_visitor(
+			waiting_visitor
+		)
+		if not migrated_visitor.is_empty():
+			visitors.current_event.clear()
+			changed = true
+		else:
+			# A completely crowded legacy world may have no valid landing socket.
+			# Preserve ownership rather than leaving a filtered visitor unreachable.
+			var preserved: Dictionary = build_rewards.grant(
+				waiting_visitor.get("reward", {}) as Dictionary
+			)
+			if not preserved.is_empty():
+				visitors.current_event.clear()
+				changed = true
+
+	# A finished, unused frontier becomes a portable Ripple. Its old reserved
+	# seed is intentionally released: the player chooses the edge again and the
+	# new system persists its own reservation before generation.
+	for frontier: Dictionary in frontiers.frontiers.values():
+		if bool(frontier.get("generated", false)):
+			continue
+		var project_id := String(frontier.get("project_id", ""))
+		if not bool(projects.project(project_id).get("complete", false)):
+			continue
+		if diorama.gifts.add(
+			"expansion_ripple", 1, "legacy_frontier:%s" % project_id
+		):
+			changed = true
+
+	# Retired biome currencies turn into their corresponding random build
+	# pieces. Even a partial old balance yields one keepsake; nothing is deleted
+	# merely because it falls below the former five-token box price.
+	for box in registries.token_boxes.values():
+		var balance: int = token_pouch.balance(box.token_id)
+		while balance >= box.cost:
+			if token_pouch.open_box(box.id).is_empty():
+				break
+			changed = true
+			balance = token_pouch.balance(box.token_id)
+		if balance <= 0:
+			continue
+		var reward: Dictionary = build_rewards.roll_and_grant(
+			box.reward_pool_id,
+			"legacy_token_remainder:%s" % box.id,
+			box.roll_policy_id
+		)
+		if not reward.is_empty() and inventory.take(box.token_id, balance):
+			changed = true
+	return changed
 
 
 ## Trees and other resting anchors recover in real time even while away:

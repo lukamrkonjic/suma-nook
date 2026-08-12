@@ -1,0 +1,11 @@
+{
+  "roles": ["terrain", "substantial", "detail"],
+  "starter_offers": [
+    {"kind": "tile", "id": "tile_grass_flower"},
+    {"kind": "structure", "id": "struct_bench"},
+    {"kind": "structure", "id": "struct_pot"}
+  ],
+  "recent_memory": 6,
+  "recent_weight_multiplier": 0.18,
+  "undiscovered_weight_multiplier": 1.8
+}

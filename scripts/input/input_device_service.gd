@@ -54,6 +54,7 @@ const REQUIRED_CONTROLLER_ACTIONS: Array[StringName] = [
 	&"panel_skills",
 	&"panel_collection",
 	&"panel_map",
+	&"discovery_tray",
 	&"wish_menu",
 	&"project_menu",
 	&"panel_previous",
@@ -244,7 +245,15 @@ func action_has_controller_binding(action: StringName) -> bool:
 
 
 func focus_first(root: Node, preferred: Control = null) -> void:
-	call_deferred("_focus_first_deferred", root, preferred)
+	if root == null or not is_instance_valid(root):
+		return
+	call_deferred(
+		"_focus_first_deferred",
+		root.get_instance_id(),
+		preferred.get_instance_id()
+			if preferred != null and is_instance_valid(preferred)
+			else 0
+	)
 
 
 func release_focus_in(root: Node) -> void:
@@ -255,7 +264,11 @@ func release_focus_in(root: Node) -> void:
 		get_viewport().gui_release_focus()
 
 
-func _focus_first_deferred(root: Node, preferred: Control) -> void:
+func _focus_first_deferred(root_id: int, preferred_id: int) -> void:
+	var root: Node = instance_from_id(root_id) as Node
+	var preferred: Control = (
+		instance_from_id(preferred_id) as Control if preferred_id > 0 else null
+	)
 	if not is_controller() or root == null or not is_instance_valid(root):
 		return
 	if (

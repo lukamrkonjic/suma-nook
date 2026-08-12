@@ -14,6 +14,10 @@ C:\Dev\Godot\Godot_v4.6.3-stable_win64_console.exe `
   --path . --resolution 1600x900 tests/full_loop_runner.tscn `
   -- --save=user://loop_test_save.json
 
+# Shipped diorama path — must print DIORAMA SCENE PASSED
+C:\Dev\Godot\Godot_v4.6.3-stable_win64_console.exe `
+  --path . --resolution 1600x900 tests/diorama_scene_runner.tscn
+
 # 900-tile land/water renderer comparison
 C:\Dev\Godot\Godot_v4.6.3-stable_win64_console.exe `
   --path . --disable-vsync --resolution 1280x720 `

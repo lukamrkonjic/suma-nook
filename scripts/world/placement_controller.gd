@@ -162,6 +162,35 @@ func hold_new(kind: String, id: String, arrival := "") -> void:
 	held_changed.emit(held)
 
 
+## Discovery Tray offers do not enter Stock before ownership. The stable offer
+## receipt stays attached to the cursor until first placement or cancellation.
+func hold_diorama_offer(offer: Dictionary) -> void:
+	var offer_id := String(offer.get("offer_id", ""))
+	var kind := String(offer.get("kind", ""))
+	var content_id := String(offer.get("id", ""))
+	if (
+		offer_id == ""
+		or not core.can_commit_diorama_offer(offer_id, kind, content_id)
+	):
+		return
+	if not active:
+		set_active(true)
+	_cancel_held(true)
+	held = {
+		"kind": kind,
+		"id": content_id,
+		"rotation": 0,
+		"moving": null,
+		"arrival": "discovery_tray",
+		"offer_id": offer_id,
+		"tray_slot": int(offer.get("slot", -1)),
+	}
+	if _controller_mode:
+		_controller_cursor_active = true
+	_build_ghost()
+	held_changed.emit(held)
+
+
 ## A chosen wish belongs to the world immediately: pick a valid, visible spot
 ## near the current camera focus and commit the single stock copy there. The
 ## caller never enters a cursor-placement step. Returns false only when the
@@ -1724,6 +1753,7 @@ func _invalid_message() -> String:
 func _place_tile() -> bool:
 	var tile_id: String = held["id"]
 	var rotation_q: int = held["rotation"]
+	var offer_id := String(held.get("offer_id", ""))
 	var water_skip := _pending_water_skip.duplicate(true)
 	_pending_water_skip = {}
 	var skip_relative_elevations: Array[int] = [0]
@@ -1779,7 +1809,17 @@ func _place_tile() -> bool:
 				_hover_elevation,
 				true
 			)
-		if not core.place_tile_from_stock(_hover_cell, tile_id, rotation_q, _hover_elevation):
+		var placed_from_offer := offer_id != ""
+		var placed_ok := (
+			core.place_tile_from_diorama_offer(
+				_hover_cell, tile_id, rotation_q, _hover_elevation, offer_id
+			)
+			if placed_from_offer
+			else core.place_tile_from_stock(
+				_hover_cell, tile_id, rotation_q, _hover_elevation
+			)
+		)
+		if not placed_ok:
 			if wish_arrival:
 				world_renderer.cancel_wish_placement(
 					_hover_cell,
@@ -1799,10 +1839,12 @@ func _place_tile() -> bool:
 			"rotation": rotation_q,
 		})
 		var remaining := core.stock.tile_count(tile_id)
-		if wish_arrival or remaining <= 0:
+		if placed_from_offer or wish_arrival or remaining <= 0:
 			held = {}
 			held_changed.emit(held)
 			_build_ghost()
+		if placed_from_offer:
+			set_active(false)
 	var def := core.registries.tile(tile_id)
 	var effect_position := core.grid.cell_to_world(
 		_hover_cell,
@@ -1868,6 +1910,7 @@ func _rotate_tile_stack(stack: Array, quarter_turn_delta: int) -> void:
 
 func _place_structure() -> void:
 	var structure_id: String = held["id"]
+	var offer_id := String(held.get("offer_id", ""))
 	var wish_arrival := (
 		String(held.get("arrival", "")) == "wish"
 		and held["moving"] == null
@@ -1916,8 +1959,21 @@ func _place_structure() -> void:
 				_hover_cell,
 				_hover_elevation
 			)
-		var stock_token := core.stock.take_structure_token(structure_id)
-		if stock_token.is_empty():
+		var placed_from_offer := offer_id != ""
+		if (
+			placed_from_offer
+			and not core.can_commit_diorama_offer(
+				offer_id, "structure", structure_id
+			)
+		):
+			action_result.emit(false, "That tray offer is no longer available.", "invalid")
+			return
+		var stock_token := (
+			{}
+			if placed_from_offer
+			else core.stock.take_structure_token(structure_id)
+		)
+		if not placed_from_offer and stock_token.is_empty():
 			if wish_arrival:
 				world_renderer.cancel_wish_placement(
 					_hover_cell,
@@ -1953,7 +2009,8 @@ func _place_structure() -> void:
 				_hover_elevation
 			)
 		if placed == null:
-			core.stock.return_structure_token(stock_token)
+			if not placed_from_offer:
+				core.stock.return_structure_token(stock_token)
 			if wish_arrival:
 				world_renderer.cancel_wish_placement(
 					_hover_cell,
@@ -1961,7 +2018,17 @@ func _place_structure() -> void:
 				)
 			action_result.emit(false, "That support changed before the item could settle.", "invalid")
 			return
-		core.collection.record_placed("structures", structure_id)
+		if placed_from_offer:
+			if core.commit_diorama_offer(
+				offer_id, "structure", structure_id
+			).is_empty():
+				core.grid.remove_structure(
+					_hover_cell, placed.instance_id, _hover_elevation
+				)
+				action_result.emit(false, "That tray offer changed before it settled.", "invalid")
+				return
+		else:
+			core.collection.record_placed("structures", structure_id)
 		_push_undo({
 			"type": "place_structure",
 			"coord": _hover_cell,
@@ -1974,10 +2041,12 @@ func _place_structure() -> void:
 			"support": _hover_support_slot,
 			"stack": [placed],
 		})
-		if wish_arrival or core.stock.structure_count(structure_id) <= 0:
+		if placed_from_offer or wish_arrival or core.stock.structure_count(structure_id) <= 0:
 			held = {}
 	held_changed.emit(held)
 	_build_ghost()
+	if offer_id != "":
+		set_active(false)
 	var def := core.registries.structure(structure_id)
 	var effect_position := (
 		world_renderer.support_slot_world_transform(
@@ -2272,7 +2341,10 @@ func store_held() -> void:
 
 func cancel_click() -> void:
 	if not held.is_empty():
+		var was_tray_offer := String(held.get("offer_id", "")) != ""
 		_cancel_held(true)
+		if was_tray_offer:
+			set_active(false)
 	else:
 		set_active(false)
 
@@ -2295,6 +2367,9 @@ func _cancel_held(restore: bool) -> void:
 			_ghost.queue_free()
 			_ghost = null
 		return
+	var cancelled_offer_id := String(held.get("offer_id", ""))
+	if cancelled_offer_id != "" and core.diorama != null:
+		core.diorama.tray.cancel_hold(cancelled_offer_id)
 	if restore and held["moving"] != null:
 		match held["kind"]:
 			"tile":

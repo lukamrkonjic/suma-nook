@@ -67,13 +67,13 @@ func interaction_at(screen_position: Vector2) -> Dictionary:
 					frontier.get("cell", core.grid.home_cell)
 				),
 			}
-	if provision_fishing_spots != null:
+	if not core.diorama.enabled and provision_fishing_spots != null:
 		var fishing_spot := provision_fishing_spots.interaction_at_screen(
 			camera, screen_position, base_radius * 1.25
 		)
 		if not fishing_spot.is_empty():
 			return fishing_spot
-	if visitor_scene != null:
+	if not core.diorama.enabled and visitor_scene != null:
 		var visitor_target: Dictionary = visitor_scene.call(
 			"event_at_screen", camera, screen_position
 		)
@@ -162,7 +162,8 @@ func interaction_at(screen_position: Vector2) -> Dictionary:
 			var tile_definition := core.grid.tile_def(coord)
 			var ground_center := core.grid.cell_to_world(coord)
 			if (
-				ground_state != null
+				not core.diorama.enabled
+				and ground_state != null
 				and tile_definition != null
 				and tile_definition.anchor_id != ""
 				and not ground_state.anchor_resting
@@ -251,7 +252,7 @@ func interaction_at(screen_position: Vector2) -> Dictionary:
 						):
 							best = candidate
 							best_distance = candidate["_distance"]
-					var feature_options: Array = core.interactions.options_for(
+					var feature_options: Array = _interaction_options(
 						"player",
 						structure.instance_id
 					)
@@ -296,7 +297,7 @@ func _structure_interaction(instance_id: int) -> Dictionary:
 		core.grid.cell_to_world(coord, elevation)
 		+ core.grid.structure_local_transform(instance_id).origin
 	)
-	var feature_options: Array = core.interactions.options_for(
+	var feature_options: Array = _interaction_options(
 		"player",
 		instance_id
 	)
@@ -312,7 +313,8 @@ func _structure_interaction(instance_id: int) -> Dictionary:
 			"point": point,
 		}
 	if (
-		PlayerController.uses_legacy_structure_anchor(definition)
+		not core.diorama.enabled
+		and PlayerController.uses_legacy_structure_anchor(definition)
 		and not structure.anchor_resting
 	):
 		var anchor := core.registries.anchor(definition.anchor_id)
@@ -334,6 +336,15 @@ func _structure_interaction(instance_id: int) -> Dictionary:
 			"point": point,
 		}
 	return {}
+
+
+func _interaction_options(actor_id: String, instance_id: int) -> Array:
+	var options: Array = core.interactions.options_for(actor_id, instance_id)
+	if not core.diorama.enabled:
+		return options
+	return options.filter(func(option) -> bool:
+		return String(option.feature_id) == "world_curiosity"
+	)
 
 
 func _candidate(

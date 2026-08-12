@@ -24,6 +24,9 @@ const CatalogReferenceValidatorScript := preload(
 const ProjectDefinitionsScript := preload(
 	"res://scripts/features/projects/project_definitions.gd"
 )
+const DioramaDefinitionsScript := preload(
+	"res://scripts/features/diorama/diorama_definitions.gd"
+)
 
 var snapshot
 var tuning: Dictionary = {}
@@ -60,9 +63,14 @@ var treasure_tables: Dictionary = {}
 var firsts: Dictionary = {}
 var dormants: Dictionary = {}
 var moments: Dictionary = {}
+var creative_collections: Dictionary = {}
+var world_gifts: Dictionary = {}
+var world_curiosities: Dictionary = {}
 var nook_config: Dictionary = {}
 var reveal_config: Dictionary = {}
 var fishing_balance: Dictionary = {}
+var discovery_tray_config: Dictionary = {}
+var build_cadence_config: Dictionary = {}
 var load_issues: Array = []
 var load_errors: PackedStringArray = []
 var feature_validators: Array[Callable] = []
@@ -231,10 +239,31 @@ func load_all(base_path := "res://data", report_issues := true) -> bool:
 		candidate, base_path + "/moments.json", "moments", "moments",
 		candidate.moments, NookDefs.MomentDefinition.from_dict, issues
 	)
+	_load_list(
+		candidate, base_path + "/creative_collections.json", "creative_collections",
+		"creative_collections", candidate.creative_collections,
+		DioramaDefinitionsScript.CreativeCollectionDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/world_gifts.json", "world_gifts",
+		"world_gifts", candidate.world_gifts,
+		DioramaDefinitionsScript.WorldGiftDefinition.from_dict, issues
+	)
+	_load_list(
+		candidate, base_path + "/world_curiosities.json", "world_curiosities",
+		"world_curiosities", candidate.world_curiosities,
+		DioramaDefinitionsScript.WorldCuriosityDefinition.from_dict, issues
+	)
 	candidate.nook_config = _read_object(base_path + "/nook_config.json", issues)
 	candidate.reveal_config = _read_object(base_path + "/reveal.json", issues)
 	candidate.fishing_balance = _read_object(
 		base_path + "/fishing_balance.json", issues
+	)
+	candidate.discovery_tray_config = _read_object(
+		base_path + "/discovery_tray.json", issues
+	)
+	candidate.build_cadence_config = _read_object(
+		base_path + "/build_cadence.json", issues
 	)
 	CommonDefinitionValidatorScript.validate(candidate, issues)
 	TileDefinitionValidatorScript.validate(candidate, issues)
@@ -348,6 +377,9 @@ func treasure_table(id: String) -> NookDefs.TreasureTableDefinition: return trea
 func first(id: String) -> NookDefs.FirstDefinition: return firsts.get(id)
 func dormant(id: String) -> NookDefs.DormantDefinition: return dormants.get(id)
 func moment(id: String) -> NookDefs.MomentDefinition: return moments.get(id)
+func creative_collection(id: String): return creative_collections.get(id)
+func world_gift(id: String): return world_gifts.get(id)
+func world_curiosity(id: String): return world_curiosities.get(id)
 
 
 func has_definition(kind: String, id: String) -> bool:
@@ -653,9 +685,14 @@ func _adopt(candidate) -> void:
 	firsts = candidate.firsts
 	dormants = candidate.dormants
 	moments = candidate.moments
+	creative_collections = candidate.creative_collections
+	world_gifts = candidate.world_gifts
+	world_curiosities = candidate.world_curiosities
 	nook_config = candidate.nook_config
 	reveal_config = candidate.reveal_config
 	fishing_balance = candidate.fishing_balance
+	discovery_tray_config = candidate.discovery_tray_config
+	build_cadence_config = candidate.build_cadence_config
 
 
 func _publish_issues(issues: Array, report_issues: bool) -> void:

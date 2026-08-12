@@ -38,12 +38,17 @@ func setup(
 	placement = placement_controller
 	palette = color_palette
 	core.nooks.world.nook_added.connect(func(_coord): rebuild())
-	core.projects.project_progressed.connect(func(_project, _slot):
-		_refresh_ready_states()
-	)
-	core.projects.project_completed.connect(func(_project):
-		_refresh_ready_states()
-	)
+	if not core.diorama.enabled:
+		core.projects.project_progressed.connect(func(_project, _slot):
+			_refresh_ready_states()
+		)
+		core.projects.project_completed.connect(func(_project):
+			_refresh_ready_states()
+		)
+	else:
+		core.diorama.gifts.targeting_changed.connect(func(_gift_id):
+			_refresh_ready_states()
+		)
 	rebuild()
 
 
@@ -72,7 +77,11 @@ func rebuild() -> void:
 			"direction": direction,
 			"inner": root.get_node("Dot"),
 			"halo": root.get_node("Halo"),
-			"ready": bool(core.frontiers.status(nook_coord).get("ready", false)),
+			"ready": (
+				core.diorama.gifts.is_targeting_expansion()
+				if core.diorama.enabled
+				else bool(core.frontiers.status(nook_coord).get("ready", false))
+			),
 		}
 	visible = interaction_enabled and not _markers.is_empty()
 
@@ -148,8 +157,10 @@ func _refresh_ready_states() -> void:
 		return
 	for nook_coord: Vector2i in _markers:
 		var marker: Dictionary = _markers[nook_coord]
-		marker["ready"] = bool(
-			core.frontiers.status(nook_coord).get("ready", false)
+		marker["ready"] = (
+			core.diorama.gifts.is_targeting_expansion()
+			if core.diorama.enabled
+			else bool(core.frontiers.status(nook_coord).get("ready", false))
 		)
 
 

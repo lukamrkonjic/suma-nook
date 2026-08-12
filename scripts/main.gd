@@ -57,6 +57,9 @@ const VisitorPresenterRegistryScript := preload(
 const SdfCreatureVisitorPresenterScript := preload(
 	"res://scripts/features/visitors/presentation/sdf_creature_visitor_presenter.gd"
 )
+const DiscoveryTrayPanelScript := preload(
+	"res://scripts/ui/discovery_tray_panel.gd"
+)
 const DEBUG_WORLD_TILE_COUNT := 5000
 const DEBUG_WORLD_MODEL_COUNT := 1250
 const MAXED_WORLD_TILE_COUNT := 10000
@@ -110,6 +113,7 @@ var wish_offer_panel: WishOfferPanel
 var arrival_picker: ArrivalLandPicker
 var nook_offer_panel: NookOfferPanel
 var project_panel: ProjectPanel
+var discovery_tray_panel: DiscoveryTrayPanel
 var nook_reveal_presenter: NookRevealPresenter
 var catch_basket_view: CatchBasketView
 var input_hints: InputHintOverlay
@@ -145,6 +149,14 @@ func _ready() -> void:
 
 	core = GameCore.new()
 	core.setup()
+	# The scene acceptance runner deliberately exercises the archived guided
+	# canvas. Production never sets this environment variable.
+	if OS.get_environment("SUMA_LEGACY_OPENING") == "1":
+		core.diorama.enabled = false
+		core.harvesting.enabled = true
+		core.visitors.enabled = true
+		for structure_id: String in core.nooks.sapling_stage_zero_ids():
+			core.stock.set_unlimited_structure(structure_id)
 	var showcase_world_requested := _showcase_world_requested()
 	var debug_world_tiles := _requested_debug_world_tiles()
 	var debug_world_models := _requested_debug_world_models(
@@ -205,7 +217,8 @@ func _ready() -> void:
 	# already looking around, so the first Expand click does not pay cold GLB /
 	# baked-scene presentation costs. Structure assets go first because their
 	# smoothing profiles were the last measurable single-frame spike.
-	call_deferred("_prime_nook_generation_assets_async")
+	if DisplayServer.get_name() != "headless":
+		call_deferred("_prime_nook_generation_assets_async")
 
 
 func _prime_nook_generation_assets_async() -> void:
@@ -506,10 +519,19 @@ func _build_ui() -> void:
 	add_child(project_panel)
 	project_panel.setup(core, kit)
 	project_panel.panel_toggled.connect(func(_open): _refresh_controller_hints())
+	if core.diorama.enabled:
+		discovery_tray_panel = DiscoveryTrayPanelScript.new()
+		discovery_tray_panel.name = "DiscoveryTrayPanel"
+		add_child(discovery_tray_panel)
+		discovery_tray_panel.setup(core, kit, assets, placement)
+		discovery_tray_panel.visible = false
+		discovery_tray_panel.focus_changed.connect(
+			func(_focused): _refresh_controller_hints()
+		)
 
 	# Optional composition: the world-facing requirements card can be removed
 	# without changing the direct click/controller activation path.
-	if _frontier_picker_enabled():
+	if _frontier_picker_enabled() and not core.diorama.enabled:
 		frontier_picker = NookFrontierPickerScript.new()
 		frontier_picker.name = "NookFrontierPicker"
 		add_child(frontier_picker)
@@ -649,6 +671,8 @@ func toggle_all_hud() -> bool:
 			performance_hud.visible = _performance_hud_visible_before_hide
 		if debug_menu != null:
 			debug_menu.visible = _debug_menu_visible_before_hide
+		if discovery_tray_panel != null:
+			discovery_tray_panel.set_hud_suppressed(false)
 		_refresh_controller_hints()
 		return false
 	_hud_visible_before_hide = hud != null and hud.visible
@@ -668,6 +692,8 @@ func toggle_all_hud() -> bool:
 		performance_hud.visible = false
 	if debug_menu != null:
 		debug_menu.visible = false
+	if discovery_tray_panel != null:
+		discovery_tray_panel.set_hud_suppressed(true)
 	return true
 
 
@@ -1052,6 +1078,9 @@ func _connect_flows() -> void:
 	hud.build_store_requested.connect(func():
 		placement.store_held()
 		audio.play_event("store"))
+	if discovery_tray_panel != null:
+		discovery_tray_panel.offer_selected.connect(_on_diorama_offer_selected)
+		discovery_tray_panel.gift_selected.connect(_on_world_gift_selected)
 	arrival_picker.land_chosen.connect(_on_first_land_chosen)
 	wish_offer_panel.reveal_finished.connect(_on_discovery_accepted)
 	wish_offer_panel.reveal_started.connect(
@@ -1102,6 +1131,21 @@ func _connect_flows() -> void:
 	core.special_finds.special_find_spawned.connect(_on_special_find_spawned)
 	core.special_finds.special_find_collected.connect(_on_special_find_collected)
 	core.reward_drops.reward_claimed.connect(_on_reward_drop_claimed)
+	core.diorama.gifts.expansion_requested.connect(func(coord, seed_card):
+		_begin_frontier_expansion(coord, "", seed_card)
+	)
+	core.diorama.gifts.targeting_changed.connect(func(_gift_id):
+		if frontier_markers != null:
+			frontier_markers.rebuild()
+		_update_frontier_marker_availability()
+		_refresh_controller_hints()
+	)
+	core.diorama.tray.offer_committed.connect(_on_diorama_offer_committed)
+	core.diorama.curiosities.curiosity_landed.connect(_on_curiosity_landed)
+	core.diorama.curiosities.curiosity_opened.connect(_on_curiosity_opened)
+	core.diorama.collections.milestone_reached.connect(
+		_on_creative_collection_milestone
+	)
 
 	core.progression.milestones.milestone_reached.connect(_on_milestone_reached)
 	core.equipment.equipment_changed.connect(func():
@@ -1283,6 +1327,8 @@ func _on_first_arrival_landed() -> void:
 func _start_gameplay(fresh: bool, show_welcome := true) -> void:
 	_gameplay_started = true
 	hud.visible = true
+	if discovery_tray_panel != null:
+		discovery_tray_panel.visible = true
 	if debug_menu != null and not _hud_hidden:
 		debug_menu.show_for_gameplay()
 	player.set_state(PlayerController.State.FREE)
@@ -1308,24 +1354,26 @@ func _start_gameplay(fresh: bool, show_welcome := true) -> void:
 	player.dock_for_placement()
 	player_drop_preview.visible = false
 	frontier_markers.rebuild()
-	for frontier: Dictionary in core.frontiers.pending_expansions():
-		call_deferred(
-			"_begin_frontier_expansion",
-			Vector2i(frontier["coord"][0], frontier["coord"][1]),
-			String(frontier.get("project_id", "")),
-			(frontier.get("seed_card", {}) as Dictionary).duplicate(true)
-		)
+	if not core.diorama.enabled:
+		for frontier: Dictionary in core.frontiers.pending_expansions():
+			call_deferred(
+				"_begin_frontier_expansion",
+				Vector2i(frontier["coord"][0], frontier["coord"][1]),
+				String(frontier.get("project_id", "")),
+				(frontier.get("seed_card", {}) as Dictionary).duplicate(true)
+			)
 	hud.update_tutorial()
 	if show_welcome:
 		hud.toast("Welcome%s, %s." % ["" if fresh else " back", core.profile.display_name], "good")
-	if fresh and core.projects.tracked_project().is_empty():
+	if fresh and not core.diorama.enabled and core.projects.tracked_project().is_empty():
 		hud.toast(
 			"Choose a Project and contribute a few things from your world.",
 			"good"
 		)
 	core.arrivals.announce_restored_delivery()
-	wish_offer_panel.notify_ready(false)
-	visitor_scene.call("sync_from_module")
+	if not core.diorama.enabled:
+		wish_offer_panel.notify_ready(false)
+		visitor_scene.call("sync_from_module")
 	_refresh_controller_hints()
 	if player.deployed and is_instance_valid(pigeon_controller):
 		pigeon_controller.spawn_near_player()
@@ -1473,6 +1521,7 @@ func _process(delta: float) -> void:
 		or project_panel.is_open()
 		or wish_offer_panel.is_open()
 		or nook_offer_panel.is_open()
+		or discovery_tray_panel != null and discovery_tray_panel.has_focus()
 		or (asset_viewer != null and asset_viewer.is_open())
 	)
 	core.tick(delta)
@@ -1482,8 +1531,12 @@ func _process(delta: float) -> void:
 func _update_frontier_marker_availability() -> void:
 	if frontier_markers == null:
 		return
-	var enabled := (
+	var enabled: bool = (
 		_gameplay_started
+		and (
+			not core.diorama.enabled
+			or core.diorama.gifts.is_targeting_expansion()
+		)
 		and not placement.active
 		and placement.held.is_empty()
 		and not _nook_reveal_in_progress
@@ -1505,6 +1558,7 @@ func _update_frontier_marker_availability() -> void:
 func _frontier_picker_enabled() -> bool:
 	return (
 		core != null
+		and not core.diorama.enabled
 		and core.registries.feature("nook_frontier_picker_enabled", true)
 	)
 
@@ -1528,6 +1582,8 @@ func _on_nook_reveal_finished(coord: Vector2i) -> void:
 	if frontier_markers != null:
 		frontier_markers.rebuild()
 	_update_frontier_marker_availability()
+	if core.diorama.enabled and coord != Vector2i.ZERO:
+		core.diorama.curiosities.spawn_for_new_land(coord)
 	_refresh_controller_hints()
 	_start_next_frontier_expansion()
 
@@ -1572,6 +1628,17 @@ func _on_anchor_regenerated(
 # ------------------------------------------------------------------ input routing
 
 func _input(event: InputEvent) -> void:
+	if (
+		_gameplay_started
+		and core.diorama.enabled
+		and core.diorama.gifts.is_targeting_expansion()
+		and event.is_action_pressed("cancel")
+		and not placement.active
+		and (discovery_tray_panel == null or not discovery_tray_panel.has_focus())
+	):
+		core.diorama.gifts.cancel_targeting()
+		get_viewport().set_input_as_handled()
+		return
 	# Return focus from the compact frontier picker before Escape's global pause
 	# alias gets a chance to open another layer over it.
 	if (
@@ -1670,6 +1737,11 @@ func _screen_position_blocked_by_ui(screen_position: Vector2) -> bool:
 		and wish_offer_panel.blocks_world_pointer(screen_position)
 	):
 		return true
+	if (
+		discovery_tray_panel != null
+		and discovery_tray_panel.blocks_world_pointer(screen_position)
+	):
+		return true
 	if project_panel != null and project_panel.blocks_world_pointer(screen_position):
 		return true
 	if (
@@ -1732,6 +1804,18 @@ func _unhandled_input(event: InputEvent) -> void:
 	if asset_viewer != null and asset_viewer.is_open():
 		return
 	if (
+		core.diorama.enabled
+		and discovery_tray_panel != null
+		and event.is_action_pressed("discovery_tray")
+		and not pause_menu.is_open()
+		and not panels.is_open()
+		and not placement.active
+	):
+		discovery_tray_panel.open_focus()
+		_refresh_controller_hints()
+		get_viewport().set_input_as_handled()
+		return
+	if (
 		wish_offer_panel != null
 		and wish_offer_panel.is_ready()
 		and event.is_action_pressed("wish_menu")
@@ -1740,7 +1824,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_refresh_controller_hints()
 		get_viewport().set_input_as_handled()
 		return
-	if event.is_action_pressed("project_menu"):
+	if not core.diorama.enabled and event.is_action_pressed("project_menu"):
 		project_panel.toggle()
 		_refresh_controller_hints()
 		get_viewport().set_input_as_handled()
@@ -1750,6 +1834,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		or wish_offer_panel.is_open()
 		or panels.is_open()
 		or project_panel.is_open()
+		or discovery_tray_panel != null and discovery_tray_panel.has_focus()
 	):
 		return
 	if _handle_hud_shortcut(event):
@@ -2108,6 +2193,11 @@ func _refresh_controller_hints() -> void:
 			{"action": &"ui_accept", "label": "Select"},
 			{"action": &"cancel", "label": "Back"},
 		]
+	elif discovery_tray_panel != null and discovery_tray_panel.has_focus():
+		actions = [
+			{"action": &"ui_accept", "label": "Choose miniature"},
+			{"action": &"cancel", "label": "Back to world"},
+		]
 	elif wish_offer_panel.is_open():
 		actions = [
 			{"action": &"ui_accept", "label": "Choose wish"},
@@ -2157,14 +2247,17 @@ func _refresh_controller_hints() -> void:
 				var frontier_marker := frontier_markers.marker_at_cell(
 					placement.controller_cursor_cell()
 				)
-				var frontier_status := core.frontiers.status(
-					frontier_marker.get("nook", Vector2i.ZERO)
-				)
-				confirm_label = (
-					"Unfold land"
-					if bool(frontier_status.get("ready", false))
-					else "Track frontier"
-				)
+				if core.diorama.enabled:
+					confirm_label = "Use Expansion Ripple"
+				else:
+					var frontier_status := core.frontiers.status(
+						frontier_marker.get("nook", Vector2i.ZERO)
+					)
+					confirm_label = (
+						"Unfold land"
+						if bool(frontier_status.get("ready", false))
+						else "Track frontier"
+					)
 			actions = [
 				{"action": &"build_cursor_up", "label": "Move cursor"},
 				{"action": &"camera_pan_up", "label": "Pan camera"},
@@ -2193,10 +2286,13 @@ func _refresh_controller_hints() -> void:
 		actions = [
 			{"action": &"build_cursor_up", "label": "Move world cursor"},
 			{"action": &"interact", "label": interact_label},
-			{"action": &"project_menu", "label": "Projects"},
+			{
+				"action": &"discovery_tray" if core.diorama.enabled else &"project_menu",
+				"label": "Discovery Tray" if core.diorama.enabled else "Projects",
+			},
 			{"action": &"build_mode", "label": "Edit mode"},
 		]
-	if wish_offer_panel.is_ready() and not wish_offer_panel.is_open():
+	if not core.diorama.enabled and wish_offer_panel.is_ready() and not wish_offer_panel.is_open():
 		actions.push_front({"action": &"wish_menu", "label": "Open wish"})
 		if not player.focus().is_empty():
 			actions.insert(1, {"action": &"interact", "label": "Interact"})
@@ -2242,6 +2338,8 @@ func _try_build_world_action_at_screen(screen_position: Vector2) -> bool:
 func _try_build_world_action_at_cell(cell: Vector2i) -> bool:
 	if _try_expand_frontier_at_cell(cell):
 		return true
+	if core.diorama.enabled:
+		return false
 	var visitor: Dictionary = visitor_scene.call("event_at_cell", cell)
 	if not visitor.is_empty():
 		return bool(visitor_scene.call("interact", int(visitor["event_id"])))
@@ -2267,6 +2365,13 @@ func _try_expand_frontier_at_cell(cell: Vector2i) -> bool:
 
 
 func _activate_frontier(coord: Vector2i) -> bool:
+	if core.diorama.enabled:
+		var prepared: Dictionary = core.diorama.gifts.prepare_expansion(coord)
+		if prepared.is_empty():
+			return false
+		core.save()
+		_refresh_controller_hints()
+		return true
 	var result := core.frontiers.activate(coord)
 	if not bool(result.get("accepted", false)):
 		return false
@@ -2289,7 +2394,10 @@ func _begin_frontier_expansion(
 	seed_card: Dictionary
 ) -> void:
 	if core.nooks.world.has_nook(coord):
-		core.frontiers.mark_generated(coord)
+		if core.diorama.enabled:
+			core.diorama.gifts.finish_expansion(coord, true)
+		else:
+			core.frontiers.mark_generated(coord)
 		return
 	if _nook_reveal_in_progress:
 		for queued: Dictionary in _queued_frontier_expansions:
@@ -2302,7 +2410,8 @@ func _begin_frontier_expansion(
 		})
 		return
 	_nook_reveal_in_progress = true
-	project_panel.close()
+	if project_panel != null:
+		project_panel.close()
 	if nook_arrival_ghost != null:
 		nook_arrival_ghost.preview_nook(coord, _expansion_seam_side(coord))
 	_update_frontier_marker_availability()
@@ -2344,13 +2453,24 @@ func _expand_frontier_project_async(
 		if nook_arrival_ghost != null:
 			nook_arrival_ghost.cancel_preview(coord)
 		_update_frontier_marker_availability()
-		core.frontiers.mark_generation_failed(coord)
+		if core.diorama.enabled:
+			core.diorama.gifts.finish_expansion(coord, false)
+		else:
+			core.frontiers.mark_generation_failed(coord)
 		audio.play_event("build_invalid")
 		_start_next_frontier_expansion()
 		return
-	core.frontiers.mark_generated(coord)
+	if core.diorama.enabled:
+		core.diorama.gifts.finish_expansion(coord, true)
+	else:
+		core.frontiers.mark_generated(coord)
 	audio.play_event("parcel_reveal")
-	hud.toast("Frontier Project complete — new land is arriving.", "rare")
+	hud.toast(
+		"The Expansion Ripple unfolds into new land."
+		if core.diorama.enabled
+		else "Frontier Project complete — new land is arriving.",
+		"rare"
+	)
 	core.autosave_soon()
 	_refresh_controller_hints()
 
@@ -2390,7 +2510,10 @@ func _try_harvest_instance(instance_id: int) -> bool:
 
 
 func _interaction_at_screen(screen_position: Vector2) -> Dictionary:
-	return interaction_targets.interaction_at(screen_position)
+	var interaction: Dictionary = interaction_targets.interaction_at(screen_position)
+	if core.diorama.enabled and interaction.get("kind", "") == "frontier_project":
+		interaction["kind"] = "expansion_ripple"
+	return interaction
 
 
 func _interaction_at_controller_cursor() -> Dictionary:
@@ -2398,16 +2521,17 @@ func _interaction_at_controller_cursor() -> Dictionary:
 	var marker: Dictionary = frontier_markers.marker_at_cell(cell)
 	if not marker.is_empty():
 		return {
-			"kind": "frontier_project",
+			"kind": "expansion_ripple" if core.diorama.enabled else "frontier_project",
 			"coord": marker.get("nook", Vector2i.ZERO),
 			"point": core.grid.cell_to_world(cell),
 		}
-	var fishing_spot := provision_fishing_spots.interaction_at_cell(cell)
-	if not fishing_spot.is_empty():
-		return fishing_spot
-	var visitor_target: Dictionary = visitor_scene.call("event_at_cell", cell)
-	if not visitor_target.is_empty():
-		return visitor_target
+	if not core.diorama.enabled:
+		var fishing_spot := provision_fishing_spots.interaction_at_cell(cell)
+		if not fishing_spot.is_empty():
+			return fishing_spot
+		var visitor_target: Dictionary = visitor_scene.call("event_at_cell", cell)
+		if not visitor_target.is_empty():
+			return visitor_target
 	var instance_id := placement.controller_target_instance_id()
 	if instance_id <= 0:
 		return {}
@@ -2415,6 +2539,10 @@ func _interaction_at_controller_cursor() -> Dictionary:
 	if found.is_empty():
 		return {}
 	var options: Array = core.interactions.options_for("player", instance_id)
+	if core.diorama.enabled:
+		options = options.filter(func(option):
+			return String(option.feature_id) == "world_curiosity"
+		)
 	if options.is_empty():
 		return {}
 	return {
@@ -2429,6 +2557,71 @@ func _interaction_at_controller_cursor() -> Dictionary:
 
 
 # ------------------------------------------------------------------ cross-cutting flows
+
+func _on_diorama_offer_selected(offer: Dictionary) -> void:
+	audio.play_event("build_preview")
+	placement.hold_diorama_offer(offer)
+	_refresh_controller_hints()
+
+
+func _on_diorama_offer_committed(
+	reward: Dictionary,
+	_replacement: Dictionary,
+	_slot: int
+) -> void:
+	if bool(reward.get("was_new", false)):
+		reward_reveal.enqueue(
+			reward,
+			core.grid.cell_to_world(core.grid.home_cell) + Vector3.UP * 0.2,
+			"reveal_world_bud_evergreen"
+		)
+	audio.play_event("discovery" if bool(reward.get("was_new", false)) else "reward_common")
+	_refresh_controller_hints()
+
+
+func _on_world_gift_selected(gift_id: String) -> void:
+	if not core.diorama.gifts.begin_targeting(gift_id):
+		return
+	placement.set_active(false)
+	if InputDeviceService.shared().is_controller():
+		placement.begin_controller_interaction_browse()
+	frontier_markers.rebuild()
+	_update_frontier_marker_availability()
+	_refresh_controller_hints()
+
+
+func _on_curiosity_landed(instance_id: int, _state: Dictionary) -> void:
+	call_deferred("_animate_curiosity_landing", instance_id)
+	audio.play_event("parcel_appear")
+
+
+func _animate_curiosity_landing(instance_id: int) -> void:
+	renderer.refresh_structure_opportunity(instance_id)
+	renderer.animate_structure_wish_landing(instance_id)
+
+
+func _on_curiosity_opened(_instance_id: int, result: Dictionary) -> void:
+	var coord: Vector2i = result.get("position_coord", core.grid.home_cell)
+	var position := core.grid.cell_to_world(coord) + Vector3.UP * 0.18
+	audio.play_event("place_stone", 1.5, 1.35)
+	effects.burst("fx_spark", position + Vector3.UP * 0.22, 18, 3.8)
+	effects.burst("fx_smoke_puff", position + Vector3.UP * 0.08, 10, 1.7)
+	var profile_id := String(result.get("reveal_profile_id", "reveal_visitor_vase"))
+	for reward: Dictionary in result.get("rewards", []):
+		reward_reveal.enqueue(reward, position, profile_id)
+	_refresh_controller_hints()
+
+
+func _on_creative_collection_milestone(
+	_collection_id: String,
+	_milestone: Dictionary
+) -> void:
+	audio.play_event("levelup")
+	if player.state == PlayerController.State.FREE:
+		player_visual.play("celebrate")
+	else:
+		_celebration_pending = true
+	_refresh_controller_hints()
 
 func _on_action_feedback(kind: String, data: Dictionary) -> void:
 	match kind:
@@ -2765,6 +2958,14 @@ func _on_click_interaction_reached(interaction: Dictionary) -> void:
 
 
 func _perform_interaction(interaction: Dictionary) -> void:
+	if core.diorama.enabled:
+		var kind := String(interaction.get("kind", ""))
+		if kind == "feature_interaction":
+			var option = interaction.get("option")
+			if option == null or String(option.feature_id) != "world_curiosity":
+				return
+		elif kind not in ["expansion_ripple"]:
+			return
 	match interaction.get("kind", ""):
 		"visitor", "visitor_vase":
 			# Release transient outline RIDs before a visitor visual starts a tween
@@ -2775,7 +2976,7 @@ func _perform_interaction(interaction: Dictionary) -> void:
 			provision_fishing_spots.interact(
 				interaction.get("coord", Vector2i.ZERO)
 			)
-		"frontier_project":
+		"frontier_project", "expansion_ripple":
 			_activate_frontier(interaction.get("coord", Vector2i.ZERO))
 		"delivery_package":
 			_open_delivery_package()

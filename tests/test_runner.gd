@@ -69,9 +69,18 @@ func _ui_contrast_ratio(first: Color, second: Color) -> float:
 	)
 
 
-func fresh_core(seed_value := 12345) -> GameCore:
+func fresh_core(seed_value := 12345, diorama_mode := false) -> GameCore:
 	var core := GameCore.new()
 	core.setup("res://data", seed_value)
+	# Most of this suite still exercises the archived pre-diorama systems in
+	# isolation. The live default stays enabled; new-loop tests opt in below.
+	core.diorama.enabled = diorama_mode
+	if not diorama_mode:
+		core.harvesting.enabled = true
+		core.visitors.enabled = true
+		if core.nooks.enabled:
+			for structure_id: String in core.nooks.sapling_stage_zero_ids():
+				core.stock.set_unlimited_structure(structure_id)
 	core.save_manager.save_path = "user://test_save.json"
 	core.save_manager.backup_path = "user://test_save.json.backup"
 	var profile := PlayerProfile.new()
@@ -160,6 +169,9 @@ func _run() -> void:
 	_test_ground_impact_surface_profiles()
 	_test_soft_terrain_contract()
 	_test_content_catalog_architecture()
+	_test_endless_diorama_progression()
+	_test_diorama_legacy_migration()
+	_test_content_catalog_runtime_contracts()
 	_test_build_library_categories()
 	_test_hud_design_system()
 	_test_content_assets()
@@ -1066,6 +1078,11 @@ func _test_input_bindings() -> void:
 	check(_action_has_key("cancel", KEY_ESCAPE), "Escape remains a keyboard back action")
 	check(_action_has_key("toggle_hud", KEY_H), "H hides and restores the HUD")
 	check(
+		_action_has_key("discovery_tray", KEY_G)
+		and _action_has_joypad_button("discovery_tray", JOY_BUTTON_BACK),
+		"G and the controller view button focus the live Discovery Tray"
+	)
+	check(
 		_action_has_key("wish_menu", KEY_G)
 		and _action_has_joypad_button("wish_menu", JOY_BUTTON_BACK),
 		"G and the controller view button open a ready wish"
@@ -1376,6 +1393,7 @@ func _test_content_catalog_architecture() -> void:
 		"special_finds", "visitor_presentations", "visitor_programs",
 		"nook_biomes", "nook_stamps", "nook_moods",
 		"treasure_tables", "firsts", "dormants", "moments",
+		"creative_collections", "world_gifts", "world_curiosities",
 	]
 	check(
 		regs.definition_kinds() == expected_kinds,
@@ -1399,6 +1417,236 @@ func _test_content_catalog_architecture() -> void:
 		regs.definition_has_tag("items", "fish_dawnfin", "fish"),
 		"item tags are available through the global definition API"
 	)
+
+
+func _test_endless_diorama_progression() -> void:
+	var core := fresh_core(5150, true)
+	var tray := core.diorama.tray
+	var offers := tray.offers()
+	var roles := {}
+	for offer: Dictionary in offers:
+		roles[String(offer.get("role", ""))] = true
+	check(
+		core.diorama.enabled
+		and offers.size() == 3
+		and roles.size() == 3,
+		"the live diorama loop begins with three distinct physical offer roles"
+	)
+	check(
+		core.stock.total_tiles() == 0
+		and core.stock.structures.is_empty()
+		and core.stock.structure_instances.is_empty(),
+		"tray miniatures are not owned Build Bag stock before first placement"
+	)
+
+	var first: Dictionary = offers[0]
+	var first_id := String(first.get("offer_id", ""))
+	var tile_id := String(first.get("id", ""))
+	var held := tray.begin_hold(0)
+	check(
+		String(held.get("state", "")) == "held"
+		and core.stock.tile_count(tile_id) == 0,
+		"picking up a tray miniature reserves its exact offer without minting it"
+	)
+	check(
+		core.commit_diorama_offer(first_id, "tile", "tile_path").is_empty()
+		and tray.offer_at(0).get("offer_id", "") == first_id,
+		"a different piece cannot consume a reserved tray offer"
+	)
+
+	var placement_cell := Vector2i(2147483647, 2147483647)
+	for y in range(-8, 9):
+		for x in range(-8, 9):
+			var candidate := Vector2i(x, y)
+			if core.can_place_player_tile_at(candidate, 0, tile_id):
+				placement_cell = candidate
+				break
+		if placement_cell.x != 2147483647:
+			break
+	var placed := (
+		placement_cell.x != 2147483647
+		and core.place_tile_from_diorama_offer(
+			placement_cell, tile_id, 0, 0, first_id
+		)
+	)
+	check(
+		placed
+		and tray.offer_at(0).get("offer_id", "") != first_id
+		and core.stock.tile_count(tile_id) == 0
+		and int(core.collection.entry("tiles", tile_id).get("placed", 0)) == 1,
+		"only an exact successful world placement transfers ownership and refills its slot"
+	)
+	var stored_tile := core.grid.remove_tile_at(placement_cell, 0)
+	if stored_tile != null:
+		core.stock.add_tile(stored_tile.tile_id)
+	check(
+		stored_tile != null and core.stock.tile_count(tile_id) == 1,
+		"a tray-owned piece can subsequently return to the persistent Build Bag"
+	)
+
+	var gift_before := core.diorama.gifts.count("expansion_ripple")
+	while tray.placements_committed < 8:
+		var slot := tray.placements_committed % 3
+		var offer := tray.offer_at(slot)
+		var exact := tray.begin_hold(slot)
+		check(not exact.is_empty(), "the next tray miniature can be picked up")
+		var reward := core.commit_diorama_offer(
+			String(offer.get("offer_id", "")),
+			String(offer.get("kind", "")),
+			String(offer.get("id", ""))
+		)
+		check(not reward.is_empty(), "a committed exact offer advances build cadence")
+	check(
+		core.diorama.gifts.count("expansion_ripple") > gift_before,
+		"slow first-placement cadence awards a saved Expansion Ripple"
+	)
+	check(
+		core.diorama.curiosities.active_count() == 1,
+		"building eventually lands one tangible themed skyfall curiosity"
+	)
+
+	var curiosity_id := 0
+	var curiosity_state: Dictionary = {}
+	for slot_data: Dictionary in core.grid.all_cell_slots():
+		var state: WorldGrid.CellState = slot_data["state"]
+		for structure: WorldGrid.StructureState in state.structures:
+			var entry := core.diorama.curiosities.entry_for_instance(
+				structure.instance_id
+			)
+			if not entry.is_empty():
+				curiosity_id = structure.instance_id
+				curiosity_state = entry
+				break
+		if curiosity_id > 0:
+			break
+	check(
+		curiosity_id > 0
+		and not (curiosity_state.get("loot", []) as Array).is_empty(),
+		"a landed curiosity persists its complete pre-rolled bundle in world state"
+	)
+	var opened := core.diorama.curiosities.claim(curiosity_id)
+	check(
+		bool(opened.get("accepted", false))
+		and not (opened.get("rewards", []) as Array).is_empty()
+		and core.diorama.curiosities.active_count() == 0
+		and not bool(core.diorama.curiosities.claim(curiosity_id).get("accepted", false)),
+		"one calm interaction opens the whole bundle exactly once"
+	)
+
+	var gift_count := core.diorama.gifts.count("expansion_ripple")
+	var frontier: Vector2i = core.nooks.world.frontier_coords()[0]
+	var nook_count: int = core.nooks.world.count()
+	check(
+		gift_count > 0
+		and core.diorama.gifts.begin_targeting("expansion_ripple"),
+		"Expansion Ripples remain tangible saved gifts until the player aims one"
+	)
+	var pending := core.diorama.gifts.prepare_expansion(frontier)
+	var plan = core.nooks.reveal_nook(
+		frontier,
+		(pending.get("seed_card", {}) as Dictionary)
+	)
+	var expansion_finished := (
+		plan != null
+		and core.diorama.gifts.finish_expansion(frontier, true)
+	)
+	check(
+		expansion_finished
+		and core.nooks.world.count() == nook_count + 1
+		and core.diorama.gifts.count("expansion_ripple") == gift_count - 1,
+		"a Ripple is consumed only after its random generated land commits"
+	)
+	var new_land_curiosity := core.diorama.curiosities.spawn_for_new_land(frontier)
+	check(
+		bool(new_land_curiosity.get("accepted", false)),
+		"the first expanded land guarantees one rare-feeling local curiosity"
+	)
+
+	check(core.save(), "the transformed diorama state saves")
+	var restored := GameCore.new()
+	check(restored.setup("res://data", 999), "a restore core loads current content")
+	restored.save_manager.save_path = "user://test_save.json"
+	restored.save_manager.backup_path = "user://test_save.json.backup"
+	check(
+		restored.load_game()
+		and restored.diorama.tray.offers().size() == 3
+		and restored.diorama.tray.placements_committed == tray.placements_committed
+		and restored.nooks.world.count() == core.nooks.world.count()
+		and restored.diorama.curiosities.active_count() == 1,
+		"tray, collections, gifts, expanded world, and curiosities restore together"
+	)
+
+
+func _test_diorama_legacy_migration() -> void:
+	var save_path := "user://test_diorama_legacy_migration.json"
+	var legacy := fresh_core(8181, false)
+	legacy.save_manager.save_path = save_path
+	legacy.save_manager.backup_path = save_path + ".backup"
+	var fallen := legacy.reward_drops.land({
+		"kind": "tile",
+		"id": "tile_path",
+		"amount": 1,
+		"rarity": "common",
+	})
+	legacy.visitors.current_event = {
+		"event_id": 77,
+		"program_id": "visitor_program_world_gifts",
+		"presentation_id": "visitor_clover_hop",
+		"cell": [legacy.grid.home_cell.x, legacy.grid.home_cell.y],
+		"landing_collection": "meadow",
+		"landing_family": "home_meadow",
+		"reward": {
+			"kind": "structure",
+			"id": "struct_pot",
+			"amount": 1,
+			"rarity": "uncommon",
+		},
+		"first": false,
+		"phase": "vase",
+		"visit_seconds_left": 0.0,
+	}
+	legacy.inventory.grant("token_forest", 3, false, true)
+	var frontier_coord: Vector2i = legacy.nooks.world.frontier_coords()[0]
+	var legacy_frontier := legacy.frontiers.ensure_frontier(frontier_coord)
+	var legacy_project_id := String(legacy_frontier.get("project_id", ""))
+	if legacy.projects.projects.has(legacy_project_id):
+		legacy.projects.projects[legacy_project_id]["complete"] = true
+		legacy.projects.projects[legacy_project_id]["rewarded"] = false
+	var payload := legacy._save_payload()
+	(payload.get("features", {}) as Dictionary).erase("diorama")
+	check(
+		bool(fallen.get("accepted", false))
+		and legacy.save_manager.write(payload),
+		"a representative pre-diorama save fixture is valid"
+	)
+
+	var restored := GameCore.new()
+	restored.setup("res://data", 1)
+	restored.save_manager.save_path = save_path
+	restored.save_manager.backup_path = save_path + ".backup"
+	check(
+		restored.load_game()
+		and restored.diorama.tray.offers().size() == 3,
+		"a save without diorama state enters the live three-offer loop"
+	)
+	check(
+		restored.diorama.curiosities.active_count() >= 2
+		and restored.visitors.waiting_event().is_empty(),
+		"old Falling Objects and visitor vases keep their exact loot as curiosities"
+	)
+	check(
+		restored.inventory.count("token_forest") == 0,
+		"a partial retired token balance becomes a corresponding Build Bag keepsake"
+	)
+	check(
+		restored.diorama.gifts.count("expansion_ripple") >= 1,
+		"a completed unused frontier becomes a portable Expansion Ripple"
+	)
+
+
+func _test_content_catalog_runtime_contracts() -> void:
+	var regs := GameContentCatalogScript.create()
+	check(regs.load_all(), "catalog snapshot loads for runtime contract tests")
 	check(
 		regs.definition_has_capability(
 			"structures", "struct_high_tent", "shelter"
@@ -5959,10 +6207,9 @@ func _test_unfolding_world_seeded_opening() -> void:
 		"the seeded opening has no guided lesson to resume"
 	)
 	check(
-		core.stock.structure_count("struct_pine") == 1
-		and core.stock.structure_count("struct_bush") == 1
-		and core.stock.structure_count("struct_rock_outcrop") == 1,
-		"every seed guarantees reusable Timber, Provisions, and Stone sources"
+		core.stock.structures.is_empty()
+		and core.diorama.tray.offers().size() == 3,
+		"every seed enters the three-offer diorama loop without legacy resource stock"
 	)
 	var reloaded := GameCore.new()
 	reloaded.setup("res://data", 1)
@@ -5971,6 +6218,7 @@ func _test_unfolding_world_seeded_opening() -> void:
 	check(
 		reloaded.load_game()
 		and reloaded.nooks.world.nook(Vector2i.ZERO) != null
-		and reloaded.nooks.world.nook(Vector2i.ZERO).starter,
+		and reloaded.nooks.world.nook(Vector2i.ZERO).starter
+		and reloaded.diorama.tray.offers().size() == 3,
 		"a seeded opening save reloads with its starter Nook intact"
 	)

@@ -1,0 +1,56 @@
+{
+  "world_curiosities": [
+    {
+      "id": "garden_crock",
+      "name": "Garden Gift Crock",
+      "collection": "meadow",
+      "category": "meadow",
+      "family": "home_meadow",
+      "weight": 1.2,
+      "loot_min": 1,
+      "loot_max": 2,
+      "rare_chance": 0.08,
+      "gift_chance": 0.08,
+      "reveal_profile": "reveal_visitor_vase"
+    },
+    {
+      "id": "grove_jar",
+      "name": "Hollow Grove Jar",
+      "collection": "woodland",
+      "category": "forest",
+      "family": "living_grove",
+      "weight": 1.0,
+      "loot_min": 1,
+      "loot_max": 3,
+      "rare_chance": 0.1,
+      "gift_chance": 0.07,
+      "reveal_profile": "reveal_visitor_vase"
+    },
+    {
+      "id": "stone_reliquary",
+      "name": "Stone Reliquary",
+      "collection": "stone",
+      "category": "stone",
+      "family": "stonebound",
+      "weight": 0.8,
+      "loot_min": 1,
+      "loot_max": 2,
+      "rare_chance": 0.15,
+      "gift_chance": 0.1,
+      "reveal_profile": "reveal_visitor_vase"
+    },
+    {
+      "id": "frosted_urn",
+      "name": "Frosted Parcel",
+      "collection": "winter",
+      "category": "winter",
+      "family": "winter",
+      "weight": 0.55,
+      "loot_min": 1,
+      "loot_max": 2,
+      "rare_chance": 0.14,
+      "gift_chance": 0.1,
+      "reveal_profile": "reveal_visitor_vase"
+    }
+  ]
+}

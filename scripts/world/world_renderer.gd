@@ -27,6 +27,9 @@ const FoliageWindScript := preload("res://scripts/visuals/foliage_wind.gd")
 const ScalableWorldBackendScript := preload(
 	"res://scripts/world/scalable_world_backend.gd"
 )
+const CuriosityVisualFactoryScript := preload(
+	"res://scripts/features/visitors/presentation/visitor_container_visual_factory.gd"
+)
 const SCALABLE_WORLD_THRESHOLD := 512
 
 var core: GameCore
@@ -43,6 +46,7 @@ var _silhouette_material: StandardMaterial3D
 var _water_surface: WaterSurface
 var _tile_visual_factory: TileVisualFactory
 var _structure_visual_factory: RefCounted
+var _curiosity_visual_factory: RefCounted
 var _outlined_meshes: Array[MeshInstance3D] = []
 var _hovered_structure_id := -1
 var _hover_signature := ""
@@ -91,6 +95,7 @@ func setup(game_core: GameCore, asset_library: AssetLibrary) -> void:
 		Callable(self, "is_tile_staged_for_reveal")
 	)
 	_structure_visual_factory = StructureVisualFactoryScript.new(assets, core.grid)
+	_curiosity_visual_factory = CuriosityVisualFactoryScript.new()
 	_scalable_backend = ScalableWorldBackendScript.new()
 	_scalable_backend.setup(
 		self,
@@ -570,6 +575,16 @@ func _build_structure(holder: Node3D, s: WorldGrid.StructureState) -> void:
 		true,
 		int(harvest_runtime.get("visual_seed", s.instance_id))
 	)
+	var curiosity_state: Dictionary = s.runtime_state.get("world_curiosity", {})
+	if not curiosity_state.is_empty() and not bool(curiosity_state.get("claimed", false)):
+		for child in visual.get_children():
+			visual.remove_child(child)
+			child.queue_free()
+		var style: Dictionary = curiosity_state.get("style", {})
+		visual.add_child(_curiosity_visual_factory.create_for_context(
+			String(style.get("category", "meadow")),
+			String(style.get("family", "home_meadow"))
+		))
 	visual.name = "struct_%d" % s.instance_id
 	var staged_for_reveal := is_structure_staged_for_reveal(s.instance_id)
 	visual.visible = not staged_for_reveal

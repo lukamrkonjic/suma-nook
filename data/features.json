@@ -1,4 +1,5 @@
 {
+  "endless_diorama_enabled": true,
   "material_crafting_enabled": false,
   "combat_enabled": false,
   "monsters_enabled": false,
@@ -9,8 +10,8 @@
   "procedural_owl_mascot_enabled": false,
   "debug_creature_parade_enabled": false,
   "itch_catalog_enabled": false,
-  "harvesting_enabled": true,
-  "visitor_events_enabled": true,
+  "harvesting_enabled": false,
+  "visitor_events_enabled": false,
   "nooks_enabled": true,
   "nook_frontier_picker_enabled": true,
   "nook_treasures_enabled": true,

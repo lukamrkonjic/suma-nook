@@ -1,0 +1,11 @@
+{
+  "first_expansion_after": 6,
+  "later_expansion_min": 22,
+  "later_expansion_max": 34,
+  "skyfall_min": 8,
+  "skyfall_max": 15,
+  "new_land_curiosity_chance": 0.25,
+  "new_land_dry_streak_guarantee": 3,
+  "first_new_land_curiosity_guaranteed": true,
+  "curiosity_active_cap": 1
+}

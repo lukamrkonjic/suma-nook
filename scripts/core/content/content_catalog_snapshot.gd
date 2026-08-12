@@ -35,6 +35,9 @@ const DEFINITION_KINDS: Array[String] = [
 	"firsts",
 	"dormants",
 	"moments",
+	"creative_collections",
+	"world_gifts",
+	"world_curiosities",
 ]
 
 var base_path: String
@@ -72,9 +75,14 @@ var treasure_tables: Dictionary = {}
 var firsts: Dictionary = {}
 var dormants: Dictionary = {}
 var moments: Dictionary = {}
+var creative_collections: Dictionary = {}
+var world_gifts: Dictionary = {}
+var world_curiosities: Dictionary = {}
 var nook_config: Dictionary = {}
 var reveal_config: Dictionary = {}
 var fishing_balance: Dictionary = {}
+var discovery_tray_config: Dictionary = {}
+var build_cadence_config: Dictionary = {}
 var sources: Dictionary = {}
 
 
@@ -115,6 +123,9 @@ func definitions(kind: String) -> Dictionary:
 		"firsts": return firsts
 		"dormants": return dormants
 		"moments": return moments
+		"creative_collections": return creative_collections
+		"world_gifts": return world_gifts
+		"world_curiosities": return world_curiosities
 	return {}
 
 

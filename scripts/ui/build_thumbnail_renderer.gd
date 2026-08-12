@@ -37,7 +37,9 @@ func setup(game_core: GameCore, asset_library: AssetLibrary) -> void:
 
 func request(kind: String, content_id: String, receiver: Callable) -> void:
 	if DisplayServer.get_name() == "headless":
-		receiver.call_deferred(null)
+		# Headless UI tests have no render result to wait for. Calling now also
+		# avoids retaining a thumbnail-card lambda after its panel is rebuilt.
+		receiver.call(null)
 		return
 	var key := "%s:%s" % [kind, content_id]
 	if _cache.has(key):

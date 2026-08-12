@@ -1,0 +1,126 @@
+{
+  "creative_collections": [
+    {
+      "id": "meadow",
+      "name": "Meadow",
+      "description": "Soft ground, flowers and pieces for a lived-in garden.",
+      "color_token": "ui_good",
+      "members": [
+        {"kind": "tile", "id": "tile_grass", "tier": 0, "family": "ground"},
+        {"kind": "tile", "id": "tile_grass_flower", "tier": 0, "family": "flowers"},
+        {"kind": "tile", "id": "tile_path", "tier": 0, "family": "paths"},
+        {"kind": "structure", "id": "struct_bench", "tier": 0, "family": "furniture"},
+        {"kind": "structure", "id": "struct_planter", "tier": 0, "family": "garden"},
+        {"kind": "structure", "id": "struct_pot", "tier": 0, "family": "garden"},
+        {"kind": "tile", "id": "tile_proc_flower_meadow", "tier": 1, "family": "flowers"},
+        {"kind": "structure", "id": "struct_birdbath", "tier": 1, "family": "garden"},
+        {"kind": "structure", "id": "struct_watering_can", "tier": 1, "family": "garden"},
+        {"kind": "structure", "id": "struct_garden_trellis", "tier": 2, "family": "garden"},
+        {"kind": "structure", "id": "struct_wooden_arch", "tier": 2, "family": "garden"}
+      ],
+      "milestones": [
+        {"id": "meadow_familiar", "discoveries": 4, "unlock_tier": 1, "note": "Birdbaths and garden tools can now appear."},
+        {"id": "meadow_complete", "discoveries": 8, "unlock_tier": 2, "gift_id": "expansion_ripple", "note": "Garden arches join the sky, with an Expansion Ripple."}
+      ]
+    },
+    {
+      "id": "woodland",
+      "name": "Woodland",
+      "description": "Trees, moss and quiet forest details.",
+      "color_token": "ui_accent",
+      "members": [
+        {"kind": "tile", "id": "tile_grove_mature", "tier": 0, "family": "forest_floor"},
+        {"kind": "tile", "id": "tile_grove_mossy", "tier": 0, "family": "forest_floor"},
+        {"kind": "structure", "id": "struct_pine_young", "tier": 0, "family": "pine"},
+        {"kind": "structure", "id": "struct_bush", "tier": 0, "family": "undergrowth"},
+        {"kind": "structure", "id": "struct_log_pile", "tier": 0, "family": "woodwork"},
+        {"kind": "tile", "id": "tile_grove_birch", "tier": 1, "family": "forest_floor"},
+        {"kind": "structure", "id": "struct_pine", "tier": 1, "family": "pine"},
+        {"kind": "structure", "id": "struct_fence", "tier": 1, "family": "woodwork"},
+        {"kind": "tile", "id": "tile_grove_autumn", "tier": 2, "family": "forest_floor"},
+        {"kind": "structure", "id": "struct_pine_tall", "tier": 2, "family": "pine"}
+      ],
+      "milestones": [
+        {"id": "woodland_familiar", "discoveries": 4, "unlock_tier": 1, "note": "Mature pines and fences can now appear."},
+        {"id": "woodland_complete", "discoveries": 7, "unlock_tier": 2, "gift_id": "expansion_ripple", "note": "Autumn woodland pieces join the sky."}
+      ]
+    },
+    {
+      "id": "homestead",
+      "name": "Homestead",
+      "description": "Furniture, shelter and useful pieces for tiny settlements.",
+      "color_token": "ui_accent",
+      "members": [
+        {"kind": "structure", "id": "struct_stool", "tier": 0, "family": "furniture"},
+        {"kind": "structure", "id": "struct_table", "tier": 0, "family": "furniture"},
+        {"kind": "structure", "id": "struct_lantern", "tier": 0, "family": "details"},
+        {"kind": "structure", "id": "struct_sign", "tier": 0, "family": "details"},
+        {"kind": "structure", "id": "struct_crate", "tier": 0, "family": "storage"},
+        {"kind": "structure", "id": "struct_barrel", "tier": 1, "family": "storage"},
+        {"kind": "structure", "id": "struct_chest", "tier": 1, "family": "storage"},
+        {"kind": "structure", "id": "struct_high_tent", "tier": 1, "family": "buildings"},
+        {"kind": "structure", "id": "struct_gate", "tier": 2, "family": "boundaries"},
+        {"kind": "structure", "id": "struct_wheelbarrow", "tier": 2, "family": "details"}
+      ],
+      "milestones": [
+        {"id": "homestead_familiar", "discoveries": 4, "unlock_tier": 1, "note": "Shelters and sturdy storage can now appear."},
+        {"id": "homestead_complete", "discoveries": 7, "unlock_tier": 2, "gift_id": "expansion_ripple", "note": "The homestead family grows outward."}
+      ]
+    },
+    {
+      "id": "waterside",
+      "name": "Waterside",
+      "description": "Water, boardwalks and models for the shore.",
+      "color_token": "ui_info",
+      "members": [
+        {"kind": "tile", "id": "tile_open_water", "tier": 0, "family": "water"},
+        {"kind": "tile", "id": "tile_grass_pond_edge", "tier": 0, "family": "pond"},
+        {"kind": "tile", "id": "tile_wooden_planks", "tier": 0, "family": "boardwalk"},
+        {"kind": "structure", "id": "struct_dock", "tier": 1, "family": "buildings"},
+        {"kind": "structure", "id": "struct_water_wheel", "tier": 2, "family": "buildings"},
+        {"kind": "tile", "id": "tile_proc_pond_basin", "tier": 2, "family": "pond"}
+      ],
+      "milestones": [
+        {"id": "waterside_familiar", "discoveries": 3, "unlock_tier": 1, "note": "Docks can now appear."},
+        {"id": "waterside_complete", "discoveries": 5, "unlock_tier": 2, "gift_id": "expansion_ripple", "note": "Rare waterside features join the sky."}
+      ]
+    },
+    {
+      "id": "stone",
+      "name": "Stone",
+      "description": "Weathered masonry, ruins and rocky garden pieces.",
+      "color_token": "ui_text_secondary",
+      "members": [
+        {"kind": "tile", "id": "tile_cobblestone", "tier": 0, "family": "paving"},
+        {"kind": "tile", "id": "tile_stone_clearing", "tier": 0, "family": "ground"},
+        {"kind": "structure", "id": "struct_rock_outcrop", "tier": 0, "family": "rocks"},
+        {"kind": "structure", "id": "struct_stone_wall_low", "tier": 0, "family": "walls"},
+        {"kind": "structure", "id": "struct_stone_bench", "tier": 1, "family": "furniture"},
+        {"kind": "structure", "id": "struct_stone_pillar", "tier": 1, "family": "walls"},
+        {"kind": "structure", "id": "struct_ruin_arch", "tier": 2, "family": "ruins"},
+        {"kind": "tile", "id": "tile_stone_crystal", "tier": 2, "family": "rare"}
+      ],
+      "milestones": [
+        {"id": "stone_familiar", "discoveries": 4, "unlock_tier": 1, "note": "Stone furniture and pillars can now appear."},
+        {"id": "stone_complete", "discoveries": 6, "unlock_tier": 2, "gift_id": "expansion_ripple", "note": "Ruins and crystal ground join the sky."}
+      ]
+    },
+    {
+      "id": "winter",
+      "name": "Winter",
+      "description": "Snow fields and cheerful cold-weather pieces.",
+      "color_token": "ui_info",
+      "members": [
+        {"kind": "tile", "id": "tile_snowfield", "tier": 0, "family": "snow"},
+        {"kind": "tile", "id": "tile_snow_path", "tier": 0, "family": "paths"},
+        {"kind": "tile", "id": "tile_snow_drift", "tier": 1, "family": "snow"},
+        {"kind": "structure", "id": "struct_snowman", "tier": 1, "family": "figures"},
+        {"kind": "tile", "id": "tile_frosted_stone", "tier": 2, "family": "stone"}
+      ],
+      "milestones": [
+        {"id": "winter_familiar", "discoveries": 2, "unlock_tier": 1, "note": "Deep snow and a friendly Snowkeeper can now appear."},
+        {"id": "winter_complete", "discoveries": 4, "unlock_tier": 2, "gift_id": "expansion_ripple", "note": "Frosted stone joins the sky."}
+      ]
+    }
+  ]
+}

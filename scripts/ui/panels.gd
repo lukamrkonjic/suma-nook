@@ -474,6 +474,63 @@ func _collection_panel() -> Dictionary:
 	win["content"].add_child(parts["scroll"])
 	var list: VBoxContainer = parts["list"]
 	list.add_theme_constant_override("separation", 12)
+	if core.diorama.enabled:
+		var definitions: Array = core.registries.creative_collections.values()
+		definitions.sort_custom(func(a, b):
+			return String(a.display_name).naturalnocasecmp_to(String(b.display_name)) < 0
+		)
+		for definition in definitions:
+			var found := core.diorama.collections.discovered_members(definition.id)
+			var found_keys := {}
+			for member: Dictionary in found:
+				found_keys["%s:%s" % [member.get("kind", ""), member.get("id", "")]] = true
+			var accent := kit.palette.color(definition.color_token)
+			var card := kit.progression_card(Vector2.ZERO, accent)
+			var column := VBoxContainer.new()
+			column.add_theme_constant_override("separation", 7)
+			card.add_child(column)
+			var heading := HBoxContainer.new()
+			column.add_child(heading)
+			var title := kit.label(definition.display_name, 19, false, true)
+			title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			heading.add_child(title)
+			heading.add_child(kit.pill(
+				"%d / %d" % [found.size(), definition.members.size()], accent
+			))
+			column.add_child(kit.progress_bar_colored(
+				float(found.size()) / float(maxi(1, definition.members.size())),
+				accent,
+				610,
+				9
+			))
+			var description := kit.muted_label(definition.description, 13)
+			description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			column.add_child(description)
+			column.add_child(kit.divider(accent.lightened(0.3)))
+			for member: Dictionary in definition.members:
+				var key := "%s:%s" % [member.get("kind", ""), member.get("id", "")]
+				var discovered := found_keys.has(key)
+				var unlocked := core.diorama.collections.is_member_unlocked(
+					member.merged({"collection_id": definition.id})
+				)
+				var row := HBoxContainer.new()
+				row.add_child(kit.label("◆" if discovered else "◇", 11))
+				var name := (
+					_display_name_for(
+						"tiles" if member.get("kind", "") == "tile" else "structures",
+						String(member.get("id", ""))
+					)
+					if discovered
+					else "Unknown %s" % String(member.get("family", "piece")).capitalize()
+					if unlocked
+					else "A later family"
+				)
+				var name_label := kit.label(name, 14, false, discovered)
+				name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				row.add_child(name_label)
+				column.add_child(row)
+			list.add_child(card)
+		return win
 	var categories := [
 		["Land tiles", "tiles", core.registries.active_tile_ids().size()],
 		["Structures", "structures", core.registries.structures.size()],
