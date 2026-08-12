@@ -603,6 +603,25 @@ func _step_visitor_vase_loop() -> void:
 		and main.visitor_scene.current_vase == null,
 		"the visitor arrives as a strolling world character rather than a reward button"
 	)
+	var visitor_creature := main.visitor_scene.current_presenter.find_child(
+		"VisitorCreature", true, false
+	) as Node3D
+	var visitor_presentation := main.core.registries.visitor_presentation(
+		String(visitor_event.get("presentation_id", ""))
+	)
+	check(
+		visitor_creature != null
+		and visitor_presentation != null
+		and is_equal_approx(
+			visitor_creature.scale.x,
+			visitor_presentation.scale * 2.0
+		)
+		and main.visitor_scene.current_presenter.find_child(
+			"VisitorShine", true, false
+		) == null,
+		"all visitors inherit the shared 2× scale multiplier with no ground ring"
+	)
+	await shot("visitor_scaled_no_ring")
 	check(
 		main.core.visitors.collect(event_id).is_empty()
 		and not main.visitor_scene.call("interact", event_id),
@@ -618,7 +637,7 @@ func _step_visitor_vase_loop() -> void:
 		main.visitor_scene.current_presenter == null
 		and vase != null
 		and main.core.visitors.waiting_event().get("phase", "") == "vase",
-		"the departing visitor leaves one persistent ceramic vase"
+		"the departing visitor leaves one persistent collection-themed container"
 	)
 	if vase == null:
 		return
@@ -629,6 +648,7 @@ func _step_visitor_vase_loop() -> void:
 		main.camera_rig.camera, vase_screen
 	)
 	var resolved_vase_target: Dictionary = main._interaction_at_screen(vase_screen)
+	main.placement._update_placeable_hover(vase_screen)
 	check(
 		direct_vase_target.get("kind", "") == "visitor_vase"
 		and resolved_vase_target.get("kind", "") == "visitor_vase",
@@ -640,6 +660,23 @@ func _step_visitor_vase_loop() -> void:
 				vase.global_position + Vector3.UP * 0.28
 			),
 		]
+	)
+	var outlined_vase_meshes := 0
+	var outlined_tile_meshes := 0
+	var tile_root := main.renderer.tile_node(
+		visitor_cell, main.core.grid.top_elevation(visitor_cell)
+	)
+	for outlined: MeshInstance3D in main.renderer._outlined_meshes:
+		if vase.is_ancestor_of(outlined):
+			outlined_vase_meshes += 1
+		if tile_root != null and tile_root.is_ancestor_of(outlined):
+			outlined_tile_meshes += 1
+	check(
+		outlined_vase_meshes >= 4
+		and outlined_tile_meshes == 0
+		and main.hud._hover_name_label.text
+			== String(direct_vase_target.get("display_name", "")),
+		"vase hover outlines only the container and publishes its collection identity"
 	)
 	await shot("visitor_gift_vase")
 	InputDeviceService.shared()._set_input_method(

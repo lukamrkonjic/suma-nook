@@ -1417,6 +1417,18 @@ func _test_content_catalog_architecture() -> void:
 	var rock_profile := regs.harvest_profile("harvest_rock_outcrop")
 	var rock_box := regs.token_box("box_rock")
 	var visitor_program := regs.visitor_program("visitor_program_world_gifts")
+	var container_visuals := VisitorContainerVisualFactory.new()
+	var container_styles := {
+		"meadow": container_visuals.style_for_context("meadow", "home_meadow"),
+		"garden": container_visuals.style_for_context("garden", "home_meadow"),
+		"forest": container_visuals.style_for_context("forest", "living_grove"),
+		"swamp": container_visuals.style_for_context("swamp", "waterside"),
+		"beach": container_visuals.style_for_context("beach", "beach"),
+		"tundra": container_visuals.style_for_context("tundra", "winter"),
+		"ruins": container_visuals.style_for_context("ruins", "stonebound"),
+		"urban": container_visuals.style_for_context("urban", "stonebound"),
+		"market": container_visuals.style_for_context("market", "woodland"),
+	}
 	check(
 		young_tree != null
 		and young_tree.has_capability("harvest_source")
@@ -1478,6 +1490,31 @@ func _test_content_catalog_architecture() -> void:
 		).presenter_type == "direct_reward",
 		"visitor programs resolve calm cadence, replaceable looks, pools, and vase reveals"
 	)
+	check(
+		(container_styles["meadow"] as Dictionary).get("id", "")
+			== (container_styles["garden"] as Dictionary).get("id", "")
+		and (container_styles["forest"] as Dictionary).get("id", "")
+			== (container_styles["swamp"] as Dictionary).get("id", "")
+		and (container_styles["ruins"] as Dictionary).get("id", "")
+			== (container_styles["urban"] as Dictionary).get("id", "")
+		and (container_styles["beach"] as Dictionary).get("id", "")
+			== "desert_amphora"
+		and (container_styles["tundra"] as Dictionary).get("id", "")
+			== "frosted_urn"
+		and (container_styles["market"] as Dictionary).get("id", "")
+			== "festival_vase",
+		"visitor gift containers reuse silhouettes across related tile collections"
+	)
+	for style: Dictionary in container_styles.values():
+		var visual := container_visuals.create_for_context(
+			String(style.get("collection_id", "")), ""
+		)
+		check(
+			visual.find_children("*", "MeshInstance3D", true, false).size() >= 4,
+			"visitor container style %s builds a complete selectable mesh"
+			% style.get("id", "missing")
+		)
+		visual.free()
 	var original_token_id := young_profile.token_id
 	young_profile.token_id = "retired_token"
 	var feature_issues: Array = []
@@ -2793,6 +2830,8 @@ func _test_authored_onboarding_flow() -> void:
 	check(
 		not visitor_event.is_empty()
 		and visitor_event.get("phase", "") == "visiting"
+		and visitor_event.get("landing_collection", "") != ""
+		and visitor_event.get("landing_family", "") != ""
 		and float(visitor_event.get("visit_seconds_left", 0.0)) >= 13.0
 		and float(visitor_event.get("visit_seconds_left", 0.0)) <= 26.0
 		and core.registries.visitor_presentation(

@@ -517,13 +517,20 @@ func rock_burst(point: Vector3, count := 11) -> void:
 		tween.chain().tween_callback(fragment.queue_free)
 
 
-## Painted ceramic fragments make the visitor gift read as a real vase that
-## breaks, rather than borrowing the gray rubble language used by mining.
-func ceramic_burst(point: Vector3, count := 16) -> void:
+## Collection-colored fragments make every visitor container read as a real
+## breakable object instead of borrowing the gray rubble language of mining.
+func visitor_container_burst(
+	point: Vector3,
+	count := 16,
+	container_style: Dictionary = {}
+) -> void:
+	var primary := String(container_style.get("primary", "terracotta_primary"))
+	var accent := String(container_style.get("accent", "terracotta_light"))
+	var shadow := String(container_style.get("shadow", "warm_white"))
 	var materials: Array[Material] = [
-		assets.materials.material("terracotta_primary"),
-		assets.materials.material("terracotta_light"),
-		assets.materials.material("warm_white"),
+		assets.materials.material(primary),
+		assets.materials.material(accent),
+		assets.materials.material(shadow),
 	]
 	for index in count:
 		var fragment := MeshInstance3D.new()

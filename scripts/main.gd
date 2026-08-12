@@ -410,6 +410,7 @@ func _build_world_scene() -> void:
 	# VisitorScene is assembled after the generic resolver. Bind it here, once
 	# the real adapter exists, so mouse clicks can reach gift vases.
 	interaction_targets.call("set_visitor_scene", visitor_scene)
+	placement.set_interaction_hover_provider(visitor_scene)
 	player.setup(core, camera_rig, player_visual)
 	player.set_provision_fishing_spots(provision_fishing_spots)
 	pigeon_mascot = PIGEON_MASCOT_SCENE.instantiate() as CharacterBody3D
@@ -2553,9 +2554,17 @@ func _on_visitor_reward_presented(reward: Dictionary) -> void:
 	hud.update_tutorial()
 
 
-func _on_visitor_vase_smashed(position: Vector3, reward: Dictionary) -> void:
+func _on_visitor_vase_smashed(
+	position: Vector3,
+	reward: Dictionary,
+	container_style: Dictionary
+) -> void:
 	audio.play_event("place_stone", 1.5, 1.35)
-	effects.ceramic_burst(position + Vector3.UP * 0.18, 18)
+	effects.visitor_container_burst(
+		position + Vector3.UP * 0.18,
+		18,
+		container_style
+	)
 	effects.burst("fx_spark", position + Vector3.UP * 0.22, 14, 3.8)
 	effects.burst("fx_smoke_puff", position + Vector3.UP * 0.08, 8, 1.7)
 	reward_reveal.enqueue(reward, position + Vector3.UP * 0.16, "reveal_visitor_vase")

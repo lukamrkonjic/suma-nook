@@ -1829,6 +1829,20 @@ func set_hovered_tile(
 	_set_hover_nodes(nodes, signature, -1)
 
 
+## Transient interaction props such as visitor gift containers are not grid
+## structures and should never make their supporting tile look selected.
+## They can still use the same screen-space silhouette system directly.
+func set_hovered_visual(visual: Node3D, signature: String) -> void:
+	if visual == null or not is_instance_valid(visual):
+		clear_structure_hover()
+		return
+	if _hover_signature == signature:
+		return
+	clear_structure_hover()
+	var nodes: Array[Node3D] = [visual]
+	_set_hover_nodes(nodes, signature, -1)
+
+
 func _set_hover_nodes(
 	nodes: Array[Node3D],
 	signature: String,

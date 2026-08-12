@@ -71,6 +71,7 @@ var _controller_cursor_active := false
 var _interaction_cursor_mode := false
 var _controller_cell := Vector2i.ZERO
 var _ui_pointer_blocker := Callable()
+var _interaction_hover_provider: Object
 var _water_skip_cache_key := ""
 var _water_skip_cache_target: Dictionary = {}
 var _water_skip_preview_target: Dictionary = {}
@@ -107,6 +108,13 @@ func setup(
 
 func set_ui_pointer_blocker(blocker: Callable) -> void:
 	_ui_pointer_blocker = blocker
+
+
+## World interaction props live outside the placeable grid, but share its
+## exact silhouette hover language. The provider exposes event_at_screen/cell
+## without coupling the placement system to visitors or any future feature.
+func set_interaction_hover_provider(provider: Object) -> void:
+	_interaction_hover_provider = provider
 
 
 # ------------------------------------------------------------------ mode
@@ -990,11 +998,19 @@ func _sync_indicator_preview(landing_position: Vector3) -> void:
 	)
 
 
-func _update_placeable_hover() -> void:
-	var pointer := get_viewport().get_mouse_position()
+func _update_placeable_hover(screen_position: Variant = null) -> void:
+	var pointer := (
+		screen_position as Vector2
+		if screen_position is Vector2
+		else get_viewport().get_mouse_position()
+	)
 	if _pointer_is_over_ui(pointer):
 		world_renderer.clear_structure_hover()
 		_emit_hover_info("", "", "")
+		return
+	var interaction_hover := _interaction_hover_at_screen(pointer)
+	if not interaction_hover.is_empty():
+		_show_interaction_hover(interaction_hover)
 		return
 	var hit := world_renderer.pick_placeable_at_screen(
 		camera_rig.camera,
@@ -1034,6 +1050,10 @@ func _update_placeable_hover() -> void:
 
 func _update_controller_placeable_hover() -> void:
 	world_renderer.clear_structure_hover()
+	var interaction_hover := _interaction_hover_at_cell(_controller_cell)
+	if not interaction_hover.is_empty():
+		_show_interaction_hover(interaction_hover)
+		return
 	var elevation := core.grid.top_elevation(_controller_cell)
 	if elevation < 0:
 		_emit_hover_info(
@@ -1080,6 +1100,46 @@ func _update_controller_placeable_hover() -> void:
 			else state.tile_id
 		),
 		_tile_collection_name(tile_definition)
+	)
+
+
+func _interaction_hover_at_screen(screen_position: Vector2) -> Dictionary:
+	if (
+		_interaction_hover_provider == null
+		or not is_instance_valid(_interaction_hover_provider)
+		or not _interaction_hover_provider.has_method("event_at_screen")
+	):
+		return {}
+	return _interaction_hover_provider.call(
+		"event_at_screen", camera_rig.camera, screen_position
+	)
+
+
+func _interaction_hover_at_cell(cell: Vector2i) -> Dictionary:
+	if (
+		_interaction_hover_provider == null
+		or not is_instance_valid(_interaction_hover_provider)
+		or not _interaction_hover_provider.has_method("event_at_cell")
+	):
+		return {}
+	return _interaction_hover_provider.call("event_at_cell", cell)
+
+
+func _show_interaction_hover(interaction: Dictionary) -> void:
+	var visual := interaction.get("visual") as Node3D
+	if visual == null:
+		world_renderer.clear_structure_hover()
+		_emit_hover_info("", "", "")
+		return
+	var signature := "interaction:%s:%d" % [
+		String(interaction.get("kind", "world")),
+		int(interaction.get("event_id", visual.get_instance_id())),
+	]
+	world_renderer.set_hovered_visual(visual, signature)
+	_emit_hover_info(
+		signature,
+		String(interaction.get("display_name", "World Gift")),
+		String(interaction.get("collection_name", "Visitor Collection"))
 	)
 
 

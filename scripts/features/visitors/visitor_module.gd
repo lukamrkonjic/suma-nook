@@ -76,6 +76,7 @@ func trigger_now() -> Dictionary:
 	var presentation := _choose_presentation()
 	if presentation == null:
 		return {}
+	var landing_tile := grid.tile_def_at(cell, grid.top_elevation(cell))
 	var first := visitors_created == 0
 	var pool_id := (
 		program.first_reward_pool_id if first else program.reward_pool_id
@@ -90,6 +91,12 @@ func trigger_now() -> Dictionary:
 		"program_id": program.id,
 		"presentation_id": presentation.id,
 		"cell": [cell.x, cell.y],
+		"landing_collection": (
+			landing_tile.catalog_category if landing_tile != null else "meadow"
+		),
+		"landing_family": (
+			landing_tile.family if landing_tile != null else "home_meadow"
+		),
 		"reward": pre_rolled,
 		"first": first,
 		"phase": "visiting",
@@ -257,6 +264,10 @@ func _normalize_event(event: Dictionary) -> Dictionary:
 		event["cell"] = [int(raw_cell[0]), int(raw_cell[1])]
 	event["event_id"] = int(event.get("event_id", 0))
 	event["first"] = bool(event.get("first", false))
+	event["landing_collection"] = String(
+		event.get("landing_collection", "")
+	)
+	event["landing_family"] = String(event.get("landing_family", ""))
 	event["phase"] = String(event.get("phase", "vase"))
 	if event["phase"] not in ["visiting", "vase"]:
 		event["phase"] = "vase"
