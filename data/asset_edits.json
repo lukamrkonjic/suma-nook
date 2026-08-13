@@ -7,21 +7,25 @@
 		"prop_firepit_polished": {
 			"scale": 0.6,
 			"smoothing": 0.0,
-			"materials": {}
+			"materials": {
+
+			}
 		},
 		"prop_stone_well": {
 			"scale": 1.0,
 			"smoothing": 1.0,
-			"materials": {}
+			"materials": {
+
+			}
 		},
 		"prop_pine_b": {
 			"scale": 1.2,
 			"smoothing": 1.0,
 			"materials": {
 				"pine_light": {
-					"color_token": "asset_edit_pine_light",
 					"roughness": 0.74,
-					"metallic": 0.0
+					"metallic": 0.0,
+					"color_token": "asset_edit_pine_light"
 				}
 			}
 		},
@@ -30,59 +34,151 @@
 			"smoothing": 1.0,
 			"materials": {
 				"grass_primary": {
-					"color_token": "asset_edit_grass_primary",
 					"roughness": 0.74,
-					"metallic": 0.01
+					"metallic": 0.01,
+					"color_token": "asset_edit_grass_primary"
 				}
 			}
 		},
 		"prop_pine_a": {
 			"scale": 1.0,
 			"smoothing": 1.0,
-			"materials": {}
+			"materials": {
+
+			}
 		},
 		"prop_stone_pine": {
 			"scale": 2.0,
 			"smoothing": 0.82,
-			"materials": {}
+			"materials": {
+
+			}
 		},
 		"prop_vintage_radio": {
 			"scale": 0.6,
 			"smoothing": 0.42,
-			"materials": {}
+			"materials": {
+
+			}
 		},
 		"prop_shrooms": {
 			"scale": 0.67,
-			"materials": {}
+			"smoothing": 0.85,
+			"materials": {
+
+			}
 		},
 		"prop_fir": {
-			"scale": 2.0,
-			"materials": {},
-			"smoothing": 0.0
+			"scale": 2.35,
+			"smoothing": 1.0,
+			"materials": {
+				"wood_highlight": {
+					"roughness": 0.72,
+					"metallic": 0.0,
+					"color": "85633e"
+				},
+				"grass_field_tuft_light": {
+					"roughness": 0.74,
+					"metallic": 0.0,
+					"color": "546b4d"
+				},
+				"grass_vivid_accent": {
+					"roughness": 0.74,
+					"metallic": 0.0,
+					"color": "677d4e"
+				}
+			}
 		},
 		"prop_leafy_bush": {
 			"scale": 1.0,
-			"materials": {}
+			"smoothing": 0.85,
+			"materials": {
+
+			}
 		},
 		"prop_bamboo_table": {
-			"scale": 0.67,
-			"materials": {},
-			"smoothing": 0.0
+			"scale": 0.65,
+			"smoothing": 1.0,
+			"materials": {
+				"sand_top": {
+					"roughness": 0.8,
+					"metallic": 0.0,
+					"color": "b38d62"
+				},
+				"terracotta_dark": {
+					"roughness": 1.0,
+					"metallic": 0.0,
+					"color": "b38d62"
+				}
+			}
 		},
 		"prop_wheelbarrow": {
-			"scale": 1.7,
-			"materials": {},
-			"smoothing": 0.0
+			"scale": 1.1,
+			"smoothing": 1.0,
+			"materials": {
+				"sand_top": {
+					"roughness": 1.0,
+					"metallic": 0.0,
+					"color": "b38d62"
+				},
+				"earth_primary": {
+					"roughness": 0.8,
+					"metallic": 0.0,
+					"color": "7b5c37"
+				},
+				"wood_light": {
+					"roughness": 0.72,
+					"metallic": 0.0,
+					"color": "89693e"
+				}
+			}
 		},
 		"prop_forest_statue": {
 			"scale": 1.0,
-			"materials": {},
-			"smoothing": 0.0
+			"smoothing": 0.35,
+			"materials": {
+				"grass_field_tuft_light": {
+					"roughness": 0.75,
+					"metallic": 0.0,
+					"color": "839269"
+				},
+				"ivory_highlight": {
+					"roughness": 0.88,
+					"metallic": 0.0,
+					"color": "b2aa9c"
+				}
+			}
 		},
 		"prop_flugsvamp": {
-			"scale": 1.0,
-			"materials": {},
-			"smoothing": 0.0
+			"scale": 0.5,
+			"smoothing": 1.0,
+			"materials": {
+				"wood_mid": {
+					"roughness": 0.72,
+					"metallic": 0.0,
+					"color": "7b5c37"
+				},
+				"coral": {
+					"roughness": 0.66,
+					"metallic": 0.0,
+					"color": "8c4f44"
+				},
+				"burnt_red": {
+					"roughness": 0.66,
+					"metallic": 0.0,
+					"color": "8c4f44"
+				},
+				"terracotta_light": {
+					"roughness": 0.66,
+					"metallic": 0.0,
+					"color": "f0d9a7"
+				},
+				"sand_top": {
+					"roughness": 0.79,
+					"metallic": 0.0,
+					"color": "f0d9a7"
+				}
+			}
 		}
 	}
 }

@@ -1191,6 +1191,11 @@ func _add_editor_slider(
 	slider.max_value = 1.0
 	slider.step = 0.01
 	slider.custom_minimum_size.y = 24.0
+	# The inspector is a tall scrolling column of sliders. A scrollable slider
+	# eats the wheel event, so scrolling past one silently edits the asset --
+	# and every edit here writes to data/asset_edits.json and rebuilds the
+	# world. Leaving the wheel unconsumed lets it reach the ScrollContainer.
+	slider.scrollable = false
 	parent.add_child(slider)
 	return {
 		"heading": heading,

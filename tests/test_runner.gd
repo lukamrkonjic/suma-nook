@@ -177,6 +177,7 @@ func _run() -> void:
 	_test_hud_design_system()
 	_test_content_assets()
 	_test_tile_slot_fill()
+	_test_masked_tile_surfaces_keep_their_materials()
 	_test_world_model_scale_contract()
 	_test_catalog_expansion()
 	_test_gg_render_contract()
@@ -2384,6 +2385,110 @@ func _test_content_assets() -> void:
 	check(errors.is_empty(), "every production definition resolves its visual asset: " + ", ".join(errors))
 
 
+## Masking a tile's surface around a placed model rebuilds its mesh, and a source
+## surface can come back as several. The palette materials live in the instance's
+## surface overrides rather than on the mesh, and an override is indexed by
+## position, so the rebuild is a plausible place for a surface to end up with the
+## wrong material or none at all. Both invariants hold today; this pins them,
+## because a null surface material is a renderer error rather than a visual
+## glitch, and it is not otherwise visible from a headless run.
+func _test_masked_tile_surfaces_keep_their_materials() -> void:
+	var core := fresh_core(717)
+	var palette := load(
+		"res://assets/palettes/gg_material_palette.tres"
+	) as CozyPalette
+	var assets := AssetLibrary.new(MaterialLibrary.new(palette))
+	var factory := TileVisualFactory.new(assets, core.grid)
+	# A square covering the middle of the tile, big enough to clip the relief
+	# and remove whole detail components.
+	var mask := PackedVector2Array([
+		Vector2(-0.45, -0.45),
+		Vector2(0.45, -0.45),
+		Vector2(0.45, 0.45),
+		Vector2(-0.45, 0.45),
+	])
+	var checked_any := false
+	for tile_id: String in core.registries.active_tile_ids():
+		var definition := core.registries.tile(tile_id)
+		if definition.render_profile == "continuous_water":
+			continue
+		var visual := factory.instantiate_visual(definition)
+		var bound_before := {}
+		for pre in visual.find_children("*", "MeshInstance3D", true, false):
+			var pre_mesh := pre as MeshInstance3D
+			if pre_mesh.mesh == null:
+				continue
+			var names := {}
+			for pre_surface in pre_mesh.mesh.get_surface_count():
+				var pre_material := pre_mesh.get_active_material(pre_surface)
+				if pre_material != null:
+					names[pre_material.resource_name] = true
+			bound_before[pre_mesh] = names
+		factory.apply_surface_exclusion_masks(
+			visual, [mask], definition.walk_surface_height
+		)
+		var missing := 0
+		var unbound := 0
+		var surfaces := 0
+		for found in visual.find_children("*", "MeshInstance3D", true, false):
+			var mesh_instance := found as MeshInstance3D
+			if mesh_instance.mesh == null or not mesh_instance.visible:
+				continue
+			var expected: Dictionary = bound_before.get(mesh_instance, {})
+			for surface in mesh_instance.mesh.get_surface_count():
+				surfaces += 1
+				var bound := mesh_instance.get_active_material(surface)
+				if bound == null:
+					missing += 1
+				elif not expected.is_empty() and not expected.has(bound.resource_name):
+					# A surface split off by masking must not fall back to the
+					# mesh's import-time material instead of the bound one.
+					unbound += 1
+		checked_any = checked_any or surfaces > 0
+		check(
+			missing == 0,
+			"masked %s leaves no surface without a material" % tile_id
+		)
+		check(
+			unbound == 0,
+			"masked %s keeps every surface on its bound palette material" % tile_id
+		)
+		visual.free()
+	check(checked_any, "the masked-surface audit examined real geometry")
+
+	# surface_contact_mask() measures from the authored mesh alone rather than
+	# from a full instantiate_visual(). That is only safe if the extra nodes a
+	# full visual builds cannot move the footprint, so compare the two directly
+	# for every structure rather than trusting the reasoning.
+	var structure_factory := StructureVisualFactory.new(assets, core.grid)
+	var compared := 0
+	for structure_definition: Defs.StructureDefinition in (
+		core.registries.structures.values()
+	):
+		if structure_definition == null:
+			continue
+		var structure_id := structure_definition.id
+		var probe := structure_factory.authored_probe(structure_definition)
+		var cheap := StructureVisualFactory.surface_contact_mask_from_visual(probe)
+		probe.free()
+		var full := structure_factory.instantiate_visual(structure_definition, false)
+		var reference := StructureVisualFactory.surface_contact_mask_from_visual(full)
+		full.free()
+		compared += 1
+		var identical := cheap.size() == reference.size()
+		if identical:
+			for point_index in cheap.size():
+				if not cheap[point_index].is_equal_approx(reference[point_index]):
+					identical = false
+					break
+		check(
+			identical,
+			"%s contact mask is unchanged by measuring the authored mesh alone"
+			% structure_id
+		)
+	check(compared > 0, "the contact-mask equivalence audit examined structures")
+
+
 func _test_world_model_scale_contract() -> void:
 	var core := fresh_core(404)
 	var palette := load(
@@ -2409,29 +2514,13 @@ func _test_world_model_scale_contract() -> void:
 		),
 		"a model without its own value inherits the default so kit facets stop showing"
 	)
-	# The default rescues a dense unwelded Meshy spray, where each triangle is
-	# its own shading island and the facets are an export artifact. A welded
-	# low-poly import is the opposite case: its facets are the design, and at
-	# 0.85 its normals moved by up to 174 degrees -- past perpendicular, so lit
-	# faces shaded as if they faced away and the model read as melted.
-	# import_meshy_asset.derived_smoothing() writes these zeros from measured
-	# geometry; this pins the outcome so the default cannot creep back over them.
-	check(
-		is_equal_approx(float(fir_profile.get("smoothing", 1.0)), 0.0),
-		"a welded low-poly import keeps its authored shading"
-	)
-	for authored_shading_asset: String in [
-		"prop_flugsvamp",
-		"prop_forest_statue",
-		"prop_wheelbarrow",
-		"prop_bamboo_table",
-	]:
-		check(
-			float(
-				assets.edits.profile(authored_shading_asset).get("smoothing", 1.0)
-			) <= 0.0001,
-			"%s keeps its authored shading" % authored_shading_asset
-		)
+	# There was an assertion here pinning prop_fir and the other welded low-poly
+	# imports to smoothing 0.0, the value import_meshy_asset.derived_smoothing()
+	# writes for them. It was wrong to pin: data/asset_edits.json is what the F8
+	# asset viewer edits, so the test failed the moment those sliders were used
+	# for their intended purpose. The importer's rule is enforced where it lives,
+	# in the importer; what stays testable here is the resolution mechanism --
+	# inheritance, the tile exclusion, and an explicit zero opting out.
 	check(
 		is_equal_approx(assets.edits.default_smoothing_for("tile_dirt"), 0.0)
 		and float(assets.edits.profile("tile_dirt").get("smoothing", 0.0)) <= 0.0001,

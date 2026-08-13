@@ -290,11 +290,33 @@ func surface_contact_mask(
 	var cache_key := definition.id
 	if _surface_contact_mask_cache.has(cache_key):
 		return _surface_contact_mask_cache[cache_key]
-	var visual := instantiate_visual(definition, false)
-	var mask := surface_contact_mask_from_visual(visual)
-	visual.free()
+	var probe := authored_probe(definition)
+	var mask := surface_contact_mask_from_visual(probe)
+	probe.free()
 	_surface_contact_mask_cache[cache_key] = mask
 	return mask
+
+
+## The authored mesh alone, which is all the contact mask reads.
+##
+## This used to call instantiate_visual(), which additionally builds the
+## harvest presentation, the ambient motion controller and — for a fire-capable
+## structure — hides authored meshes. None of it can change the answer: those
+## nodes hang off the wrapper rather than AuthoredVisual, and
+## _collect_mesh_vertices ignores visibility, so hiding authored fire cannot
+## move the footprint. Building and immediately freeing all of it was churn
+## through the renderer, once per structure per cell, on every rebuild — and
+## rebuild_all runs for the whole world each time the asset viewer saves.
+func authored_probe(definition: Defs.StructureDefinition) -> Node3D:
+	var probe := Node3D.new()
+	if definition == null:
+		return probe
+	probe.name = definition.id
+	var authored := assets.instantiate(definition.asset_id)
+	authored.name = "AuthoredVisual"
+	probe.add_child(authored)
+	_prepare_authored_visual(authored, definition)
+	return probe
 
 
 static func surface_contact_mask_from_visual(
