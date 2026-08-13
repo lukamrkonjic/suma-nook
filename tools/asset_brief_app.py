@@ -42,21 +42,35 @@ produce 3D models, so a prompt has two jobs at once: describe the Garden \
 Galaxy silhouette, and describe something a photogrammetry-style \
 reconstruction can turn into a clean mesh.
 
-MESH RULES. These come from Suma's own failed imports, where the mesh rather \
-than the style was the problem. Do not soften them.
-- Cast shadows and gradients bake into geometry as dents. Ask for soft even \
-diffuse light with no cast shadow on the ground, no rim light, no specular \
-highlights and no glossy reflections. Gentle value separation between planes \
-is wanted and is not the same thing as a cast shadow -- see the style rules.
-- Surface texture becomes bumps. Ask for flat matte colour blocks with no \
-grain, noise, bark texture or material detail.
-- Visible gaps and see-through negative space become holes in the shell, and \
-thin protrusions reconstruct as mush. Ask for solid masses that meet in \
-contact, with no floating parts, no tiny geometry and no thin twigs, needles \
-or wires.
-- Forms may stack and overlap where they touch. Do NOT ask for "a single \
-closed continuous form" or forbid overlap outright: that produces a fused \
-blob. Forbid only parts that cross behind one another leaving a visible gap.
+MESH RULES. These come from Suma's own failed imports. Do not soften the ones \
+about holes and thin parts -- but note carefully what the lighting rule does \
+and does not forbid.
+- CONTINUOUS SILHOUETTE, NOT CONTINUOUS GEOMETRY. This is the distinction \
+that matters most and the one most easily lost. The outer outline must be one \
+unbroken shape with no see-through gaps, because gaps become holes in the \
+shell. Within that outline the object must still read as several distinct \
+interlocking masses. Never write "fused into one form", "a single closed \
+continuous form", or "merging smoothly" -- those melt the object into one \
+featureless blob. Write instead that the masses interlock and overlap to form \
+one uninterrupted silhouette while remaining individually readable.
+- THE IMAGE MUST SHOW ITS OWN FORM. Ask for soft directional light with clear \
+value differences from face to face, so each plane reads at a slightly \
+different brightness. This is not optional decoration: a perfectly flat-lit \
+image carries no depth information, so both the image generator and Meshy have \
+nothing to reconstruct from, and the result is a flat blob. Do NOT ask for \
+"completely flat even ambient light", and do NOT put gradients or ambient \
+occlusion in the negative prompt. Exclude only hard cast shadows on the \
+ground, dramatic or high-contrast shadow, rim light, specular highlights and \
+glossy reflections.
+  Baked shading in the source image is safe here. Suma's importer replaces \
+every texture with flat palette materials, so shading in the reference never \
+reaches the game -- it only has to survive long enough to help reconstruct \
+the geometry.
+- Surface texture still becomes bumps. Ask for flat matte materials with no \
+grain, noise, bark texture or printed detail. Flat MATERIAL, lit form: those \
+are different things.
+- Thin protrusions reconstruct as mush. No floating parts, no tiny geometry, \
+no thin twigs, needles or wires.
 
 STYLE RULES. Garden Galaxy is not generic chunky-toy, and it is emphatically \
 not smooth clay. Getting these wrong is what makes an asset read as a \
@@ -76,11 +90,21 @@ conifer is tall and slender; a table is broad and low.
 - Articulation beats simplification. Five to seven readable masses is usually \
 right; "three or four major forms only" flattens an object into an icon.
 - Foliage is angular, not billowy. A conifer is stacked tiers of flat \
-triangular fronds with pronounced downward points. A broadleaf crown is a \
-faceted polyhedral mass -- think a chunky cut gem or a rough dome of flat \
-planes -- never a cluster of spheres, never broccoli, never a cloud.
+triangular fronds with pronounced downward points. A broadleaf crown is four \
+to six large interlocking faceted masses whose outlines merge into one canopy \
+-- never one giant rounded mass, never a cluster of spheres, never broccoli, \
+never a cloud.
+- Keep the canopy honest against the trunk: roughly one and a half to twice \
+the trunk width, not three times. An oversized crown on a stub reads as a \
+lollipop.
 - Trunks and stems are short faceted prisms, six to eight sided, clearly \
-angular, and slightly tapered.
+angular, and slightly tapered, widening into three or four subtle root \
+buttresses at the foot. Do not ask for a dark base flare or a contrasting \
+collar at the bottom -- it renders as a puddle of mud around the trunk.
+- Say "low-poly planar sculpting with broad facets and deliberately \
+simplified topology", and exclude subdivision-surface smoothing by name.
+- Slight wonkiness is correct. Perfectly symmetrical inflation reads wrong \
+against a handmade world.
 - Ask for subtle irregularity: slight variation in width, rotation and height \
 between repeated elements, so the object reads handcrafted rather than \
 mechanically stacked and mirrored.
@@ -100,16 +124,18 @@ Galaxy reads form, and it is not a gradient.
 
 Return the prompt as one flowing block a person can paste straight into an \
 image generator, plus a negative prompt. The negative prompt must always \
-exclude: cast shadows, gradients, ambient occlusion, rim light, specular \
-highlights, glossy reflections, texture, noise, individual leaves or needles, \
-thin twigs, floating parts, holes, see-through gaps, stone base, pedestal, \
-ring around trunk, pot, grass, ground plane, scenery, multiple objects, \
-photorealism, text, watermark, cropped, extreme perspective, and the smooth \
-family: smooth surfaces, rounded blob, clay, plasticine, sculpted, organic \
-curves, subdivision smoothing. Add form-specific exclusions on top -- for a \
-tree, also exclude spherical canopy, broccoli, cloud foliage, cluster of \
-balls, smooth cones, Christmas tree icon, perfectly symmetrical tiers, squat \
-proportions and layered pancakes.
+exclude: hard cast shadow, dramatic shadow, high contrast lighting, rim light, \
+specular highlights, glossy reflections, texture, noise, individual leaves or \
+needles, thin twigs, floating parts, holes, see-through gaps, stone base, \
+pedestal, ring around trunk, pot, grass, ground plane, scenery, multiple \
+objects, photorealism, text, watermark, cropped, extreme perspective, and the \
+smooth family: smooth surfaces, rounded blob, clay, plasticine, play-doh, \
+inflated, sculpted, organic curves, subdivision smoothing. Never put \
+"gradients" or "ambient occlusion" in the negative prompt -- banning those is \
+what flattens the image and starves the reconstruction. Add form-specific \
+exclusions on top -- for a tree, also exclude spherical canopy, broccoli, \
+cloud foliage, cluster of balls, lollipop tree, smooth cones, Christmas tree \
+icon, perfectly symmetrical tiers, squat proportions and layered pancakes.
 
 Estimate the object's total mesh surface area in square metres at real-world \
 scale -- a side table is roughly 3, a mug roughly 0.1 -- since that drives \
