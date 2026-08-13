@@ -198,9 +198,26 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, json.dumps(payload).encode(), "application/json")
 
 
+def serve(preferred_port: int) -> ThreadingHTTPServer:
+    """Bind the first free port at or after the preferred one.
+
+    Modly's embedded Python holds 8765 on this machine, and Windows reports a
+    taken port as WinError 10013 (access forbidden) rather than the address-in-
+    use error you would expect, so a hard-coded port fails confusingly.
+    """
+    for port in range(preferred_port, preferred_port + 20):
+        try:
+            return ThreadingHTTPServer(("127.0.0.1", port), Handler)
+        except OSError:
+            continue
+    raise SystemExit(
+        f"No free port in {preferred_port}-{preferred_port + 19}; pass --port."
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--port", type=int, default=8766)
     parser.add_argument("--no-browser", action="store_true")
     arguments = parser.parse_args()
 
@@ -214,9 +231,9 @@ def main() -> None:
             "  Set one:  $env:ANTHROPIC_API_KEY = 'sk-ant-...'\n"
             "  Or run:   ant auth login"
         )
-    server = ThreadingHTTPServer(("127.0.0.1", arguments.port), Handler)
-    url = f"http://127.0.0.1:{arguments.port}"
-    print(f"Suma asset brief — {url}")
+    server = serve(arguments.port)
+    url = f"http://127.0.0.1:{server.server_address[1]}"
+    print(f"Suma asset brief: {url}")
     print(f"Polycounts from {REFERENCE['source_assets']} measured Garden Galaxy assets.")
     if not arguments.no_browser:
         webbrowser.open(url)
