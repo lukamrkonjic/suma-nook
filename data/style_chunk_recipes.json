@@ -1,0 +1,69 @@
+{
+	"_comment": "Per-asset settings for tools/run_chunk_pass.py. Only assets whose measured facet_evenness sits far above Suma's 0.03-0.20 band need an entry; hand-authored props and kit assets are already in language. See docs/STYLE_CHUNK_PASS.md.",
+	"defaults": {
+		"dissolve": 20.0,
+		"planarize": 6,
+		"relax": 0.35,
+		"bevel": 0.01,
+		"bevel_segments": 1,
+		"widen": 1.0,
+		"squash": 1.0,
+		"thicken": 1.0,
+		"thicken_base": 1.0,
+		"thicken_ramp": 0.4,
+		"thicken_match": "trunk",
+		"preserve_height": true,
+		"stem_material": "",
+		"stem_radius": 0.18,
+		"stem_height": 0.5,
+		"tone_ramp": [],
+		"tone_match": "",
+		"dome": 0.0,
+		"dome_material": "",
+		"dome_power": 2.6,
+		"dome_aspect": 0.55,
+		"dome_radius": 1.0
+	},
+	"assets": {
+		"prop_fir": {
+			"note": "Tall, thin, many wafer tiers. Squat it hard and hide the spiky root star under the canopy. Its visible stem is canopy geometry, not the 107-face Trunk mesh, so recolour it by radius.",
+			"widen": 1.3,
+			"squash": 0.82,
+			"thicken": 1.9,
+			"thicken_base": 0.55,
+			"stem_material": "wood_primary",
+			"stem_radius": 0.16,
+			"tone_ramp": ["pine_light", "pine_medium", "pine_shadow"],
+			"tone_match": "canopy"
+		},
+		"prop_stone_pine": {
+			"note": "Already broad, so widen gently; the trunk is the heavy read here.",
+			"widen": 1.1,
+			"squash": 0.95,
+			"thicken": 1.35,
+			"thicken_base": 0.7,
+			"tone_ramp": ["pine_light", "pine_medium", "pine_shadow"],
+			"tone_match": "canopy"
+		},
+		"prop_leafy_bush": {
+			"note": "Trunk is 18 faces and barely visible; all the work is canopy mass.",
+			"relax": 0.4,
+			"widen": 1.12,
+			"squash": 0.92,
+			"tone_ramp": ["leaf_medium", "leaf_olive"],
+			"tone_match": "canopy"
+		},
+		"prop_shrooms": {
+			"note": "Arrived as droopy hooked wizard hats. The dome stage conforms each cap to a round Garden Galaxy silhouette; widen/squash are left alone because the dome already sets cap proportions.",
+			"dissolve": 18.0,
+			"relax": 0.3,
+			"bevel": 0.008,
+			"dome": 1.0,
+			"dome_material": "terracotta",
+			"dome_power": 2.3,
+			"dome_aspect": 0.85,
+			"dome_radius": 0.9,
+			"tone_ramp": ["terracotta_light", "terracotta_primary"]
+		}
+	}
+}
