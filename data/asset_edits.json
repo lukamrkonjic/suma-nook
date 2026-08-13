@@ -66,6 +66,10 @@
 		"prop_bamboo_table": {
 			"scale": 0.67,
 			"materials": {}
+		},
+		"prop_wheelbarrow": {
+			"scale": 1.7,
+			"materials": {}
 		}
 	}
 }
