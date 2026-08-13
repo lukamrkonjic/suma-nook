@@ -6526,3 +6526,24 @@ func _test_unfolding_world_seeded_opening() -> void:
 		and reloaded.diorama.tray.offers().size() == 3,
 		"a seeded opening save reloads with its starter Nook intact"
 	)
+
+## World-space bounds of every VisualInstance3D under a node.
+func _visual_bounds(node: Node) -> AABB:
+	var bounds := AABB()
+	var seeded := false
+	for child: Node in _all_nodes(node):
+		var visual := child as VisualInstance3D
+		if visual == null:
+			continue
+		var world := visual.global_transform * visual.get_aabb()
+		bounds = world if not seeded else bounds.merge(world)
+		seeded = true
+	return bounds
+
+
+## Flattened node tree, for bounds gathering.
+func _all_nodes(node: Node) -> Array[Node]:
+	var found: Array[Node] = [node]
+	for child: Node in node.get_children():
+		found.append_array(_all_nodes(child))
+	return found
