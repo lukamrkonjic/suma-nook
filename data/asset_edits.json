@@ -70,6 +70,14 @@
 		"prop_wheelbarrow": {
 			"scale": 1.7,
 			"materials": {}
+		},
+		"prop_forest_statue": {
+			"scale": 1.0,
+			"materials": {}
+		},
+		"prop_flugsvamp": {
+			"scale": 1.0,
+			"materials": {}
 		}
 	}
 }

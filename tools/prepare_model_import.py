@@ -468,6 +468,72 @@ def _linear_channel(srgb: float) -> float:
     )
 
 
+## Which palette slots each profile is allowed to pick from.
+##
+## Faithful colour matching picks the nearest palette entry to what the source
+## actually looks like, rather than guessing a semantic family from hue rules.
+## The restriction exists only where the slot carries structural meaning: a
+## tree's canopy must land on a foliage slot for the wind and material
+## rebinding to work, whatever its texture happens to sample.
+## Neutrals every profile can reach: highlights, shadow, and unpainted metal.
+_NEUTRALS = (
+    "ivory_highlight",
+    "warm_white",
+    "warm_near_black",
+    "soft_sage_gray",
+    "stone_light",
+    "stone_mid",
+    "stone_shadow",
+)
+_WOODS = ("wood_light", "wood_primary", "wood_deep")
+
+PROFILE_PALETTES: dict[str, tuple[str, ...]] = {
+    "canopy_tree": ("pine_light", "pine_medium", "pine_shadow"),
+    "canopy_shrub": ("leaf_medium", "leaf_olive", "pine_medium"),
+    "bark": _WOODS,
+    # Warm mid-browns sit close to terracotta in RGB, so an unrestricted
+    # nearest match sent a wooden wheelbarrow pink and gold. Terracotta is
+    # pottery and belongs to generic; a wood prop reaches wood, neutrals and a
+    # gold accent only.
+    # No stone or sage here either: a wooden barrow's pale shaded faces were
+    # matching stone_light and stone_shadow and reading as grey plastic. Its
+    # light tones belong on cream, which is also what the reference art uses
+    # for the fittings.
+    "wood_prop": _WOODS
+    + ("gold_primary", "ivory_highlight", "warm_white", "warm_near_black"),
+    "stone_prop": _NEUTRALS + _WOODS,
+}
+
+
+def _perceptual_distance(left: tuple[float, float, float], right) -> float:
+    """Weighted RGB distance. Green dominates perceived lightness, blue least."""
+    return (
+        2.0 * (left[0] - right[0]) ** 2
+        + 4.0 * (left[1] - right[1]) ** 2
+        + 3.0 * (left[2] - right[2]) ** 2
+    )
+
+
+def _palette_srgb(name: str) -> tuple[float, float, float]:
+    raw = GARDEN_GALAXY_COLORS[name]
+    return tuple(int(raw[index : index + 2], 16) / 255.0 for index in (0, 2, 4))
+
+
+def nearest_palette_slot(color: Vector, candidates: tuple[str, ...]) -> str:
+    """The palette entry that looks most like this colour.
+
+    Suma replaces every source texture at import, so the only way an asset
+    keeps the colours it was designed with is for each region to land on the
+    palette entry nearest to it. The previous hue/value family rules guessed a
+    material instead and overrode the source: a desaturated grey-green stone
+    statue classified as wood_primary, a saturated brown.
+    """
+    srgb = tuple(_srgb_channel(max(0.0, float(channel))) for channel in color)
+    return min(
+        candidates, key=lambda name: _perceptual_distance(srgb, _palette_srgb(name))
+    )
+
+
 def _semantic_family(
     profile: str,
     object_name: str,
@@ -586,46 +652,53 @@ def apply_flat_style(
     for mesh_object in mesh_objects:
         mesh = mesh_object.data
         sample_data = sampled_materials(mesh_object)
+        lower_name = mesh_object.name.lower()
+        is_canopy = "leaf" in lower_name or "canopy" in lower_name
+        if profile == "tree":
+            candidates = (
+                PROFILE_PALETTES["canopy_tree"] if is_canopy else PROFILE_PALETTES["bark"]
+            )
+        elif profile == "shrub":
+            candidates = (
+                PROFILE_PALETTES["canopy_shrub"] if is_canopy else PROFILE_PALETTES["bark"]
+            )
+        else:
+            candidates = PROFILE_PALETTES.get(profile, PALETTE_KEYS)
+
         classified: list[tuple[list[int], Vector, str]] = []
         for face_indices in face_components(mesh):
             color = average_component_color(mesh, face_indices, sample_data)
-            family = _semantic_family(
-                profile,
-                mesh_object.name,
-                color,
-                len(face_indices),
-            )
-            classified.append((face_indices, color, family))
+            classified.append((face_indices, color, ""))
 
-        total_faces = sum(len(face_indices) for face_indices, _, _ in classified)
+        matched = [
+            (face_indices, color, nearest_palette_slot(color, candidates))
+            for face_indices, color, _ in classified
+        ]
+
+        # Gold stays an accent. Nearest-colour matching makes this far rarer
+        # than the old hue rules did, but a pale warm surface can still land on
+        # it, and gold is never most of an object.
+        total_faces = sum(len(face_indices) for face_indices, _, _ in matched)
         gold_faces = sum(
             len(face_indices)
-            for face_indices, _, family in classified
-            if family == "gold"
+            for face_indices, _, name in matched
+            if name == "gold_primary"
         )
         if total_faces and gold_faces > total_faces * GOLD_MAX_FACE_SHARE:
-            # Not an accent. Re-run those components with gold unavailable, so
-            # they fall through to the wood/stone path their hue actually fits.
-            classified = [
+            without_gold = tuple(name for name in candidates if name != "gold_primary")
+            matched = [
                 (
                     face_indices,
                     color,
-                    _semantic_family(
-                        profile,
-                        mesh_object.name,
-                        color,
-                        len(face_indices),
-                        allow_gold=False,
-                    )
-                    if family == "gold"
-                    else family,
+                    nearest_palette_slot(color, without_gold)
+                    if name == "gold_primary"
+                    else name,
                 )
-                for face_indices, color, family in classified
+                for face_indices, color, name in matched
             ]
 
         assignments: list[tuple[list[int], str]] = []
-        for face_indices, color, family in classified:
-            semantic_name = _semantic_tone(family, color)
+        for face_indices, _, semantic_name in matched:
             assignments.append((face_indices, semantic_name))
             usage[semantic_name] += len(face_indices)
 

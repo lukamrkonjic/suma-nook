@@ -42,6 +42,7 @@
         {"kind": "structure", "id": "struct_fir", "tier": 1, "family": "pine"},
         {"kind": "structure", "id": "struct_leafy_bush", "tier": 1, "family": "undergrowth"},
         {"kind": "structure", "id": "struct_shrooms", "tier": 1, "family": "fungi"},
+        {"kind": "structure", "id": "struct_flugsvamp", "tier": 1, "family": "fungi"},
         {"kind": "structure", "id": "struct_fence", "tier": 1, "family": "woodwork"},
         {"kind": "tile", "id": "tile_grove_autumn", "tier": 2, "family": "forest_floor"},
         {"kind": "structure", "id": "struct_pine_tall", "tier": 2, "family": "pine"}
@@ -105,6 +106,7 @@
         {"kind": "tile", "id": "tile_cobblestone", "tier": 0, "family": "paving"},
         {"kind": "tile", "id": "tile_stone_clearing", "tier": 0, "family": "ground"},
         {"kind": "structure", "id": "struct_rock_outcrop", "tier": 0, "family": "rocks"},
+        {"kind": "structure", "id": "struct_forest_statue", "tier": 1, "family": "rocks"},
         {"kind": "structure", "id": "struct_stone_wall_low", "tier": 0, "family": "walls"},
         {"kind": "structure", "id": "struct_stone_bench", "tier": 1, "family": "furniture"},
         {"kind": "structure", "id": "struct_stone_pillar", "tier": 1, "family": "walls"},

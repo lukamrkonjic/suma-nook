@@ -789,6 +789,26 @@
       "support_slots": []
     },
     {
+      "id": "struct_flugsvamp",
+      "name": "Fly Agaric",
+      "asset_id": "prop_flugsvamp",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "blocks_movement": true,
+      "visitor_tags": [
+        "viewing"
+      ],
+      "placement_sound": "grass",
+      "placement_tags": [
+        "fungi",
+        "plant",
+        "nature",
+        "medium"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
       "id": "struct_rock_outcrop",
       "name": "Stone Outcrop",
       "asset_id": "prop_rock_cluster",
@@ -882,6 +902,25 @@
         "utility",
         "stonework",
         "large"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_forest_statue",
+      "name": "Forest Statue",
+      "asset_id": "prop_forest_statue",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "blocks_movement": true,
+      "visitor_tags": [
+        "viewing"
+      ],
+      "placement_sound": "stone",
+      "placement_tags": [
+        "stonework",
+        "nature",
+        "medium"
       ],
       "can_be_stacked": false,
       "support_slots": []

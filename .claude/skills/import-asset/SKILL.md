@@ -71,7 +71,58 @@ quantises the source texture per face, which follows the model's own design.
 Recolouring by face normal on top of that flattens it and breaks how the
 colours read.
 
-## 5. Check the material assignment for mis-snaps
+## 5. Colours must match the source, in Suma's palette
+
+Suma replaces every source texture at import, so the only way an asset keeps
+the colours it was designed with is for each region to land on the palette
+entry nearest to it. `prepare_model_import.py` does this by perceptual
+nearest-colour match per component (`nearest_palette_slot`), not by guessing a
+material family from hue rules. The old hue rules overrode the source and got
+it plainly wrong -- a desaturated grey-green stone statue classified as
+`wood_primary`, a saturated brown.
+
+Nearest-match alone is not enough either, because palette entries from
+different materials sit close together in RGB. Warm mid-brown is near
+terracotta, and pale shaded wood is near stone, so an unrestricted match sent
+a wooden wheelbarrow pink and grey. `PROFILE_PALETTES` therefore limits each
+profile to the slots that make sense for it:
+
+| Profile | Reaches |
+|---|---|
+| `tree` | canopy: pine only. trunk: wood only. |
+| `shrub` | canopy: leaf/pine. trunk: wood. |
+| `wood_prop` | wood, gold accent, cream/near-black. No stone, no terracotta. |
+| `stone_prop` | stone and neutrals, plus wood for wooden parts. |
+| `generic` | everything -- use it when an item genuinely spans families, e.g. a red-capped mushroom with a pale stem. |
+
+**Always check the result against the source.** Sample the source's own colours
+and confirm the assignment preserves its structure:
+
+```bash
+python - <<'PY'
+import sys, colorsys
+sys.path.insert(0, "tools")
+import bpy, prepare_model_import as P
+bpy.ops.wm.read_factory_settings(use_empty=True)
+bpy.ops.import_scene.gltf(filepath="<SOURCE.glb>")
+obj = next(o for o in bpy.context.scene.objects if o.type == "MESH")
+samples = P.sampled_materials(obj)
+buckets = {}
+for comp in P.face_components(obj.data):
+    col = P.average_component_color(obj.data, comp, samples)
+    srgb = tuple(P._srgb_channel(max(0.0, float(c))) for c in col)
+    buckets.setdefault(tuple(round(c * 6) for c in srgb), [0, srgb])[0] += len(comp)
+for _, (n, srgb) in sorted(buckets.items(), key=lambda x: -x[1][0])[:8]:
+    print(f"faces={n:4} sRGB=({srgb[0]:.2f},{srgb[1]:.2f},{srgb[2]:.2f})")
+PY
+```
+
+If the source turns out to be a single flat tone, say so rather than inventing
+colours. A monochrome source cannot produce a multi-material result, and the
+real fix is upstream: generate the reference image with per-part palette hexes
+so the separation exists to be matched.
+
+## 6. Check the material assignment for mis-snaps
 
 ```bash
 python -c "
@@ -106,14 +157,14 @@ PART Trunk       ... (should be real geometry, not a 5-face cap)
 
 A trunk left inside `LeafCanopy` sways in the foliage wind and renders green.
 
-## 6. Look at the render
+## 7. Look at the render
 
 `C:/Dev/suma-nook-asset-reviews/<prop_name>/review.png`. Send it to the user.
 
 Note when reporting: **review renders do not apply the runtime 0.85 smoothing**,
 so the asset reads more faceted here than it will in game.
 
-## 7. Wire it into game data, if it is new
+## 8. Wire it into game data, if it is new
 
 Skip for a straight replacement of an existing asset.
 
@@ -136,7 +187,7 @@ one-line compact objects.
   `tests/test_runner.gd` (`expected_supports`), listing what each slot
   accepts. Nine assertions fail until it is.
 
-## 8. Verify
+## 9. Verify
 
 ```bash
 "/c/Dev/Godot/Godot_v4.6.3-stable_win64_console.exe" --headless --path . --import
@@ -157,7 +208,7 @@ Optionally confirm smoothing resolves:
   --script tests/smoothing_weld_probe.gd -- <prop_name>
 ```
 
-## 9. Commit and push
+## 10. Commit and push
 
 Commit message should record the measured before/after, the profile and scale
 used, any mis-snap fixed, and the suite result. Push to the current branch.
