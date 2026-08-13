@@ -38,32 +38,65 @@ CATEGORY_NAMES = sorted(REFERENCE["categories"])
 SYSTEM = """\
 You write image-generation prompts for Suma, a cozy isometric diorama game \
 whose art direction matches Garden Galaxy. The images are fed to Meshy to \
-produce 3D models, so the prompt's job is to make a mesh reconstruct cleanly, \
-not to look good as a picture.
+produce 3D models, so a prompt has two jobs at once: describe the Garden \
+Galaxy silhouette, and describe something a photogrammetry-style \
+reconstruction can turn into a clean mesh.
 
-These rules come from Suma's own failed imports, where the mesh -- not the \
-style -- was the problem:
-- Baked shadows and gradients become dents in the mesh. Demand flat, even, \
-ambient light with no cast shadows, rim light, or specular highlights.
-- Surface texture becomes bumps. Demand flat matte colour, no grain, noise, \
-or material detail.
-- Anything occluded or overlapping becomes holes in the shell. Demand a \
-single closed form with no parts crossing behind each other and no visible \
-negative space.
-- Thin parts reconstruct as mush. Demand chunky, exaggerated proportions.
+MESH RULES. These come from Suma's own failed imports, where the mesh rather \
+than the style was the problem. Do not soften them.
+- Cast shadows and gradients bake into geometry as dents. Ask for soft even \
+diffuse light with no cast shadow on the ground, no rim light, no specular \
+highlights and no glossy reflections. Gentle value separation between planes \
+is wanted and is not the same thing as a cast shadow -- see the style rules.
+- Surface texture becomes bumps. Ask for flat matte colour blocks with no \
+grain, noise, bark texture or material detail.
+- Visible gaps and see-through negative space become holes in the shell, and \
+thin protrusions reconstruct as mush. Ask for solid masses that meet in \
+contact, with no floating parts, no tiny geometry and no thin twigs, needles \
+or wires.
+- Forms may stack and overlap where they touch. Do NOT ask for "a single \
+closed continuous form" or forbid overlap outright: that produces a fused \
+blob. Forbid only parts that cross behind one another leaving a visible gap.
 
-Style: chunky handcrafted toy miniature, 3 to 5 major forms, softly rounded \
-edges, clean readable silhouette, plain solid background, three-quarter view \
-from slightly above, whole object visible.
+STYLE RULES. Garden Galaxy is not generic chunky-toy. Getting these wrong is \
+what makes an asset read as a supermarket ornament rather than a GG piece.
+- Follow the reference proportions you are given. Never describe an object as \
+"squat" or "exaggerated" unless the measured references say it is wide. A \
+conifer is tall and slender; a table is broad and low.
+- Articulation beats simplification. Five to seven readable masses is usually \
+right; "three or four major forms only" flattens an object into an icon.
+- For foliage, the mass is a chunky low-poly cluster with a few broad \
+downward-pointing lobes, softly bevelled rather than needle-sharp. It is not \
+a smooth cone, a scalloped cloud, or a stack of pancakes.
+- Ask for subtle irregularity: slight variation in width, rotation and height \
+between repeated elements, so the object reads handcrafted rather than \
+mechanically stacked and mirrored.
+- Do not add scenery the item does not need: no stone mound, no base ring, no \
+pedestal, no pot, no grass, no ground plane.
+- The design must be original and inspired by Garden Galaxy, never a copy of \
+any specific reference asset.
 
 Use these palette hexes, picked to match the semantic material slots Suma \
 rebinds at load: warm wood #AB732E / #915720 / #754118, deep wood #321D13, \
-foliage #4F632E / #4A632A, pale stone #C4B599, ivory #D1C5A8.
+foliage #4F632E / #5D7134 with darker undersides near #405225, pale stone \
+#C4B599, ivory #D1C5A8. Keep colours muted, and include one slightly lighter \
+plane so form reads.
 
 Return the prompt as one flowing block a person can paste straight into an \
-image generator, with a separate negative prompt. Estimate the object's \
-total mesh surface area in square metres at real-world scale -- a side table \
-is roughly 3, a mug roughly 0.1 -- since that drives its triangle budget."""
+image generator, plus a negative prompt. The negative prompt must always \
+exclude: cast shadows, gradients, ambient occlusion, rim light, specular \
+highlights, glossy reflections, texture, noise, individual leaves or needles, \
+thin twigs, floating parts, holes, see-through gaps, stone base, pedestal, \
+ring around trunk, pot, grass, ground plane, scenery, multiple objects, \
+photorealism, text, watermark, cropped, extreme perspective. Add \
+form-specific exclusions on top -- for a conifer, also exclude round cloud \
+foliage, smooth cones, Christmas tree icon, perfectly symmetrical tiers, \
+squat proportions and layered pancakes.
+
+Estimate the object's total mesh surface area in square metres at real-world \
+scale -- a side table is roughly 3, a mug roughly 0.1 -- since that drives \
+its triangle budget, and state the width-over-height the silhouette should \
+hit."""
 
 SCHEMA = {
     "type": "object",
@@ -84,6 +117,13 @@ SCHEMA = {
             "type": "integer",
             "description": "Distinct rigid parts, e.g. a table top plus legs is 2.",
         },
+        "width_over_height": {
+            "type": "number",
+            "description": (
+                "Target silhouette proportion: widest horizontal extent divided "
+                "by height. A slender conifer is about 0.4, a low table about 1.7."
+            ),
+        },
         "modelling_note": {
             "type": "string",
             "description": "One sentence on the biggest reconstruction risk for this item.",
@@ -96,10 +136,41 @@ SCHEMA = {
         "negative_prompt",
         "surface_area_m2",
         "part_count",
+        "width_over_height",
         "modelling_note",
     ],
     "additionalProperties": False,
 }
+
+
+STOP_WORDS = {"a", "an", "the", "of", "with", "small", "large", "old", "new"}
+
+
+def nearest_references(item: str, limit: int = 6) -> list[dict]:
+    """Garden Galaxy assets whose names share a word with the requested item.
+
+    A category median cannot describe one object: tree_plant medians 0.84
+    width-over-height because it pools bushes with conifers, and prompting a
+    fir at 0.84 is what produced a squat ornament. Matching "fir tree" to
+    Garden Galaxy's own FirTree meshes gives the real proportion instead.
+    """
+    words = {
+        word
+        for word in "".join(
+            character if character.isalnum() else " " for character in item.lower()
+        ).split()
+        if len(word) > 2 and word not in STOP_WORDS
+    }
+    if not words:
+        return []
+    scored: list[tuple[int, int, dict]] = []
+    for entry in REFERENCE.get("assets", []):
+        name = entry["name"].lower()
+        hits = sum(1 for word in words if word in name)
+        if hits:
+            scored.append((hits, -len(name), entry))
+    scored.sort(key=lambda row: (row[0], row[1]), reverse=True)
+    return [entry for _, _, entry in scored[:limit]]
 
 
 def recommend_polycount(category: str, surface_area: float, parts: int) -> dict:
@@ -139,6 +210,23 @@ def recommend_polycount(category: str, surface_area: float, parts: int) -> dict:
 
 
 def build_brief(client: anthropic.Anthropic, item: str) -> dict:
+    matches = nearest_references(item)
+    request = item
+    if matches:
+        # Hand the model the measured proportions of the closest Garden Galaxy
+        # assets, so the silhouette is anchored to the real library instead of
+        # to whatever "chunky miniature" evokes.
+        lines = "\n".join(
+            f"- {entry['name']}: {entry['triangles']} triangles, "
+            f"width/height {entry['width_over_height']}"
+            for entry in matches
+        )
+        request = (
+            f"{item}\n\nClosest Garden Galaxy reference assets, measured from "
+            f"the shipped library:\n{lines}\n\nMatch these proportions. Design "
+            f"something original in that language rather than copying any of "
+            f"them."
+        )
     response = client.messages.create(
         model=MODEL,
         max_tokens=16000,
@@ -147,7 +235,7 @@ def build_brief(client: anthropic.Anthropic, item: str) -> dict:
             "effort": "medium",
             "format": {"type": "json_schema", "schema": SCHEMA},
         },
-        messages=[{"role": "user", "content": item}],
+        messages=[{"role": "user", "content": request}],
     )
     if response.stop_reason == "refusal":
         raise RuntimeError("The request was declined by safety classifiers.")
@@ -158,6 +246,14 @@ def build_brief(client: anthropic.Anthropic, item: str) -> dict:
         float(brief["surface_area_m2"]),
         int(brief["part_count"]),
     )
+    brief["references"] = matches
+    if matches:
+        aspects = sorted(
+            entry["width_over_height"] for entry in matches if entry["width_over_height"]
+        )
+        brief["reference_width_over_height"] = (
+            [aspects[0], aspects[-1]] if aspects else None
+        )
     return brief
 
 

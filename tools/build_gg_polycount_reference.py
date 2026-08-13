@@ -52,8 +52,22 @@ def percentile(values: list[float], fraction: float) -> float:
 def summarise(entries: list[dict]) -> dict:
     triangles = [entry["triangles"] for entry in entries]
     densities = [entry["triangles"] / entry["surface_area"] for entry in entries]
+    # Width over height. Garden Galaxy's conifers sit near 0.4, i.e. two and a
+    # half times taller than wide; describing such a thing as "chunky" or
+    # "squat" in a prompt produces the wrong silhouette entirely, so the app
+    # quotes the measured figure instead of guessing at proportions.
+    aspects = [
+        max(entry["dimensions"][0], entry["dimensions"][1]) / entry["dimensions"][2]
+        for entry in entries
+        if entry["dimensions"][2] > 0.0
+    ]
     return {
         "sample_size": len(entries),
+        "width_over_height": {
+            "p25": round(percentile(aspects, 0.25), 2),
+            "median": round(percentile(aspects, 0.5), 2),
+            "p75": round(percentile(aspects, 0.75), 2),
+        },
         "triangles": {
             "p25": round(percentile(triangles, 0.25)),
             "median": round(percentile(triangles, 0.5)),
@@ -82,6 +96,7 @@ def main() -> None:
                 "name": re.sub(r"__sharedassets0__\d+", "", name),
                 "triangles": entry["triangles"],
                 "surface_area": entry["surface_area"],
+                "dimensions": entry["dimensions"],
             }
         )
 
@@ -108,6 +123,25 @@ def main() -> None:
         "source_assets": len(usable),
         "overall": summarise(usable),
         "categories": categories,
+        # Flat index of every reference asset. A category median is too coarse
+        # to describe one object: tree_plant medians 0.84 width-over-height
+        # because it mixes bushes with conifers, while the firs sit near 0.4.
+        # The app name-matches against this list so a fir is compared to
+        # Garden Galaxy's own firs rather than to the category.
+        "assets": [
+            {
+                "name": item["name"],
+                "triangles": item["triangles"],
+                "width_over_height": round(
+                    max(item["dimensions"][0], item["dimensions"][1])
+                    / item["dimensions"][2],
+                    2,
+                )
+                if item["dimensions"][2] > 0.0
+                else 0.0,
+            }
+            for item in sorted(usable, key=lambda item: item["name"])
+        ],
     }
     arguments.out.parent.mkdir(parents=True, exist_ok=True)
     arguments.out.write_text(json.dumps(payload, indent="\t") + "\n", encoding="utf-8")

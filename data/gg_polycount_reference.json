@@ -3,6 +3,11 @@
 	"source_assets": 724,
 	"overall": {
 		"sample_size": 724,
+		"width_over_height": {
+			"p25": 0.86,
+			"median": 1.33,
+			"p75": 2.59
+		},
 		"triangles": {
 			"p25": 60,
 			"median": 142,
@@ -19,6 +24,11 @@
 	"categories": {
 		"mushroom": {
 			"sample_size": 3,
+			"width_over_height": {
+				"p25": 0.72,
+				"median": 0.76,
+				"p75": 1.1
+			},
 			"triangles": {
 				"p25": 308,
 				"median": 336,
@@ -48,6 +58,11 @@
 		},
 		"tree_plant": {
 			"sample_size": 98,
+			"width_over_height": {
+				"p25": 0.47,
+				"median": 0.84,
+				"p75": 1.48
+			},
 			"triangles": {
 				"p25": 124,
 				"median": 192,
@@ -89,6 +104,11 @@
 		},
 		"furniture": {
 			"sample_size": 11,
+			"width_over_height": {
+				"p25": 1.26,
+				"median": 1.72,
+				"p75": 4.96
+			},
 			"triangles": {
 				"p25": 70,
 				"median": 132,
@@ -130,6 +150,11 @@
 		},
 		"container": {
 			"sample_size": 50,
+			"width_over_height": {
+				"p25": 1.21,
+				"median": 1.78,
+				"p75": 2.72
+			},
 			"triangles": {
 				"p25": 135,
 				"median": 250,
@@ -171,6 +196,11 @@
 		},
 		"rock_stone": {
 			"sample_size": 52,
+			"width_over_height": {
+				"p25": 0.93,
+				"median": 2.11,
+				"p75": 3.75
+			},
 			"triangles": {
 				"p25": 44,
 				"median": 105,
@@ -212,6 +242,11 @@
 		},
 		"building": {
 			"sample_size": 68,
+			"width_over_height": {
+				"p25": 0.57,
+				"median": 1.0,
+				"p75": 2.0
+			},
 			"triangles": {
 				"p25": 28,
 				"median": 70,
@@ -253,6 +288,11 @@
 		},
 		"animal": {
 			"sample_size": 34,
+			"width_over_height": {
+				"p25": 1.0,
+				"median": 1.44,
+				"p75": 1.94
+			},
 			"triangles": {
 				"p25": 48,
 				"median": 136,
@@ -294,6 +334,11 @@
 		},
 		"decor_small": {
 			"sample_size": 64,
+			"width_over_height": {
+				"p25": 1.12,
+				"median": 1.42,
+				"p75": 3.28
+			},
 			"triangles": {
 				"p25": 100,
 				"median": 228,
@@ -333,5 +378,3627 @@
 				}
 			]
 		}
-	}
+	},
+	"assets": [
+		{
+			"name": "ASign",
+			"triangles": 124,
+			"width_over_height": 0.76
+		},
+		{
+			"name": "ASignBar",
+			"triangles": 32,
+			"width_over_height": 2.92
+		},
+		{
+			"name": "Acorn",
+			"triangles": 276,
+			"width_over_height": 0.7
+		},
+		{
+			"name": "AirBlock_01",
+			"triangles": 512,
+			"width_over_height": 1.98
+		},
+		{
+			"name": "AirBlock_02",
+			"triangles": 432,
+			"width_over_height": 1.98
+		},
+		{
+			"name": "Aloe",
+			"triangles": 208,
+			"width_over_height": 0.38
+		},
+		{
+			"name": "Anti Shrine legs",
+			"triangles": 184,
+			"width_over_height": 2.7
+		},
+		{
+			"name": "Anti Shrine top",
+			"triangles": 124,
+			"width_over_height": 2.1
+		},
+		{
+			"name": "Apple",
+			"triangles": 176,
+			"width_over_height": 0.84
+		},
+		{
+			"name": "BallBasket",
+			"triangles": 1022,
+			"width_over_height": 1.78
+		},
+		{
+			"name": "Bamboo leaf",
+			"triangles": 136,
+			"width_over_height": 0.71
+		},
+		{
+			"name": "Bamboo stem",
+			"triangles": 92,
+			"width_over_height": 0.2
+		},
+		{
+			"name": "Banana",
+			"triangles": 204,
+			"width_over_height": 2.22
+		},
+		{
+			"name": "BankPiece_01",
+			"triangles": 24,
+			"width_over_height": 0.65
+		},
+		{
+			"name": "BankPiece_02",
+			"triangles": 16,
+			"width_over_height": 0.77
+		},
+		{
+			"name": "BankPiece_03",
+			"triangles": 8,
+			"width_over_height": 0.74
+		},
+		{
+			"name": "Bank_beach",
+			"triangles": 332,
+			"width_over_height": 1.55
+		},
+		{
+			"name": "Bank_classic",
+			"triangles": 442,
+			"width_over_height": 1.14
+		},
+		{
+			"name": "Bank_desert",
+			"triangles": 286,
+			"width_over_height": 1.35
+		},
+		{
+			"name": "Bank_farm",
+			"triangles": 286,
+			"width_over_height": 1.57
+		},
+		{
+			"name": "Bank_forest",
+			"triangles": 218,
+			"width_over_height": 1.51
+		},
+		{
+			"name": "Bank_frost",
+			"triangles": 366,
+			"width_over_height": 1.41
+		},
+		{
+			"name": "Bank_harvest",
+			"triangles": 350,
+			"width_over_height": 1.47
+		},
+		{
+			"name": "Bank_lawn",
+			"triangles": 192,
+			"width_over_height": 1.95
+		},
+		{
+			"name": "Bank_market",
+			"triangles": 246,
+			"width_over_height": 1.13
+		},
+		{
+			"name": "Bank_swamp",
+			"triangles": 450,
+			"width_over_height": 1.14
+		},
+		{
+			"name": "Bank_urban",
+			"triangles": 172,
+			"width_over_height": 1.43
+		},
+		{
+			"name": "Bank_water",
+			"triangles": 222,
+			"width_over_height": 0.79
+		},
+		{
+			"name": "Barbeque",
+			"triangles": 516,
+			"width_over_height": 2.73
+		},
+		{
+			"name": "BarbequeBar",
+			"triangles": 60,
+			"width_over_height": 5.57
+		},
+		{
+			"name": "BarbequeCoal",
+			"triangles": 32,
+			"width_over_height": 1.23
+		},
+		{
+			"name": "BarbequeLeg",
+			"triangles": 108,
+			"width_over_height": 0.29
+		},
+		{
+			"name": "BarbequeMetal",
+			"triangles": 120,
+			"width_over_height": 8.73
+		},
+		{
+			"name": "Barrel",
+			"triangles": 256,
+			"width_over_height": 1.48
+		},
+		{
+			"name": "Barrel_Rings",
+			"triangles": 144,
+			"width_over_height": 2.41
+		},
+		{
+			"name": "Base_Statue",
+			"triangles": 504,
+			"width_over_height": 2.66
+		},
+		{
+			"name": "BeachBall",
+			"triangles": 792,
+			"width_over_height": 1.03
+		},
+		{
+			"name": "Beach_statue",
+			"triangles": 280,
+			"width_over_height": 1.49
+		},
+		{
+			"name": "Bear_wonky",
+			"triangles": 164,
+			"width_over_height": 1.51
+		},
+		{
+			"name": "Bee",
+			"triangles": 60,
+			"width_over_height": 1.44
+		},
+		{
+			"name": "Beehive",
+			"triangles": 60,
+			"width_over_height": 0.98
+		},
+		{
+			"name": "Beehive_legs",
+			"triangles": 40,
+			"width_over_height": 2.89
+		},
+		{
+			"name": "Beehive_roof",
+			"triangles": 20,
+			"width_over_height": 2.77
+		},
+		{
+			"name": "Beet_leaf",
+			"triangles": 128,
+			"width_over_height": 0.69
+		},
+		{
+			"name": "Beet_root",
+			"triangles": 56,
+			"width_over_height": 1.81
+		},
+		{
+			"name": "BerryBush",
+			"triangles": 1216,
+			"width_over_height": 1.28
+		},
+		{
+			"name": "BerryBush_stem",
+			"triangles": 612,
+			"width_over_height": 0.84
+		},
+		{
+			"name": "Bird Bath",
+			"triangles": 484,
+			"width_over_height": 1.0
+		},
+		{
+			"name": "Bird Table",
+			"triangles": 246,
+			"width_over_height": 0.52
+		},
+		{
+			"name": "BirdPet_Body",
+			"triangles": 136,
+			"width_over_height": 1.53
+		},
+		{
+			"name": "BirdPet_ClosedWing",
+			"triangles": 96,
+			"width_over_height": 2.07
+		},
+		{
+			"name": "BirdPet_OpenWing",
+			"triangles": 48,
+			"width_over_height": 1.25
+		},
+		{
+			"name": "Blossom_flowers",
+			"triangles": 280,
+			"width_over_height": 1.92
+		},
+		{
+			"name": "Blossom_stem",
+			"triangles": 362,
+			"width_over_height": 0.51
+		},
+		{
+			"name": "Boat",
+			"triangles": 180,
+			"width_over_height": 0.78
+		},
+		{
+			"name": "Bonsai",
+			"triangles": 560,
+			"width_over_height": 0.9
+		},
+		{
+			"name": "Book_corners",
+			"triangles": 152,
+			"width_over_height": 2.48
+		},
+		{
+			"name": "Book_cover",
+			"triangles": 60,
+			"width_over_height": 2.66
+		},
+		{
+			"name": "Book_cover",
+			"triangles": 60,
+			"width_over_height": 2.66
+		},
+		{
+			"name": "Book_detail",
+			"triangles": 100,
+			"width_over_height": 1.7
+		},
+		{
+			"name": "Book_mark",
+			"triangles": 48,
+			"width_over_height": 1.69
+		},
+		{
+			"name": "Book_pages",
+			"triangles": 12,
+			"width_over_height": 3.66
+		},
+		{
+			"name": "Bottle_01",
+			"triangles": 226,
+			"width_over_height": 0.78
+		},
+		{
+			"name": "Bottle_Cork",
+			"triangles": 36,
+			"width_over_height": 1.33
+		},
+		{
+			"name": "Bottle_Inside",
+			"triangles": 94,
+			"width_over_height": 1.56
+		},
+		{
+			"name": "BreadSlice",
+			"triangles": 100,
+			"width_over_height": 4.48
+		},
+		{
+			"name": "Brick Floor step",
+			"triangles": 69,
+			"width_over_height": 5.56
+		},
+		{
+			"name": "Brick Floor step bit",
+			"triangles": 41,
+			"width_over_height": 2.78
+		},
+		{
+			"name": "Brick Floor step bit in",
+			"triangles": 40,
+			"width_over_height": 2.78
+		},
+		{
+			"name": "Brick Floor step corner",
+			"triangles": 78,
+			"width_over_height": 5.56
+		},
+		{
+			"name": "Brick Floor step corner in",
+			"triangles": 90,
+			"width_over_height": 5.56
+		},
+		{
+			"name": "Brick Floor top",
+			"triangles": 138,
+			"width_over_height": 5.56
+		},
+		{
+			"name": "BrickWall_Corner",
+			"triangles": 436,
+			"width_over_height": 1.51
+		},
+		{
+			"name": "BrickWall_Cross",
+			"triangles": 684,
+			"width_over_height": 2.05
+		},
+		{
+			"name": "BrickWall_End",
+			"triangles": 304,
+			"width_over_height": 1.51
+		},
+		{
+			"name": "BrickWall_Single",
+			"triangles": 188,
+			"width_over_height": 0.98
+		},
+		{
+			"name": "BrickWall_Straight",
+			"triangles": 420,
+			"width_over_height": 2.05
+		},
+		{
+			"name": "BrickWall_StraightCross",
+			"triangles": 628,
+			"width_over_height": 2.05
+		},
+		{
+			"name": "BrickWall_T",
+			"triangles": 560,
+			"width_over_height": 2.05
+		},
+		{
+			"name": "BrickWall_TEnd",
+			"triangles": 504,
+			"width_over_height": 2.0
+		},
+		{
+			"name": "BulbPalm",
+			"triangles": 120,
+			"width_over_height": 1.23
+		},
+		{
+			"name": "BulbPalm_leaf",
+			"triangles": 140,
+			"width_over_height": 0.92
+		},
+		{
+			"name": "BunBottom",
+			"triangles": 120,
+			"width_over_height": 3.99
+		},
+		{
+			"name": "BunTop",
+			"triangles": 96,
+			"width_over_height": 2.49
+		},
+		{
+			"name": "Bunting",
+			"triangles": 78,
+			"width_over_height": 0.71
+		},
+		{
+			"name": "BuntingPole",
+			"triangles": 92,
+			"width_over_height": 0.13
+		},
+		{
+			"name": "BuntingString",
+			"triangles": 60,
+			"width_over_height": 2.98
+		},
+		{
+			"name": "BuntingStringEnd",
+			"triangles": 108,
+			"width_over_height": 0.14
+		},
+		{
+			"name": "Burner",
+			"triangles": 260,
+			"width_over_height": 3.47
+		},
+		{
+			"name": "Burner_Ash",
+			"triangles": 56,
+			"width_over_height": 2.65
+		},
+		{
+			"name": "Burner_Leg",
+			"triangles": 124,
+			"width_over_height": 0.36
+		},
+		{
+			"name": "Bush trunk",
+			"triangles": 56,
+			"width_over_height": 0.2
+		},
+		{
+			"name": "Bush_ball_lvs",
+			"triangles": 644,
+			"width_over_height": 1.35
+		},
+		{
+			"name": "Bush_ball_shape",
+			"triangles": 80,
+			"width_over_height": 1.0
+		},
+		{
+			"name": "Bush_cone_lvs",
+			"triangles": 952,
+			"width_over_height": 0.66
+		},
+		{
+			"name": "Bush_cone_shape",
+			"triangles": 120,
+			"width_over_height": 0.54
+		},
+		{
+			"name": "ButterflyBody",
+			"triangles": 80,
+			"width_over_height": 3.01
+		},
+		{
+			"name": "ButterflyWing",
+			"triangles": 64,
+			"width_over_height": 7.36
+		},
+		{
+			"name": "Cabbage_core",
+			"triangles": 54,
+			"width_over_height": 1.07
+		},
+		{
+			"name": "Cabbage_core_leaf",
+			"triangles": 66,
+			"width_over_height": 0.92
+		},
+		{
+			"name": "Cabbage_leaf",
+			"triangles": 106,
+			"width_over_height": 3.31
+		},
+		{
+			"name": "Cabin",
+			"triangles": 480,
+			"width_over_height": 1.01
+		},
+		{
+			"name": "CairnRock_01",
+			"triangles": 148,
+			"width_over_height": 1.93
+		},
+		{
+			"name": "CairnRock_02",
+			"triangles": 164,
+			"width_over_height": 2.49
+		},
+		{
+			"name": "CairnRock_03",
+			"triangles": 128,
+			"width_over_height": 2.11
+		},
+		{
+			"name": "CairnRock_04",
+			"triangles": 140,
+			"width_over_height": 2.64
+		},
+		{
+			"name": "CairnRock_05",
+			"triangles": 128,
+			"width_over_height": 1.59
+		},
+		{
+			"name": "CairnRock_06",
+			"triangles": 60,
+			"width_over_height": 2.12
+		},
+		{
+			"name": "CairnRock_07",
+			"triangles": 58,
+			"width_over_height": 2.13
+		},
+		{
+			"name": "CairnRock_08",
+			"triangles": 42,
+			"width_over_height": 2.21
+		},
+		{
+			"name": "CairnRock_09",
+			"triangles": 48,
+			"width_over_height": 2.24
+		},
+		{
+			"name": "Camera",
+			"triangles": 446,
+			"width_over_height": 1.39
+		},
+		{
+			"name": "Campfire_bowl",
+			"triangles": 224,
+			"width_over_height": 5.18
+		},
+		{
+			"name": "Campfire_legs",
+			"triangles": 96,
+			"width_over_height": 3.41
+		},
+		{
+			"name": "Campfire_log",
+			"triangles": 56,
+			"width_over_height": 2.13
+		},
+		{
+			"name": "Candle_01",
+			"triangles": 170,
+			"width_over_height": 0.71
+		},
+		{
+			"name": "Candle_02",
+			"triangles": 340,
+			"width_over_height": 0.98
+		},
+		{
+			"name": "Candle_Flame",
+			"triangles": 64,
+			"width_over_height": 0.3
+		},
+		{
+			"name": "Capsule__unity_default_resources__10208",
+			"triangles": 832,
+			"width_over_height": 0.5
+		},
+		{
+			"name": "Carrot_leaf",
+			"triangles": 120,
+			"width_over_height": 0.75
+		},
+		{
+			"name": "Carrot_root",
+			"triangles": 56,
+			"width_over_height": 0.93
+		},
+		{
+			"name": "Cart_box",
+			"triangles": 106,
+			"width_over_height": 2.1
+		},
+		{
+			"name": "Cart_flat",
+			"triangles": 52,
+			"width_over_height": 7.76
+		},
+		{
+			"name": "Cart_wheels",
+			"triangles": 312,
+			"width_over_height": 1.52
+		},
+		{
+			"name": "Cast Iron Leaf",
+			"triangles": 120,
+			"width_over_height": 0.33
+		},
+		{
+			"name": "Cast Iron Leaf_short",
+			"triangles": 112,
+			"width_over_height": 0.67
+		},
+		{
+			"name": "Cauldron",
+			"triangles": 550,
+			"width_over_height": 1.43
+		},
+		{
+			"name": "CauldronBank",
+			"triangles": 392,
+			"width_over_height": 1.44
+		},
+		{
+			"name": "CauldronBankLeg",
+			"triangles": 70,
+			"width_over_height": 1.0
+		},
+		{
+			"name": "Cauldron_Arm",
+			"triangles": 128,
+			"width_over_height": 0.6
+		},
+		{
+			"name": "Cauldron_Coal",
+			"triangles": 196,
+			"width_over_height": 1.44
+		},
+		{
+			"name": "Cauldron_Leg",
+			"triangles": 70,
+			"width_over_height": 0.94
+		},
+		{
+			"name": "Cherry",
+			"triangles": 440,
+			"width_over_height": 1.01
+		},
+		{
+			"name": "Chiminea",
+			"triangles": 1032,
+			"width_over_height": 0.79
+		},
+		{
+			"name": "ChipFloor_bit",
+			"triangles": 20,
+			"width_over_height": 6.02
+		},
+		{
+			"name": "Classic Pot",
+			"triangles": 378,
+			"width_over_height": 0.96
+		},
+		{
+			"name": "Classic_Statue",
+			"triangles": 408,
+			"width_over_height": 1.14
+		},
+		{
+			"name": "Clover",
+			"triangles": 168,
+			"width_over_height": 0.98
+		},
+		{
+			"name": "Cobble",
+			"triangles": 240,
+			"width_over_height": 18.18
+		},
+		{
+			"name": "Cobble base",
+			"triangles": 12,
+			"width_over_height": 2.16
+		},
+		{
+			"name": "Cobble corner bit",
+			"triangles": 60,
+			"width_over_height": 9.48
+		},
+		{
+			"name": "Cobble corner block",
+			"triangles": 123,
+			"width_over_height": 18.11
+		},
+		{
+			"name": "Cobble step base",
+			"triangles": 84,
+			"width_over_height": 2.17
+		},
+		{
+			"name": "Cobble step block",
+			"triangles": 168,
+			"width_over_height": 3.24
+		},
+		{
+			"name": "Cobble stepIn",
+			"triangles": 62,
+			"width_over_height": 2.16
+		},
+		{
+			"name": "Cobble stepOut",
+			"triangles": 82,
+			"width_over_height": 2.21
+		},
+		{
+			"name": "Coin_circle",
+			"triangles": 456,
+			"width_over_height": 3.81
+		},
+		{
+			"name": "Coin_curio",
+			"triangles": 590,
+			"width_over_height": 4.28
+		},
+		{
+			"name": "Coin_drop",
+			"triangles": 474,
+			"width_over_height": 4.57
+		},
+		{
+			"name": "Coin_frost",
+			"triangles": 336,
+			"width_over_height": 4.81
+		},
+		{
+			"name": "Coin_harvest",
+			"triangles": 502,
+			"width_over_height": 4.86
+		},
+		{
+			"name": "Coin_hex",
+			"triangles": 336,
+			"width_over_height": 3.86
+		},
+		{
+			"name": "Coin_leaf",
+			"triangles": 492,
+			"width_over_height": 5.09
+		},
+		{
+			"name": "Coin_oval",
+			"triangles": 608,
+			"width_over_height": 4.76
+		},
+		{
+			"name": "Coin_segment",
+			"triangles": 330,
+			"width_over_height": 4.97
+		},
+		{
+			"name": "Coin_shell",
+			"triangles": 592,
+			"width_over_height": 4.25
+		},
+		{
+			"name": "Coin_square",
+			"triangles": 224,
+			"width_over_height": 4.39
+		},
+		{
+			"name": "Coin_swamp",
+			"triangles": 512,
+			"width_over_height": 4.02
+		},
+		{
+			"name": "Coin_tri",
+			"triangles": 156,
+			"width_over_height": 4.38
+		},
+		{
+			"name": "Coin_vase",
+			"triangles": 520,
+			"width_over_height": 4.26
+		},
+		{
+			"name": "Cone_collider",
+			"triangles": 10,
+			"width_over_height": 1.0
+		},
+		{
+			"name": "Confetti",
+			"triangles": 8,
+			"width_over_height": 4.46
+		},
+		{
+			"name": "Coral",
+			"triangles": 360,
+			"width_over_height": 1.72
+		},
+		{
+			"name": "Cow Skull",
+			"triangles": 348,
+			"width_over_height": 1.67
+		},
+		{
+			"name": "Creature_body",
+			"triangles": 48,
+			"width_over_height": 0.52
+		},
+		{
+			"name": "Creature_leaf",
+			"triangles": 80,
+			"width_over_height": 0.51
+		},
+		{
+			"name": "Crocus",
+			"triangles": 808,
+			"width_over_height": 0.69
+		},
+		{
+			"name": "Cube__unity_default_resources__10202",
+			"triangles": 12,
+			"width_over_height": 1.0
+		},
+		{
+			"name": "Curio_Statue",
+			"triangles": 638,
+			"width_over_height": 1.35
+		},
+		{
+			"name": "Cushion",
+			"triangles": 304,
+			"width_over_height": 2.87
+		},
+		{
+			"name": "CutePot",
+			"triangles": 640,
+			"width_over_height": 1.28
+		},
+		{
+			"name": "Cylinder__unity_default_resources__10206",
+			"triangles": 80,
+			"width_over_height": 0.5
+		},
+		{
+			"name": "Cylinder_collider",
+			"triangles": 20,
+			"width_over_height": 1.0
+		},
+		{
+			"name": "Daffodil",
+			"triangles": 650,
+			"width_over_height": 0.77
+		},
+		{
+			"name": "Daisy",
+			"triangles": 1104,
+			"width_over_height": 1.06
+		},
+		{
+			"name": "DarkPot",
+			"triangles": 504,
+			"width_over_height": 1.25
+		},
+		{
+			"name": "DarkPot_inner",
+			"triangles": 28,
+			"width_over_height": 0.0
+		},
+		{
+			"name": "Decking_chip",
+			"triangles": 63,
+			"width_over_height": 2.78
+		},
+		{
+			"name": "Decking_chip_open",
+			"triangles": 55,
+			"width_over_height": 2.78
+		},
+		{
+			"name": "Decking_cleanhalf",
+			"triangles": 30,
+			"width_over_height": 2.78
+		},
+		{
+			"name": "Decking_cleanhalf_open",
+			"triangles": 22,
+			"width_over_height": 2.78
+		},
+		{
+			"name": "Decking_crack",
+			"triangles": 52,
+			"width_over_height": 2.78
+		},
+		{
+			"name": "Decking_step",
+			"triangles": 60,
+			"width_over_height": 5.56
+		},
+		{
+			"name": "Decking_step_bit",
+			"triangles": 44,
+			"width_over_height": 2.78
+		},
+		{
+			"name": "Decking_step_corner",
+			"triangles": 82,
+			"width_over_height": 5.56
+		},
+		{
+			"name": "Deer_wonky",
+			"triangles": 156,
+			"width_over_height": 0.74
+		},
+		{
+			"name": "DeliveryStation_Base",
+			"triangles": 308,
+			"width_over_height": 3.04
+		},
+		{
+			"name": "DeliveryStation_Box",
+			"triangles": 560,
+			"width_over_height": 1.04
+		},
+		{
+			"name": "DeliveryStation_Lid",
+			"triangles": 152,
+			"width_over_height": 5.97
+		},
+		{
+			"name": "Desert_Statue",
+			"triangles": 254,
+			"width_over_height": 1.35
+		},
+		{
+			"name": "Dragonfly Branch",
+			"triangles": 204,
+			"width_over_height": 0.44
+		},
+		{
+			"name": "DragonflyBody",
+			"triangles": 144,
+			"width_over_height": 4.32
+		},
+		{
+			"name": "DragonflyWing",
+			"triangles": 44,
+			"width_over_height": 9.06
+		},
+		{
+			"name": "DryGrass_leaf",
+			"triangles": 84,
+			"width_over_height": 0.27
+		},
+		{
+			"name": "DryLog",
+			"triangles": 206,
+			"width_over_height": 2.59
+		},
+		{
+			"name": "DryStoneWall_Cap",
+			"triangles": 232,
+			"width_over_height": 0.66
+		},
+		{
+			"name": "DryStoneWall_Corner",
+			"triangles": 320,
+			"width_over_height": 0.57
+		},
+		{
+			"name": "DryStoneWall_CornerHalf",
+			"triangles": 508,
+			"width_over_height": 0.67
+		},
+		{
+			"name": "DryStoneWall_OutCorner",
+			"triangles": 628,
+			"width_over_height": 0.94
+		},
+		{
+			"name": "DryStoneWall_Straight",
+			"triangles": 408,
+			"width_over_height": 1.14
+		},
+		{
+			"name": "DryStoneWall_StraightHalf",
+			"triangles": 728,
+			"width_over_height": 0.9
+		},
+		{
+			"name": "DryStoneWall_StraightShort",
+			"triangles": 276,
+			"width_over_height": 0.68
+		},
+		{
+			"name": "Duplicator",
+			"triangles": 392,
+			"width_over_height": 1.03
+		},
+		{
+			"name": "DuplicatorRing",
+			"triangles": 140,
+			"width_over_height": 1.34
+		},
+		{
+			"name": "DuplicatorRope",
+			"triangles": 446,
+			"width_over_height": 1.94
+		},
+		{
+			"name": "Fairy Lights_bulb",
+			"triangles": 20,
+			"width_over_height": 1.99
+		},
+		{
+			"name": "Fairy Lights_wire_cnr",
+			"triangles": 52,
+			"width_over_height": 4.64
+		},
+		{
+			"name": "Fairy Lights_wire_end",
+			"triangles": 30,
+			"width_over_height": 4.34
+		},
+		{
+			"name": "Fairy Lights_wire_str",
+			"triangles": 28,
+			"width_over_height": 4.03
+		},
+		{
+			"name": "Fairy Lights_wire_t",
+			"triangles": 90,
+			"width_over_height": 8.06
+		},
+		{
+			"name": "Fairy Lights_wire_tend",
+			"triangles": 94,
+			"width_over_height": 5.67
+		},
+		{
+			"name": "FallTree_bottom",
+			"triangles": 218,
+			"width_over_height": 0.36
+		},
+		{
+			"name": "FallTree_leaves",
+			"triangles": 1204,
+			"width_over_height": 1.2
+		},
+		{
+			"name": "FallTree_mid",
+			"triangles": 336,
+			"width_over_height": 0.48
+		},
+		{
+			"name": "FallTree_single",
+			"triangles": 352,
+			"width_over_height": 0.47
+		},
+		{
+			"name": "FallTree_top",
+			"triangles": 336,
+			"width_over_height": 0.47
+		},
+		{
+			"name": "Farm_Statue",
+			"triangles": 228,
+			"width_over_height": 1.62
+		},
+		{
+			"name": "Fern",
+			"triangles": 168,
+			"width_over_height": 0.97
+		},
+		{
+			"name": "FibrePot",
+			"triangles": 416,
+			"width_over_height": 2.02
+		},
+		{
+			"name": "Figurine_Body",
+			"triangles": 242,
+			"width_over_height": 1.34
+		},
+		{
+			"name": "Figurine_Head",
+			"triangles": 110,
+			"width_over_height": 1.61
+		},
+		{
+			"name": "Figurine_Leaf",
+			"triangles": 68,
+			"width_over_height": 0.75
+		},
+		{
+			"name": "FirTree_bottom",
+			"triangles": 156,
+			"width_over_height": 0.39
+		},
+		{
+			"name": "FirTree_foliage",
+			"triangles": 1072,
+			"width_over_height": 0.52
+		},
+		{
+			"name": "FirTree_foliage_bits",
+			"triangles": 480,
+			"width_over_height": 0.78
+		},
+		{
+			"name": "FirTree_mid",
+			"triangles": 276,
+			"width_over_height": 0.42
+		},
+		{
+			"name": "FirTree_single",
+			"triangles": 54,
+			"width_over_height": 0.27
+		},
+		{
+			"name": "FirTree_top",
+			"triangles": 38,
+			"width_over_height": 0.29
+		},
+		{
+			"name": "FishSpout",
+			"triangles": 366,
+			"width_over_height": 0.74
+		},
+		{
+			"name": "FishSpout_collider",
+			"triangles": 44,
+			"width_over_height": 1.36
+		},
+		{
+			"name": "Flamingo",
+			"triangles": 328,
+			"width_over_height": 1.42
+		},
+		{
+			"name": "Flamingo_Leg",
+			"triangles": 64,
+			"width_over_height": 0.39
+		},
+		{
+			"name": "FlatCactus",
+			"triangles": 585,
+			"width_over_height": 0.85
+		},
+		{
+			"name": "FlatRock",
+			"triangles": 26,
+			"width_over_height": 1.49
+		},
+		{
+			"name": "FloatingLantern",
+			"triangles": 98,
+			"width_over_height": 0.63
+		},
+		{
+			"name": "FlowerCactus",
+			"triangles": 548,
+			"width_over_height": 2.13
+		},
+		{
+			"name": "FlyMushroom",
+			"triangles": 308,
+			"width_over_height": 1.1
+		},
+		{
+			"name": "Flytrap_head",
+			"triangles": 74,
+			"width_over_height": 0.69
+		},
+		{
+			"name": "Flytrap_stems",
+			"triangles": 156,
+			"width_over_height": 1.14
+		},
+		{
+			"name": "Forest_Statue",
+			"triangles": 184,
+			"width_over_height": 1.51
+		},
+		{
+			"name": "Frog Leaf",
+			"triangles": 224,
+			"width_over_height": 1.12
+		},
+		{
+			"name": "FrogPet_ArmLower",
+			"triangles": 40,
+			"width_over_height": 2.83
+		},
+		{
+			"name": "FrogPet_ArmUpper",
+			"triangles": 40,
+			"width_over_height": 1.15
+		},
+		{
+			"name": "FrogPet_Body",
+			"triangles": 160,
+			"width_over_height": 1.68
+		},
+		{
+			"name": "FrogPet_Foot",
+			"triangles": 40,
+			"width_over_height": 3.23
+		},
+		{
+			"name": "FrogPet_Lower",
+			"triangles": 40,
+			"width_over_height": 1.25
+		},
+		{
+			"name": "FrogPet_Upper",
+			"triangles": 40,
+			"width_over_height": 1.49
+		},
+		{
+			"name": "FrogStatue",
+			"triangles": 520,
+			"width_over_height": 1.15
+		},
+		{
+			"name": "FrogStatue_bits",
+			"triangles": 135,
+			"width_over_height": 1.77
+		},
+		{
+			"name": "Frost_statue",
+			"triangles": 346,
+			"width_over_height": 1.4
+		},
+		{
+			"name": "Frost_statue_face",
+			"triangles": 120,
+			"width_over_height": 1.25
+		},
+		{
+			"name": "Gambler",
+			"triangles": 668,
+			"width_over_height": 1.0
+		},
+		{
+			"name": "GamblerPlug",
+			"triangles": 72,
+			"width_over_height": 1.58
+		},
+		{
+			"name": "GamblerRim",
+			"triangles": 88,
+			"width_over_height": 1.41
+		},
+		{
+			"name": "Garland_cone",
+			"triangles": 36,
+			"width_over_height": 1.42
+		},
+		{
+			"name": "Garland_corner_core",
+			"triangles": 82,
+			"width_over_height": 1.74
+		},
+		{
+			"name": "Garland_corner_leaf",
+			"triangles": 120,
+			"width_over_height": 2.07
+		},
+		{
+			"name": "Garland_cross_core",
+			"triangles": 132,
+			"width_over_height": 2.75
+		},
+		{
+			"name": "Garland_cross_leaf",
+			"triangles": 156,
+			"width_over_height": 2.31
+		},
+		{
+			"name": "Garland_end_core",
+			"triangles": 82,
+			"width_over_height": 2.64
+		},
+		{
+			"name": "Garland_end_leaf",
+			"triangles": 168,
+			"width_over_height": 2.14
+		},
+		{
+			"name": "Garland_single_core",
+			"triangles": 88,
+			"width_over_height": 2.86
+		},
+		{
+			"name": "Garland_single_leaf",
+			"triangles": 168,
+			"width_over_height": 2.09
+		},
+		{
+			"name": "Garland_straight_core",
+			"triangles": 76,
+			"width_over_height": 2.47
+		},
+		{
+			"name": "Garland_straight_leaf",
+			"triangles": 168,
+			"width_over_height": 2.14
+		},
+		{
+			"name": "Garland_straightcross_core",
+			"triangles": 144,
+			"width_over_height": 3.02
+		},
+		{
+			"name": "Garland_straightcross_leaf",
+			"triangles": 156,
+			"width_over_height": 2.31
+		},
+		{
+			"name": "Garland_t_core",
+			"triangles": 104,
+			"width_over_height": 2.75
+		},
+		{
+			"name": "Garland_t_leaf",
+			"triangles": 168,
+			"width_over_height": 2.12
+		},
+		{
+			"name": "Garland_tend_core",
+			"triangles": 116,
+			"width_over_height": 2.86
+		},
+		{
+			"name": "Garland_tend_leaf",
+			"triangles": 168,
+			"width_over_height": 2.26
+		},
+		{
+			"name": "Geo Pot",
+			"triangles": 92,
+			"width_over_height": 1.83
+		},
+		{
+			"name": "Geom Paving",
+			"triangles": 306,
+			"width_over_height": 2.0
+		},
+		{
+			"name": "GiantLily",
+			"triangles": 384,
+			"width_over_height": 4.57
+		},
+		{
+			"name": "Gift",
+			"triangles": 36,
+			"width_over_height": 1.15
+		},
+		{
+			"name": "Gift_bow",
+			"triangles": 288,
+			"width_over_height": 3.24
+		},
+		{
+			"name": "Gift_lid",
+			"triangles": 36,
+			"width_over_height": 3.57
+		},
+		{
+			"name": "GlassBowl",
+			"triangles": 252,
+			"width_over_height": 1.35
+		},
+		{
+			"name": "GlassBowl_soil",
+			"triangles": 180,
+			"width_over_height": 1.52
+		},
+		{
+			"name": "GlowMushroom",
+			"triangles": 544,
+			"width_over_height": 0.72
+		},
+		{
+			"name": "GlowStar",
+			"triangles": 380,
+			"width_over_height": 0.89
+		},
+		{
+			"name": "Gnome",
+			"triangles": 258,
+			"width_over_height": 0.68
+		},
+		{
+			"name": "GoldClub_leaf",
+			"triangles": 106,
+			"width_over_height": 1.08
+		},
+		{
+			"name": "GoldClub_stem",
+			"triangles": 160,
+			"width_over_height": 0.54
+		},
+		{
+			"name": "GreenhouseTable",
+			"triangles": 452,
+			"width_over_height": 1.51
+		},
+		{
+			"name": "Ground_base",
+			"triangles": 12,
+			"width_over_height": 2.0
+		},
+		{
+			"name": "Ground_base_low",
+			"triangles": 12,
+			"width_over_height": 3.12
+		},
+		{
+			"name": "Half Log",
+			"triangles": 244,
+			"width_over_height": 2.64
+		},
+		{
+			"name": "Ham",
+			"triangles": 72,
+			"width_over_height": 6.05
+		},
+		{
+			"name": "HangingBasket",
+			"triangles": 808,
+			"width_over_height": 0.72
+		},
+		{
+			"name": "HangingBasket_Pole",
+			"triangles": 176,
+			"width_over_height": 0.34
+		},
+		{
+			"name": "Harvest_Statue",
+			"triangles": 376,
+			"width_over_height": 1.12
+		},
+		{
+			"name": "HayBale_rect",
+			"triangles": 508,
+			"width_over_height": 1.48
+		},
+		{
+			"name": "Hedge_corner",
+			"triangles": 112,
+			"width_over_height": 0.91
+		},
+		{
+			"name": "Hedge_corner_lvs",
+			"triangles": 336,
+			"width_over_height": 1.03
+		},
+		{
+			"name": "Hedge_cross",
+			"triangles": 172,
+			"width_over_height": 1.1
+		},
+		{
+			"name": "Hedge_cross_lvs",
+			"triangles": 196,
+			"width_over_height": 1.19
+		},
+		{
+			"name": "Hedge_end",
+			"triangles": 94,
+			"width_over_height": 1.11
+		},
+		{
+			"name": "Hedge_end_lvs",
+			"triangles": 448,
+			"width_over_height": 1.35
+		},
+		{
+			"name": "Hedge_single",
+			"triangles": 132,
+			"width_over_height": 1.13
+		},
+		{
+			"name": "Hedge_single_lvs",
+			"triangles": 420,
+			"width_over_height": 1.23
+		},
+		{
+			"name": "Hedge_straight",
+			"triangles": 56,
+			"width_over_height": 1.1
+		},
+		{
+			"name": "Hedge_straight_lvs",
+			"triangles": 364,
+			"width_over_height": 1.19
+		},
+		{
+			"name": "Hedge_straightcross",
+			"triangles": 224,
+			"width_over_height": 1.13
+		},
+		{
+			"name": "Hedge_straightcross_lvs",
+			"triangles": 252,
+			"width_over_height": 1.45
+		},
+		{
+			"name": "Hedge_t",
+			"triangles": 114,
+			"width_over_height": 1.1
+		},
+		{
+			"name": "Hedge_t_lvs",
+			"triangles": 280,
+			"width_over_height": 1.17
+		},
+		{
+			"name": "Hedge_tend",
+			"triangles": 178,
+			"width_over_height": 1.13
+		},
+		{
+			"name": "Hedge_tend_lvs",
+			"triangles": 392,
+			"width_over_height": 1.43
+		},
+		{
+			"name": "Heron",
+			"triangles": 372,
+			"width_over_height": 0.82
+		},
+		{
+			"name": "Heron_Leg",
+			"triangles": 80,
+			"width_over_height": 0.27
+		},
+		{
+			"name": "Holly",
+			"triangles": 938,
+			"width_over_height": 1.77
+		},
+		{
+			"name": "Holly_berries",
+			"triangles": 120,
+			"width_over_height": 1.47
+		},
+		{
+			"name": "Holly_stem",
+			"triangles": 40,
+			"width_over_height": 0.54
+		},
+		{
+			"name": "HosePipe",
+			"triangles": 624,
+			"width_over_height": 0.98
+		},
+		{
+			"name": "HosePipeMetal",
+			"triangles": 384,
+			"width_over_height": 0.95
+		},
+		{
+			"name": "HoseReel",
+			"triangles": 976,
+			"width_over_height": 1.13
+		},
+		{
+			"name": "House",
+			"triangles": 39,
+			"width_over_height": 0.56
+		},
+		{
+			"name": "House_base",
+			"triangles": 28,
+			"width_over_height": 6.77
+		},
+		{
+			"name": "House_collider",
+			"triangles": 16,
+			"width_over_height": 0.49
+		},
+		{
+			"name": "House_door",
+			"triangles": 44,
+			"width_over_height": 0.5
+		},
+		{
+			"name": "House_roof",
+			"triangles": 128,
+			"width_over_height": 0.94
+		},
+		{
+			"name": "Hydrangea",
+			"triangles": 1066,
+			"width_over_height": 0.97
+		},
+		{
+			"name": "IceCream",
+			"triangles": 112,
+			"width_over_height": 0.47
+		},
+		{
+			"name": "Icosphere__unity_default_resources__10211",
+			"triangles": 80,
+			"width_over_height": 1.0
+		},
+		{
+			"name": "Iron Fence halfpost",
+			"triangles": 28,
+			"width_over_height": 0.16
+		},
+		{
+			"name": "Iron Fence post",
+			"triangles": 14,
+			"width_over_height": 0.13
+		},
+		{
+			"name": "Iron Fence rails",
+			"triangles": 24,
+			"width_over_height": 1.98
+		},
+		{
+			"name": "Iron Fence spike",
+			"triangles": 38,
+			"width_over_height": 0.16
+		},
+		{
+			"name": "IvyLeaf",
+			"triangles": 60,
+			"width_over_height": 5.37
+		},
+		{
+			"name": "JackLantern_01",
+			"triangles": 442,
+			"width_over_height": 1.26
+		},
+		{
+			"name": "JackLantern_02",
+			"triangles": 442,
+			"width_over_height": 1.26
+		},
+		{
+			"name": "JackLantern_inner_face",
+			"triangles": 36,
+			"width_over_height": 1.42
+		},
+		{
+			"name": "JadePlant",
+			"triangles": 336,
+			"width_over_height": 1.31
+		},
+		{
+			"name": "Jam",
+			"triangles": 359,
+			"width_over_height": 0.94
+		},
+		{
+			"name": "Jar_Firefly",
+			"triangles": 48,
+			"width_over_height": 2.72
+		},
+		{
+			"name": "Jar_Firefly_Wing",
+			"triangles": 14,
+			"width_over_height": 8.43
+		},
+		{
+			"name": "Jar_Inner",
+			"triangles": 212,
+			"width_over_height": 0.89
+		},
+		{
+			"name": "Jar_Outer_Glass",
+			"triangles": 260,
+			"width_over_height": 1.0
+		},
+		{
+			"name": "Jar_Outer_Lid",
+			"triangles": 250,
+			"width_over_height": 4.65
+		},
+		{
+			"name": "Lamp Post",
+			"triangles": 308,
+			"width_over_height": 0.22
+		},
+		{
+			"name": "Lattice_corner",
+			"triangles": 20,
+			"width_over_height": 5.41
+		},
+		{
+			"name": "Lattice_cross",
+			"triangles": 44,
+			"width_over_height": 9.09
+		},
+		{
+			"name": "Lattice_pattern",
+			"triangles": 64,
+			"width_over_height": 0.98
+		},
+		{
+			"name": "Lattice_patternhalf",
+			"triangles": 52,
+			"width_over_height": 0.49
+		},
+		{
+			"name": "Lattice_pillar",
+			"triangles": 12,
+			"width_over_height": 0.17
+		},
+		{
+			"name": "Lattice_pillarcenter",
+			"triangles": 12,
+			"width_over_height": 0.12
+		},
+		{
+			"name": "Lattice_pillarhalf",
+			"triangles": 12,
+			"width_over_height": 0.17
+		},
+		{
+			"name": "Lattice_straight",
+			"triangles": 12,
+			"width_over_height": 9.09
+		},
+		{
+			"name": "Lattice_t",
+			"triangles": 36,
+			"width_over_height": 9.09
+		},
+		{
+			"name": "Lawn_Statue",
+			"triangles": 170,
+			"width_over_height": 1.83
+		},
+		{
+			"name": "Leaf Pile",
+			"triangles": 384,
+			"width_over_height": 3.81
+		},
+		{
+			"name": "Lemon",
+			"triangles": 208,
+			"width_over_height": 1.36
+		},
+		{
+			"name": "LettuceLeaf",
+			"triangles": 144,
+			"width_over_height": 3.86
+		},
+		{
+			"name": "Lighthouse",
+			"triangles": 152,
+			"width_over_height": 0.52
+		},
+		{
+			"name": "LilyFlower",
+			"triangles": 168,
+			"width_over_height": 1.02
+		},
+		{
+			"name": "LilyFlower_stem",
+			"triangles": 192,
+			"width_over_height": 0.25
+		},
+		{
+			"name": "LilyPad",
+			"triangles": 228,
+			"width_over_height": 6.15
+		},
+		{
+			"name": "LilyPad_stem",
+			"triangles": 192,
+			"width_over_height": 0.48
+		},
+		{
+			"name": "LippedPot",
+			"triangles": 192,
+			"width_over_height": 1.4
+		},
+		{
+			"name": "Log Path",
+			"triangles": 260,
+			"width_over_height": 4.93
+		},
+		{
+			"name": "LongWeed",
+			"triangles": 294,
+			"width_over_height": 0.34
+		},
+		{
+			"name": "LuckyCat",
+			"triangles": 400,
+			"width_over_height": 0.71
+		},
+		{
+			"name": "LuckyCat_arm",
+			"triangles": 112,
+			"width_over_height": 0.57
+		},
+		{
+			"name": "LuckyCat_collar",
+			"triangles": 144,
+			"width_over_height": 7.39
+		},
+		{
+			"name": "LuckyCat_gold",
+			"triangles": 84,
+			"width_over_height": 0.53
+		},
+		{
+			"name": "MagicPot_pot",
+			"triangles": 456,
+			"width_over_height": 1.25
+		},
+		{
+			"name": "Mangrove",
+			"triangles": 580,
+			"width_over_height": 1.08
+		},
+		{
+			"name": "MarketStand",
+			"triangles": 654,
+			"width_over_height": 0.8
+		},
+		{
+			"name": "MarketStandIceCreamTop",
+			"triangles": 186,
+			"width_over_height": 4.21
+		},
+		{
+			"name": "Market_Statue_stem",
+			"triangles": 40,
+			"width_over_height": 0.81
+		},
+		{
+			"name": "Market_statue",
+			"triangles": 192,
+			"width_over_height": 1.11
+		},
+		{
+			"name": "Metal Bin",
+			"triangles": 296,
+			"width_over_height": 1.37
+		},
+		{
+			"name": "Metal Bin_lid",
+			"triangles": 160,
+			"width_over_height": 2.95
+		},
+		{
+			"name": "Metal Ladder",
+			"triangles": 258,
+			"width_over_height": 0.9
+		},
+		{
+			"name": "MetalBucket",
+			"triangles": 424,
+			"width_over_height": 1.28
+		},
+		{
+			"name": "MetalLantern",
+			"triangles": 496,
+			"width_over_height": 0.4
+		},
+		{
+			"name": "MetalLantern_candle",
+			"triangles": 28,
+			"width_over_height": 1.37
+		},
+		{
+			"name": "MoneyPlant_leaves",
+			"triangles": 500,
+			"width_over_height": 2.22
+		},
+		{
+			"name": "MoneyPlant_stem",
+			"triangles": 30,
+			"width_over_height": 0.63
+		},
+		{
+			"name": "Monstera_leaves",
+			"triangles": 444,
+			"width_over_height": 2.59
+		},
+		{
+			"name": "Monstera_stem",
+			"triangles": 84,
+			"width_over_height": 0.53
+		},
+		{
+			"name": "MoonLamp",
+			"triangles": 354,
+			"width_over_height": 1.0
+		},
+		{
+			"name": "MossPot",
+			"triangles": 224,
+			"width_over_height": 2.62
+		},
+		{
+			"name": "MossPot_bits",
+			"triangles": 135,
+			"width_over_height": 5.26
+		},
+		{
+			"name": "MothWing",
+			"triangles": 64,
+			"width_over_height": 7.38
+		},
+		{
+			"name": "MsgBottle",
+			"triangles": 276,
+			"width_over_height": 0.54
+		},
+		{
+			"name": "MsgBottle_cork",
+			"triangles": 36,
+			"width_over_height": 1.28
+		},
+		{
+			"name": "MsgBottle_msg_plain",
+			"triangles": 112,
+			"width_over_height": 0.51
+		},
+		{
+			"name": "Mug",
+			"triangles": 240,
+			"width_over_height": 1.5
+		},
+		{
+			"name": "Mushroom",
+			"triangles": 336,
+			"width_over_height": 0.76
+		},
+		{
+			"name": "Net",
+			"triangles": 348,
+			"width_over_height": 3.0
+		},
+		{
+			"name": "Nettle combined",
+			"triangles": 1356,
+			"width_over_height": 0.91
+		},
+		{
+			"name": "Old Dial",
+			"triangles": 320,
+			"width_over_height": 1.58
+		},
+		{
+			"name": "Old Dial_base",
+			"triangles": 94,
+			"width_over_height": 1.16
+		},
+		{
+			"name": "Old_Tree",
+			"triangles": 758,
+			"width_over_height": 0.69
+		},
+		{
+			"name": "Onion_bulb",
+			"triangles": 56,
+			"width_over_height": 1.26
+		},
+		{
+			"name": "Onion_leaf",
+			"triangles": 84,
+			"width_over_height": 0.2
+		},
+		{
+			"name": "Painter",
+			"triangles": 160,
+			"width_over_height": 0.72
+		},
+		{
+			"name": "Painter_wire",
+			"triangles": 92,
+			"width_over_height": 0.99
+		},
+		{
+			"name": "Pallet",
+			"triangles": 416,
+			"width_over_height": 2.72
+		},
+		{
+			"name": "PalmTree_leaf",
+			"triangles": 456,
+			"width_over_height": 2.13
+		},
+		{
+			"name": "PalmTree_trunk_bottom",
+			"triangles": 140,
+			"width_over_height": 0.27
+		},
+		{
+			"name": "PalmTree_trunk_middle",
+			"triangles": 124,
+			"width_over_height": 0.24
+		},
+		{
+			"name": "PalmTree_trunk_single",
+			"triangles": 190,
+			"width_over_height": 0.25
+		},
+		{
+			"name": "PalmTree_trunk_top",
+			"triangles": 174,
+			"width_over_height": 0.25
+		},
+		{
+			"name": "PaperBag",
+			"triangles": 220,
+			"width_over_height": 0.7
+		},
+		{
+			"name": "PaperBagSmall",
+			"triangles": 58,
+			"width_over_height": 0.75
+		},
+		{
+			"name": "Parasol",
+			"triangles": 254,
+			"width_over_height": 0.89
+		},
+		{
+			"name": "Patty",
+			"triangles": 120,
+			"width_over_height": 4.1
+		},
+		{
+			"name": "PavingSlab_chip_L",
+			"triangles": 130,
+			"width_over_height": 5.44
+		},
+		{
+			"name": "PavingSlab_chip_R",
+			"triangles": 130,
+			"width_over_height": 5.44
+		},
+		{
+			"name": "PavingSlab_clean_L",
+			"triangles": 30,
+			"width_over_height": 5.44
+		},
+		{
+			"name": "PavingSlab_clean_R",
+			"triangles": 30,
+			"width_over_height": 5.44
+		},
+		{
+			"name": "PavingSlab_corner_L",
+			"triangles": 62,
+			"width_over_height": 5.44
+		},
+		{
+			"name": "PavingSlab_corner_R",
+			"triangles": 62,
+			"width_over_height": 5.44
+		},
+		{
+			"name": "PavingSlab_half",
+			"triangles": 44,
+			"width_over_height": 5.44
+		},
+		{
+			"name": "PavingSlab_step_corner",
+			"triangles": 108,
+			"width_over_height": 5.56
+		},
+		{
+			"name": "PavingSlab_step_corner_bit",
+			"triangles": 44,
+			"width_over_height": 2.78
+		},
+		{
+			"name": "Peach",
+			"triangles": 152,
+			"width_over_height": 1.28
+		},
+		{
+			"name": "Pear",
+			"triangles": 208,
+			"width_over_height": 0.61
+		},
+		{
+			"name": "Pearl",
+			"triangles": 80,
+			"width_over_height": 1.0
+		},
+		{
+			"name": "PicketFence_halfstick",
+			"triangles": 28,
+			"width_over_height": 0.14
+		},
+		{
+			"name": "PicketFence_post",
+			"triangles": 22,
+			"width_over_height": 0.19
+		},
+		{
+			"name": "PicketFence_rails",
+			"triangles": 24,
+			"width_over_height": 1.94
+		},
+		{
+			"name": "PicketFence_stick",
+			"triangles": 44,
+			"width_over_height": 0.24
+		},
+		{
+			"name": "PicnicBasket",
+			"triangles": 652,
+			"width_over_height": 1.15
+		},
+		{
+			"name": "PicnicBasketLid",
+			"triangles": 164,
+			"width_over_height": 5.61
+		},
+		{
+			"name": "PicnicBlanket",
+			"triangles": 288,
+			"width_over_height": 8.93
+		},
+		{
+			"name": "PiggyBank_Statue",
+			"triangles": 396,
+			"width_over_height": 1.3
+		},
+		{
+			"name": "PiggyBank_body",
+			"triangles": 346,
+			"width_over_height": 1.35
+		},
+		{
+			"name": "PiggyBank_legs",
+			"triangles": 96,
+			"width_over_height": 2.45
+		},
+		{
+			"name": "PileLeaves_base",
+			"triangles": 70,
+			"width_over_height": 2.68
+		},
+		{
+			"name": "PileLeaves_leaf",
+			"triangles": 212,
+			"width_over_height": 0.78
+		},
+		{
+			"name": "PileLeaves_leaves",
+			"triangles": 1908,
+			"width_over_height": 2.1
+		},
+		{
+			"name": "Pillar_bottom",
+			"triangles": 286,
+			"width_over_height": 0.89
+		},
+		{
+			"name": "Pillar_middle",
+			"triangles": 212,
+			"width_over_height": 0.69
+		},
+		{
+			"name": "Pillar_single",
+			"triangles": 432,
+			"width_over_height": 0.89
+		},
+		{
+			"name": "Pillar_top",
+			"triangles": 286,
+			"width_over_height": 0.89
+		},
+		{
+			"name": "Pineapple",
+			"triangles": 1152,
+			"width_over_height": 0.48
+		},
+		{
+			"name": "Pinwheel blade",
+			"triangles": 336,
+			"width_over_height": 1.0
+		},
+		{
+			"name": "Pinwheel stick",
+			"triangles": 54,
+			"width_over_height": 0.21
+		},
+		{
+			"name": "Plane__unity_default_resources__10209",
+			"triangles": 200,
+			"width_over_height": 0.0
+		},
+		{
+			"name": "PlasticStool",
+			"triangles": 720,
+			"width_over_height": 1.72
+		},
+		{
+			"name": "Plate",
+			"triangles": 168,
+			"width_over_height": 4.1
+		},
+		{
+			"name": "Pond_base",
+			"triangles": 2,
+			"width_over_height": 0.0
+		},
+		{
+			"name": "Pond_corner",
+			"triangles": 56,
+			"width_over_height": 2.78
+		},
+		{
+			"name": "Pond_corner_wall",
+			"triangles": 28,
+			"width_over_height": 1.0
+		},
+		{
+			"name": "Pond_incorner",
+			"triangles": 36,
+			"width_over_height": 1.11
+		},
+		{
+			"name": "Pond_incorner_wall",
+			"triangles": 16,
+			"width_over_height": 0.4
+		},
+		{
+			"name": "Pond_straight",
+			"triangles": 44,
+			"width_over_height": 2.78
+		},
+		{
+			"name": "Pond_straight_wall",
+			"triangles": 12,
+			"width_over_height": 1.0
+		},
+		{
+			"name": "Pond_water_corner",
+			"triangles": 2,
+			"width_over_height": 0.0
+		},
+		{
+			"name": "Pond_water_empty",
+			"triangles": 2,
+			"width_over_height": 0.0
+		},
+		{
+			"name": "Pond_water_incorner",
+			"triangles": 4,
+			"width_over_height": 0.0
+		},
+		{
+			"name": "Pond_water_straight",
+			"triangles": 2,
+			"width_over_height": 0.0
+		},
+		{
+			"name": "Pumpkin",
+			"triangles": 360,
+			"width_over_height": 1.41
+		},
+		{
+			"name": "Pumpkin_leaf",
+			"triangles": 142,
+			"width_over_height": 3.17
+		},
+		{
+			"name": "PyreBranch_01",
+			"triangles": 336,
+			"width_over_height": 0.26
+		},
+		{
+			"name": "PyreBranch_02",
+			"triangles": 274,
+			"width_over_height": 0.29
+		},
+		{
+			"name": "PyreBranch_03",
+			"triangles": 186,
+			"width_over_height": 0.21
+		},
+		{
+			"name": "Quad__unity_default_resources__10210",
+			"triangles": 2,
+			"width_over_height": 1.0
+		},
+		{
+			"name": "Rabbit_Back_foot",
+			"triangles": 40,
+			"width_over_height": 3.38
+		},
+		{
+			"name": "Rabbit_Back_lower",
+			"triangles": 40,
+			"width_over_height": 0.94
+		},
+		{
+			"name": "Rabbit_Back_upper",
+			"triangles": 40,
+			"width_over_height": 1.0
+		},
+		{
+			"name": "Rabbit_Body",
+			"triangles": 132,
+			"width_over_height": 1.15
+		},
+		{
+			"name": "Rabbit_Carrot",
+			"triangles": 136,
+			"width_over_height": 2.28
+		},
+		{
+			"name": "Rabbit_Ear",
+			"triangles": 40,
+			"width_over_height": 0.57
+		},
+		{
+			"name": "Rabbit_Eyes",
+			"triangles": 84,
+			"width_over_height": 3.55
+		},
+		{
+			"name": "Rabbit_Front_lower",
+			"triangles": 52,
+			"width_over_height": 0.91
+		},
+		{
+			"name": "Rabbit_Front_upper",
+			"triangles": 40,
+			"width_over_height": 0.74
+		},
+		{
+			"name": "Rabbit_Head",
+			"triangles": 80,
+			"width_over_height": 1.23
+		},
+		{
+			"name": "RailFence_post",
+			"triangles": 70,
+			"width_over_height": 0.21
+		},
+		{
+			"name": "RailFence_rail",
+			"triangles": 72,
+			"width_over_height": 2.4
+		},
+		{
+			"name": "RailFence_rail_half",
+			"triangles": 36,
+			"width_over_height": 1.23
+		},
+		{
+			"name": "RainbowCreature_Body",
+			"triangles": 94,
+			"width_over_height": 0.49
+		},
+		{
+			"name": "RainbowCreature_Body_02",
+			"triangles": 110,
+			"width_over_height": 0.51
+		},
+		{
+			"name": "RainbowCreature_Leaf",
+			"triangles": 104,
+			"width_over_height": 0.48
+		},
+		{
+			"name": "RainbowCreature_Leaf_02",
+			"triangles": 104,
+			"width_over_height": 0.69
+		},
+		{
+			"name": "RampIn_base",
+			"triangles": 10,
+			"width_over_height": 2.0
+		},
+		{
+			"name": "RampIn_soft",
+			"triangles": 10,
+			"width_over_height": 2.0
+		},
+		{
+			"name": "RampIn_surface",
+			"triangles": 2,
+			"width_over_height": 2.0
+		},
+		{
+			"name": "RampOut_base",
+			"triangles": 6,
+			"width_over_height": 2.0
+		},
+		{
+			"name": "RampOut_soft",
+			"triangles": 6,
+			"width_over_height": 2.0
+		},
+		{
+			"name": "RampOut_surface",
+			"triangles": 2,
+			"width_over_height": 2.0
+		},
+		{
+			"name": "Ramp_base",
+			"triangles": 8,
+			"width_over_height": 2.0
+		},
+		{
+			"name": "Ramp_surface",
+			"triangles": 2,
+			"width_over_height": 2.0
+		},
+		{
+			"name": "Reed_leaf",
+			"triangles": 76,
+			"width_over_height": 0.18
+		},
+		{
+			"name": "Reed_stem",
+			"triangles": 290,
+			"width_over_height": 0.14
+		},
+		{
+			"name": "Roses_flowers",
+			"triangles": 708,
+			"width_over_height": 2.49
+		},
+		{
+			"name": "Roses_stem",
+			"triangles": 484,
+			"width_over_height": 0.98
+		},
+		{
+			"name": "RoundCactus",
+			"triangles": 390,
+			"width_over_height": 1.45
+		},
+		{
+			"name": "RoundPot",
+			"triangles": 168,
+			"width_over_height": 2.24
+		},
+		{
+			"name": "SafeBox",
+			"triangles": 124,
+			"width_over_height": 0.91
+		},
+		{
+			"name": "SafeDoor",
+			"triangles": 402,
+			"width_over_height": 0.91
+		},
+		{
+			"name": "Sage",
+			"triangles": 462,
+			"width_over_height": 1.27
+		},
+		{
+			"name": "SandBucket",
+			"triangles": 504,
+			"width_over_height": 1.36
+		},
+		{
+			"name": "Satsuma",
+			"triangles": 212,
+			"width_over_height": 1.14
+		},
+		{
+			"name": "Scarecrow",
+			"triangles": 196,
+			"width_over_height": 1.07
+		},
+		{
+			"name": "Scarecrow_hat",
+			"triangles": 152,
+			"width_over_height": 1.04
+		},
+		{
+			"name": "Scroll",
+			"triangles": 184,
+			"width_over_height": 2.59
+		},
+		{
+			"name": "Scroll_open",
+			"triangles": 236,
+			"width_over_height": 0.74
+		},
+		{
+			"name": "Seaweed_flat",
+			"triangles": 244,
+			"width_over_height": 4.84
+		},
+		{
+			"name": "Seaweed_long",
+			"triangles": 444,
+			"width_over_height": 0.46
+		},
+		{
+			"name": "SeesawBase",
+			"triangles": 140,
+			"width_over_height": 1.94
+		},
+		{
+			"name": "SeesawSeat",
+			"triangles": 104,
+			"width_over_height": 4.84
+		},
+		{
+			"name": "SharpChip",
+			"triangles": 8,
+			"width_over_height": 1.16
+		},
+		{
+			"name": "Shell_long",
+			"triangles": 168,
+			"width_over_height": 1.36
+		},
+		{
+			"name": "Shell_round",
+			"triangles": 252,
+			"width_over_height": 2.49
+		},
+		{
+			"name": "Shrine",
+			"triangles": 146,
+			"width_over_height": 1.75
+		},
+		{
+			"name": "Sign",
+			"triangles": 144,
+			"width_over_height": 0.74
+		},
+		{
+			"name": "SingleLeaf",
+			"triangles": 124,
+			"width_over_height": 0.61
+		},
+		{
+			"name": "SmallRock",
+			"triangles": 14,
+			"width_over_height": 1.06
+		},
+		{
+			"name": "SmokeBall",
+			"triangles": 46,
+			"width_over_height": 0.98
+		},
+		{
+			"name": "SmokeCloud",
+			"triangles": 138,
+			"width_over_height": 1.24
+		},
+		{
+			"name": "Smokebush",
+			"triangles": 624,
+			"width_over_height": 0.97
+		},
+		{
+			"name": "SnowTree_bottom",
+			"triangles": 156,
+			"width_over_height": 0.38
+		},
+		{
+			"name": "SnowTree_foliage_bits",
+			"triangles": 306,
+			"width_over_height": 0.99
+		},
+		{
+			"name": "SnowTree_foliage_bits_snow",
+			"triangles": 234,
+			"width_over_height": 0.95
+		},
+		{
+			"name": "SnowTree_foliage_sharp",
+			"triangles": 1842,
+			"width_over_height": 1.06
+		},
+		{
+			"name": "SnowTree_foliage_snow",
+			"triangles": 858,
+			"width_over_height": 1.05
+		},
+		{
+			"name": "SnowTree_mid",
+			"triangles": 196,
+			"width_over_height": 0.41
+		},
+		{
+			"name": "SnowTree_single",
+			"triangles": 78,
+			"width_over_height": 0.08
+		},
+		{
+			"name": "SnowTree_top",
+			"triangles": 62,
+			"width_over_height": 0.09
+		},
+		{
+			"name": "Snow_Full",
+			"triangles": 120,
+			"width_over_height": 5.6
+		},
+		{
+			"name": "Snow_Ramp",
+			"triangles": 132,
+			"width_over_height": 1.6
+		},
+		{
+			"name": "Snow_RampIn",
+			"triangles": 148,
+			"width_over_height": 1.57
+		},
+		{
+			"name": "Snow_RampOut",
+			"triangles": 144,
+			"width_over_height": 1.6
+		},
+		{
+			"name": "Snowball_01",
+			"triangles": 80,
+			"width_over_height": 1.03
+		},
+		{
+			"name": "Snowball_pile",
+			"triangles": 320,
+			"width_over_height": 1.13
+		},
+		{
+			"name": "Snowdrop",
+			"triangles": 498,
+			"width_over_height": 0.62
+		},
+		{
+			"name": "Snowglobe_base",
+			"triangles": 244,
+			"width_over_height": 1.25
+		},
+		{
+			"name": "Snowglobe_lid",
+			"triangles": 132,
+			"width_over_height": 0.96
+		},
+		{
+			"name": "Snowman",
+			"triangles": 360,
+			"width_over_height": 1.19
+		},
+		{
+			"name": "Snowman_bottom",
+			"triangles": 360,
+			"width_over_height": 1.14
+		},
+		{
+			"name": "Snowman_face",
+			"triangles": 120,
+			"width_over_height": 1.31
+		},
+		{
+			"name": "Snowman_mid",
+			"triangles": 508,
+			"width_over_height": 1.51
+		},
+		{
+			"name": "Soil Bag",
+			"triangles": 232,
+			"width_over_height": 3.67
+		},
+		{
+			"name": "Soil Bits round",
+			"triangles": 72,
+			"width_over_height": 4.03
+		},
+		{
+			"name": "Soil Bits square",
+			"triangles": 80,
+			"width_over_height": 4.22
+		},
+		{
+			"name": "Soil Bits square alt",
+			"triangles": 80,
+			"width_over_height": 4.0
+		},
+		{
+			"name": "Soil Ground Bits RampIn",
+			"triangles": 80,
+			"width_over_height": 1.89
+		},
+		{
+			"name": "Soil Ground Bits RampOut",
+			"triangles": 80,
+			"width_over_height": 1.83
+		},
+		{
+			"name": "SoilBed_edge",
+			"triangles": 12,
+			"width_over_height": 5.56
+		},
+		{
+			"name": "SoilBed_edge_bit",
+			"triangles": 12,
+			"width_over_height": 0.67
+		},
+		{
+			"name": "SoilBed_edge_end",
+			"triangles": 12,
+			"width_over_height": 5.56
+		},
+		{
+			"name": "SoilBed_edge_open",
+			"triangles": 12,
+			"width_over_height": 5.56
+		},
+		{
+			"name": "Soil_round",
+			"triangles": 22,
+			"width_over_height": 19.47
+		},
+		{
+			"name": "Soil_square",
+			"triangles": 27,
+			"width_over_height": 18.61
+		},
+		{
+			"name": "SolarLight",
+			"triangles": 232,
+			"width_over_height": 0.58
+		},
+		{
+			"name": "Solid Water surface",
+			"triangles": 2,
+			"width_over_height": 0.0
+		},
+		{
+			"name": "Sphere__unity_default_resources__10207",
+			"triangles": 768,
+			"width_over_height": 1.0
+		},
+		{
+			"name": "SquarePot",
+			"triangles": 168,
+			"width_over_height": 1.69
+		},
+		{
+			"name": "Star Light base",
+			"triangles": 68,
+			"width_over_height": 4.59
+		},
+		{
+			"name": "Star Light cylinder",
+			"triangles": 92,
+			"width_over_height": 0.86
+		},
+		{
+			"name": "Starfish",
+			"triangles": 220,
+			"width_over_height": 3.84
+		},
+		{
+			"name": "Starfish_thin",
+			"triangles": 220,
+			"width_over_height": 4.37
+		},
+		{
+			"name": "StepIn_base",
+			"triangles": 48,
+			"width_over_height": 2.0
+		},
+		{
+			"name": "StepOut_base",
+			"triangles": 40,
+			"width_over_height": 2.0
+		},
+		{
+			"name": "Step_base",
+			"triangles": 28,
+			"width_over_height": 2.0
+		},
+		{
+			"name": "Step_base_low",
+			"triangles": 28,
+			"width_over_height": 3.12
+		},
+		{
+			"name": "Step_base_low_in",
+			"triangles": 48,
+			"width_over_height": 3.12
+		},
+		{
+			"name": "Step_base_low_out",
+			"triangles": 40,
+			"width_over_height": 3.12
+		},
+		{
+			"name": "SteppingStone",
+			"triangles": 22,
+			"width_over_height": 3.8
+		},
+		{
+			"name": "StickFence_loose",
+			"triangles": 28,
+			"width_over_height": 0.57
+		},
+		{
+			"name": "StickFence_post",
+			"triangles": 64,
+			"width_over_height": 0.32
+		},
+		{
+			"name": "StickFence_rope",
+			"triangles": 18,
+			"width_over_height": 1.66
+		},
+		{
+			"name": "StickFence_tie",
+			"triangles": 64,
+			"width_over_height": 3.33
+		},
+		{
+			"name": "Stickfire_log",
+			"triangles": 104,
+			"width_over_height": 2.55
+		},
+		{
+			"name": "Stone Bits",
+			"triangles": 174,
+			"width_over_height": 8.19
+		},
+		{
+			"name": "Stone Bits rampin",
+			"triangles": 174,
+			"width_over_height": 2.15
+		},
+		{
+			"name": "Stone Bits rampout",
+			"triangles": 174,
+			"width_over_height": 2.1
+		},
+		{
+			"name": "Stone Bowl",
+			"triangles": 452,
+			"width_over_height": 1.77
+		},
+		{
+			"name": "Stone Paving base",
+			"triangles": 12,
+			"width_over_height": 2.16
+		},
+		{
+			"name": "Stone Paving block",
+			"triangles": 76,
+			"width_over_height": 27.48
+		},
+		{
+			"name": "Stone Paving corner bit",
+			"triangles": 38,
+			"width_over_height": 13.1
+		},
+		{
+			"name": "Stone Paving corner block",
+			"triangles": 68,
+			"width_over_height": 27.2
+		},
+		{
+			"name": "Stone Paving step",
+			"triangles": 36,
+			"width_over_height": 2.16
+		},
+		{
+			"name": "Stone Paving step block",
+			"triangles": 76,
+			"width_over_height": 3.37
+		},
+		{
+			"name": "Stone Paving stepIn",
+			"triangles": 48,
+			"width_over_height": 2.16
+		},
+		{
+			"name": "Stone Paving stepOut",
+			"triangles": 44,
+			"width_over_height": 2.16
+		},
+		{
+			"name": "Stone Rail deco",
+			"triangles": 132,
+			"width_over_height": 0.5
+		},
+		{
+			"name": "Stone Rail deco_half",
+			"triangles": 105,
+			"width_over_height": 0.43
+		},
+		{
+			"name": "Stone Rail post",
+			"triangles": 124,
+			"width_over_height": 0.59
+		},
+		{
+			"name": "Stone Rail rail",
+			"triangles": 40,
+			"width_over_height": 1.03
+		},
+		{
+			"name": "Stone Rail rail_whole",
+			"triangles": 72,
+			"width_over_height": 1.03
+		},
+		{
+			"name": "StoneLantern",
+			"triangles": 90,
+			"width_over_height": 0.72
+		},
+		{
+			"name": "StoneLantern_pillars",
+			"triangles": 280,
+			"width_over_height": 1.16
+		},
+		{
+			"name": "StonePot",
+			"triangles": 264,
+			"width_over_height": 1.13
+		},
+		{
+			"name": "StoneWall_block_L",
+			"triangles": 44,
+			"width_over_height": 0.93
+		},
+		{
+			"name": "StoneWall_block_M",
+			"triangles": 44,
+			"width_over_height": 0.7
+		},
+		{
+			"name": "StoneWall_block_S",
+			"triangles": 44,
+			"width_over_height": 0.48
+		},
+		{
+			"name": "StoneWall_corner",
+			"triangles": 52,
+			"width_over_height": 3.75
+		},
+		{
+			"name": "StoneWall_cross",
+			"triangles": 140,
+			"width_over_height": 5.56
+		},
+		{
+			"name": "StoneWall_end",
+			"triangles": 36,
+			"width_over_height": 5.56
+		},
+		{
+			"name": "StoneWall_single",
+			"triangles": 44,
+			"width_over_height": 5.56
+		},
+		{
+			"name": "StoneWall_straight",
+			"triangles": 28,
+			"width_over_height": 5.56
+		},
+		{
+			"name": "StoneWall_straightcross",
+			"triangles": 156,
+			"width_over_height": 5.56
+		},
+		{
+			"name": "StoneWall_t",
+			"triangles": 116,
+			"width_over_height": 5.56
+		},
+		{
+			"name": "StoneWall_tend",
+			"triangles": 132,
+			"width_over_height": 5.56
+		},
+		{
+			"name": "Stonehead",
+			"triangles": 356,
+			"width_over_height": 0.75
+		},
+		{
+			"name": "Stool",
+			"triangles": 132,
+			"width_over_height": 3.99
+		},
+		{
+			"name": "Stool_Leg",
+			"triangles": 70,
+			"width_over_height": 0.64
+		},
+		{
+			"name": "StorageBin",
+			"triangles": 484,
+			"width_over_height": 1.33
+		},
+		{
+			"name": "StorageBin_bits",
+			"triangles": 64,
+			"width_over_height": 5.51
+		},
+		{
+			"name": "StorageBin_hinge",
+			"triangles": 132,
+			"width_over_height": 3.83
+		},
+		{
+			"name": "StorageBin_lid",
+			"triangles": 108,
+			"width_over_height": 5.61
+		},
+		{
+			"name": "StorageBox_box",
+			"triangles": 226,
+			"width_over_height": 1.21
+		},
+		{
+			"name": "StorageBox_box_innerFlaps",
+			"triangles": 24,
+			"width_over_height": 7.54
+		},
+		{
+			"name": "StorageBox_flap01",
+			"triangles": 18,
+			"width_over_height": 6.59
+		},
+		{
+			"name": "StorageBox_flap02",
+			"triangles": 18,
+			"width_over_height": 5.18
+		},
+		{
+			"name": "StorageToolBox_Base",
+			"triangles": 318,
+			"width_over_height": 1.8
+		},
+		{
+			"name": "StorageToolBox_Lid",
+			"triangles": 626,
+			"width_over_height": 2.05
+		},
+		{
+			"name": "Storage_bg",
+			"triangles": 1306,
+			"width_over_height": 0.9
+		},
+		{
+			"name": "Stump_hollow",
+			"triangles": 248,
+			"width_over_height": 1.6
+		},
+		{
+			"name": "Stump_solid",
+			"triangles": 184,
+			"width_over_height": 1.59
+		},
+		{
+			"name": "Sundial_dial",
+			"triangles": 128,
+			"width_over_height": 4.51
+		},
+		{
+			"name": "Sundial_gnomon",
+			"triangles": 36,
+			"width_over_height": 1.03
+		},
+		{
+			"name": "Sundial_marker",
+			"triangles": 20,
+			"width_over_height": 11.56
+		},
+		{
+			"name": "Sunflower",
+			"triangles": 1676,
+			"width_over_height": 0.4
+		},
+		{
+			"name": "Swamp_Statue",
+			"triangles": 418,
+			"width_over_height": 1.14
+		},
+		{
+			"name": "SwingFrame",
+			"triangles": 472,
+			"width_over_height": 0.93
+		},
+		{
+			"name": "SwingRope",
+			"triangles": 16,
+			"width_over_height": 0.61
+		},
+		{
+			"name": "SwingSeat",
+			"triangles": 44,
+			"width_over_height": 4.96
+		},
+		{
+			"name": "SwissCheese",
+			"triangles": 240,
+			"width_over_height": 7.2
+		},
+		{
+			"name": "Table_metal_legs",
+			"triangles": 64,
+			"width_over_height": 1.29
+		},
+		{
+			"name": "Table_metal_top",
+			"triangles": 150,
+			"width_over_height": 6.41
+		},
+		{
+			"name": "Table_wood",
+			"triangles": 124,
+			"width_over_height": 5.79
+		},
+		{
+			"name": "Table_wood_legs",
+			"triangles": 216,
+			"width_over_height": 1.26
+		},
+		{
+			"name": "TallCactus",
+			"triangles": 272,
+			"width_over_height": 0.39
+		},
+		{
+			"name": "TallFern",
+			"triangles": 389,
+			"width_over_height": 0.53
+		},
+		{
+			"name": "TallFlower",
+			"triangles": 856,
+			"width_over_height": 0.7
+		},
+		{
+			"name": "TallRock",
+			"triangles": 28,
+			"width_over_height": 0.44
+		},
+		{
+			"name": "TallTree leaf ball",
+			"triangles": 992,
+			"width_over_height": 1.48
+		},
+		{
+			"name": "TallTree trunk bottom",
+			"triangles": 172,
+			"width_over_height": 0.35
+		},
+		{
+			"name": "TallTree trunk mid",
+			"triangles": 220,
+			"width_over_height": 0.32
+		},
+		{
+			"name": "TallTree trunk single",
+			"triangles": 126,
+			"width_over_height": 0.57
+		},
+		{
+			"name": "TallTree trunk top",
+			"triangles": 126,
+			"width_over_height": 0.56
+		},
+		{
+			"name": "TasselRig_knots",
+			"triangles": 152,
+			"width_over_height": 9.1
+		},
+		{
+			"name": "TasselRug",
+			"triangles": 316,
+			"width_over_height": 6.68
+		},
+		{
+			"name": "TeaLight_Inner",
+			"triangles": 90,
+			"width_over_height": 1.72
+		},
+		{
+			"name": "TeaLight_Outer",
+			"triangles": 178,
+			"width_over_height": 1.77
+		},
+		{
+			"name": "TennisBall",
+			"triangles": 320,
+			"width_over_height": 1.0
+		},
+		{
+			"name": "Tent",
+			"triangles": 140,
+			"width_over_height": 1.09
+		},
+		{
+			"name": "Tent_frame",
+			"triangles": 128,
+			"width_over_height": 0.87
+		},
+		{
+			"name": "ThornFenceThorn",
+			"triangles": 8,
+			"width_over_height": 0.62
+		},
+		{
+			"name": "ThornFence_Cap",
+			"triangles": 356,
+			"width_over_height": 1.13
+		},
+		{
+			"name": "ThornFence_Corner",
+			"triangles": 484,
+			"width_over_height": 0.66
+		},
+		{
+			"name": "ThornFence_CornerHalfLeft",
+			"triangles": 292,
+			"width_over_height": 0.57
+		},
+		{
+			"name": "ThornFence_CornerHalfRight",
+			"triangles": 260,
+			"width_over_height": 0.7
+		},
+		{
+			"name": "ThornFence_OutCorner",
+			"triangles": 468,
+			"width_over_height": 1.09
+		},
+		{
+			"name": "ThornFence_Straight",
+			"triangles": 404,
+			"width_over_height": 1.27
+		},
+		{
+			"name": "ThornFence_StraightHalfBottom",
+			"triangles": 356,
+			"width_over_height": 1.04
+		},
+		{
+			"name": "ThornFence_StraightHalfTop",
+			"triangles": 340,
+			"width_over_height": 1.04
+		},
+		{
+			"name": "ThornFence_StraightShort",
+			"triangles": 260,
+			"width_over_height": 1.09
+		},
+		{
+			"name": "ThornTree",
+			"triangles": 304,
+			"width_over_height": 0.81
+		},
+		{
+			"name": "TikiTorch",
+			"triangles": 307,
+			"width_over_height": 0.28
+		},
+		{
+			"name": "TomatoSlice",
+			"triangles": 264,
+			"width_over_height": 4.58
+		},
+		{
+			"name": "Tortoise back leg",
+			"triangles": 56,
+			"width_over_height": 0.94
+		},
+		{
+			"name": "Tortoise front leg",
+			"triangles": 56,
+			"width_over_height": 1.16
+		},
+		{
+			"name": "Tortoise head",
+			"triangles": 92,
+			"width_over_height": 1.13
+		},
+		{
+			"name": "Tortoise leaf",
+			"triangles": 246,
+			"width_over_height": 2.86
+		},
+		{
+			"name": "Tortoise shell",
+			"triangles": 332,
+			"width_over_height": 1.69
+		},
+		{
+			"name": "TortoisePot",
+			"triangles": 606,
+			"width_over_height": 2.14
+		},
+		{
+			"name": "Triangle_Collider",
+			"triangles": 8,
+			"width_over_height": 0.86
+		},
+		{
+			"name": "TroughPot",
+			"triangles": 286,
+			"width_over_height": 1.88
+		},
+		{
+			"name": "TroutPet_Body",
+			"triangles": 197,
+			"width_over_height": 1.6
+		},
+		{
+			"name": "TroutPet_Tail",
+			"triangles": 80,
+			"width_over_height": 1.16
+		},
+		{
+			"name": "TroutPet_TailEnd",
+			"triangles": 68,
+			"width_over_height": 1.15
+		},
+		{
+			"name": "Trumpet",
+			"triangles": 600,
+			"width_over_height": 0.77
+		},
+		{
+			"name": "Tulip",
+			"triangles": 502,
+			"width_over_height": 0.77
+		},
+		{
+			"name": "Tumbleweed",
+			"triangles": 700,
+			"width_over_height": 1.11
+		},
+		{
+			"name": "Tumbleweed_inner",
+			"triangles": 540,
+			"width_over_height": 1.01
+		},
+		{
+			"name": "Tyre Pot",
+			"triangles": 216,
+			"width_over_height": 2.4
+		},
+		{
+			"name": "Umbrella",
+			"triangles": 550,
+			"width_over_height": 1.04
+		},
+		{
+			"name": "Unit Circle",
+			"triangles": 12,
+			"width_over_height": 0.0
+		},
+		{
+			"name": "Unit Quad",
+			"triangles": 2,
+			"width_over_height": 1.0
+		},
+		{
+			"name": "Unit Quad Flat",
+			"triangles": 2,
+			"width_over_height": 0.0
+		},
+		{
+			"name": "Urban_Statue",
+			"triangles": 156,
+			"width_over_height": 1.33
+		},
+		{
+			"name": "Vane",
+			"triangles": 124,
+			"width_over_height": 0.41
+		},
+		{
+			"name": "Vane_arrow",
+			"triangles": 92,
+			"width_over_height": 3.35
+		},
+		{
+			"name": "VendingMachine_Base",
+			"triangles": 252,
+			"width_over_height": 1.83
+		},
+		{
+			"name": "VendingMachine_BaseMiddle",
+			"triangles": 60,
+			"width_over_height": 7.85
+		},
+		{
+			"name": "VendingMachine_Glass",
+			"triangles": 142,
+			"width_over_height": 0.97
+		},
+		{
+			"name": "VendingMachine_Screw",
+			"triangles": 220,
+			"width_over_height": 1.72
+		},
+		{
+			"name": "VendorCartBase",
+			"triangles": 268,
+			"width_over_height": 2.68
+		},
+		{
+			"name": "VendorCartCloth",
+			"triangles": 158,
+			"width_over_height": 0.85
+		},
+		{
+			"name": "VendorCartGlass",
+			"triangles": 140,
+			"width_over_height": 2.42
+		},
+		{
+			"name": "VendorCartSign",
+			"triangles": 36,
+			"width_over_height": 1.72
+		},
+		{
+			"name": "VendorCartTop",
+			"triangles": 60,
+			"width_over_height": 5.64
+		},
+		{
+			"name": "VendorCartWheel",
+			"triangles": 160,
+			"width_over_height": 0.89
+		},
+		{
+			"name": "WaterFeatureSpout",
+			"triangles": 188,
+			"width_over_height": 1.03
+		},
+		{
+			"name": "WaterFeatureStand",
+			"triangles": 236,
+			"width_over_height": 0.4
+		},
+		{
+			"name": "WaterPot",
+			"triangles": 174,
+			"width_over_height": 1.37
+		},
+		{
+			"name": "WaterPump",
+			"triangles": 469,
+			"width_over_height": 0.62
+		},
+		{
+			"name": "WaterPump_handle",
+			"triangles": 256,
+			"width_over_height": 1.01
+		},
+		{
+			"name": "WaterPump_pole",
+			"triangles": 12,
+			"width_over_height": 0.19
+		},
+		{
+			"name": "WaterWheel_frame",
+			"triangles": 88,
+			"width_over_height": 1.09
+		},
+		{
+			"name": "WaterWheel_soft",
+			"triangles": 752,
+			"width_over_height": 1.0
+		},
+		{
+			"name": "Water_Statue",
+			"triangles": 168,
+			"width_over_height": 0.79
+		},
+		{
+			"name": "Water_side_alt.001",
+			"triangles": 12,
+			"width_over_height": 2.5
+		},
+		{
+			"name": "WateringCan",
+			"triangles": 407,
+			"width_over_height": 1.95
+		},
+		{
+			"name": "Watermelon",
+			"triangles": 320,
+			"width_over_height": 1.23
+		},
+		{
+			"name": "WaypointPole",
+			"triangles": 92,
+			"width_over_height": 0.3
+		},
+		{
+			"name": "WaypointSign",
+			"triangles": 76,
+			"width_over_height": 3.28
+		},
+		{
+			"name": "Web_01",
+			"triangles": 32,
+			"width_over_height": 2.11
+		},
+		{
+			"name": "Web_02",
+			"triangles": 48,
+			"width_over_height": 4.59
+		},
+		{
+			"name": "Well",
+			"triangles": 396,
+			"width_over_height": 1.87
+		},
+		{
+			"name": "Wheat",
+			"triangles": 686,
+			"width_over_height": 0.79
+		},
+		{
+			"name": "WheelBarrow",
+			"triangles": 676,
+			"width_over_height": 1.27
+		},
+		{
+			"name": "WheelBarrowHandle",
+			"triangles": 112,
+			"width_over_height": 4.01
+		},
+		{
+			"name": "WheelBarrowWheel",
+			"triangles": 208,
+			"width_over_height": 1.0
+		},
+		{
+			"name": "WoodFence_piece",
+			"triangles": 16,
+			"width_over_height": 0.88
+		},
+		{
+			"name": "WoodFence_piece_half",
+			"triangles": 18,
+			"width_over_height": 0.8
+		},
+		{
+			"name": "WoodFence_post",
+			"triangles": 14,
+			"width_over_height": 0.18
+		},
+		{
+			"name": "WoodFence_trim",
+			"triangles": 24,
+			"width_over_height": 1.04
+		},
+		{
+			"name": "WoodFence_trim_half",
+			"triangles": 24,
+			"width_over_height": 0.52
+		},
+		{
+			"name": "Yarrow_combined",
+			"triangles": 984,
+			"width_over_height": 0.78
+		},
+		{
+			"name": "icosahedron__unity_default_resources__10212",
+			"triangles": 20,
+			"width_over_height": 1.18
+		},
+		{
+			"name": "pCylinder1__unity_default_resources__10203",
+			"triangles": 80,
+			"width_over_height": 1.0
+		},
+		{
+			"name": "pPlane1__unity_default_resources__10204",
+			"triangles": 200,
+			"width_over_height": 0.0
+		},
+		{
+			"name": "pSphere1__unity_default_resources__10200",
+			"triangles": 760,
+			"width_over_height": 1.0
+		},
+		{
+			"name": "polySurface2__unity_default_resources__10205",
+			"triangles": 670,
+			"width_over_height": 0.5
+		},
+		{
+			"name": "pyramid__unity_default_resources__10213",
+			"triangles": 6,
+			"width_over_height": 1.0
+		}
+	]
 }
