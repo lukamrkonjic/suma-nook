@@ -38,6 +38,17 @@ CANOPY_CENTER_HEIGHT_FRACTION_MIN = 0.08
 # the model's max radius while foliage at the same heights starts at 0.73.
 TRUNK_GREEN_RATIO_MAX = 0.80
 TRUNK_RADIUS_FRACTION_MAX = 0.35
+# Gold is an accent -- a hinge, a latch, a rim. It is never most of an object.
+#
+# The per-component `face_count <= 32` guard on the gold rule assumes a gold
+# fitting arrives as one small shell, which fails on a fragmented mesh: a
+# bamboo table split into 64 components put 38 of them (443 faces, 47% of the
+# model) over the gold threshold. Measured, those components share the hue of
+# the wood ones almost exactly -- 0.094 against 0.097 -- and differ only in
+# value, 0.80 against 0.70. The rule was separating the lit side of one
+# material from its shaded side, not gold from wood. So cap gold by its share
+# of the whole object and demote it when it is clearly the main surface.
+GOLD_MAX_FACE_SHARE = 0.15
 TEXTURE_SAMPLE_SIZE = 512
 PALETTE_KEYS = (
     "pine_light",
@@ -462,6 +473,7 @@ def _semantic_family(
     object_name: str,
     color: Vector,
     face_count: int,
+    allow_gold: bool = True,
 ) -> str:
     lower_name = object_name.lower()
     if profile == "tree":
@@ -488,7 +500,8 @@ def _semantic_family(
     if saturation < 0.16:
         return "stone"
     if (
-        0.065 <= hue <= 0.18
+        allow_gold
+        and 0.065 <= hue <= 0.18
         and value > 0.78
         and saturation < 0.58
         and face_count <= 32
@@ -573,7 +586,7 @@ def apply_flat_style(
     for mesh_object in mesh_objects:
         mesh = mesh_object.data
         sample_data = sampled_materials(mesh_object)
-        assignments: list[tuple[list[int], str]] = []
+        classified: list[tuple[list[int], Vector, str]] = []
         for face_indices in face_components(mesh):
             color = average_component_color(mesh, face_indices, sample_data)
             family = _semantic_family(
@@ -582,6 +595,36 @@ def apply_flat_style(
                 color,
                 len(face_indices),
             )
+            classified.append((face_indices, color, family))
+
+        total_faces = sum(len(face_indices) for face_indices, _, _ in classified)
+        gold_faces = sum(
+            len(face_indices)
+            for face_indices, _, family in classified
+            if family == "gold"
+        )
+        if total_faces and gold_faces > total_faces * GOLD_MAX_FACE_SHARE:
+            # Not an accent. Re-run those components with gold unavailable, so
+            # they fall through to the wood/stone path their hue actually fits.
+            classified = [
+                (
+                    face_indices,
+                    color,
+                    _semantic_family(
+                        profile,
+                        mesh_object.name,
+                        color,
+                        len(face_indices),
+                        allow_gold=False,
+                    )
+                    if family == "gold"
+                    else family,
+                )
+                for face_indices, color, family in classified
+            ]
+
+        assignments: list[tuple[list[int], str]] = []
+        for face_indices, color, family in classified:
             semantic_name = _semantic_tone(family, color)
             assignments.append((face_indices, semantic_name))
             usage[semantic_name] += len(face_indices)
