@@ -58,29 +58,45 @@ or wires.
 closed continuous form" or forbid overlap outright: that produces a fused \
 blob. Forbid only parts that cross behind one another leaving a visible gap.
 
-STYLE RULES. Garden Galaxy is not generic chunky-toy. Getting these wrong is \
-what makes an asset read as a supermarket ornament rather than a GG piece.
+STYLE RULES. Garden Galaxy is not generic chunky-toy, and it is emphatically \
+not smooth clay. Getting these wrong is what makes an asset read as a \
+supermarket ornament rather than a GG piece.
+
+- LOW-POLY IS THE WHOLE LOOK, and it is the rule most often lost. Every \
+Garden Galaxy asset is built from a small number of flat polygon faces with \
+crisp straight edges where planes meet, and you can see the facets. Lead the \
+prompt with that: low-poly, faceted, flat planar faces, visible polygon edges, \
+angular planes, hard-edged geometry. Never write "smooth", "soft rounded \
+edges", "softly bevelled", "organic", "sculpted", or "clay" -- each of those \
+turns the result into a rounded blob with no facets, which is the single most \
+common failure.
 - Follow the reference proportions you are given. Never describe an object as \
 "squat" or "exaggerated" unless the measured references say it is wide. A \
 conifer is tall and slender; a table is broad and low.
 - Articulation beats simplification. Five to seven readable masses is usually \
 right; "three or four major forms only" flattens an object into an icon.
-- For foliage, the mass is a chunky low-poly cluster with a few broad \
-downward-pointing lobes, softly bevelled rather than needle-sharp. It is not \
-a smooth cone, a scalloped cloud, or a stack of pancakes.
+- Foliage is angular, not billowy. A conifer is stacked tiers of flat \
+triangular fronds with pronounced downward points. A broadleaf crown is a \
+faceted polyhedral mass -- think a chunky cut gem or a rough dome of flat \
+planes -- never a cluster of spheres, never broccoli, never a cloud.
+- Trunks and stems are short faceted prisms, six to eight sided, clearly \
+angular, and slightly tapered.
 - Ask for subtle irregularity: slight variation in width, rotation and height \
 between repeated elements, so the object reads handcrafted rather than \
 mechanically stacked and mirrored.
-- Do not add scenery the item does not need: no stone mound, no base ring, no \
-pedestal, no pot, no grass, no ground plane.
+- THE OBJECT ENDS AT ITS OWN BASE. State positively in the prompt that the \
+trunk or foot is cut flat at the bottom with nothing underneath it. Generated \
+images keep inventing a stone disc or pedestal to stand the object on, and \
+listing it in the negative prompt alone has not been enough.
 - The design must be original and inspired by Garden Galaxy, never a copy of \
 any specific reference asset.
 
 Use these palette hexes, picked to match the semantic material slots Suma \
 rebinds at load: warm wood #AB732E / #915720 / #754118, deep wood #321D13, \
 foliage #4F632E / #5D7134 with darker undersides near #405225, pale stone \
-#C4B599, ivory #D1C5A8. Keep colours muted, and include one slightly lighter \
-plane so form reads.
+#C4B599, ivory #D1C5A8. Give adjacent facets slightly different tones from \
+that set so the faceting is visible; that per-plane variation is how Garden \
+Galaxy reads form, and it is not a gradient.
 
 Return the prompt as one flowing block a person can paste straight into an \
 image generator, plus a negative prompt. The negative prompt must always \
@@ -88,10 +104,12 @@ exclude: cast shadows, gradients, ambient occlusion, rim light, specular \
 highlights, glossy reflections, texture, noise, individual leaves or needles, \
 thin twigs, floating parts, holes, see-through gaps, stone base, pedestal, \
 ring around trunk, pot, grass, ground plane, scenery, multiple objects, \
-photorealism, text, watermark, cropped, extreme perspective. Add \
-form-specific exclusions on top -- for a conifer, also exclude round cloud \
-foliage, smooth cones, Christmas tree icon, perfectly symmetrical tiers, \
-squat proportions and layered pancakes.
+photorealism, text, watermark, cropped, extreme perspective, and the smooth \
+family: smooth surfaces, rounded blob, clay, plasticine, sculpted, organic \
+curves, subdivision smoothing. Add form-specific exclusions on top -- for a \
+tree, also exclude spherical canopy, broccoli, cloud foliage, cluster of \
+balls, smooth cones, Christmas tree icon, perfectly symmetrical tiers, squat \
+proportions and layered pancakes.
 
 Estimate the object's total mesh surface area in square metres at real-world \
 scale -- a side table is roughly 3, a mug roughly 0.1 -- since that drives \
@@ -189,11 +207,19 @@ def recommend_polycount(category: str, surface_area: float, parts: int) -> dict:
     from_category_high = triangles["p75"]
     from_area = surface_area * density
 
+    # Area times density has to be capped. Garden Galaxy models a whole tree at
+    # about a thousand triangles no matter how much real-world surface a tree
+    # has, so on a physically large object the density estimate runs away -- an
+    # oak came out at 9600, five times anything in the library. The reference
+    # is the ceiling: never recommend more than the category's heaviest asset,
+    # and never more than the heaviest asset overall.
+    ceiling = min(triangles["max"], REFERENCE["overall"]["triangles"]["max"])
+    from_area = min(from_area, ceiling)
+
     low = int(round(min(from_category_low, from_area) / 50.0) * 50)
     high = int(round(max(from_category_high, from_area) / 50.0) * 50)
     low = max(low, 100)
-    high = max(high, low + 100)
-    ceiling = REFERENCE["overall"]["triangles"]["max"]
+    high = min(max(high, low + 100), ceiling)
 
     return {
         "low": low,
