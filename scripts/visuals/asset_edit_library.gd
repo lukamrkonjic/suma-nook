@@ -28,6 +28,12 @@ const SMOOTH_ALL := &"all"
 const SMOOTH_TILE_TOP := &"tile_top"
 const SMOOTH_TILE_DETAIL := &"tile_detail"
 const SMOOTH_NONE := &"none"
+## Models are smooth-shaded game-wide unless an asset opts out. The library is
+## stitched from several kits whose flat-shaded triangle spray is the loudest
+## thing they have in common, and shading it smooth hides those facets without
+## touching a single silhouette. Tiles are excluded on purpose -- see
+## default_smoothing_for.
+const DEFAULT_MODEL_SMOOTHING := 0.85
 const TILE_TOP_NORMAL_MIN := 0.8
 const TILE_STRUCTURAL_SPAN_MIN := 1.2
 const TILE_SURFACE_COVERAGE_MIN := 0.6
@@ -38,6 +44,7 @@ const TILE_DEFORM_POWER := 1.65
 const TILE_PERIMETER_EPSILON := 0.002
 
 var _profiles: Dictionary = {}
+var _default_model_smoothing := DEFAULT_MODEL_SMOOTHING
 var _smooth_mesh_cache: Dictionary = {}
 var _shell_field_cache: Dictionary = {}
 var _data_path := DATA_PATH
@@ -52,17 +59,33 @@ func reload() -> void:
 	_profiles.clear()
 	_smooth_mesh_cache.clear()
 	_shell_field_cache.clear()
+	_default_model_smoothing = DEFAULT_MODEL_SMOOTHING
 	if not FileAccess.file_exists(_data_path):
 		return
 	var parsed = JSON.parse_string(FileAccess.get_file_as_string(_data_path))
 	if parsed is Dictionary:
+		var raw_defaults: Variant = parsed.get("defaults", {})
+		if raw_defaults is Dictionary:
+			var defaults: Dictionary = raw_defaults
+			_default_model_smoothing = clampf(
+				float(
+					defaults.get("model_smoothing", DEFAULT_MODEL_SMOOTHING)
+				),
+				0.0,
+				1.0
+			)
 		var raw_profiles: Variant = parsed.get("profiles", {})
 		if not raw_profiles is Dictionary:
 			return
 		var loaded: Dictionary = raw_profiles
 		for asset_id: String in loaded:
 			if loaded[asset_id] is Dictionary:
-				var clean := _sanitize_profile(loaded[asset_id])
+				## An entry that never mentions smoothing still inherits the
+				## game-wide default; only an explicit value overrides it.
+				var clean := _sanitize_profile(
+					loaded[asset_id],
+					default_smoothing_for(asset_id)
+				)
 				if asset_id.begins_with("tile_"):
 					clean["scale"] = 1.0
 				_profiles[asset_id] = clean
@@ -70,8 +93,36 @@ func reload() -> void:
 
 func profile(asset_id: String) -> Dictionary:
 	if not _profiles.has(asset_id):
-		return {}
+		return _implicit_profile(asset_id)
 	return (_profiles[asset_id] as Dictionary).duplicate(true)
+
+
+## The smoothing an asset gets when its profile does not name one.
+##
+## Tiles are excluded and must opt in per asset. Their smoothing mode does not
+## only round shading -- SMOOTH_TILE_TOP also relaxes and compresses surface
+## relief -- so a blanket default would quietly reshape the shipped tile look.
+func default_smoothing_for(asset_id: String) -> float:
+	if asset_id.is_empty() or asset_id.begins_with("tile_"):
+		return 0.0
+	return _default_model_smoothing
+
+
+## Overrides the game-wide default at runtime, for tuning and measurement.
+func set_default_model_smoothing(value: float) -> void:
+	_default_model_smoothing = clampf(value, 0.0, 1.0)
+	_smooth_mesh_cache.clear()
+
+
+func _implicit_profile(asset_id: String) -> Dictionary:
+	var smoothing := default_smoothing_for(asset_id)
+	if smoothing <= 0.0001:
+		return {}
+	return {
+		"scale": 1.0,
+		"smoothing": smoothing,
+		"materials": {},
+	}
 
 
 func has_profile(asset_id: String) -> bool:
@@ -96,6 +147,7 @@ func save_profile(asset_id: String, supplied: Dictionary) -> Error:
 		_profiles[asset_id] = clean
 	_smooth_mesh_cache.clear()
 	var payload := {
+		"defaults": {"model_smoothing": _default_model_smoothing},
 		"version": PROFILE_VERSION,
 		"profiles": _profiles,
 	}
@@ -132,7 +184,14 @@ func apply_to_tree(
 		if mesh_instance.mesh == null:
 			continue
 		var smoothing_mode := _smoothing_mode(asset_id, mesh_instance)
-		if smoothing > 0.0001 and smoothing_mode != SMOOTH_NONE:
+		## Procedural assets build from PrimitiveMesh, which has no surface
+		## arrays to blend. They were never reached while smoothing was opt-in
+		## per asset; the game-wide default reaches everything, so skip them.
+		if (
+			smoothing > 0.0001
+			and smoothing_mode != SMOOTH_NONE
+			and mesh_instance.mesh is ArrayMesh
+		):
 			mesh_instance.mesh = _smoothed_mesh(
 				mesh_instance.mesh,
 				smoothing,
@@ -462,6 +521,22 @@ func _smoothed_mesh(
 	]
 	for surface in source.get_surface_count():
 		var arrays := source.surface_get_arrays(surface)
+		## Not every shipped surface carries normals, and blend targets are
+		## meaningless without them. Opt-in smoothing never met these; the
+		## game-wide default does, so copy such a surface through untouched.
+		if (
+			arrays[Mesh.ARRAY_VERTEX] == null
+			or arrays[Mesh.ARRAY_NORMAL] == null
+		):
+			result.add_surface_from_arrays(
+				source.surface_get_primitive_type(surface),
+				arrays
+			)
+			result.surface_set_material(
+				result.get_surface_count() - 1,
+				source.surface_get_material(surface)
+			)
+			continue
 		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 		var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
 		var indices := PackedInt32Array()
@@ -783,7 +858,10 @@ func _shader_has_parameter(material: ShaderMaterial, parameter_name: String) -> 
 	return false
 
 
-func _sanitize_profile(raw: Dictionary) -> Dictionary:
+func _sanitize_profile(
+	raw: Dictionary,
+	smoothing_fallback: float = 0.0
+) -> Dictionary:
 	var materials := {}
 	var raw_materials: Variant = raw.get("materials", {})
 	var supplied_materials: Dictionary = (
@@ -819,7 +897,11 @@ func _sanitize_profile(raw: Dictionary) -> Dictionary:
 			MODEL_SCALE_MIN,
 			MODEL_SCALE_MAX
 		),
-		"smoothing": clampf(float(raw.get("smoothing", 0.0)), 0.0, 1.0),
+		"smoothing": clampf(
+			float(raw.get("smoothing", smoothing_fallback)),
+			0.0,
+			1.0
+		),
 		"materials": materials,
 	}
 

@@ -1,4 +1,7 @@
 {
+	"defaults": {
+		"model_smoothing": 0.85
+	},
 	"version": 2,
 	"profiles": {
 		"prop_firepit_polished": {
@@ -50,17 +53,14 @@
 		},
 		"prop_shrooms": {
 			"scale": 1.0,
-			"smoothing": 0.3,
 			"materials": {}
 		},
 		"prop_fir": {
 			"scale": 2.0,
-			"smoothing": 0.3,
 			"materials": {}
 		},
 		"prop_leafy_bush": {
 			"scale": 1.0,
-			"smoothing": 0.26,
 			"materials": {}
 		}
 	}

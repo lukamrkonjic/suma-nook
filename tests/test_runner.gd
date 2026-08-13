@@ -2395,12 +2395,30 @@ func _test_world_model_scale_contract() -> void:
 	var radio_profile := assets.edits.profile("prop_vintage_radio")
 	var fir_profile := assets.edits.profile("prop_fir")
 	var leafy_bush_profile := assets.edits.profile("prop_leafy_bush")
+	var default_smoothing := assets.edits.default_smoothing_for("prop_fir")
 	check(
 		is_equal_approx(float(stone_profile.get("smoothing", 0.0)), 0.82)
-		and is_equal_approx(float(radio_profile.get("smoothing", 0.0)), 0.42)
-		and is_equal_approx(float(fir_profile.get("smoothing", 0.0)), 0.30)
-		and is_equal_approx(float(leafy_bush_profile.get("smoothing", 0.0)), 0.26),
-		"new generated models use restrained normal smoothing without geometry deformation"
+		and is_equal_approx(float(radio_profile.get("smoothing", 0.0)), 0.42),
+		"a profile that names its own smoothing keeps that authored value"
+	)
+	check(
+		default_smoothing > 0.5
+		and is_equal_approx(float(fir_profile.get("smoothing", 0.0)), default_smoothing)
+		and is_equal_approx(
+			float(leafy_bush_profile.get("smoothing", 0.0)),
+			default_smoothing
+		),
+		"models inherit the game-wide smoothing default so kit facets stop showing"
+	)
+	check(
+		is_equal_approx(assets.edits.default_smoothing_for("tile_dirt"), 0.0)
+		and float(assets.edits.profile("tile_dirt").get("smoothing", 0.0)) <= 0.0001,
+		"tiles are excluded from the default; their smoothing also relaxes relief"
+	)
+	check(
+		float(assets.edits.profile("prop_firepit_polished").get("smoothing", 1.0))
+		<= 0.0001,
+		"an explicit zero still opts an asset out of smoothing"
 	)
 	var source_material_contracts := {
 		"prop_stone_pine": ["pine_medium", "wood_primary"],
