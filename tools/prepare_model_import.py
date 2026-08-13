@@ -1023,9 +1023,19 @@ def geometry_report(mesh_objects: list[bpy.types.Object]) -> dict:
         tuple(max(point[axis] for point in points) for axis in range(3))
     )
     dimensions = maximum - minimum
+    # Distinct positions, not the raw vertex count. A flat-shaded model is
+    # stored with its vertices split, so any tool that re-exports one -- the
+    # ground-disc strip, for instance -- inflates the count threefold without
+    # touching the topology. derived_smoothing() reads this to decide whether
+    # facets are authored or an export artifact, and the raw count is exactly
+    # what that question must not be fooled by.
+    welded_positions = {
+        tuple(round(axis, 5) for axis in point) for point in points
+    }
     return {
         "mesh_objects": len(mesh_objects),
         "vertices": sum(len(item.data.vertices) for item in mesh_objects),
+        "welded_vertices": len(welded_positions),
         "faces": sum(len(item.data.polygons) for item in mesh_objects),
         "triangles": sum(
             max(0, len(polygon.vertices) - 2)

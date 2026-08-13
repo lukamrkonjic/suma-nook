@@ -30,6 +30,35 @@ Report anything alarming rather than silently proceeding:
   vertices; shading will be faceted.
 - Many components on a solid object means a fragmented shell.
 
+### Strip a baked ground disc first
+
+A model generated from a reference image often arrives standing on a disc of
+"ground" that was part of the picture. Suma supplies the ground, so the disc
+renders as a large flat plate under the object -- and because it dominates the
+footprint it also throws off the scale calculation in step 3.
+
+It shows up in step 1 as a model far flatter than the object should be:
+tent.glb measured 1.0 x 1.0 x 0.288, and its base carried 81% of the total
+surface area out to radius 0.514 while the tent itself stayed within 0.214.
+
+```bash
+"/c/Program Files/Blender Foundation/Blender 4.5/blender.exe" --background --factory-startup \
+  --python tools/strip_ground_disc.py -- --source "<SOURCE.glb>" \
+  --output "<SCRATCH>/clean.glb" [--dry-run]
+```
+
+It removes connected components that are flat, sit at the base, and reach past
+the radius of everything that is not flat-and-at-the-base -- shape, not a fixed
+size. Run `--dry-run` first and read the report; if it removes nothing, or
+removes a suspiciously large share, the model does not fit the pattern and the
+disc needs handling by hand. **Then measure the cleaned file again** and use
+those numbers for the scale, not the original's.
+
+Re-exporting splits vertices on a flat-shaded model (tent.glb: 604 faces went
+from 1067 vertices to 1812), which is why the importer measures weldedness by
+distinct positions rather than raw vertex count. Otherwise a stripped model
+looks unwelded and inherits the 0.85 smoothing that melts it.
+
 ## 2. Pick the profile
 
 `--profile` selects the material palette and the tree/prop handling. It is
@@ -50,6 +79,10 @@ The importer rewrites the asset's profile in `data/asset_edits.json`, and
 scale silently resizes it in game.**
 
 - Check `data/asset_edits.json` for the current `scale`.
+- Generated sources are normalised to a longest edge of 1.0 while the asset
+  they replace was authored at its world size, so a scale near 5 is normal
+  for a replacement. `prop_shelter` is authored at 1.5 and its replacement
+  imported at 4.7.
 - If the model's dimensions differ from the one it replaces, measure the old
   asset too and scale so the world size is preserved: `old_height / new_height`
   (or the longest dimension for a ground prop whose footprint matters).

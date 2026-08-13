@@ -7,16 +7,12 @@
 		"prop_firepit_polished": {
 			"scale": 0.6,
 			"smoothing": 0.0,
-			"materials": {
-
-			}
+			"materials": {}
 		},
 		"prop_stone_well": {
 			"scale": 1.0,
 			"smoothing": 1.0,
-			"materials": {
-
-			}
+			"materials": {}
 		},
 		"prop_pine_b": {
 			"scale": 1.2,
@@ -43,30 +39,22 @@
 		"prop_pine_a": {
 			"scale": 1.0,
 			"smoothing": 1.0,
-			"materials": {
-
-			}
+			"materials": {}
 		},
 		"prop_stone_pine": {
 			"scale": 2.0,
 			"smoothing": 0.82,
-			"materials": {
-
-			}
+			"materials": {}
 		},
 		"prop_vintage_radio": {
 			"scale": 0.6,
 			"smoothing": 0.42,
-			"materials": {
-
-			}
+			"materials": {}
 		},
 		"prop_shrooms": {
 			"scale": 0.67,
 			"smoothing": 0.85,
-			"materials": {
-
-			}
+			"materials": {}
 		},
 		"prop_fir": {
 			"scale": 2.35,
@@ -92,9 +80,7 @@
 		"prop_leafy_bush": {
 			"scale": 1.0,
 			"smoothing": 0.85,
-			"materials": {
-
-			}
+			"materials": {}
 		},
 		"prop_bamboo_table": {
 			"scale": 0.65,
@@ -179,6 +165,11 @@
 					"color": "f0d9a7"
 				}
 			}
+		},
+		"prop_shelter": {
+			"scale": 4.7,
+			"materials": {},
+			"smoothing": 0.0
 		}
 	}
 }

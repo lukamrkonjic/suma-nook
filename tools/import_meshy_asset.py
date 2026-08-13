@@ -50,7 +50,12 @@ AUTHORED_SHADING_TRIANGLE_MAX = 2500
 def derived_smoothing(geometry: dict) -> tuple[float | None, str]:
     """Pick a smoothing value from measured geometry, with the reason why."""
     faces = int(geometry.get("faces", 0) or 0)
-    vertices = int(geometry.get("vertices", 0) or 0)
+    # Distinct positions where available. The raw vertex count triples for a
+    # flat-shaded model that has been through any re-export, which would read
+    # as split vertices and hand an authored-facet model the 0.85 default.
+    vertices = int(
+        geometry.get("welded_vertices", 0) or geometry.get("vertices", 0) or 0
+    )
     triangles = int(geometry.get("triangles", 0) or 0)
     if faces <= 0 or vertices <= 0:
         return None, "geometry unavailable; inheriting the default"
@@ -161,8 +166,13 @@ def main() -> None:
     arguments = parse_args()
     if not ASSET_ID_PATTERN.fullmatch(arguments.asset_id):
         raise SystemExit("--asset-id must contain lowercase letters, digits, and underscores")
-    if not 0.25 <= arguments.scale <= 3.0:
-        raise SystemExit("--scale must be between 0.25 and 3.0")
+    # Generated sources arrive normalised to a longest edge of 1.0, while the
+    # assets they replace were authored at their world size -- prop_shelter is
+    # 1.5 across. Preserving world size across that pair legitimately needs a
+    # scale near 5, so the old ceiling of 3.0 rejected a correct value. The
+    # bound stays only to catch a misplaced decimal point.
+    if not 0.1 <= arguments.scale <= 12.0:
+        raise SystemExit("--scale must be between 0.1 and 12.0")
     smoothing = arguments.smoothing
     if smoothing is not None and not 0.0 <= smoothing <= 1.0:
         raise SystemExit("--smoothing must be between 0.0 and 1.0")
