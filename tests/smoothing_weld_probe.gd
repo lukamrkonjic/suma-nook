@@ -7,14 +7,18 @@ extends SceneTree
 ## corner keeps its own bucket, the blend target equals the authored normal,
 ## and the model still renders flat no matter how high smoothing is set.
 
-const ASSETS := ["prop_shrooms", "prop_fir", "prop_leafy_bush", "prop_vintage_radio"]
+const DEFAULT_ASSETS := [
+	"prop_shrooms", "prop_fir", "prop_leafy_bush", "prop_vintage_radio",
+]
 
 
 func _init() -> void:
 	var palette := load("res://assets/palettes/gg_material_palette.tres") as CozyPalette
 	var assets := AssetLibrary.new(MaterialLibrary.new(palette))
+	var requested: Array = OS.get_cmdline_user_args()
+	var asset_ids: Array = requested if not requested.is_empty() else DEFAULT_ASSETS
 
-	for asset_id in ASSETS:
+	for asset_id in asset_ids:
 		var profile: Dictionary = assets.edits.profile(asset_id)
 		var smoothing := float(profile.get("smoothing", 0.0))
 		var authored := load("res://assets/3d/reworked/%s.glb" % asset_id) as PackedScene

@@ -22,13 +22,17 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_BLENDER = Path(
     r"C:\Program Files\Blender Foundation\Blender 4.5\blender.exe"
 )
-PROFILE_SMOOTHING = {
-    "tree": 0.82,
-    "shrub": 0.26,
-    "wood_prop": 0.42,
-    "stone_prop": 0.34,
-    "generic": 0.30,
-}
+# Broad visual families. These select the material palette and the tree/prop
+# handling; they deliberately no longer carry a smoothing value.
+#
+# They used to (tree 0.82, shrub 0.26, wood_prop 0.42, stone_prop 0.34,
+# generic 0.30), which predates the game-wide default in data/asset_edits.json.
+# Once that default existed, writing any per-asset value opted every freshly
+# imported asset OUT of it -- an import at wood_prop landed on 0.42 while the
+# rest of the library shaded at 0.85, and arrived looking faceted next to
+# everything around it. Imports now inherit the default; pass --smoothing only
+# when a specific asset has been reviewed and genuinely needs its own value.
+PROFILES = ("tree", "shrub", "wood_prop", "stone_prop", "generic")
 ASSET_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_]*$")
 
 
@@ -41,7 +45,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--profile",
         required=True,
-        choices=tuple(PROFILE_SMOOTHING),
+        choices=PROFILES,
         help="Broad visual family; this is deliberately not guessed.",
     )
     parser.add_argument("--scale", type=float, default=1.0)
@@ -97,17 +101,18 @@ def run_blender(blender: Path, script: Path, arguments: list[str]) -> None:
     subprocess.run(command, cwd=REPOSITORY_ROOT, check=True)
 
 
-def update_asset_profile(asset_id: str, scale: float, smoothing: float) -> None:
+def update_asset_profile(asset_id: str, scale: float, smoothing: float | None) -> None:
     path = REPOSITORY_ROOT / "data" / "asset_edits.json"
     payload = json.loads(path.read_text(encoding="utf-8"))
     profiles = payload.setdefault("profiles", {})
     existing = profiles.get(asset_id, {})
     materials = existing.get("materials", {}) if isinstance(existing, dict) else {}
-    profiles[asset_id] = {
-        "scale": scale,
-        "smoothing": smoothing,
-        "materials": materials,
-    }
+    profile: dict = {"scale": scale, "materials": materials}
+    # Omitting the key is what lets the asset inherit the game-wide default.
+    # Writing one here, even a sensible-looking one, opts the asset out.
+    if smoothing is not None:
+        profile["smoothing"] = smoothing
+    profiles[asset_id] = profile
     temporary = path.with_suffix(".json.tmp")
     temporary.write_text(
         json.dumps(payload, indent="\t", ensure_ascii=False) + "\n",
@@ -122,12 +127,8 @@ def main() -> None:
         raise SystemExit("--asset-id must contain lowercase letters, digits, and underscores")
     if not 0.25 <= arguments.scale <= 3.0:
         raise SystemExit("--scale must be between 0.25 and 3.0")
-    smoothing = (
-        PROFILE_SMOOTHING[arguments.profile]
-        if arguments.smoothing is None
-        else arguments.smoothing
-    )
-    if not 0.0 <= smoothing <= 1.0:
+    smoothing = arguments.smoothing
+    if smoothing is not None and not 0.0 <= smoothing <= 1.0:
         raise SystemExit("--smoothing must be between 0.0 and 1.0")
 
     source = checked_path(arguments.source, "source GLB")
@@ -211,7 +212,7 @@ def main() -> None:
             "output_bytes": staged.stat().st_size,
             "review": str(review_path) if not arguments.skip_render else "",
             "scale": arguments.scale,
-            "smoothing": smoothing,
+            "smoothing": smoothing if smoothing is not None else "inherited",
             "status": "validated_staging" if arguments.no_install else "installed",
         }
     )

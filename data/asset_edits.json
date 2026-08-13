@@ -65,7 +65,6 @@
 		},
 		"prop_bamboo_table": {
 			"scale": 1.0,
-			"smoothing": 0.42,
 			"materials": {}
 		}
 	}
