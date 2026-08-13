@@ -1,0 +1,337 @@
+{
+	"_comment": "Measured from Garden Galaxy's shipped GLB export. Garden Galaxy models are modular -- a table is a separate top and legs mesh -- so a finished multi-part object is roughly the sum of two or three entries here. Regenerate with tools/build_gg_polycount_reference.py.",
+	"source_assets": 724,
+	"overall": {
+		"sample_size": 724,
+		"triangles": {
+			"p25": 60,
+			"median": 142,
+			"p75": 308,
+			"p90": 504,
+			"max": 1908
+		},
+		"triangles_per_square_metre": {
+			"p25": 69,
+			"median": 153,
+			"p75": 296
+		}
+	},
+	"categories": {
+		"mushroom": {
+			"sample_size": 3,
+			"triangles": {
+				"p25": 308,
+				"median": 336,
+				"p75": 544,
+				"p90": 544,
+				"max": 544
+			},
+			"triangles_per_square_metre": {
+				"p25": 169,
+				"median": 274,
+				"p75": 368
+			},
+			"examples": [
+				{
+					"name": "FlyMushroom",
+					"triangles": 308
+				},
+				{
+					"name": "Mushroom",
+					"triangles": 336
+				},
+				{
+					"name": "GlowMushroom",
+					"triangles": 544
+				}
+			]
+		},
+		"tree_plant": {
+			"sample_size": 98,
+			"triangles": {
+				"p25": 124,
+				"median": 192,
+				"p75": 456,
+				"p90": 952,
+				"max": 1842
+			},
+			"triangles_per_square_metre": {
+				"p25": 126,
+				"median": 200,
+				"p75": 384
+			},
+			"examples": [
+				{
+					"name": "MoneyPlant_stem",
+					"triangles": 30
+				},
+				{
+					"name": "FirTree_top",
+					"triangles": 38
+				},
+				{
+					"name": "FirTree_single",
+					"triangles": 54
+				},
+				{
+					"name": "Bush trunk",
+					"triangles": 56
+				},
+				{
+					"name": "IvyLeaf",
+					"triangles": 60
+				},
+				{
+					"name": "SnowTree_top",
+					"triangles": 62
+				}
+			]
+		},
+		"furniture": {
+			"sample_size": 11,
+			"triangles": {
+				"p25": 70,
+				"median": 132,
+				"p75": 246,
+				"p90": 452,
+				"max": 720
+			},
+			"triangles_per_square_metre": {
+				"p25": 73,
+				"median": 108,
+				"p75": 155
+			},
+			"examples": [
+				{
+					"name": "SwingSeat",
+					"triangles": 44
+				},
+				{
+					"name": "Table_metal_legs",
+					"triangles": 64
+				},
+				{
+					"name": "Stool_Leg",
+					"triangles": 70
+				},
+				{
+					"name": "SeesawSeat",
+					"triangles": 104
+				},
+				{
+					"name": "Table_wood",
+					"triangles": 124
+				},
+				{
+					"name": "Stool",
+					"triangles": 132
+				}
+			]
+		},
+		"container": {
+			"sample_size": 50,
+			"triangles": {
+				"p25": 135,
+				"median": 250,
+				"p75": 484,
+				"p90": 652,
+				"max": 1356
+			},
+			"triangles_per_square_metre": {
+				"p25": 63,
+				"median": 109,
+				"p75": 222
+			},
+			"examples": [
+				{
+					"name": "Jar_Firefly_Wing",
+					"triangles": 14
+				},
+				{
+					"name": "StorageBox_flap01",
+					"triangles": 18
+				},
+				{
+					"name": "StorageBox_flap02",
+					"triangles": 18
+				},
+				{
+					"name": "StorageBox_box_innerFlaps",
+					"triangles": 24
+				},
+				{
+					"name": "DarkPot_inner",
+					"triangles": 28
+				},
+				{
+					"name": "Jar_Firefly",
+					"triangles": 48
+				}
+			]
+		},
+		"rock_stone": {
+			"sample_size": 52,
+			"triangles": {
+				"p25": 44,
+				"median": 105,
+				"p75": 174,
+				"p90": 356,
+				"max": 728
+			},
+			"triangles_per_square_metre": {
+				"p25": 41,
+				"median": 89,
+				"p75": 130
+			},
+			"examples": [
+				{
+					"name": "Stone Paving base",
+					"triangles": 12
+				},
+				{
+					"name": "SmallRock",
+					"triangles": 14
+				},
+				{
+					"name": "SteppingStone",
+					"triangles": 22
+				},
+				{
+					"name": "FlatRock",
+					"triangles": 26
+				},
+				{
+					"name": "StoneWall_straight",
+					"triangles": 28
+				},
+				{
+					"name": "TallRock",
+					"triangles": 28
+				}
+			]
+		},
+		"building": {
+			"sample_size": 68,
+			"triangles": {
+				"p25": 28,
+				"median": 70,
+				"p75": 356,
+				"p90": 504,
+				"max": 728
+			},
+			"triangles_per_square_metre": {
+				"p25": 34,
+				"median": 76,
+				"p75": 109
+			},
+			"examples": [
+				{
+					"name": "ThornFenceThorn",
+					"triangles": 8
+				},
+				{
+					"name": "Pond_straight_wall",
+					"triangles": 12
+				},
+				{
+					"name": "Iron Fence post",
+					"triangles": 14
+				},
+				{
+					"name": "WoodFence_post",
+					"triangles": 14
+				},
+				{
+					"name": "House_collider",
+					"triangles": 16
+				},
+				{
+					"name": "Pond_incorner_wall",
+					"triangles": 16
+				}
+			]
+		},
+		"animal": {
+			"sample_size": 34,
+			"triangles": {
+				"p25": 48,
+				"median": 136,
+				"p75": 224,
+				"p90": 400,
+				"max": 520
+			},
+			"triangles_per_square_metre": {
+				"p25": 156,
+				"median": 304,
+				"p75": 476
+			},
+			"examples": [
+				{
+					"name": "Beehive_roof",
+					"triangles": 20
+				},
+				{
+					"name": "Beehive_legs",
+					"triangles": 40
+				},
+				{
+					"name": "FrogPet_ArmLower",
+					"triangles": 40
+				},
+				{
+					"name": "FrogPet_ArmUpper",
+					"triangles": 40
+				},
+				{
+					"name": "FrogPet_Foot",
+					"triangles": 40
+				},
+				{
+					"name": "FrogPet_Lower",
+					"triangles": 40
+				}
+			]
+		},
+		"decor_small": {
+			"sample_size": 64,
+			"triangles": {
+				"p25": 100,
+				"median": 228,
+				"p75": 418,
+				"p90": 512,
+				"max": 638
+			},
+			"triangles_per_square_metre": {
+				"p25": 154,
+				"median": 264,
+				"p75": 599
+			},
+			"examples": [
+				{
+					"name": "Book_pages",
+					"triangles": 12
+				},
+				{
+					"name": "MetalLantern_candle",
+					"triangles": 28
+				},
+				{
+					"name": "ASignBar",
+					"triangles": 32
+				},
+				{
+					"name": "Bottle_Cork",
+					"triangles": 36
+				},
+				{
+					"name": "JackLantern_inner_face",
+					"triangles": 36
+				},
+				{
+					"name": "MsgBottle_cork",
+					"triangles": 36
+				}
+			]
+		}
+	}
+}

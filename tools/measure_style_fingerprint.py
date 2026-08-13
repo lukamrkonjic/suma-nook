@@ -55,6 +55,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--assets", nargs="*", default=[])
     parser.add_argument("--all", action="store_true")
+    parser.add_argument(
+        "--directory",
+        type=Path,
+        help="Measure every .glb under this directory instead of resolving "
+        "asset ids in the repo. Used to profile reference libraries.",
+    )
     parser.add_argument("--out", type=Path, required=True)
     return parser.parse_args(arguments)
 
@@ -145,7 +151,8 @@ def measure(path: Path) -> dict:
     mesh.free()
 
     return {
-        "path": str(path.relative_to(REPOSITORY_ROOT)),
+        "path": path.name,
+        "surface_area": round(total_area, 5),
         "dimensions": [round(value, 4) for value in (size.x, size.y, size.z)],
         "triangles": triangles,
         "components": components,
@@ -171,6 +178,18 @@ def main() -> None:
         asset_ids = sorted(path.stem for path in directory.glob("*.glb"))
 
     results = {}
+    if arguments.directory is not None:
+        for path in sorted(arguments.directory.rglob("*.glb")):
+            try:
+                results[path.stem] = measure(path)
+            except Exception as error:  # a reference library may hold odd files
+                results[path.stem] = {"error": str(error)}
+        print(f"measured {len(results)} files from {arguments.directory}")
+        arguments.out.parent.mkdir(parents=True, exist_ok=True)
+        arguments.out.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
+        print(f"FINGERPRINT_OUT={arguments.out}")
+        return
+
     for asset_id in asset_ids:
         path = resolve(asset_id)
         if path is None:

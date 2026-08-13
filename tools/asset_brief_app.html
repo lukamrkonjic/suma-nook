@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Suma asset brief</title>
+<style>
+  :root {
+    --bg: #efe9d8; --panel: #f8f4e8; --ink: #2f2418; --muted: #7a6a53;
+    --line: #ddd2ba; --accent: #915720; --accent-soft: #f0e2cc;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 "Segoe UI", system-ui, sans-serif;
+    display: flex; flex-direction: column; height: 100vh;
+  }
+  header {
+    padding: 14px 20px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: baseline; gap: 12px; flex: none;
+  }
+  header h1 { margin: 0; font-size: 16px; letter-spacing: .01em; }
+  header span { color: var(--muted); font-size: 13px; }
+  #log { flex: 1; overflow-y: auto; padding: 20px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px 18px; margin: 0 auto 16px; max-width: 780px;
+  }
+  .you { background: var(--accent-soft); font-weight: 600; }
+  .head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .head b { font-size: 17px; }
+  .tag {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 2px 9px;
+  }
+  .budget { font-size: 26px; font-weight: 700; color: var(--accent); }
+  .budget small { font-size: 13px; font-weight: 400; color: var(--muted); }
+  .why { font-size: 12.5px; color: var(--muted); margin: 6px 0 14px; }
+  h4 { margin: 16px 0 6px; font-size: 12px; text-transform: uppercase;
+       letter-spacing: .07em; color: var(--muted); font-weight: 600; }
+  pre {
+    background: #fffdf7; border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px 14px; margin: 0; white-space: pre-wrap; word-break: break-word;
+    font: 13px/1.5 ui-monospace, "Cascadia Code", Consolas, monospace;
+  }
+  button.copy {
+    margin-top: 8px; background: var(--accent); color: #fff; border: 0;
+    border-radius: 6px; padding: 6px 14px; font-size: 13px; cursor: pointer;
+  }
+  button.copy:hover { background: #754118; }
+  .note { font-size: 13px; color: var(--muted); margin-top: 12px; font-style: italic; }
+  .err { color: #8a2b1c; }
+  footer { flex: none; border-top: 1px solid var(--line); padding: 12px 20px; }
+  form { display: flex; gap: 10px; max-width: 780px; margin: 0 auto; }
+  input {
+    flex: 1; padding: 11px 14px; font-size: 15px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+  }
+  input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  form button {
+    padding: 0 22px; font-size: 15px; border: 0; border-radius: 8px;
+    background: var(--accent); color: #fff; cursor: pointer;
+  }
+  form button:disabled { opacity: .5; cursor: default; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Suma asset brief</h1>
+  <span>type an item &rarr; image prompt + Meshy polycount</span>
+</header>
+
+<div id="log">
+  <div class="card">
+    <div class="head"><b>Type an item.</b></div>
+    <div class="why">
+      Try <em>bamboo table</em>, <em>stone lantern</em>, <em>watering can</em>.
+      You get a prompt to paste into an image generator, and the triangle budget
+      that item should hit &mdash; computed from Garden Galaxy's own 724 shipped
+      assets, not guessed.
+    </div>
+  </div>
+</div>
+
+<footer>
+  <form id="f">
+    <input id="q" placeholder="bamboo table" autocomplete="off" autofocus>
+    <button id="go">Ask</button>
+  </form>
+</footer>
+
+<script>
+const log = document.getElementById('log');
+const form = document.getElementById('f');
+const box = document.getElementById('q');
+const go = document.getElementById('go');
+
+function esc(s) {
+  return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+}
+function add(html, cls) {
+  const el = document.createElement('div');
+  el.className = 'card' + (cls ? ' ' + cls : '');
+  el.innerHTML = html;
+  log.appendChild(el);
+  log.scrollTop = log.scrollHeight;
+  return el;
+}
+function block(label, text) {
+  const id = 'b' + Math.random().toString(36).slice(2);
+  return `<h4>${label}</h4><pre id="${id}">${esc(text)}</pre>
+          <button class="copy" data-t="${id}">Copy</button>`;
+}
+
+log.addEventListener('click', e => {
+  const b = e.target.closest('button.copy');
+  if (!b) return;
+  navigator.clipboard.writeText(document.getElementById(b.dataset.t).textContent);
+  b.textContent = 'Copied';
+  setTimeout(() => { b.textContent = 'Copy'; }, 1200);
+});
+
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  const item = box.value.trim();
+  if (!item) return;
+  add(esc(item), 'you');
+  box.value = '';
+  go.disabled = true;
+  const pending = add('<span style="color:var(--muted)">Measuring against the reference library&hellip;</span>');
+
+  try {
+    const res = await fetch('/brief', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({item})
+    });
+    const d = await res.json();
+    if (d.error) {
+      pending.innerHTML = `<span class="err">${esc(d.error)}</span>`;
+    } else {
+      const p = d.polycount;
+      const eg = (p.examples || [])
+        .map(x => `${esc(x.name)} ${x.triangles}`).join(' &middot; ');
+      pending.innerHTML =
+        `<div class="head">
+           <b>${esc(d.item)}</b>
+           <span class="tag">${esc(d.category)}</span>
+           <span class="tag">${d.part_count} part${d.part_count === 1 ? '' : 's'}</span>
+           <span class="tag">~${d.surface_area_m2} m&sup2;</span>
+         </div>
+         <div class="budget">${p.low}&ndash;${p.high} <small>triangles, finished model</small></div>
+         <div class="why">
+           Garden Galaxy <b>${esc(d.category)}</b> (n=${p.sample_size}):
+           median ${p.category_median}, p75 ${p.category_p75}, max ${p.category_max}.
+           At ${p.density} tris/m&sup2; this item's ~${d.surface_area_m2} m&sup2; implies ${p.from_area}.
+           Nothing in the whole GG library exceeds ${p.hard_ceiling}.
+           ${eg ? '<br>Reference: ' + eg : ''}
+         </div>
+         ${block('Image prompt', d.prompt)}
+         ${block('Negative prompt', d.negative_prompt)}
+         <div class="note">${esc(d.modelling_note)}</div>`;
+    }
+  } catch (err) {
+    pending.innerHTML = `<span class="err">${esc(err)}</span>`;
+  }
+  go.disabled = false;
+  box.focus();
+});
+</script>
+</body>
+</html>
