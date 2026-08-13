@@ -111,6 +111,16 @@ def parse_args() -> argparse.Namespace:
         choices=("none", "tree", "shrub", "wood_prop", "stone_prop", "generic"),
         default="none",
     )
+    parser.add_argument(
+        "--cluster-merge-distance",
+        type=float,
+        default=CLUSTER_MERGE_DISTANCE,
+        help=(
+            "How close two colour clusters must be to be treated as one paint. "
+            "Lower to keep materials apart on a model whose texture barely "
+            "separates them."
+        ),
+    )
     return parser.parse_args(arguments)
 
 
@@ -499,6 +509,14 @@ MIN_CLUSTER_FACE_SHARE = 0.01
 # fittings sit 0.139 from the lit frame and must not -- they are only 3 degrees
 # apart in hue, so nothing but this gap separates them.
 CLUSTER_MERGE_DISTANCE = 0.12
+# The default cannot be right for every model. Measured pairs: the wheelbarrow's
+# lit and shaded frame sit 0.103 apart and must merge, while the tent's canvas
+# and its cream bindings sit 0.084 apart and must not. From the texture alone
+# those two cases are indistinguishable -- one paint under two lights looks
+# exactly like two paints of similar hue -- so when a reference image says the
+# model has more materials than the default finds, lower this rather than
+# pretend the rule can tell.
+_cluster_merge_distance = CLUSTER_MERGE_DISTANCE
 # Two palette entries closer than this are the same colour to the eye, so only
 # one of them is offered.
 MIN_SLOT_SEPARATION = 0.006
@@ -658,7 +676,7 @@ def _merge_near_clusters(clusters: list[dict]) -> list[dict]:
     """
     while len(clusters) > 1:
         best_pair = None
-        best_distance = CLUSTER_MERGE_DISTANCE
+        best_distance = _cluster_merge_distance
         for left in range(len(clusters)):
             for right in range(left + 1, len(clusters)):
                 gap = _perceptual_distance(
@@ -1078,6 +1096,8 @@ def _same_dimensions(before: dict, after: dict) -> bool:
 
 def main() -> None:
     arguments = parse_args()
+    global _cluster_merge_distance
+    _cluster_merge_distance = arguments.cluster_merge_distance
     clear_scene()
     bpy.ops.import_scene.gltf(filepath=str(arguments.source.resolve()))
     mesh_objects = [

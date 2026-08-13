@@ -91,6 +91,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--scale", type=float, default=1.0)
     parser.add_argument("--smoothing", type=float)
     parser.add_argument(
+        "--color-merge-distance",
+        type=float,
+        help=(
+            "How close two colour clusters must be to count as one paint "
+            "(default 0.12). Lower it when a reference image shows more "
+            "materials than the import finds."
+        ),
+    )
+    parser.add_argument(
         "--rotate-medium-cluster",
         type=float,
         default=0.0,
@@ -219,6 +228,10 @@ def main() -> None:
         "--report",
         str(report_path),
     ]
+    if arguments.color_merge_distance is not None:
+        prepare_arguments.extend(
+            ["--cluster-merge-distance", str(arguments.color_merge_distance)]
+        )
     if not abs(arguments.rotate_medium_cluster) < 1.0e-6:
         prepare_arguments.extend(
             ["--rotate-medium-cluster", str(arguments.rotate_medium_cluster)]

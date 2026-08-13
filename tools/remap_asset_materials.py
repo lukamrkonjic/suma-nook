@@ -27,6 +27,7 @@ Run headless:
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -34,18 +35,26 @@ from pathlib import Path
 import bpy
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-PALETTE_PATH = REPOSITORY_ROOT / "assets" / "palettes" / "gg_material_palette.tres"
+# The same file the importer writes its colours from, deliberately.
+#
+# This used to read assets/palettes/gg_material_palette.tres, which holds
+# different values for every slot -- and values already dark enough that the
+# sRGB-to-linear step darkened them a second time. Remapping a tent's canvas to
+# `gold` stored (0.065, 0.053, 0.005) where the importer would have written
+# (0.723, 0.468, 0.019), and the mustard rendered as dark olive. Renaming a
+# slot has to produce exactly what choosing that slot at import would have.
+PALETTE_PATH = (
+    REPOSITORY_ROOT / "data" / "garden_galaxy_reference_palette.json"
+)
 
 
 def palette_colour(token: str) -> tuple[float, float, float] | None:
-    """First sRGB entry for a token in the shared palette, as linear RGB."""
-    pattern = re.compile(
-        rf'"{re.escape(token)}"\s*:\s*Color\(([^)]+)\)'
-    )
-    match = pattern.search(PALETTE_PATH.read_text(encoding="utf-8"))
-    if match is None:
+    """The token's authored sRGB from the reference palette, as linear RGB."""
+    exact = json.loads(PALETTE_PATH.read_text(encoding="utf-8"))["exact"]
+    raw = str(exact.get(token, "")).removeprefix("#")
+    if len(raw) != 6:
         return None
-    parts = [float(value) for value in match.group(1).split(",")[:3]]
+    parts = [int(raw[index : index + 2], 16) / 255.0 for index in (0, 2, 4)]
     return tuple(
         channel / 12.92 if channel <= 0.04045 else ((channel + 0.055) / 1.055) ** 2.4
         for channel in parts

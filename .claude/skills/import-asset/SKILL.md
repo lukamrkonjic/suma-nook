@@ -165,6 +165,42 @@ Four things were each wrong at least once, and each is now load-bearing:
   poor -- keying it on the alternatives let the statue's lit stone and its
   shadow share one entry and flattened the carving to a single tone.
 
+### When the cluster count is wrong
+
+The default merge distance cannot be right for every model, and the two failure
+cases are genuinely indistinguishable from the texture alone. Measured: the
+wheelbarrow's lit and shaded frame sit 0.103 apart and *must* merge, while the
+tent's canvas and its cream bindings sit 0.084 apart and *must not*. One paint
+under two lights looks exactly like two paints of similar hue.
+
+So when a reference image shows more materials than the import finds -- tent2
+came back as a single 1200-face cluster where the image plainly has canvas,
+poles and bindings -- lower it:
+
+```bash
+python tools/import_meshy_asset.py --source "<SOURCE.glb>" --asset-id <prop>   --profile <profile> --scale <scale> --color-merge-distance 0.06 --force
+```
+
+Sweep it rather than guessing, with `--skip-render --no-install` so nothing is
+written, and pick a value in the middle of a stable band. The tent gave three
+clusters from 0.06 all the way down to 0.03, so 0.06 is safe; a value that only
+works in a narrow window is fitted to noise.
+
+### Matching a reference image exactly
+
+Nearest-match works from the texture, which is often far more washed out than
+the render the user is comparing against. When the user supplies a reference
+image and asks for it to be matched, map the clusters deliberately instead:
+find the palette entry nearest each colour *in the image*, then remap. The
+tent's canvas sampled as a dull tan but the image is mustard, which is `gold` at
+a distance of 0.038.
+
+Beware that HLS saturation is unreliable for very light colours, so a cream can
+score badly against the near-neutral entry that actually looks right -- the
+tent's cream binding ranked `sand_top` first and `warm_white` fourth, and
+`warm_white` is the correct read. Trust the image over the ranking for pale
+tones.
+
 A **hue-band penalty** stops a chromatic colour crossing families when the
 palette has a gap. The statue's moss samples at 57 degrees, yellow-green, and
 the palette jumps from gold at 51 straight to the first green at 80 -- so the
@@ -213,9 +249,16 @@ source rather than with a runtime override:
   --map <wrong_slot>=<right_slot>
 ```
 
+Note `--map` takes space-separated pairs, so repeating the flag silently keeps
+only the last one: `--map a=b c=d`, not `--map a=b --map c=d`.
+
 That renames the slot **and** writes the palette colour, which matters: renaming
 alone fixes the game (MaterialLibrary rebinds by name) while leaving every
-offline render showing the old colour.
+offline render showing the old colour. The colour comes from
+`data/garden_galaxy_reference_palette.json`, the same file the importer uses --
+it used to come from `gg_material_palette.tres`, which holds different values
+for every slot and darkened them a second time, so a canvas remapped to `gold`
+rendered dark olive.
 
 For a `tree`, also confirm the split worked:
 
