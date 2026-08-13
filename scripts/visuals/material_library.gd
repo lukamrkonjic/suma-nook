@@ -15,6 +15,9 @@ const SURFACE_SHADER: Shader = preload("res://assets/materials/reworked/gg_prop_
 const SOFT_TERRAIN_SHADER: Shader = preload(
 	"res://assets/materials/reworked/gg_soft_terrain.gdshader"
 )
+const ArtStyleSettingsScript := preload(
+	"res://scripts/visuals/art_style_settings.gd"
+)
 const SOFT_TERRAIN_IMPRINT_COUNT := 12
 const SOFT_TERRAIN_PARAMETERS := {
 	"sand_top": {
@@ -40,6 +43,9 @@ const SURFACE_RAMP := {
 	"mottle_amount": 0.0,
 }
 const STYLE_DATA_PATH := "res://data/material_styles.json"
+const GARDEN_GALAXY_PALETTE_PATH := (
+	"res://data/garden_galaxy_reference_palette.json"
+)
 const WATER_PARAMETERS := {
 	"wave_height": 0.032,
 	"wave_speed": 0.72,
@@ -54,6 +60,24 @@ const WATER_PARAMETERS := {
 	"fresnel_strength": 0.52,
 	"water_level": -0.14,
 	"side_opacity": 1.0,
+}
+## Frozen July 28 Garden Galaxy reconstruction values from commit 3e271add.
+## The active style selects this period response without disturbing the later
+## baseline water tuning.
+const GARDEN_GALAXY_WATER_PARAMETERS := {
+	"wave_height": 0.048,
+	"wave_speed": 1.08,
+	"surface_shimmer": 0.16,
+	"depth_falloff": 0.5,
+	"shallow_alpha": 0.8,
+	"deep_alpha": 0.97,
+	"foam_width": 0.13,
+	"water_roughness": 0.42,
+	"water_specular": 0.18,
+	"scene_lighting_response": 1.0,
+	"fresnel_strength": 0.22,
+	"water_level": -0.14,
+	"side_opacity": 0.88,
 }
 const UNDERWATER_PARAMETERS := {
 	"water_level": -0.14,
@@ -83,11 +107,23 @@ const METALS := {
 var palette: CozyPalette
 var _materials: Dictionary = {}
 var _style_data: Dictionary = {}
+var _garden_galaxy_palette: Dictionary = {}
+var _art_style_id := "baseline"
+var _art_style: Dictionary = {}
 
 
-func _init(pal: CozyPalette) -> void:
+func _init(pal: CozyPalette, requested_art_style := "") -> void:
 	palette = pal
 	_style_data = JSON.parse_string(FileAccess.get_file_as_string(STYLE_DATA_PATH))
+	_garden_galaxy_palette = JSON.parse_string(
+		FileAccess.get_file_as_string(GARDEN_GALAXY_PALETTE_PATH)
+	)
+	_art_style_id = (
+		ArtStyleSettingsScript.active_style_id()
+		if requested_art_style.is_empty()
+		else requested_art_style
+	)
+	_art_style = ArtStyleSettingsScript.preset(_art_style_id)
 	if palette is PaletteDefinition:
 		(palette as PaletteDefinition).palette_changed.connect(
 			_on_palette_changed
@@ -105,12 +141,16 @@ func material(key: String) -> Material:
 		return _cache(key, _underwater_material(key))
 	if not _has_palette_color(key):
 		return _fallback()
-	var style := material_parameters(key)
-	var emission_energy := float(style.get("emission_energy", EMISSIVE.get(key, 0.0)))
+	var style := _active_style_parameters(key, material_parameters(key))
+	var emission_energy := (
+		float(style.get("emission_energy", EMISSIVE.get(key, 0.0)))
+		* float(_art_style.get("emission_scale", 1.0))
+	)
 	var alpha := float(style.get("alpha", 1.0))
-	# Only deformable sand/snow retain a custom shader. Every ordinary opaque
-	# surface uses Godot's native physically based material response: no baked
-	# vertical ramp, no painted mottling, and no orientation tint.
+	# Deformable sand/snow retain their fixed-budget imprint shader. The
+	# Reference materials stay colour-clean. Broad form shading comes from the
+	# light and smoothed normals; imported surface dirt must never be replaced by
+	# procedural dirt. Soft terrain keeps its dedicated interaction shader.
 	if (
 		emission_energy <= 0.0
 		and alpha >= 1.0
@@ -127,8 +167,9 @@ func material(key: String) -> Material:
 		surface.set_shader_parameter("roughness_val", float(style["roughness"]))
 		surface.set_shader_parameter("metallic_val", float(style["metallic"]))
 		surface.set_shader_parameter("specular_val", float(style["specular"]))
-		for parameter in SURFACE_RAMP:
-			surface.set_shader_parameter(parameter, SURFACE_RAMP[parameter])
+		var ramp_parameters := _surface_ramp_parameters()
+		for parameter in ramp_parameters:
+			surface.set_shader_parameter(parameter, ramp_parameters[parameter])
 		if SOFT_TERRAIN_PARAMETERS.has(key):
 			_configure_soft_terrain_material(
 				surface,
@@ -137,6 +178,15 @@ func material(key: String) -> Material:
 			)
 		_materials[key] = surface
 		return surface
+	if (
+		emission_energy <= 0.0
+		and alpha >= 1.0
+		and String(_art_style.get("surface_mode", "baseline_pbr")) in [
+			"garden_galaxy_diorama",
+			"garden_galaxy_reference_pbr",
+		]
+	):
+		return _cache(key, _garden_galaxy_surface_material(key, style))
 	var m := StandardMaterial3D.new()
 	m.resource_name = key
 	m.albedo_color = _styled_albedo(key, palette.color(key), style)
@@ -154,6 +204,118 @@ func material(key: String) -> Material:
 		m.albedo_color.a = alpha
 	_materials[key] = m
 	return m
+
+
+func art_style_id() -> String:
+	return _art_style_id
+
+
+func _surface_ramp_parameters() -> Dictionary:
+	var parameters := SURFACE_RAMP.duplicate(true)
+	var surface_mode := String(_art_style.get("surface_mode", "baseline_pbr"))
+	if surface_mode == "garden_galaxy_diorama":
+		parameters["ramp_top_lift"] = 0.10
+		parameters["ramp_bottom_drop"] = 0.16
+		parameters["mottle_amount"] = 0.035
+	elif surface_mode == "garden_galaxy_reference_pbr":
+		# The reference screenshots use large deliberate colour regions and clean
+		# surfaces. Lighting supplies the gradient; procedural grain made imported
+		# Meshy assets look dirty beside the native props.
+		parameters["ramp_top_lift"] = 0.035
+		parameters["ramp_bottom_drop"] = 0.055
+		parameters["mottle_amount"] = 0.0
+	return parameters
+
+
+func _garden_galaxy_surface_material(
+	key: String,
+	style: Dictionary
+) -> ShaderMaterial:
+	var material_instance := ShaderMaterial.new()
+	material_instance.resource_name = key
+	material_instance.shader = SURFACE_SHADER
+	material_instance.set_shader_parameter(
+		"albedo",
+		_styled_albedo(key, palette.color(key), style)
+	)
+	material_instance.set_shader_parameter(
+		"roughness_val",
+		float(style.get("roughness", 0.72))
+	)
+	material_instance.set_shader_parameter(
+		"metallic_val",
+		float(style.get("metallic", 0.0))
+	)
+	material_instance.set_shader_parameter(
+		"specular_val",
+		float(style.get("specular", 0.5))
+	)
+	for parameter_name in _surface_ramp_parameters():
+		material_instance.set_shader_parameter(
+			parameter_name,
+			_surface_ramp_parameters()[parameter_name]
+		)
+	return material_instance
+
+
+func _active_style_parameters(key: String, source: Dictionary) -> Dictionary:
+	var result := source.duplicate(true)
+	if not _uses_garden_galaxy_reference():
+		return result
+	result["family"] = "garden_galaxy_reference_pbr"
+	# Exact response selected by the old crisp-studio graphics test. Material
+	# classes keep distinct gloss and pastelization instead of collapsing into
+	# one uniformly matte toy surface.
+	result["calm_cream_mix"] = 0.08
+	result["calm_value_lift"] = 0.0
+	result["metallic"] = 0.0
+	result["specular"] = 0.5
+	result["roughness"] = 0.72
+	var lower_key := key.to_lower()
+	if _contains_any(
+		lower_key,
+		["grass", "moss", "leaf", "foliage", "pine", "olive", "flora", "reed"]
+	):
+		result["roughness"] = 0.74
+		result["calm_cream_mix"] = 0.14
+	elif _contains_any(lower_key, ["earth", "soil", "sand"]):
+		result["roughness"] = 0.8
+		result["specular"] = 0.45
+		result["calm_cream_mix"] = 0.08
+	elif _contains_any(lower_key, ["stone", "rock", "concrete"]):
+		result["roughness"] = 0.7
+		result["calm_cream_mix"] = 0.06
+	elif _contains_any(lower_key, ["wood", "cardboard"]):
+		result["roughness"] = 0.72
+		result["calm_cream_mix"] = 0.1
+	elif _contains_any(lower_key, ["terracotta", "ceramic", "coral", "burnt_red"]):
+		result["roughness"] = 0.66
+		result["specular"] = 0.55
+		result["calm_cream_mix"] = 0.1
+	elif _contains_any(
+		lower_key,
+		["fabric", "skin", "hair", "petal", "flower", "mushroom", "cream_fabric"]
+	):
+		result["roughness"] = 0.8
+		result["specular"] = 0.45
+		result["calm_cream_mix"] = 0.08
+	elif lower_key.contains("snow"):
+		result["roughness"] = 0.82
+		result["specular"] = 0.35
+		result["calm_cream_mix"] = 0.0
+	elif _contains_any(lower_key, ["gold", "metal"]):
+		result["roughness"] = float(source.get("roughness", 0.72))
+		result["metallic"] = float(source.get("metallic", 0.28))
+		result["specular"] = float(source.get("specular", 0.22))
+		result["calm_cream_mix"] = 0.0
+	return result
+
+
+func _contains_any(source: String, needles: Array) -> bool:
+	for needle: String in needles:
+		if source.contains(needle):
+			return true
+	return false
 
 
 ## Returns a complete semantic parameter record for every palette material.
@@ -189,7 +351,11 @@ func material_parameter_manifest() -> Dictionary:
 			var style := material_parameters(key)
 			var standard := live as StandardMaterial3D
 			if not standard.emission_enabled and standard.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED:
-				style["family"] = "realistic_pbr_surface"
+				style["family"] = (
+					"garden_galaxy_reference_pbr"
+					if _uses_garden_galaxy_reference()
+					else "realistic_pbr_surface"
+				)
 			style["material_class"] = "StandardMaterial3D"
 			style["albedo_color"] = standard.albedo_color
 			style["roughness"] = standard.roughness
@@ -240,9 +406,14 @@ func _shader_material_manifest(key: String, shader_material: ShaderMaterial) -> 
 		parameters["metallic"] = parameters["metallic_val"]
 		parameters["specular"] = parameters["specular_val"]
 		return {
-			"family": "gg_diorama_surface",
+			"family": (
+				"garden_galaxy_reference_pbr"
+				if _uses_garden_galaxy_reference()
+				else "gg_diorama_surface"
+			),
 			"material_class": "ShaderMaterial",
 			"shader_path": shader_material.shader.resource_path,
+			"art_style_id": _art_style_id,
 			"parameters": parameters,
 		}
 	var family := "original_underwater_shader"
@@ -332,9 +503,19 @@ func _water_material() -> ShaderMaterial:
 	m.set_shader_parameter("side_bottom_color", palette.color("water_turquoise"))
 	m.set_shader_parameter("caustic_color", palette.color("water_caustic"))
 	m.set_shader_parameter("placement_invalid_tint", palette.color("ui_invalid"))
-	for parameter in WATER_PARAMETERS:
-		m.set_shader_parameter(parameter, WATER_PARAMETERS[parameter])
+	var water_parameters := _active_water_parameters()
+	for parameter in water_parameters:
+		m.set_shader_parameter(parameter, water_parameters[parameter])
 	return m
+
+
+func _active_water_parameters() -> Dictionary:
+	if (
+		String(_art_style.get("surface_mode", "baseline_pbr"))
+		in ["garden_galaxy_diorama", "garden_galaxy_reference_pbr"]
+	):
+		return GARDEN_GALAXY_WATER_PARAMETERS
+	return WATER_PARAMETERS
 
 
 func _underwater_material(key: String) -> ShaderMaterial:
@@ -367,17 +548,45 @@ func tinted(base_key: String, tint: Color) -> Material:
 	var cache_key := "%s|%s" % [base_key, tint.to_html()]
 	if _materials.has(cache_key):
 		return _materials[cache_key]
-	var m := material(base_key).duplicate() as StandardMaterial3D
-	m.resource_name = cache_key
-	m.albedo_color = Color(_styled_albedo(base_key, tint), m.albedo_color.a)
-	if m.emission_enabled:
-		m.emission = tint
-	_materials[cache_key] = m
-	return m
+	var instance := material(base_key).duplicate() as Material
+	instance.resource_name = cache_key
+	if instance is ShaderMaterial:
+		(instance as ShaderMaterial).set_shader_parameter(
+			"albedo",
+			_styled_albedo(
+				base_key,
+				tint,
+				_active_style_parameters(
+					base_key,
+					material_parameters(base_key)
+				)
+			)
+		)
+	elif instance is StandardMaterial3D:
+		var standard := instance as StandardMaterial3D
+		standard.albedo_color = Color(
+			_styled_albedo(
+				base_key,
+				tint,
+				_active_style_parameters(
+					base_key,
+					material_parameters(base_key)
+				)
+			),
+			standard.albedo_color.a
+		)
+		if standard.emission_enabled:
+			standard.emission = tint
+	_materials[cache_key] = instance
+	return instance
 
 
 func _styled_albedo(key: String, source: Color, supplied_style := {}) -> Color:
 	var style: Dictionary = supplied_style if not supplied_style.is_empty() else material_parameters(key)
+	if _uses_garden_galaxy_reference():
+		if supplied_style.is_empty():
+			style = _active_style_parameters(key, style)
+		source = _garden_galaxy_reference_color(key, source)
 	var cream := palette.color("warm_white")
 	var result := source.lerp(cream, float(style.get("calm_cream_mix", 0.0)))
 	var lift := float(style.get("calm_value_lift", 0.0))
@@ -386,6 +595,25 @@ func _styled_albedo(key: String, source: Color, supplied_style := {}) -> Color:
 	result.b = minf(1.0, result.b + lift)
 	result.a = source.a
 	return result
+
+
+func _garden_galaxy_reference_color(key: String, fallback: Color) -> Color:
+	var exact: Dictionary = _garden_galaxy_palette.get("exact", {})
+	if exact.has(key):
+		return Color.from_string(String(exact[key]), fallback)
+	var lower_key := key.to_lower()
+	for family: Dictionary in _garden_galaxy_palette.get("families", []):
+		for token: String in family.get("contains", []):
+			if lower_key.contains(token):
+				return Color.from_string(String(family.get("color", "")), fallback)
+	return fallback
+
+
+func _uses_garden_galaxy_reference() -> bool:
+	return (
+		String(_art_style.get("surface_mode", "baseline_pbr"))
+		== "garden_galaxy_reference_pbr"
+	)
 
 
 ## Recursively swap every surface whose imported material name matches a palette

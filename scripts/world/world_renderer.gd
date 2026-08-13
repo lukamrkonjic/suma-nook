@@ -645,8 +645,11 @@ func _build_structure(holder: Node3D, s: WorldGrid.StructureState) -> void:
 			core.fire.is_burning(s.instance_id)
 		)
 	_sync_opportunity_markers(visual, s, def)
-	if "tree" in def.placement_tags:
-		_attach_tree_wind(visual, s.instance_id)
+	if (
+		"tree" in def.placement_tags
+		or "windy_foliage" in def.placement_tags
+	):
+		_attach_foliage_wind(visual, s.instance_id)
 	else:
 		_attach_ambient_motion(visual, Vector2i(s.instance_id, s.rotation))
 
@@ -763,7 +766,7 @@ func _has_perpendicular_wall_at(
 	return false
 
 
-func _attach_tree_wind(root: Node3D, seed_value: int) -> void:
+func _attach_foliage_wind(root: Node3D, seed_value: int) -> void:
 	var controller := FoliageWindScript.new()
 	root.add_child(controller)
 	controller.setup(root, seed_value)

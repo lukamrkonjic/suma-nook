@@ -26,6 +26,7 @@ signal ground_landed(
 )
 signal arrival_choice_ready
 signal arrival_landed
+signal worldheart_arrival_finished
 ## The keeper is a world tool as well as an actor. Every gameplay session
 ## begins with them in the HUD dock; this signal keeps that dock synchronized
 ## after a drop or a recall animation finishes.
@@ -547,6 +548,60 @@ func _abort_dock_tween() -> void:
 # ------------------------------------------------------------------ water rescue
 
 const RESCUE_HOLE_SHADER: Shader = preload("res://assets/materials/reworked/rescue_black_hole.gdshader")
+
+## Fresh diorama start: rise through the permanent Worldheart and hop onto its
+## safe neighboring home tile. The hole is scene-owned, so this animation does
+## not create or close a temporary copy.
+func begin_worldheart_arrival() -> void:
+	if state == State.ARRIVING:
+		return
+	set_state(State.ARRIVING)
+	cancel_click_command()
+	deployed = true
+	visible = true
+	collision_layer = 0
+	collision_mask = 0
+	velocity = Vector3.ZERO
+	visual.set_walk(0.0, 0.016)
+	visual.play("idle")
+	visual.visible = false
+	visual.scale = Vector3.ONE
+	var centre := core.grid.cell_to_world(core.diorama.worldheart.worldheart_cell)
+	var target := core.grid.cell_to_world(core.grid.home_cell)
+	position = centre - Vector3.UP * 1.15
+	var arrival := create_tween()
+	_arrival_tween = arrival
+	arrival.tween_interval(0.16)
+	arrival.tween_callback(func() -> void:
+		visual.visible = true
+		_squash(0.82, 1.2)
+	)
+	arrival.tween_property(self, "position:y", centre.y + 0.58, 0.28).set_trans(
+		Tween.TRANS_BACK
+	).set_ease(Tween.EASE_OUT)
+	arrival.tween_callback(_squash.bind(1.0, 1.0))
+	var hop_start := centre + Vector3.UP * 0.58
+	arrival.tween_method(func(progress: float) -> void:
+		position = hop_start.lerp(target, progress)
+		position.y += sin(progress * PI) * 0.34
+	, 0.0, 1.0, 0.48).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	arrival.tween_callback(_squash.bind(1.22, 0.76))
+	arrival.tween_property(self, "position:y", target.y + 0.12, 0.09).set_trans(
+		Tween.TRANS_QUAD
+	).set_ease(Tween.EASE_OUT)
+	arrival.tween_callback(_squash.bind(0.92, 1.1))
+	arrival.tween_property(self, "position:y", target.y, 0.09).set_trans(
+		Tween.TRANS_QUAD
+	).set_ease(Tween.EASE_IN)
+	arrival.tween_callback(func() -> void:
+		_arrival_tween = null
+		visual.scale = Vector3.ONE
+		velocity = Vector3.ZERO
+		core.profile.position = position
+		core.profile.facing = rotation.y
+		set_state(State.DISABLED)
+		worldheart_arrival_finished.emit()
+	)
 
 ## The keeper appears before the world does. At the top of the portal rise the
 ## sequence pauses so the first land choice can become literal.

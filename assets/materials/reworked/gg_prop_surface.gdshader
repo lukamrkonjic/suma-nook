@@ -1,10 +1,8 @@
 shader_type spatial;
 // Diorama surface for opaque palette materials. GG's props read "soft" because
-// their painted albedo textures bake a gentle vertical shading ramp (lighter,
-// slightly warm tops falling to darker, slightly cool bases) on top of a plain
-// Unity Standard response. Suma's semantic materials are flat colors, so this
-// shader reproduces that baked ramp analytically over each instance's height
-// while keeping the StandardMaterial3D-equivalent PBR inputs.
+// their clean, clustered colors leave broad form shading to ordinary light.
+// Suma keeps only a restrained vertical value separation and never adds grain
+// to reference-mode props; generated asset textures already had too much of it.
 
 uniform vec4 albedo : source_color = vec4(1.0);
 uniform float roughness_val : hint_range(0.0, 1.0) = 0.72;
@@ -19,10 +17,8 @@ uniform float ramp_bottom_drop = 0.16;
 // Subtle temperature shift across the ramp: warm tops, cool bases.
 uniform vec3 ramp_top_tint = vec3(1.02, 1.0, 0.965);
 uniform vec3 ramp_bottom_tint = vec3(0.985, 0.99, 1.02);
-// Painted-texture mottling: GG's albedo maps carry soft low-frequency
-// blotches; this reproduces that grain in world space so flat fields stop
-// reading as solid fills.
-uniform float mottle_amount = 0.035;
+// Optional legacy mottling. Reference mode sets this to zero.
+uniform float mottle_amount = 0.0;
 uniform float mottle_scale = 1.2;
 // Optional edge sheen. Off by default: the GG studio read is crisp, and the
 // rim term hazed it — keep at 0 unless a specific prop needs it.

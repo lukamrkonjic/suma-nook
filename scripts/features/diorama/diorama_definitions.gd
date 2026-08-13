@@ -11,6 +11,7 @@ class CreativeCollectionDefinition:
 	var traits := Defs.DefinitionTraits.new()
 	var description: String = ""
 	var color_token: String = "ui_accent"
+	var starting_tile_id: String = "tile_grass"
 	var members: Array[Dictionary] = []
 	var milestones: Array[Dictionary] = []
 
@@ -23,6 +24,9 @@ class CreativeCollectionDefinition:
 		definition.traits = Defs.DefinitionTraits.from_dict(data)
 		definition.description = String(data.get("description", ""))
 		definition.color_token = String(data.get("color_token", "ui_accent"))
+		definition.starting_tile_id = String(
+			data.get("starting_tile_id", "tile_grass")
+		)
 		for raw_member: Variant in data.get("members", []):
 			if not raw_member is Dictionary:
 				continue

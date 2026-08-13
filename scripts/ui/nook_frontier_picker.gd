@@ -197,7 +197,7 @@ func _build_panel() -> void:
 	)
 	_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_title_label.add_theme_color_override(
-		"font_color", kit.palette.color("ui_text_muted")
+		"font_color", kit.text_color()
 	)
 	header.add_child(_title_label)
 	_state_label = kit.utility_label("LOCKED", 10)
@@ -297,7 +297,7 @@ func _refresh_content() -> void:
 		_action_button.focus_mode = Control.FOCUS_ALL
 		_state_label.text = "READY"
 		_state_label.add_theme_color_override(
-			"font_color", kit.palette.color("ui_good").darkened(0.12)
+			"font_color", kit.text_color()
 		)
 		_action_button.text = "Unfold land"
 		_action_button.tooltip_text = (
@@ -309,7 +309,7 @@ func _refresh_content() -> void:
 		_action_button.focus_mode = Control.FOCUS_NONE
 		_state_label.text = "TRACKING"
 		_state_label.add_theme_color_override(
-			"font_color", kit.palette.color("ui_accent").darkened(0.12)
+			"font_color", kit.text_color()
 		)
 		_action_button.text = "%d remaining" % missing_total
 		_action_button.tooltip_text = (
@@ -320,7 +320,7 @@ func _refresh_content() -> void:
 		_action_button.focus_mode = Control.FOCUS_ALL
 		_state_label.text = "LOCKED"
 		_state_label.add_theme_color_override(
-			"font_color", kit.palette.color("ui_text_muted")
+			"font_color", kit.text_color()
 		)
 		_action_button.text = "Track requirements"
 		_action_button.tooltip_text = (

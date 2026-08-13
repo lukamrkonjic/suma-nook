@@ -71,7 +71,8 @@ var _controller_cursor_active := false
 var _interaction_cursor_mode := false
 var _controller_cell := Vector2i.ZERO
 var _ui_pointer_blocker := Callable()
-var _interaction_hover_provider: Object
+var _interaction_hover_providers: Array[Object] = []
+var _external_offer_preview := false
 var _water_skip_cache_key := ""
 var _water_skip_cache_target: Dictionary = {}
 var _water_skip_preview_target: Dictionary = {}
@@ -114,7 +115,27 @@ func set_ui_pointer_blocker(blocker: Callable) -> void:
 ## exact silhouette hover language. The provider exposes event_at_screen/cell
 ## without coupling the placement system to visitors or any future feature.
 func set_interaction_hover_provider(provider: Object) -> void:
-	_interaction_hover_provider = provider
+	_interaction_hover_providers.clear()
+	add_interaction_hover_provider(provider)
+
+
+func add_interaction_hover_provider(provider: Object) -> void:
+	if provider != null and not _interaction_hover_providers.has(provider):
+		_interaction_hover_providers.append(provider)
+
+
+## The Worldheart owns a miniature loot-style preview while a held piece is
+## over its mouth. Suppress the normal full-size placement ghost for that beat.
+func set_external_offer_preview(enabled: bool) -> void:
+	_external_offer_preview = enabled
+	if _ghost != null and enabled:
+		_ghost.visible = false
+
+
+func external_offer_preview_origin() -> Vector3:
+	if is_instance_valid(_ghost):
+		return _ghost.global_position
+	return _held_landing_world()
 
 
 # ------------------------------------------------------------------ mode
@@ -140,7 +161,14 @@ func set_active(enabled: bool) -> void:
 		if _controller_mode:
 			begin_controller_interaction_browse()
 	camera_rig.set_build_mode(active)
-	player.set_state(PlayerController.State.BUILDING if active else PlayerController.State.FREE)
+	# Worldheart has no playable keeper. Its hidden legacy player is retained as
+	# a fixed camera/grid anchor only, and must never be re-enabled when the Build
+	# Bag changes placement mode.
+	player.set_state(
+		PlayerController.State.DISABLED
+		if core.diorama.enabled
+		else PlayerController.State.BUILDING if active else PlayerController.State.FREE
+	)
 	mode_changed.emit(active)
 
 
@@ -488,7 +516,9 @@ func rotate_held() -> void:
 
 
 func rotate_at_screen(screen_position: Vector2) -> bool:
-	if not active or _pointer_is_over_ui(screen_position):
+	# World editing is permanently available. `active` now describes transient
+	# Build Bag/controller focus, not whether a hovered world piece may rotate.
+	if _pointer_is_over_ui(screen_position):
 		return false
 	if not held.is_empty():
 		rotate_held()
@@ -831,6 +861,7 @@ func _process(delta: float) -> void:
 				_update_placeable_hover()
 		return
 	if held.is_empty():
+		_external_offer_preview = false
 		_preview.hide_indicator()
 		if _ghost != null:
 			_ghost.visible = false
@@ -842,6 +873,13 @@ func _process(delta: float) -> void:
 				_emit_hover_info("", "", "")
 		else:
 			_update_placeable_hover()
+		return
+	if _external_offer_preview:
+		world_renderer.clear_structure_hover()
+		_emit_hover_info("", "", "")
+		_preview.hide_indicator()
+		if _ghost != null:
+			_ghost.visible = false
 		return
 	world_renderer.clear_structure_hover()
 	_emit_hover_info("", "", "")
@@ -1133,25 +1171,31 @@ func _update_controller_placeable_hover() -> void:
 
 
 func _interaction_hover_at_screen(screen_position: Vector2) -> Dictionary:
-	if (
-		_interaction_hover_provider == null
-		or not is_instance_valid(_interaction_hover_provider)
-		or not _interaction_hover_provider.has_method("event_at_screen")
-	):
-		return {}
-	return _interaction_hover_provider.call(
-		"event_at_screen", camera_rig.camera, screen_position
-	)
+	for provider: Object in _interaction_hover_providers:
+		if (
+			provider != null
+			and is_instance_valid(provider)
+			and provider.has_method("event_at_screen")
+		):
+			var target: Dictionary = provider.call(
+				"event_at_screen", camera_rig.camera, screen_position
+			)
+			if not target.is_empty():
+				return target
+	return {}
 
 
 func _interaction_hover_at_cell(cell: Vector2i) -> Dictionary:
-	if (
-		_interaction_hover_provider == null
-		or not is_instance_valid(_interaction_hover_provider)
-		or not _interaction_hover_provider.has_method("event_at_cell")
-	):
-		return {}
-	return _interaction_hover_provider.call("event_at_cell", cell)
+	for provider: Object in _interaction_hover_providers:
+		if (
+			provider != null
+			and is_instance_valid(provider)
+			and provider.has_method("event_at_cell")
+		):
+			var target: Dictionary = provider.call("event_at_cell", cell)
+			if not target.is_empty():
+				return target
+	return {}
 
 
 func _show_interaction_hover(interaction: Dictionary) -> void:
@@ -2247,7 +2291,13 @@ func _pick_up_from(cell: Vector2i, elevation: int, preferred_instance_id := -1) 
 
 func _try_pick_up_tile(cell: Vector2i, elevation: int, state: WorldGrid.CellState) -> void:
 	if state.movement_locked:
-		action_result.emit(false, "This first water tile anchors the opening zone for now.", "invalid")
+		action_result.emit(
+			false,
+			"Move the Worldheart before moving its host tile."
+			if core.diorama.enabled and cell == core.diorama.worldheart.worldheart_cell
+			else "This tile anchors the opening zone for now.",
+			"invalid"
+		)
 		return
 	if elevation == 0 and state.landmark_id != "":
 		action_result.emit(false, "Reclaimed landmarks move by packing them from their pedestal.", "invalid")

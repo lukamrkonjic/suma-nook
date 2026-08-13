@@ -102,6 +102,25 @@
       ]
     },
     {
+      "id": "struct_vintage_radio",
+      "name": "Vintage Radio",
+      "asset_id": "prop_vintage_radio",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "visitor_tags": [
+        "social",
+        "viewing"
+      ],
+      "placement_sound": "wood",
+      "placement_tags": [
+        "furniture",
+        "small",
+        "tabletop_item"
+      ],
+      "can_be_stacked": true,
+      "support_slots": []
+    },
+    {
       "id": "struct_fence",
       "name": "Fence",
       "asset_id": "prop_fence",
@@ -573,6 +592,66 @@
       "support_slots": []
     },
     {
+      "id": "struct_stone_pine",
+      "name": "Stone Pine",
+      "asset_id": "prop_stone_pine",
+      "anchor": "grove_anchor",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "blocks_movement": true,
+      "preserve_instance_state": true,
+      "capabilities": {
+        "harvest_source": {
+          "profile_id": "harvest_tree_mature_evergreen"
+        }
+      },
+      "tags": [
+        "biome_forest"
+      ],
+      "visitor_tags": [
+        "viewing"
+      ],
+      "placement_sound": "grass",
+      "placement_tags": [
+        "tree",
+        "plant",
+        "large",
+        "stateful"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_fir",
+      "name": "Woodland Fir",
+      "asset_id": "prop_fir",
+      "anchor": "grove_anchor",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "blocks_movement": true,
+      "preserve_instance_state": true,
+      "capabilities": {
+        "harvest_source": {
+          "profile_id": "harvest_tree_mature_evergreen"
+        }
+      },
+      "tags": [
+        "biome_forest"
+      ],
+      "visitor_tags": [
+        "viewing"
+      ],
+      "placement_sound": "grass",
+      "placement_tags": [
+        "tree",
+        "plant",
+        "large",
+        "stateful"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
       "id": "struct_pine_young",
       "name": "Young Pine",
       "asset_id": "prop_pine_young",
@@ -625,6 +704,57 @@
         "plant",
         "medium",
         "stateful"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_leafy_bush",
+      "name": "Leafy Bush",
+      "asset_id": "prop_leafy_bush",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "preserve_instance_state": true,
+      "capabilities": {
+        "harvest_source": {
+          "profile_id": "harvest_berry_shrub"
+        }
+      },
+      "tags": [
+        "biome_forest"
+      ],
+      "visitor_tags": [
+        "viewing"
+      ],
+      "placement_sound": "grass",
+      "placement_tags": [
+        "plant",
+        "medium",
+        "stateful",
+        "windy_foliage"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
+      "id": "struct_shrooms",
+      "name": "Blushing Shrooms",
+      "asset_id": "prop_shrooms",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "blocks_movement": true,
+      "tags": [
+        "biome_forest"
+      ],
+      "visitor_tags": [
+        "viewing"
+      ],
+      "placement_sound": "grass",
+      "placement_tags": [
+        "fungi",
+        "plant",
+        "nature",
+        "medium"
       ],
       "can_be_stacked": false,
       "support_slots": []

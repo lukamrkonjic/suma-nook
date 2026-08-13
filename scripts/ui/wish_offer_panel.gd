@@ -124,12 +124,14 @@ func notify_ready(animate := true) -> void:
 	if _chip_tween != null and _chip_tween.is_valid():
 		_chip_tween.kill()
 	_chip.pivot_offset = _chip.size * 0.5
-	_chip.scale = Vector2(0.92, 0.92)
 	_chip.modulate.a = 0.0
-	_chip_tween = _chip.create_tween().set_parallel(true)
-	_chip_tween.tween_property(_chip, "scale", Vector2.ONE, 0.34) \
-		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_chip_tween.tween_property(_chip, "modulate:a", 1.0, 0.18)
+	var duration := kit.motion_duration(kit.tokens.open_duration)
+	if duration <= 0.0:
+		_chip.modulate.a = 1.0
+		return
+	_chip_tween = _chip.create_tween()
+	_chip_tween.tween_property(_chip, "modulate:a", 1.0, duration) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 
 func is_ready() -> bool:

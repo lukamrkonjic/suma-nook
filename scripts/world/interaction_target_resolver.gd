@@ -11,6 +11,7 @@ var renderer: WorldRenderer
 var frontier_markers
 var provision_fishing_spots: ProvisionFishingSpots
 var visitor_scene: Node3D
+var worldheart_presenter: Node3D
 
 
 func _init(
@@ -39,6 +40,10 @@ func set_visitor_scene(visitors: Node3D) -> void:
 	visitor_scene = visitors
 
 
+func set_worldheart_presenter(presenter: Node3D) -> void:
+	worldheart_presenter = presenter
+
+
 func ground_point(screen_position: Vector2) -> Variant:
 	var origin := camera.project_ray_origin(screen_position)
 	var direction := camera.project_ray_normal(screen_position)
@@ -56,6 +61,12 @@ func interaction_at(screen_position: Vector2) -> Dictionary:
 	var best: Dictionary = {}
 	var best_distance := INF
 	var base_radius := core.registries.tunef("click_target_screen_radius", 54.0)
+	if core.diorama.enabled and worldheart_presenter != null:
+		var worldheart_target: Dictionary = worldheart_presenter.call(
+			"interaction_at_screen", camera, screen_position, base_radius
+		)
+		if not worldheart_target.is_empty():
+			return worldheart_target
 	if frontier_markers != null:
 		var frontier: Dictionary = frontier_markers.marker_at_screen(screen_position)
 		if not frontier.is_empty():

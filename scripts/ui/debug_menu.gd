@@ -90,8 +90,7 @@ func set_status(message: String, good := true) -> void:
 		return
 	_status.text = message
 	_status.add_theme_color_override(
-		"font_color",
-		kit.palette.color("ui_good" if good else "ui_accent").darkened(0.12)
+		"font_color", kit.text_color()
 	)
 
 
@@ -128,7 +127,7 @@ func _build() -> void:
 	var title := kit.utility_label("DEBUG", 11, kit.palette.color("ui_accent"))
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title.add_theme_color_override("font_color", kit.palette.color("ui_accent"))
+	title.add_theme_color_override("font_color", kit.text_color())
 	header.add_child(title)
 	_toggle = _small_button("−")
 	_toggle.name = "DebugMenuToggle"
@@ -147,7 +146,7 @@ func _build() -> void:
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_status.custom_minimum_size = Vector2(0, 26)
 	_status.add_theme_color_override(
-		"font_color", kit.palette.color("ui_text_primary").lightened(0.22)
+		"font_color", kit.text_color()
 	)
 	_body.add_child(_status)
 
@@ -201,7 +200,7 @@ func _section(section_id: String, title: String) -> HFlowContainer:
 	section.add_theme_constant_override("separation", 3)
 	var heading := kit.utility_label(title, 9)
 	heading.add_theme_color_override(
-		"font_color", kit.palette.color("ui_text_primary").lightened(0.22)
+		"font_color", kit.text_color()
 	)
 	section.add_child(heading)
 	var row := HFlowContainer.new()

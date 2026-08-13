@@ -6,6 +6,9 @@ extends RefCounted
 const AA_OFF := "off"
 const AA_BALANCED := "balanced"
 const AA_HIGH := "high"
+const ArtStyleSettingsScript := preload(
+	"res://scripts/visuals/art_style_settings.gd"
+)
 
 ## "Pixel size" dropdown labels, mirroring Imota's setting: the index maps
 ## onto PixelLook.PIXEL_LEVELS (keep both the same length).
@@ -27,6 +30,7 @@ var bloom := true
 var master_volume := 0.63
 var music_volume := 0.4
 var tutorial_hints := true
+var reduced_motion := false
 var painterly_pixel := true
 var pixel_size := 0
 var pixel_cel := false
@@ -42,6 +46,7 @@ func from_dict(data: Dictionary) -> void:
 	master_volume = clampf(float(data.get("master_volume", master_volume)), 0.0, 1.0)
 	music_volume = clampf(float(data.get("music_volume", music_volume)), 0.0, 1.0)
 	tutorial_hints = bool(data.get("tutorial_hints", tutorial_hints))
+	reduced_motion = bool(data.get("reduced_motion", reduced_motion))
 	painterly_pixel = bool(data.get("painterly_pixel", painterly_pixel))
 	pixel_size = clampi(int(data.get("pixel_size", pixel_size)), 0, PIXEL_SIZE_OPTIONS.size() - 1)
 	pixel_cel = bool(data.get("pixel_cel", pixel_cel))
@@ -57,6 +62,7 @@ func to_dict() -> Dictionary:
 		"master_volume": master_volume,
 		"music_volume": music_volume,
 		"tutorial_hints": tutorial_hints,
+		"reduced_motion": reduced_motion,
 		"painterly_pixel": painterly_pixel,
 		"pixel_size": pixel_size,
 		"pixel_cel": pixel_cel,
@@ -100,11 +106,26 @@ func apply(
 		lighting.set_user_post_effects(ssao, bloom)
 	if hud != null:
 		hud.set_tutorial_enabled(tutorial_hints)
+		if hud.kit != null:
+			hud.kit.reduced_motion = reduced_motion
 	if pixel_look != null:
-		pixel_look.apply(pixel_size, pixel_cel, painterly_pixel)
+		if _uses_crisp_studio_render():
+			# The reference preset restores the native-resolution graphics-lab
+			# pipeline. Keep the saved painterly preference intact so switching
+			# back to the baseline style restores the player's prior choice.
+			pixel_look.apply(0, false, false)
+		else:
+			pixel_look.apply(pixel_size, pixel_cel, painterly_pixel)
 
 
 func _apply_anti_aliasing(viewport: Viewport) -> void:
+	if _uses_crisp_studio_render():
+		# Selected by the original GGSmoothnessLab: native 8x MSAA with no
+		# temporal or fullscreen blur pass.
+		viewport.msaa_3d = Viewport.MSAA_8X
+		viewport.use_taa = false
+		viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
+		return
 	match anti_aliasing:
 		AA_OFF:
 			viewport.msaa_3d = Viewport.MSAA_DISABLED
@@ -122,6 +143,13 @@ func _apply_anti_aliasing(viewport: Viewport) -> void:
 			# A single non-temporal FXAA pass cleans up residual shadow-map
 			# stipple without the motion trails or surface wash of TAA.
 			viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
+
+
+func _uses_crisp_studio_render() -> bool:
+	return (
+		ArtStyleSettingsScript.active_style_id()
+		== "garden_galaxy_reference"
+	)
 
 
 func _set_bus_volume(bus_name: String, value: float) -> void:

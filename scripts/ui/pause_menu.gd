@@ -97,7 +97,7 @@ func _build_shell() -> void:
 
 	var scrim := ColorRect.new()
 	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	scrim.color = kit.palette.color("ui_pause_scrim")
+	scrim.color = kit.overlay_scrim()
 	scrim.mouse_filter = Control.MOUSE_FILTER_STOP
 	_root.add_child(scrim)
 
@@ -119,7 +119,7 @@ func _build_shell() -> void:
 	footer.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	footer.position.y = -24
 	footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	footer.add_theme_color_override("font_color", kit.palette.color("ui_pause_footer"))
+	footer.add_theme_color_override("font_color", kit.text_color())
 	footer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(footer)
 	_root.visible = false
@@ -142,10 +142,13 @@ func _show_page(page: String) -> void:
 			_build_admin_page()
 		_:
 			_build_menu_page()
-	_card.scale = Vector2(0.96, 0.96)
-	var tween := _card.create_tween()
-	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	tween.tween_property(_card, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	var duration := kit.motion_duration(kit.tokens.open_duration)
+	_card.modulate.a = 0.0 if duration > 0.0 else 1.0
+	if duration > 0.0:
+		var tween := _card.create_tween()
+		tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		tween.tween_property(_card, "modulate:a", 1.0, duration) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	focus_default()
 
 
@@ -210,14 +213,14 @@ func _build_menu_page() -> void:
 	shortcut_helper.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	shortcut_helper.add_theme_color_override(
 		"font_color",
-		kit.palette.color("ui_text").darkened(0.28)
+		kit.text_color()
 	)
 	_content.add_child(shortcut_helper)
 
 	_status_label = kit.label("", 15)
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status_label.custom_minimum_size.y = 24
-	_status_label.add_theme_color_override("font_color", kit.palette.color("ui_good").darkened(0.12))
+	_status_label.add_theme_color_override("font_color", kit.text_color())
 	_content.add_child(_status_label)
 	resume.call_deferred("grab_focus")
 
@@ -307,6 +310,14 @@ func _build_settings_page() -> void:
 	list.add_child(kit.section_label("Guidance"))
 	var tutorial_check := _check_button("Hints", preferences.tutorial_hints)
 	list.add_child(_setting_row("Garden hints", "Show the next gentle progression prompt.", tutorial_check))
+	var reduced_motion_check := _check_button(
+		"Reduced motion", preferences.reduced_motion
+	)
+	list.add_child(_setting_row(
+		"Reduced motion",
+		"Use instant transitions and remove decorative movement.",
+		reduced_motion_check
+	))
 
 	var actions := HBoxContainer.new()
 	actions.alignment = BoxContainer.ALIGNMENT_END
@@ -329,6 +340,7 @@ func _build_settings_page() -> void:
 		preferences.master_volume = float(master_control["slider"].value)
 		preferences.music_volume = float(music_control["slider"].value)
 		preferences.tutorial_hints = tutorial_check.button_pressed
+		preferences.reduced_motion = reduced_motion_check.button_pressed
 		_apply_preferences()
 		_status_label.text = "Settings applied and queued for the next save."
 		_play("ui_confirm")
@@ -623,7 +635,7 @@ func _build_admin_page() -> void:
 	_status_label = kit.label("", 15)
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status_label.custom_minimum_size.y = 24
-	_status_label.add_theme_color_override("font_color", kit.palette.color("ui_good").darkened(0.12))
+	_status_label.add_theme_color_override("font_color", kit.text_color())
 	_content.add_child(_status_label)
 
 
@@ -703,7 +715,7 @@ func _add_brand_header(kicker: String, subtitle: String) -> void:
 	var brand := kit.display_label("Suma Nook", 32)
 	text.add_child(brand)
 	var sub := kit.label(subtitle, 16)
-	sub.add_theme_color_override("font_color", kit.palette.color("ui_pause_subtitle"))
+	sub.add_theme_color_override("font_color", kit.text_color())
 	text.add_child(sub)
 	var state := kit.section_label(kicker)
 	state.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -725,7 +737,7 @@ func _add_page_header(title: String, subtitle: String) -> void:
 	row.add_child(text)
 	text.add_child(kit.display_label(title, 30))
 	var sub := kit.label(subtitle, 15)
-	sub.add_theme_color_override("font_color", kit.palette.color("ui_pause_subtle"))
+	sub.add_theme_color_override("font_color", kit.text_color())
 	text.add_child(sub)
 
 
@@ -745,7 +757,7 @@ func _setting_row(title: String, description: String, control: Control) -> Margi
 	row.add_child(text)
 	text.add_child(kit.label(title, 19, false, true))
 	var note := kit.label(description, 14)
-	note.add_theme_color_override("font_color", kit.palette.color("ui_pause_note"))
+	note.add_theme_color_override("font_color", kit.text_color())
 	text.add_child(note)
 	row.add_child(control)
 	return holder
@@ -798,7 +810,7 @@ func _control_row(action: String, keys: Array, description: String) -> MarginCon
 	row.add_child(text)
 	text.add_child(kit.label(action, 18, false, true))
 	var note := kit.label(description, 14)
-	note.add_theme_color_override("font_color", kit.palette.color("ui_pause_note"))
+	note.add_theme_color_override("font_color", kit.text_color())
 	text.add_child(note)
 	var caps := HBoxContainer.new()
 	caps.alignment = BoxContainer.ALIGNMENT_END

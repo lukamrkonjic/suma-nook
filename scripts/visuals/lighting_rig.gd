@@ -16,6 +16,9 @@ const CozyRainSurfaceScript := preload("res://scripts/visuals/cozy_rain_surface.
 const VoidCloudControllerScript := preload(
 	"res://scripts/visuals/void_cloud_controller.gd"
 )
+const ArtStyleSettingsScript := preload(
+	"res://scripts/visuals/art_style_settings.gd"
+)
 
 # Night is intentionally authored as darkness with small pools of warm light,
 # rather than a blue-tinted version of daytime. These multipliers retain just
@@ -232,6 +235,14 @@ func _ready() -> void:
 	_spores = _build_spores()
 	add_child(_spores)
 
+	# The scene still serializes the old daylight resource for compatibility,
+	# but the art-style preset is authoritative. This makes the entire visual
+	# direction reversible through one data switch or launch argument.
+	var active_day_profile := load(
+		ArtStyleSettingsScript.visual_profile_path()
+	) as VisualStyleProfile
+	if active_day_profile != null:
+		day_profile = active_day_profile
 	if day_profile == null:
 		day_profile = load("res://assets/visual_profiles/garden_galaxy_exact.tres")
 	if mist_profile == null:
@@ -352,6 +363,7 @@ func _process(delta: float) -> void:
 func apply_profile(profile: VisualStyleProfile) -> void:
 	profile.apply_color_design_system(_palette)
 	current_profile = profile
+	_configure_art_style_sampling()
 	var env := _environment.environment
 	var uses_canvas_bg := profile.background_gradient or profile.background_gg_gradient
 	env.background_mode = Environment.BG_CANVAS if uses_canvas_bg else Environment.BG_COLOR
@@ -1304,23 +1316,43 @@ func _set_gg_background(
 		zenith = color0.darkened(0.10)
 	if accent.a <= 0.001:
 		accent = color1.lightened(0.14)
-	var flat_color := _lightest_background_color([
-		color0,
-		color1,
-		zenith,
-		accent,
-	])
+	var flat_color := (
+		color0
+		if not sparkles
+		else _lightest_background_color([
+			color0,
+			color1,
+			zenith,
+			accent,
+		])
+	)
 	_environment.environment.background_color = flat_color
 	_gg_bg_material.set_shader_parameter("color0", flat_color)
 	_gg_bg_material.set_shader_parameter("color1", flat_color)
 	_gg_bg_material.set_shader_parameter("zenith_color", flat_color)
 	_gg_bg_material.set_shader_parameter("horizon_accent_color", flat_color)
 	_gg_bg_material.set_shader_parameter("sparkle_amount", 1.0 if sparkles else 0.0)
+	_gg_bg_material.set_shader_parameter("mote_density", 0.2 if sparkles else 0.0)
 	# The cloud sea takes its colour from whatever sky is actually shown,
 	# so clouds always sit inside the sky's own light - dim grey-blue at
 	# night, warm at sunset - instead of glowing with a parallel palette.
 	if void_clouds != null:
 		void_clouds.set_sky_light(flat_color, flat_color, flat_color)
+
+
+func _configure_art_style_sampling() -> void:
+	var viewport := get_viewport()
+	if ArtStyleSettingsScript.palette_profile() == "garden_galaxy_reference":
+		# The supplied build selects 4x quality-layer MSAA and its quality-2
+		# post-process antialiasing maps to TAA. Keep this tied to the preset so
+		# baseline review runs retain Suma's FXAA configuration.
+		viewport.msaa_3d = Viewport.MSAA_4X
+		viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
+		viewport.use_taa = true
+		return
+	viewport.msaa_3d = Viewport.MSAA_4X
+	viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
+	viewport.use_taa = false
 
 
 func _lightest_background_color(colors: Array[Color]) -> Color:

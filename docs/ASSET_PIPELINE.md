@@ -42,6 +42,12 @@ and future grass/fern/snow/sand GLB intake are specified in
 
 ## Tier A — generated headlessly by the coding agent (this repo, now)
 
+Generated Meshy GLBs use the guarded semantic cleanup path documented in
+[`MESHY_ASSET_IMPORT.md`](MESHY_ASSET_IMPORT.md). That pipeline preserves the
+authored silhouette and topology, replaces baked surface noise with canonical
+palette materials, and emits a neutral review render before unusual assets are
+installed.
+
 `art_source/procedural/build_assets.py` runs under
 `/Applications/Blender.app/Contents/MacOS/Blender --background --python ...` and writes
 every Tier A GLB (tiles, vegetation, props, effects meshes, character proxy parts).

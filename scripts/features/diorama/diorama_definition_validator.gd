@@ -9,6 +9,13 @@ const ValidationIssueScript := preload(
 static func validate(snapshot, issues: Array) -> void:
 	var membership := {}
 	for collection in snapshot.creative_collections.values():
+		if not snapshot.tiles.has(collection.starting_tile_id):
+			_issue(
+				issues,
+				"diorama.collection.starting_tile",
+				"collection '%s' references missing starting tile '%s'"
+				% [collection.id, collection.starting_tile_id]
+			)
 		for member: Dictionary in collection.members:
 			var kind := String(member.get("kind", ""))
 			var content_id := String(member.get("id", ""))
@@ -55,6 +62,34 @@ static func validate(snapshot, issues: Array) -> void:
 			var content_id := String(starter.get("id", ""))
 			if not membership.has("%s:%s" % [kind, content_id]):
 				_issue(issues, "diorama.tray.starter_member", "starter offer %s:%s is not in a creative collection" % [kind, content_id])
+
+	var worldheart: Dictionary = snapshot.worldheart_config
+	var minimum := float(worldheart.get("pulse_interval_min", 0.0))
+	var maximum := float(worldheart.get("pulse_interval_max", 0.0))
+	if minimum <= 0.0 or maximum < minimum:
+		_issue(issues, "diorama.worldheart.cadence", "Worldheart pulse interval must be positive and ordered")
+	var visible_cap := int(worldheart.get("visible_reward_cap", 0))
+	var reserve_cap := int(worldheart.get("reserve_cap", 0))
+	if visible_cap <= 0 or reserve_cap < visible_cap:
+		_issue(issues, "diorama.worldheart.capacity", "Worldheart reserve must contain at least its visible rewards")
+	if int(worldheart.get("contributions_required", 0)) < 2:
+		_issue(
+			issues,
+			"diorama.worldheart.contributions",
+			"Worldheart collection rituals need at least two contributions"
+		)
+	var worldheart_starters: Variant = worldheart.get("starter_rewards", [])
+	if not worldheart_starters is Array or (worldheart_starters as Array).is_empty():
+		_issue(issues, "diorama.worldheart.starters", "Worldheart needs at least one starter reward")
+	else:
+		for starter: Variant in worldheart_starters:
+			if not starter is Dictionary:
+				_issue(issues, "diorama.worldheart.starter", "every Worldheart starter must be an object")
+				continue
+			var kind := String(starter.get("kind", ""))
+			var content_id := String(starter.get("id", ""))
+			if not membership.has("%s:%s" % [kind, content_id]):
+				_issue(issues, "diorama.worldheart.starter_member", "Worldheart starter %s:%s is not in a creative collection" % [kind, content_id])
 
 
 static func _issue(issues: Array, code: String, message: String) -> void:

@@ -1,0 +1,53 @@
+[gd_resource type="Resource" script_class="SumaUiTheme" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/theme/suma_ui_theme.gd" id="1_theme"]
+
+[resource]
+script = ExtResource("1_theme")
+color_tokens = {
+"accent": "ui_accent_muted",
+"cell": "ui_collection_cell",
+"cell_hover": "ui_collection_cell_hover",
+"cell_pressed": "ui_collection_cell_pressed",
+"divider": "ui_collection_divider",
+"focus": "ui_focus_muted_gold",
+"paper": "ui_sheet",
+"paper_raised": "ui_sheet_raised",
+"scroll_thumb": "ui_scroll_thumb",
+"scroll_track": "ui_scroll_track",
+"selection": "ui_focus_muted_gold",
+"text": "ui_text_soft",
+"text_quiet": "ui_text_soft"
+}
+sheet_width_ratio = 0.68
+sheet_height_ratio = 0.44
+minimum_sheet_size = Vector2(680, 360)
+sheet_bottom_margin = 20
+sheet_padding = 22
+sheet_corner_radius = 18
+control_corner_radius = 12
+cell_corner_radius = 10
+hairline_width = 1
+focus_width = 2
+reference_cell_size = Vector2(112, 112)
+minimum_columns = 4
+maximum_columns = 10
+column_reference_width = 170.0
+cell_gap = 6
+row_gap = 14
+section_gap = 28
+divider_gap = 10
+marker_visual_size = 13
+marker_hit_size = 30
+scrollbar_width = 7
+body_font_size = 18
+quantity_font_size = 13
+tooltip_font_size = 17
+utility_font_size = 14
+title_font_size = 32
+open_duration = 0.18
+close_duration = 0.14
+hover_duration = 0.11
+hover_scale = 1.03
+pressed_scale = 0.98
+open_offset = 12.0

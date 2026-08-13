@@ -71,6 +71,7 @@ var reveal_config: Dictionary = {}
 var fishing_balance: Dictionary = {}
 var discovery_tray_config: Dictionary = {}
 var build_cadence_config: Dictionary = {}
+var worldheart_config: Dictionary = {}
 var load_issues: Array = []
 var load_errors: PackedStringArray = []
 var feature_validators: Array[Callable] = []
@@ -264,6 +265,9 @@ func load_all(base_path := "res://data", report_issues := true) -> bool:
 	)
 	candidate.build_cadence_config = _read_object(
 		base_path + "/build_cadence.json", issues
+	)
+	candidate.worldheart_config = _read_object(
+		base_path + "/worldheart.json", issues
 	)
 	CommonDefinitionValidatorScript.validate(candidate, issues)
 	TileDefinitionValidatorScript.validate(candidate, issues)
@@ -693,6 +697,7 @@ func _adopt(candidate) -> void:
 	fishing_balance = candidate.fishing_balance
 	discovery_tray_config = candidate.discovery_tray_config
 	build_cadence_config = candidate.build_cadence_config
+	worldheart_config = candidate.worldheart_config
 
 
 func _publish_issues(issues: Array, report_issues: bool) -> void:

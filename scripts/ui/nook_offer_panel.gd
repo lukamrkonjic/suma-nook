@@ -113,7 +113,7 @@ func _build_modal() -> void:
 
 	var scrim := ColorRect.new()
 	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	scrim.color = kit.palette.color("ui_arrival_scrim")
+	scrim.color = kit.overlay_scrim()
 	scrim.mouse_filter = Control.MOUSE_FILTER_STOP
 	_root.add_child(scrim)
 
@@ -145,8 +145,7 @@ func _build_modal() -> void:
 	)
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.add_theme_color_override(
-		"font_color",
-		kit.palette.color("ui_arrival_subtitle")
+		"font_color", kit.text_color()
 	)
 	shell.add_child(subtitle)
 
@@ -187,8 +186,7 @@ func _build_modal() -> void:
 	)
 	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	prompt.add_theme_color_override(
-		"font_color",
-		kit.palette.color("ui_arrival_prompt")
+		"font_color", kit.text_color()
 	)
 	shell.add_child(prompt)
 	focus_default()

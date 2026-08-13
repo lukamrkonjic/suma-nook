@@ -4,16 +4,17 @@ extends RefCounted
 ## this kit owns typography, spacing, paper, hairlines, focus, and accents.
 ## Large HUD changes should start here instead of restyling individual panels.
 
-const FONT_BODY_PATH := "res://assets/fonts/Manrope-Variable.ttf"
-const FONT_DISPLAY_PATH := "res://assets/fonts/LibreBaskerville-Variable.ttf"
+const FONT_BODY_PATH := "res://assets/fonts/Fredoka-Medium.ttf"
+const FONT_DISPLAY_PATH := "res://assets/fonts/Fredoka-SemiBold.ttf"
+const UI_THEME_PATH := "res://assets/ui/suma_ui_theme.tres"
 
 const HUD_MARGIN := 22.0
 const HUD_GAP := 10
 const PANEL_GAP := 18
 const HAIRLINE := 1
 const FOCUS_LINE := 2
-const CORNER_SMALL := 2
-const CORNER_SHEET := 6
+const CORNER_SMALL := 10
+const CORNER_SHEET := 18
 const PAPER_ALPHA := 0.985
 
 var palette: CozyPalette
@@ -22,22 +23,38 @@ var font_bold: Font
 var font_display: Font
 var font_display_bold: Font
 var theme: Theme
+var tokens: SumaUiTheme
+var reduced_motion := false
 
 
 func _init(pal: CozyPalette) -> void:
 	palette = pal
-	font = _font_variation(load(FONT_BODY_PATH), 430)
-	font_bold = _font_variation(load(FONT_BODY_PATH), 650)
-	font_display = _font_variation(load(FONT_DISPLAY_PATH), 400)
-	font_display_bold = _font_variation(load(FONT_DISPLAY_PATH), 600)
+	tokens = load(UI_THEME_PATH) as SumaUiTheme
+	assert(tokens != null, "Suma UI theme tokens must load")
+	font = load(FONT_BODY_PATH)
+	font_bold = load(FONT_DISPLAY_PATH)
+	font_display = font_bold
+	font_display_bold = font_bold
 	theme = Theme.new()
 	theme.default_font = font
-	theme.default_font_size = 16
+	theme.default_font_size = tokens.body_font_size
+	for control_type in [
+		"Label", "Button", "CheckButton", "CheckBox", "OptionButton",
+		"LineEdit", "TextEdit", "SpinBox", "TooltipLabel",
+	]:
+		for color_name in [
+			"font_color", "font_hover_color", "font_pressed_color",
+			"font_focus_color", "font_hover_pressed_color",
+			"font_disabled_color", "font_placeholder_color",
+			"font_selected_color",
+			"font_uneditable_color", "font_readonly_color",
+		]:
+			theme.set_color(color_name, control_type, ui_color("text"))
 	var focus := StyleBoxFlat.new()
-	focus.bg_color = Color(palette.color("ui_surface"), 0.72)
-	focus.border_color = palette.color("ui_accent")
-	focus.set_border_width_all(FOCUS_LINE)
-	focus.set_corner_radius_all(CORNER_SMALL)
+	focus.bg_color = Color(ui_color("paper"), 0.42)
+	focus.border_color = Color(ui_color("focus"), 0.82)
+	focus.set_border_width_all(tokens.focus_width)
+	focus.set_corner_radius_all(tokens.control_corner_radius)
 	for control_type in [
 		"Button",
 		"CheckButton",
@@ -48,6 +65,46 @@ func _init(pal: CozyPalette) -> void:
 		"TextEdit",
 		]:
 		theme.set_stylebox("focus", control_type, focus)
+	_configure_tooltip_theme()
+	_configure_scroll_theme()
+
+
+func ui_color(role: String, fallback := Color.MAGENTA) -> Color:
+	return palette.color(tokens.token(role), fallback)
+
+
+func motion_duration(duration: float) -> float:
+	return 0.0 if reduced_motion else duration
+
+
+func _configure_tooltip_theme() -> void:
+	var tooltip := sheet_style()
+	tooltip.bg_color = Color(ui_color("paper_raised"), 0.985)
+	tooltip.set_content_margin_all(10)
+	tooltip.content_margin_left = 13
+	tooltip.content_margin_right = 13
+	tooltip.set_border_width_all(0)
+	theme.set_stylebox("panel", "TooltipPanel", tooltip)
+	theme.set_font("font", "TooltipLabel", font)
+	theme.set_font_size("font_size", "TooltipLabel", tokens.tooltip_font_size)
+	theme.set_color("font_color", "TooltipLabel", ui_color("text"))
+
+
+func _configure_scroll_theme() -> void:
+	var track := StyleBoxFlat.new()
+	track.bg_color = ui_color("scroll_track")
+	track.set_corner_radius_all(0)
+	var thumb := StyleBoxFlat.new()
+	thumb.bg_color = ui_color("scroll_thumb")
+	thumb.set_corner_radius_all(0)
+	var hover := thumb.duplicate() as StyleBoxFlat
+	hover.bg_color = ui_color("scroll_thumb").lightened(0.08)
+	for control_type in ["VScrollBar", "HScrollBar"]:
+		theme.set_stylebox("scroll", control_type, track)
+		theme.set_stylebox("scroll_focus", control_type, track)
+		theme.set_stylebox("grabber", control_type, thumb)
+		theme.set_stylebox("grabber_highlight", control_type, hover)
+		theme.set_stylebox("grabber_pressed", control_type, hover)
 
 
 func _font_variation(base: Font, weight: int) -> FontVariation:
@@ -61,37 +118,87 @@ func panel_style(dark := false, radius := 12) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	var background := (
 		palette.color("ui_panel_dark") if dark
-		else palette.color("ui_surface")
+		else ui_color("paper")
 	)
 	style.bg_color = Color(background, background.a if dark else PAPER_ALPHA)
-	style.set_corner_radius_all(mini(radius, CORNER_SHEET))
+	style.set_corner_radius_all(mini(radius, tokens.sheet_corner_radius))
 	style.set_content_margin_all(16)
 	style.border_color = (
 		Color(palette.color("ui_text_inverse"), 0.26)
 		if dark else hairline_color()
 	)
-	style.set_border_width_all(HAIRLINE)
+	style.set_border_width_all(0 if not dark else tokens.hairline_width)
 	style.anti_aliasing = true
+	style.shadow_size = 0
+	style.shadow_color = Color.TRANSPARENT
 	return style
 
 
 func cloud_panel_style(radius := 30) -> StyleBoxFlat:
-	var style := panel_style(false, mini(radius, CORNER_SHEET))
-	style.bg_color = Color(palette.color("ui_surface_raised"), 0.985)
-	style.set_content_margin_all(32)
+	var style := sheet_style()
+	style.set_corner_radius_all(mini(radius, tokens.sheet_corner_radius))
+	style.bg_color = Color(ui_color("paper_raised"), 0.99)
+	style.set_content_margin_all(24)
 	return style
 
 
-func text_color(dark_background := false) -> Color:
-	return palette.color("ui_text_inverse" if dark_background else "ui_text_primary")
+func text_color(_dark_background := false) -> Color:
+	return ui_color("text")
 
 
 func hairline_color() -> Color:
-	return Color(palette.color("ui_text_primary"), 0.24)
+	return ui_color("divider")
 
 
 func paper_color(alpha := PAPER_ALPHA) -> Color:
-	return Color(palette.color("ui_surface"), alpha)
+	return Color(ui_color("paper"), alpha)
+
+
+func sheet_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(ui_color("paper"), 0.99)
+	style.set_corner_radius_all(tokens.sheet_corner_radius)
+	style.set_content_margin_all(tokens.sheet_padding)
+	style.border_color = Color(ui_color("divider"), 0.72)
+	style.set_border_width_all(0)
+	style.border_width_top = tokens.hairline_width
+	style.anti_aliasing = true
+	style.shadow_size = 0
+	style.shadow_color = Color.TRANSPARENT
+	return style
+
+
+func overlay_scrim(alpha := 0.045) -> Color:
+	var source := ui_color("text")
+	return Color(source.r, source.g, source.b, alpha)
+
+
+func inventory_cell_style(
+	state: String,
+	selected := false,
+	available := true
+) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	var color_role := "cell"
+	if state in ["hover", "focus"]:
+		color_role = "cell_hover"
+	elif state == "pressed":
+		color_role = "cell_pressed"
+	style.bg_color = ui_color(color_role)
+	if not available:
+		style.bg_color.a *= 0.52
+	style.set_corner_radius_all(tokens.cell_corner_radius)
+	style.set_content_margin_all(0)
+	style.set_border_width_all(0)
+	style.shadow_size = 0
+	style.shadow_color = Color.TRANSPARENT
+	if selected:
+		style.border_color = Color(ui_color("selection"), 0.84)
+		style.set_border_width_all(tokens.hairline_width)
+	elif state == "focus":
+		style.border_color = Color(ui_color("focus"), 0.76)
+		style.set_border_width_all(tokens.focus_width)
+	return style
 
 
 func label(text: String, size := 18, dark_background := false, strong := false) -> Label:
@@ -118,10 +225,12 @@ func display_label(
 
 
 func utility_label(text: String, size := 12, accent := Color.TRANSPARENT) -> Label:
-	var l := label(text.to_upper(), size, false, true)
+	var l := label(
+		text.to_upper(), maxi(size, tokens.utility_font_size), false, true
+	)
 	l.add_theme_color_override(
 		"font_color",
-		palette.color("ui_text_secondary") if accent.a <= 0.0 else accent
+		text_color()
 	)
 	l.add_theme_constant_override("letter_spacing", 1)
 	return l
@@ -131,50 +240,53 @@ func button(text: String, accent := false) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.add_theme_font_override("font", font_bold)
-	b.add_theme_font_size_override("font_size", 15)
+	b.add_theme_font_size_override("font_size", tokens.body_font_size)
 	var normal := StyleBoxFlat.new()
 	normal.bg_color = (
-		palette.color("ui_accent") if accent
-		else Color(palette.color("ui_surface"), 0.0)
+		ui_color("accent") if accent
+		else Color(ui_color("paper"), 0.0)
 	)
-	normal.set_corner_radius_all(CORNER_SMALL)
-	normal.content_margin_top = 10
-	normal.content_margin_bottom = 10
-	normal.content_margin_left = 14
-	normal.content_margin_right = 14
+	normal.set_corner_radius_all(tokens.control_corner_radius)
+	normal.content_margin_top = 8
+	normal.content_margin_bottom = 8
+	normal.content_margin_left = 12
+	normal.content_margin_right = 12
 	normal.border_color = (
-		palette.color("ui_accent") if accent else hairline_color()
+		ui_color("accent") if accent else hairline_color()
 	)
-	normal.set_border_width_all(HAIRLINE)
+	normal.set_border_width_all(tokens.hairline_width if accent else 0)
+	if not accent:
+		normal.border_width_bottom = tokens.hairline_width
 	var hover := normal.duplicate()
 	hover.bg_color = (
 		normal.bg_color.lightened(0.06)
-		if accent else Color(palette.color("ui_surface_soft"), 0.48)
+		if accent else Color(ui_color("cell_hover"), 0.82)
 	)
 	var pressed := normal.duplicate()
 	pressed.bg_color = (
 		normal.bg_color.darkened(0.08)
-		if accent else Color(palette.color("ui_surface_soft"), 0.72)
+		if accent else Color(ui_color("cell_pressed"), 0.9)
 	)
 	var disabled := normal.duplicate()
-	disabled.bg_color = Color(palette.color("ui_surface_disabled"), 0.24)
+	disabled.bg_color = Color(ui_color("cell"), 0.34)
 	disabled.border_color = Color(hairline_color(), 0.45)
 	var focus := normal.duplicate()
 	focus.bg_color = (
 		normal.bg_color.lightened(0.04)
-		if accent else Color(palette.color("ui_surface"), 0.78)
+		if accent else Color(ui_color("cell_hover"), 0.8)
 	)
-	focus.border_color = palette.color("ui_accent")
-	focus.set_border_width_all(FOCUS_LINE)
+	focus.border_color = Color(ui_color("focus"), 0.82)
+	focus.set_border_width_all(tokens.focus_width)
 	b.add_theme_stylebox_override("normal", normal)
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("disabled", disabled)
 	b.add_theme_stylebox_override("focus", focus)
-	b.add_theme_color_override("font_color", palette.color("ui_white") if accent else text_color())
-	b.add_theme_color_override("font_hover_color", palette.color("ui_white") if accent else text_color())
-	b.add_theme_color_override("font_focus_color", palette.color("ui_white") if accent else text_color())
-	b.add_theme_color_override("font_disabled_color", palette.color("ui_text_disabled"))
+	for color_name in [
+		"font_color", "font_hover_color", "font_pressed_color",
+		"font_focus_color", "font_disabled_color",
+	]:
+		b.add_theme_color_override(color_name, text_color())
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	return b
 
@@ -184,6 +296,43 @@ func icon_button(symbol := "×", size := 42.0) -> Button:
 	b.custom_minimum_size = Vector2(size, size)
 	b.add_theme_font_size_override("font_size", int(size * 0.48))
 	b.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	return b
+
+
+func minimal_icon_button(
+	symbol: String,
+	description: String,
+	hit_size := 34.0
+) -> Button:
+	var b := Button.new()
+	b.text = symbol
+	b.tooltip_text = description
+	b.custom_minimum_size = Vector2.ONE * hit_size
+	b.focus_mode = Control.FOCUS_ALL
+	b.add_theme_font_override("font", font)
+	b.add_theme_font_size_override("font_size", 19)
+	for state in ["normal", "disabled"]:
+		b.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	var hover := StyleBoxFlat.new()
+	hover.bg_color = Color(ui_color("cell_hover"), 0.68)
+	hover.set_corner_radius_all(tokens.control_corner_radius)
+	var pressed := hover.duplicate() as StyleBoxFlat
+	pressed.bg_color = Color(ui_color("cell_pressed"), 0.8)
+	var focus := hover.duplicate() as StyleBoxFlat
+	focus.border_color = Color(ui_color("focus"), 0.78)
+	focus.set_border_width_all(tokens.focus_width)
+	b.add_theme_stylebox_override("hover", hover)
+	b.add_theme_stylebox_override("pressed", pressed)
+	b.add_theme_stylebox_override("focus", focus)
+	for color_name in [
+		"font_color",
+		"font_hover_color",
+		"font_pressed_color",
+		"font_focus_color",
+		"font_disabled_color",
+	]:
+		b.add_theme_color_override(color_name, text_color())
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	return b
 
 
@@ -259,12 +408,12 @@ func hud_chip_style(accent: Color, state := "normal") -> StyleBoxFlat:
 
 
 func hud_dock_style() -> StyleBoxFlat:
-	var style := panel_style(false, CORNER_SHEET)
-	style.bg_color = Color(palette.color("ui_surface_raised"), 0.995)
-	style.set_content_margin_all(22)
+	var style := sheet_style()
+	style.bg_color = Color(ui_color("paper_raised"), 0.995)
+	style.set_content_margin_all(tokens.sheet_padding)
 	style.border_color = hairline_color()
-	style.set_border_width_all(HAIRLINE)
-	style.border_width_top = 2
+	style.set_border_width_all(0)
+	style.border_width_top = tokens.hairline_width
 	return style
 
 
@@ -275,8 +424,8 @@ func hud_tooltip_style(accent := Color.TRANSPARENT) -> StyleBoxFlat:
 	style.content_margin_left = 14
 	style.content_margin_right = 14
 	style.set_border_width_all(0)
-	style.border_width_bottom = HAIRLINE
-	style.border_color = hairline_color() if accent.a <= 0.0 else accent
+	style.shadow_size = 0
+	style.shadow_color = Color.TRANSPARENT
 	return style
 
 
@@ -311,19 +460,19 @@ func style_line_edit(line_edit: LineEdit) -> void:
 	line_edit.add_theme_font_override("font", font)
 	line_edit.add_theme_font_size_override("font_size", 15)
 	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color(palette.color("ui_surface"), 0.22)
+	normal.bg_color = Color(ui_color("paper"), 0.18)
 	normal.set_corner_radius_all(0)
 	normal.content_margin_left = 4
 	normal.content_margin_right = 4
 	normal.content_margin_top = 9
 	normal.content_margin_bottom = 9
 	normal.border_color = hairline_color()
-	normal.border_width_bottom = HAIRLINE
+	normal.border_width_bottom = tokens.hairline_width
 	line_edit.add_theme_stylebox_override("normal", normal)
 	line_edit.add_theme_stylebox_override("read_only", normal)
 	var focus := normal.duplicate() as StyleBoxFlat
-	focus.border_color = palette.color("ui_accent")
-	focus.border_width_bottom = FOCUS_LINE
+	focus.border_color = ui_color("focus")
+	focus.border_width_bottom = tokens.focus_width
 	line_edit.add_theme_stylebox_override("focus", focus)
 
 
@@ -361,7 +510,7 @@ func choice_button(text: String, selected := false) -> Button:
 	selected_style.border_color = palette.color("ui_accent")
 	selected_style.set_border_width_all(HAIRLINE)
 	b.add_theme_stylebox_override("pressed", selected_style)
-	b.add_theme_color_override("font_pressed_color", palette.color("ui_white"))
+	b.add_theme_color_override("font_pressed_color", text_color())
 	b.set_pressed_no_signal(selected)
 	return b
 
@@ -397,10 +546,8 @@ func library_category_button(text: String, selected := false) -> Button:
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("focus", focus)
-	b.add_theme_color_override("font_color", palette.color("ui_text_primary"))
-	b.add_theme_color_override("font_hover_color", palette.color("ui_text_primary"))
-	b.add_theme_color_override("font_pressed_color", palette.color("ui_text_primary"))
-	b.add_theme_color_override("font_focus_color", palette.color("ui_text_primary"))
+	for color_name in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(color_name, text_color())
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	b.set_pressed_no_signal(selected)
 	return b
@@ -433,10 +580,8 @@ func library_item_button(display_name: String, count: int) -> Button:
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("focus", focus)
-	b.add_theme_color_override("font_color", palette.color("ui_text_primary"))
-	b.add_theme_color_override("font_hover_color", palette.color("ui_text_primary"))
-	b.add_theme_color_override("font_pressed_color", palette.color("ui_white"))
-	b.add_theme_color_override("font_focus_color", palette.color("ui_text_primary"))
+	for color_name in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(color_name, text_color())
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	return b
 
@@ -445,103 +590,34 @@ func library_visual_item_button(
 	display_name: String,
 	count: int
 ) -> Dictionary:
-	var button := Button.new()
-	button.custom_minimum_size = Vector2(132, 146)
-	button.clip_contents = true
-	button.add_theme_font_override("font", font_bold)
-	button.focus_mode = Control.FOCUS_ALL
-
-	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color(palette.color("ui_visual_card"), 0.28)
-	normal.set_corner_radius_all(CORNER_SMALL)
-	normal.set_content_margin_all(0)
-	normal.border_color = hairline_color()
-	normal.set_border_width_all(HAIRLINE)
-	var hover := normal.duplicate()
-	hover.bg_color = Color(palette.color("ui_surface_selected"), 0.7)
-	hover.border_color = palette.color("ui_good")
-	var pressed := hover.duplicate()
-	pressed.bg_color = palette.color("ui_accent").lightened(0.2)
-	var focus := hover.duplicate()
-	focus.border_color = palette.color("ui_accent")
-	focus.set_border_width_all(FOCUS_LINE)
-	button.add_theme_stylebox_override("normal", normal)
-	button.add_theme_stylebox_override("hover", hover)
-	button.add_theme_stylebox_override("pressed", pressed)
-	button.add_theme_stylebox_override("focus", focus)
-	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-
-	var content := VBoxContainer.new()
-	content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	content.offset_left = 8
-	content.offset_top = 7
-	content.offset_right = -8
-	content.offset_bottom = -7
-	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_theme_constant_override("separation", 1)
-	button.add_child(content)
-
-	var preview := TextureRect.new()
-	preview.name = "Preview"
-	preview.custom_minimum_size = Vector2(116, 105)
-	preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(preview)
-
-	var name_label := label(display_name, 13, false, true)
-	name_label.name = "Name"
-	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(name_label)
-
-	# A visible ×1 matters: without it, the last owned piece reads as an
-	# unlimited catalogue recipe instead of finite inventory.
-	var badge := PanelContainer.new()
-	badge.name = "CountBadge"
-	badge.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	badge.position = Vector2(-9, 9)
-	badge.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	var badge_style := StyleBoxFlat.new()
-	badge_style.bg_color = palette.color("ui_good")
-	badge_style.set_corner_radius_all(CORNER_SMALL)
-	badge_style.content_margin_left = 8
-	badge_style.content_margin_right = 8
-	badge_style.content_margin_top = 4
-	badge_style.content_margin_bottom = 4
-	badge.add_theme_stylebox_override("panel", badge_style)
-	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var count_label := label("×%d" % count, 13, true, true)
-	count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	badge.add_child(count_label)
-	button.add_child(badge)
-
+	var button := InventoryItemCell.new()
+	button.setup(self, display_name, count)
 	return {
 		"button": button,
-		"preview": preview,
-		"badge": badge,
+		"preview": button.preview,
+		"badge": button.quantity_label,
 	}
 
 
 func style_library_scrollbar(scroll: ScrollContainer) -> void:
+	style_minimal_scrollbar(scroll)
+
+
+func style_minimal_scrollbar(scroll: ScrollContainer) -> void:
 	var horizontal := scroll.get_h_scroll_bar()
 	var vertical := scroll.get_v_scroll_bar()
-	horizontal.custom_minimum_size.y = 6
-	vertical.custom_minimum_size.x = 7
+	horizontal.custom_minimum_size.y = tokens.scrollbar_width
+	vertical.custom_minimum_size.x = tokens.scrollbar_width
 	var track := StyleBoxFlat.new()
-	track.bg_color = Color(palette.color("ui_track"), 0.42)
+	track.bg_color = ui_color("scroll_track")
 	track.set_corner_radius_all(0)
 	var grabber := StyleBoxFlat.new()
-	grabber.bg_color = palette.color("ui_good")
+	grabber.bg_color = ui_color("scroll_thumb")
 	grabber.set_corner_radius_all(0)
 	var grabber_hover := grabber.duplicate()
-	grabber_hover.bg_color = palette.color("ui_good").lightened(0.18)
+	grabber_hover.bg_color = ui_color("scroll_thumb").lightened(0.08)
 	var grabber_pressed := grabber.duplicate()
-	grabber_pressed.bg_color = palette.color("ui_good").darkened(0.05)
+	grabber_pressed.bg_color = ui_color("scroll_thumb").darkened(0.04)
 	for bar: ScrollBar in [horizontal, vertical]:
 		bar.add_theme_stylebox_override("scroll", track)
 		bar.add_theme_stylebox_override("scroll_focus", track)
@@ -575,12 +651,12 @@ func library_arrow_button(text: String) -> Button:
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("focus", focus)
 	b.add_theme_stylebox_override("disabled", disabled)
-	b.add_theme_color_override("font_color", palette.color("ui_text_primary"))
-	b.add_theme_color_override("font_hover_color", palette.color("ui_text_primary"))
-	b.add_theme_color_override("font_pressed_color", palette.color("ui_white"))
+	b.add_theme_color_override("font_color", text_color())
+	b.add_theme_color_override("font_hover_color", text_color())
+	b.add_theme_color_override("font_pressed_color", text_color())
 	b.add_theme_color_override(
 		"font_disabled_color",
-		Color(palette.color("ui_text_disabled"), 0.3)
+		text_color()
 	)
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	return b
@@ -589,38 +665,39 @@ func library_arrow_button(text: String) -> Button:
 func menu_button(text: String, accent := false) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.custom_minimum_size = Vector2(370, 62)
+	b.custom_minimum_size = Vector2(370, 52)
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	b.add_theme_font_override("font", font_display)
-	b.add_theme_font_size_override("font_size", 24)
+	b.add_theme_font_override("font", font_bold)
+	b.add_theme_font_size_override("font_size", 22)
 	var normal := StyleBoxFlat.new()
 	normal.bg_color = palette.color("ui_transparent")
 	normal.set_corner_radius_all(CORNER_SMALL)
 	normal.content_margin_left = 18
 	normal.content_margin_right = 18
-	normal.content_margin_top = 13
-	normal.content_margin_bottom = 13
+	normal.content_margin_top = 10
+	normal.content_margin_bottom = 10
 	normal.border_color = hairline_color()
 	normal.border_width_bottom = HAIRLINE
 	var hover := normal.duplicate()
-	hover.bg_color = palette.color("ui_menu_hover")
+	hover.bg_color = Color(ui_color("cell_hover"), 0.72)
 	var pressed := normal.duplicate()
-	pressed.bg_color = palette.color("ui_surface_pressed")
+	pressed.bg_color = Color(ui_color("cell_pressed"), 0.82)
 	var focus := normal.duplicate()
-	focus.bg_color = palette.color("ui_menu_focus")
-	focus.border_color = palette.color("ui_accent")
-	focus.set_border_width_all(FOCUS_LINE)
+	focus.bg_color = Color(ui_color("cell_hover"), 0.62)
+	focus.border_color = ui_color("focus")
+	focus.set_border_width_all(tokens.focus_width)
 	b.add_theme_stylebox_override("normal", normal)
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("focus", focus)
-	var color := palette.color("ui_text_inverse") if accent else text_color()
+	var color := text_color()
 	b.add_theme_color_override("font_color", color)
 	b.add_theme_color_override("font_hover_color", color)
 	b.add_theme_color_override("font_pressed_color", color)
 	b.add_theme_color_override("font_focus_color", color)
+	b.add_theme_color_override("font_disabled_color", color)
 	if accent:
-		normal.bg_color = palette.color("ui_good")
+		normal.bg_color = ui_color("accent")
 		hover.bg_color = normal.bg_color.lightened(0.06)
 		pressed.bg_color = normal.bg_color.darkened(0.06)
 		focus.bg_color = normal.bg_color.lightened(0.03)
@@ -630,23 +707,23 @@ func menu_button(text: String, accent := false) -> Button:
 
 func section_label(text: String) -> Label:
 	var l := utility_label(text, 12)
-	l.add_theme_color_override("font_color", palette.color("ui_text_secondary"))
+	l.add_theme_color_override("font_color", text_color())
 	return l
 
 
 func keycap(text: String, minimum_width := 42.0) -> PanelContainer:
 	var cap := PanelContainer.new()
 	var style := StyleBoxFlat.new()
-	style.bg_color = palette.color("ui_tooltip")
+	style.bg_color = Color(ui_color("cell"), 0.9)
 	style.set_corner_radius_all(CORNER_SMALL)
 	style.set_content_margin_all(5)
 	style.content_margin_left = 9
 	style.content_margin_right = 9
-	style.border_width_bottom = 2
-	style.border_color = palette.color("ui_border_dark")
+	style.border_width_bottom = tokens.hairline_width
+	style.border_color = ui_color("divider")
 	cap.add_theme_stylebox_override("panel", style)
 	cap.custom_minimum_size.x = minimum_width
-	var l := label(text, 16, true, true)
+	var l := label(text, 13, false, true)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cap.add_child(l)
 	return cap
@@ -667,24 +744,24 @@ func window(title: String, size: Vector2) -> Dictionary:
 	root.theme = theme
 	var scrim := ColorRect.new()
 	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	scrim.color = palette.color("ui_scrim")
+	scrim.color = overlay_scrim()
 	scrim.mouse_filter = Control.MOUSE_FILTER_STOP
 	root.add_child(scrim)
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.add_child(center)
 	var c := card(size)
-	c.add_theme_stylebox_override("panel", cloud_panel_style())
+	c.add_theme_stylebox_override("panel", sheet_style())
 	center.add_child(c)
 	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", 14)
+	content.add_theme_constant_override("separation", 12)
 	c.add_child(content)
 	var header := HBoxContainer.new()
 	content.add_child(header)
-	var title_label := display_label(title, 30)
+	var title_label := display_label(title, tokens.title_font_size)
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title_label)
-	var close := icon_button("×")
+	var close := minimal_icon_button("×", "Close")
 	header.add_child(close)
 	return {"root": root, "card": c, "content": content, "close": close}
 
@@ -697,27 +774,30 @@ func surface_style(
 ) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = background
-	style.set_corner_radius_all(mini(radius, CORNER_SHEET))
+	style.set_corner_radius_all(mini(radius, tokens.sheet_corner_radius))
 	style.set_content_margin_all(14)
 	style.border_color = border
 	style.set_border_width_all(border_width)
 	style.anti_aliasing = true
+	style.shadow_size = 0
+	style.shadow_color = Color.TRANSPARENT
 	return style
 
 
 func progression_panel_style(accent: Color, radius := 18) -> StyleBoxFlat:
 	var style := surface_style(
-		Color(palette.color("ui_progression_surface"), 0.5),
-		mini(radius, CORNER_SMALL),
-		hairline_color(),
-		HAIRLINE
+		Color(ui_color("cell"), 0.56),
+		mini(radius, tokens.sheet_corner_radius),
+		Color(ui_color("divider"), 0.72),
+		tokens.hairline_width
 	)
 	style.content_margin_left = 18
 	style.content_margin_right = 18
 	style.content_margin_top = 16
 	style.content_margin_bottom = 16
-	style.border_width_top = 3
-	style.border_color = accent
+	style.set_border_width_all(0)
+	style.border_width_left = tokens.hairline_width
+	style.border_color = Color(accent, 0.46)
 	return style
 
 
@@ -737,19 +817,25 @@ func eyebrow(text: String, accent := Color.TRANSPARENT) -> Label:
 
 func muted_label(text: String, size := 14) -> Label:
 	var l := label(text, size)
-	l.add_theme_color_override("font_color", palette.color("ui_text_secondary"))
+	l.add_theme_color_override("font_color", text_color())
 	return l
 
 
 func pill(text: String, accent: Color) -> PanelContainer:
 	var panel := PanelContainer.new()
-	var style := surface_style(accent, CORNER_SMALL, accent, HAIRLINE)
+	var style := surface_style(
+		Color(accent, 0.08),
+		tokens.sheet_corner_radius,
+		Color(accent, 0.34),
+		tokens.hairline_width
+	)
 	style.content_margin_left = 9
 	style.content_margin_right = 9
 	style.content_margin_top = 4
 	style.content_margin_bottom = 4
 	panel.add_theme_stylebox_override("panel", style)
-	var l := label(text, 11, true, true)
+	var l := label(text, 11, false, true)
+	l.add_theme_color_override("font_color", text_color())
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	panel.add_child(l)
 	return panel
@@ -758,10 +844,11 @@ func pill(text: String, accent: Color) -> PanelContainer:
 func monogram(glyph: String, accent: Color, size := 42.0) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(size, size)
-	var style := surface_style(accent, CORNER_SMALL)
+	var style := surface_style(Color(accent, 0.1), tokens.sheet_corner_radius)
 	style.set_content_margin_all(0)
 	panel.add_theme_stylebox_override("panel", style)
-	var l := label(glyph, int(size * 0.46), true, true)
+	var l := label(glyph, int(size * 0.42), false, true)
+	l.add_theme_color_override("font_color", text_color())
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	panel.add_child(l)
@@ -770,7 +857,7 @@ func monogram(glyph: String, accent: Color, size := 42.0) -> PanelContainer:
 
 func divider(color := Color.TRANSPARENT) -> ColorRect:
 	var line := ColorRect.new()
-	line.color = palette.color("ui_divider") if color.a <= 0.0 else color
+	line.color = ui_color("divider") if color.a <= 0.0 else color
 	line.custom_minimum_size.y = 1
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return line

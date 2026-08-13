@@ -1,8 +1,8 @@
 shader_type spatial;
-render_mode unshaded, blend_mix, depth_draw_never;
+render_mode unshaded, blend_mix, depth_draw_never, depth_test_disabled;
 // Donut County-style rescue hole: a flat, matte, near-black disc lying on
-// the surface. Depth testing stays on, so terrain in front occludes it and
-// anything below its plane (the swallowed player) hides behind it.
+// the surface. The permanent Worldheart is an overlay object: it must remain
+// above its host tile and tile dressing instead of z-fighting or disappearing.
 
 uniform vec3 hole_color : source_color = vec3(1.0);
 uniform vec3 rim_color : source_color = vec3(1.0);

@@ -235,7 +235,7 @@ func _section(list: VBoxContainer, section: String, current: String) -> String:
 	if section == current:
 		return current
 	var label := _small_label(section.to_upper(), 12)
-	label.add_theme_color_override("font_color", _palette.color("ui_text_muted"))
+	label.add_theme_color_override("font_color", _kit.text_color())
 	list.add_child(label)
 	return section
 

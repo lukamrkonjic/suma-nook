@@ -65,10 +65,15 @@ func toggle(panel_name: String) -> void:
 	win["close"].pressed.connect(close)
 	add_child(_open_panel)
 	var card: Control = win["card"]
-	card.scale = Vector2(0.92, 0.92)
-	card.pivot_offset = card.size * 0.5
-	var tween := card.create_tween()
-	tween.tween_property(card, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	var resting_position := card.position
+	var duration := kit.motion_duration(kit.tokens.open_duration)
+	card.modulate.a = 0.0 if duration > 0.0 else 1.0
+	card.position.y += kit.tokens.open_offset if duration > 0.0 else 0.0
+	if duration > 0.0:
+		var tween := card.create_tween().set_parallel(true)
+		tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tween.tween_property(card, "modulate:a", 1.0, duration)
+		tween.tween_property(card, "position", resting_position, duration)
 	panel_toggled.emit(panel_name, true)
 	focus_default(win.get("focus") as Control)
 
@@ -244,7 +249,7 @@ func _recipe_row(recipe: Defs.RecipeDefinition) -> Control:
 		var need := int(recipe.inputs[input_id])
 		costs.append("%s %d/%d" % [item.display_name if item else input_id, have, need])
 	var cost_label := kit.label(", ".join(costs), 13)
-	cost_label.add_theme_color_override("font_color", kit.palette.color("ui_cost"))
+	cost_label.add_theme_color_override("font_color", kit.text_color())
 	col.add_child(cost_label)
 	var craft_button := kit.button("Craft", true)
 	craft_button.disabled = not core.crafting.can_craft(recipe.id)
@@ -428,7 +433,7 @@ func _character_panel() -> Dictionary:
 			continue
 		var row := HBoxContainer.new()
 		var name_label := kit.label(def.display_name, 16)
-		name_label.add_theme_color_override("font_color", kit.rarity_color(def.rarity))
+		name_label.add_theme_color_override("font_color", kit.text_color())
 		name_label.tooltip_text = def.description
 		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(name_label)
@@ -494,9 +499,34 @@ func _collection_panel() -> Dictionary:
 			var title := kit.label(definition.display_name, 19, false, true)
 			title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			heading.add_child(title)
+			var attuned: bool = (
+				core.diorama.worldheart.attuned_collection_id == definition.id
+			)
+			if core.diorama.worldheart.can_attune(definition.id):
+				var attune := kit.button(
+					"Release" if attuned else "Attune", true
+				)
+				attune.tooltip_text = (
+					"Return the Worldheart to its natural mix."
+					if attuned
+					else "Make future pulses favor this collection."
+				)
+				attune.pressed.connect(
+					_on_worldheart_attune_pressed.bind(
+						"" if attuned else String(definition.id)
+					)
+				)
+				heading.add_child(attune)
+				if not win.has("focus"):
+					win["focus"] = attune
 			heading.add_child(kit.pill(
 				"%d / %d" % [found.size(), definition.members.size()], accent
 			))
+			if attuned:
+				column.add_child(kit.eyebrow(
+					"Worldheart attuned â€” future gifts favor this set",
+					accent
+				))
 			column.add_child(kit.progress_bar_colored(
 				float(found.size()) / float(maxi(1, definition.members.size())),
 				accent,
@@ -575,7 +605,7 @@ func _collection_panel() -> Dictionary:
 			var entry := core.collection.entry(section[1], id)
 			var entry_row := HBoxContainer.new()
 			var marker := kit.label("◆", 11)
-			marker.add_theme_color_override("font_color", accent)
+			marker.add_theme_color_override("font_color", kit.text_color())
 			entry_row.add_child(marker)
 			var row_label := kit.label(display, 15, false, true)
 			row_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -594,6 +624,14 @@ func _collection_panel() -> Dictionary:
 			category_col.add_child(mystery)
 		list.add_child(category_card)
 	return win
+
+
+func _on_worldheart_attune_pressed(collection_id: String) -> void:
+	if not core.diorama.worldheart.set_attunement(collection_id):
+		return
+	core.save()
+	toggle("collection")
+	toggle("collection")
 
 
 func _journal_accent(category: String) -> Color:
@@ -1047,6 +1085,6 @@ func show_landmark_choice(landmark_id: String) -> void:
 			close())
 		col.add_child(b)
 		var hint := kit.label(option[2], 13)
-		hint.add_theme_color_override("font_color", kit.palette.color("ui_cost"))
+		hint.add_theme_color_override("font_color", kit.text_color())
 		col.add_child(hint)
 	focus_default()

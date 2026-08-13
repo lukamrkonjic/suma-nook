@@ -703,8 +703,7 @@ func _build_inspector(parent: Control) -> void:
 	_import_status = _kit.label("Choose an asset to import its values.", 12)
 	_import_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_import_status.add_theme_color_override(
-		"font_color",
-		_kit.palette.color("ui_asset_debug_text_dark")
+		"font_color", _kit.text_color()
 	)
 	column.add_child(_import_status)
 
@@ -846,8 +845,7 @@ func _build_design_palette(parent: VBoxContainer) -> void:
 	)
 	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	guidance.add_theme_color_override(
-		"font_color",
-		_kit.palette.color("ui_asset_debug_text_a")
+		"font_color", _kit.text_color()
 	)
 	parent.add_child(guidance)
 	_palette_status = _kit.label("Choose a material slot first.", 11, false, true)
@@ -904,8 +902,7 @@ func _build_design_palette(parent: VBoxContainer) -> void:
 
 	_palette_count = _kit.label("", 10, false, true)
 	_palette_count.add_theme_color_override(
-		"font_color",
-		_kit.palette.color("ui_asset_debug_text_light")
+		"font_color", _kit.text_color()
 	)
 	parent.add_child(_palette_count)
 	_palette_grid = GridContainer.new()
@@ -1126,12 +1123,7 @@ func _style_palette_swatch(
 		style.set_corner_radius_all(8)
 		style.set_content_margin_all(4.0)
 		button.add_theme_stylebox_override(state, style)
-	var luminance := color.get_luminance()
-	var text_color := (
-		_kit.palette.color("ui_asset_text_dark")
-		if luminance > 0.62
-		else _kit.palette.color("ui_asset_text_light")
-	)
+	var text_color := _kit.text_color()
 	button.add_theme_color_override("font_color", text_color)
 	button.add_theme_color_override("font_hover_color", text_color)
 	button.add_theme_color_override("font_pressed_color", text_color)
@@ -1142,8 +1134,7 @@ func _style_palette_swatch(
 func _editor_section(text: String) -> Label:
 	var label := _kit.label(text, 12, false, true)
 	label.add_theme_color_override(
-		"font_color",
-		_kit.palette.color("ui_asset_debug_text_b")
+		"font_color", _kit.text_color()
 	)
 	return label
 
@@ -1171,8 +1162,7 @@ func _inspector_accordion(
 		var help := _kit.label(help_text, 11)
 		help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		help.add_theme_color_override(
-			"font_color",
-			_kit.palette.color("ui_asset_debug_text_c")
+			"font_color", _kit.text_color()
 		)
 		content.add_child(help)
 	var refresh := func(open: bool) -> void:
@@ -1363,8 +1353,7 @@ func _catalog_group_label(text: String) -> Label:
 	label.custom_minimum_size.y = 28.0
 	label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	label.add_theme_color_override(
-		"font_color",
-		_kit.palette.color("ui_asset_debug_text_d")
+		"font_color", _kit.text_color()
 	)
 	return label
 
@@ -2473,7 +2462,7 @@ func _group_label(text: String) -> Label:
 	label.custom_minimum_size.x = 62.0
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.add_theme_color_override(
-		"font_color", _kit.palette.color("ui_good").darkened(0.12)
+		"font_color", _kit.text_color()
 	)
 	return label
 

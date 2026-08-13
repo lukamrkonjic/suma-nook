@@ -8,6 +8,10 @@ signal orbit_started(target_yaw: float)
 signal orbit_finished(yaw: float)
 signal zoom_changed(distance: float)
 
+const ArtStyleSettingsScript := preload(
+	"res://scripts/visuals/art_style_settings.gd"
+)
+
 var core: GameCore
 var target: Node3D
 var camera: Camera3D
@@ -22,6 +26,10 @@ var _middle_panning := false
 var _middle_pan_origin := Vector3.ZERO
 var _creator_focus := false
 var _pointer_edit_locked := false
+var _input_blocker := Callable()
+var _continuous_pan_armed := false
+
+const CAMERA_PAN_DEADZONE := 0.35
 
 
 func setup(game_core: GameCore, follow_target: Node3D) -> void:
@@ -33,7 +41,7 @@ func setup(game_core: GameCore, follow_target: Node3D) -> void:
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	_yaw = core.registries.tunef("camera_default_yaw_deg", 45.0)
 	_yaw_target = _yaw
-	_size_target = core.registries.tunef("camera_default_size", 37.0)
+	_size_target = _default_gameplay_distance()
 	rotation_degrees.y = _yaw
 
 	_pitch_node = Node3D.new()
@@ -49,7 +57,7 @@ func setup(game_core: GameCore, follow_target: Node3D) -> void:
 	camera.fov = core.registries.tunef("camera_fov_deg", 15.0)
 	camera.position = Vector3(0, 0, _size_target)
 	camera.near = 5.0
-	camera.far = 90.0
+	camera.far = 100.0
 	_pitch_node.add_child(camera)
 	camera.current = true
 
@@ -105,7 +113,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _creator_focus or _pointer_edit_locked:
+	if _creator_focus or _pointer_edit_locked or _camera_input_blocked():
 		return
 	var controller := target as PlayerController
 	if (
@@ -181,6 +189,9 @@ func _pan_by_pixels(relative: Vector2) -> void:
 
 
 func _apply_continuous_pan(delta: float) -> void:
+	if _camera_input_blocked():
+		_suspend_camera_input()
+		return
 	if _creator_focus or _middle_panning:
 		return
 	var focused := get_viewport().gui_get_focus_owner()
@@ -200,17 +211,50 @@ func _apply_continuous_pan(delta: float) -> void:
 		"camera_pan_up",
 		"camera_pan_down"
 	)
-	if input.length_squared() <= 0.001:
+	var input_length := input.length()
+	if input_length <= CAMERA_PAN_DEADZONE:
+		# UI transitions deliberately disarm held analogue input. The stick must
+		# return to neutral once before camera motion may resume, preventing the
+		# Build Bag's opening/closing frame from carrying a stale pan into play.
+		_continuous_pan_armed = true
 		return
+	if not _continuous_pan_armed:
+		return
+	# Apply a second, camera-specific radial deadzone. A connected controller's
+	# idle right-stick noise must never drift the diorama while the player is
+	# using mouse/keyboard, while deliberate analogue pan remains gradual.
+	input = input.normalized() * inverse_lerp(
+		CAMERA_PAN_DEADZONE,
+		1.0,
+		input_length
+	)
 	var movement_basis := horizontal_basis()
 	var direction := movement_basis.x * input.x + movement_basis.z * input.y
 	direction.y = 0.0
 	if direction.length_squared() > 1.0:
 		direction = direction.normalized()
-	var default_distance := core.registries.tunef("camera_default_size", 37.0)
+	var default_distance := _default_gameplay_distance()
 	var zoom_scale := clampf(_size_target / maxf(1.0, default_distance), 0.5, 2.0)
 	_pan_offset += direction * core.registries.tunef("camera_pan_speed", 10.0) * zoom_scale * delta
 	_clamp_pan_offset()
+
+
+## Main owns the complete modal/HUD state, so it supplies the single camera
+## input gate. Polling it here closes the one-frame gap before controller focus
+## is assigned to a newly opened panel.
+func set_input_blocker(blocker: Callable) -> void:
+	_input_blocker = blocker
+
+
+func _camera_input_blocked() -> bool:
+	return _input_blocker.is_valid() and bool(_input_blocker.call())
+
+
+func _suspend_camera_input() -> void:
+	_continuous_pan_armed = false
+	if _middle_panning:
+		_middle_panning = false
+		_pan_offset = _middle_pan_origin
 
 
 func _clamp_pan_offset() -> void:
@@ -250,10 +294,12 @@ func horizontal_basis() -> Basis:
 	return Basis(right, Vector3.UP, -forward)
 
 
-func set_build_mode(enabled: bool) -> void:
-	var base := core.registries.tunef("camera_default_size", 37.0)
-	_size_target = base + (core.registries.tunef("build_mode_size_bonus", 3.0) if enabled else 0.0)
-	zoom_changed.emit(_size_target)
+func set_build_mode(_enabled: bool) -> void:
+	# Editing changes input semantics, not composition. In particular, the
+	# compact Worldheart start uses its own 22-unit frame; replacing that with
+	# the retired 37/40-unit build frame caused a delayed zoom jump as soon as a
+	# tile drag released the camera lock.
+	return
 
 
 func begin_pointer_edit() -> void:
@@ -298,7 +344,7 @@ func frame_for_arrival() -> void:
 
 func restore_gameplay_zoom() -> void:
 	_creator_focus = false
-	_size_target = core.registries.tunef("camera_default_size", 37.0)
+	_size_target = _default_gameplay_distance()
 	if _pitch_node != null:
 		_pitch_node.rotation_degrees.x = core.registries.tunef(
 			"camera_pitch_deg",
@@ -312,6 +358,12 @@ func restore_gameplay_zoom() -> void:
 
 func zoom_distance() -> float:
 	return _size_target
+
+
+func _default_gameplay_distance() -> float:
+	if ArtStyleSettingsScript.palette_profile() == "garden_galaxy_reference":
+		return 40.0
+	return core.registries.tunef("camera_default_size", 37.0)
 
 
 func save_state() -> Dictionary:
@@ -379,7 +431,7 @@ func restore_state(data: Dictionary) -> void:
 		"distance",
 		data.get(
 			"size",
-			core.registries.tunef("camera_default_size", 37.0)
+			_default_gameplay_distance()
 		)
 	))
 	# Migrate experimental saves that stored an orthographic-equivalent span.

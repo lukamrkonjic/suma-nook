@@ -5,6 +5,7 @@
       "name": "Meadow",
       "description": "Soft ground, flowers and pieces for a lived-in garden.",
       "color_token": "ui_good",
+      "starting_tile_id": "tile_grass",
       "members": [
         {"kind": "tile", "id": "tile_grass", "tier": 0, "family": "ground"},
         {"kind": "tile", "id": "tile_grass_flower", "tier": 0, "family": "flowers"},
@@ -28,6 +29,7 @@
       "name": "Woodland",
       "description": "Trees, moss and quiet forest details.",
       "color_token": "ui_accent",
+      "starting_tile_id": "tile_grove_mossy",
       "members": [
         {"kind": "tile", "id": "tile_grove_mature", "tier": 0, "family": "forest_floor"},
         {"kind": "tile", "id": "tile_grove_mossy", "tier": 0, "family": "forest_floor"},
@@ -36,6 +38,10 @@
         {"kind": "structure", "id": "struct_log_pile", "tier": 0, "family": "woodwork"},
         {"kind": "tile", "id": "tile_grove_birch", "tier": 1, "family": "forest_floor"},
         {"kind": "structure", "id": "struct_pine", "tier": 1, "family": "pine"},
+        {"kind": "structure", "id": "struct_stone_pine", "tier": 1, "family": "stone_pine"},
+        {"kind": "structure", "id": "struct_fir", "tier": 1, "family": "pine"},
+        {"kind": "structure", "id": "struct_leafy_bush", "tier": 1, "family": "undergrowth"},
+        {"kind": "structure", "id": "struct_shrooms", "tier": 1, "family": "fungi"},
         {"kind": "structure", "id": "struct_fence", "tier": 1, "family": "woodwork"},
         {"kind": "tile", "id": "tile_grove_autumn", "tier": 2, "family": "forest_floor"},
         {"kind": "structure", "id": "struct_pine_tall", "tier": 2, "family": "pine"}
@@ -50,6 +56,7 @@
       "name": "Homestead",
       "description": "Furniture, shelter and useful pieces for tiny settlements.",
       "color_token": "ui_accent",
+      "starting_tile_id": "tile_wooden_planks",
       "members": [
         {"kind": "structure", "id": "struct_stool", "tier": 0, "family": "furniture"},
         {"kind": "structure", "id": "struct_table", "tier": 0, "family": "furniture"},
@@ -58,6 +65,7 @@
         {"kind": "structure", "id": "struct_crate", "tier": 0, "family": "storage"},
         {"kind": "structure", "id": "struct_barrel", "tier": 1, "family": "storage"},
         {"kind": "structure", "id": "struct_chest", "tier": 1, "family": "storage"},
+        {"kind": "structure", "id": "struct_vintage_radio", "tier": 1, "family": "details"},
         {"kind": "structure", "id": "struct_high_tent", "tier": 1, "family": "buildings"},
         {"kind": "structure", "id": "struct_gate", "tier": 2, "family": "boundaries"},
         {"kind": "structure", "id": "struct_wheelbarrow", "tier": 2, "family": "details"}
@@ -72,6 +80,7 @@
       "name": "Waterside",
       "description": "Water, boardwalks and models for the shore.",
       "color_token": "ui_info",
+      "starting_tile_id": "tile_grass_pond_edge",
       "members": [
         {"kind": "tile", "id": "tile_open_water", "tier": 0, "family": "water"},
         {"kind": "tile", "id": "tile_grass_pond_edge", "tier": 0, "family": "pond"},
@@ -90,6 +99,7 @@
       "name": "Stone",
       "description": "Weathered masonry, ruins and rocky garden pieces.",
       "color_token": "ui_text_secondary",
+      "starting_tile_id": "tile_stone_clearing",
       "members": [
         {"kind": "tile", "id": "tile_cobblestone", "tier": 0, "family": "paving"},
         {"kind": "tile", "id": "tile_stone_clearing", "tier": 0, "family": "ground"},
@@ -110,6 +120,7 @@
       "name": "Winter",
       "description": "Snow fields and cheerful cold-weather pieces.",
       "color_token": "ui_info",
+      "starting_tile_id": "tile_snowfield",
       "members": [
         {"kind": "tile", "id": "tile_snowfield", "tier": 0, "family": "snow"},
         {"kind": "tile", "id": "tile_snow_path", "tier": 0, "family": "paths"},

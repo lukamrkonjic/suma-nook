@@ -49,7 +49,7 @@ func _show(entry: Dictionary) -> void:
 	add_child(_root)
 
 	var dim := ColorRect.new()
-	dim.color = kit.palette.color("ui_reveal_scrim")
+	dim.color = kit.overlay_scrim()
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.add_child(dim)
 
@@ -112,14 +112,13 @@ func _show(entry: Dictionary) -> void:
 	_accept_button.pressed.connect(_accept)
 	col.add_child(_accept_button)
 
-	card.modulate.a = 0.0
-	card.scale = Vector2(0.88, 0.88)
-	card.pivot_offset = card.custom_minimum_size * 0.5
-	var tween := card.create_tween()
-	tween.tween_interval(0.12)
-	tween.tween_property(card, "modulate:a", 1.0, 0.2)
-	tween.parallel().tween_property(card, "scale", Vector2.ONE, 0.34) \
-		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	var duration := kit.motion_duration(kit.tokens.open_duration)
+	card.modulate.a = 0.0 if duration > 0.0 else 1.0
+	if duration > 0.0:
+		var tween := card.create_tween()
+		tween.tween_interval(kit.motion_duration(0.06))
+		tween.tween_property(card, "modulate:a", 1.0, duration) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	focus_default()
 
 

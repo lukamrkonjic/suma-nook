@@ -8,6 +8,7 @@ var gifts: WorldGiftService
 var tray: DiscoveryTrayService
 var cadence: BuildCadenceService
 var curiosities: WorldCuriosityService
+var worldheart: WorldheartService
 
 
 func _init(
@@ -15,6 +16,7 @@ func _init(
 	rng: RngService,
 	grid: WorldGrid,
 	collection: CollectionManager,
+	stock: StockManager,
 	nooks: NookModule,
 	build_rewards: BuildRewardService
 ) -> void:
@@ -27,6 +29,9 @@ func _init(
 	cadence = BuildCadenceService.new(registries, rng, tray, gifts)
 	curiosities = WorldCuriosityService.new(
 		registries, rng, grid, nooks, build_rewards, collections, gifts
+	)
+	worldheart = WorldheartService.new(
+		registries, rng, grid, stock, collection, build_rewards, collections
 	)
 	var self_ref: WeakRef = weakref(self)
 	nooks.nook_revealed.connect(func(coord: Vector2i, plan):
@@ -46,11 +51,13 @@ func _init(
 func new_game() -> void:
 	tray.initialize()
 	collections.sync_unlocks(false)
+	worldheart.new_game()
 
 
 func to_save_dict() -> Dictionary:
 	return {
-		"version": 1,
+		"version": 4,
+		"worldheart": worldheart.to_save_dict(),
 		"tray": tray.to_save_dict(),
 		"collections": collections.to_save_dict(),
 		"gifts": gifts.to_save_dict(),
@@ -65,3 +72,9 @@ func from_save_dict(data: Dictionary) -> void:
 	tray.from_save_dict(data.get("tray", {}) as Dictionary)
 	cadence.from_save_dict(data.get("cadence", {}) as Dictionary)
 	curiosities.from_save_dict(data.get("curiosities", {}) as Dictionary)
+	var worldheart_data: Dictionary = data.get("worldheart", {})
+	if worldheart_data.is_empty():
+		worldheart.new_game()
+		worldheart.migrate_tray_offers(tray.offers())
+	else:
+		worldheart.from_save_dict(worldheart_data)

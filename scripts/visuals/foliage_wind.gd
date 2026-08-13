@@ -1,5 +1,5 @@
 extends Node
-## Deterministic canopy wind for tree structures only.
+## Deterministic canopy wind for trees and authored windy foliage.
 ##
 ## Terrain tiles never receive this controller. Flexible tree tiers use two
 ## overlapping frequencies and a height/name-weighted amplitude, while trunks
@@ -18,10 +18,12 @@ var _parts: Array[Dictionary] = []
 func setup(tree_root: Node3D, seed_value: int) -> void:
 	name = "FoliageWind"
 	_phase = fposmod(float(seed_value) * 0.61803398875, TAU)
-	var candidates: Array[Node3D] = []
+	var named_candidates: Array[Node3D] = []
 	for child in tree_root.find_children("*", "Node3D", true, false):
 		var part := child as Node3D
 		if part == null or part == self:
+			continue
+		if _belongs_to_harvest_overlay(part, tree_root):
 			continue
 		var lower := part.name.to_lower()
 		if (
@@ -31,7 +33,19 @@ func setup(tree_root: Node3D, seed_value: int) -> void:
 			or lower.contains("foliage")
 			or lower.contains("needle")
 		):
-			candidates.append(part)
+			named_candidates.append(part)
+	# Generated asset roots can legitimately include words such as "Leafy"
+	# in their model name. Move only the lowest semantic foliage nodes so a
+	# parent and its sealed canopy are never transformed twice.
+	var candidates: Array[Node3D] = []
+	for candidate in named_candidates:
+		var owns_named_foliage := false
+		for other in named_candidates:
+			if candidate != other and candidate.is_ancestor_of(other):
+				owns_named_foliage = true
+				break
+		if not owns_named_foliage:
+			candidates.append(candidate)
 	if candidates.is_empty():
 		set_process(false)
 		return
@@ -78,3 +92,12 @@ func _process(delta: float) -> void:
 			0.0,
 			amplitude * (broad + gust + crosswind)
 		)
+
+
+func _belongs_to_harvest_overlay(part: Node, tree_root: Node) -> bool:
+	var current := part
+	while current != null and current != tree_root:
+		if current.name in [&"HarvestYieldVisual", &"HarvestDepletedVisual"]:
+			return true
+		current = current.get_parent()
+	return false

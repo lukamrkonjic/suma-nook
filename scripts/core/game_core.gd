@@ -187,7 +187,7 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 	commands = WorldCommandService.new(grid, registries, events)
 	nooks = NookModule.new(registries, rng, grid, events, commands)
 	diorama = DioramaModuleScript.new(
-		registries, rng, grid, collection, nooks, build_rewards
+		registries, rng, grid, collection, stock, nooks, build_rewards
 	)
 	interactions.register_provider(
 		"world_curiosity",
@@ -458,6 +458,41 @@ func setup(data_path := "res://data", seed_value := 0) -> bool:
 		if owner != null:
 			owner.save()
 	)
+	diorama.worldheart.state_changed.connect(func():
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner._dirty = true
+	)
+	diorama.worldheart.pulse_queued.connect(func(_entry):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			# Persist the exact roll before any scene listener starts its arrival
+			# animation. Reloading can never turn a seen gift into another gift.
+			owner.save()
+	)
+	diorama.worldheart.rewards_claimed.connect(func(_entries):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner.save()
+	)
+	diorama.worldheart.exchange_completed.connect(func(_offered, _reward):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner.save()
+	)
+	diorama.worldheart.contribution_changed.connect(func(
+		_collection_id, _progress, _required, _completed, _reward
+	):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			# The half-filled ritual is real progress, not presentation state.
+			owner.save()
+	)
+	diorama.worldheart.worldheart_moved.connect(func(_from, _to):
+		var owner := owner_ref.get_ref() as GameCore
+		if owner != null:
+			owner.save()
+	)
 	fire.burning_changed.connect(func(_instance_id, _burning):
 		var owner := owner_ref.get_ref() as GameCore
 		if owner != null:
@@ -488,12 +523,22 @@ func new_game(new_profile: PlayerProfile) -> void:
 	camping.reset()
 	fishing.reset()
 	onboarding.set_stage(OnboardingState.COMPLETE)
+	diorama.new_game()
 	if diorama.enabled:
+		# Preference selection is the world-construction boundary. Until then the
+		# collection question sits over the ordinary empty sky backdrop.
 		_compose_empty_diorama_world()
+		view_state = {
+			"yaw": registries.tunef("camera_default_yaw_deg", 45.0),
+			"distance": registries.tunef(
+				"worldheart_start_camera_distance", 22.0
+			),
+			"pan": [0.0, 0.0],
+		}
 	else:
 		_compose_starting_world()
 	grid.home_cell = Vector2i.ZERO
-	profile.position = grid.cell_to_world(Vector2i.ZERO)
+	profile.position = grid.cell_to_world(grid.home_cell)
 	# Starter kit: rod + axe owned, plus the current body-slot wardrobe sample.
 	equipment.acquire("tool_rod_basic")
 	equipment.acquire("tool_axe_basic")
@@ -511,7 +556,6 @@ func new_game(new_profile: PlayerProfile) -> void:
 	for coord: Vector2i in grid.cells:
 		collection.record("tiles", grid.cell(coord).tile_id, 0)
 	nooks.bootstrap_starter_nook()
-	diorama.new_game()
 	save()
 
 
@@ -736,14 +780,116 @@ func _compose_starting_world() -> void:
 	grid.rebuild_structure_index()
 
 
-## The live diorama begins as a true blank canvas. The persistent Discovery
-## Tray supplies the first terrain piece, and ground placement works on the
-## infinite grid, so no generated or authored island has to be chosen first.
+## Fresh diorama setup stays visually empty until the collection preference is
+## chosen. This is deliberately separate from the ordinary authored opening.
 func _compose_empty_diorama_world() -> void:
 	grid.cells.clear()
 	grid.stacked_cells.clear()
 	grid.next_instance_id = 1
+	grid.home_cell = Vector2i.ZERO
+	diorama.worldheart.worldheart_cell = Vector2i.ZERO
 	grid.rebuild_structure_index()
+
+
+## Selection creates exactly nine themed land pieces: a 3x3 square with the
+## movable Worldheart model hosted by the centre tile.
+func choose_diorama_starting_vibe(collection_id: String) -> bool:
+	var definition = registries.creative_collection(collection_id)
+	if definition == null or not diorama.worldheart.choose_starting_vibe(collection_id):
+		return false
+	var land_id := String(definition.starting_tile_id)
+	if registries.tile(land_id) == null or not registries.is_tile_active(land_id):
+		return false
+	profile.starter_land_id = land_id
+	if grid.cells.is_empty():
+		_compose_worldheart_garden(land_id)
+	else:
+		_retheme_clear_starting_tiles(land_id)
+	profile.position = grid.cell_to_world(Vector2i.ZERO)
+	_dirty = true
+	return true
+
+
+func _compose_worldheart_garden(land_id: String) -> void:
+	grid.cells.clear()
+	grid.stacked_cells.clear()
+	grid.next_instance_id = 1
+	for x in range(-1, 2):
+		for y in range(-1, 2):
+			var coord := Vector2i(x, y)
+			grid.place_tile(coord, land_id, 0, true, false)
+			collection.record("tiles", land_id, 0)
+	grid.home_cell = Vector2i.ZERO
+	diorama.worldheart.worldheart_cell = Vector2i.ZERO
+	diorama.worldheart.lock_host_tile()
+	grid.rebuild_structure_index()
+
+
+func _retheme_clear_starting_tiles(land_id: String) -> void:
+	for x in range(-1, 2):
+		for y in range(-1, 2):
+			var coord := Vector2i(x, y)
+			var state := grid.cell(coord)
+			if state == null:
+				grid.place_tile(coord, land_id, 0, true, false)
+			elif (
+				state.structures.is_empty()
+				and grid.top_elevation(coord) == 0
+				and state.tile_id in ["tile_grass", profile.starter_land_id]
+			):
+				state.tile_id = land_id
+				grid.cell_changed.emit(coord)
+			collection.record("tiles", land_id, 0)
+
+
+## Upgrade the mistaken 81-tile prototype without deleting authored pieces:
+## only untouched generated grass outside the intended 3x3 is removed.
+func _migrate_to_worldheart_garden() -> bool:
+	var previous_host := grid.cell(diorama.worldheart.worldheart_cell)
+	if previous_host != null:
+		previous_host.movement_locked = false
+	var land_id := "tile_grass"
+	var vibe_definition = registries.creative_collection(
+		diorama.worldheart.vibe_collection_id
+	)
+	if vibe_definition != null:
+		land_id = String(vibe_definition.starting_tile_id)
+	elif registries.tile(profile.starter_land_id) != null:
+		land_id = profile.starter_land_id
+	if registries.tile(land_id) == null or not registries.is_tile_active(land_id):
+		land_id = "tile_grass"
+	if grid.cells.size() == 81:
+		for coord: Vector2i in grid.cells.keys():
+			if absi(coord.x) <= 1 and absi(coord.y) <= 1:
+				continue
+			var state := grid.cell(coord)
+			if (
+				state != null
+				and state.structures.is_empty()
+				and grid.top_elevation(coord) == 0
+				and state.tile_id in ["tile_grass", profile.starter_land_id]
+			):
+				grid.remove_tile(coord)
+	_retheme_clear_starting_tiles(land_id)
+	var migrated_host := Vector2i.ZERO
+	if not diorama.worldheart.can_move_to(migrated_host):
+		var candidates: Array[Vector2i] = []
+		for x in range(-1, 2):
+			for y in range(-1, 2):
+				candidates.append(Vector2i(x, y))
+		candidates.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+			if a.length_squared() != b.length_squared():
+				return a.length_squared() < b.length_squared()
+			return a.y < b.y if a.x == b.x else a.x < b.x
+		)
+		for candidate: Vector2i in candidates:
+			if diorama.worldheart.can_move_to(candidate):
+				migrated_host = candidate
+				break
+	diorama.worldheart.worldheart_cell = migrated_host
+	diorama.worldheart.lock_host_tile()
+	grid.rebuild_structure_index()
+	return true
 
 
 func _compose_onboarding_world() -> void:
@@ -934,8 +1080,10 @@ func place_tile_from_diorama_offer(
 
 ## The build grid is intentionally infinite. Nooks describe where procedural
 ## land has unfolded; they never fence off the player's own diorama pieces.
-func is_player_build_cell_unlocked(_coord: Vector2i) -> bool:
-	return true
+func is_player_build_cell_unlocked(coord: Vector2i) -> bool:
+	return not (
+		diorama.enabled and coord == diorama.worldheart.worldheart_cell
+	)
 
 
 func can_place_player_tile_at(
@@ -943,7 +1091,10 @@ func can_place_player_tile_at(
 	elevation: int,
 	tile_id: String
 ) -> bool:
-	return grid.can_place_tile_at(coord, elevation, tile_id)
+	return (
+		is_player_build_cell_unlocked(coord)
+		and grid.can_place_tile_at(coord, elevation, tile_id)
+	)
 
 
 func _adopt_first_player_land(
@@ -973,6 +1124,8 @@ func tick(delta: float) -> void:
 		nooks.tick(delta)
 		visitors.tick(delta)
 		arrivals.tick(delta)
+	else:
+		diorama.worldheart.tick(delta)
 	if registries.feature("combat_enabled", false):
 		combat.tick(delta)
 	_tick_anchors(delta)
@@ -1207,6 +1360,12 @@ func load_game() -> bool:
 	special_finds.from_save_dict(feature_data.get("special_finds", {}) as Dictionary)
 	reward_drops.from_save_dict(feature_data.get("reward_drops", {}) as Dictionary)
 	diorama.from_save_dict(feature_data.get("diorama", {}) as Dictionary)
+	var worldheart_garden_migrated := false
+	if (
+		diorama.enabled
+		and int((feature_data.get("diorama", {}) as Dictionary).get("version", 0)) < 4
+	):
+		worldheart_garden_migrated = _migrate_to_worldheart_garden()
 	# A pre-Nooks save (or a deleted nooks section) heals itself: the starter
 	# zone re-registers as the first Nook and play continues.
 	nooks.bootstrap_starter_nook()
@@ -1246,7 +1405,8 @@ func load_game() -> bool:
 	# and the place has changed. Presentation animates them on first sight.
 	dormants.apply_pending_wakes()
 	_dirty = retired_content_repaired \
-		or wardrobe_migrated or showcase_placeables_migrated or diorama_migrated
+		or wardrobe_migrated or showcase_placeables_migrated or diorama_migrated \
+		or worldheart_garden_migrated
 	return true
 
 

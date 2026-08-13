@@ -148,6 +148,17 @@ func _run() -> void:
 			print("WISH DROP FAILED — %d/%d failed" % [failures.size(), checks])
 		await _finish()
 		return
+	if OS.get_cmdline_user_args().has("--build-bag-only"):
+		await _step_build_library_ui()
+		if failures.is_empty():
+			print("BUILD BAG LOOP PASSED — %d checks" % checks)
+		else:
+			print(
+				"BUILD BAG LOOP FAILED — %d/%d failed"
+				% [failures.size(), checks]
+			)
+		await _finish()
+		return
 	await _step_controller_input()
 	if OS.get_cmdline_user_args().has("--mock-shot"):
 		# Visual QA: build the admin showcase island and save one screenshot.
@@ -971,7 +982,7 @@ func _tap_key(physical_keycode: Key) -> void:
 
 
 func _step_build_library_ui() -> void:
-	print("STEP categorized build library")
+	print("STEP collection-sheet Build Bag")
 	var original_tiles := main.core.stock.tiles.duplicate(true)
 	var original_structures := main.core.stock.structures.duplicate(true)
 	var original_deeds := main.core.stock.landmark_deeds.duplicate()
@@ -986,28 +997,26 @@ func _step_build_library_ui() -> void:
 	for landmark_id: String in main.core.registries.landmarks:
 		main.core.stock.landmark_deeds.append(landmark_id)
 	main.core.stock.stock_changed.emit()
-	# The onboarding flow has already exercised focus/hover transitions. Reset
-	# only this fixture's UI posture before testing the bag in isolation.
 	main.hud._selected_build_category = "nature"
 	main.hud.set_build_library_expanded(false, false)
-	main.hud._build_hover_expand_armed = true
 	main.placement.set_active(true)
 	await wait(0.15)
 
-	check(main.hud._build_bar.visible, "build mode opens the categorized library shelf")
+	check(main.hud._build_bar.visible, "build mode opens the collection sheet")
+	var viewport_size := get_viewport().get_visible_rect().size
+	var sheet_size := main.hud._build_bar.size
 	check(
-		main.hud.build_library_collapsed()
-		and main.hud._build_bar.custom_minimum_size.x <= 72.0,
-		"build mode starts with only the minimal Bag control"
+		is_equal_approx(sheet_size.x, viewport_size.x * 0.68)
+		and is_equal_approx(sheet_size.y, viewport_size.y * 0.44),
+		"the Build Bag is a calm 68% by 44% bottom slide-up collection"
 	)
-	await shot("screenshot_build_bag_compact")
-	Input.warp_mouse(main.hud._build_bar.get_global_rect().get_center())
-	await get_tree().process_frame
-	main.hud._on_build_library_mouse_entered()
-	await wait(0.2)
 	check(
-		main.hud._build_library_expanded,
-		"hovering the Bag icon opens the upward-growing visual collection"
+		absf(main.hud._build_bar.position.x - (viewport_size.x - sheet_size.x) * 0.5) < 1.0
+		and absf(
+			main.hud._build_bar.position.y
+			- (viewport_size.y - sheet_size.y - main.kit.tokens.sheet_bottom_margin)
+		) < 1.0,
+		"the Build Bag is centered along the bottom with the world open above it"
 	)
 	var populated_category_count := 0
 	var entries_by_category := main.hud._collect_build_entries()
@@ -1015,64 +1024,66 @@ func _step_build_library_ui() -> void:
 		if not (entries_by_category[String(category["id"])] as Array).is_empty():
 			populated_category_count += 1
 	check(
-		main.hud._build_category_strip.get_child_count() == populated_category_count,
-		"every populated content family receives one category button"
+		main.hud._build_section_nodes.size() == populated_category_count,
+		"every populated family becomes one vertically stacked collection section"
 	)
 	check(
 		main.hud._build_search != null
 		and main.hud._build_search.clear_button_enabled
-		and main.hud._build_search.placeholder_text == "Search your Build Bag...",
-		"the expanded Build Bag exposes one compact, self-clearing search field"
+		and not main.hud._build_search.visible
+		and main.hud._build_search.placeholder_text == "Search the collection",
+		"search stays available behind one quiet icon instead of occupying a permanent row"
 	)
 	check(
-		main.hud._selected_build_category == "nature",
-		"the library remembers the last still-available category as stock changes"
+		main.hud._build_previous_button == null
+		and main.hud._build_next_button == null
+		and main.hud._build_category_strip == null,
+		"the sheet has no side paging columns or persistent category toolbar"
 	)
-	main.hud._select_build_category("ground")
-	await wait(0.05)
+	var ground_section := main.hud._build_section_nodes["ground"] as CollectionSection
 	check(
-		main.hud._build_strip.get_child_count()
+		ground_section.grid.get_child_count()
 			== (entries_by_category["ground"] as Array).size(),
-		"ground shows every owned tile assigned to that build category"
+		"the ground section shows every owned terrain miniature"
 	)
+	var first_visual_card := ground_section.grid.get_child(0) as InventoryItemCell
+	check(
+		first_visual_card != null
+		and first_visual_card.text.is_empty()
+		and first_visual_card.preview is TextureRect
+		and first_visual_card.quantity_label.text == "10",
+		"cells are miniature-first with only a tiny corner quantity and no permanent name"
+	)
+	check(
+		first_visual_card.tooltip_text.contains("available")
+		and first_visual_card.action_mode == BaseButton.ACTION_MODE_BUTTON_PRESS,
+		"hover/focus details and immediate placement behavior remain available"
+	)
+
+	main.hud._build_bar.toggle_search()
 	main.hud._build_search.text = "Boardwalk"
 	main.hud._build_search.text_changed.emit(main.hud._build_search.text)
 	await wait(0.05)
 	check(
-		main.hud._build_strip.get_child_count() == 1
+		main.hud._build_section_nodes.size() == 1
+		and main.hud._build_strip.get_child_count() == 1
 		and main.hud._build_strip.get_child(0).name
 			== "BuildItem_tile_wooden_planks",
-		"Build Bag search finds a tile by its player-facing name"
+		"the optional search finds a miniature by its player-facing name"
 	)
 	main.hud._build_search.text = "nothing in this bag"
 	main.hud._build_search.text_changed.emit(main.hud._build_search.text)
 	await wait(0.05)
 	check(
-		main.hud._build_category_strip.get_child_count() == 0
-		and main.hud._build_strip.get_child_count() == 1
-		and "No owned pieces match" in String(
-			(main.hud._build_strip.get_child(0) as Label).text
+		main.hud._build_section_nodes.is_empty()
+		and "Nothing in the collection matches" in String(
+			(main.hud._build_sections.get_child(0) as Label).text
 		),
-		"an empty search result explains how to return to the full bag"
+		"an empty search result is explained within the sheet"
 	)
 	main.hud._build_search.clear()
 	await wait(0.05)
-	check(
-		main.hud._selected_build_category == "ground"
-		and main.hud._build_strip.get_child_count()
-			== (entries_by_category["ground"] as Array).size(),
-		"clearing search restores the designer's previous category"
-	)
-	var first_visual_card := main.hud._build_strip.get_child(0)
-	check(
-		first_visual_card.find_child("Preview", true, false) is TextureRect,
-		"every owned piece is represented by a production-model preview card"
-	)
-	check(
-		(first_visual_card as Button).action_mode
-		== BaseButton.ACTION_MODE_BUTTON_PRESS,
-		"catalogue cards begin a placement gesture on press instead of release"
-	)
+	ground_section = main.hud._build_section_nodes["ground"] as CollectionSection
 	var first_ground_entry: Dictionary = (
 		entries_by_category["ground"] as Array
 	)[0]
@@ -1091,48 +1102,28 @@ func _step_build_library_ui() -> void:
 	main.placement.cancel_click()
 	main.hud.set_build_library_expanded(false, false)
 	check(
-		main.hud.build_library_collapsed()
-		and is_zero_approx(main.hud._build_expanded_clip.custom_minimum_size.y),
-		"the visual collection compacts into its bottom build dock"
+		main.hud.build_library_collapsed() and not main.hud._build_bar.visible,
+		"choosing a piece leaves only the tiny world-facing Bag handle"
 	)
 	main.hud.request_build_library_open()
 	check(
-		main.hud._build_library_expanded,
-		"the compact dock can reopen without leaving build mode"
+		main.hud.build_library_expanded(),
+		"the tiny handle reopens the collection without leaving build mode"
 	)
 	Input.warp_mouse(Vector2.ZERO)
 	main.hud._on_build_library_mouse_exited()
 	await get_tree().process_frame
 	check(
-		main.hud.build_library_collapsed(),
-		"leaving the expanded bag collapses it back to the compact dock"
+		main.hud.build_library_expanded(),
+		"pointer travel never dismisses a dense collection sheet"
 	)
-	main.hud.request_build_library_open()
-	main.hud._select_build_category("winter")
-	await wait(0.15)
-	check(
-		main.hud._build_strip.get_child_count()
-			== (entries_by_category["winter"] as Array).size(),
-		"winter exposes every owned snow-category tile"
-	)
-
 	await shot("screenshot_build_library")
-	main.hud._select_build_category("furniture")
-	await wait(0.05)
-	check(
-		main.hud._build_strip.get_child_count()
-			== (entries_by_category["furniture"] as Array).size(),
-		"furniture opens as a focused owned-piece shelf"
-	)
-	main.hud._select_build_category("nature")
-	await wait(0.05)
-	var pine_card := main.hud._build_strip.find_child(
-		"BuildItem_struct_pine", false, false
-	)
+	var nature_section := main.hud._build_section_nodes["nature"] as CollectionSection
+	var pine_card := nature_section.grid.find_child("BuildItem_struct_pine", false, false)
 	check(
 		pine_card != null
-		and pine_card.find_child("HarvestBadge_axe", true, false) != null,
-		"harvestable Build Library models expose their data-authored tool badge"
+		and (pine_card as InventoryItemCell).status_dot.visible,
+		"harvest capability is encoded as a tiny status dot, not a large badge"
 	)
 	var vertical_bar := main.hud._build_item_scroll.get_v_scroll_bar()
 	check(
@@ -1146,11 +1137,7 @@ func _step_build_library_ui() -> void:
 	main.hud._on_library_scroll_input(wheel, main.hud._build_item_scroll)
 	check(
 		main.hud._build_item_scroll.scroll_vertical > 0,
-		"mouse wheel input browses the visual item grid"
-	)
-	check(
-		main.hud._build_previous_button.visible and main.hud._build_next_button.visible,
-		"overflow also exposes explicit previous and next controls"
+		"one narrow scrollbar and mouse wheel browse the stacked collection"
 	)
 
 	# Admin controls retain a controller route into the compact live debug card;

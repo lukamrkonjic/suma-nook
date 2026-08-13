@@ -1,0 +1,20 @@
+{
+  "active": "garden_galaxy_reference",
+  "presets": {
+    "baseline": {
+      "label": "Original PBR baseline",
+      "surface_mode": "baseline_pbr",
+      "visual_profile": "res://assets/visual_profiles/garden_galaxy_exact.tres",
+      "emission_scale": 1.0
+    },
+    "garden_galaxy_reference": {
+      "label": "Garden Galaxy reference reconstruction",
+      "source_commits": ["7bcb6175", "e1fbcb67"],
+      "evidence": "garden-galaxy-technical-audit/private_evidence",
+      "surface_mode": "garden_galaxy_reference_pbr",
+      "palette_profile": "garden_galaxy_reference",
+      "visual_profile": "res://assets/visual_profiles/garden_galaxy_reference.tres",
+      "emission_scale": 1.0
+    }
+  }
+}

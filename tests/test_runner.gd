@@ -24,6 +24,7 @@ const GroundImpactEffectsScript := preload(
 const SoftTerrainDeformationScript := preload(
 	"res://scripts/visuals/soft_terrain_deformation.gd"
 )
+const FoliageWindScript := preload("res://scripts/visuals/foliage_wind.gd")
 
 
 func _init() -> void:
@@ -966,9 +967,14 @@ func _test_soft_terrain_contract() -> void:
 				),
 			"%s uses the bounded responsive terrain shader" % material_key
 		)
+	var expected_surface_family := (
+		"garden_galaxy_reference_pbr"
+		if ArtStyleSettings.surface_mode() == "garden_galaxy_reference_pbr"
+		else "realistic_pbr_surface"
+	)
 	check(
-		material_manifest["grass"]["family"] == "realistic_pbr_surface",
-		"ordinary opaque terrain uses native PBR material response"
+		material_manifest["grass"]["family"] == expected_surface_family,
+		"ordinary opaque terrain uses the selected native PBR response"
 	)
 
 	var assets := AssetLibrary.new(materials)
@@ -1078,9 +1084,15 @@ func _test_input_bindings() -> void:
 	check(_action_has_key("cancel", KEY_ESCAPE), "Escape remains a keyboard back action")
 	check(_action_has_key("toggle_hud", KEY_H), "H hides and restores the HUD")
 	check(
-		_action_has_key("discovery_tray", KEY_G)
-		and _action_has_joypad_button("discovery_tray", JOY_BUTTON_BACK),
-		"G and the controller view button focus the live Discovery Tray"
+		_action_has_key("offer_to_worldheart", KEY_V)
+		and _action_has_joypad_button("offer_to_worldheart", JOY_BUTTON_X),
+		"V and the controller west button exchange a focused Build Bag spare"
+	)
+	check(
+		_action_has_key("rotate_piece", KEY_R)
+		and _action_has_mouse_button("rotate_piece", MOUSE_BUTTON_RIGHT)
+		and _action_has_joypad_button("rotate_piece", JOY_BUTTON_RIGHT_STICK),
+		"R, right-click, and the controller rotate action share one build intent"
 	)
 	check(
 		_action_has_key("wish_menu", KEY_G)
@@ -1142,6 +1154,20 @@ func _test_input_bindings() -> void:
 		and _action_has_joypad_axis("camera_pan_down", JOY_AXIS_RIGHT_Y, 1.0),
 		"right stick pans the world camera in all four directions"
 	)
+	for camera_action: StringName in [
+		&"camera_pan_left",
+		&"camera_pan_right",
+		&"camera_pan_up",
+		&"camera_pan_down",
+		&"camera_zoom_in",
+		&"camera_zoom_out",
+	]:
+		check(
+			InputMap.action_get_deadzone(camera_action)
+				>= InputDeviceService.CONTROLLER_SWITCH_DEADZONE,
+			"%s ignores analogue noise below the intentional-input threshold"
+			% camera_action
+		)
 	check(
 		_action_has_joypad_button("cancel", JOY_BUTTON_B),
 		"east face button is contextual back"
@@ -1421,145 +1447,186 @@ func _test_content_catalog_architecture() -> void:
 
 func _test_endless_diorama_progression() -> void:
 	var core := fresh_core(5150, true)
-	var tray := core.diorama.tray
-	var offers := tray.offers()
-	var roles := {}
-	for offer: Dictionary in offers:
-		roles[String(offer.get("role", ""))] = true
 	check(
 		core.diorama.enabled
-		and offers.size() == 3
-		and roles.size() == 3
-		and core.grid.cells.is_empty(),
-		"the live diorama loop begins on a blank canvas with three physical offer roles"
+		and core.grid.cells.is_empty()
+		and core.diorama.worldheart.vibe_collection_id == ""
+		and is_equal_approx(float(core.view_state.get("distance", 0.0)), 22.0),
+		"a fresh diorama remains empty until the vibe question is answered"
+	)
+	check(
+		core.choose_diorama_starting_vibe("meadow")
+		and core.grid.cells.size() == 9
+		and core.grid.has_cell(Vector2i.ZERO)
+		and core.grid.cell(Vector2i.ZERO).movement_locked
+		and core.grid.home_cell == Vector2i.ZERO,
+		"the chosen vibe creates exactly nine tiles with the Worldheart on its centre tile"
+	)
+	var all_meadow_tiles := true
+	for state: WorldGrid.CellState in core.grid.cells.values():
+		if state.tile_id != "tile_grass":
+			all_meadow_tiles = false
+	check(
+		all_meadow_tiles,
+		"the collection preference defines every starting surface"
 	)
 	check(
 		core.stock.total_tiles() == 0
 		and core.stock.structures.is_empty()
-		and core.stock.structure_instances.is_empty(),
-		"tray miniatures are not owned Build Bag stock before first placement"
-	)
-
-	var first: Dictionary = offers[0]
-	var first_id := String(first.get("offer_id", ""))
-	var tile_id := String(first.get("id", ""))
-	var held := tray.begin_hold(0)
-	check(
-		String(held.get("state", "")) == "held"
-		and core.stock.tile_count(tile_id) == 0,
-		"picking up a tray miniature reserves its exact offer without minting it"
+		and core.diorama.worldheart.queued_entries().is_empty(),
+		"surfaced pieces are neither pre-owned nor pre-selected on a new save"
 	)
 	check(
-		core.commit_diorama_offer(first_id, "tile", "tile_path").is_empty()
-		and tray.offer_at(0).get("offer_id", "") == first_id,
-		"a different piece cannot consume a reserved tray offer"
+		not core.can_place_player_tile_at(Vector2i.ZERO, 0, "tile_path")
+		and not core.is_player_build_cell_unlocked(Vector2i.ZERO),
+		"ordinary building can never cover the Worldheart"
 	)
 
-	# Deliberately begin beyond the registered starter Nook. Generated regions
-	# are expansion targets, never fences around player-authored land.
-	var placement_cell := Vector2i(core.nooks.world.nook_size + 3, -2)
-	var placed := (
-		core.can_place_player_tile_at(placement_cell, 0, tile_id)
-		and core.place_tile_from_diorama_offer(
-			placement_cell, tile_id, 0, 0, first_id
+	var pulse_time_before_move := core.diorama.worldheart.next_pulse_seconds
+	core.diorama.worldheart.set_generation_paused(
+		&"worldheart_move_preview", true
+	)
+	core.diorama.worldheart.tick(30.0)
+	check(
+		core.diorama.worldheart.generation_paused()
+		and is_equal_approx(
+			core.diorama.worldheart.next_pulse_seconds,
+			pulse_time_before_move
 		)
+		and core.diorama.worldheart.queued_entries().is_empty(),
+		"moving the Worldheart freezes its cadence instead of generating rewards"
+	)
+	core.diorama.worldheart.set_generation_paused(
+		&"worldheart_move_preview", false
+	)
+	core.tick(2.6)
+	var first_entries := core.diorama.worldheart.visible_entries()
+	var first_kind := (
+		String(first_entries[0].get("kind", ""))
+		if not first_entries.is_empty() else ""
+	)
+	var first_id := (
+		String(first_entries[0].get("id", ""))
+		if not first_entries.is_empty() else ""
 	)
 	check(
-		placed
-		and tray.offer_at(0).get("offer_id", "") != first_id
-		and core.stock.tile_count(tile_id) == 0
-		and int(core.collection.entry("tiles", tile_id).get("placed", 0)) == 1,
-		"only an exact successful world placement transfers ownership and refills its slot"
+		first_entries.size() == 1
+		and (first_entries[0].get("landing_cell", []) as Array).size() == 2
+		and (first_entries[0].get("landing_position", []) as Array).size() == 3
+		and String(first_entries[0].get("creative_collection_id", "")) == "meadow"
+		and (
+			core.stock.tile_count(first_id) == 0
+			if first_kind == "tile"
+			else core.stock.structure_count(first_id) == 0
+		),
+		"the first pulse saves a vibe-matched reward without granting it"
 	)
-	var stored_tile := core.grid.remove_tile_at(placement_cell, 0)
-	if stored_tile != null:
-		core.stock.add_tile(stored_tile.tile_id)
+	var fixed_landing_cell: Array = first_entries[0]["landing_cell"].duplicate()
+	var fixed_landing_position: Array = first_entries[0][
+		"landing_position"
+	].duplicate()
+	for quarter in 4:
+		core.diorama.worldheart.rotate_clockwise()
+	core.diorama.worldheart.move_to(Vector2i(1, 1))
+	var transformed_entry := core.diorama.worldheart.visible_entries()[0]
 	check(
-		stored_tile != null and core.stock.tile_count(tile_id) == 1,
-		"a tray-owned piece can subsequently return to the persistent Build Bag"
+		transformed_entry.get("landing_cell", []) == fixed_landing_cell
+		and transformed_entry.get("landing_position", [])
+			== fixed_landing_position,
+		"surfaced rewards own a fixed world landing across wardrobe transforms"
 	)
+	core.diorama.worldheart.move_to(Vector2i.ZERO)
+	var first_entry_id := String(first_entries[0].get("entry_id", ""))
+	var claimed := core.diorama.worldheart.claim(first_entry_id)
 	check(
-		core.place_tile_from_stock(Vector2i.ZERO, tile_id, 0)
-		and core.grid.home_cell == Vector2i.ZERO,
-		"the first stored terrain piece can re-establish the blank world's home cell"
-	)
-
-	var gift_before := core.diorama.gifts.count("expansion_ripple")
-	while tray.placements_committed < 8:
-		var slot := tray.placements_committed % 3
-		var offer := tray.offer_at(slot)
-		var exact := tray.begin_hold(slot)
-		check(not exact.is_empty(), "the next tray miniature can be picked up")
-		var reward := core.commit_diorama_offer(
-			String(offer.get("offer_id", "")),
-			String(offer.get("kind", "")),
-			String(offer.get("id", ""))
+		String(claimed.get("id", "")) == first_id
+		and (
+			core.stock.tile_count(first_id) == 1
+			if first_kind == "tile"
+			else core.stock.structure_count(first_id) == 1
 		)
-		check(not reward.is_empty(), "a committed exact offer advances build cadence")
-	check(
-		core.diorama.gifts.count("expansion_ripple") > gift_before,
-		"slow first-placement cadence awards a saved Expansion Ripple"
+		and core.diorama.worldheart.queued_entries().is_empty(),
+		"clicking a surfaced miniature moves that exact piece into the Build Bag"
 	)
+	core.tick(30.0)
+	core.tick(30.0)
+	var waiting := core.diorama.worldheart.visible_entries()
 	check(
-		core.diorama.curiosities.active_count() == 1,
-		"building eventually lands one tangible themed skyfall curiosity"
+		waiting.size() == 2
+		and String(waiting[0].get("creative_collection_id", "")) == "meadow"
+		and String(waiting[1].get("creative_collection_id", "")) == "meadow",
+		"the gentle cadence progresses through the authored opening vocabulary"
+	)
+	var collected_all := core.diorama.worldheart.claim_all_visible()
+	check(
+		collected_all.size() == 2,
+		"one hole interaction collects every visible gift without repeated dragging"
 	)
 
-	var curiosity_id := 0
-	var curiosity_state: Dictionary = {}
-	for slot_data: Dictionary in core.grid.all_cell_slots():
-		var state: WorldGrid.CellState = slot_data["state"]
-		for structure: WorldGrid.StructureState in state.structures:
-			var entry := core.diorama.curiosities.entry_for_instance(
-				structure.instance_id
-			)
-			if not entry.is_empty():
-				curiosity_id = structure.instance_id
-				curiosity_state = entry
-				break
-		if curiosity_id > 0:
-			break
+	for index in core.diorama.worldheart.reserve_cap() + 4:
+		core.tick(30.0)
 	check(
-		curiosity_id > 0
-		and not (curiosity_state.get("loot", []) as Array).is_empty(),
-		"a landed curiosity persists its complete pre-rolled bundle in world state"
-	)
-	var opened := core.diorama.curiosities.claim(curiosity_id)
-	check(
-		bool(opened.get("accepted", false))
-		and not (opened.get("rewards", []) as Array).is_empty()
-		and core.diorama.curiosities.active_count() == 0
-		and not bool(core.diorama.curiosities.claim(curiosity_id).get("accepted", false)),
-		"one calm interaction opens the whole bundle exactly once"
+		core.diorama.worldheart.queued_entries().size()
+			== core.diorama.worldheart.reserve_cap(),
+		"unattended play accumulates a bounded reserve instead of overrunning the world"
 	)
 
-	var gift_count := core.diorama.gifts.count("expansion_ripple")
-	var frontier: Vector2i = core.nooks.world.frontier_coords()[0]
-	var nook_count: int = core.nooks.world.count()
-	check(
-		gift_count > 0
-		and core.diorama.gifts.begin_targeting("expansion_ripple"),
-		"Expansion Ripples remain tangible saved gifts until the player aims one"
-	)
-	var pending := core.diorama.gifts.prepare_expansion(frontier)
-	var plan = core.nooks.reveal_nook(
-		frontier,
-		(pending.get("seed_card", {}) as Dictionary)
-	)
-	var expansion_finished := (
-		plan != null
-		and core.diorama.gifts.finish_expansion(frontier, true)
+	core.stock.add_tile("tile_grass_flower", 2)
+	var first_contribution := core.diorama.worldheart.contribute_from_stock(
+		"tile", "tile_grass_flower"
 	)
 	check(
-		expansion_finished
-		and core.nooks.world.count() == nook_count + 1
-		and core.diorama.gifts.count("expansion_ripple") == gift_count - 1,
-		"a Ripple is consumed only after its random generated land commits"
+		bool(first_contribution.get("accepted", false))
+		and not bool(first_contribution.get("completed", true))
+		and int(first_contribution.get("progress", 0)) == 1
+		and core.diorama.worldheart.contribution_progress("meadow") == 1,
+		"the first true spare fills half of its collection ritual"
 	)
-	var new_land_curiosity := core.diorama.curiosities.spawn_for_new_land(frontier)
+	var second_contribution := core.diorama.worldheart.contribute_from_stock(
+		"tile", "tile_grass_flower"
+	)
+	var exchange: Dictionary = second_contribution.get("reward", {})
 	check(
-		bool(new_land_curiosity.get("accepted", false)),
-		"the first expanded land guarantees one rare-feeling local curiosity"
+		bool(second_contribution.get("completed", false))
+		and not exchange.is_empty()
+		and String(exchange.get("id", "")) != "tile_grass_flower"
+		and String(exchange.get("creative_collection_id", "")) == "meadow"
+		and core.diorama.worldheart.contribution_progress("meadow") == 0,
+		"the second same-collection spare completes the circle and grants a different member"
+	)
+	while core.stock.tile_count("tile_grass_flower") > 1:
+		core.stock.take_tile("tile_grass_flower")
+	check(
+		not core.diorama.worldheart.can_offer("tile", "tile_grass_flower"),
+		"the exchange protects the last owned copy across bag and world"
+	)
+
+	for content_id in ["tile_grass", "tile_grass_flower", "tile_path", "struct_bench"]:
+		var kind := "structure" if String(content_id).begins_with("struct_") else "tile"
+		core.collection.record(
+			"structures" if kind == "structure" else "tiles",
+			String(content_id), 0
+		)
+	check(
+		core.diorama.worldheart.can_attune("meadow")
+		and core.diorama.worldheart.set_attunement("meadow")
+		and core.diorama.worldheart.attuned_collection_id == "meadow",
+		"collection familiarity unlocks optional deterministic Worldheart steering"
+	)
+	check(
+		core.diorama.worldheart.move_to(Vector2i(1, 1))
+		and core.diorama.worldheart.worldheart_cell == Vector2i(1, 1)
+		and not core.grid.cell(Vector2i.ZERO).movement_locked
+		and core.grid.cell(Vector2i(1, 1)).movement_locked,
+		"the Worldheart moves between clear starting tiles and transfers its host lock"
+	)
+	core.diorama.worldheart.rotate_clockwise()
+	check(
+		core.diorama.worldheart.worldheart_rotation_quarters == 1
+		and int(core.diorama.worldheart.to_save_dict().get(
+			"worldheart_rotation_quarters", -1
+		)) == 1,
+		"Worldheart direction advances in quarter turns and enters the save payload"
 	)
 
 	check(core.save(), "the transformed diorama state saves")
@@ -1569,11 +1636,15 @@ func _test_endless_diorama_progression() -> void:
 	restored.save_manager.backup_path = "user://test_save.json.backup"
 	check(
 		restored.load_game()
-		and restored.diorama.tray.offers().size() == 3
-		and restored.diorama.tray.placements_committed == tray.placements_committed
-		and restored.nooks.world.count() == core.nooks.world.count()
-		and restored.diorama.curiosities.active_count() == 1,
-		"tray, collections, gifts, expanded world, and curiosities restore together"
+		and restored.grid.cells.size() == 9
+		and restored.grid.has_cell(Vector2i.ZERO)
+		and restored.diorama.worldheart.queued_entries().size()
+			== core.diorama.worldheart.queued_entries().size()
+		and restored.diorama.worldheart.attuned_collection_id == "meadow"
+		and restored.diorama.worldheart.worldheart_cell == Vector2i(1, 1)
+		and restored.diorama.worldheart.worldheart_rotation_quarters == 1
+		and restored.grid.cell(Vector2i(1, 1)).movement_locked,
+		"the nine-tile world, movable host, reward reserve, cadence, and attunement restore together"
 	)
 
 
@@ -1626,8 +1697,10 @@ func _test_diorama_legacy_migration() -> void:
 	restored.save_manager.backup_path = save_path + ".backup"
 	check(
 		restored.load_game()
-		and restored.diorama.tray.offers().size() == 3,
-		"a save without diorama state enters the live three-offer loop"
+		and restored.diorama.worldheart.queued_entries().size() == 3
+		and restored.grid.has_cell(Vector2i.ZERO)
+		and restored.grid.cells.size() >= 9,
+		"a pre-rework save keeps its offers while entering the Worldheart garden"
 	)
 	check(
 		restored.diorama.curiosities.active_count() >= 2
@@ -1657,6 +1730,11 @@ func _test_content_catalog_runtime_contracts() -> void:
 		"capabilities use the same global API rather than a tent-only registry"
 	)
 	var young_tree := regs.structure("struct_pine_young")
+	var stone_pine := regs.structure("struct_stone_pine")
+	var fir := regs.structure("struct_fir")
+	var leafy_bush := regs.structure("struct_leafy_bush")
+	var shrooms := regs.structure("struct_shrooms")
+	var vintage_radio := regs.structure("struct_vintage_radio")
 	var young_profile := regs.harvest_profile("harvest_tree_young_evergreen")
 	var forest_box := regs.token_box("box_forest")
 	var berry_bush := regs.structure("struct_bush")
@@ -1686,6 +1764,74 @@ func _test_content_catalog_runtime_contracts() -> void:
 		and young_profile.hits_required == 3
 		and young_profile.depleted_structure_id == "struct_stump_pine",
 		"harvest sources resolve deliberate hits into Project contributions and regrowth visuals"
+	)
+	var woodland_collection = regs.creative_collection("woodland")
+	var homestead_collection = regs.creative_collection("homestead")
+	var woodland_has_stone_pine := false
+	var woodland_has_shrooms := false
+	var woodland_has_fir := false
+	var woodland_has_leafy_bush := false
+	var homestead_has_vintage_radio := false
+	if woodland_collection != null:
+		for member: Dictionary in woodland_collection.members:
+			woodland_has_stone_pine = (
+				woodland_has_stone_pine
+				or String(member.get("id", "")) == "struct_stone_pine"
+			)
+			woodland_has_shrooms = (
+				woodland_has_shrooms
+				or String(member.get("id", "")) == "struct_shrooms"
+			)
+			woodland_has_fir = (
+				woodland_has_fir
+				or String(member.get("id", "")) == "struct_fir"
+			)
+			woodland_has_leafy_bush = (
+				woodland_has_leafy_bush
+				or String(member.get("id", "")) == "struct_leafy_bush"
+			)
+	if homestead_collection != null:
+		for member: Dictionary in homestead_collection.members:
+			homestead_has_vintage_radio = (
+				homestead_has_vintage_radio
+				or String(member.get("id", "")) == "struct_vintage_radio"
+			)
+	check(
+		stone_pine != null
+		and stone_pine.asset_id == "prop_stone_pine"
+		and stone_pine.placement_tags.has("tree")
+		and stone_pine.has_capability("harvest_source")
+		and woodland_has_stone_pine,
+		"the imported Stone Pine is a harvestable tree in the Woodland collection"
+	)
+	check(
+		fir != null
+		and fir.asset_id == "prop_fir"
+		and fir.placement_tags.has("tree")
+		and fir.has_capability("harvest_source")
+		and woodland_has_fir
+		and leafy_bush != null
+		and leafy_bush.asset_id == "prop_leafy_bush"
+		and leafy_bush.placement_tags.has("windy_foliage")
+		and leafy_bush.has_capability("harvest_source")
+		and woodland_has_leafy_bush,
+		"the imported Fir and Leafy Bush are wind-ready Woodland plants"
+	)
+	check(
+		shrooms != null
+		and shrooms.asset_id == "prop_shrooms"
+		and shrooms.blocks_movement
+		and shrooms.placement_tags.has("fungi")
+		and woodland_has_shrooms,
+		"the imported Blushing Shrooms are a Woodland fungi decoration"
+	)
+	check(
+		vintage_radio != null
+		and vintage_radio.asset_id == "prop_vintage_radio"
+		and vintage_radio.can_be_stacked
+		and vintage_radio.placement_tags.has("tabletop_item")
+		and homestead_has_vintage_radio,
+		"the imported Vintage Radio is a tabletop model in the Homestead collection"
 	)
 	check(
 		forest_box != null
@@ -1896,13 +2042,14 @@ func _test_build_library_categories() -> void:
 	var finite_card := UiKit.new(
 		PaletteDefinition.shared()
 	).library_visual_item_button("Forest Floor", 1)
-	var finite_badge := finite_card.get("badge") as PanelContainer
-	var finite_label := (
-		finite_badge.get_child(0) as Label if finite_badge != null else null
-	)
+	var finite_label := finite_card.get("badge") as Label
+	var finite_button := finite_card["button"] as InventoryItemCell
 	check(
-		finite_label != null and finite_label.text == "×1",
-		"the Build Bag visibly labels the final copy instead of implying infinite stock"
+		finite_label != null
+		and finite_label.text == "1"
+		and finite_button.text.is_empty()
+		and finite_button.tooltip_text == "Forest Floor",
+		"Build Bag cells keep names in tooltips and show only a tiny finite count"
 	)
 	(finite_card["button"] as Button).free()
 
@@ -1916,8 +2063,19 @@ func _test_hud_design_system() -> void:
 		"the centralized HUD body and display fonts are bundled"
 	)
 	check(
-		kit.font is FontVariation and kit.font_display is FontVariation,
-		"the HUD exposes centralized variable-font body and display roles"
+		kit.font != null
+		and kit.font_display != null
+		and UiKit.FONT_BODY_PATH.ends_with("Fredoka-Medium.ttf")
+		and UiKit.FONT_DISPLAY_PATH.ends_with("Fredoka-SemiBold.ttf"),
+		"the HUD uses the rounded Fredoka medium/semibold family for every role"
+	)
+	check(
+		kit.tokens != null
+		and is_equal_approx(kit.tokens.sheet_width_ratio, 0.68)
+		and is_equal_approx(kit.tokens.sheet_height_ratio, 0.44)
+		and kit.tokens.minimum_columns == 4
+		and kit.tokens.maximum_columns == 10,
+		"one Suma UI token resource owns bottom-sheet geometry and responsiveness"
 	)
 	var sheet := kit.cloud_panel_style()
 	check(
@@ -1926,6 +2084,27 @@ func _test_hud_design_system() -> void:
 		and sheet.border_width_top == UiKit.HAIRLINE,
 		"editorial HUD sheets use quiet corners and hairlines without shadows"
 	)
+	var title_sample := kit.display_label("Title", 30)
+	var muted_sample := kit.muted_label("Subtitle", 16)
+	var title_color := title_sample.get_theme_color("font_color")
+	var muted_color := muted_sample.get_theme_color("font_color")
+	var accent_button := kit.button("Continue", true)
+	check(
+		title_color == kit.text_color()
+		and muted_color == kit.text_color()
+		and accent_button.get_theme_color("font_color") == kit.text_color(),
+		"font hierarchy uses one warm-brown color and changes only size or weight"
+	)
+	var flat_tooltip := kit.hud_tooltip_style(kit.collection_accent("land"))
+	check(
+		flat_tooltip.shadow_size == 0
+		and flat_tooltip.border_width_top == 0
+		and flat_tooltip.border_width_bottom == 0,
+		"HUD tooltip cards stay flat without a colored faux shadow edge"
+	)
+	title_sample.free()
+	muted_sample.free()
+	accent_button.free()
 	var chip := kit.hud_chip(
 		"COLLECTION / 2 / 5", kit.collection_accent("fish")
 	)
@@ -2212,6 +2391,85 @@ func _test_world_model_scale_contract() -> void:
 	) as CozyPalette
 	var assets := AssetLibrary.new(MaterialLibrary.new(palette))
 	var factory := StructureVisualFactory.new(assets, core.grid)
+	var stone_profile := assets.edits.profile("prop_stone_pine")
+	var radio_profile := assets.edits.profile("prop_vintage_radio")
+	var fir_profile := assets.edits.profile("prop_fir")
+	var leafy_bush_profile := assets.edits.profile("prop_leafy_bush")
+	check(
+		is_equal_approx(float(stone_profile.get("smoothing", 0.0)), 0.82)
+		and is_equal_approx(float(radio_profile.get("smoothing", 0.0)), 0.42)
+		and is_equal_approx(float(fir_profile.get("smoothing", 0.0)), 0.30)
+		and is_equal_approx(float(leafy_bush_profile.get("smoothing", 0.0)), 0.26),
+		"new generated models use restrained normal smoothing without geometry deformation"
+	)
+	var source_material_contracts := {
+		"prop_stone_pine": ["pine_medium", "wood_primary"],
+		"prop_vintage_radio": ["wood_primary", "gold_primary"],
+		"prop_shrooms": ["terracotta_light", "wood_primary"],
+		"prop_fir": ["pine_shadow", "wood_primary"],
+		"prop_leafy_bush": ["leaf_medium", "wood_primary"],
+	}
+	for asset_id: String in source_material_contracts:
+		var path := AssetLibrary.resolve_path(asset_id)
+		var packed := load(path) as PackedScene
+		var source_visual := packed.instantiate() as Node3D
+		var material_names := {}
+		var uses_baked_albedo := false
+		for mesh_node in source_visual.find_children(
+			"*", "MeshInstance3D", true, false
+		):
+			var mesh_instance := mesh_node as MeshInstance3D
+			for surface in mesh_instance.mesh.get_surface_count():
+				var source_material := (
+					mesh_instance.mesh.surface_get_material(surface)
+				)
+				if source_material == null:
+					continue
+				material_names[source_material.resource_name.get_slice(".", 0)] = true
+				if source_material is StandardMaterial3D:
+					uses_baked_albedo = (
+						uses_baked_albedo
+						or (
+							source_material as StandardMaterial3D
+						).albedo_texture != null
+					)
+		var has_required_materials := true
+		for required: String in source_material_contracts[asset_id]:
+			has_required_materials = (
+				has_required_materials and material_names.has(required)
+			)
+		check(
+			has_required_materials and not uses_baked_albedo,
+			"%s uses clean semantic surfaces without Meshy baked grime"
+			% asset_id
+		)
+		source_visual.free()
+	for wind_structure_id in [
+		"struct_stone_pine", "struct_fir", "struct_leafy_bush",
+	]:
+		var wind_visual := factory.instantiate_visual(
+			core.registries.structure(wind_structure_id), false
+		)
+		var foliage_wind := FoliageWindScript.new()
+		wind_visual.add_child(foliage_wind)
+		foliage_wind.setup(wind_visual, 73)
+		var wind_parts: Array = foliage_wind.get("_parts") as Array
+		var wind_is_leaf_only := not wind_parts.is_empty()
+		for entry: Dictionary in wind_parts:
+			var wind_node := entry.get("node") as Node3D
+			wind_is_leaf_only = (
+				wind_is_leaf_only
+				and wind_node != null
+				and wind_node.name.to_lower().contains("leaf")
+			)
+		check(
+			wind_parts.size() == 1
+			and wind_is_leaf_only
+			and wind_visual.find_child("Trunk", true, false) != null,
+			"%s wind moves one sealed canopy and leaves the trunk rigid"
+			% wind_structure_id
+		)
+		wind_visual.free()
 	var reward_presenter := WorldBudRewardPresenter.new()
 	var reward_camera := Camera3D.new()
 	reward_presenter.setup(
@@ -3980,6 +4238,7 @@ func _test_object_support_graph() -> void:
 		"struct_pot": true,
 		"struct_watering_can": true,
 		"struct_milk_churn": true,
+		"struct_vintage_radio": true,
 		"struct_stone_wall_polished": true,
 	}
 	var expected_supports := {
@@ -3997,6 +4256,7 @@ func _test_object_support_graph() -> void:
 				"struct_pot",
 				"struct_watering_can",
 				"struct_milk_churn",
+				"struct_vintage_radio",
 			],
 		},
 		"struct_chest": {

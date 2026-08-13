@@ -19,6 +19,11 @@ func validate(
 	support_instance_id: int,
 	support_slot: String
 ) -> bool:
+	if (
+		core.diorama.enabled
+		and cell == core.diorama.worldheart.worldheart_cell
+	):
+		return false
 	match held.get("kind", ""):
 		"tile":
 			if held["moving"] != null and held["moving"].has("stack"):
@@ -90,6 +95,8 @@ func invalid_message(
 	elevation: int,
 	support_instance_id: int
 ) -> String:
+	if core.diorama.enabled and cell == core.diorama.worldheart.worldheart_cell:
+		return "Move the Worldheart before building on its tile."
 	if held.get("kind", "") == "tile" and elevation > 0:
 		return "That surface can't support another land tile — use a flat, clear block."
 	if held.get("kind", "") == "structure":

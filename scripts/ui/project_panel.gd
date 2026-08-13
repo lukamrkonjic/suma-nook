@@ -83,7 +83,20 @@ func is_open() -> bool:
 	return _modal != null and is_instance_valid(_modal)
 
 
+func set_hud_visible(enabled: bool) -> void:
+	if not enabled:
+		close()
+	if _root != null:
+		_root.visible = enabled
+
+
+func hud_visible() -> bool:
+	return _root != null and _root.visible
+
+
 func toggle() -> void:
+	if not hud_visible():
+		return
 	if is_open():
 		close()
 	else:
@@ -106,7 +119,7 @@ func open(project_id := "") -> void:
 
 	var scrim := ColorRect.new()
 	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	scrim.color = Color(0.08, 0.07, 0.1, 0.64)
+	scrim.color = kit.overlay_scrim()
 	scrim.mouse_filter = Control.MOUSE_FILTER_STOP
 	_modal.add_child(scrim)
 
@@ -160,6 +173,8 @@ func focus_default() -> void:
 
 
 func blocks_world_pointer(screen_position: Vector2) -> bool:
+	if not hud_visible():
+		return false
 	if is_open():
 		return true
 	return _chip != null and _chip.visible and _chip.get_global_rect().has_point(screen_position)
@@ -337,4 +352,4 @@ func _pulse_chip() -> void:
 	tween.tween_property(_chip, "scale", Vector2(1.045, 1.045), 0.11) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tween.tween_property(_chip, "scale", Vector2.ONE, 0.2) \
-		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)

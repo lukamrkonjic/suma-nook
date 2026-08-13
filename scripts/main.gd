@@ -60,6 +60,12 @@ const SdfCreatureVisitorPresenterScript := preload(
 const DiscoveryTrayPanelScript := preload(
 	"res://scripts/ui/discovery_tray_panel.gd"
 )
+const WorldheartPresenterScript := preload(
+	"res://scripts/features/diorama/presentation/worldheart_presenter.gd"
+)
+const CollectionVibePanelScript := preload(
+	"res://scripts/ui/collection_vibe_panel.gd"
+)
 const DEBUG_WORLD_TILE_COUNT := 5000
 const DEBUG_WORLD_MODEL_COUNT := 1250
 const MAXED_WORLD_TILE_COUNT := 10000
@@ -96,6 +102,7 @@ var provision_fishing_spots: ProvisionFishingSpots
 var reward_reveal: RewardRevealSceneAdapter
 var reward_reveal_presenter_registry: RewardRevealPresenterRegistry
 var visitor_scene: Node3D
+var worldheart_presenter: WorldheartPresenter
 var visitor_presenter_registry: RefCounted
 var hud: Hud
 var pixel_look: PixelLook
@@ -114,6 +121,7 @@ var arrival_picker: ArrivalLandPicker
 var nook_offer_panel: NookOfferPanel
 var project_panel: ProjectPanel
 var discovery_tray_panel: DiscoveryTrayPanel
+var collection_vibe_panel: CollectionVibePanel
 var nook_reveal_presenter: NookRevealPresenter
 var catch_basket_view: CatchBasketView
 var input_hints: InputHintOverlay
@@ -137,6 +145,12 @@ var _controller_hud_hold_home_fired := false
 var _player_dock_busy := false
 var _player_drop_target: Dictionary = {}
 var _pending_build_interaction: Dictionary = {}
+var _worldheart_pointer_pressed := false
+var _worldheart_pointer_press_position := Vector2.ZERO
+var _worldheart_pointer_move_active := false
+var _worldheart_offer_pointer_pressed := false
+var _worldheart_controller_move_active := false
+var _pending_vibe_fresh := true
 var _nook_reveal_in_progress := false
 var _queued_frontier_expansions: Array[Dictionary] = []
 
@@ -195,7 +209,14 @@ func _ready() -> void:
 		# Pre-rework saves can carry a half-finished guided lesson the
 		# shipped seeded opening no longer supports. Never resume it into a
 		# dead end: close the lesson and hand the world straight to play.
-		if core.onboarding.is_active() \
+		if core.diorama.enabled and core.diorama.worldheart.vibe_collection_id == "":
+			_pending_vibe_fresh = false
+			player.position = core.profile.position
+			player_visual.apply_profile(core.profile)
+			player_visual.apply_equipment(core.equipment)
+			_prepare_diorama_vibe_choice()
+			collection_vibe_panel.open()
+		elif core.onboarding.is_active() \
 			and OS.get_environment("SUMA_LEGACY_OPENING") != "1":
 			core.onboarding.set_stage(OnboardingState.COMPLETE)
 			core.save()
@@ -204,15 +225,20 @@ func _ready() -> void:
 			_start_gameplay(false)
 			call_deferred("_resume_guided_onboarding")
 	else:
-		# The live loop starts on a blank, infinite build grid. The three
-		# Discovery Tray miniatures are the whole opening: no seed/world prompt.
+		# The live loop starts immediately in the compact Worldheart garden;
+		# there is no seed prompt or forced choice carousel.
 		var opening_profile := PlayerProfile.new()
 		opening_profile.display_name = "Keeper"
 		core.new_game(opening_profile)
 		player.position = core.profile.position
 		player_visual.apply_profile(core.profile)
 		player_visual.apply_equipment(core.equipment)
-		_start_gameplay(true, false)
+		if core.diorama.enabled:
+			_pending_vibe_fresh = true
+			_prepare_diorama_vibe_choice()
+			collection_vibe_panel.open()
+		else:
+			_start_gameplay(true, false)
 	_apply_debug_visual_overrides()
 	_schedule_debug_capture()
 	# Nook generation can select any registered biome. Stream its small model
@@ -366,6 +392,10 @@ func _build_world_scene() -> void:
 		renderer
 	)
 	interaction_targets.call("set_provision_fishing_spots", provision_fishing_spots)
+	if core.diorama.enabled:
+		worldheart_presenter = WorldheartPresenterScript.new()
+		worldheart_presenter.name = "Worldheart"
+		world_root.add_child(worldheart_presenter)
 
 	placement = PlacementController.new()
 	placement.name = "Placement"
@@ -388,6 +418,11 @@ func _build_world_scene() -> void:
 	audio = GameAudio.new()
 	audio.name = "Audio"
 	add_child(audio)
+	if worldheart_presenter != null:
+		worldheart_presenter.setup(core, assets, audio, camera_rig.camera, kit)
+		worldheart_presenter.visible = false
+		interaction_targets.call("set_worldheart_presenter", worldheart_presenter)
+		placement.add_interaction_hover_provider(worldheart_presenter)
 
 	renderer.setup(core, assets)
 	harvest_presentation.call("setup", core.harvesting, renderer, effects, audio)
@@ -427,7 +462,7 @@ func _build_world_scene() -> void:
 	# the real adapter exists, so mouse and controller targeting can reach live
 	# visitors as well as the gifts they leave behind.
 	interaction_targets.call("set_visitor_scene", visitor_scene)
-	placement.set_interaction_hover_provider(visitor_scene)
+	placement.add_interaction_hover_provider(visitor_scene)
 	player.setup(core, camera_rig, player_visual)
 	player.set_provision_fishing_spots(provision_fishing_spots)
 	pigeon_mascot = PIGEON_MASCOT_SCENE.instantiate() as CharacterBody3D
@@ -435,6 +470,11 @@ func _build_world_scene() -> void:
 	world_root.add_child(pigeon_mascot)
 	pigeon_controller = pigeon_mascot.get_node("MascotController") as PigeonMascotController
 	pigeon_controller.setup(player, core.grid)
+	if core.diorama.enabled:
+		player.visible = false
+		player_visual.visible = false
+		pigeon_mascot.visible = false
+		pigeon_mascot.process_mode = Node.PROCESS_MODE_DISABLED
 	if core.registries.feature("procedural_owl_mascot_enabled", false):
 		var owl_visual := ProceduralOwlMascotScript.new() as Node3D
 		owl_visual.name = "ProceduralOwlVisual"
@@ -522,15 +562,10 @@ func _build_ui() -> void:
 	add_child(project_panel)
 	project_panel.setup(core, kit)
 	project_panel.panel_toggled.connect(func(_open): _refresh_controller_hints())
-	if core.diorama.enabled:
-		discovery_tray_panel = DiscoveryTrayPanelScript.new()
-		discovery_tray_panel.name = "DiscoveryTrayPanel"
-		add_child(discovery_tray_panel)
-		discovery_tray_panel.setup(core, kit, assets, placement)
-		discovery_tray_panel.visible = false
-		discovery_tray_panel.focus_changed.connect(
-			func(_focused): _refresh_controller_hints()
-		)
+	collection_vibe_panel = CollectionVibePanelScript.new()
+	collection_vibe_panel.name = "CollectionVibePanel"
+	add_child(collection_vibe_panel)
+	collection_vibe_panel.setup(core, kit)
 
 	# Optional composition: the world-facing requirements card can be removed
 	# without changing the direct click/controller activation path.
@@ -570,6 +605,7 @@ func _build_ui() -> void:
 		debug_menu.name = "DebugMenu"
 		add_child(debug_menu)
 		debug_menu.setup(core, kit, self)
+	camera_rig.set_input_blocker(Callable(self, "_camera_input_blocked_by_ui"))
 
 
 ## ReShade-style live lighting overlay (debug builds), toggled from the pause
@@ -1081,6 +1117,8 @@ func _connect_flows() -> void:
 	hud.build_store_requested.connect(func():
 		placement.store_held()
 		audio.play_event("store"))
+	hud.worldheart_offer_requested.connect(_on_worldheart_offer_requested)
+	collection_vibe_panel.vibe_selected.connect(_on_starting_vibe_selected)
 	if discovery_tray_panel != null:
 		discovery_tray_panel.offer_selected.connect(_on_diorama_offer_selected)
 		discovery_tray_panel.gift_selected.connect(_on_world_gift_selected)
@@ -1127,6 +1165,9 @@ func _connect_flows() -> void:
 	player.click_interaction_reached.connect(_on_click_interaction_reached)
 	player.arrival_choice_ready.connect(_open_first_land_picker)
 	player.arrival_landed.connect(_on_first_arrival_landed)
+	player.worldheart_arrival_finished.connect(func():
+		player.dock_for_placement()
+	)
 	player.deployment_changed.connect(_on_player_deployment_changed)
 	core.fire.burning_changed.connect(_on_fire_burning_changed)
 	core.frontiers.expansion_ready.connect(_begin_frontier_expansion)
@@ -1143,7 +1184,10 @@ func _connect_flows() -> void:
 		_update_frontier_marker_availability()
 		_refresh_controller_hints()
 	)
-	core.diorama.tray.offer_committed.connect(_on_diorama_offer_committed)
+	core.diorama.worldheart.pulse_queued.connect(_on_worldheart_pulse)
+	core.diorama.worldheart.exchange_rejected.connect(func(message: String):
+		hud.toast(message, "warn")
+	)
 	core.diorama.curiosities.curiosity_landed.connect(_on_curiosity_landed)
 	core.diorama.curiosities.curiosity_opened.connect(_on_curiosity_opened)
 	core.diorama.collections.milestone_reached.connect(
@@ -1252,7 +1296,7 @@ func _starter_land_option_ids() -> Array:
 
 
 ## Compatibility hook for archived seeded-opening fixtures. The live fresh-save
-## path starts directly on the blank Discovery Tray canvas above.
+## path starts directly in the Worldheart garden above.
 func _begin_seeded_opening(opening_profile: PlayerProfile) -> void:
 	if OS.get_environment("SUMA_LEGACY_OPENING") == "1" \
 		or not core.registries.feature("nooks_enabled", true):
@@ -1326,14 +1370,53 @@ func _on_first_arrival_landed() -> void:
 	call_deferred("_resume_guided_onboarding")
 
 
+func _on_starting_vibe_selected(collection_id: String) -> void:
+	if not core.choose_diorama_starting_vibe(collection_id):
+		collection_vibe_panel.open()
+		return
+	renderer.rebuild_all()
+	if worldheart_presenter != null:
+		worldheart_presenter.visible = true
+		worldheart_presenter.prime_reward_collection()
+	core.save()
+	_start_gameplay(_pending_vibe_fresh, false)
+
+
+func _prepare_diorama_vibe_choice() -> void:
+	_gameplay_started = false
+	hud.visible = false
+	if project_panel != null:
+		project_panel.set_hud_visible(false)
+	player.visible = false
+	player_visual.visible = false
+	player.set_state(PlayerController.State.DISABLED)
+	if pigeon_mascot != null:
+		pigeon_mascot.visible = false
+	if worldheart_presenter != null:
+		worldheart_presenter.visible = false
+	renderer.rebuild_all()
+	_refresh_controller_hints()
+
+
 func _start_gameplay(fresh: bool, show_welcome := true) -> void:
 	_gameplay_started = true
 	hud.visible = true
+	if project_panel != null:
+		project_panel.set_hud_visible(not core.diorama.enabled)
 	if discovery_tray_panel != null:
 		discovery_tray_panel.visible = true
 	if debug_menu != null and not _hud_hidden:
 		debug_menu.show_for_gameplay()
-	player.set_state(PlayerController.State.FREE)
+	player.set_state(
+		PlayerController.State.DISABLED
+		if core.diorama.enabled else PlayerController.State.FREE
+	)
+	player.visible = not core.diorama.enabled
+	player_visual.visible = not core.diorama.enabled
+	if pigeon_mascot != null:
+		pigeon_mascot.visible = not core.diorama.enabled
+	if worldheart_presenter != null:
+		worldheart_presenter.visible = core.diorama.enabled
 	player_visual.apply_equipment(core.equipment)
 	camera_rig.restore_state(core.view_state)
 	_apply_saved_visual_state()
@@ -1353,7 +1436,15 @@ func _start_gameplay(fresh: bool, show_welcome := true) -> void:
 	# Calm god-view interaction is the default. Build/edit mode is an explicit
 	# intent so a fire click can never also pick the firepit up.
 	placement.set_active(false)
-	player.dock_for_placement()
+	if core.diorama.enabled:
+		# CameraRig historically follows the keeper. Worldheart deliberately has
+		# no keeper, so park that hidden anchor on the stable home tile and remove
+		# it from physics. This also repairs saves made while the old hidden body
+		# was falling and dragging the camera down.
+		player.position = core.grid.cell_to_world(core.grid.home_cell)
+		player.dock_for_placement(false)
+	else:
+		player.dock_for_placement()
 	player_drop_preview.visible = false
 	frontier_markers.rebuild()
 	if not core.diorama.enabled:
@@ -1365,6 +1456,8 @@ func _start_gameplay(fresh: bool, show_welcome := true) -> void:
 				(frontier.get("seed_card", {}) as Dictionary).duplicate(true)
 			)
 	hud.update_tutorial()
+	if fresh and core.diorama.enabled:
+		hud.toast("The Worldheart is waking. Its gifts can wait until you are ready.", "good")
 	if show_welcome:
 		hud.toast("Welcome%s, %s." % ["" if fresh else " back", core.profile.display_name], "good")
 	if fresh and not core.diorama.enabled and core.projects.tracked_project().is_empty():
@@ -1377,7 +1470,11 @@ func _start_gameplay(fresh: bool, show_welcome := true) -> void:
 		wish_offer_panel.notify_ready(false)
 		visitor_scene.call("sync_from_module")
 	_refresh_controller_hints()
-	if player.deployed and is_instance_valid(pigeon_controller):
+	if (
+		not core.diorama.enabled
+		and player.deployed
+		and is_instance_valid(pigeon_controller)
+	):
 		pigeon_controller.spawn_near_player()
 
 
@@ -1516,6 +1613,17 @@ func _process(delta: float) -> void:
 	_update_frontier_marker_availability()
 	if not _gameplay_started:
 		return
+	if (
+		_worldheart_offer_pointer_pressed
+		and (
+			placement.held.is_empty()
+			or not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+		)
+	):
+		# Focus loss or a GUI-consumed release cancels safely. The piece remains
+		# held; only the explicit world release path below may consume it.
+		_cancel_worldheart_offer_pointer()
+	_sync_worldheart_offer_preview()
 	_tick_controller_hud_hold(delta)
 	core.major_events_blocked = (
 		pause_menu.is_open()
@@ -1526,8 +1634,67 @@ func _process(delta: float) -> void:
 		or discovery_tray_panel != null and discovery_tray_panel.has_focus()
 		or (asset_viewer != null and asset_viewer.is_open())
 	)
+	var worldheart_interaction_busy := (
+		core.major_events_blocked
+		or hud.build_library_expanded()
+		or not placement.held.is_empty()
+		or placement.pointer_is_down()
+		or _worldheart_pointer_pressed
+		or _worldheart_pointer_move_active
+		or _worldheart_offer_pointer_pressed
+		or _worldheart_controller_move_active
+		or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+		or Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
+	)
+	core.diorama.worldheart.set_generation_paused(
+		&"player_interaction", worldheart_interaction_busy
+	)
+	if worldheart_presenter != null:
+		worldheart_presenter.set_player_interaction_busy(
+			worldheart_interaction_busy
+		)
 	core.tick(delta)
-	_tick_footsteps(delta)
+	if not core.diorama.enabled:
+		_tick_footsteps(delta)
+
+
+func _sync_worldheart_offer_preview() -> void:
+	if worldheart_presenter == null:
+		return
+	if (
+		not core.diorama.enabled
+		or placement.held.is_empty()
+		or pause_menu.is_open()
+		or panels.is_open()
+		or project_panel.is_open()
+	):
+		placement.set_external_offer_preview(false)
+		worldheart_presenter.clear_offering_preview()
+		return
+	var over_hole := false
+	if InputDeviceService.shared().is_controller():
+		over_hole = (
+			placement.controller_cursor_active()
+			and placement.controller_cursor_cell()
+				== core.diorama.worldheart.worldheart_cell
+		)
+	else:
+		over_hole = worldheart_presenter.hole_at_screen(
+			camera_rig.camera,
+			get_viewport().get_mouse_position(),
+			58.0 if worldheart_presenter.has_offering_preview() else 42.0
+		)
+	var previewing := false
+	if over_hole:
+		previewing = worldheart_presenter.show_offering_preview(
+			String(placement.held.get("kind", "")),
+			String(placement.held.get("id", "")),
+			placement.external_offer_preview_origin(),
+			true
+		)
+	else:
+		worldheart_presenter.clear_offering_preview()
+	placement.set_external_offer_preview(previewing)
 
 
 func _update_frontier_marker_availability() -> void:
@@ -1688,10 +1855,38 @@ func _input(event: InputEvent) -> void:
 		and not panels.is_open()
 		and (asset_viewer == null or not asset_viewer.is_open())
 	):
+		if event is InputEventMouseMotion and _worldheart_pointer_pressed:
+			var worldheart_motion := event as InputEventMouseMotion
+			if (
+				not _worldheart_pointer_move_active
+				and worldheart_motion.position.distance_to(
+					_worldheart_pointer_press_position
+				) >= 7.0
+			):
+				_worldheart_pointer_move_active = true
+				renderer.clear_structure_hover()
+				worldheart_presenter.begin_move_preview()
+			if _worldheart_pointer_move_active:
+				_preview_worldheart_move(worldheart_motion.position)
+			return
+		if event is InputEventMouseMotion and _worldheart_offer_pointer_pressed:
+			# The held piece remains a Worldheart preview until release. Never let
+			# the same motion fall through to ordinary placement or camera input.
+			return
 		if event is InputEventMouseMotion and placement.pointer_is_down():
 			placement.pointer_motion(
 				(event as InputEventMouseMotion).position
 			)
+			return
+		if (
+			event is InputEventMouseButton
+			and event.is_action_pressed("rotate_piece")
+		):
+			var rotate_mouse := event as InputEventMouseButton
+			if _screen_position_blocked_by_ui(rotate_mouse.position):
+				return
+			if _rotate_build_target_at_screen(rotate_mouse.position):
+				get_viewport().set_input_as_handled()
 			return
 		if event is InputEventMouseButton:
 			var build_mouse := event as InputEventMouseButton
@@ -1702,7 +1897,12 @@ func _input(event: InputEvent) -> void:
 					_begin_build_pointer(build_mouse.position)
 					get_viewport().set_input_as_handled()
 					return
-				if placement.pointer_is_down():
+				if (
+					placement.pointer_is_down()
+					or _worldheart_pointer_pressed
+					or _worldheart_pointer_move_active
+					or _worldheart_offer_pointer_pressed
+				):
 					# A dragged world piece released over the Build Bag is stored by
 					# HUD polling; ordinary world releases commit here immediately.
 					if (
@@ -1734,6 +1934,8 @@ func _screen_position_blocked_by_ui(screen_position: Vector2) -> bool:
 	# Any mouse-enabled Control shields the world, including empty panel space.
 	# Restricting this to buttons allowed selection and right-click actions to
 	# leak through the Build Bag background.
+	if collection_vibe_panel != null and collection_vibe_panel.is_open():
+		return true
 	if (
 		wish_offer_panel != null
 		and wish_offer_panel.blocks_world_pointer(screen_position)
@@ -1760,8 +1962,85 @@ func _screen_position_blocked_by_ui(screen_position: Vector2) -> bool:
 	return get_viewport().gui_get_hovered_control() != null
 
 
+func _rotate_build_target_at_screen(screen_position: Vector2) -> bool:
+	var rotated := false
+	if not placement.held.is_empty():
+		placement.rotate_held()
+		rotated = true
+	elif (
+		worldheart_presenter != null
+		and worldheart_presenter.rotate_at_screen(
+			camera_rig.camera,
+			screen_position,
+			core.registries.tunef("click_target_screen_radius", 54.0)
+		)
+	):
+		core.autosave_soon()
+		rotated = true
+	else:
+		rotated = placement.rotate_at_screen(screen_position)
+	if rotated:
+		audio.play_event("build_rotate")
+	return rotated
+
+
+func _camera_input_blocked_by_ui() -> bool:
+	if not _gameplay_started:
+		return true
+	if hud != null and hud.build_library_expanded():
+		return true
+	if panels != null and panels.is_open():
+		return true
+	if pause_menu != null and pause_menu.is_open():
+		return true
+	if wish_offer_panel != null and wish_offer_panel.is_open():
+		return true
+	if project_panel != null and project_panel.is_open():
+		return true
+	if collection_vibe_panel != null and collection_vibe_panel.is_open():
+		return true
+	if arrival_picker != null and arrival_picker.is_open():
+		return true
+	if nook_offer_panel != null and nook_offer_panel.is_open():
+		return true
+	if discovery_tray_panel != null and discovery_tray_panel.has_focus():
+		return true
+	if asset_viewer != null and asset_viewer.is_open():
+		return true
+	return lighting_tuner != null and lighting_tuner.visible
+
+
 func _begin_build_pointer(screen_position: Vector2) -> void:
 	_pending_build_interaction = {}
+	if (
+		worldheart_presenter != null
+		and not placement.held.is_empty()
+		and worldheart_presenter.hole_at_screen(
+			camera_rig.camera,
+			screen_position,
+			58.0 if worldheart_presenter.has_offering_preview() else 42.0
+		)
+	):
+		# Claim the gesture before PlacementController.pointer_press(), whose
+		# click-to-place behavior intentionally commits ordinary pieces on press.
+		# A Worldheart offering must remain held and visible until mouse release.
+		_worldheart_offer_pointer_pressed = true
+		camera_rig.begin_pointer_edit()
+		return
+	if worldheart_presenter != null and placement.held.is_empty():
+		var worldheart_target := worldheart_presenter.interaction_at_screen(
+			camera_rig.camera,
+			screen_position,
+			core.registries.tunef("click_target_screen_radius", 54.0)
+		)
+		if String(worldheart_target.get("kind", "")) == "worldheart_reward":
+			_perform_interaction(worldheart_target)
+			return
+		if worldheart_presenter.hole_at_screen(camera_rig.camera, screen_position):
+			_worldheart_pointer_pressed = true
+			_worldheart_pointer_press_position = screen_position
+			_pending_build_interaction = worldheart_target
+			return
 	if placement.active:
 		placement.pointer_press(screen_position)
 		return
@@ -1781,6 +2060,45 @@ func _begin_build_pointer(screen_position: Vector2) -> void:
 
 
 func _finish_build_pointer(screen_position: Vector2) -> void:
+	if _worldheart_offer_pointer_pressed:
+		_cancel_worldheart_offer_pointer()
+		if (
+			worldheart_presenter.has_offering_preview()
+			and worldheart_presenter.hole_at_screen(
+				camera_rig.camera, screen_position, 58.0
+			)
+		):
+			_contribute_held_to_worldheart()
+		return
+	if _worldheart_pointer_move_active:
+		var projected: Variant = interaction_targets.ground_point(screen_position)
+		var moved := false
+		if projected is Vector3:
+			moved = core.diorama.worldheart.move_to(
+				core.grid.world_to_cell(projected)
+			)
+		_worldheart_pointer_move_active = false
+		_worldheart_pointer_pressed = false
+		worldheart_presenter.cancel_move_preview()
+		hud.toast(
+			"The Worldheart settles into its new tile."
+			if moved else "The Worldheart needs a clear land tile.",
+			"good" if moved else "warn"
+		)
+		return
+	if _worldheart_pointer_pressed:
+		_worldheart_pointer_pressed = false
+		if not _pending_build_interaction.is_empty():
+			_perform_interaction(_pending_build_interaction)
+		_pending_build_interaction = {}
+		return
+	if (
+		worldheart_presenter != null
+		and not placement.held.is_empty()
+		and worldheart_presenter.hole_at_screen(camera_rig.camera, screen_position)
+	):
+		_contribute_held_to_worldheart()
+		return
 	var was_dragging := placement.pointer_release(screen_position)
 	if not _pending_build_interaction.is_empty():
 		var interaction := _pending_build_interaction
@@ -1788,6 +2106,19 @@ func _finish_build_pointer(screen_position: Vector2) -> void:
 		if not was_dragging:
 			effects.click_marker(screen_position, true)
 			_perform_interaction(interaction)
+
+
+func _preview_worldheart_move(screen_position: Vector2) -> void:
+	var projected: Variant = interaction_targets.ground_point(screen_position)
+	if projected is Vector3:
+		worldheart_presenter.preview_move(core.grid.world_to_cell(projected))
+
+
+func _cancel_worldheart_offer_pointer() -> void:
+	if not _worldheart_offer_pointer_pressed:
+		return
+	_worldheart_offer_pointer_pressed = false
+	camera_rig.end_pointer_edit()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -1869,9 +2200,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			hud.set_build_library_expanded(false)
 		get_viewport().set_input_as_handled()
 		return
-	if event.is_action_pressed("rotate_piece") and placement.active:
-		placement.rotate_held()
-		audio.play_event("build_rotate")
+	if event.is_action_pressed("rotate_piece"):
+		_rotate_build_target_at_screen(get_viewport().get_mouse_position())
 	elif (
 		event.is_action_pressed("move_piece")
 		and placement.active
@@ -1955,11 +2285,9 @@ func _unhandled_input(event: InputEvent) -> void:
 				_handle_world_click(mouse.position)
 		elif mouse.button_index == MOUSE_BUTTON_RIGHT and mouse.pressed:
 			if (
-				placement.active
-				and not _screen_position_blocked_by_ui(mouse.position)
-				and placement.rotate_at_screen(mouse.position)
+				not _screen_position_blocked_by_ui(mouse.position)
+				and _rotate_build_target_at_screen(mouse.position)
 			):
-				audio.play_event("build_rotate")
 				get_viewport().set_input_as_handled()
 	elif event is InputEventMouseMotion and placement.active:
 		placement.pointer_motion((event as InputEventMouseMotion).position)
@@ -1984,6 +2312,12 @@ func _handle_controller_build_input(event: InputEvent) -> void:
 		_refresh_controller_hints()
 		return
 	if event.is_action_pressed("cancel"):
+		if _worldheart_controller_move_active:
+			_worldheart_controller_move_active = false
+			worldheart_presenter.cancel_move_preview()
+			get_viewport().set_input_as_handled()
+			_refresh_controller_hints()
+			return
 		_cancel_build_or_open_library()
 		get_viewport().set_input_as_handled()
 		_refresh_controller_hints()
@@ -2003,6 +2337,10 @@ func _handle_controller_build_input(event: InputEvent) -> void:
 		cursor_direction = Vector2i.DOWN
 	if cursor_direction != Vector2i.ZERO:
 		placement.move_controller_cursor(cursor_direction)
+		if _worldheart_controller_move_active:
+			worldheart_presenter.preview_move(
+				placement.controller_cursor_cell()
+			)
 		get_viewport().set_input_as_handled()
 		_refresh_controller_hints()
 		return
@@ -2010,14 +2348,54 @@ func _handle_controller_build_input(event: InputEvent) -> void:
 		event.is_action_pressed("build_confirm")
 		and placement.controller_cursor_active()
 	):
-		placement.click()
+		if _worldheart_controller_move_active:
+			var moved := core.diorama.worldheart.move_to(
+				placement.controller_cursor_cell()
+			)
+			if moved:
+				_worldheart_controller_move_active = false
+				worldheart_presenter.cancel_move_preview()
+			hud.toast(
+				"The Worldheart settles into its new tile."
+				if moved else "The Worldheart needs a clear land tile.",
+				"good" if moved else "warn"
+			)
+		elif (
+			core.diorama.enabled
+			and not placement.held.is_empty()
+			and placement.controller_cursor_cell()
+				== core.diorama.worldheart.worldheart_cell
+		):
+			_contribute_held_to_worldheart()
+		else:
+			placement.click()
 	elif event.is_action_pressed("move_piece") and placement.held.is_empty():
-		placement.pick_up_at(
-			placement.controller_cursor_cell(),
-			core.grid.top_elevation(placement.controller_cursor_cell())
-		)
+		if (
+			core.diorama.enabled
+			and placement.controller_cursor_cell()
+				== core.diorama.worldheart.worldheart_cell
+		):
+			_worldheart_controller_move_active = true
+			renderer.clear_structure_hover()
+			worldheart_presenter.begin_move_preview()
+		else:
+			placement.pick_up_at(
+				placement.controller_cursor_cell(),
+				core.grid.top_elevation(placement.controller_cursor_cell())
+			)
 	elif event.is_action_pressed("rotate_piece"):
-		placement.rotate_held()
+		if (
+			placement.held.is_empty()
+			and core.diorama.enabled
+			and placement.controller_cursor_cell()
+				== core.diorama.worldheart.worldheart_cell
+		):
+			worldheart_presenter.rotate_clockwise()
+			core.autosave_soon()
+		elif not placement.held.is_empty():
+			placement.rotate_held()
+		else:
+			return
 		audio.play_event("build_rotate")
 	elif event.is_action_pressed("store_piece"):
 		placement.store_held()
@@ -2071,6 +2449,7 @@ func _cancel_build_or_open_library() -> void:
 	# stock preview), close the Build Bag, and return straight to the world.
 	# Opening the library here made one Escape perform two contradictory actions.
 	if not placement.held.is_empty():
+		_cancel_worldheart_offer_pointer()
 		placement.cancel_click()
 		hud.set_build_library_expanded(false)
 		hud.release_build_focus()
@@ -2133,7 +2512,9 @@ func _on_input_method_changed(method: int) -> void:
 	var using_controller := method == InputDeviceService.InputMethod.CONTROLLER
 	placement.set_controller_mode(using_controller)
 	if using_controller:
-		if arrival_picker != null and arrival_picker.is_open():
+		if collection_vibe_panel != null and collection_vibe_panel.is_open():
+			collection_vibe_panel.focus_default()
+		elif arrival_picker != null and arrival_picker.is_open():
 			arrival_picker.focus_default()
 		elif pause_menu.is_open():
 			pause_menu.focus_default()
@@ -2225,11 +2606,25 @@ func _refresh_controller_hints() -> void:
 			{"action": &"cancel", "label": "Back to world"},
 		]
 	elif placement.active:
-		if not placement.held.is_empty():
+		if _worldheart_controller_move_active:
+			actions = [
+				{"action": &"build_cursor_up", "label": "Move Worldheart"},
+				{"action": &"build_confirm", "label": "Set Worldheart"},
+				{"action": &"cancel", "label": "Cancel move"},
+			]
+		elif not placement.held.is_empty():
+			var place_label := "Place"
+			if (
+				core.diorama.enabled
+				and placement.controller_cursor_active()
+				and placement.controller_cursor_cell()
+					== core.diorama.worldheart.worldheart_cell
+			):
+				place_label = "Offer to Worldheart"
 			actions = [
 				{"action": &"build_cursor_up", "label": "Move cursor"},
 				{"action": &"camera_pan_up", "label": "Pan camera"},
-				{"action": &"build_confirm", "label": "Place"},
+				{"action": &"build_confirm", "label": place_label},
 				{"action": &"rotate_piece", "label": "Rotate"},
 				{"action": &"cancel", "label": "Cancel"},
 			]
@@ -2240,6 +2635,8 @@ func _refresh_controller_hints() -> void:
 				)
 		elif placement.controller_cursor_active():
 			var confirm_label := "Interact"
+			var move_label := "Move piece"
+			var cursor_over_worldheart := false
 			if (
 				frontier_markers != null
 				and not frontier_markers.marker_at_cell(
@@ -2260,20 +2657,36 @@ func _refresh_controller_hints() -> void:
 						if bool(frontier_status.get("ready", false))
 						else "Track frontier"
 					)
+			if (
+				core.diorama.enabled
+				and placement.controller_cursor_cell()
+					== core.diorama.worldheart.worldheart_cell
+			):
+				move_label = "Move Worldheart"
+				cursor_over_worldheart = true
 			actions = [
 				{"action": &"build_cursor_up", "label": "Move cursor"},
 				{"action": &"camera_pan_up", "label": "Pan camera"},
 				{"action": &"build_confirm", "label": confirm_label},
-				{"action": &"move_piece", "label": "Move piece"},
+				{"action": &"move_piece", "label": move_label},
 				{"action": &"build_mode", "label": "Library"},
 				{"action": &"cancel", "label": "Exit"},
 			]
+			if cursor_over_worldheart:
+				actions.insert(
+					4, {"action": &"rotate_piece", "label": "Rotate"}
+				)
 		else:
 			actions = [
 				{"action": &"ui_accept", "label": "Choose piece"},
 				{"action": &"build_mode", "label": "Browse world"},
 				{"action": &"cancel", "label": "Exit"},
 			]
+			if core.diorama.enabled:
+				actions.insert(1, {
+					"action": &"offer_to_worldheart",
+					"label": "Offer spare",
+				})
 	else:
 		var interact_label := "Interact"
 		if placement.interaction_cursor_active():
@@ -2285,12 +2698,16 @@ func _refresh_controller_hints() -> void:
 					interact_label = "Break gift vase"
 				"provision_fishing_spot":
 					interact_label = "Fish"
+				"worldheart_reward":
+					interact_label = "Collect gift"
+				"worldheart_collect_all":
+					interact_label = "Collect all gifts"
 		actions = [
 			{"action": &"build_cursor_up", "label": "Move world cursor"},
 			{"action": &"interact", "label": interact_label},
 			{
-				"action": &"discovery_tray" if core.diorama.enabled else &"project_menu",
-				"label": "Discovery Tray" if core.diorama.enabled else "Projects",
+				"action": &"panel_collection" if core.diorama.enabled else &"project_menu",
+				"label": "Collections" if core.diorama.enabled else "Projects",
 			},
 			{"action": &"build_mode", "label": "Edit mode"},
 		]
@@ -2520,6 +2937,10 @@ func _interaction_at_screen(screen_position: Vector2) -> Dictionary:
 
 func _interaction_at_controller_cursor() -> Dictionary:
 	var cell := placement.controller_cursor_cell()
+	if core.diorama.enabled and worldheart_presenter != null:
+		var worldheart_target := worldheart_presenter.interaction_at_cell(cell)
+		if not worldheart_target.is_empty():
+			return worldheart_target
 	var marker: Dictionary = frontier_markers.marker_at_cell(cell)
 	if not marker.is_empty():
 		return {
@@ -2563,6 +2984,89 @@ func _interaction_at_controller_cursor() -> Dictionary:
 func _on_diorama_offer_selected(offer: Dictionary) -> void:
 	audio.play_event("build_preview")
 	placement.hold_diorama_offer(offer)
+	_refresh_controller_hints()
+
+
+func _on_worldheart_pulse(_entry: Dictionary) -> void:
+	# Pointer controls do not change when a gift appears. Rebuilding the HUD in
+	# the spawn frame used to compete with model creation and could eat a click.
+	if (
+		InputDeviceService.shared().is_controller()
+		and placement.controller_cursor_active()
+		and placement.controller_cursor_cell()
+			== core.diorama.worldheart.worldheart_cell
+	):
+		call_deferred("_refresh_controller_hints")
+
+
+func _on_worldheart_offer_requested(kind: String, content_id: String) -> void:
+	if (
+		worldheart_presenter != null
+		and worldheart_presenter.show_offering_preview(kind, content_id)
+	):
+		worldheart_presenter.drop_offering(
+			_commit_worldheart_contribution.bind(kind, content_id)
+		)
+		return
+	_commit_worldheart_contribution(kind, content_id)
+
+
+func _contribute_held_to_worldheart() -> void:
+	if placement.held.is_empty():
+		return
+	var kind := String(placement.held.get("kind", ""))
+	var content_id := String(placement.held.get("id", ""))
+	if kind not in ["tile", "structure"]:
+		hud.toast("Only tiles and models can be offered to the Worldheart.", "warn")
+		return
+	if not worldheart_presenter.has_offering_preview():
+		worldheart_presenter.show_offering_preview(kind, content_id)
+	placement.cancel_pointer_gesture()
+	if placement.held.get("moving") != null:
+		placement.store_held()
+	else:
+		placement.cancel_click()
+	placement.set_external_offer_preview(false)
+	placement.set_active(false)
+	worldheart_presenter.drop_offering(
+		_commit_worldheart_contribution.bind(kind, content_id)
+	)
+
+
+func _commit_worldheart_contribution(kind: String, content_id: String) -> void:
+	var result := core.diorama.worldheart.contribute_from_stock(kind, content_id)
+	_handle_worldheart_contribution_result(result)
+
+
+func _handle_worldheart_contribution_result(result: Dictionary) -> void:
+	if not bool(result.get("accepted", false)):
+		return
+	var collection_id := String(result.get("collection_id", ""))
+	var definition = core.registries.creative_collection(collection_id)
+	var collection_name: String = (
+		String(definition.display_name) if definition != null else "collection"
+	)
+	if bool(result.get("completed", false)):
+		var reward: Dictionary = result.get("reward", {})
+		hud.toast(
+			"%s filled - %s surfaced."
+			% [collection_name, core.build_rewards.display_name(reward)],
+			"rare" if bool(reward.get("was_new", false)) else "good"
+		)
+		audio.play_event(
+			"discovery" if bool(reward.get("was_new", false)) else "reward_common"
+		)
+	else:
+		hud.toast(
+			"%s offering: %d / %d."
+			% [
+				collection_name,
+				int(result.get("progress", 0)),
+				int(result.get("required", 2)),
+			],
+			"good"
+		)
+		audio.play_event("store")
 	_refresh_controller_hints()
 
 
@@ -2618,6 +3122,8 @@ func _on_creative_collection_milestone(
 	_collection_id: String,
 	_milestone: Dictionary
 ) -> void:
+	if worldheart_presenter != null:
+		worldheart_presenter.prime_reward_collection()
 	audio.play_event("levelup")
 	if player.state == PlayerController.State.FREE:
 		player_visual.play("celebrate")
@@ -2920,8 +3426,6 @@ func _on_focus_changed(focus: Dictionary) -> void:
 					focus.get("coord", Vector2i.ZERO)
 				)
 			)
-		"void_fishing":
-			hud.set_prompt(&"interact", "Fish into the unknown")
 		"anchor":
 			var anchor: Defs.AnchorDefinition = focus["anchor"]
 			var skill := core.registries.skill(anchor.skill_id)
@@ -2950,6 +3454,10 @@ func _on_focus_changed(focus: Dictionary) -> void:
 				&"interact",
 				String(option.label) if option != null else "Interact"
 			)
+		"worldheart_reward":
+			hud.set_prompt(&"interact", "Collect into Build Bag")
+		"worldheart_collect_all":
+			hud.set_prompt(&"interact", "Collect nearby Worldheart gifts")
 		_:
 			hud.set_prompt(&"", "")
 	_refresh_controller_hints()
@@ -2966,9 +3474,31 @@ func _perform_interaction(interaction: Dictionary) -> void:
 			var option = interaction.get("option")
 			if option == null or String(option.feature_id) != "world_curiosity":
 				return
-		elif kind not in ["expansion_ripple"]:
+		elif kind not in ["expansion_ripple", "worldheart_reward", "worldheart_collect_all"]:
 			return
 	match interaction.get("kind", ""):
+		"worldheart_reward":
+			var reward := core.diorama.worldheart.claim(
+				String(interaction.get("entry_id", ""))
+			)
+			if not reward.is_empty():
+				hud.toast(
+					"%s tucked into your Build Bag."
+					% core.build_rewards.display_name(reward),
+					"rare" if bool(reward.get("was_new", false)) else "good"
+				)
+				audio.play_event("discovery" if bool(reward.get("was_new", false)) else "reward_common")
+		"worldheart_collect_all":
+			var rewards := core.diorama.worldheart.claim_all_visible()
+			if rewards.is_empty():
+				hud.toast("The Worldheart is resting.", "common")
+			else:
+				hud.toast(
+					"%d gift%s tucked into your Build Bag."
+					% [rewards.size(), "" if rewards.size() == 1 else "s"],
+					"good"
+				)
+				audio.play_event("reward_common")
 		"visitor", "visitor_vase":
 			# Release transient outline RIDs before a visitor visual starts a tween
 			# or the vase is queued for deletion.

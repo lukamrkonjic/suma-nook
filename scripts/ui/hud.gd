@@ -7,6 +7,7 @@ signal catch_basket_requested
 signal spirit_pouch_requested
 signal token_pouch_requested
 signal build_piece_selected(kind: String, id: String)
+signal worldheart_offer_requested(kind: String, id: String)
 signal build_world_browse_requested
 signal build_store_requested
 signal pause_requested
@@ -27,7 +28,7 @@ var _hint_label: Label
 var _hint_panel: PanelContainer
 var _health_box: HBoxContainer
 var _token_pouch_button: Button
-var _build_bar: PanelContainer
+var _build_bar: BuildBagSheet
 var _build_bar_column: VBoxContainer
 var _build_compact_row: HBoxContainer
 var _build_expand_button: Button
@@ -45,6 +46,10 @@ var _build_strip: GridContainer
 var _build_previous_button: Button
 var _build_next_button: Button
 var _build_category_group: ButtonGroup
+var _build_sections: VBoxContainer
+var _build_section_nodes: Dictionary = {}
+var _build_item_buttons: Array[Button] = []
+var _build_scroll_memory := 0
 var _selected_build_category := ""
 var _selected_build_entry: Dictionary = {}
 var _build_library_expanded := false
@@ -184,8 +189,7 @@ func _build_layout() -> void:
 	_hover_collection_label = kit.utility_label("", 11)
 	_hover_collection_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hover_collection_label.add_theme_color_override(
-		"font_color",
-		kit.palette.color("ui_collection_text")
+		"font_color", kit.text_color()
 	)
 	hover_col.add_child(_hover_collection_label)
 
@@ -210,7 +214,7 @@ func _build_layout() -> void:
 	_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_hint_label.custom_minimum_size.x = 400
 	_hint_label.add_theme_color_override(
-		"font_color", kit.palette.color("ui_text_primary")
+		"font_color", kit.text_color()
 	)
 	_hint_panel.add_child(_hint_label)
 	_prompt_label = kit.label("", 20)
@@ -218,163 +222,38 @@ func _build_layout() -> void:
 	_context_column.add_child(_prompt_label)
 	_position_context_above_build_library.call_deferred()
 
-	# Build Bag — a quiet chevron at rest, expanding upward while hovered.
-	# The expanded shelf can be pinned when the player wants to keep browsing.
-	_build_bar = PanelContainer.new()
-	_build_bar.name = "BuildLibrary"
-	_build_bar.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	_build_bar.position.y = -18
-	_build_bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_build_bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_build_bar.mouse_filter = Control.MOUSE_FILTER_STOP
-	_build_bar.custom_minimum_size = Vector2(54, 0)
-	_build_panel_collapsed_style = StyleBoxEmpty.new()
-	_build_panel_collapsed_style.set_content_margin_all(0)
-	_build_panel_expanded_style = kit.hud_dock_style()
-	_build_panel_expanded_style.content_margin_left = 24
-	_build_panel_expanded_style.content_margin_right = 24
-	_build_panel_expanded_style.content_margin_top = 22
-	_build_panel_expanded_style.content_margin_bottom = 20
-	_build_bar.add_theme_stylebox_override("panel", _build_panel_collapsed_style)
+	# Build Bag — one calm, bottom slide-up collection sheet. It is a view over stock;
+	# all ownership, placement, and save rules remain in their existing systems.
+	_build_bar = BuildBagSheet.new()
+	_build_bar.setup(kit)
 	_build_bar.visible = false
-	_build_bar.mouse_entered.connect(_on_build_library_mouse_entered)
-	_build_bar.mouse_exited.connect(_on_build_library_mouse_exited)
+	_build_bar.close_requested.connect(_close_build_library)
+	_build_bar.search_changed.connect(_on_build_search_changed)
 	_build_bar.gui_input.connect(_on_build_library_input)
 	root.add_child(_build_bar)
-	_build_bar_column = VBoxContainer.new()
-	_build_bar_column.add_theme_constant_override("separation", 7)
-	_build_bar.add_child(_build_bar_column)
-
-	_build_compact_row = HBoxContainer.new()
-	_build_compact_row.name = "CompactBuildDock"
-	_build_compact_row.custom_minimum_size = Vector2(54, 42)
-	_build_compact_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	_build_bar_column.add_child(_build_compact_row)
-	_build_expand_button = kit.icon_button("", 42.0)
-	_build_expand_button.name = "BuildExpandLibrary"
-	_build_expand_button.custom_minimum_size = Vector2(46, 38)
-	_build_expand_button.icon = load(BUILD_ICON_DIRECTORY + "chevron_up.svg")
-	_build_expand_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_build_expand_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_build_expand_button.expand_icon = false
-	_build_expand_button.tooltip_text = "Build Bag"
-	_build_expand_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	_build_expand_button.focus_mode = Control.FOCUS_ALL
-	_build_expand_button.pressed.connect(
-		func(): set_build_library_expanded(true)
-	)
-	_build_compact_row.add_child(_build_expand_button)
-
-	# A clipped plain Control does not inherit its children's minimum height,
-	# allowing the shelf to animate rather than pop between layouts.
-	_build_expanded_clip = Control.new()
-	_build_expanded_clip.name = "BuildLibraryExpansion"
-	_build_expanded_clip.clip_contents = true
-	_build_expanded_clip.custom_minimum_size.y = 410
-	_build_bar_column.add_child(_build_expanded_clip)
-	_build_expanded_content = VBoxContainer.new()
-	_build_expanded_content.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	_build_expanded_content.offset_bottom = 404
-	_build_expanded_content.add_theme_constant_override("separation", 8)
-	_build_expanded_clip.add_child(_build_expanded_content)
-
-	var build_header := HBoxContainer.new()
-	build_header.name = "BuildLibraryHeader"
-	build_header.add_theme_constant_override("separation", 7)
-	_build_expanded_content.add_child(build_header)
-
-	_build_search = LineEdit.new()
-	_build_search.name = "BuildLibrarySearch"
-	_build_search.placeholder_text = "Search your Build Bag..."
-	_build_search.clear_button_enabled = true
-	_build_search.custom_minimum_size.y = 42
-	_build_search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_build_search.tooltip_text = "Find owned tiles, furniture, structures, or deeds by name"
-	kit.style_line_edit(_build_search)
-	_build_search.text_changed.connect(_on_build_search_changed)
-	build_header.add_child(_build_search)
-
-	_build_pin_button = kit.library_arrow_button("")
-	_build_pin_button.name = "BuildLibraryPin"
-	_build_pin_button.custom_minimum_size = Vector2(42, 42)
-	_build_pin_button.icon = load(BUILD_ICON_DIRECTORY + "pin.svg")
-	_build_pin_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_build_pin_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_build_pin_button.toggle_mode = true
-	_build_pin_button.tooltip_text = "Keep Build Bag open"
-	_build_pin_button.toggled.connect(_on_build_library_pin_toggled)
-	build_header.add_child(_build_pin_button)
-
-	_build_close_button = kit.library_arrow_button("")
-	_build_close_button.name = "BuildLibraryClose"
-	_build_close_button.custom_minimum_size = Vector2(42, 42)
-	_build_close_button.icon = load(BUILD_ICON_DIRECTORY + "chevron_down.svg")
-	_build_close_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_build_close_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_build_close_button.tooltip_text = "Close Build Bag"
-	_build_close_button.pressed.connect(_close_build_library)
-	build_header.add_child(_build_close_button)
-
-	_build_category_scroll = ScrollContainer.new()
-	_build_category_scroll.name = "BuildCategories"
-	_build_category_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_build_category_scroll.custom_minimum_size.y = 58
-	_build_category_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	_build_category_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_build_category_scroll.scroll_deadzone = 8
-	_build_category_scroll.follow_focus = true
-	_build_category_scroll.gui_input.connect(
-		func(event): _on_library_scroll_input(event, _build_category_scroll)
-	)
-	kit.style_library_scrollbar(_build_category_scroll)
-	_build_expanded_content.add_child(_build_category_scroll)
-	_build_category_strip = HBoxContainer.new()
-	_build_category_strip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_build_category_strip.alignment = BoxContainer.ALIGNMENT_CENTER
-	_build_category_strip.add_theme_constant_override("separation", 8)
-	_build_category_scroll.add_child(_build_category_strip)
-
-	var item_row := HBoxContainer.new()
-	item_row.add_theme_constant_override("separation", 7)
-	item_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_build_expanded_content.add_child(item_row)
-	_build_previous_button = kit.library_arrow_button("<")
-	_build_previous_button.name = "BuildPreviousPage"
-	_build_previous_button.tooltip_text = "Previous row"
-	_build_previous_button.pressed.connect(func(): _page_build_items(-1))
-	item_row.add_child(_build_previous_button)
-	_build_item_scroll = ScrollContainer.new()
-	_build_item_scroll.name = "BuildItems"
-	_build_item_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_build_item_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_build_item_scroll.custom_minimum_size.y = 232
-	_build_item_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_build_item_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	_build_item_scroll.scroll_deadzone = 8
-	_build_item_scroll.follow_focus = true
+	_build_search = _build_bar.search_field
+	_build_close_button = _build_bar.close_button
+	_build_item_scroll = _build_bar.scroll
+	_build_sections = _build_bar.sections
 	_build_item_scroll.gui_input.connect(
 		func(event): _on_library_scroll_input(event, _build_item_scroll)
 	)
-	kit.style_library_scrollbar(_build_item_scroll)
-	item_row.add_child(_build_item_scroll)
-	_build_strip = GridContainer.new()
-	_build_strip.name = "BuildItemGrid"
-	_build_strip.columns = 7
-	_build_strip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_build_strip.add_theme_constant_override("h_separation", 9)
-	_build_strip.add_theme_constant_override("v_separation", 9)
-	_build_item_scroll.add_child(_build_strip)
-	_build_next_button = kit.library_arrow_button(">")
-	_build_next_button.name = "BuildNextPage"
-	_build_next_button.tooltip_text = "Next row"
-	_build_next_button.pressed.connect(func(): _page_build_items(1))
-	item_row.add_child(_build_next_button)
-	_build_hint_label = kit.label("", 12)
-	_build_hint_label.add_theme_color_override(
-		"font_color",
-		kit.palette.color("ui_hint_medium")
+	_build_item_scroll.get_v_scroll_bar().value_changed.connect(
+		func(value: float): _build_scroll_memory = int(round(value))
 	)
-	_build_expanded_content.add_child(_build_hint_label)
+
+	# A tiny world-facing handle is all that remains after choosing a piece.
+	# It has a generous hit target without becoming a second panel.
+	_build_expand_button = kit.minimal_icon_button("⌃", "Open Build Bag", 38.0)
+	_build_expand_button.name = "BuildBagHandle"
+	_build_expand_button.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_build_expand_button.position.y = -18
+	_build_expand_button.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_build_expand_button.visible = false
+	_build_expand_button.pressed.connect(
+		func(): set_build_library_expanded(true)
+	)
+	root.add_child(_build_expand_button)
 
 	_build_drop_overlay = PanelContainer.new()
 	_build_drop_overlay.name = "BuildLibraryStoreDrop"
@@ -411,7 +290,6 @@ func _build_layout() -> void:
 	_store_bubble.gui_input.connect(_on_store_bubble_input)
 	root.add_child(_store_bubble)
 
-	_build_category_group = ButtonGroup.new()
 	_thumbnail_renderer = BuildThumbnailRendererScript.new()
 	_thumbnail_renderer.name = "BuildThumbnailRenderer"
 	add_child(_thumbnail_renderer)
@@ -519,41 +397,52 @@ func refresh_fishing_buttons() -> void:
 
 func _refresh_build_strip() -> void:
 	var entries_by_category := _collect_build_entries()
-	var available_categories: Array[String] = []
-	for category: Dictionary in BUILD_CATEGORIES:
-		var category_id := String(category["id"])
-		var entries: Array = entries_by_category[category_id]
-		if not entries.is_empty():
-			available_categories.append(category_id)
-
-	if not available_categories.has(_selected_build_category):
-		_selected_build_category = available_categories[0] if not available_categories.is_empty() else ""
-
-	_clear_container(_build_category_strip)
+	_thumbnail_renderer.discard_pending()
+	_clear_container(_build_sections)
+	_build_section_nodes.clear()
+	_build_item_buttons.clear()
+	_build_strip = null
+	var populated := 0
+	var columns := _build_columns()
 	for category: Dictionary in BUILD_CATEGORIES:
 		var category_id := String(category["id"])
 		var entries: Array = entries_by_category[category_id]
 		if entries.is_empty():
 			continue
-		var category_button := kit.library_category_button(
-			"",
-			category_id == _selected_build_category
+		if _selected_build_category == "":
+			_selected_build_category = category_id
+		var section := CollectionSection.new()
+		section.setup(
+			kit,
+			category_id,
+			String(category["label"]),
+			_build_category_accent(category_id),
+			_build_category_glyph(category_id),
+			columns
 		)
-		category_button.name = "BuildCategory_%s" % category_id
-		category_button.custom_minimum_size = Vector2(54, 50)
-		category_button.icon = load(BuildCategoryResolver.icon_path(category_id))
-		category_button.expand_icon = false
-		category_button.tooltip_text = "%s · %d owned kinds" % [
-			category["label"],
-			entries.size(),
-		]
-		category_button.button_group = _build_category_group
-		category_button.pressed.connect(func(): _select_build_category(category_id))
-		_build_category_strip.add_child(category_button)
-
-	_refresh_build_items(entries_by_category)
+		_build_sections.add_child(section)
+		_build_section_nodes[category_id] = section
+		if _build_strip == null:
+			_build_strip = section.grid
+		for entry: Dictionary in entries:
+			_add_build_item_cell(section, entry, category_id)
+		populated += 1
+	if populated == 0:
+		var empty := kit.muted_label(
+			(
+				"Nothing in the collection matches “%s”."
+				% _build_search.text.strip_edges()
+				if not _build_search_query().is_empty()
+				else "Your Build Bag is empty — collect a surfaced Worldheart gift."
+			),
+			14
+		)
+		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		empty.custom_minimum_size.y = 120
+		empty.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_build_sections.add_child(empty)
 	_refresh_compact_build_dock()
-	call_deferred("_update_build_scroll_buttons")
+	call_deferred("_restore_build_scroll")
 
 
 func _collect_build_entries() -> Dictionary:
@@ -654,6 +543,7 @@ func _on_build_search_changed(query: String) -> void:
 		_selected_build_category = _build_category_before_search
 		_build_category_before_search = ""
 	_build_previous_search_query = query.strip_edges()
+	_build_scroll_memory = 0
 	_refresh_build_strip()
 
 
@@ -681,67 +571,138 @@ func _build_entry_matches_search(
 
 
 func _refresh_build_items(entries_by_category: Dictionary) -> void:
-	_thumbnail_renderer.discard_pending()
-	for child in _build_strip.get_children():
-		_build_strip.remove_child(child)
-		child.queue_free()
-	_build_item_scroll.scroll_vertical = 0
+	# Kept as a compatibility seam for callers that previously refreshed one
+	# selected category. The collection sheet always renders every section.
+	_refresh_build_strip()
 
-	if _selected_build_category == "":
-		var empty_label := kit.label(
-			(
-				"No owned pieces match “%s”. Clear the search to see everything."
-				% _build_search.text.strip_edges()
-				if not _build_search_query().is_empty()
-				else "Your Build Bag is empty — fish from an exposed edge to find a piece."
-			),
-			15
-		)
-		empty_label.add_theme_color_override(
-			"font_color",
-			kit.palette.color("ui_empty_text")
-		)
-		_build_strip.add_child(empty_label)
-		return
 
-	var entries: Array = entries_by_category[_selected_build_category]
-	for entry: Dictionary in entries:
-		var card := kit.library_visual_item_button(
-			String(entry["name"]),
-			int(entry["count"])
+func _add_build_item_cell(
+	section: CollectionSection,
+	entry: Dictionary,
+	category_id: String
+) -> void:
+	var kind := String(entry["kind"])
+	var content_id := String(entry["id"])
+	var selected := (
+		String(_selected_build_entry.get("kind", "")) == kind
+		and String(_selected_build_entry.get("id", "")) == content_id
+	)
+	var item_button := InventoryItemCell.new()
+	item_button.setup(
+		kit,
+		String(entry["name"]),
+		int(entry["count"]),
+		selected
+	)
+	var cell_extent := _build_cell_extent()
+	item_button.custom_minimum_size = Vector2(cell_extent, cell_extent)
+	item_button.name = "BuildItem_%s" % content_id
+	var tooltip_parts := PackedStringArray([
+		String(entry["name"]),
+		"%s · %d available" % [
+			_build_category_label(category_id),
+			int(entry["count"]),
+		],
+	])
+	var detail := String(entry.get("tooltip", ""))
+	if detail != "":
+		tooltip_parts.append(detail)
+	tooltip_parts.append(InputDeviceService.shared().format_action(
+		&"ui_accept" if InputDeviceService.shared().is_controller() else &"interact",
+		"place"
+	))
+	if core.diorama.enabled and core.diorama.worldheart.can_offer(kind, content_id):
+		tooltip_parts.append(InputDeviceService.shared().format_action(
+			&"offer_to_worldheart", "offer this spare"
+		))
+	item_button.tooltip_text = "\n".join(tooltip_parts)
+	var harvest_icon := String(entry.get("harvest_icon", ""))
+	if harvest_icon != "":
+		item_button.set_status(
+			_build_category_accent(category_id),
+			String(HARVEST_ICON_LABELS.get(harvest_icon, "Interactive"))
 		)
-		var item_button: Button = card["button"]
-		var preview: TextureRect = card["preview"]
-		_add_harvest_badge(item_button, String(entry.get("harvest_icon", "")))
-		item_button.name = "BuildItem_%s" % entry["id"]
-		var tooltip := String(entry["tooltip"])
-		var place_prompt := InputDeviceService.shared().format_action(
-			&"ui_accept" if InputDeviceService.shared().is_controller() else &"interact",
-			"place"
-		)
-		item_button.tooltip_text = (
-			"%s\n%s" % [tooltip, place_prompt]
-			if tooltip != ""
-			else place_prompt
-		)
-		var kind := String(entry["kind"])
-		var content_id := String(entry["id"])
-		# Activate on press so the same gesture can continue out of the card,
-		# across the world, and finish by releasing at the desired tile.
-		item_button.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
-		item_button.pressed.connect(
-			func(): _on_build_piece_pressed(entry)
-		)
-		_build_strip.add_child(item_button)
-		_thumbnail_renderer.request(
+	item_button.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
+	item_button.pressed.connect(func(): _on_build_piece_pressed(entry))
+	item_button.gui_input.connect(_on_build_item_input.bind(entry))
+	item_button.focus_entered.connect(
+		func(): _build_bar.show_focus_detail(item_button.tooltip_text)
+	)
+	item_button.focus_exited.connect(func(): _build_bar.show_focus_detail(""))
+	item_button.mouse_entered.connect(
+		func(): _build_bar.show_focus_detail(item_button.tooltip_text)
+	)
+	item_button.mouse_exited.connect(func(): _build_bar.show_focus_detail(""))
+	section.add_item(item_button)
+	_build_item_buttons.append(item_button)
+	_thumbnail_renderer.request(
+		kind,
+		content_id,
+		Callable(self, "_apply_build_thumbnail").bind(
 			kind,
 			content_id,
-			Callable(self, "_apply_build_thumbnail").bind(
-				kind,
-				content_id,
-				preview.get_instance_id()
-			)
+			item_button.preview.get_instance_id()
 		)
+	)
+
+
+func _build_category_accent(category_id: String) -> Color:
+	match category_id:
+		"ground": return kit.collection_accent("land")
+		"woodland", "nature": return kit.collection_accent("woodland")
+		"stone", "boundaries": return kit.collection_accent("stone")
+		"winter": return kit.palette.color("ui_info").lightened(0.15)
+		"furniture", "storage": return kit.palette.color("ui_journal_structures")
+		"utilities": return kit.palette.color("ui_accent_muted")
+		"buildings", "deeds": return kit.palette.color("ui_rare")
+	return kit.ui_color("accent")
+
+
+func _build_category_glyph(category_id: String) -> String:
+	return {
+		"ground": "●",
+		"woodland": "◆",
+		"stone": "◇",
+		"winter": "✦",
+		"nature": "●",
+		"furniture": "◆",
+		"boundaries": "■",
+		"utilities": "✧",
+		"buildings": "▲",
+		"storage": "◇",
+		"deeds": "▼",
+	}.get(category_id, "◆")
+
+
+func _build_columns() -> int:
+	return kit.tokens.columns_for(
+		_build_library_expanded_width()
+	)
+
+
+func _build_cell_extent() -> float:
+	var columns := _build_columns()
+	var usable_width := (
+		_build_library_expanded_width()
+		- float(kit.tokens.sheet_padding * 2)
+		- float(kit.tokens.scrollbar_width)
+		- float(kit.tokens.cell_gap * (columns - 1))
+	)
+	return maxf(
+		kit.tokens.reference_cell_size.x,
+		floor(usable_width / float(columns))
+	)
+
+
+func _restore_build_scroll() -> void:
+	if _build_item_scroll == null:
+		return
+	var bar := _build_item_scroll.get_v_scroll_bar()
+	_build_item_scroll.scroll_vertical = clampi(
+		_build_scroll_memory,
+		0,
+		maxi(0, int(ceil(bar.max_value - bar.page)))
+	)
 
 
 func _add_harvest_badge(button: Button, icon_id: String) -> void:
@@ -785,6 +746,24 @@ func _on_build_piece_pressed(entry: Dictionary) -> void:
 		placement.begin_pointer_drag_for_held(
 			get_viewport().get_mouse_position()
 		)
+
+
+func _on_build_item_input(event: InputEvent, entry: Dictionary) -> void:
+	if not core.diorama.enabled:
+		return
+	var requested := event.is_action_pressed("offer_to_worldheart")
+	if event is InputEventMouseButton:
+		requested = event.pressed and event.button_index == MOUSE_BUTTON_RIGHT
+	if not requested:
+		return
+	var kind := String(entry.get("kind", ""))
+	var content_id := String(entry.get("id", ""))
+	if not core.diorama.worldheart.can_offer(kind, content_id):
+		toast("Only true spares can be offered; your last copy is protected.", "warn")
+	else:
+		worldheart_offer_requested.emit(kind, content_id)
+	get_viewport().set_input_as_handled()
+	call_deferred("focus_build_library")
 
 
 func _apply_build_thumbnail(
@@ -837,17 +816,16 @@ func _owned_build_count(kind: String, content_id: String) -> int:
 
 
 func _select_build_category(category_id: String) -> void:
-	if category_id == _selected_build_category:
-		return
 	_selected_build_category = category_id
-	var entries_by_category := _collect_build_entries()
-	for button in _build_category_strip.get_children():
-		if button is Button:
-			(button as Button).set_pressed_no_signal(
-				button.name == "BuildCategory_%s" % category_id
-			)
-	_refresh_build_items(entries_by_category)
-	call_deferred("_update_build_scroll_buttons")
+	call_deferred("_scroll_to_build_category", category_id)
+
+
+func _scroll_to_build_category(category_id: String) -> void:
+	if _build_item_scroll == null:
+		return
+	var section := _build_section_nodes.get(category_id) as Control
+	if section != null:
+		_build_item_scroll.ensure_control_visible(section)
 
 
 static func category_for_tile(definition: Defs.TileDefinition) -> String:
@@ -883,25 +861,14 @@ func _on_library_scroll_input(event: InputEvent, scroll: ScrollContainer) -> voi
 		delta = (event.delta.x + event.delta.y) * 72.0
 	if is_zero_approx(delta):
 		return
-	if not _build_library_expanded:
-		set_build_library_expanded(true)
-	if scroll == _build_item_scroll:
-		var vertical_bar := scroll.get_v_scroll_bar()
-		scroll.scroll_vertical = clampi(
-			scroll.scroll_vertical + int(round(delta)),
-			0,
-			maxi(0, int(ceil(vertical_bar.max_value - vertical_bar.page)))
-		)
-	else:
-		var horizontal_bar := scroll.get_h_scroll_bar()
-		scroll.scroll_horizontal = clampi(
-			scroll.scroll_horizontal + int(round(delta)),
-			0,
-			maxi(0, int(ceil(horizontal_bar.max_value - horizontal_bar.page)))
-		)
+	var vertical_bar := scroll.get_v_scroll_bar()
+	scroll.scroll_vertical = clampi(
+		scroll.scroll_vertical + int(round(delta)),
+		0,
+		maxi(0, int(ceil(vertical_bar.max_value - vertical_bar.page)))
+	)
 	scroll.accept_event()
-	if scroll == _build_item_scroll:
-		_update_build_scroll_buttons()
+	_build_scroll_memory = scroll.scroll_vertical
 
 
 func _page_build_items(direction: int) -> void:
@@ -916,47 +883,36 @@ func _page_build_items(direction: int) -> void:
 
 
 func _update_build_scroll_buttons() -> void:
-	if _build_item_scroll == null or _build_previous_button == null:
-		return
-	var bar := _build_item_scroll.get_v_scroll_bar()
-	var maximum := maxi(0, int(ceil(bar.max_value - bar.page)))
-	_build_previous_button.disabled = _build_item_scroll.scroll_vertical <= 0
-	_build_next_button.disabled = _build_item_scroll.scroll_vertical >= maximum
-	_build_previous_button.visible = maximum > 0
-	_build_next_button.visible = maximum > 0
+	# The collection sheet deliberately has one native scrollbar and no paging
+	# chrome. Keep this compatibility seam for callers in older test fixtures.
+	pass
 
 
 func _resize_build_library() -> void:
 	if _build_bar == null:
 		return
-	_build_bar.custom_minimum_size.x = (
-		_build_library_expanded_width()
-		if _build_library_expanded
-		else 70.0
-	)
-	if _build_strip != null:
-		_build_strip.columns = clampi(
-			int(floor((_build_library_expanded_width() - 128.0) / 141.0)),
-			3,
-			8
-		)
+	var viewport_size := get_viewport().get_visible_rect().size
+	_build_bar.apply_viewport(viewport_size)
+	var columns := _build_columns()
+	for section_value in _build_section_nodes.values():
+		var section := section_value as CollectionSection
+		if section != null:
+			section.set_columns(columns)
 	if _build_bar.visible:
 		call_deferred("_position_context_above_build_library")
 
 
 func _build_library_expanded_width() -> float:
-	var viewport_width := get_viewport().get_visible_rect().size.x
-	return clampf(viewport_width - 64.0, 560.0, 1180.0)
+	return kit.tokens.sheet_size(get_viewport().get_visible_rect().size).x
 
 
 func _position_context_above_build_library() -> void:
 	if _context_column == null:
 		return
-	var bottom_gap := (
-		_build_bar.size.y + 28.0
-		if _build_bar.visible
-		else 86.0
-	)
+	_context_column.visible = not build_library_expanded()
+	if not _context_column.visible:
+		return
+	var bottom_gap := 86.0
 	var viewport_size := get_viewport().get_visible_rect().size
 	var content_size := _context_column.get_combined_minimum_size()
 	_context_column.size = content_size
@@ -967,105 +923,78 @@ func _position_context_above_build_library() -> void:
 
 
 func set_build_library_expanded(expanded: bool, animate := true) -> void:
-	if _build_expanded_clip == null:
+	if _build_bar == null:
 		return
-	if not expanded and _build_library_pinned:
-		_build_library_pinned = false
-		if _build_pin_button != null:
-			_build_pin_button.set_pressed_no_signal(false)
-			_build_pin_button.tooltip_text = "Keep Build Bag open"
-	var target_height := 410.0 if expanded else 0.0
-	var target_width := _build_library_expanded_width() if expanded else 54.0
-	var already_settled := (
-		_build_library_expanded == expanded
-		and is_equal_approx(
-			_build_expanded_clip.custom_minimum_size.y,
-			target_height
-		)
-		and _build_expanded_content.visible == expanded
-	)
-	if already_settled:
+	if _build_library_expanded == expanded and _build_bar.visible == expanded:
 		if expanded and InputDeviceService.shared().is_controller():
 			call_deferred("focus_build_library")
 		return
 	_build_library_expanded = expanded
+	_build_scroll_memory = (
+		_build_item_scroll.scroll_vertical if _build_item_scroll != null else 0
+	)
 	_build_bag_open_pending = false
-	if _build_bag_button_tween != null and _build_bag_button_tween.is_valid():
-		_build_bag_button_tween.kill()
-	if not expanded:
-		_build_hover_expand_armed = false
-		release_build_focus()
-	else:
-		if _build_bag_idle_tween != null and _build_bag_idle_tween.is_valid():
-			_build_bag_idle_tween.kill()
-		_build_expand_button.scale = Vector2.ONE
-		_build_compact_row.visible = false
-		_build_bar.add_theme_stylebox_override(
-			"panel",
-			_build_panel_expanded_style
-		)
-		# Mouse users open the Bag by hovering the icon. Controller users keep
-		# that same icon as a deterministic focus anchor when storage is empty.
-		_build_compact_row.visible = InputDeviceService.shared().is_controller()
-		_build_expanded_content.visible = true
-	_refresh_compact_build_dock()
+	_build_library_pinned = false
+	_build_mouse_exit_pending = false
 	if _build_library_tween != null and _build_library_tween.is_valid():
 		_build_library_tween.kill()
-	if not animate:
-		_build_expanded_clip.custom_minimum_size.y = target_height
-		_build_bar.custom_minimum_size.x = target_width
-		_build_expanded_content.visible = expanded
-		_build_compact_row.visible = (
-			not expanded
-			or InputDeviceService.shared().is_controller()
+	var placement_active := placement != null and placement.active
+	var duration := kit.motion_duration(
+		kit.tokens.open_duration if expanded else kit.tokens.close_duration
+	)
+	if not expanded:
+		release_build_focus()
+	_build_expand_button.visible = placement_active and not expanded
+	if expanded:
+		_refresh_build_strip()
+		_build_bar.visible = true
+		_build_bar.apply_viewport(get_viewport().get_visible_rect().size)
+		var resting_position := _build_bar.position
+		_build_bar.modulate.a = 0.0 if animate and duration > 0.0 else 1.0
+		_build_bar.position = (
+			resting_position + Vector2(0, kit.tokens.open_offset)
+			if animate and duration > 0.0
+			else resting_position
 		)
-		_build_bar.add_theme_stylebox_override(
-			"panel",
-			_build_panel_expanded_style
-			if expanded
-			else _build_panel_collapsed_style
-		)
-		if not expanded:
-			_start_build_bag_idle()
-		_position_context_above_build_library()
+		_restore_build_scroll.call_deferred()
+		if animate and duration > 0.0:
+			_build_library_tween = create_tween().set_parallel(true)
+			_build_library_tween.set_trans(Tween.TRANS_QUAD)
+			_build_library_tween.set_ease(Tween.EASE_OUT)
+			_build_library_tween.tween_property(
+				_build_bar, "modulate:a", 1.0, duration
+			)
+			_build_library_tween.tween_property(
+				_build_bar, "position", resting_position, duration
+			)
+		if InputDeviceService.shared().is_controller():
+			call_deferred("focus_build_library")
+	elif not animate or duration <= 0.0 or not _build_bar.visible:
+		_finish_build_bag_collapse()
 	else:
-		_build_library_tween = create_tween()
-		_build_library_tween.set_parallel(true)
-		_build_library_tween.set_trans(Tween.TRANS_QUART)
-		_build_library_tween.set_ease(
-			Tween.EASE_OUT if expanded else Tween.EASE_IN_OUT
-		)
+		_build_library_tween = create_tween().set_parallel(true)
+		_build_library_tween.set_trans(Tween.TRANS_QUAD)
+		_build_library_tween.set_ease(Tween.EASE_IN)
 		_build_library_tween.tween_property(
-			_build_expanded_clip,
-			"custom_minimum_size:y",
-			target_height,
-			0.24 if expanded else 0.18
+			_build_bar, "modulate:a", 0.0, duration
 		)
 		_build_library_tween.tween_property(
 			_build_bar,
-			"custom_minimum_size:x",
-			target_width,
-			0.24 if expanded else 0.18
+			"position",
+			_build_bar.position + Vector2(0, kit.tokens.open_offset * 0.55),
+			duration
 		)
-		if not expanded:
-			_build_library_tween.chain().tween_callback(
-				_finish_build_bag_collapse
-			)
-	if expanded:
-		call_deferred("_update_build_scroll_buttons")
-		if InputDeviceService.shared().is_controller():
-			call_deferred("focus_build_library")
+		_build_library_tween.chain().tween_callback(_finish_build_bag_collapse)
+	_position_context_above_build_library()
 
 
 func _finish_build_bag_collapse() -> void:
 	if _build_library_expanded:
 		return
-	_build_expanded_content.visible = false
-	_build_compact_row.visible = true
-	_build_bar.add_theme_stylebox_override(
-		"panel",
-		_build_panel_collapsed_style
-	)
+	_build_bar.visible = false
+	_build_bar.modulate.a = 1.0
+	_build_bar.apply_viewport(get_viewport().get_visible_rect().size)
+	_build_expand_button.visible = placement != null and placement.active
 	_start_build_bag_idle()
 	_position_context_above_build_library()
 
@@ -1079,11 +1008,7 @@ func _start_build_bag_idle() -> void:
 
 
 func _animate_build_bag_open() -> void:
-	if (
-		_build_library_expanded
-		or _build_bag_open_pending
-		or not _build_hover_expand_armed
-	):
+	if _build_library_expanded or _build_bag_open_pending:
 		return
 	_build_bag_open_pending = true
 	set_build_library_expanded(true)
@@ -1096,7 +1021,15 @@ func request_build_library_open() -> void:
 
 
 func build_library_collapsed() -> bool:
-	return _build_bar != null and _build_bar.visible and not _build_library_expanded
+	return (
+		_build_expand_button != null
+		and _build_expand_button.visible
+		and not _build_library_expanded
+	)
+
+
+func build_library_expanded() -> bool:
+	return _build_bar != null and _build_bar.visible and _build_library_expanded
 
 
 func blocks_world_pointer(screen_position: Vector2) -> bool:
@@ -1104,6 +1037,7 @@ func blocks_world_pointer(screen_position: Vector2) -> bool:
 	# leaves empty Container space transparent to world picking on some layouts.
 	for candidate in [
 		_build_bar,
+		_build_expand_button,
 		_store_bubble,
 		_player_dock_panel,
 		_hint_panel,
@@ -1122,69 +1056,29 @@ func blocks_world_pointer(screen_position: Vector2) -> bool:
 
 
 func _on_build_library_pin_toggled(pinned: bool) -> void:
+	# Kept for compatibility with older scenes; the reference sheet has no pin.
 	_build_library_pinned = pinned
-	_build_mouse_exit_pending = false
-	_build_pin_button.tooltip_text = (
-		"Let Build Bag close when the pointer leaves"
-		if pinned
-		else "Keep Build Bag open"
-	)
 
 
 func _close_build_library() -> void:
 	_build_library_pinned = false
-	if _build_pin_button != null:
-		_build_pin_button.set_pressed_no_signal(false)
+	if _build_bar != null:
+		_build_bar.hide_search()
 	set_build_library_expanded(false)
 
 
 func _on_build_library_mouse_entered() -> void:
 	_build_mouse_exit_pending = false
-	if (
-		not _build_library_expanded
-		and _build_hover_expand_armed
-		and not placement.pointer_dragging_moved_piece()
-		and not placement.pointer_dragging_catalogue_piece()
-	):
-		_animate_build_bag_open()
 
 
 func _on_build_library_mouse_exited() -> void:
-	_build_hover_expand_armed = true
-	if not _build_library_expanded:
-		_build_bag_open_pending = false
-		if (
-			_build_bag_button_tween != null
-			and _build_bag_button_tween.is_valid()
-		):
-			_build_bag_button_tween.kill()
-		_build_expand_button.scale = Vector2.ONE
-		_start_build_bag_idle()
-		return
-	if _build_library_pinned:
-		_build_mouse_exit_pending = false
-		return
-	# Defer one frame because a child Control taking hover can briefly emit an
-	# exit from the parent on some platforms. Only collapse after confirming
-	# that the pointer actually left the whole bag.
-	_build_mouse_exit_pending = true
-	call_deferred("_collapse_build_library_after_mouse_exit")
+	# The sheet only closes through explicit back/close input. Traversing a
+	# dense collection should never make the UI disappear under the pointer.
+	_build_mouse_exit_pending = false
 
 
 func _collapse_build_library_after_mouse_exit() -> void:
-	if not _build_mouse_exit_pending:
-		return
 	_build_mouse_exit_pending = false
-	if (
-		_build_bar == null
-		or not _build_bar.visible
-		or _build_library_pinned
-		or _build_bar.get_global_rect().has_point(get_viewport().get_mouse_position())
-	):
-		return
-	set_build_library_expanded(false)
-	# A genuine trip out of the dock arms the next hover to open it again.
-	_build_hover_expand_armed = true
 
 
 func _on_build_drop_overlay_input(event: InputEvent) -> void:
@@ -1244,22 +1138,6 @@ func _on_build_library_input(event: InputEvent) -> void:
 	):
 		_build_bar.accept_event()
 	elif (
-		not _build_library_expanded
-		and (
-			event is InputEventPanGesture
-			or event is InputEventMouseButton
-			and event.pressed
-			and event.button_index in [
-				MOUSE_BUTTON_WHEEL_UP,
-				MOUSE_BUTTON_WHEEL_DOWN,
-				MOUSE_BUTTON_WHEEL_LEFT,
-				MOUSE_BUTTON_WHEEL_RIGHT,
-			]
-		)
-	):
-		set_build_library_expanded(true)
-		_build_bar.accept_event()
-	elif (
 		event is InputEventMouseButton
 		and event.pressed
 		and event.button_index == MOUSE_BUTTON_RIGHT
@@ -1286,7 +1164,11 @@ func _process(_delta: float) -> void:
 		# pointer keeps both gestures continuous across those boundaries.
 		placement.pointer_motion(get_viewport().get_mouse_position())
 	var pointer := get_viewport().get_mouse_position()
-	var over_library := _build_bar.get_global_rect().has_point(pointer)
+	var over_library := (
+		_build_bar != null
+		and _build_bar.visible
+		and _build_bar.get_global_rect().has_point(pointer)
+	)
 	var over_store_bubble := (
 		_store_bubble != null
 		and _store_bubble.visible
@@ -1339,17 +1221,16 @@ func _set_store_bubble_visible(visible: bool, animate := true) -> void:
 	_position_store_bubble()
 	_store_bubble.pivot_offset = _store_bubble.size * 0.5
 	_store_bubble.modulate.a = 0.0 if animate else 1.0
-	_store_bubble.scale = Vector2(0.82, 0.82) if animate else Vector2.ONE
+	_store_bubble.scale = Vector2.ONE
 	if animate:
 		_store_bubble_tween = create_tween()
-		_store_bubble_tween.set_parallel(true)
-		_store_bubble_tween.set_trans(Tween.TRANS_BACK)
+		_store_bubble_tween.set_trans(Tween.TRANS_QUAD)
 		_store_bubble_tween.set_ease(Tween.EASE_OUT)
 		_store_bubble_tween.tween_property(
-			_store_bubble, "scale", Vector2.ONE, 0.18
-		)
-		_store_bubble_tween.tween_property(
-			_store_bubble, "modulate:a", 1.0, 0.12
+			_store_bubble,
+			"modulate:a",
+			1.0,
+			kit.motion_duration(kit.tokens.open_duration)
 		)
 		_store_bubble_tween.chain().tween_callback(
 			_start_store_bubble_idle
@@ -1359,15 +1240,7 @@ func _set_store_bubble_visible(visible: bool, animate := true) -> void:
 func _start_store_bubble_idle() -> void:
 	if _store_bubble == null or not _store_bubble.visible:
 		return
-	_store_bubble_idle_tween = create_tween().set_loops()
-	_store_bubble_idle_tween.set_trans(Tween.TRANS_SINE)
-	_store_bubble_idle_tween.set_ease(Tween.EASE_IN_OUT)
-	_store_bubble_idle_tween.tween_property(
-		_store_bubble, "scale", Vector2(1.025, 1.025), 0.7
-	)
-	_store_bubble_idle_tween.tween_property(
-		_store_bubble, "scale", Vector2.ONE, 0.7
-	)
+	_store_bubble.scale = Vector2.ONE
 
 
 func _position_store_bubble() -> void:
@@ -1411,22 +1284,18 @@ func _enemies_near() -> bool:
 
 
 func _on_build_mode(active: bool) -> void:
-	_build_bar.visible = active
 	if active:
-		set_build_library_expanded(
-			InputDeviceService.shared().is_controller(),
-			false
-		)
-		_build_hover_expand_armed = true
 		_refresh_build_strip()
+		_build_library_expanded = false
+		set_build_library_expanded(true, false)
 		call_deferred("_position_context_above_build_library")
-		if not _build_library_expanded:
-			call_deferred("_start_build_bag_idle")
 		if InputDeviceService.shared().is_controller() and placement.held.is_empty():
 			focus_build_library()
 	else:
-		if _build_search != null and not _build_search.text.is_empty():
-			_build_search.clear()
+		set_build_library_expanded(false, false)
+		if _build_bar != null:
+			_build_bar.hide_search()
+		_build_expand_button.visible = false
 		_set_store_bubble_visible(false)
 		_catalogue_pointer_active = false
 		release_build_focus()
@@ -1488,15 +1357,7 @@ func set_hover_tooltip(display_name: String, collection_name: String) -> void:
 ## Keeps unboxed world-space guidance legible across the pale day and dark
 ## rain backdrops without adding a large UI panel over the diorama.
 func apply_weather_contrast(rain_enabled: bool) -> void:
-	var hint_color := (
-		kit.palette.color("ui_hint_rain")
-		if rain_enabled
-		else kit.palette.color("ui_hint_dark")
-	)
-	var prompt_color := (
-		kit.palette.color("ui_prompt_rain") if rain_enabled else kit.text_color()
-	)
-	for entry in [[_hint_label, hint_color], [_prompt_label, prompt_color]]:
+	for entry in [[_hint_label, kit.text_color()], [_prompt_label, kit.text_color()]]:
 		var label := entry[0] as Label
 		label.add_theme_color_override("font_color", entry[1])
 		label.add_theme_color_override(
@@ -1561,35 +1422,32 @@ func _is_structure_placed(structure_id: String) -> bool:
 
 
 func focus_build_library() -> void:
-	if not InputDeviceService.shared().is_controller() or not _build_bar.visible:
+	if not InputDeviceService.shared().is_controller():
 		return
 	if not _build_library_expanded:
-		InputDeviceService.shared().focus_first(_build_bar, _build_expand_button)
+		if _build_expand_button != null and _build_expand_button.visible:
+			_build_expand_button.grab_focus()
 		return
 	var preferred: Control
-	for child in _build_strip.get_children():
-		var button := child as BaseButton
+	for item_button in _build_item_buttons:
+		var button := item_button as BaseButton
 		if button != null and not button.disabled:
 			preferred = button
 			break
 	if preferred == null:
-		for child in _build_category_strip.get_children():
-			var category_button := child as BaseButton
-			if category_button != null and not category_button.disabled:
-				preferred = category_button
-				break
-	if preferred == null:
-		preferred = _build_expand_button
+		preferred = _build_close_button
 	InputDeviceService.shared().focus_first(_build_bar, preferred)
 
 
 func release_build_focus() -> void:
 	if _build_bar != null:
 		InputDeviceService.shared().release_focus_in(_build_bar)
+	if _build_expand_button != null and _build_expand_button.has_focus():
+		_build_expand_button.release_focus()
 
 
 func focus_default() -> void:
-	if _build_bar.visible:
+	if build_library_expanded() or build_library_collapsed():
 		focus_build_library()
 
 
@@ -1614,25 +1472,9 @@ func _on_held_changed(value: Dictionary) -> void:
 
 
 func _on_input_method_changed(_method: int) -> void:
-	_build_hint_label.text = (
-		"%s  ·  %s  ·  %s  ·  %s"
-		% [
-			InputDeviceService.shared().format_action(&"ui_accept", "choose"),
-			InputDeviceService.shared().format_action(&"build_mode", "browse world"),
-			InputDeviceService.shared().format_action(&"rotate_piece", "rotate"),
-			InputDeviceService.shared().format_action(&"cancel", "back"),
-		]
-		if InputDeviceService.shared().is_controller()
-		else "%s  ·  wheel scrolls  ·  Right Click rotates  ·  drag moved pieces here to store"
-		% [
-			InputDeviceService.shared().format_action(&"interact", "choose"),
-		]
-	)
 	_refresh_prompt()
 	update_tutorial()
 	if placement.active:
-		if _build_library_expanded:
-			_build_compact_row.visible = InputDeviceService.shared().is_controller()
 		_refresh_build_strip()
 		if (
 			InputDeviceService.shared().is_controller()

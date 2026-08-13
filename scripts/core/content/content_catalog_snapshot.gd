@@ -83,6 +83,7 @@ var reveal_config: Dictionary = {}
 var fishing_balance: Dictionary = {}
 var discovery_tray_config: Dictionary = {}
 var build_cadence_config: Dictionary = {}
+var worldheart_config: Dictionary = {}
 var sources: Dictionary = {}
 
 

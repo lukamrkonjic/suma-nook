@@ -42,6 +42,7 @@ const REQUIRED_CONTROLLER_ACTIONS: Array[StringName] = [
 	&"build_cursor_down",
 	&"rotate_piece",
 	&"store_piece",
+	&"offer_to_worldheart",
 	&"move_piece",
 	&"camera_rotate_left",
 	&"camera_rotate_right",
@@ -54,7 +55,6 @@ const REQUIRED_CONTROLLER_ACTIONS: Array[StringName] = [
 	&"panel_skills",
 	&"panel_collection",
 	&"panel_map",
-	&"discovery_tray",
 	&"wish_menu",
 	&"project_menu",
 	&"panel_previous",
@@ -97,7 +97,10 @@ func _ready() -> void:
 	var connected := Input.get_connected_joypads()
 	if not connected.is_empty():
 		active_controller_device = int(connected[0])
-		input_method = InputMethod.CONTROLLER
+	# A connected pad is not necessarily the active device. Starting in
+	# controller mode allowed idle stick drift to own the camera before the
+	# player had touched it; the first intentional controller event switches
+	# method through _input() as usual.
 	_set_pointer_visibility()
 
 
