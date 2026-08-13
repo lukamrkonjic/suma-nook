@@ -57,7 +57,8 @@
 		},
 		"prop_fir": {
 			"scale": 2.0,
-			"materials": {}
+			"materials": {},
+			"smoothing": 0.0
 		},
 		"prop_leafy_bush": {
 			"scale": 1.0,
@@ -65,19 +66,23 @@
 		},
 		"prop_bamboo_table": {
 			"scale": 0.67,
-			"materials": {}
+			"materials": {},
+			"smoothing": 0.0
 		},
 		"prop_wheelbarrow": {
 			"scale": 1.7,
-			"materials": {}
+			"materials": {},
+			"smoothing": 0.0
 		},
 		"prop_forest_statue": {
 			"scale": 1.0,
-			"materials": {}
+			"materials": {},
+			"smoothing": 0.0
 		},
 		"prop_flugsvamp": {
 			"scale": 1.0,
-			"materials": {}
+			"materials": {},
+			"smoothing": 0.0
 		}
 	}
 }

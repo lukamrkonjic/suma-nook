@@ -2403,13 +2403,35 @@ func _test_world_model_scale_contract() -> void:
 	)
 	check(
 		default_smoothing > 0.5
-		and is_equal_approx(float(fir_profile.get("smoothing", 0.0)), default_smoothing)
 		and is_equal_approx(
 			float(leafy_bush_profile.get("smoothing", 0.0)),
 			default_smoothing
 		),
-		"models inherit the game-wide smoothing default so kit facets stop showing"
+		"a model without its own value inherits the default so kit facets stop showing"
 	)
+	# The default rescues a dense unwelded Meshy spray, where each triangle is
+	# its own shading island and the facets are an export artifact. A welded
+	# low-poly import is the opposite case: its facets are the design, and at
+	# 0.85 its normals moved by up to 174 degrees -- past perpendicular, so lit
+	# faces shaded as if they faced away and the model read as melted.
+	# import_meshy_asset.derived_smoothing() writes these zeros from measured
+	# geometry; this pins the outcome so the default cannot creep back over them.
+	check(
+		is_equal_approx(float(fir_profile.get("smoothing", 1.0)), 0.0),
+		"a welded low-poly import keeps its authored shading"
+	)
+	for authored_shading_asset: String in [
+		"prop_flugsvamp",
+		"prop_forest_statue",
+		"prop_wheelbarrow",
+		"prop_bamboo_table",
+	]:
+		check(
+			float(
+				assets.edits.profile(authored_shading_asset).get("smoothing", 1.0)
+			) <= 0.0001,
+			"%s keeps its authored shading" % authored_shading_asset
+		)
 	check(
 		is_equal_approx(assets.edits.default_smoothing_for("tile_dirt"), 0.0)
 		and float(assets.edits.profile("tile_dirt").get("smoothing", 0.0)) <= 0.0001,

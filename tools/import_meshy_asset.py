@@ -33,6 +33,41 @@ DEFAULT_BLENDER = Path(
 # everything around it. Imports now inherit the default; pass --smoothing only
 # when a specific asset has been reviewed and genuinely needs its own value.
 PROFILES = ("tree", "shrub", "wood_prop", "stone_prop", "generic")
+
+# Runtime smoothing blends authored normals toward position-welded ones. That
+# rescues a dense unwelded Meshy spray, where every triangle is its own shading
+# island and the facets are an artifact of export. It ruins a welded low-poly
+# model, where the facets ARE the design: at the 0.85 default the wheelbarrow's
+# normals moved by up to 160 degrees and the fir's by 174 -- past perpendicular,
+# so lit faces shade as if they pointed away from the sun and the model reads as
+# melted. The assets that were never smoothed are the ones that look right
+# (firepit 0.0, radio 0.42/46deg), which is the same conclusion from the other
+# direction. So: measure, and leave authored shading alone.
+WELDED_VERTEX_FACE_RATIO_MAX = 2.5
+AUTHORED_SHADING_TRIANGLE_MAX = 2500
+
+
+def derived_smoothing(geometry: dict) -> tuple[float | None, str]:
+    """Pick a smoothing value from measured geometry, with the reason why."""
+    faces = int(geometry.get("faces", 0) or 0)
+    vertices = int(geometry.get("vertices", 0) or 0)
+    triangles = int(geometry.get("triangles", 0) or 0)
+    if faces <= 0 or vertices <= 0:
+        return None, "geometry unavailable; inheriting the default"
+    ratio = vertices / faces
+    if ratio >= WELDED_VERTEX_FACE_RATIO_MAX:
+        return None, (
+            f"split vertices ({ratio:.2f} verts/face); "
+            "inheriting the default to rescue export facets"
+        )
+    if triangles > AUTHORED_SHADING_TRIANGLE_MAX:
+        return None, (
+            f"dense ({triangles} triangles); inheriting the default"
+        )
+    return 0.0, (
+        f"welded ({ratio:.2f} verts/face) and low-poly ({triangles} "
+        "triangles); facets are authored, so shading is left alone"
+    )
 ASSET_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_]*$")
 
 
@@ -109,7 +144,8 @@ def update_asset_profile(asset_id: str, scale: float, smoothing: float | None) -
     materials = existing.get("materials", {}) if isinstance(existing, dict) else {}
     profile: dict = {"scale": scale, "materials": materials}
     # Omitting the key is what lets the asset inherit the game-wide default.
-    # Writing one here, even a sensible-looking one, opts the asset out.
+    # derived_smoothing() decides which of the two an asset wants; a value of
+    # 0.0 here is a deliberate opt-out, not an oversight.
     if smoothing is not None:
         profile["smoothing"] = smoothing
     profiles[asset_id] = profile
@@ -196,6 +232,13 @@ def main() -> None:
     if not report.get("semantic_face_usage"):
         raise SystemExit("Safety gate rejected the model: no semantic materials were assigned")
 
+    smoothing_reason = "explicitly requested"
+    if smoothing is None:
+        smoothing, smoothing_reason = derived_smoothing(
+            report.get("source_geometry", {})
+        )
+    print(f"smoothing: {smoothing if smoothing is not None else 'inherited'} -- {smoothing_reason}")
+
     if not arguments.skip_render:
         run_blender(
             blender,
@@ -213,6 +256,7 @@ def main() -> None:
             "review": str(review_path) if not arguments.skip_render else "",
             "scale": arguments.scale,
             "smoothing": smoothing if smoothing is not None else "inherited",
+            "smoothing_reason": smoothing_reason,
             "status": "validated_staging" if arguments.no_install else "installed",
         }
     )

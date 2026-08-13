@@ -499,19 +499,66 @@ PROFILE_PALETTES: dict[str, tuple[str, ...]] = {
     # matching stone_light and stone_shadow and reading as grey plastic. Its
     # light tones belong on cream, which is also what the reference art uses
     # for the fittings.
+    # gold_primary is deliberately absent. It is the brightest, most saturated
+    # entry in the palette, so it wins the nearest match for any warm pale
+    # wood that catches light -- it claimed the bamboo table's top (443 faces)
+    # and then the wheelbarrow's handles (132), reading as painted yellow both
+    # times. Nothing wooden should reach it; genuine brass belongs to generic.
     "wood_prop": _WOODS
-    + ("gold_primary", "ivory_highlight", "warm_white", "warm_near_black"),
-    "stone_prop": _NEUTRALS + _WOODS,
+    + ("ivory_highlight", "warm_white", "warm_near_black"),
+    # Neutrals only. Wood used to be reachable here "for wooden parts", but a
+    # solid stone statue has none, and its warm crevice shadows landed on
+    # wood_light -- 166 faces of orange smudged through the carving. A stone
+    # prop with genuinely wooden geometry should use generic instead.
+    "stone_prop": _NEUTRALS,
 }
 
 
+# Every stone entry in the palette is cool (red below blue by 0.02-0.05) while
+# the props around them are warm. Channel-wise distance cannot see that: a
+# mushroom stem sampling a warm beige sits numerically near a neutral grey, so
+# it snapped to stone_shadow and read as washed-out plastic next to a warm cap.
+# Warmth is therefore scored as its own axis, heavily enough that crossing from
+# warm to cool costs more than a moderate lightness error does.
+# Scoring warmth as a continuous axis was tried first and was wrong: warmth
+# also separates wood_light from wood_deep, so at any weight strong enough to
+# stop the stone flip it swamped lightness and collapsed whole models onto one
+# slot -- the bamboo table went from two wood tones to a single flat one, and
+# the fir's canopy jumped from pine_shadow to pine_light. Only the sign flip is
+# penalised, which leaves the within-family lightness ranking untouched.
+WARM_THRESHOLD = 0.05
+WARMTH_FLIP_PENALTY = 0.08
+
+
+def _is_warm(color: tuple[float, float, float]) -> bool:
+    return (color[0] - color[2]) > WARM_THRESHOLD
+
+
+def _is_cool(color: tuple[float, float, float]) -> bool:
+    return (color[0] - color[2]) < 0.0
+
+
 def _perceptual_distance(left: tuple[float, float, float], right) -> float:
-    """Weighted RGB distance. Green dominates perceived lightness, blue least."""
-    return (
+    """Weighted RGB distance, with a flat penalty for a warm/cool flip.
+
+    Green dominates perceived lightness and blue matters least, so the channels
+    are weighted 2/4/3. Every stone entry in the palette is cool while the props
+    around them are warm, and channel distance cannot see that -- a mushroom
+    stem sampling warm beige sits numerically near a neutral grey and snapped to
+    stone_shadow, reading as washed-out plastic beside a warm cap.
+    """
+    distance = (
         2.0 * (left[0] - right[0]) ** 2
         + 4.0 * (left[1] - right[1]) ** 2
         + 3.0 * (left[2] - right[2]) ** 2
     )
+    # One-directional on purpose. Penalising cool sources away from warm slots
+    # as well caught foliage, which sits within a hair of neutral: the fir's
+    # canopy flipped from pine_shadow to pine_light, undoing a fix. Only warm
+    # onto cool is a real error, because only the greys are cool.
+    if _is_warm(left) and _is_cool(right):
+        distance += WARMTH_FLIP_PENALTY
+    return distance
 
 
 def _palette_srgb(name: str) -> tuple[float, float, float]:

@@ -53,9 +53,27 @@ scale silently resizes it in game.**
 - If the model's dimensions differ from the one it replaces, measure the old
   asset too and scale so the world size is preserved: `old_height / new_height`
   (or the longest dimension for a ground prop whose footprint matters).
-- Never write a `--smoothing` value. Assets inherit the game-wide default of
-  0.85; writing one opts the asset out and it arrives visibly faceted next to
-  everything else.
+- Do not pass `--smoothing`. The importer now derives it from the measured
+  geometry (`derived_smoothing`) and prints the reason; override only when a
+  reviewed asset genuinely disagrees with that call.
+
+### Smoothing: the default is not always right
+
+Runtime smoothing blends authored normals toward position-welded ones. It
+exists to rescue a **dense unwelded Meshy spray**, where every triangle is its
+own shading island and the facets are an export artifact.
+
+It ruins a **welded low-poly model**, where the facets *are* the design. At the
+0.85 default the wheelbarrow's normals moved by up to 160 degrees and the fir's
+by 174 -- past perpendicular, so lit faces shaded as if they pointed away from
+the sun and the models read as melted blobs. Measured from the other direction,
+the assets that were never smoothed are the ones that look right: firepit 0.0,
+radio 0.42 at a 46-degree shift.
+
+So the importer writes `smoothing: 0.0` when the source is welded (under 2.5
+vertices per face) and under 2500 triangles, and inherits the default
+otherwise. Confirm with the weld probe in step 9: an authored-shading asset
+should report `moved=0`.
 
 ## 4. Import
 
@@ -91,9 +109,30 @@ profile to the slots that make sense for it:
 |---|---|
 | `tree` | canopy: pine only. trunk: wood only. |
 | `shrub` | canopy: leaf/pine. trunk: wood. |
-| `wood_prop` | wood, gold accent, cream/near-black. No stone, no terracotta. |
-| `stone_prop` | stone and neutrals, plus wood for wooden parts. |
-| `generic` | everything -- use it when an item genuinely spans families, e.g. a red-capped mushroom with a pale stem. |
+| `wood_prop` | wood and cream/near-black. No stone, no terracotta, **no gold**. |
+| `stone_prop` | stone and neutrals only. No wood. |
+| `generic` | everything -- use it when an item genuinely spans families, e.g. a red-capped mushroom with a pale stem, or a stone prop with real wooden parts. |
+
+Two slots were removed from those lists after each claimed a model twice:
+
+- **`gold_primary` is unreachable from `wood_prop`.** It is the brightest, most
+  saturated entry in the palette, so it wins the nearest match for any warm
+  pale wood catching light -- it took the bamboo table's top (443 faces) and
+  then the wheelbarrow's handles (132), reading as painted yellow both times.
+  Genuine brass belongs to `generic`.
+- **Wood is unreachable from `stone_prop`.** A solid stone statue has no wooden
+  parts, and its warm crevice shadows landed on `wood_light` -- 166 faces of
+  orange smudged through the carving.
+
+Matching also carries a **warm/cool flip penalty**. Every stone entry in the
+palette is cool (red below blue) while the props around them are warm, and
+channel-wise distance cannot see that: the mushroom's warm beige stem sat
+numerically near a neutral grey, snapped to `stone_shadow`, and read as
+washed-out plastic beside a warm cap. The penalty is a flat cost applied only
+to warm-source-onto-cool-slot. Scoring warmth as a continuous axis was tried
+first and was wrong -- warmth also separates `wood_light` from `wood_deep`, so
+at any weight strong enough to stop the stone flip it swamped lightness and
+collapsed whole models onto one slot.
 
 **Always check the result against the source.** Sample the source's own colours
 and confirm the assignment preserves its structure:
@@ -161,8 +200,13 @@ A trunk left inside `LeafCanopy` sways in the foliage wind and renders green.
 
 `C:/Dev/suma-nook-asset-reviews/<prop_name>/review.png`. Send it to the user.
 
-Note when reporting: **review renders do not apply the runtime 0.85 smoothing**,
-so the asset reads more faceted here than it will in game.
+Note when reporting: **review renders never apply runtime smoothing.** For an
+asset the importer left at 0.0 the render matches the game; for one that
+inherits the default it reads more faceted here than it will in game. Say which
+case applies rather than assuming the render is representative.
+
+**A render is not a reimport.** Godot caches the mesh, so step 9's `--import`
+is what actually puts the change in front of the player.
 
 ## 8. Wire it into game data, if it is new
 
