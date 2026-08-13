@@ -62,6 +62,11 @@
 		"prop_leafy_bush": {
 			"scale": 1.0,
 			"materials": {}
+		},
+		"prop_bamboo_table": {
+			"scale": 1.0,
+			"smoothing": 0.42,
+			"materials": {}
 		}
 	}
 }
