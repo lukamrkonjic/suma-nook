@@ -38,17 +38,6 @@ CANOPY_CENTER_HEIGHT_FRACTION_MIN = 0.08
 # the model's max radius while foliage at the same heights starts at 0.73.
 TRUNK_GREEN_RATIO_MAX = 0.80
 TRUNK_RADIUS_FRACTION_MAX = 0.35
-# Gold is an accent -- a hinge, a latch, a rim. It is never most of an object.
-#
-# The per-component `face_count <= 32` guard on the gold rule assumes a gold
-# fitting arrives as one small shell, which fails on a fragmented mesh: a
-# bamboo table split into 64 components put 38 of them (443 faces, 47% of the
-# model) over the gold threshold. Measured, those components share the hue of
-# the wood ones almost exactly -- 0.094 against 0.097 -- and differ only in
-# value, 0.80 against 0.70. The rule was separating the lit side of one
-# material from its shaded side, not gold from wood. So cap gold by its share
-# of the whole object and demote it when it is clearly the main surface.
-GOLD_MAX_FACE_SHARE = 0.15
 TEXTURE_SAMPLE_SIZE = 512
 PALETTE_KEYS = (
     "pine_light",
@@ -83,7 +72,17 @@ def load_reference_colors() -> dict[str, str]:
     missing = [key for key in PALETTE_KEYS if key not in exact]
     if missing:
         raise RuntimeError(f"Reference palette is missing {missing}")
-    return {key: exact[key].removeprefix("#") for key in PALETTE_KEYS}
+    # The whole palette, not just PALETTE_KEYS. Loading only those 19 was the
+    # reason imports came out desaturated: a red mushroom cap, green moss and
+    # brass fittings had no entry to match against, so they resolved to the
+    # nearest muted brown or grey. Every name here is also present in
+    # assets/palettes/gg_material_palette.tres, which is what lets
+    # MaterialLibrary rebind it by name at load.
+    return {
+        key: value.removeprefix("#")
+        for key, value in exact.items()
+        if len(value.removeprefix("#")) == 6
+    }
 
 
 GARDEN_GALAXY_COLORS = load_reference_colors()
@@ -476,196 +475,356 @@ def _linear_channel(srgb: float) -> float:
 ## tree's canopy must land on a foliage slot for the wind and material
 ## rebinding to work, whatever its texture happens to sample.
 ## Neutrals every profile can reach: highlights, shadow, and unpainted metal.
-_NEUTRALS = (
-    "ivory_highlight",
-    "warm_white",
-    "warm_near_black",
-    "soft_sage_gray",
-    "stone_light",
-    "stone_mid",
-    "stone_shadow",
+# Colour is decided by clustering the source and mapping each cluster to its
+# own palette entry, rather than matching each connected component separately.
+# Per-component matching had both failure modes at once: one painted surface
+# split across several slots because its lit and shaded halves matched
+# differently, and two genuinely different paints collapsed onto one slot. The
+# wheelbarrow showed both -- its dark tray, orange frame and gold fittings came
+# out as a single flat brown.
+#
+# Clustering is by hue, and forgiving about value, because the source textures
+# have lighting baked in while Suma relights every surface. A paint's lit and
+# shaded samples must end up on one palette entry; splitting them sent the
+# wheelbarrow's lit frame to olive and its shaded frame to mustard, so one piece
+# of wood read as two materials. 7 degrees of hue keeps the orange frame apart
+# from the brown tray (12 degrees) while absorbing the shading within each.
+CLUSTER_HUE_WINDOW = 0.02
+CLUSTER_VALUE_WINDOW = 0.12
+CLUSTER_GREY_SATURATION = 0.18
+MAX_CLUSTERS = 8
+MIN_CLUSTER_FACE_SHARE = 0.01
+# Merge threshold for the agglomerative pass. Measured on the wheelbarrow: its
+# frame's lit and shaded samples sit 0.104 apart and must merge, while its gold
+# fittings sit 0.139 from the lit frame and must not -- they are only 3 degrees
+# apart in hue, so nothing but this gap separates them.
+CLUSTER_MERGE_DISTANCE = 0.12
+# Two palette entries closer than this are the same colour to the eye, so only
+# one of them is offered.
+MIN_SLOT_SEPARATION = 0.006
+# Two clusters closer than this are the same paint, and share one entry.
+SLOT_REUSE_TOLERANCE = 0.02
+
+# Families that are never an object's paint. Water and snow are environment,
+# tiles belong to the terrain kit, and the background/ground creams are sky and
+# plain colours that would read as blown-out white on a prop.
+_EXCLUDED_SLOT_TOKENS = (
+    "water",
+    "snow",
+    "tile",
+    "uw_",
+    "foam",
+    "background",
+    "plain_ground",
 )
-_WOODS = ("wood_light", "wood_primary", "wood_deep")
-
-PROFILE_PALETTES: dict[str, tuple[str, ...]] = {
-    "canopy_tree": ("pine_light", "pine_medium", "pine_shadow"),
-    "canopy_shrub": ("leaf_medium", "leaf_olive", "pine_medium"),
-    "bark": _WOODS,
-    # Warm mid-browns sit close to terracotta in RGB, so an unrestricted
-    # nearest match sent a wooden wheelbarrow pink and gold. Terracotta is
-    # pottery and belongs to generic; a wood prop reaches wood, neutrals and a
-    # gold accent only.
-    # No stone or sage here either: a wooden barrow's pale shaded faces were
-    # matching stone_light and stone_shadow and reading as grey plastic. Its
-    # light tones belong on cream, which is also what the reference art uses
-    # for the fittings.
-    # gold_primary is deliberately absent. It is the brightest, most saturated
-    # entry in the palette, so it wins the nearest match for any warm pale
-    # wood that catches light -- it claimed the bamboo table's top (443 faces)
-    # and then the wheelbarrow's handles (132), reading as painted yellow both
-    # times. Nothing wooden should reach it; genuine brass belongs to generic.
-    "wood_prop": _WOODS
-    + ("ivory_highlight", "warm_white", "warm_near_black"),
-    # Neutrals only. Wood used to be reachable here "for wooden parts", but a
-    # solid stone statue has none, and its warm crevice shadows landed on
-    # wood_light -- 166 faces of orange smudged through the carving. A stone
-    # prop with genuinely wooden geometry should use generic instead.
-    "stone_prop": _NEUTRALS,
-}
 
 
-# Every stone entry in the palette is cool (red below blue by 0.02-0.05) while
-# the props around them are warm. Channel-wise distance cannot see that: a
-# mushroom stem sampling a warm beige sits numerically near a neutral grey, so
-# it snapped to stone_shadow and read as washed-out plastic next to a warm cap.
-# Warmth is therefore scored as its own axis, heavily enough that crossing from
-# warm to cool costs more than a moderate lightness error does.
-# Scoring warmth as a continuous axis was tried first and was wrong: warmth
-# also separates wood_light from wood_deep, so at any weight strong enough to
-# stop the stone flip it swamped lightness and collapsed whole models onto one
-# slot -- the bamboo table went from two wood tones to a single flat one, and
-# the fir's canopy jumped from pine_shadow to pine_light. Only the sign flip is
-# penalised, which leaves the within-family lightness ranking untouched.
-WARM_THRESHOLD = 0.05
-WARMTH_FLIP_PENALTY = 0.08
+def _usable_palette() -> tuple[str, ...]:
+    """Palette entries a prop may be painted with, deduplicated by colour.
+
+    The palette carries 120 names for 92 distinct colours -- gold and
+    gold_primary are the same value, as are terracotta and terracotta_primary.
+    Uniqueness has to be enforced on colour rather than name, or two clusters
+    happily take two names for an identical colour and the distinction the
+    clustering just recovered is thrown away again.
+    """
+    by_color: dict[tuple[int, int, int], str] = {}
+    for name, raw in GARDEN_GALAXY_COLORS.items():
+        if raw is None or len(raw) != 6:
+            continue
+        if any(token in name for token in _EXCLUDED_SLOT_TOKENS):
+            continue
+        key = tuple(int(raw[index : index + 2], 16) for index in (0, 2, 4))
+        # Shortest name wins, which prefers `gold` over `gold_primary`.
+        if key not in by_color or len(name) < len(by_color[key]):
+            by_color[key] = name
+
+    # Exact-colour dedup is not enough. stone_highlight and ivory_highlight
+    # differ by one step of green out of 255, so uniqueness happily handed one
+    # to the statue's lit stone and the other to its shadow -- two names, no
+    # visible contrast, a flat white carving. Entries this close are the same
+    # colour for the purpose of telling two surfaces apart.
+    kept: list[str] = []
+    for name in sorted(by_color.values()):
+        srgb = _palette_srgb(name)
+        if any(
+            _perceptual_distance(srgb, _palette_srgb(other))
+            < MIN_SLOT_SEPARATION
+            for other in kept
+        ):
+            continue
+        kept.append(name)
+    return tuple(kept)
 
 
-def _is_warm(color: tuple[float, float, float]) -> bool:
-    return (color[0] - color[2]) > WARM_THRESHOLD
+# Built on first use: _usable_palette needs _palette_srgb and
+# _perceptual_distance, which are defined further down.
+_USABLE_PALETTE_CACHE: tuple[str, ...] | None = None
 
 
-def _is_cool(color: tuple[float, float, float]) -> bool:
-    return (color[0] - color[2]) < 0.0
+def usable_palette() -> tuple[str, ...]:
+    global _USABLE_PALETTE_CACHE
+    if _USABLE_PALETTE_CACHE is None:
+        _USABLE_PALETTE_CACHE = _usable_palette()
+    return _USABLE_PALETTE_CACHE
+
+
+def band_palette(band: str) -> tuple[str, ...]:
+    """Every usable entry whose hue sits in one family.
+
+    A canopy has to land on foliage regardless of what its texture samples,
+    because the wind controller drives the canopy mesh and a brown crown reads
+    as broken. But restricting it to three hand-picked pines was too tight: the
+    fir's canopy samples a yellow-green at 62 degrees and the nearest pine is 45
+    degrees away, so it resolved to pine_light -- the lightest option, when the
+    source is darker than all three. Offering the whole green family lets the
+    match be decided on merit; it picks earthy_olive.
+    """
+    return tuple(
+        name
+        for name in usable_palette()
+        if _hue_band(_palette_srgb(name)) == band
+    )
+
+
+def _hls(srgb: tuple[float, float, float]) -> tuple[float, float, float]:
+    return colorsys.rgb_to_hls(*srgb)
+
+
+def _same_paint(left: tuple[float, float, float], right: tuple[float, float, float]) -> bool:
+    """Whether two sampled colours read as the same paint under shading."""
+    left_hue, left_value, left_saturation = left
+    right_hue, right_value, right_saturation = right
+    if abs(left_value - right_value) >= CLUSTER_VALUE_WINDOW:
+        return False
+    grey = (
+        left_saturation <= CLUSTER_GREY_SATURATION
+        and right_saturation <= CLUSTER_GREY_SATURATION
+    )
+    if grey:
+        # A near-grey's hue is numerically unstable, so value alone decides.
+        return True
+    if (
+        left_saturation <= CLUSTER_GREY_SATURATION
+        or right_saturation <= CLUSTER_GREY_SATURATION
+    ):
+        return False
+    gap = abs(left_hue - right_hue)
+    return min(gap, 1.0 - gap) < CLUSTER_HUE_WINDOW
+
+
+def cluster_face_colors(mesh, sample_data) -> list[dict]:
+    """Group the mesh's faces by the paint they were sampled from."""
+    clusters: list[dict] = []
+    for polygon in mesh.polygons:
+        color = average_component_color(mesh, [polygon.index], sample_data)
+        srgb = tuple(_srgb_channel(max(0.0, float(channel))) for channel in color)
+        hls = _hls(srgb)
+        for cluster in clusters:
+            if _same_paint(hls, cluster["hls"]):
+                cluster["faces"].append(polygon.index)
+                weight = 1.0 / len(cluster["faces"])
+                cluster["srgb"] = tuple(
+                    current + (new - current) * weight
+                    for current, new in zip(cluster["srgb"], srgb)
+                )
+                cluster["hls"] = _hls(cluster["srgb"])
+                break
+        else:
+            clusters.append({"faces": [polygon.index], "srgb": srgb, "hls": hls})
+    clusters.sort(key=lambda cluster: -len(cluster["faces"]))
+    clusters = _merge_near_clusters(clusters)
+    return _merge_small_clusters(clusters, len(mesh.polygons))
+
+
+def _combine(host: dict, other: dict) -> None:
+    share = len(other["faces"]) / (len(other["faces"]) + len(host["faces"]))
+    host["srgb"] = tuple(
+        current + (new_value - current) * share
+        for current, new_value in zip(host["srgb"], other["srgb"])
+    )
+    host["hls"] = _hls(host["srgb"])
+    host["faces"].extend(other["faces"])
+
+
+def _merge_near_clusters(clusters: list[dict]) -> list[dict]:
+    """Agglomerate clusters whose centroids read as the same paint.
+
+    The single pass above assigns each face to the first cluster it matches,
+    so a cluster's centroid drifts as faces accumulate and later faces of the
+    same paint can miss it -- the wheelbarrow's frame came out as two clusters
+    0.105 apart in value despite a 0.12 window. Comparing settled centroids
+    against each other is stable in a way that first-match-wins is not.
+    """
+    while len(clusters) > 1:
+        best_pair = None
+        best_distance = CLUSTER_MERGE_DISTANCE
+        for left in range(len(clusters)):
+            for right in range(left + 1, len(clusters)):
+                gap = _perceptual_distance(
+                    clusters[left]["srgb"], clusters[right]["srgb"]
+                )
+                if gap < best_distance:
+                    best_distance = gap
+                    best_pair = (left, right)
+        if best_pair is None:
+            break
+        left, right = best_pair
+        _combine(clusters[left], clusters[right])
+        clusters.pop(right)
+        clusters.sort(key=lambda cluster: -len(cluster["faces"]))
+    return clusters
+
+
+def _merge_small_clusters(clusters: list[dict], total_faces: int) -> list[dict]:
+    """Fold specks and any excess past MAX_CLUSTERS into their nearest neighbour.
+
+    Texture seams and antialiased edges produce a long tail of one- and two-face
+    groups. Left alone they would each claim their own palette entry and speckle
+    the model with unrelated colours.
+    """
+    floor = max(1, int(total_faces * MIN_CLUSTER_FACE_SHARE))
+    while len(clusters) > 1 and (
+        len(clusters) > MAX_CLUSTERS or len(clusters[-1]["faces"]) < floor
+    ):
+        smallest = clusters.pop()
+        host = min(
+            clusters,
+            key=lambda cluster: _perceptual_distance(
+                smallest["srgb"], cluster["srgb"]
+            ),
+        )
+        share = len(smallest["faces"]) / (
+            len(smallest["faces"]) + len(host["faces"])
+        )
+        host["srgb"] = tuple(
+            current + (new - current) * share
+            for current, new in zip(host["srgb"], smallest["srgb"])
+        )
+        host["hls"] = _hls(host["srgb"])
+        host["faces"].extend(smallest["faces"])
+        clusters.sort(key=lambda cluster: -len(cluster["faces"]))
+    return clusters
+
+
+def assign_distinct_slots(
+    clusters: list[dict], candidates: tuple[str, ...]
+) -> list[str]:
+    """One palette entry per cluster, never reusing a colour.
+
+    Largest cluster first, so the colour that carries the object gets the best
+    available match and the accents fit around it. Without the uniqueness rule
+    the wheelbarrow's tray, frame and fittings all resolved to wood_light and
+    the model lost every internal distinction it had.
+    """
+    remaining = list(candidates)
+    chosen: list[str] = []
+    taken: dict[str, tuple[float, float, float]] = {}
+    for cluster in clusters:
+        if not remaining:
+            remaining = list(candidates)
+
+        def distance(name: str, cluster=cluster) -> float:
+            return _perceptual_distance(cluster["srgb"], _palette_srgb(name))
+
+        overall = min(candidates, key=distance)
+        # Uniqueness is a preference, not a rule. Two clusters can be near
+        # duplicates -- the mushroom had creams at (0.85,0.74,0.66) and
+        # (0.85,0.77,0.68) -- and forcing the second onto a different entry sent
+        # it to a brown three families away.
+        #
+        # The test is whether the two CLUSTERS are near-identical, not whether
+        # the alternatives are poor. Keying it on the alternatives instead let
+        # the statue's lit stone and its shadow, a real 0.10 value difference,
+        # both take ivory_highlight and flatten the carving to one tone.
+        if overall in taken and (
+            _perceptual_distance(cluster["srgb"], taken[overall])
+            < SLOT_REUSE_TOLERANCE
+        ):
+            chosen.append(overall)
+            continue
+        best_free = min(remaining, key=distance)
+        chosen.append(best_free)
+        remaining.remove(best_free)
+        taken[best_free] = cluster["srgb"]
+    return chosen
+
+
+# Matching happens on hue/saturation/value, not on RGB channels. Channel
+# distance systematically prefers desaturated middle colours, because a muted
+# entry sits numerically near everything: a saturated orange frame scored
+# closest to sand_shadow, and a warm grey stem scored closest to pink
+# soft_coral. Both are far off to the eye while being near in RGB. This also
+# subsumes the old warm/cool flip penalty -- crossing from a warm hue to a cool
+# grey now costs saturation and hue directly.
+#
+# Hue dominates because it is what identifies a colour. At a lower hue weight
+# the mushroom's red cap scored closer to brown earth_light than to coral: an
+# 18-degree hue error was cheaper than a 0.09 saturation error, which is
+# backwards.
+HUE_WEIGHT = 60.0
+SATURATION_WEIGHT = 3.0
+VALUE_WEIGHT = 4.0
+# Hue is meaningless for a grey and unstable for a near-grey, so its weight
+# scales with how chromatic the *less* saturated of the pair is.
+CHROMA_REFERENCE = 0.5
+
+# Hue alone still lets a colour cross into the wrong material family when the
+# palette has a gap. The statue's moss samples at 57 degrees -- yellow-green --
+# and the palette jumps straight from gold at 51 to the first green at 80, so
+# the nearest hue was warm wood_highlight and the moss rendered as a tan smudge
+# across the carving. Crossing a family boundary costs more than being 20
+# degrees off inside one.
+#
+# Neutrals are exempt. A near-grey's hue is noise, and the statue's own stone
+# sits at 48 degrees with almost no saturation -- banding it would have shoved
+# pale stone away from ivory for no reason.
+#
+# The threshold is 0.10, not the 0.25 tried first: this palette's greens are
+# all desaturated (leaf_medium 0.14, moss 0.20, pine_light 0.21), so at 0.25
+# every one of them counted as a grey and band_palette('green') returned a
+# single entry -- the fir's canopy had one candidate rather than a choice.
+BAND_CROSSING_PENALTY = 0.10
+BAND_NEUTRAL_SATURATION = 0.10
+GREEN_BAND = (55.0, 160.0)
+COOL_BAND = (160.0, 330.0)
+
+
+def _hue_band(srgb: tuple[float, float, float]) -> str | None:
+    hue, _value, saturation = colorsys.rgb_to_hls(*srgb)
+    if saturation < BAND_NEUTRAL_SATURATION:
+        return None
+    degrees = hue * 360.0
+    if GREEN_BAND[0] <= degrees < GREEN_BAND[1]:
+        return "green"
+    if COOL_BAND[0] <= degrees < COOL_BAND[1]:
+        return "cool"
+    return "warm"
+
 
 
 def _perceptual_distance(left: tuple[float, float, float], right) -> float:
-    """Weighted RGB distance, with a flat penalty for a warm/cool flip.
-
-    Green dominates perceived lightness and blue matters least, so the channels
-    are weighted 2/4/3. Every stone entry in the palette is cool while the props
-    around them are warm, and channel distance cannot see that -- a mushroom
-    stem sampling warm beige sits numerically near a neutral grey and snapped to
-    stone_shadow, reading as washed-out plastic beside a warm cap.
-    """
+    """Distance between two sRGB colours, scored on hue, saturation and value."""
+    left_hue, left_value, left_saturation = colorsys.rgb_to_hls(*left)
+    right_hue, right_value, right_saturation = colorsys.rgb_to_hls(*right)
+    hue_gap = abs(left_hue - right_hue)
+    hue_gap = min(hue_gap, 1.0 - hue_gap)
+    chroma = min(1.0, min(left_saturation, right_saturation) / CHROMA_REFERENCE)
     distance = (
-        2.0 * (left[0] - right[0]) ** 2
-        + 4.0 * (left[1] - right[1]) ** 2
-        + 3.0 * (left[2] - right[2]) ** 2
+        HUE_WEIGHT * chroma * hue_gap**2
+        + SATURATION_WEIGHT * (left_saturation - right_saturation) ** 2
+        + VALUE_WEIGHT * (left_value - right_value) ** 2
     )
-    # One-directional on purpose. Penalising cool sources away from warm slots
-    # as well caught foliage, which sits within a hair of neutral: the fir's
-    # canopy flipped from pine_shadow to pine_light, undoing a fix. Only warm
-    # onto cool is a real error, because only the greys are cool.
-    if _is_warm(left) and _is_cool(right):
-        distance += WARMTH_FLIP_PENALTY
+    left_band = _hue_band(left)
+    right_band = _hue_band(right)
+    if left_band is not None and right_band is not None and left_band != right_band:
+        distance += BAND_CROSSING_PENALTY
     return distance
 
 
 def _palette_srgb(name: str) -> tuple[float, float, float]:
     raw = GARDEN_GALAXY_COLORS[name]
     return tuple(int(raw[index : index + 2], 16) / 255.0 for index in (0, 2, 4))
-
-
-def nearest_palette_slot(color: Vector, candidates: tuple[str, ...]) -> str:
-    """The palette entry that looks most like this colour.
-
-    Suma replaces every source texture at import, so the only way an asset
-    keeps the colours it was designed with is for each region to land on the
-    palette entry nearest to it. The previous hue/value family rules guessed a
-    material instead and overrode the source: a desaturated grey-green stone
-    statue classified as wood_primary, a saturated brown.
-    """
-    srgb = tuple(_srgb_channel(max(0.0, float(channel))) for channel in color)
-    return min(
-        candidates, key=lambda name: _perceptual_distance(srgb, _palette_srgb(name))
-    )
-
-
-def _semantic_family(
-    profile: str,
-    object_name: str,
-    color: Vector,
-    face_count: int,
-    allow_gold: bool = True,
-) -> str:
-    lower_name = object_name.lower()
-    if profile == "tree":
-        return "pine" if "leaf" in lower_name or "canopy" in lower_name else "wood"
-    if profile == "shrub":
-        return "leaf" if "leaf" in lower_name or "canopy" in lower_name else "wood"
-
-    if any(token in lower_name for token in ("leaf", "canopy", "foliage", "plant")):
-        return "leaf"
-    if any(token in lower_name for token in ("stone", "rock", "concrete")):
-        return "stone"
-    if any(token in lower_name for token in ("trunk", "wood", "branch")):
-        return "wood"
-
-    red, green, blue = (max(0.0, float(channel)) for channel in color)
-    srgb = tuple(_srgb_channel(channel) for channel in (red, green, blue))
-    hue, saturation, value = colorsys.rgb_to_hsv(*srgb)
-    if green > red * 1.06 and green > blue * 1.08:
-        return "leaf"
-    if value < 0.28:
-        return "charcoal"
-    if value > 0.76 and saturation < 0.26:
-        return "cream"
-    if saturation < 0.16:
-        return "stone"
-    if (
-        allow_gold
-        and 0.065 <= hue <= 0.18
-        and value > 0.78
-        and saturation < 0.58
-        and face_count <= 32
-    ):
-        return "gold"
-    if 0.20 <= hue <= 0.48 and saturation > 0.13:
-        return "leaf"
-    if profile == "stone_prop" and saturation < 0.32:
-        return "stone"
-    if hue <= 0.055 or hue >= 0.96:
-        return "terracotta"
-    if 0.48 <= hue <= 0.72:
-        return "metal"
-    return "wood"
-
-
-def _semantic_tone(family: str, color: Vector) -> str:
-    value = max(_srgb_channel(max(0.0, float(channel))) for channel in color)
-    if family == "pine":
-        if value < 0.61:
-            return "pine_shadow"
-        if value < 0.70:
-            return "pine_medium"
-        return "pine_light"
-    if family == "leaf":
-        return "leaf_olive" if value < 0.57 else "leaf_medium"
-    if family == "wood":
-        if value < 0.52:
-            return "wood_deep"
-        if value < 0.74:
-            return "wood_primary"
-        return "wood_light"
-    if family == "cream":
-        return "warm_white" if value > 0.82 else "ivory_highlight"
-    if family == "gold":
-        return "gold_primary"
-    if family == "metal":
-        return "soft_sage_gray"
-    if family == "stone":
-        if value < 0.49:
-            return "stone_shadow"
-        if value < 0.70:
-            return "stone_mid"
-        return "stone_light"
-    if family == "terracotta":
-        if value < 0.48:
-            return "terracotta_shadow"
-        if value < 0.68:
-            return "terracotta_primary"
-        return "terracotta_light"
-    return "warm_near_black"
 
 
 def _flat_material(semantic_name: str) -> bpy.types.Material:
@@ -701,53 +860,31 @@ def apply_flat_style(
         sample_data = sampled_materials(mesh_object)
         lower_name = mesh_object.name.lower()
         is_canopy = "leaf" in lower_name or "canopy" in lower_name
-        if profile == "tree":
+        if profile in {"tree", "shrub"}:
             candidates = (
-                PROFILE_PALETTES["canopy_tree"] if is_canopy else PROFILE_PALETTES["bark"]
-            )
-        elif profile == "shrub":
-            candidates = (
-                PROFILE_PALETTES["canopy_shrub"] if is_canopy else PROFILE_PALETTES["bark"]
+                band_palette("green") if is_canopy else band_palette("warm")
             )
         else:
-            candidates = PROFILE_PALETTES.get(profile, PALETTE_KEYS)
+            # Props match against the whole gamut. Restricting a profile to a
+            # handful of slots was what desaturated everything: a stone statue
+            # limited to greys lost its moss, and a wheelbarrow limited to wood
+            # lost its gold fittings. The clustering already decides how many
+            # colours an object has, so the pool only needs to exclude families
+            # that are never a prop's paint.
+            candidates = usable_palette()
 
-        classified: list[tuple[list[int], Vector, str]] = []
-        for face_indices in face_components(mesh):
-            color = average_component_color(mesh, face_indices, sample_data)
-            classified.append((face_indices, color, ""))
-
-        matched = [
-            (face_indices, color, nearest_palette_slot(color, candidates))
-            for face_indices, color, _ in classified
-        ]
-
-        # Gold stays an accent. Nearest-colour matching makes this far rarer
-        # than the old hue rules did, but a pale warm surface can still land on
-        # it, and gold is never most of an object.
-        total_faces = sum(len(face_indices) for face_indices, _, _ in matched)
-        gold_faces = sum(
-            len(face_indices)
-            for face_indices, _, name in matched
-            if name == "gold_primary"
-        )
-        if total_faces and gold_faces > total_faces * GOLD_MAX_FACE_SHARE:
-            without_gold = tuple(name for name in candidates if name != "gold_primary")
-            matched = [
-                (
-                    face_indices,
-                    color,
-                    nearest_palette_slot(color, without_gold)
-                    if name == "gold_primary"
-                    else name,
-                )
-                for face_indices, color, name in matched
-            ]
+        clusters = cluster_face_colors(mesh, sample_data)
+        chosen = assign_distinct_slots(clusters, candidates)
 
         assignments: list[tuple[list[int], str]] = []
-        for face_indices, _, semantic_name in matched:
-            assignments.append((face_indices, semantic_name))
-            usage[semantic_name] += len(face_indices)
+        for cluster, semantic_name in zip(clusters, chosen):
+            assignments.append((cluster["faces"], semantic_name))
+            usage[semantic_name] += len(cluster["faces"])
+            red, green, blue = cluster["srgb"]
+            print(
+                f"  cluster {len(cluster['faces']):4} faces "
+                f"sRGB=({red:.2f},{green:.2f},{blue:.2f}) -> {semantic_name}"
+            )
 
         semantic_names = sorted({name for _, name in assignments})
         mesh.materials.clear()

@@ -12,7 +12,7 @@ asset at least once.
 
 ```bash
 mkdir -p artifacts/_probe && cp "<SOURCE.glb>" artifacts/_probe/probe.glb
-"/c/Program Files/Blender Foundation/Blender 4.5/blender.exe" --background --factory-startup \
+"/c/Program Files/Blender Foundation/Blender 4.5/blender.exe" --background --factory-startup \\
   --python tools/measure_style_fingerprint.py -- --directory artifacts/_probe --out artifacts/probe.json
 rm -rf artifacts/_probe
 ```
@@ -85,81 +85,77 @@ python tools/import_meshy_asset.py --source "<SOURCE.glb>" \
 `--force` is required to overwrite an existing asset.
 
 **Do not run a chunk pass or a `--tone-ramp` over the result.** The importer
-quantises the source texture per face, which follows the model's own design.
-Recolouring by face normal on top of that flattens it and breaks how the
-colours read.
+assigns colour from the source's own clusters, which follows the model's
+design. Recolouring by face normal on top of that flattens it and breaks how
+the colours read.
 
 ## 5. Colours must match the source, in Suma's palette
 
 Suma replaces every source texture at import, so the only way an asset keeps
-the colours it was designed with is for each region to land on the palette
-entry nearest to it. `prepare_model_import.py` does this by perceptual
-nearest-colour match per component (`nearest_palette_slot`), not by guessing a
-material family from hue rules. The old hue rules overrode the source and got
-it plainly wrong -- a desaturated grey-green stone statue classified as
-`wood_primary`, a saturated brown.
+the colours it was designed with is for each painted region to land on the
+palette entry nearest to it. The importer does this by **clustering the source
+and mapping each cluster to its own palette entry**, and prints the mapping:
 
-Nearest-match alone is not enough either, because palette entries from
-different materials sit close together in RGB. Warm mid-brown is near
-terracotta, and pale shaded wood is near stone, so an unrestricted match sent
-a wooden wheelbarrow pink and grey. `PROFILE_PALETTES` therefore limits each
-profile to the slots that make sense for it:
+```
+cluster  486 faces sRGB=(0.71,0.56,0.23) -> wood_light
+cluster  467 faces sRGB=(0.56,0.44,0.32) -> earth_primary
+cluster   47 faces sRGB=(0.82,0.75,0.54) -> sand_top
+```
 
-| Profile | Reaches |
-|---|---|
-| `tree` | canopy: pine only. trunk: wood only. |
-| `shrub` | canopy: leaf/pine. trunk: wood. |
-| `wood_prop` | wood and cream/near-black. No stone, no terracotta, **no gold**. |
-| `stone_prop` | stone and neutrals only. No wood. |
-| `generic` | everything -- use it when an item genuinely spans families, e.g. a red-capped mushroom with a pale stem, or a stone prop with real wooden parts. |
+Read those lines. They are the whole colour story of the asset: how many
+distinct paints it has, and what each became. A model that comes out visibly
+wrong is nearly always visible here first, as a cluster count that does not
+match what the source obviously has.
 
-Two slots were removed from those lists after each claimed a model twice:
+Four things were each wrong at least once, and each is now load-bearing:
 
-- **`gold_primary` is unreachable from `wood_prop`.** It is the brightest, most
-  saturated entry in the palette, so it wins the nearest match for any warm
-  pale wood catching light -- it took the bamboo table's top (443 faces) and
-  then the wheelbarrow's handles (132), reading as painted yellow both times.
-  Genuine brass belongs to `generic`.
-- **Wood is unreachable from `stone_prop`.** A solid stone statue has no wooden
-  parts, and its warm crevice shadows landed on `wood_light` -- 166 faces of
-  orange smudged through the carving.
+- **The whole palette is in play, not a curated subset.** The importer used to
+  load 19 colours, and profiles narrowed that to 3-7. A red mushroom cap, green
+  moss and brass fittings had nothing to match against and resolved to the
+  nearest muted brown or grey. It now matches against all 57 distinct prop
+  colours; `usable_palette()` only excludes water, snow, tiles and the
+  background creams.
+- **Matching is on hue/saturation/value, not RGB channels.** Channel distance
+  prefers desaturated middles, because a muted entry is numerically near
+  everything -- a saturated orange frame scored closest to `sand_shadow`, and a
+  warm grey stem closest to pink `soft_coral`. Hue is weighted hardest since it
+  is what identifies a colour.
+- **Clustering is by hue and forgiving about value.** Source textures have
+  lighting baked in, but Suma relights everything, so a paint's lit and shaded
+  samples must reach the *same* entry. Splitting them sent the wheelbarrow's
+  lit frame to olive and its shaded frame to mustard: one piece of wood reading
+  as two materials.
+- **Each cluster gets its own entry**, unless two clusters are genuinely near
+  identical. Without that the wheelbarrow's tray, frame and fittings all
+  resolved to `wood_light` and the model lost every internal distinction. The
+  test is whether the two *clusters* match, not whether the alternatives are
+  poor -- keying it on the alternatives let the statue's lit stone and its
+  shadow share one entry and flattened the carving to a single tone.
 
-Matching also carries a **warm/cool flip penalty**. Every stone entry in the
-palette is cool (red below blue) while the props around them are warm, and
-channel-wise distance cannot see that: the mushroom's warm beige stem sat
-numerically near a neutral grey, snapped to `stone_shadow`, and read as
-washed-out plastic beside a warm cap. The penalty is a flat cost applied only
-to warm-source-onto-cool-slot. Scoring warmth as a continuous axis was tried
-first and was wrong -- warmth also separates `wood_light` from `wood_deep`, so
-at any weight strong enough to stop the stone flip it swamped lightness and
-collapsed whole models onto one slot.
+A **hue-band penalty** stops a chromatic colour crossing families when the
+palette has a gap. The statue's moss samples at 57 degrees, yellow-green, and
+the palette jumps from gold at 51 straight to the first green at 80 -- so the
+nearest hue was warm and the moss rendered as a tan smudge across the carving.
+Near-greys are exempt, since their hue is noise.
 
-**Always check the result against the source.** Sample the source's own colours
-and confirm the assignment preserves its structure:
+For a `tree` or `shrub` the canopy is restricted to the green band and the
+trunk to the warm band, whatever the texture samples -- the wind controller
+drives the canopy mesh, so a brown crown reads as broken.
+
+**Expect the result to be more muted than the source.** The GG palette has no
+saturated red; a fly agaric's cap lands on `coral`. That is the palette working
+as intended, not a bug to chase.
+
+To see the source's clusters without importing:
 
 ```bash
-python - <<'PY'
-import sys, colorsys
-sys.path.insert(0, "tools")
-import bpy, prepare_model_import as P
-bpy.ops.wm.read_factory_settings(use_empty=True)
-bpy.ops.import_scene.gltf(filepath="<SOURCE.glb>")
-obj = next(o for o in bpy.context.scene.objects if o.type == "MESH")
-samples = P.sampled_materials(obj)
-buckets = {}
-for comp in P.face_components(obj.data):
-    col = P.average_component_color(obj.data, comp, samples)
-    srgb = tuple(P._srgb_channel(max(0.0, float(c))) for c in col)
-    buckets.setdefault(tuple(round(c * 6) for c in srgb), [0, srgb])[0] += len(comp)
-for _, (n, srgb) in sorted(buckets.items(), key=lambda x: -x[1][0])[:8]:
-    print(f"faces={n:4} sRGB=({srgb[0]:.2f},{srgb[1]:.2f},{srgb[2]:.2f})")
-PY
+"/c/Program Files/Blender Foundation/Blender 4.5/blender.exe" --background --factory-startup \
+  --python tools/measure_source_colors.py -- --source "<SOURCE.glb>" --clusters 10
 ```
 
 If the source turns out to be a single flat tone, say so rather than inventing
-colours. A monochrome source cannot produce a multi-material result, and the
-real fix is upstream: generate the reference image with per-part palette hexes
-so the separation exists to be matched.
+colours. The real fix is upstream: generate the reference image with per-part
+palette hexes so the separation exists to be matched.
 
 ## 6. Check the material assignment for mis-snaps
 
@@ -172,15 +168,16 @@ for m,n in sorted(r.get('semantic_face_usage',{}).items(), key=lambda x:-x[1]): 
 "
 ```
 
-The known trap is **`gold_primary` claiming pale warm wood**. A share above 15%
-is now demoted automatically, but small stray patches still slip through and
-show as bright yellow specks. Fix them at the source, not with a runtime
-override:
+Compare the counts against the clusters the importer printed. The old traps
+here -- `gold_primary` claiming pale warm wood, wood claiming a stone statue's
+crevices -- were symptoms of per-component matching against a narrow palette
+and should no longer occur. If something is still mis-snapped, fix it at the
+source rather than with a runtime override:
 
 ```bash
 "/c/Program Files/Blender Foundation/Blender 4.5/blender.exe" --background --factory-startup \
   --python tools/remap_asset_materials.py -- --asset assets/3d/reworked/<prop_name>.glb \
-  --map gold_primary=wood_light
+  --map <wrong_slot>=<right_slot>
 ```
 
 That renames the slot **and** writes the palette colour, which matters: renaming

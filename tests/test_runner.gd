@@ -2446,9 +2446,46 @@ func _test_world_model_scale_contract() -> void:
 		"prop_stone_pine": ["pine_medium", "wood_primary"],
 		"prop_vintage_radio": ["wood_primary", "gold_primary"],
 		"prop_shrooms": ["terracotta_light", "wood_primary"],
-		"prop_fir": ["pine_shadow", "wood_primary"],
 		"prop_leafy_bush": ["leaf_medium", "wood_primary"],
 	}
+	# prop_fir is checked by colour rather than by name. It used to require
+	# exactly pine_shadow and wood_primary, which stopped describing anything
+	# real once imports began matching against the whole palette instead of a
+	# hand-picked 19: the canopy now resolves to whichever green actually fits
+	# the source, and pinning one name meant the test had to be edited after
+	# every reimport. What must hold is structural -- a tree's canopy is green
+	# and its trunk is not, because the wind controller drives the canopy mesh
+	# and a brown crown reads as broken.
+	var fir_path := AssetLibrary.resolve_path("prop_fir")
+	var fir_visual := (load(fir_path) as PackedScene).instantiate() as Node3D
+	var canopy_is_green := false
+	var trunk_is_wood := false
+	var fir_uses_baked_albedo := false
+	for mesh_node in fir_visual.find_children("*", "MeshInstance3D", true, false):
+		var fir_mesh := mesh_node as MeshInstance3D
+		var is_canopy := fir_mesh.name.to_lower().contains("canopy")
+		for surface in fir_mesh.mesh.get_surface_count():
+			var fir_material := fir_mesh.mesh.surface_get_material(surface)
+			if fir_material == null:
+				continue
+			if fir_material is StandardMaterial3D:
+				var standard := fir_material as StandardMaterial3D
+				fir_uses_baked_albedo = (
+					fir_uses_baked_albedo or standard.albedo_texture != null
+				)
+				var albedo := standard.albedo_color
+				var green_dominates := (
+					albedo.g >= albedo.r and albedo.g > albedo.b
+				)
+				if is_canopy:
+					canopy_is_green = canopy_is_green or green_dominates
+				else:
+					trunk_is_wood = trunk_is_wood or albedo.r > albedo.g
+	check(
+		canopy_is_green and trunk_is_wood and not fir_uses_baked_albedo,
+		"prop_fir keeps a green canopy over a brown trunk, with no baked grime"
+	)
+	fir_visual.free()
 	for asset_id: String in source_material_contracts:
 		var path := AssetLibrary.resolve_path(asset_id)
 		var packed := load(path) as PackedScene
