@@ -80,6 +80,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bevel-segments", type=int, default=1)
     parser.add_argument("--smooth-angle", type=float, default=35.0)
     parser.add_argument(
+        "--subdivide",
+        type=int,
+        default=0,
+        help="Catmull-Clark levels. Each level roughly quadruples triangles, "
+        "so 1 is usually enough to stop a smooth-shaded dome banding.",
+    )
+    parser.add_argument(
+        "--shading",
+        choices=("faceted", "smooth"),
+        default="faceted",
+        help="faceted keeps crisp planes for hard-surface props. smooth is "
+        "for anything that should read as a rounded mass -- it drops "
+        "planarise, hardened bevel normals, and the sharp-edge angle, which "
+        "together turn a dome into a dented polyhedron.",
+    )
+    parser.add_argument(
         "--widen",
         type=float,
         default=1.0,
@@ -526,7 +542,10 @@ def chunk_object(item: bpy.types.Object, arguments: argparse.Namespace) -> None:
             delimit={"MATERIAL"},
         )
 
-    if arguments.planarize > 0:
+    # Planar faces flatten each dissolved region into a true plane. That is
+    # the chunky crate read, and it is exactly wrong for a rounded mass: the
+    # dome becomes a polyhedron and smooth normals over it look dented.
+    if arguments.planarize > 0 and arguments.shading != "smooth":
         bmesh.ops.planar_faces(
             mesh,
             faces=mesh.faces[:],
@@ -552,24 +571,39 @@ def chunk_object(item: bpy.types.Object, arguments: argparse.Namespace) -> None:
 
 
 def apply_modifiers(item: bpy.types.Object, arguments: argparse.Namespace) -> None:
+    smooth = arguments.shading == "smooth"
     bpy.context.view_layer.objects.active = item
+    if arguments.subdivide > 0:
+        # Smooth shading cannot hide a coarse dome; the banding is the mesh,
+        # not the normals. The firepit reads clean because its forms are
+        # dense. Subdividing buys that density before anything else runs.
+        subsurf = item.modifiers.new("SumaSubdivide", "SUBSURF")
+        subsurf.subdivision_type = "CATMULL_CLARK"
+        subsurf.levels = arguments.subdivide
+        subsurf.render_levels = arguments.subdivide
+        bpy.ops.object.modifier_apply(modifier=subsurf.name)
     if arguments.bevel > 0.0:
         bevel = item.modifiers.new("SumaChamfer", "BEVEL")
         bevel.width = arguments.bevel
         bevel.segments = max(1, arguments.bevel_segments)
         bevel.limit_method = "ANGLE"
         bevel.angle_limit = math.radians(25.0)
-        bevel.harden_normals = True
+        # Hardened bevel normals flat-shade every chamfer. On a rounded mass
+        # that prints a hard ring around each one.
+        bevel.harden_normals = not smooth
         bevel.miter_outer = "MITER_ARC"
         bevel.use_clamp_overlap = True
         # harden_normals needs smooth shading present to write into.
         bpy.ops.object.shade_smooth()
         bpy.ops.object.modifier_apply(modifier=bevel.name)
 
-    weighted = item.modifiers.new("SumaWeightedNormals", "WEIGHTED_NORMAL")
-    weighted.keep_sharp = True
-    weighted.weight = 60
-    bpy.ops.object.modifier_apply(modifier=weighted.name)
+    if not smooth:
+        # Weighted normals bias shading toward the largest faces to keep
+        # planes crisp. A rounded mass wants the plain averaged normal.
+        weighted = item.modifiers.new("SumaWeightedNormals", "WEIGHTED_NORMAL")
+        weighted.keep_sharp = True
+        weighted.weight = 60
+        bpy.ops.object.modifier_apply(modifier=weighted.name)
 
 
 def main() -> None:
@@ -596,9 +630,13 @@ def main() -> None:
         apply_modifiers(item, arguments)
         item.select_set(False)
 
+    # Auto smooth marks every edge past the angle as sharp. A chunky dome has
+    # plenty of those, so a smooth asset takes the full 180 and shades as one
+    # continuous surface -- which is what makes the firepit read clean.
+    shading_angle = 180.0 if arguments.shading == "smooth" else arguments.smooth_angle
     for item in scene_meshes():
         bpy.context.view_layer.objects.active = item
-        bpy.ops.object.shade_auto_smooth(angle=math.radians(arguments.smooth_angle))
+        bpy.ops.object.shade_auto_smooth(angle=math.radians(shading_angle))
 
     if arguments.preserve_height:
         normalise_height(before["dimensions"][2])
@@ -653,6 +691,8 @@ def main() -> None:
             "thicken": arguments.thicken,
             "thicken_base": arguments.thicken_base,
             "thicken_ramp": arguments.thicken_ramp,
+            "shading": arguments.shading,
+            "subdivide": arguments.subdivide,
             "preserve_height": arguments.preserve_height,
             "stem_material": arguments.stem_material,
             "tone_ramp": list(arguments.tone_ramp),

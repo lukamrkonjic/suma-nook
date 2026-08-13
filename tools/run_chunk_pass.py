@@ -36,6 +36,21 @@ def parse_args() -> argparse.Namespace:
 
 
 def resolve(asset_id: str) -> Path | None:
+    """The pass must always read the pre-chunk original.
+
+    Once --install has run, assets/3d/reworked holds this tool's own output.
+    Re-running against that would subdivide a subdivided mesh and relax an
+    already relaxed one, so the archive wins whenever it exists.
+    """
+    archived = (
+        REPOSITORY_ROOT
+        / "art_source"
+        / "imported"
+        / asset_id
+        / f"{asset_id}_pre_chunk.glb"
+    )
+    if archived.is_file():
+        return archived
     for tier in SEARCH_ORDER:
         candidate = REPOSITORY_ROOT / "assets" / "3d" / tier / f"{asset_id}.glb"
         if candidate.is_file():
@@ -88,6 +103,8 @@ def main() -> None:
             "--source", str(source),
             "--output", str(staged),
             "--report", str(report_path),
+            "--shading", str(settings["shading"]),
+            "--subdivide", str(settings["subdivide"]),
             "--dissolve", str(settings["dissolve"]),
             "--planarize", str(settings["planarize"]),
             "--relax", str(settings["relax"]),
@@ -177,8 +194,12 @@ def main() -> None:
         archive.parent.mkdir(parents=True, exist_ok=True)
         if not archive.exists():
             shutil.copy2(source, archive)
-        shutil.copy2(staged, source)
-        print(f"installed {asset_id} -> {source.relative_to(REPOSITORY_ROOT)}")
+        # Always install to the shipped path. `source` may be the archive on
+        # a re-run, and writing there would destroy the only original.
+        installed = REPOSITORY_ROOT / "assets" / "3d" / "reworked" / f"{asset_id}.glb"
+        installed.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(staged, installed)
+        print(f"installed {asset_id} -> {installed.relative_to(REPOSITORY_ROOT)}")
     print("\nRun `godot --headless --path . --import` before reviewing in game.")
 
 
