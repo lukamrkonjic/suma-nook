@@ -29,6 +29,15 @@ from mathutils.kdtree import KDTree
 
 CANOPY_GREEN_RATIO_MIN = 0.60
 CANOPY_CENTER_HEIGHT_FRACTION_MIN = 0.08
+# Per-face trunk rescue, for trees that arrive as one welded shell.
+#
+# Measured on fir_tree.glb: trunk faces sample G/R 0.66-0.69 -- brown, but
+# above CANOPY_GREEN_RATIO_MIN, so the trunk was filed under canopy. Colour
+# alone is not enough to separate them, because the darkest foliage also
+# reaches 0.66. Radius is what disambiguates: that trunk sits at 0.25-0.28 of
+# the model's max radius while foliage at the same heights starts at 0.73.
+TRUNK_GREEN_RATIO_MAX = 0.80
+TRUNK_RADIUS_FRACTION_MAX = 0.35
 TEXTURE_SAMPLE_SIZE = 512
 PALETTE_KEYS = (
     "pine_light",
@@ -604,6 +613,18 @@ def split_tree_canopy(source: bpy.types.Object) -> list[bpy.types.Object]:
     canopy_height_min = minimum_z + (
         maximum_z - minimum_z
     ) * CANOPY_CENTER_HEIGHT_FRACTION_MIN
+    axis_x = (
+        min(vertex.co.x for vertex in mesh.vertices)
+        + max(vertex.co.x for vertex in mesh.vertices)
+    ) * 0.5
+    axis_y = (
+        min(vertex.co.y for vertex in mesh.vertices)
+        + max(vertex.co.y for vertex in mesh.vertices)
+    ) * 0.5
+    maximum_radius = max(
+        math.hypot(vertex.co.x - axis_x, vertex.co.y - axis_y)
+        for vertex in mesh.vertices
+    )
 
     for face_indices in face_components(mesh):
         center = component_center(mesh, face_indices)
@@ -616,7 +637,30 @@ def split_tree_canopy(source: bpy.types.Object) -> list[bpy.types.Object]:
         if not is_canopy:
             trunk_faces.extend(face_indices)
             continue
-        canopy_faces.extend(face_indices)
+
+        # A generated tree usually arrives as ONE welded shell, so its trunk
+        # sits inside this component rather than beside it. Judging the whole
+        # component by its average colour then files the trunk under canopy,
+        # which has two visible consequences: the trunk inherits the foliage
+        # wind and sways, and it renders green. Re-check each face against its
+        # own sampled colour, plus its distance from the trunk axis so dark
+        # foliage is not mistaken for bark.
+        component_canopy: list[int] = []
+        for face_index in face_indices:
+            face_center = mesh.polygons[face_index].center
+            radius = math.hypot(face_center.x - axis_x, face_center.y - axis_y)
+            face_color = average_component_color(mesh, [face_index], sample_data)
+            is_trunk = (
+                face_color.y / max(face_color.x, 0.0001) < TRUNK_GREEN_RATIO_MAX
+                and radius < maximum_radius * TRUNK_RADIUS_FRACTION_MAX
+            )
+            if is_trunk:
+                trunk_faces.append(face_index)
+            else:
+                component_canopy.append(face_index)
+        if not component_canopy:
+            continue
+        canopy_faces.extend(component_canopy)
         canopy_component_count += 1
 
     if canopy_component_count == 0 or not trunk_faces:
@@ -761,9 +805,17 @@ def main() -> None:
         if item.type == "EMPTY" and item != root and not item.children:
             bpy.data.objects.remove(item, do_unlink=True)
     prepared_geometry = geometry_report(mesh_objects)
+    topology_keys = ("vertices", "faces", "triangles", "components")
+    if arguments.mode == "tree":
+        # Separating the canopy from the trunk cuts one welded shell into two
+        # objects, which necessarily duplicates vertices along the seam and
+        # raises the component count. Those two counters therefore cannot be
+        # held fixed in tree mode without forbidding the split itself. Faces
+        # and triangles stay strict, and they are what actually prove nothing
+        # was added, removed, remeshed, decimated, or subdivided.
+        topology_keys = ("faces", "triangles")
     topology_preserved = all(
-        source_geometry[key] == prepared_geometry[key]
-        for key in ("vertices", "faces", "triangles", "components")
+        source_geometry[key] == prepared_geometry[key] for key in topology_keys
     )
     dimensions_preserved = _same_dimensions(source_geometry, prepared_geometry)
     if not topology_preserved or (
@@ -786,6 +838,7 @@ def main() -> None:
         "semantic_face_usage": dict(sorted(semantic_usage.items())),
         "authored_adjustments": authored_adjustments,
         "topology_preserved": topology_preserved,
+        "topology_checked": list(topology_keys),
         "dimensions_preserved": dimensions_preserved,
     }
     if arguments.report is not None:
