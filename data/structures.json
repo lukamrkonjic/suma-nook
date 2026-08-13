@@ -102,6 +102,35 @@
       ]
     },
     {
+      "id": "struct_bamboo_table",
+      "name": "Bamboo Table",
+      "asset_id": "prop_bamboo_table",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "visitor_tags": [
+        "social"
+      ],
+      "placement_sound": "wood",
+      "placement_tags": [
+        "furniture",
+        "medium"
+      ],
+      "can_be_stacked": false,
+      "support_slots": [
+        {
+          "id": "top_center",
+          "offset": [
+            0.0,
+            0.83,
+            0.0
+          ],
+          "accepts": [
+            "tabletop_item"
+          ]
+        }
+      ]
+    },
+    {
       "id": "struct_vintage_radio",
       "name": "Vintage Radio",
       "asset_id": "prop_vintage_radio",

@@ -60,6 +60,7 @@
       "members": [
         {"kind": "structure", "id": "struct_stool", "tier": 0, "family": "furniture"},
         {"kind": "structure", "id": "struct_table", "tier": 0, "family": "furniture"},
+        {"kind": "structure", "id": "struct_bamboo_table", "tier": 0, "family": "furniture"},
         {"kind": "structure", "id": "struct_lantern", "tier": 0, "family": "details"},
         {"kind": "structure", "id": "struct_sign", "tier": 0, "family": "details"},
         {"kind": "structure", "id": "struct_crate", "tier": 0, "family": "storage"},

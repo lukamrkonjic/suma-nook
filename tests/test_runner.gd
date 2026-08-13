@@ -4277,6 +4277,17 @@ func _test_object_support_graph() -> void:
 				"struct_vintage_radio",
 			],
 		},
+		## Same tabletop surface as the round table, so it takes the same set.
+		"struct_bamboo_table": {
+			"top_center": [
+				"struct_chest",
+				"struct_planter",
+				"struct_pot",
+				"struct_watering_can",
+				"struct_milk_churn",
+				"struct_vintage_radio",
+			],
+		},
 		"struct_chest": {
 			"lid": ["struct_pot", "struct_watering_can", "struct_milk_churn"],
 		},
