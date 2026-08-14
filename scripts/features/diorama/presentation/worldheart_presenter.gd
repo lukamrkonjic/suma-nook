@@ -11,13 +11,18 @@ extends Node3D
 const WELL_ASSET := "prop_wishing_well"
 const WELL_SCALE := 1.16
 ## The well's shaft, measured on the imported glb (unscaled): inner wall radius
-## runs 0.20-0.23 from z 0.19 up to the rim at 0.87, with no floor. The dark
-## disc sits flush at the shaft floor -- just above where the interior begins --
-## so it reads as deep dark water at the bottom rather than a lid across the
-## mouth. Oversized, so its edge intersects the wall INSIDE the opaque stone,
-## where both the overlap and any polygonal gap are invisible.
-const WELL_MOUTH_DISC_RADIUS := 0.27
-const WELL_MOUTH_DISC_HEIGHT := 0.21
+## runs 0.20-0.23 from z 0.19 up to the rim at 0.87, with no floor.
+##
+## A closed dark SHAFT, not a flat disc. The source model is a partial ruin --
+## roughly a third of its ring has no stones at all, verified by rendering the
+## untouched source from behind -- so a flat disc left the camera looking
+## through the back of the well into the scene. Walls plus a floor mean every
+## sightline into the well lands on darkness, which is what a deep well looks
+## like anyway. Radius sits just inside the stone so the wall is hidden where
+## the ring is intact and reads as the shaft where it is not.
+const WELL_SHAFT_RADIUS := 0.24
+const WELL_SHAFT_TOP := 0.60
+const WELL_SHAFT_DEPTH := 0.55
 ## Interaction and animation heights, in world units after WELL_SCALE. The
 ## click anchor sits at the body's visual centre, NOT at the mouth: right-click
 ## targeting claims a 73px screen radius around it, and at mouth height that
@@ -530,13 +535,16 @@ func _build_portal() -> void:
 	hole = MeshInstance3D.new()
 	hole.name = "WellMouthHole"
 	var hole_mesh := CylinderMesh.new()
-	hole_mesh.top_radius = WELL_MOUTH_DISC_RADIUS
-	hole_mesh.bottom_radius = WELL_MOUTH_DISC_RADIUS
-	hole_mesh.height = 0.02
+	hole_mesh.top_radius = WELL_SHAFT_RADIUS
+	hole_mesh.bottom_radius = WELL_SHAFT_RADIUS
+	hole_mesh.height = WELL_SHAFT_DEPTH
 	hole_mesh.radial_segments = 24
-	hole_mesh.cap_bottom = false
+	hole_mesh.cap_top = false
+	hole_mesh.cap_bottom = true
 	hole.mesh = hole_mesh
-	hole.position = Vector3(0.0, WELL_MOUTH_DISC_HEIGHT, 0.0)
+	hole.position = Vector3(
+		0.0, WELL_SHAFT_TOP - WELL_SHAFT_DEPTH * 0.5, 0.0
+	)
 	hole.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var hole_material := StandardMaterial3D.new()
 	hole_material.albedo_color = Color.BLACK
@@ -544,7 +552,11 @@ func _build_portal() -> void:
 	hole_material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	hole_material.render_priority = 1
 	hole.material_override = hole_material
-	well_visual_root.add_child(hole)
+	# Child of the MODEL, not of the holder: AssetEditLibrary.decorate applies
+	# the asset's edit scale to the instantiated model root, so a sibling keeps
+	# its original size and the shaft stayed full-sized when the well was
+	# scaled down in Asset Studio.
+	well_visual.add_child(hole)
 
 	# Stable empty attachment roots keep save/review tooling compatible without
 	# rendering any of the retired neon portal furniture.
