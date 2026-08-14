@@ -125,10 +125,28 @@ static func surface_profile_for_definition(
 		return "snow"
 	if "wood" in tile_id or "plank" in tile_id:
 		return "wood"
+	# Stony ground whose id says so. These used to fall through to the placement
+	# sound, and gravel and boulder ground are authored with the "grass" sound,
+	# so a pebbly yard both sounded and scattered like a meadow.
+	if (
+		"gravel" in tile_id
+		or "boulder" in tile_id
+		or "cobble" in tile_id
+		or "brick" in tile_id
+		or "paver" in tile_id
+		or "slab" in tile_id
+		or "concrete" in tile_id
+		or "flagstone" in tile_id
+		or "stone" in tile_id
+	):
+		return "stone"
 	if (
 		"dirt" in tile_id
 		or "garden" in tile_id
 		or "clay" in tile_id
+		or "mulch" in tile_id
+		or "tilled" in tile_id
+		or "field" in tile_id
 	):
 		return "earth"
 	return _profile_from_sound(definition.placement_sound)

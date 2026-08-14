@@ -81,12 +81,24 @@ func to_dict() -> Dictionary:
 	}
 
 
-## Reads the settings file. Falls back to values carried in an older save so a
-## player upgrading does not lose choices they already made.
-func load_from_disk(legacy_save_values: Dictionary = {}) -> void:
+## Reads the settings file, migrating from an older save on first run.
+##
+## The migration has to happen HERE, at boot, rather than when the pause menu is
+## first built. Reading only the settings file meant a player upgrading had no
+## file yet, so boot fell back to the default (fullscreen) and applied it, and
+## the window still visibly shrank once the pause menu got around to reading the
+## old value out of the save. Migrating before the mode is applied means the
+## first launch after upgrading already opens correctly.
+func load_from_disk(
+	legacy_save_values: Dictionary = {},
+	legacy_save_path := ""
+) -> void:
 	if not FileAccess.file_exists(SETTINGS_PATH):
-		if not legacy_save_values.is_empty():
-			from_dict(legacy_save_values)
+		var legacy := legacy_save_values
+		if legacy.is_empty() and not legacy_save_path.is_empty():
+			legacy = _preferences_in_save(legacy_save_path)
+		if not legacy.is_empty():
+			from_dict(legacy)
 			save_to_disk()
 		return
 	var parsed: Variant = JSON.parse_string(
@@ -94,6 +106,22 @@ func load_from_disk(legacy_save_values: Dictionary = {}) -> void:
 	)
 	if parsed is Dictionary:
 		from_dict(parsed)
+
+
+## The preferences block of a save written before settings moved out of it.
+## Read directly rather than through SaveManager, because this runs before the
+## core exists and only needs one key.
+func _preferences_in_save(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {}
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if not parsed is Dictionary:
+		return {}
+	var visual: Variant = (parsed as Dictionary).get("visual", {})
+	if not visual is Dictionary:
+		return {}
+	var stored: Variant = (visual as Dictionary).get("preferences", {})
+	return stored if stored is Dictionary else {}
 
 
 func save_to_disk() -> Error:

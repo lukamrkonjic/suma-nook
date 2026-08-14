@@ -18,6 +18,7 @@ config/default_bus_layout="res://default_bus_layout.tres"
 
 [autoload]
 
+DisplayBoot="*res://scripts/boot/display_boot.gd"
 InputService="*res://scripts/input/input_device_service.gd"
 
 [display]

@@ -2409,6 +2409,19 @@ func _test_placement_effects_match_the_surface() -> void:
 			table.has(profile),
 			"placement debris is defined for the %s surface" % profile
 		)
+	# The assertion that matters most. A first attempt named fx_slow_flakes and
+	# fx_tile_dust, which exist as ambient particle names but not as burst
+	# models, so AssetLibrary substituted its missing-asset marker and snow
+	# tiles erupted in bright yellow cubes. Nothing caught it but the eye.
+	var unresolved: Array[String] = []
+	for profile: String in table:
+		var asset_id := String((table[profile] as Dictionary).get("asset", ""))
+		if AssetLibrary.resolve_path(asset_id).is_empty():
+			unresolved.append("%s->%s" % [profile, asset_id])
+	check(
+		unresolved.is_empty(),
+		"every placement effect resolves to a real asset (%s)" % str(unresolved)
+	)
 	# Snow tiles carry placement_sound "grass", which is exactly why keying the
 	# effect off the sound scattered leaves over a snowdrift.
 	var snow_definition := core.registries.tile("tile_snowfield")
@@ -2420,17 +2433,31 @@ func _test_placement_effects_match_the_surface() -> void:
 		) == "snow",
 		"a snow tile classifies as snow despite sounding like grass"
 	)
+	# Stony ground authored with the grass sound used to fall through to grass,
+	# so a gravel yard both sounded and scattered like a meadow.
+	for stony_id: String in ["tile_proc_gravel_yard", "tile_proc_boulder_ground"]:
+		var stony := core.registries.tile(stony_id)
+		if stony == null:
+			continue
+		check(
+			GroundImpactEffects.surface_profile_for_definition(stony) == "stone",
+			"%s classifies as stone, not grass" % stony_id
+		)
+	# Nothing that is not grass may scatter leaves. Swept across the whole tile
+	# set rather than a hand-picked few, since the misclassifications were all
+	# tiles nobody thought to check.
 	var leafy: Array[String] = []
-	for tile_id: String in ["tile_snowfield", "tile_snow_drift", "tile_sand", "tile_dirt"]:
+	for tile_id: String in core.registries.tiles.keys():
 		var definition := core.registries.tile(tile_id)
 		if definition == null:
 			continue
 		var profile := GroundImpactEffects.surface_profile_for_definition(definition)
-		if String(table.get(profile, "")) == "fx_leaf":
-			leafy.append(tile_id)
+		var recipe: Dictionary = table.get(profile, {})
+		if profile != "grass" and String(recipe.get("asset", "")) == "fx_leaf":
+			leafy.append("%s(%s)" % [tile_id, profile])
 	check(
 		leafy.is_empty(),
-		"no snow, sand or dirt tile scatters leaves (%s)" % str(leafy)
+		"only grass tiles scatter leaves (%s)" % str(leafy)
 	)
 	check(
 		GroundImpactEffects.surface_profile_for_sound("stone") == "stone"

@@ -229,9 +229,27 @@ func catch_and_release(from: Vector3, reveal_at: Vector3) -> void:
 	ripple(from)
 
 
-func burst(fx_asset: String, point: Vector3, count: int, up_bias := 2.4) -> void:
+func burst(
+	fx_asset: String,
+	point: Vector3,
+	count: int,
+	up_bias := 2.4,
+	tint_token := ""
+) -> void:
+	var tint: Material = null
+	if not tint_token.is_empty():
+		# One material for the whole burst rather than one per chip.
+		var shaded := StandardMaterial3D.new()
+		shaded.albedo_color = _color_system.color(
+			tint_token, _color_system.color("neutral_white")
+		)
+		shaded.roughness = 1.0
+		tint = shaded
 	for i in count:
 		var chip := assets.instantiate(fx_asset)
+		if tint != null:
+			for mesh_node in chip.find_children("*", "MeshInstance3D", true, false):
+				(mesh_node as MeshInstance3D).material_override = tint
 		add_child(chip)
 		chip.position = point
 		chip.rotation = Vector3(randf() * TAU, randf() * TAU, randf() * TAU)
@@ -585,28 +603,39 @@ func visitor_container_burst(
 ## What a tile throws up when it lands, by what the tile is made of.
 ##
 ## This was a two-way guess -- leaves for grass, a smoke puff for everything
-## else -- so setting down snow, ice, sand or planks scattered the wrong debris.
-## The keys are GroundImpactEffects surface profiles, the same vocabulary
+## else -- so setting down snow, sand, stone or planks scattered the wrong
+## debris. Keys are GroundImpactEffects surface profiles, the same vocabulary
 ## footsteps and landings already use, so a tile sounds and scatters
 ## consistently instead of classifying itself twice by different rules.
+##
+## Every asset here MUST exist. A first attempt named fx_slow_flakes and
+## fx_tile_dust, which exist as ambient particle names but not as burst models,
+## so AssetLibrary substituted its missing-asset marker and snow tiles erupted
+## in bright yellow cubes. Only these five fx models are real, so surfaces that
+## want their own look get one by tinting a shared puff rather than by naming an
+## asset that is not there. The suite now asserts each id resolves.
 const PLACEMENT_POOF_EFFECTS := {
-	"grass": "fx_leaf",
-	"snow": "fx_slow_flakes",
-	"sand": "fx_tile_dust",
-	"earth": "fx_tile_dust",
-	"mud": "fx_ripple_ring",
-	"water": "fx_ripple_ring",
-	"wood": "fx_wood_chip",
-	"stone": "fx_smoke_puff",
+	"grass": {"asset": "fx_leaf"},
+	"wood": {"asset": "fx_wood_chip"},
+	"water": {"asset": "fx_ripple_ring"},
+	"mud": {"asset": "fx_ripple_ring", "tint": "earth_shadow"},
+	"snow": {"asset": "fx_smoke_puff", "tint": "warm_white"},
+	"sand": {"asset": "fx_smoke_puff", "tint": "sand_top"},
+	"earth": {"asset": "fx_smoke_puff", "tint": "earth_light"},
+	"stone": {"asset": "fx_smoke_puff", "tint": "stone_mid"},
 }
 
 
 func placement_poof(point: Vector3, kind: String) -> void:
+	var recipe: Dictionary = PLACEMENT_POOF_EFFECTS.get(
+		kind, PLACEMENT_POOF_EFFECTS["stone"]
+	)
 	burst(
-		String(PLACEMENT_POOF_EFFECTS.get(kind, "fx_smoke_puff")),
+		String(recipe["asset"]),
 		point + Vector3(0, 0.15, 0),
 		7,
-		1.6
+		1.6,
+		String(recipe.get("tint", ""))
 	)
 
 
