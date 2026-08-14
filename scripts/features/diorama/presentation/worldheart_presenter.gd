@@ -4,13 +4,21 @@ extends Node3D
 ## miniatures. Targeting is screen/cell based so these visuals never need to
 ## occupy the authoritative build grid.
 
-## Instantiated through AssetLibrary by id, not preloaded as a PackedScene.
+## ONE asset holding both states as sub-hierarchies, instantiated through
+## AssetLibrary by id.
 ##
-## AssetEditLibrary only reaches assets that come through AssetLibrary, so while
-## these were preloaded the wardrobe could not be smoothed or recoloured in Asset
-## Studio -- an edit would save and then visibly do nothing.
-const WARDROBE_CLOSED_ASSET := "worldheart_wardrobe_closed"
-const WARDROBE_OPEN_ASSET := "worldheart_wardrobe_hinged"
+## The closed and open wardrobes used to be two separate assets, which meant two
+## Asset Studio entries to keep in visual sync and two instances swapped
+## mid-swing. They are now StateClosed and StateOpen groups inside a single
+## model, so the swap is a visibility toggle between children of one instance --
+## and the whole wardrobe is one thing to place, smooth and recolour.
+##
+## Going through AssetLibrary matters on its own: AssetEditLibrary only reaches
+## assets instantiated that way, so while this was preloaded as a PackedScene an
+## Asset Studio edit would save and then visibly do nothing.
+const WARDROBE_ASSET := "prop_gift_wardrobe"
+const WARDROBE_CLOSED_STATE := "StateClosed"
+const WARDROBE_OPEN_STATE := "StateOpen"
 const WARDROBE_SCALE := 1.16
 ## Zero because the glbs are now grounded at their base like every imported
 ## asset. The old 0.58 existed only to hoist a centre-origined model out of the
@@ -517,14 +525,20 @@ func _build_portal() -> void:
 	wardrobe_visual_root.scale = Vector3.ONE * WARDROBE_SCALE
 	wardrobe_shake_root.add_child(wardrobe_visual_root)
 
-	wardrobe_closed = assets.instantiate(WARDROBE_CLOSED_ASSET)
-	wardrobe_closed.name = "WardrobeClosed"
-	wardrobe_visual_root.add_child(wardrobe_closed)
-	_style_wardrobe_meshes(wardrobe_closed)
-	wardrobe_open = assets.instantiate(WARDROBE_OPEN_ASSET)
-	wardrobe_open.name = "WardrobeOpen"
+	var wardrobe_visual := assets.instantiate(WARDROBE_ASSET)
+	wardrobe_visual.name = "Wardrobe"
+	wardrobe_visual_root.add_child(wardrobe_visual)
+	wardrobe_closed = wardrobe_visual.find_child(
+		WARDROBE_CLOSED_STATE, true, false
+	) as Node3D
+	wardrobe_open = wardrobe_visual.find_child(
+		WARDROBE_OPEN_STATE, true, false
+	) as Node3D
+	assert(
+		wardrobe_closed != null and wardrobe_open != null,
+		"The wardrobe asset must expose both state groups"
+	)
 	wardrobe_open.visible = false
-	wardrobe_visual_root.add_child(wardrobe_open)
 	wardrobe_door_left = wardrobe_open.find_child(
 		"WardrobeDoorLeft", true, false
 	) as Node3D
@@ -533,9 +547,9 @@ func _build_portal() -> void:
 	) as Node3D
 	assert(
 		wardrobe_door_left != null and wardrobe_door_right != null,
-		"The hinged Worldheart wardrobe must expose both authored doors"
+		"The wardrobe's open state must expose both authored doors"
 	)
-	_style_wardrobe_meshes(wardrobe_open)
+	_style_wardrobe_meshes(wardrobe_visual)
 
 	# The supplied open mesh has a fully modelled cavity. An opaque, unlit box
 	# sits immediately behind the frame so no camera angle can see the terrain,

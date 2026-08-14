@@ -170,6 +170,11 @@
 			"scale": 1.57,
 			"materials": {},
 			"smoothing": 0.0
+		},
+		"prop_gift_wardrobe": {
+			"scale": 1.0,
+			"smoothing": 0.0,
+			"materials": {}
 		}
 	}
 }

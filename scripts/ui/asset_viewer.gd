@@ -275,8 +275,7 @@ static func presenter_model_name(asset_id: String) -> String:
 
 
 const PRESENTER_MODELS := [
-	{"asset_id": "worldheart_wardrobe_closed", "name": "Wardrobe (closed)"},
-	{"asset_id": "worldheart_wardrobe_hinged", "name": "Wardrobe (open)"},
+	{"asset_id": "prop_gift_wardrobe", "name": "Gift Wardrobe"},
 ]
 
 var _saved_visibility: Dictionary = {}
