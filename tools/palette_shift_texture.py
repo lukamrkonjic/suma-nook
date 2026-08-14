@@ -49,6 +49,10 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    # Palette entry for the base class, overriding nearest-match. Nearest-match
+    # is right by default, but a replacement asset sometimes has to keep
+    # continuity with the one it replaces rather than follow its own texture.
+    parser.add_argument("--stone-slot", default="")
     return parser.parse_args(argv)
 
 
@@ -104,6 +108,10 @@ def nearest_entry(mean: tuple[float, float, float], greens_only: bool) -> str:
         candidates,
         key=lambda name: P._perceptual_distance(mean, P._palette_srgb(name)),
     )
+
+
+# Set from --stone-slot before any image is processed.
+STONE_SLOT_OVERRIDE = ""
 
 
 def _to_srgb(linear: numpy.ndarray) -> numpy.ndarray:
@@ -218,6 +226,8 @@ def shift_image(image: bpy.types.Image) -> tuple:
             continue
         mean = rgb[mask].mean(axis=0)
         entry = nearest_entry(tuple(float(c) for c in mean), greens_only)
+        if not greens_only and STONE_SLOT_OVERRIDE:
+            entry = STONE_SLOT_OVERRIDE
         target = numpy.array(P._palette_srgb(entry), dtype=numpy.float32)
         targets[class_name] = tuple(float(c) for c in target)
         print(
@@ -487,11 +497,14 @@ def split_material_slots(
             return material
 
         stone = build_material("well_stone", False)
-        moss = build_material("well_moss", True)
         mesh.materials.clear()
         mesh.materials.append(stone)
         for polygon in mesh.polygons:
             polygon.material_index = 0
+        if "well_moss" not in class_targets:
+            print("  %s: single class, no moss shell" % mesh_object.name)
+            continue
+        moss = build_material("well_moss", True)
 
         # The shell duplicates the WHOLE mesh, not only moss-touching faces.
         # A partial shell has a boundary edge around every patch, and because
@@ -547,6 +560,8 @@ def split_material_slots(
 
 def main() -> None:
     arguments = parse_args()
+    global STONE_SLOT_OVERRIDE
+    STONE_SLOT_OVERRIDE = arguments.stone_slot
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=str(arguments.source))
     bpy.context.view_layer.update()
@@ -566,7 +581,11 @@ def main() -> None:
             mask, targets = shift_image(image)
             class_masks[image.name] = mask
             class_targets.update(targets)
-    if len(class_targets) == 2:
+    # One class still gets a named, factor-driven material so Asset Studio has
+    # a slot to recolour -- a model with no second paint would otherwise ship
+    # under the source's own material name with a baked texture and nothing to
+    # edit.
+    if class_targets:
         split_material_slots(class_masks, class_targets)
 
     # Ground at the base like every installed asset.

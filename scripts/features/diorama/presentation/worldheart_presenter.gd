@@ -11,26 +11,29 @@ extends Node3D
 const WELL_ASSET := "prop_wishing_well"
 const WELL_SCALE := 1.16
 ## The well's shaft, measured on the imported glb (unscaled): inner wall radius
-## runs 0.20-0.23 from z 0.19 up to the rim at 0.87, with no floor.
+## runs 0.275 from z 0.10 up to the rim at 0.452, over a modelled floor that
+## closes the shaft below z 0.065. Every constant here is fitted to THAT model
+## -- swap the asset and they must be re-measured, or the disc floats inside
+## the stone and rewards launch from the wrong height.
 ##
 ## A flat disc sunk mid-shaft, oversized so its edge is buried inside the
 ## opaque stone. A closed cylinder was tried instead, to stop sightlines
 ## through the ruin's missing back -- it made things worse, not better: its
 ## WALL is visible through that same gap, reading as a huge black mass rising
 ## past the rim rather than a hole in the ground.
-const WELL_MOUTH_DISC_RADIUS := 0.27
-const WELL_MOUTH_DISC_HEIGHT := 0.21
+const WELL_MOUTH_DISC_RADIUS := 0.30
+const WELL_MOUTH_DISC_HEIGHT := 0.12
 ## Interaction and animation heights, in world units after WELL_SCALE. The
 ## click anchor sits at the body's visual centre, NOT at the mouth: right-click
 ## targeting claims a 73px screen radius around it, and at mouth height that
 ## circle reached the neighbouring tile and stole its rotation clicks.
-const WELL_CLICK_ANCHOR_HEIGHT := 0.58
-const WELL_MOUTH_ANCHOR_HEIGHT := 0.78
-const WELL_HOVER_HEIGHT := 1.02
+const WELL_CLICK_ANCHOR_HEIGHT := 0.30
+const WELL_MOUTH_ANCHOR_HEIGHT := 0.48
+const WELL_HOVER_HEIGHT := 0.74
 ## How high a launched reward flies above the mouth before falling outward.
 ## High enough to clearly clear the rim (1.01 world) and read as "shot up out
 ## of the well" rather than lifted over its lip.
-const WELL_LAUNCH_APEX := 1.55
+const WELL_LAUNCH_APEX := 1.15
 const WELL_LAUNCH_DELAY := 0.34
 const REWARD_LAUNCH_DURATION := 0.86
 const PROGRESS_CARD_VIEWPORT_SIZE := Vector2i(132, 52)
@@ -1053,7 +1056,7 @@ func _offering_anchor() -> Vector3:
 
 
 func _meter_anchor() -> Vector3:
-	return _centre() + Vector3.UP * 1.34
+	return _centre() + Vector3.UP * 0.95
 
 
 func _entry(entry_id: String) -> Dictionary:
