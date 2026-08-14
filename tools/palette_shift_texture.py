@@ -147,8 +147,23 @@ def _coherent_mask(
     return (summed / float(size * size) >= 0.5).reshape(-1)
 
 
+def _dilate(mask: numpy.ndarray, width: int, height: int, steps: int) -> numpy.ndarray:
+    """Grows a boolean mask by `steps` pixels (4-neighbourhood)."""
+    grid = mask.reshape(height, width).copy()
+    for _ in range(steps):
+        grown = grid.copy()
+        for shift_y, shift_x in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            grown |= numpy.roll(grid, (shift_y, shift_x), axis=(0, 1))
+        grid = grown
+    return grid.reshape(-1)
+
+
 def _pad_edges(
-    rgb: numpy.ndarray, mask: numpy.ndarray, width: int, height: int
+    rgb: numpy.ndarray,
+    mask: numpy.ndarray,
+    width: int,
+    height: int,
+    steps: int = 4,
 ) -> numpy.ndarray:
     """Bleeds each class's colour a few pixels past its boundary.
 
@@ -158,7 +173,7 @@ def _pad_edges(
     """
     grid = rgb.reshape(height, width, 3).copy()
     inside = mask.reshape(height, width).copy()
-    for _ in range(4):
+    for _ in range(steps):
         outside = ~inside
         grown = inside.copy()
         for shift_y, shift_x in ((1, 0), (-1, 0), (0, 1), (0, -1)):
@@ -282,13 +297,23 @@ def split_material_slots(
                 detail[..., :3] / factor[None, None, :], 0.0, 1.0
             )
             if moss_only and detail.shape[-1] >= 4:
+                # The alpha mask must reach PAST every UV island border: the
+                # mask ends exactly at each seam, so the cutoff discarded a
+                # hair of shell along every seam edge inside a moss patch and
+                # the base showed through as thin lines following the mesh
+                # edges. Alpha grows 3 texels; RGB is padded further out so
+                # the grown rim wears moss colour, not clipped stone.
                 detail[..., :3] = _pad_edges(
                     detail[..., :3].reshape(-1, 3),
                     mask.reshape(-1),
                     width,
                     height,
+                    steps=8,
                 ).reshape(height, width, 3)
-                detail[..., 3] = numpy.where(mask, 1.0, 0.0)
+                alpha_mask = _dilate(mask.reshape(-1), width, height, 3)
+                detail[..., 3] = numpy.where(
+                    alpha_mask.reshape(height, width), 1.0, 0.0
+                )
             if not moss_only:
                 # The shell's alpha cutoff leaves a sub-pixel rim where the
                 # BASE texture shows through -- and its moss pixels still wear

@@ -81,6 +81,11 @@ Then, as for any import:
   the nodes BY NAME (`nodes.remove()` invalidates every other python node
   reference; removing by held references crashed) and pin metallic 0,
   roughness 1.
+- **Dilate the alpha mask past every UV island border.** The mask ends
+  exactly at each seam, so the cutoff discards a hair of shell along every
+  seam edge inside a patch and the base shows through as thin lines that
+  follow the mesh edges. Grow alpha ~3 texels (and pad RGB further than
+  that), which also closes the sub-texel bilinear rim at real boundaries.
 - **Guard both sides of the alpha edge.** Bilinear sampling blends RGB across
   the cutoff, and the base texture shows through in a sub-pixel rim: pad the
   shell's class colour outward past its mask, pad the base's OTHER-class
