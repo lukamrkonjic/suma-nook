@@ -54,7 +54,6 @@ def main() -> None:
     arguments = parse_args()
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=str(arguments.source))
-    write_normals = glb_export.scene_authors_normals()
     bpy.context.view_layer.update()
 
     before = lowest_point()
@@ -66,7 +65,7 @@ def main() -> None:
     print("GROUNDED %s min_z %.4f -> %.4f" % (arguments.source.name, before, after))
 
     bpy.ops.object.select_all(action="SELECT")
-    glb_export.export_selected(arguments.output, write_normals=write_normals)
+    glb_export.export_selected(arguments.output)
     print(f"GROUND_OUT={arguments.output}")
 
 

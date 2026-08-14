@@ -107,9 +107,7 @@ def main() -> None:
         )
 
     bpy.ops.object.select_all(action="SELECT")
-    glb_export.export_selected(
-        arguments.output, write_normals=glb_export.scene_authors_normals()
-    )
+    glb_export.export_selected(arguments.output)
     print(f"MERGE_OUT={arguments.output}")
 
 

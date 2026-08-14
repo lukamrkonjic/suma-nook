@@ -71,6 +71,22 @@ def parse_args() -> argparse.Namespace:
 PAINT_HUE_WEIGHT = 20.0
 PAINT_SATURATION_WEIGHT = 1.0
 
+# What counts as one continuous surface. Not coplanarity: these models are
+# gently curved, so a strict planar test found 1694 patches across 2000 faces --
+# almost every triangle alone, which is no grouping at all. About 20 degrees
+# follows a curved panel while still stopping at a bevel or a corner, which is
+# where the paint changes.
+SURFACE_NORMAL_MINIMUM = 0.94
+
+# ...and how different two neighbouring faces may sample and still be called the
+# same surface. Geometry alone is not enough: the wardrobe's corner post runs
+# unbroken from the body down past the plinth, so a purely geometric fill walked
+# straight across the paint boundary, averaged the whole post to the body's
+# colour, and left a light spike hanging into the dark plinth. Within one paint
+# neighbouring faces measure under 0.2 apart on this scale; across the wardrobe's
+# two paints, over 0.4.
+SURFACE_PAINT_TOLERANCE = 0.28
+
 
 def _paint_distance(
     left: tuple[float, float, float], right: tuple[float, float, float]
@@ -110,6 +126,166 @@ def _distance_for(faces: list):
     if not chromatic:
         return lambda left, right: P._perceptual_distance(left, right)
     return lambda left, right: _paint_distance(P._hls(left), P._hls(right))
+
+
+# How undecided a face's own colour has to be before its neighbours may
+# overrule it. 1.0 would mean exactly between the two cluster centres; at 0.72 a
+# face still has to be genuinely borderline. This is what keeps the wardrobe's
+# handles: they are small and completely surrounded by the door's colour, but
+# they sample decisively dark, so nothing about them is in doubt.
+STRAY_AMBIGUITY = 0.72
+
+
+def settle_strays(
+    mesh_object, assignment: dict, colours: dict, centres: dict, distance
+) -> int:
+    """Flips borderline faces to agree with the region around them.
+
+    Patch grouping stops at every corner, so the mitred tip where a corner post
+    dies into the plinth becomes its own tiny region and is judged on its own
+    sample. On the wardrobe that tip took the body's colour and hung into the
+    dark plinth as a light spike -- the paint boundary is meant to be a clean
+    line, and one wrongly-coloured facet across it is what reads as a glitch.
+
+    Only faces whose own colour is genuinely undecided may be moved, so a small
+    region that really is a different paint keeps its colour.
+    """
+    mesh = mesh_object.data
+    neighbours = _positional_neighbours(mesh)
+    changed = 0
+    for _pass in range(3):
+        moved = 0
+        for face_index, slot in sorted(assignment.items()):
+            around = [
+                assignment[other]
+                for other in neighbours.get(face_index, [])
+                if other in assignment
+            ]
+            if not around:
+                continue
+            majority = max(set(around), key=around.count)
+            if majority == slot or around.count(majority) * 2 <= len(around):
+                continue
+            sampled = colours.get(face_index)
+            if sampled is None:
+                continue
+            own = distance(sampled, centres[slot])
+            other = distance(sampled, centres[majority])
+            if other <= 0.0 or own / max(other, 1e-9) < STRAY_AMBIGUITY:
+                continue
+            assignment[face_index] = majority
+            moved += 1
+        changed += moved
+        if moved == 0:
+            break
+    return changed
+
+
+def _positional_neighbours(mesh) -> dict:
+    edge_faces: dict = {}
+    for polygon in mesh.polygons:
+        corners = [
+            tuple(round(value, 5) for value in mesh.vertices[index].co)
+            for index in polygon.vertices
+        ]
+        for i in range(len(corners)):
+            key = frozenset((corners[i], corners[(i + 1) % len(corners)]))
+            edge_faces.setdefault(key, []).append(polygon.index)
+    found: dict = {}
+    for members in edge_faces.values():
+        for face_index in members:
+            found.setdefault(face_index, set()).update(
+                other for other in members if other != face_index
+            )
+    return {key: sorted(value) for key, value in found.items()}
+
+
+def coplanar_patches(mesh_object, samples) -> list[dict]:
+    """Groups each mesh's faces into continuous surfaces, sampled as a whole.
+
+    Colour is sampled per triangle, but a modelled surface is many triangles and
+    a texture is not perfectly even across it. Assigning slots triangle by
+    triangle therefore lets one half of a quad take a different palette entry
+    from the other, and the model shows a hard-edged triangle of the wrong
+    colour in the middle of a flat panel -- which is exactly what the wardrobe's
+    side did in game.
+
+    A flat surface is one surface. Averaging over the whole patch also samples
+    far more of the texture than a single triangle does, so the decision is made
+    on better evidence as well as applied more coherently.
+    """
+    mesh = mesh_object.data
+
+    def edge_keys(polygon):
+        """Edges keyed by POSITION, not by vertex index.
+
+        Flat shading splits vertices, so two triangles meeting along an edge
+        hold different vertex indices for the same two corners and share no
+        index-keyed edge at all. Keyed by index the whole mesh looks like a
+        thousand isolated faces and nothing ever merges.
+        """
+        corners = [
+            tuple(round(value, 5) for value in mesh.vertices[index].co)
+            for index in polygon.vertices
+        ]
+        return [
+            frozenset((corners[i], corners[(i + 1) % len(corners)]))
+            for i in range(len(corners))
+        ]
+
+    edge_faces: dict = {}
+    for polygon in mesh.polygons:
+        for key in edge_keys(polygon):
+            edge_faces.setdefault(key, []).append(polygon.index)
+
+    face_colour: dict = {}
+    for polygon in mesh.polygons:
+        colour = P.average_component_color(mesh, [polygon.index], samples)
+        face_colour[polygon.index] = tuple(
+            P._srgb_channel(max(0.0, float(channel))) for channel in colour
+        )
+
+    patch_of: dict[int, int] = {}
+    patches: list[dict] = []
+    for polygon in mesh.polygons:
+        if polygon.index in patch_of:
+            continue
+        index = len(patches)
+        members = [polygon.index]
+        patch_of[polygon.index] = index
+        stack = [polygon]
+        while stack:
+            current = stack.pop()
+            for key in edge_keys(current):
+                for other_index in edge_faces.get(key, []):
+                    if other_index in patch_of:
+                        continue
+                    other = mesh.polygons[other_index]
+                    if current.normal.dot(other.normal) < SURFACE_NORMAL_MINIMUM:
+                        continue
+                    gap = _paint_distance(
+                        P._hls(face_colour[current.index]),
+                        P._hls(face_colour[other_index]),
+                    )
+                    if gap > SURFACE_PAINT_TOLERANCE:
+                        continue
+                    patch_of[other_index] = index
+                    members.append(other_index)
+                    stack.append(other)
+        patches.append({"object": mesh_object, "indices": members})
+
+    for patch in patches:
+        total = [0.0, 0.0, 0.0]
+        area = 0.0
+        for face_index in patch["indices"]:
+            srgb = face_colour[face_index]
+            weight = max(mesh.polygons[face_index].area, 1e-9)
+            total = [t + s * weight for t, s in zip(total, srgb)]
+            area += weight
+        patch["srgb"] = tuple(channel / area for channel in total)
+        patch["weight"] = len(patch["indices"])
+        patch["face_colour"] = face_colour
+    return patches
 
 
 def cluster_into(faces: list, count: int) -> list[dict]:
@@ -154,8 +330,15 @@ def cluster_into(faces: list, count: int) -> list[dict]:
         for index, group in enumerate(groups):
             if not group:
                 continue
+            # Weighted by how much surface each item stands for, so a wide panel
+            # pulls the centre more than a sliver of bevel does.
+            mass = sum(face.get("weight", 1) for face in group)
             mean = tuple(
-                sum(face["srgb"][channel] for face in group) / len(group)
+                sum(
+                    face["srgb"][channel] * face.get("weight", 1)
+                    for face in group
+                )
+                / mass
                 for channel in range(3)
             )
             if distance(mean, centres[index]) > 1e-4:
@@ -165,11 +348,16 @@ def cluster_into(faces: list, count: int) -> list[dict]:
             break
 
     clusters = [
-        {"faces": group, "srgb": centre, "hls": P._hls(centre)}
+        {
+            "faces": group,
+            "srgb": centre,
+            "hls": P._hls(centre),
+            "weight": sum(face.get("weight", 1) for face in group),
+        }
         for group, centre in zip(groups, centres)
         if group
     ]
-    clusters.sort(key=lambda cluster: -len(cluster["faces"]))
+    clusters.sort(key=lambda cluster: -cluster["weight"])
     return clusters
 
 
@@ -188,17 +376,13 @@ def map_jointly(
     land on the same slots.
     """
     faces: list[dict] = []
+    face_colours: dict = {}
     for mesh_object in meshes:
-        mesh = mesh_object.data
         samples = P.sampled_materials(mesh_object)
-        for polygon in mesh.polygons:
-            colour = P.average_component_color(mesh, [polygon.index], samples)
-            srgb = tuple(
-                P._srgb_channel(max(0.0, float(channel))) for channel in colour
-            )
-            faces.append(
-                {"object": mesh_object, "index": polygon.index, "srgb": srgb}
-            )
+        patches = coplanar_patches(mesh_object, samples)
+        if patches:
+            face_colours[mesh_object] = patches[0]["face_colour"]
+        faces += patches
 
     if slots > 0:
         clusters = cluster_into(faces, slots)
@@ -240,9 +424,13 @@ def map_jointly(
     per_object: dict = {}
     usage: dict = {}
     for cluster, slot in zip(clusters, chosen):
-        for face in cluster["faces"]:
-            per_object.setdefault(face["object"], {})[face["index"]] = slot
-        usage[slot] = usage.get(slot, 0) + len(cluster["faces"])
+        for patch in cluster["faces"]:
+            assignment = per_object.setdefault(patch["object"], {})
+            for face_index in patch.get("indices", [patch.get("index")]):
+                assignment[face_index] = slot
+        usage[slot] = usage.get(slot, 0) + cluster.get(
+            "weight", len(cluster["faces"])
+        )
         red, green, blue = cluster["srgb"]
         near = sorted(
             candidates,
@@ -253,7 +441,7 @@ def map_jointly(
         print(
             "  cluster %4d faces sRGB=(%.2f,%.2f,%.2f) #%02X%02X%02X -> %s"
             % (
-                len(cluster["faces"]),
+                cluster.get("weight", len(cluster["faces"])),
                 red,
                 green,
                 blue,
@@ -265,7 +453,20 @@ def map_jointly(
         )
         print("    nearest: %s" % ", ".join(near))
 
+    slot_centre = {
+        slot: cluster["srgb"] for cluster, slot in zip(clusters, chosen)
+    }
+    metric = _distance_for(faces)
     for mesh_object, assignment in per_object.items():
+        settled = settle_strays(
+            mesh_object,
+            assignment,
+            face_colours.get(mesh_object, {}),
+            slot_centre,
+            metric,
+        )
+        if settled:
+            print("  settled %d stray face(s) on %s" % (settled, mesh_object.name))
         mesh = mesh_object.data
         names = sorted(set(assignment.values()))
         mesh.materials.clear()
@@ -285,10 +486,9 @@ def main() -> None:
     meshes = [o for o in bpy.context.scene.objects if o.type == "MESH"]
     if not meshes:
         raise RuntimeError("No mesh geometry to recolour")
-    # Shading is left exactly as imported. This step recolours; how the surface
-    # is shaded is the source's decision and then the player's, through the
-    # asset's own smoothing setting.
-    write_normals = glb_export.scene_authors_normals()
+    # Uniform flat shading is the zero point of the asset's runtime smoothing,
+    # so the player's control has a crisp end to blend from.
+    glb_export.flatten_shading(meshes)
     P.CLUSTER_VALUE_WINDOW = arguments.value_window
     P._cluster_merge_distance = arguments.merge_distance
     if arguments.max_slots > 0:
@@ -303,7 +503,7 @@ def main() -> None:
         )
     )
     bpy.ops.object.select_all(action="SELECT")
-    glb_export.export_selected(arguments.output, write_normals=write_normals)
+    glb_export.export_selected(arguments.output)
     print(f"PALETTE_OUT={arguments.output}")
 
 

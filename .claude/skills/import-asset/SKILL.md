@@ -108,6 +108,42 @@ vertices per face) and under 2500 triangles, and inherits the default
 otherwise. Confirm with the weld probe in step 9: an authored-shading asset
 should report `moved=0`.
 
+### Shading: the glb must carry NORMAL
+
+**Every asset ships normals. An asset without them arrives in game rounded and
+detail-free, and no smoothing setting can recover it.**
+
+Suma decides shading at runtime: `AssetEditLibrary._smoothed_mesh` blends each
+surface's OWN normals toward averaged ones by the asset's `model_smoothing`. So
+the authored normals are the crisp end of the range the player is adjusting, and
+a file without them has no crisp end to blend from.
+
+glTF has no per-face normals, so flat shading costs a vertex split. That split
+is not damage and must not be optimised away. Measured on the wardrobe: its
+source stores POSITION and TEXCOORD_0 and no NORMAL, which keeps it welded at
+906 vertices over 1000 faces -- and shipping it that way made Godot generate
+averaged normals across every hard edge. The cabinet lost its door panels, its
+bevels and its facets, and `model_smoothing = 0` changed nothing. Every other
+shipped asset carries NORMAL; that one was the exception and it looked like it.
+
+Make the shading uniform before exporting, too. Repeated passes accumulate a
+custom split-normal layer and leave a scatter of faces smoothed among flat
+neighbours -- the wardrobe reached the game with 73 of them -- which reads as
+the model being subtly, unevenly wrong. `tools/glb_export.py` does both.
+
+Check any hand-built asset before shipping it:
+
+```bash
+python - <<'PY'
+import json, struct
+data = open("assets/3d/reworked/<prop_name>.glb", "rb").read()
+doc = json.loads(data[20 : 20 + struct.unpack("<I", data[12:16])[0]].decode())
+print(sorted({k for m in doc["meshes"] for p in m["primitives"] for k in p["attributes"]}))
+PY
+```
+
+`NORMAL` must be in that list.
+
 ## 4. Import
 
 ```bash
@@ -121,6 +157,25 @@ python tools/import_meshy_asset.py --source "<SOURCE.glb>" \
 assigns colour from the source's own clusters, which follows the model's
 design. Recolouring by face normal on top of that flattens it and breaks how
 the colours read.
+
+### When the asset is assembled rather than imported
+
+Some assets are not one source model: the wardrobe is two, merged into one glb
+with its doors split onto nodes the game rotates by name. `import_meshy_asset.py`
+cannot be used, because `prepare_model_import.py` re-roots and renames, which
+destroys exactly the node structure those assets depend on.
+
+Use `tools/palette_map_asset.py` instead. It reuses only the colour half and
+leaves every object, name and transform alone.
+
+Then **record the recipe as a script** -- `tools/rebuild_gift_wardrobe.py` is the
+model. An assembled asset takes several passes whose order matters, and
+reconstructing that order by hand goes wrong: grounding before splitting the
+doors silently sinks the open state, because the splitter re-parents with an
+identity parent inverse and drops the offset the source's parent empty carried.
+A recipe script also means the asset can be rebuilt from the sources after any
+tooling fix, which is the only reason the wardrobe's colour and shading bugs
+could be fixed without redoing the assembly by hand.
 
 ## 5. Colours must match the source, in Suma's palette
 
@@ -164,6 +219,52 @@ Four things were each wrong at least once, and each is now load-bearing:
   test is whether the two *clusters* match, not whether the alternatives are
   poor -- keying it on the alternatives let the statue's lit stone and its
   shadow share one entry and flattened the carving to a single tone.
+
+### Assign colour per surface, never per triangle
+
+A modelled surface is many triangles and a texture is not perfectly even across
+it, so judging each triangle on its own sample lets one half of a quad take a
+different palette entry from the other. In game that is a hard-edged triangle of
+the wrong colour in the middle of a flat panel -- the single most visible way an
+import can fail, and the wardrobe shipped with two of them.
+
+Group faces into continuous surfaces and assign the group. Two conditions,
+both needed:
+
+- **Geometric**: neighbouring faces join while their normals agree to about 20
+  degrees. Not coplanarity -- these models are gently curved, and a strict
+  planar test found 1694 groups across 2000 faces, which is no grouping at all.
+- **Colour**: neighbours also have to sample alike. Geometry alone walks
+  straight across a paint boundary wherever the form is continuous. The
+  wardrobe's corner post runs unbroken from the body down past the plinth, so a
+  purely geometric fill averaged the whole post to the body's colour and left a
+  light spike hanging in the dark plinth.
+
+Adjacency must be keyed by vertex **position**, not vertex index. Flat shading
+splits vertices, so two triangles meeting along an edge hold different indices
+for the same two corners; keyed by index the mesh looks like a thousand isolated
+faces and nothing ever groups.
+
+Then let a borderline face follow the region around it, but **only** if its own
+colour is genuinely undecided -- roughly equidistant between the two cluster
+centres. Without that guard a small region that really is a different paint gets
+swallowed: the wardrobe's handles are small and completely surrounded by the
+door's colour, and they must stay dark.
+
+`tools/palette_map_asset.py` implements all of this.
+
+### Cluster on hue and saturation, not value
+
+Source textures bake their shading in, so **value is the one channel that varies
+within a single paint** -- the wardrobe's orange samples #B8843E on the lit door
+and #6F3102 on the shaded side. Between two paints it is the reverse: measured
+on that model, its brown and its orange overlap in value and separate cleanly on
+hue (28-30 vs 34-36 degrees) and saturation (0.32-0.37 vs 0.55-0.58).
+
+Splitting on value grouped the shaded side with the top slab -- a different
+paint -- and gave a two-tone model three tones. Value still has to decide for
+assets with unsaturated regions, where hue is meaningless noise; switch on
+whether every face carries real saturation.
 
 ### When the cluster count is wrong
 
@@ -215,6 +316,13 @@ drives the canopy mesh, so a brown crown reads as broken.
 saturated red; a fly agaric's cap lands on `coral`. That is the palette working
 as intended, not a bug to chase.
 
+When the palette genuinely cannot hold a colour, say so and name the slots
+explicitly rather than tuning the clustering until something else comes out. The
+wardrobe's mid orange (#C9954A) has no saturated equivalent, so it resolves
+lighter; `palette_map_asset.py --slot <name>` records that decision in the
+recipe instead of leaving it to be rediscovered. Naming the slots is also what
+lets the user pick the colours themselves afterwards.
+
 To see the source's clusters without importing:
 
 ```bash
@@ -260,6 +368,26 @@ it used to come from `gg_material_palette.tres`, which holds different values
 for every slot and darkened them a second time, so a canvas remapped to `gold`
 rendered dark olive.
 
+### Check the layout, not just the counts
+
+Cluster counts say how many paints were found, not whether they landed on the
+right parts. Sample the SOURCE's own regions and compare with the slots the
+asset ended up with -- for anything with an obvious structure, name the regions
+by geometry and tabulate:
+
+| region | source samples | slot assigned |
+|---|---|---|
+| top slab | #9C734B | `wood_light` |
+| base / feet | #8C6746 | `wood_light` |
+| side panel | #C9954A | `sand_top` |
+| door front | #BC873B | `sand_top` |
+
+That table is what caught the wardrobe's side panel being grouped with its top
+instead of its doors. Mind that a naive region test picks up more than intended:
+"faces whose normal points sideways at maximum x" also catches the sides of an
+overhanging top slab and base, which mixed two paints into one row and made a
+correct assignment look broken. Constrain by height as well.
+
 For a `tree`, also confirm the split worked:
 
 ```
@@ -280,6 +408,45 @@ case applies rather than assuming the render is representative.
 
 **A render is not a reimport.** Godot caches the mesh, so step 9's `--import`
 is what actually puts the change in front of the player.
+
+### A Blender render can answer the wrong question
+
+Blender shades a glb with Blender's rules, and Godot's differ in exactly the way
+that matters. A wardrobe with no NORMAL attribute rendered crisply facetted in
+review -- Blender computed flat faces -- and arrived in game rounded, because
+Godot generated averaged ones. The review looked right while the asset was
+broken.
+
+So when the user reports something that the review render does not show, capture
+the engine's own output before theorising:
+
+```bash
+"/c/Dev/Godot/Godot_v4.6.3-stable_win64_console.exe" --path . \
+  tests/asset_ingame_capture.tscn -- --shot-dir=res://artifacts/asset_capture \
+  --asset=<prop_name> --smoothing=0.0
+```
+
+That harness opens the real game, selects the asset in the Asset Studio and
+saves a screenshot. Two things it had to learn: a fresh save opens the
+collection prompt over the whole screen, so hide it before capturing; and
+smoothing has to be set BEFORE the model is built, since setting it afterwards
+leaves the mesh already made.
+
+Running the game rewrites `data/asset_edits.json`, so `git checkout` it
+afterwards unless you meant to change a profile.
+
+### Deciding whether a defect is colour or geometry
+
+Colour bugs and modelling artifacts look alike once the palette puts a light
+region against a dark one. Settle it in one step: **re-render with every
+material forced to a single flat colour.** If the shape survives, it is
+geometry, and no amount of clustering work will remove it.
+
+That test ended a long hunt on the wardrobe's back corner. The spike there is in
+the user's own source model -- the body's bottom ring steps up by 0.023 at the
+mitre where the corner post dies into the plinth -- and it is invisible in the
+source only because both parts are near-identical browns there. Say so and offer
+to change the geometry, rather than tuning the colour mapping to hide it.
 
 ## 8. Wire it into game data, if it is new
 
@@ -313,10 +480,9 @@ one-line compact objects.
 
 The reimport is required — without it Godot renders the stale cached mesh.
 
-`FAIL: Soft-daylight uses balanced 4x MSAA and a bounded shadow map` is
-**pre-existing and unrelated**: `project.godot` ships `msaa_3d=3` and
-`directional_shadow/size=8192` while the test expects 2 and 4096. Report it as
-pre-existing; do not "fix" it as part of an import.
+The suite is green: any failure is yours. (It used to ship one stale MSAA
+failure, which this skill told you to wave through; the test now pins the
+authored values and passes, so there is nothing left to excuse.)
 
 Optionally confirm smoothing resolves:
 

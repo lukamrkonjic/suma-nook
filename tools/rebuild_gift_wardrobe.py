@@ -21,9 +21,12 @@ Order, and why:
 4. Recolour onto Suma's palette LAST, so both states cluster together and land
    on the same slots -- otherwise swapping between them changes colour.
 
-Shading is never altered. The sources author no glTF NORMAL attribute, which is
-what keeps them welded and lets the renderer decide the shading; every pass
-preserves that. See tools/glb_export.py.
+Every pass exports normals, and the last one makes the shading uniformly flat
+first. That flat state is the zero point of the asset's runtime smoothing, so
+the player's control has something crisp to blend from. Leaving normals out --
+which the sources themselves do -- makes Godot generate averaged ones instead,
+and the cabinet arrives rounded with its door panels smoothed away. See
+tools/glb_export.py.
 """
 
 from __future__ import annotations
@@ -75,7 +78,10 @@ def run(script: str, *arguments: str) -> None:
         sys.stderr.write(result.stderr)
         raise SystemExit("%s failed" % script)
     for line in result.stdout.splitlines():
-        if line.startswith(("GROUNDED", "MERGED", "CLOSED_YAW", "  cluster", "PALETTE ")):
+        if line.startswith((
+            "GROUNDED", "MERGED", "CLOSED_YAW", "  cluster", "PALETTE ",
+            "  settled",
+        )):
             print(line)
 
 
