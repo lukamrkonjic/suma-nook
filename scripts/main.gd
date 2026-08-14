@@ -679,6 +679,20 @@ func debug_prompt_skyfall() -> bool:
 	return wish_offer_panel.is_open()
 
 
+## Forces the Worldheart to surface a gift now, so the wardrobe's open/close
+## animation can be watched without waiting for a pulse.
+func debug_wardrobe_gift() -> bool:
+	if not OS.is_debug_build() or not core.diorama.enabled:
+		return false
+	var worldheart := core.diorama.worldheart
+	if worldheart == null:
+		return false
+	var reward: Dictionary = worldheart._roll_pulse_reward()
+	if reward.is_empty():
+		return false
+	return worldheart.enqueue_external_reward(reward, "debug")
+
+
 func debug_grant_all_items(amount := 99) -> int:
 	if not OS.is_debug_build():
 		return 0

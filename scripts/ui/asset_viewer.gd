@@ -1215,6 +1215,11 @@ func _hide_gameplay_presentation() -> void:
 		_main.player,
 		_main.camera_rig,
 		_main.placement,
+		# The Worldheart presenter owns the wardrobe and the reward miniatures.
+		# Left visible, they stood in the studio behind whatever model was being
+		# edited, which is the one thing the studio is supposed to show alone.
+		_main.worldheart_presenter,
+		_main.frontier_markers,
 		_main.hud,
 		_main.panels,
 		_main.wish_offer_panel,

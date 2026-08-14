@@ -162,6 +162,17 @@ func _register_builtin_actions() -> void:
 			set_status("Wish ready." if ready else "Could not prepare a wish.", ready)
 	)
 	register_action(
+		"world", "World",
+		"Wardrobe gift",
+		"Surface a Worldheart gift now, to watch the wardrobe open and close.",
+		"DebugWardrobeGift",
+		func() -> void:
+			var queued := bridge.debug_wardrobe_gift()
+			set_status(
+				"Gift queued." if queued else "Could not queue a gift.", queued
+			)
+	)
+	register_action(
 		"library", "Build Bag",
 		"Items ×99",
 		"Add 99 of every registered inventory item.",
