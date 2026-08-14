@@ -68,79 +68,74 @@ func _run() -> void:
 		and main.worldheart_presenter != null
 		and main.worldheart_presenter.hole != null
 		and main.worldheart_presenter.portal_fx_root.name == "PortalFxRoot"
-		and main.worldheart_presenter.vortex_pivot.name == "WardrobeVisualPivot"
-		and main.worldheart_presenter.wardrobe_closed != null
-		and main.worldheart_presenter.wardrobe_closed.visible
-		and main.worldheart_presenter.wardrobe_open != null
-		and not main.worldheart_presenter.wardrobe_open.visible
-		and main.worldheart_presenter.wardrobe_cavity != null
-		and not main.worldheart_presenter.wardrobe_cavity.visible
+		and main.worldheart_presenter.vortex_pivot.name == "WellVisualPivot"
+		and main.worldheart_presenter.well_visual_root != null
+		and main.worldheart_presenter.well_visual_root.visible
+		and main.worldheart_presenter.hole.visible
 		and (
-			main.worldheart_presenter.wardrobe_cavity.material_override
+			main.worldheart_presenter.hole.material_override
 			as StandardMaterial3D
 		).albedo_color == Color.BLACK
 		and (
-			main.worldheart_presenter.wardrobe_cavity.material_override
+			main.worldheart_presenter.hole.material_override
 			as StandardMaterial3D
 		).shading_mode == BaseMaterial3D.SHADING_MODE_UNSHADED
-		and main.worldheart_presenter.wardrobe_upper_cavity_mask != null
 		and main.worldheart_presenter.outer_aura_pivot.get_child_count() == 0
 		and main.worldheart_presenter.rune_stone_ring_pivot.get_child_count() == 0
 		and main.worldheart_presenter.mote_emitter_pivot.get_child_count() == 0
 		and main.worldheart_presenter.portal_light == null,
-		"the permanent Worldheart defaults to the closed wardrobe with a fully black, effect-free interior"
+		"the permanent Worldheart is the wishing well with an always-dark, effect-free mouth"
 	)
-	var wardrobe_materials_are_crisp := true
-	var wardrobe_mesh_count := 0
-	for mesh_variant in main.worldheart_presenter.wardrobe_closed.find_children(
+	var well_materials_are_crisp := true
+	var well_mesh_count := 0
+	for mesh_variant in main.worldheart_presenter.well_visual_root.find_children(
 		"*", "MeshInstance3D", true, false
 	):
-		var wardrobe_mesh := mesh_variant as MeshInstance3D
-		wardrobe_mesh_count += 1
-		for surface in wardrobe_mesh.mesh.get_surface_count():
-			var wardrobe_material := (
-				wardrobe_mesh.get_active_material(surface) as StandardMaterial3D
+		var well_mesh := mesh_variant as MeshInstance3D
+		if well_mesh == main.worldheart_presenter.hole:
+			continue
+		well_mesh_count += 1
+		for surface in well_mesh.mesh.get_surface_count():
+			var well_material := (
+				well_mesh.get_active_material(surface) as StandardMaterial3D
 			)
-			wardrobe_materials_are_crisp = (
-				wardrobe_materials_are_crisp
-				and wardrobe_material != null
-				and wardrobe_material.texture_filter
+			well_materials_are_crisp = (
+				well_materials_are_crisp
+				and well_material != null
+				and well_material.texture_filter
 					== BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
-				and wardrobe_material.diffuse_mode
+				and well_material.diffuse_mode
 					== BaseMaterial3D.DIFFUSE_TOON
-				and wardrobe_material.specular_mode
+				and well_material.specular_mode
 					== BaseMaterial3D.SPECULAR_TOON
 			)
 	check(
-		wardrobe_mesh_count > 0 and wardrobe_materials_are_crisp,
-		"wardrobe textures use crisp sampling and stepped terrain-style lighting"
+		well_mesh_count > 0 and well_materials_are_crisp,
+		"well textures use crisp sampling and stepped terrain-style lighting"
 	)
-	var wardrobe_screen := main.camera_rig.camera.unproject_position(
-		main.worldheart_presenter._wardrobe_interaction_anchor()
+	var well_screen := main.camera_rig.camera.unproject_position(
+		main.worldheart_presenter._well_interaction_anchor()
 	)
-	var wardrobe_hover := main.placement._interaction_hover_at_screen(
-		wardrobe_screen
+	var well_hover := main.placement._interaction_hover_at_screen(
+		well_screen
 	)
-	main.placement._show_interaction_hover(wardrobe_hover)
+	main.placement._show_interaction_hover(well_hover)
 	await get_tree().process_frame
 	check(
-		wardrobe_hover.get("visual")
-			== main.worldheart_presenter.wardrobe_closed
-		and not main.renderer._outlined_meshes.is_empty()
-		and not main.renderer._outlined_meshes.has(
-			main.worldheart_presenter.wardrobe_cavity
-		),
-		"hovering the wardrobe sends its visible authored mesh through the white outline pass"
+		well_hover.get("visual")
+			== main.worldheart_presenter.well_visual_root
+		and not main.renderer._outlined_meshes.is_empty(),
+		"hovering the well sends its authored mesh through the white outline pass"
 	)
 	main.renderer.clear_structure_hover()
 	# The world is permanently editable; the old Build Bag focus flag must not
-	# authorize or reject a direct right-click on the wardrobe.
+	# authorize or reject a direct right-click on the well.
 	main.placement.set_active(false)
-	var wardrobe_right_click := InputEventMouseButton.new()
-	wardrobe_right_click.button_index = MOUSE_BUTTON_RIGHT
-	wardrobe_right_click.pressed = true
-	wardrobe_right_click.position = wardrobe_screen
-	main._input(wardrobe_right_click)
+	var well_right_click := InputEventMouseButton.new()
+	well_right_click.button_index = MOUSE_BUTTON_RIGHT
+	well_right_click.pressed = true
+	well_right_click.position = well_screen
+	main._input(well_right_click)
 	await get_tree().create_timer(0.38).timeout
 	check(
 		main.core.diorama.worldheart.worldheart_rotation_quarters == 1
@@ -150,7 +145,7 @@ func _run() -> void:
 		and int(main.core.diorama.worldheart.to_save_dict().get(
 			"worldheart_rotation_quarters", -1
 		)) == 1,
-		"right-click rotates the wardrobe without requiring legacy build mode"
+		"right-click rotates the well without requiring legacy build mode"
 	)
 	InputDeviceService.shared().input_method = InputDeviceService.InputMethod.CONTROLLER
 	main.placement.set_controller_mode(true)
@@ -159,13 +154,13 @@ func _run() -> void:
 	controller_rotate.action = &"rotate_piece"
 	controller_rotate.pressed = true
 	main._handle_controller_build_input(controller_rotate)
-	await get_tree().create_timer(0.38).timeout
+	await get_tree().create_timer(0.55).timeout
 	check(
 		main.core.diorama.worldheart.worldheart_rotation_quarters == 2
 		and is_equal_approx(
 			main.worldheart_presenter.vortex_pivot.rotation.y, PI
 		),
-		"the controller rotate action turns the focused wardrobe through the same state"
+		"the controller rotate action turns the focused well through the same state"
 	)
 	main.placement.set_controller_mode(false)
 	main.placement.set_active(false)
@@ -244,12 +239,12 @@ func _run() -> void:
 	var first_entry: Dictionary = visible[0]
 	var first_entry_id := String(first_entry.get("entry_id", ""))
 	var reward_node := main.worldheart_presenter._entry_nodes[first_entry_id] as Node3D
+	var first_offset := (
+		reward_node.position - main.worldheart_presenter._centre()
+	)
 	check(
-		(
-			reward_node.position
-			- main.worldheart_presenter._centre()
-		).dot(main.worldheart_presenter._facing_forward()) > 0.4,
-		"the first settled pulse remains in front when the wardrobe is rotated"
+		Vector2(first_offset.x, first_offset.z).length() > 0.4,
+		"the first settled pulse lands beside the well, not inside it"
 	)
 	var reward_screen := main.camera_rig.camera.unproject_position(
 		reward_node.global_position
@@ -305,24 +300,29 @@ func _run() -> void:
 		"active reward presentation yields completely to build interaction"
 	)
 	main.worldheart_presenter.set_player_interaction_busy(false)
-	await get_tree().create_timer(0.76).timeout
-	var emerging_node := (
-		main.worldheart_presenter._entry_nodes.get(emerging_id) as Node3D
-	)
-	var emergence_forward_distance := (
-		(
-			emerging_node.position
-			- main.worldheart_presenter._wardrobe_swallow_anchor()
-		).dot(main.worldheart_presenter._facing_forward())
-		if is_instance_valid(emerging_node) else -999.0
-	)
+	# The launch resumes on its own clock after the pause, so sample every frame
+	# rather than betting on one instant: the reward must be seen ABOVE the
+	# mouth at some point of its flight.
+	var emergence_seen := false
+	var emergence_deadline := Time.get_ticks_msec() + 2000
+	var emerging_node: Node3D = null
+	while Time.get_ticks_msec() < emergence_deadline:
+		emerging_node = (
+			main.worldheart_presenter._entry_nodes.get(emerging_id) as Node3D
+		)
+		if (
+			is_instance_valid(emerging_node)
+			and emerging_node.position.y
+				> main.worldheart_presenter._well_mouth_anchor().y + 0.12
+		):
+			emergence_seen = true
+			break
+		await get_tree().process_frame
 	check(
-		is_instance_valid(emerging_node)
-		and bool(emerging_node.get_meta(&"worldheart_launching", false))
-		and emergence_forward_distance > 0.12
-		and main.worldheart_presenter.wardrobe_open.visible,
-		"timed rewards visibly emerge through the open doors before curving to a slot"
+		emergence_seen,
+		"timed rewards visibly shoot up out of the well mouth before falling to a slot"
 	)
+	await get_tree().create_timer(0.76).timeout
 	await get_tree().create_timer(1.15).timeout
 	var fixed_reward_position := emerging_node.global_position
 	var fixed_reward_cell: Vector2i = main.worldheart_presenter._entry_cells[
@@ -339,7 +339,7 @@ func _run() -> void:
 		))
 		and main.worldheart_presenter._entry_cells[emerging_id]
 			== fixed_reward_cell,
-		"surfaced loot stays fixed when the wardrobe rotates"
+		"surfaced loot stays fixed when the well rotates"
 	)
 	main.core.diorama.worldheart.move_to(Vector2i(1, 1))
 	await get_tree().process_frame
@@ -352,7 +352,7 @@ func _run() -> void:
 		))
 		and main.worldheart_presenter._entry_cells[emerging_id]
 			== fixed_reward_cell,
-		"surfaced loot stays fixed when the wardrobe moves"
+		"surfaced loot stays fixed when the well moves"
 	)
 	main.core.diorama.worldheart.move_to(Vector2i.ZERO)
 	await get_tree().process_frame
@@ -417,41 +417,24 @@ func _run() -> void:
 	main._sync_worldheart_offer_preview()
 	await get_tree().create_timer(0.16).timeout
 	check(
-		main.worldheart_presenter.wardrobe_open.visible
-		and absf(angle_difference(
-			main.worldheart_presenter.wardrobe_door_left.rotation.y,
-			main.worldheart_presenter.LEFT_DOOR_CLOSED_YAW
-		)) > 0.1
-		and absf(angle_difference(
-			main.worldheart_presenter.wardrobe_door_right.rotation.y,
-			main.worldheart_presenter.RIGHT_DOOR_CLOSED_YAW
-		)) > 0.1,
-		"hover visibly swings both authored wardrobe doors from their hinges"
+		main.worldheart_presenter._well_is_stirred,
+		"hover visibly stirs the well"
 	)
 	await get_tree().create_timer(0.40).timeout
-	var hover_shake_before := main.worldheart_presenter.wardrobe_shake_root.rotation
+	var hover_shake_before := main.worldheart_presenter.well_shake_root.rotation
 	await get_tree().create_timer(0.05).timeout
-	var hover_shake_after := main.worldheart_presenter.wardrobe_shake_root.rotation
+	var hover_shake_after := main.worldheart_presenter.well_shake_root.rotation
 	check(
-		main.worldheart_presenter._wardrobe_is_open
-		and main.worldheart_presenter.wardrobe_open.visible
-		and not main.worldheart_presenter.wardrobe_closed.visible
-		and main.worldheart_presenter.wardrobe_cavity.visible
-		and main.worldheart_presenter.wardrobe_upper_cavity_mask.visible
-		and absf(main.worldheart_presenter.wardrobe_door_left.rotation.y) < 0.02
-		and absf(main.worldheart_presenter.wardrobe_door_right.rotation.y) < 0.02
+		main.worldheart_presenter._well_is_stirred
 		and hover_shake_before.distance_to(hover_shake_after) > 0.001,
-		"controller hover completes the bouncy open and gives the wardrobe a visible shake"
+		"controller hover completes the stir and gives the well a visible shake"
 	)
 	main.placement._controller_cell = Vector2i(2, 2)
 	main._sync_worldheart_offer_preview()
 	await get_tree().create_timer(0.42).timeout
 	check(
-		not main.worldheart_presenter._wardrobe_is_open
-		and main.worldheart_presenter.wardrobe_closed.visible
-		and not main.worldheart_presenter.wardrobe_open.visible
-		and not main.worldheart_presenter.wardrobe_cavity.visible,
-		"moving the held item away closes the wardrobe without consuming it"
+		not main.worldheart_presenter._well_is_stirred,
+		"moving the held item away settles the well without consuming it"
 	)
 	InputDeviceService.shared().input_method = InputDeviceService.InputMethod.KEYBOARD_MOUSE
 	main.placement.set_controller_mode(false)
@@ -471,12 +454,12 @@ func _run() -> void:
 		and main.worldheart_presenter._offering_preview.global_position.distance_to(
 			main.worldheart_presenter._offering_anchor()
 		) < 0.08
-		and main.worldheart_presenter._wardrobe_is_open
+		and main.worldheart_presenter._well_is_stirred
 		and not main.worldheart_presenter.progress_card_sprite.visible,
-		"hover opens and shakes the wardrobe around a miniature without revealing duplication UI"
+		"hover stirs the well around a miniature without revealing duplication UI"
 	)
 	var offer_hole_screen := main.camera_rig.camera.unproject_position(
-		main.worldheart_presenter.hole.global_position
+		main.worldheart_presenter._well_interaction_anchor()
 	)
 	main._begin_build_pointer(offer_hole_screen)
 	check(
@@ -511,9 +494,7 @@ func _run() -> void:
 		)
 		and progress_card_style.shadow_size == 0
 		and progress_card_style.get_border_width(SIDE_LEFT) == 0
-		and not main.worldheart_presenter._wardrobe_is_open
-		and main.worldheart_presenter.wardrobe_closed.visible
-		and not main.worldheart_presenter.wardrobe_cavity.visible,
+		and not main.worldheart_presenter._well_is_stirred,
 		"dropping the first spare shows a tiny flat beige card in the shared UI font"
 	)
 	main.hud.worldheart_offer_requested.emit("tile", "tile_grass_flower")
@@ -527,26 +508,21 @@ func _run() -> void:
 	# Drop (0.34s), meter fill (0.34s), and its celebratory hold (0.78s)
 	# complete before the directional launch becomes visible.
 	await get_tree().create_timer(1.56).timeout
-	var spit_is_in_front := false
+	var spit_is_airborne := false
 	if is_instance_valid(main.worldheart_presenter._exchange_reward_visual):
-		var spit_offset := (
-			main.worldheart_presenter._exchange_reward_visual.position
-			- main.worldheart_presenter._wardrobe_swallow_anchor()
+		# The direction is random, so the observable contract is height: the
+		# reward is above the mouth, on its way up and out of the well.
+		spit_is_airborne = (
+			main.worldheart_presenter._exchange_reward_visual.position.y
+			> main.worldheart_presenter._well_mouth_anchor().y + 0.10
 		)
-		spit_is_in_front = spit_offset.dot(
-			main.worldheart_presenter._facing_forward()
-		) > 0.25
 	check(
-		spit_is_in_front
-		and main.worldheart_presenter._wardrobe_is_open
-		and main.worldheart_presenter.wardrobe_open.visible
-		and absf(main.worldheart_presenter.wardrobe_door_left.rotation.y) < 0.02
-		and absf(main.worldheart_presenter.wardrobe_door_right.rotation.y) < 0.02,
-		"completed exchanges open both doors before spitting through the rotated front"
+		spit_is_airborne and main.worldheart_presenter._well_is_stirred,
+		"completed exchanges shoot the new member up out of the well"
 	)
 
 	var hole_screen := main.camera_rig.camera.unproject_position(
-		main.worldheart_presenter.hole.global_position
+		main.worldheart_presenter._well_interaction_anchor()
 	)
 	var destination_screen := main.camera_rig.camera.unproject_position(
 		main.core.grid.cell_to_world(Vector2i(1, 1))
@@ -584,29 +560,26 @@ func _run() -> void:
 		main.worldheart_presenter.portal_fx_root.global_position.distance_to(
 			main.core.grid.cell_to_world(Vector2i(1, 1)) + Vector3.UP * 0.025
 		) < 0.05,
-		"the complete wardrobe follows the saved host cell"
+		"the complete well follows the saved host cell"
 	)
-	var directions_work := true
-	var expected_directions := [
-		Vector3.BACK, Vector3.RIGHT, Vector3.FORWARD, Vector3.LEFT
-	]
+	# The well is radially symmetric, so its mouth anchor must be rotation
+	# independent -- launches go straight up regardless of the quarter turn.
+	var anchors_stable := true
 	for quarter in 4:
 		main.core.diorama.worldheart.worldheart_rotation_quarters = quarter
-		var start := main.worldheart_presenter._wardrobe_swallow_anchor()
-		var clear := main.worldheart_presenter._doorway_clear_point(
-			start, 0.56, 0.10
-		)
-		var horizontal := clear - start
-		horizontal.y = 0.0
-		directions_work = directions_work and horizontal.normalized().is_equal_approx(
-			expected_directions[quarter]
+		anchors_stable = (
+			anchors_stable
+			and main.worldheart_presenter._well_mouth_anchor().is_equal_approx(
+				main.worldheart_presenter._centre()
+				+ Vector3.UP * main.worldheart_presenter.WELL_MOUTH_ANCHOR_HEIGHT
+			)
 		)
 	check(
-		directions_work,
-		"reward ejection follows the wardrobe front in all four rotations"
+		anchors_stable,
+		"the well mouth anchor holds still through all four rotations"
 	)
 	main.core.diorama.worldheart.worldheart_rotation_quarters = 2
-	main.worldheart_presenter._sync_wardrobe_rotation(false)
+	main.worldheart_presenter._sync_well_rotation(false)
 
 	InputDeviceService.shared().input_method = InputDeviceService.InputMethod.CONTROLLER
 	main.placement.set_controller_mode(true)

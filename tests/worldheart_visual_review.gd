@@ -25,15 +25,15 @@ func _run() -> void:
 	main.camera_rig.set_zoom_immediate(10.0)
 	await get_tree().create_timer(0.9).timeout
 	await _capture("02_winter_nine_tiles.png")
-	var wardrobe_screen := main.camera_rig.camera.unproject_position(
-		main.worldheart_presenter._wardrobe_interaction_anchor()
+	var well_screen := main.camera_rig.camera.unproject_position(
+		main.worldheart_presenter._well_interaction_anchor()
 	)
 	main.placement.set_process(false)
 	main.placement._show_interaction_hover(
-		main.placement._interaction_hover_at_screen(wardrobe_screen)
+		main.placement._interaction_hover_at_screen(well_screen)
 	)
 	await get_tree().create_timer(0.15).timeout
-	await _capture("02b_wardrobe_hover_outline.png")
+	await _capture("02b_well_hover_outline.png")
 	main.renderer.clear_structure_hover()
 	main.placement.set_process(true)
 	main.lighting.set_time_of_day("night")
@@ -56,7 +56,7 @@ func _run() -> void:
 	)
 	main.placement.set_external_offer_preview(true)
 	await get_tree().create_timer(0.16).timeout
-	await _capture("04a_door_swing.png")
+	await _capture("04a_well_stir.png")
 	await get_tree().create_timer(0.40).timeout
 	await _capture("04_offering_preview.png")
 	main.project_panel.close()
@@ -69,7 +69,7 @@ func _run() -> void:
 	await _capture("06_meter_one_of_two.png")
 	main.hud.worldheart_offer_requested.emit("tile", "tile_grass_flower")
 	await get_tree().create_timer(1.78).timeout
-	await _capture("07a_reward_doors_open.png")
+	await _capture("07a_reward_launch_rising.png")
 	await get_tree().create_timer(0.30).timeout
 	await _capture("07_reward_spit.png")
 	get_tree().quit()

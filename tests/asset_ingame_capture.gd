@@ -47,6 +47,18 @@ func _ready() -> void:
 		return
 
 	_main.asset_viewer.select_content(_asset_id)
+	# select_content returns early on an id the studio does not know -- an
+	# unregistered asset, a typo -- leaving the default tile selected. Without
+	# this check the harness then captures Beach Sand and labels it with the
+	# asset's name, which is worse than no screenshot at all.
+	if _main.asset_viewer._selected_content_id != _asset_id:
+		push_error(
+			"Asset Studio could not select '%s'; it is not a registered tile, "
+			% _asset_id
+			+ "structure, or presenter model. Nothing was captured."
+		)
+		await _finish(1)
+		return
 	_main.asset_viewer.set_weather_preset("day")
 	_main.asset_viewer.set_light_preset("noon")
 	await _settle(45)

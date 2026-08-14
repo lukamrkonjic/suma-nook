@@ -679,7 +679,7 @@ func debug_prompt_skyfall() -> bool:
 	return wish_offer_panel.is_open()
 
 
-## Forces the Worldheart to surface a gift now, so the wardrobe's open and close
+## Forces the Worldheart to surface a gift now, so the well's stir and launch
 ## can be watched without waiting for a pulse.
 ##
 ## _roll_pulse_reward can legitimately return nothing -- it draws from the
@@ -696,7 +696,7 @@ func debug_wardrobe_gift() -> bool:
 	# A full queue is the normal state once gifts have accumulated -- reserve_cap
 	# defaults to 12 -- and enqueueing into it always fails. That is what made the
 	# button report "could not queue": there was nothing wrong except that the
-	# wardrobe already had twelve gifts waiting. So deliver one instead, which is
+	# well already had twelve gifts waiting. So deliver one instead, which is
 	# what "give me an item" actually means, and only enqueue when it is empty.
 	if not worldheart.reward_queue.is_empty():
 		var waiting := String(
@@ -720,16 +720,16 @@ func debug_wardrobe_gift() -> bool:
 	return true
 
 
-## Runs the open/close swing directly. Claiming a gift changes state but does not
-## itself play the wardrobe, and watching the animation is the whole point of the
+## Runs the stir/settle directly. Claiming a gift changes state but does not
+## itself animate the well, and watching the animation is the whole point of the
 ## button.
 func _debug_swing_wardrobe() -> void:
 	if worldheart_presenter == null:
 		return
-	worldheart_presenter.call("_play_wardrobe_open")
+	worldheart_presenter.call("_stir_well")
 	await get_tree().create_timer(1.1).timeout
 	if worldheart_presenter != null:
-		worldheart_presenter.call("_play_wardrobe_close", true)
+		worldheart_presenter.call("_settle_well", true)
 
 
 ## Any valid reward, decorated the way a rolled one would be so the queue and the

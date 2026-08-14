@@ -1,39 +1,35 @@
 class_name WorldheartPresenter
 extends Node3D
-## Permanent wardrobe presentation plus a small set of collectible reward
+## Permanent wishing-well presentation plus a small set of collectible reward
 ## miniatures. Targeting is screen/cell based so these visuals never need to
 ## occupy the authoritative build grid.
 
-## ONE asset holding both states as sub-hierarchies, instantiated through
-## AssetLibrary by id.
-##
-## The closed and open wardrobes used to be two separate assets, which meant two
-## Asset Studio entries to keep in visual sync and two instances swapped
-## mid-swing. They are now StateClosed and StateOpen groups inside a single
-## model, so the swap is a visibility toggle between children of one instance --
-## and the whole wardrobe is one thing to place, smooth and recolour.
-##
-## Going through AssetLibrary matters on its own: AssetEditLibrary only reaches
-## assets instantiated that way, so while this was preloaded as a PackedScene an
-## Asset Studio edit would save and then visibly do nothing.
-const WARDROBE_ASSET := "prop_gift_wardrobe"
-const WARDROBE_CLOSED_STATE := "StateClosed"
-const WARDROBE_OPEN_STATE := "StateOpen"
-const WARDROBE_SCALE := 1.16
-## Zero because the glbs are now grounded at their base like every imported
-## asset. The old 0.58 existed only to hoist a centre-origined model out of the
-## floor -- a constant that had to be retuned for every model swap, and the
-## reason the wardrobe clipped through its tile in Asset Studio, which never
-## applied it.
-const WARDROBE_BASE_HEIGHT := 0.0
-## Shut angles for the current hinged model, solved rather than eyeballed: each
-## door's yaw is swept and the angle that collapses its depth footprint -- the
-## one property a shut door has and an open one does not -- is taken, within the
-## half-turn that keeps it on its own side. Both land on a quarter turn, which is
-## the symmetry the old model's 125/-142 pair never had.
-const LEFT_DOOR_CLOSED_YAW := deg_to_rad(-90.0)
-const RIGHT_DOOR_CLOSED_YAW := deg_to_rad(90.0)
-const WARDROBE_LAUNCH_DELAY := 0.52
+## Instantiated through AssetLibrary by id -- AssetEditLibrary only reaches
+## assets instantiated that way, so a preloaded PackedScene here would make
+## Asset Studio edits save and then visibly do nothing (measured on the
+## wardrobe this replaced).
+const WELL_ASSET := "prop_wishing_well"
+const WELL_SCALE := 1.16
+## The well's shaft, measured on the imported glb (unscaled): inner wall radius
+## runs 0.20-0.23 from z 0.19 up to the rim at 0.87, with no floor. The dark
+## disc sits flush at the shaft floor -- just above where the interior begins --
+## so it reads as deep dark water at the bottom rather than a lid across the
+## mouth. Oversized, so its edge intersects the wall INSIDE the opaque stone,
+## where both the overlap and any polygonal gap are invisible.
+const WELL_MOUTH_DISC_RADIUS := 0.27
+const WELL_MOUTH_DISC_HEIGHT := 0.21
+## Interaction and animation heights, in world units after WELL_SCALE. The
+## click anchor sits at the body's visual centre, NOT at the mouth: right-click
+## targeting claims a 73px screen radius around it, and at mouth height that
+## circle reached the neighbouring tile and stole its rotation clicks.
+const WELL_CLICK_ANCHOR_HEIGHT := 0.58
+const WELL_MOUTH_ANCHOR_HEIGHT := 0.78
+const WELL_HOVER_HEIGHT := 1.02
+## How high a launched reward flies above the mouth before falling outward.
+## High enough to clearly clear the rim (1.01 world) and read as "shot up out
+## of the well" rather than lifted over its lip.
+const WELL_LAUNCH_APEX := 1.55
+const WELL_LAUNCH_DELAY := 0.34
 const REWARD_LAUNCH_DURATION := 0.86
 const PROGRESS_CARD_VIEWPORT_SIZE := Vector2i(132, 52)
 const PROGRESS_CARD_SIZE := Vector2(126, 46)
@@ -53,15 +49,9 @@ var rune_stone_ring_pivot: Node3D
 var mote_emitter_pivot: Node3D
 var portal_light: OmniLight3D
 var hole: MeshInstance3D
-var wardrobe_motion_root: Node3D
-var wardrobe_shake_root: Node3D
-var wardrobe_visual_root: Node3D
-var wardrobe_closed: Node3D
-var wardrobe_open: Node3D
-var wardrobe_door_left: Node3D
-var wardrobe_door_right: Node3D
-var wardrobe_cavity: MeshInstance3D
-var wardrobe_upper_cavity_mask: MeshInstance3D
+var well_motion_root: Node3D
+var well_shake_root: Node3D
+var well_visual_root: Node3D
 var progress_card_viewport: SubViewport
 var progress_card_sprite: Sprite3D
 var progress_card: PanelContainer
@@ -86,9 +76,9 @@ var _offering_swallowed_callback: Callable
 var _exchange_reward_visual: Node3D
 var _light_flash_boost := 0.0
 var _meter_tween: Tween
-var _wardrobe_tween: Tween
-var _wardrobe_rotation_tween: Tween
-var _wardrobe_is_open := false
+var _well_tween: Tween
+var _well_rotation_tween: Tween
+var _well_is_stirred := false
 var _reward_launch_ids: Dictionary = {}
 var _motes: Array[MeshInstance3D] = []
 var _active_tweens: Array[Tween] = []
@@ -122,7 +112,7 @@ func setup(
 	core.diorama.worldheart.contribution_changed.connect(_on_contribution_changed)
 	core.diorama.worldheart.worldheart_moved.connect(_on_worldheart_moved)
 	core.diorama.worldheart.worldheart_rotated.connect(_on_worldheart_rotated)
-	_sync_wardrobe_rotation(false)
+	_sync_well_rotation(false)
 	_sync_entries()
 	_sync_progress_card()
 	set_process(true)
@@ -190,10 +180,10 @@ func set_player_interaction_busy(busy: bool) -> void:
 		var candidates: Array[Tween] = _reward_tweens.duplicate()
 		if (
 			not _reward_launch_ids.is_empty()
-			and _wardrobe_tween != null
-			and not candidates.has(_wardrobe_tween)
+			and _well_tween != null
+			and not candidates.has(_well_tween)
 		):
-			candidates.append(_wardrobe_tween)
+			candidates.append(_well_tween)
 		for tween: Tween in candidates:
 			if tween != null and tween.is_valid() and tween.is_running():
 				tween.pause()
@@ -232,16 +222,19 @@ func interaction_at_screen(
 			}
 	if not closest.is_empty():
 		return closest
-	var centre := _wardrobe_interaction_anchor()
+	var centre := _well_interaction_anchor()
 	if not camera.is_position_behind(centre):
 		var hole_distance := screen_position.distance_to(
 			camera.unproject_position(centre)
 		)
-		if hole_distance <= radius * 1.3:
+		# No widening: the well is a compact round target, and the wardrobe's
+		# 1.3x fudge made this circle reach clicks meant for neighbouring
+		# tiles and rewards.
+		if hole_distance <= radius:
 			return {
 				"kind": "worldheart_collect_all",
 				"point": centre,
-				"visual": _wardrobe_interaction_visual(),
+				"visual": _well_interaction_visual(),
 				"display_name": "Worldheart",
 				"collection_name": "Collect gifts or offer a spare",
 			}
@@ -262,8 +255,8 @@ func interaction_at_cell(cell: Vector2i) -> Dictionary:
 	if cell == core.diorama.worldheart.worldheart_cell:
 		return {
 			"kind": "worldheart_collect_all",
-			"point": _wardrobe_interaction_anchor(),
-			"visual": _wardrobe_interaction_visual(),
+			"point": _well_interaction_anchor(),
+			"visual": _well_interaction_visual(),
 			"display_name": "Worldheart",
 			"collection_name": "Collect gifts or offer a spare",
 		}
@@ -287,10 +280,12 @@ func hole_at_screen(
 	screen_position: Vector2,
 	radius := 42.0
 ) -> bool:
-	var target := _wardrobe_interaction_anchor()
+	var target := _well_interaction_anchor()
 	if camera == null or camera.is_position_behind(target):
 		return false
-	return screen_position.distance_to(camera.unproject_position(target)) <= radius * 1.35
+	# Plain radius for the same reason as interaction_at_screen: the widened
+	# wardrobe-era circle stole right-click rotations from the tile beside it.
+	return screen_position.distance_to(camera.unproject_position(target)) <= radius
 
 
 func rotate_at_screen(
@@ -325,7 +320,7 @@ func show_offering_preview(
 		and _offering_kind == kind
 		and _offering_id == content_id
 	):
-		_play_wardrobe_open()
+		_stir_well()
 		return true
 	clear_offering_preview()
 	_offering_kind = kind
@@ -334,7 +329,7 @@ func show_offering_preview(
 	_offering_preview = _create_reward_visual({"kind": kind, "id": content_id})
 	_offering_preview.name = "WorldheartOfferingPreview"
 	add_child(_offering_preview)
-	_play_wardrobe_open()
+	_stir_well()
 	var target := _offering_anchor()
 	progress_card_sprite.visible = false
 	if animate_from_source:
@@ -359,15 +354,15 @@ func clear_offering_preview() -> void:
 	# Main polls this method while no item is held. Do not let that idle polling
 	# cancel the separate reward-ejection open animation every frame.
 	if cleared_preview and not is_instance_valid(_exchange_reward_visual):
-		_play_wardrobe_close()
+		_settle_well()
 
 
 func has_offering_preview() -> bool:
 	return is_instance_valid(_offering_preview) and not _offering_dropping
 
 
-## The miniature remains continuous with the hover preview, then shoots into
-## the pitch-black wardrobe. Ownership changes only once the doors swallow it.
+## The miniature remains continuous with the hover preview, then dives into
+## the well's dark mouth. Ownership changes only once the hole swallows it.
 func drop_offering(on_swallowed: Callable) -> void:
 	if not has_offering_preview():
 		if on_swallowed.is_valid():
@@ -375,7 +370,7 @@ func drop_offering(on_swallowed: Callable) -> void:
 		return
 	_offering_dropping = true
 	_offering_swallowed_callback = on_swallowed
-	_play_wardrobe_open()
+	_stir_well()
 	var visual := _offering_preview
 	var visual_instance_id := visual.get_instance_id()
 	var fall := _create_tracked_tween()
@@ -383,7 +378,7 @@ func drop_offering(on_swallowed: Callable) -> void:
 	fall.tween_property(
 		visual,
 		"position",
-		_wardrobe_swallow_anchor(),
+		_well_mouth_anchor(),
 		0.34
 	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	fall.tween_property(visual, "scale", Vector3.ONE * 0.025, 0.34).set_trans(
@@ -408,7 +403,7 @@ func _finish_offering_drop(visual_instance_id: int) -> void:
 	_offering_swallowed_callback = Callable()
 	if swallowed_callback.is_valid():
 		swallowed_callback.call()
-	_play_wardrobe_close(true)
+	_settle_well(true)
 
 
 func begin_move_preview() -> void:
@@ -434,7 +429,7 @@ func begin_move_preview() -> void:
 func preview_move(cell: Vector2i) -> void:
 	if not _moving_preview:
 		return
-	# Mouse motion arrives once per pixel, while the wardrobe only moves between
+	# Mouse motion arrives once per pixel, while the well only moves between
 	# snapped cells. Avoid propagating thousands of redundant transforms through
 	# both authored wardrobe hierarchies while the pointer remains in one cell.
 	if cell == _move_preview_cell:
@@ -478,18 +473,18 @@ func _process(delta: float) -> void:
 			node.position.y = 0.28 + sin(_elapsed * 1.65 + float(index) * 1.3) * 0.035
 			node.rotation.y += delta * (0.32 + float(index) * 0.025)
 		index += 1
-	if wardrobe_shake_root != null:
-		if _wardrobe_is_open and is_instance_valid(_offering_preview):
-			# A delighted, slightly impatient cupboard: the model stays grounded
+	if well_shake_root != null:
+		if _well_is_stirred and is_instance_valid(_offering_preview):
+			# A delighted, slightly impatient well: the model stays grounded
 			# while the nested root supplies the funny hover wobble.
-			wardrobe_shake_root.rotation.z = sin(_elapsed * 13.0) * 0.026
-			wardrobe_shake_root.rotation.y = sin(_elapsed * 9.0 + 0.7) * 0.035
-			wardrobe_shake_root.position.y = abs(sin(_elapsed * 11.0)) * 0.012
+			well_shake_root.rotation.z = sin(_elapsed * 13.0) * 0.026
+			well_shake_root.rotation.y = sin(_elapsed * 9.0 + 0.7) * 0.035
+			well_shake_root.position.y = abs(sin(_elapsed * 11.0)) * 0.012
 		else:
-			wardrobe_shake_root.rotation = wardrobe_shake_root.rotation.lerp(
+			well_shake_root.rotation = well_shake_root.rotation.lerp(
 				Vector3.ZERO, 1.0 - exp(-delta * 15.0)
 			)
-			wardrobe_shake_root.position = wardrobe_shake_root.position.lerp(
+			well_shake_root.position = well_shake_root.position.lerp(
 				Vector3.ZERO, 1.0 - exp(-delta * 15.0)
 			)
 	if is_instance_valid(_offering_preview) and not _offering_dropping:
@@ -510,88 +505,46 @@ func _build_portal() -> void:
 	add_child(portal_fx_root)
 
 	vortex_pivot = Node3D.new()
-	vortex_pivot.name = "WardrobeVisualPivot"
+	vortex_pivot.name = "WellVisualPivot"
 	portal_fx_root.add_child(vortex_pivot)
 
-	wardrobe_motion_root = Node3D.new()
-	wardrobe_motion_root.name = "WardrobeMotionRoot"
-	vortex_pivot.add_child(wardrobe_motion_root)
-	wardrobe_shake_root = Node3D.new()
-	wardrobe_shake_root.name = "WardrobeShakeRoot"
-	wardrobe_motion_root.add_child(wardrobe_shake_root)
-	wardrobe_visual_root = Node3D.new()
-	wardrobe_visual_root.name = "WardrobeModels"
-	wardrobe_visual_root.position.y = WARDROBE_BASE_HEIGHT
-	wardrobe_visual_root.scale = Vector3.ONE * WARDROBE_SCALE
-	wardrobe_shake_root.add_child(wardrobe_visual_root)
+	well_motion_root = Node3D.new()
+	well_motion_root.name = "WellMotionRoot"
+	vortex_pivot.add_child(well_motion_root)
+	well_shake_root = Node3D.new()
+	well_shake_root.name = "WellShakeRoot"
+	well_motion_root.add_child(well_shake_root)
+	well_visual_root = Node3D.new()
+	well_visual_root.name = "WellModel"
+	well_visual_root.scale = Vector3.ONE * WELL_SCALE
+	well_shake_root.add_child(well_visual_root)
 
-	var wardrobe_visual := assets.instantiate(WARDROBE_ASSET)
-	wardrobe_visual.name = "Wardrobe"
-	wardrobe_visual_root.add_child(wardrobe_visual)
-	wardrobe_closed = wardrobe_visual.find_child(
-		WARDROBE_CLOSED_STATE, true, false
-	) as Node3D
-	wardrobe_open = wardrobe_visual.find_child(
-		WARDROBE_OPEN_STATE, true, false
-	) as Node3D
-	assert(
-		wardrobe_closed != null and wardrobe_open != null,
-		"The wardrobe asset must expose both state groups"
-	)
-	wardrobe_open.visible = false
-	wardrobe_door_left = wardrobe_open.find_child(
-		"WardrobeDoorLeft", true, false
-	) as Node3D
-	wardrobe_door_right = wardrobe_open.find_child(
-		"WardrobeDoorRight", true, false
-	) as Node3D
-	assert(
-		wardrobe_door_left != null and wardrobe_door_right != null,
-		"The wardrobe's open state must expose both authored doors"
-	)
-	_style_wardrobe_meshes(wardrobe_visual)
+	var well_visual := assets.instantiate(WELL_ASSET)
+	well_visual.name = "WishingWell"
+	well_visual_root.add_child(well_visual)
+	_style_well_meshes(well_visual)
 
-	# The supplied open mesh has a fully modelled cavity. An opaque, unlit box
-	# sits immediately behind the frame so no camera angle can see the terrain,
-	# rewards, or scene lighting through the wardrobe.
-	wardrobe_cavity = MeshInstance3D.new()
-	wardrobe_cavity.name = "WorldheartWardrobeCavity"
-	var cavity_mesh := BoxMesh.new()
-	# Fitted to the current model, measured: its body spans x +/-0.348, depth
-	# -0.134..0.331 and height 0..1.0, grounded at the base. The previous
-	# numbers were tuned for a centre-origined wardrobe and left the black
-	# interior floating below the floor of the new one, which is why the open
-	# state read as glitched rather than dark.
-	cavity_mesh.size = Vector3(0.52, 0.60, 0.04)
-	wardrobe_cavity.mesh = cavity_mesh
-	wardrobe_cavity.position = Vector3(0.0, 0.44, 0.16)
-	wardrobe_cavity.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var cavity_material := StandardMaterial3D.new()
-	cavity_material.albedo_color = Color.BLACK
-	cavity_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	cavity_material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	cavity_material.render_priority = 1
-	wardrobe_cavity.material_override = cavity_material
-	wardrobe_cavity.visible = false
-	wardrobe_visual_root.add_child(wardrobe_cavity)
-
-	# The open source mesh has a thin wooden sliver crossing the gable interior.
-	# A compact rectangular patch covers it without projecting a pointed edge
-	# beyond the doorway or intersecting the offered-item preview.
-	wardrobe_upper_cavity_mask = MeshInstance3D.new()
-	wardrobe_upper_cavity_mask.name = "WardrobeUpperCavityMask"
-	var mask_mesh := QuadMesh.new()
-	mask_mesh.size = Vector2(0.22, 0.08)
-	wardrobe_upper_cavity_mask.mesh = mask_mesh
-	wardrobe_upper_cavity_mask.position = Vector3(0.0, 0.70, 0.24)
-	wardrobe_upper_cavity_mask.cast_shadow = (
-		GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	)
-	wardrobe_upper_cavity_mask.material_override = cavity_material
-	wardrobe_upper_cavity_mask.visible = false
-	wardrobe_visual_root.add_child(wardrobe_upper_cavity_mask)
-	# Retain the historical targeting seam while its visual is now a wardrobe.
-	hole = wardrobe_cavity
+	# The imported shaft is open all the way down with no floor, so without this
+	# the camera would see terrain through the well. A flat unlit black disc sunk
+	# mid-shaft IS the game's dark hole: items vanish into it and shoot out of it.
+	hole = MeshInstance3D.new()
+	hole.name = "WellMouthHole"
+	var hole_mesh := CylinderMesh.new()
+	hole_mesh.top_radius = WELL_MOUTH_DISC_RADIUS
+	hole_mesh.bottom_radius = WELL_MOUTH_DISC_RADIUS
+	hole_mesh.height = 0.02
+	hole_mesh.radial_segments = 24
+	hole_mesh.cap_bottom = false
+	hole.mesh = hole_mesh
+	hole.position = Vector3(0.0, WELL_MOUTH_DISC_HEIGHT, 0.0)
+	hole.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var hole_material := StandardMaterial3D.new()
+	hole_material.albedo_color = Color.BLACK
+	hole_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	hole_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	hole_material.render_priority = 1
+	hole.material_override = hole_material
+	well_visual_root.add_child(hole)
 
 	# Stable empty attachment roots keep save/review tooling compatible without
 	# rendering any of the retired neon portal furniture.
@@ -621,7 +574,7 @@ func _build_progress_card() -> void:
 	progress_card_viewport.size = PROGRESS_CARD_VIEWPORT_SIZE
 	progress_card_viewport.transparent_bg = true
 	# Card contents only change on contribution events. Keeping this viewport
-	# live every frame made dragging the detailed wardrobe needlessly expensive.
+	# live every frame made dragging the detailed model needlessly expensive.
 	progress_card_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 	progress_card_viewport.snap_2d_transforms_to_pixel = true
 	progress_card_viewport.snap_2d_vertices_to_pixel = true
@@ -735,21 +688,16 @@ func _prepare_pulse_entry(entry: Dictionary) -> void:
 func _begin_pulse_launch(entry: Dictionary, node: Node3D) -> void:
 	_sync_entries()
 	var landing := node.position
-	var start := _wardrobe_swallow_anchor()
-	var clear_point := _doorway_clear_point(
-		start, core.grid.tile_size * 0.56, 0.10
-	)
+	var start := _well_mouth_anchor()
 	var node_instance_id := node.get_instance_id()
 	node.set_meta(&"worldheart_launching", true)
 	node.position = start
 	node.scale = Vector3.ONE * 0.04
 	_begin_reward_launch(node_instance_id)
 	var pulse := _create_reward_tween()
-	pulse.tween_interval(WARDROBE_LAUNCH_DELAY)
+	pulse.tween_interval(WELL_LAUNCH_DELAY)
 	pulse.tween_method(
-		_animate_doorway_reward.bind(
-			node_instance_id, start, clear_point, landing
-		),
+		_animate_well_reward.bind(node_instance_id, start, landing),
 		0.0,
 		1.0,
 		REWARD_LAUNCH_DURATION
@@ -772,26 +720,30 @@ func _begin_pulse_launch(entry: Dictionary, node: Node3D) -> void:
 		audio.play_event("parcel_appear", -2.0, 0.92)
 
 
-func _animate_doorway_reward(
+func _animate_well_reward(
 	progress: float,
 	node_instance_id: int,
 	start: Vector3,
-	clear_point: Vector3,
 	landing: Vector3
 ) -> void:
 	var node := instance_from_id(node_instance_id) as Node3D
 	if not is_instance_valid(node):
 		return
-	# Keep the first beat constrained to the wardrobe's forward axis. Only once
-	# the miniature has cleared the doors may it curve toward a side reserve slot.
-	if progress < 0.42:
-		var emerge := progress / 0.42
-		node.position = start.lerp(clear_point, emerge)
-		node.position.y += sin(emerge * PI) * 0.09
+	# Straight up out of the mouth first -- the miniature has to visibly clear
+	# the rim before it may drift sideways, or it clips through the stone. Then
+	# a ballistic fall outward to wherever its landing slot is, which is what
+	# spreads consecutive gifts in different directions around the well.
+	var apex := Vector3(start.x, _centre().y + WELL_LAUNCH_APEX, start.z)
+	if progress < 0.38:
+		var rise := progress / 0.38
+		# Ease-out on the climb: fast out of the hole, slowing near the top.
+		node.position = start.lerp(apex, 1.0 - (1.0 - rise) * (1.0 - rise))
 		return
-	var arc := (progress - 0.42) / 0.58
-	node.position = clear_point.lerp(landing, arc)
-	node.position.y += sin(arc * PI) * 0.27
+	var arc := (progress - 0.38) / 0.62
+	node.position = apex.lerp(landing, arc)
+	# Falling from the apex, not floating: height eases DOWN along the whole
+	# second phase, with a small residual curve so it reads thrown, not dropped.
+	node.position.y = lerpf(apex.y, landing.y, arc * arc) + sin(arc * PI) * 0.10
 
 
 func _finish_pulse_launch(node_instance_id: int, landing: Vector3) -> void:
@@ -805,153 +757,109 @@ func _finish_pulse_launch(node_instance_id: int, landing: Vector3) -> void:
 
 func _begin_reward_launch(node_instance_id: int) -> void:
 	_reward_launch_ids[node_instance_id] = true
-	_play_wardrobe_open()
+	_stir_well()
 
 
 func _end_reward_launch(node_instance_id: int) -> void:
 	_reward_launch_ids.erase(node_instance_id)
 	if _reward_launch_ids.is_empty():
-		_play_wardrobe_close(true)
+		_settle_well(true)
 
 
 func _play_portal_flash(strength: float) -> void:
-	if wardrobe_motion_root == null:
+	if well_motion_root == null:
 		return
 	var amount := clampf(strength, 0.0, 1.0)
 	var kick := _create_tracked_tween()
 	kick.tween_property(
-		wardrobe_motion_root,
+		well_motion_root,
 		"scale",
 		Vector3(1.0 + amount * 0.06, 1.0 - amount * 0.05, 1.0),
 		0.08
 	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	kick.tween_property(
-		wardrobe_motion_root, "scale", Vector3.ONE, 0.16
+		well_motion_root, "scale", Vector3.ONE, 0.16
 	).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 
 
-func _play_wardrobe_open() -> void:
-	if _wardrobe_is_open or wardrobe_motion_root == null:
+## The well has no doors, so its excitement is all body language: a quick
+## anticipation squash, a stretch, and an elastic settle -- the same silhouette
+## beats the wardrobe animated with, minus the swings.
+func _stir_well() -> void:
+	if _well_is_stirred or well_motion_root == null:
 		return
-	_wardrobe_is_open = true
-	_kill_wardrobe_tween()
-	wardrobe_motion_root.scale = Vector3.ONE
-	wardrobe_motion_root.rotation = Vector3.ZERO
-	_wardrobe_tween = create_tween()
-	_wardrobe_tween.tween_property(
-		wardrobe_motion_root, "scale", Vector3(0.93, 1.07, 0.96), 0.09
+	_well_is_stirred = true
+	_kill_well_tween()
+	well_motion_root.scale = Vector3.ONE
+	well_motion_root.rotation = Vector3.ZERO
+	_well_tween = create_tween()
+	_well_tween.tween_property(
+		well_motion_root, "scale", Vector3(0.93, 1.07, 0.93), 0.09
 	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
-	_wardrobe_tween.parallel().tween_property(
-		wardrobe_motion_root, "rotation:z", 0.065, 0.09
+	_well_tween.parallel().tween_property(
+		well_motion_root, "rotation:z", 0.05, 0.09
 	)
-	_wardrobe_tween.tween_callback(_begin_wardrobe_door_swing)
-	_wardrobe_tween.tween_property(
-		wardrobe_door_left, "rotation:y", -0.10, 0.28
+	_well_tween.tween_property(
+		well_motion_root, "scale", Vector3(1.07, 0.95, 1.07), 0.18
+	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_well_tween.parallel().tween_property(
+		well_motion_root, "rotation:z", -0.04, 0.18
+	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_well_tween.tween_property(
+		well_motion_root, "scale", Vector3.ONE, 0.18
 	).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
-	_wardrobe_tween.parallel().tween_property(
-		wardrobe_door_right, "rotation:y", 0.10, 0.28
-	).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
-	_wardrobe_tween.parallel().tween_property(
-		wardrobe_motion_root, "scale", Vector3(1.08, 0.94, 1.04), 0.20
-	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_wardrobe_tween.parallel().tween_property(
-		wardrobe_motion_root, "rotation:z", -0.055, 0.20
-	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_wardrobe_tween.parallel().tween_property(
-		wardrobe_motion_root, "rotation:y", -0.075, 0.20
-	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_wardrobe_tween.tween_property(
-		wardrobe_door_left, "rotation:y", 0.0, 0.16
-	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_wardrobe_tween.parallel().tween_property(
-		wardrobe_door_right, "rotation:y", 0.0, 0.16
-	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_wardrobe_tween.tween_property(
-		wardrobe_motion_root, "scale", Vector3.ONE, 0.18
-	).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
-	_wardrobe_tween.parallel().tween_property(
-		wardrobe_motion_root, "rotation", Vector3.ZERO, 0.20
+	_well_tween.parallel().tween_property(
+		well_motion_root, "rotation", Vector3.ZERO, 0.20
 	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	if audio != null:
 		audio.play_event("build_preview", -7.0, 1.12)
 
 
-func _play_wardrobe_close(swallowed := false) -> void:
-	if wardrobe_motion_root == null:
+func _settle_well(swallowed := false) -> void:
+	if well_motion_root == null:
 		return
 	if not _reward_launch_ids.is_empty():
 		return
 	if is_instance_valid(_offering_preview) and not _offering_dropping:
 		return
-	if not _wardrobe_is_open:
-		_set_wardrobe_open_visual(false)
+	if not _well_is_stirred:
 		return
-	_wardrobe_is_open = false
-	_kill_wardrobe_tween()
-	wardrobe_shake_root.rotation = Vector3.ZERO
-	wardrobe_shake_root.position = Vector3.ZERO
-	_wardrobe_tween = create_tween()
+	_well_is_stirred = false
+	_kill_well_tween()
+	well_shake_root.rotation = Vector3.ZERO
+	well_shake_root.position = Vector3.ZERO
+	_well_tween = create_tween()
 	var anticipation := 0.12 if swallowed else 0.08
-	_wardrobe_tween.tween_property(
-		wardrobe_motion_root,
+	_well_tween.tween_property(
+		well_motion_root,
 		"scale",
-		Vector3(1.12, 0.88, 1.08) if swallowed else Vector3(1.05, 0.95, 1.03),
+		Vector3(1.12, 0.88, 1.12) if swallowed else Vector3(1.05, 0.95, 1.05),
 		anticipation
 	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
-	_wardrobe_tween.parallel().tween_property(
-		wardrobe_motion_root, "rotation:z", 0.075 if swallowed else 0.035, anticipation
+	_well_tween.parallel().tween_property(
+		well_motion_root, "rotation:z", 0.06 if swallowed else 0.03, anticipation
 	)
-	_wardrobe_tween.tween_property(
-		wardrobe_door_left, "rotation:y", LEFT_DOOR_CLOSED_YAW, 0.28
-	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN_OUT)
-	_wardrobe_tween.parallel().tween_property(
-		wardrobe_door_right, "rotation:y", RIGHT_DOOR_CLOSED_YAW, 0.28
-	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN_OUT)
-	_wardrobe_tween.tween_callback(_reveal_wardrobe_closed)
-	_wardrobe_tween.tween_property(
-		wardrobe_motion_root,
+	_well_tween.tween_property(
+		well_motion_root,
 		"scale",
-		Vector3(0.88, 1.13, 0.92) if swallowed else Vector3(0.96, 1.04, 0.98),
+		Vector3(0.90, 1.11, 0.90) if swallowed else Vector3(0.96, 1.04, 0.96),
 		0.10
 	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_wardrobe_tween.parallel().tween_property(
-		wardrobe_motion_root, "rotation:z", -0.055 if swallowed else -0.02, 0.10
+	_well_tween.parallel().tween_property(
+		well_motion_root, "rotation:z", -0.045 if swallowed else -0.02, 0.10
 	)
-	_wardrobe_tween.tween_property(
-		wardrobe_motion_root, "scale", Vector3.ONE, 0.27 if swallowed else 0.16
+	_well_tween.tween_property(
+		well_motion_root, "scale", Vector3.ONE, 0.27 if swallowed else 0.16
 	).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
-	_wardrobe_tween.parallel().tween_property(
-		wardrobe_motion_root, "rotation", Vector3.ZERO, 0.20
+	_well_tween.parallel().tween_property(
+		well_motion_root, "rotation", Vector3.ZERO, 0.20
 	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
-func _begin_wardrobe_door_swing() -> void:
-	_set_wardrobe_open_visual(true)
-	wardrobe_door_left.rotation.y = LEFT_DOOR_CLOSED_YAW
-	wardrobe_door_right.rotation.y = RIGHT_DOOR_CLOSED_YAW
-	wardrobe_motion_root.scale = Vector3(0.82, 1.12, 0.88)
-	wardrobe_motion_root.rotation = Vector3(0.0, 0.11, -0.085)
-
-
-func _reveal_wardrobe_closed() -> void:
-	_set_wardrobe_open_visual(false)
-
-
-func _set_wardrobe_open_visual(opened: bool) -> void:
-	if wardrobe_closed != null:
-		wardrobe_closed.visible = not opened
-	if wardrobe_open != null:
-		wardrobe_open.visible = opened
-	if wardrobe_cavity != null:
-		wardrobe_cavity.visible = opened
-	if wardrobe_upper_cavity_mask != null:
-		wardrobe_upper_cavity_mask.visible = opened
-
-
-func _kill_wardrobe_tween() -> void:
-	if _wardrobe_tween != null and _wardrobe_tween.is_valid():
-		_wardrobe_tween.kill()
-	_wardrobe_tween = null
+func _kill_well_tween() -> void:
+	if _well_tween != null and _well_tween.is_valid():
+		_well_tween.kill()
+	_well_tween = null
 
 
 func _sync_entries() -> void:
@@ -983,8 +891,8 @@ func _sync_entries() -> void:
 		var holder := _entry_nodes[entry_id] as Node3D
 		if bool(holder.get_meta(&"worldheart_launching", false)):
 			continue
-		# Landing transforms belong to the reward, not to the wardrobe. A moved or
-		# rotated wardrobe must never drag already-surfaced loot around the world.
+		# Landing transforms belong to the reward, not to the well. A moved or
+		# rotated well must never drag already-surfaced loot around the world.
 		if created:
 			holder.position = _entry_landing_position(entry, index)
 	for entry_id: String in _entry_nodes.keys():
@@ -1089,7 +997,7 @@ func _entry_landing_position(
 
 func _anchor_cell(index: int) -> Vector2i:
 	# Fill the space in front of the doors first, then fan remaining gifts around
-	# the cabinet. Rotating the wardrobe rotates this whole local layout.
+	# the well. Rotating the well rotates this whole local layout.
 	var local_offset: Vector2i = [
 		Vector2i.DOWN, Vector2i.RIGHT, Vector2i.LEFT, Vector2i.UP
 	][index % 4]
@@ -1120,43 +1028,22 @@ func _centre() -> Vector3:
 	return core.grid.cell_to_world(core.diorama.worldheart.worldheart_cell)
 
 
-func _facing_forward() -> Vector3:
-	# Exact cardinal vectors keep doorway ejection aligned after every quarter
-	# turn without accumulating tiny trigonometric drift.
-	match posmod(core.diorama.worldheart.worldheart_rotation_quarters, 4):
-		1:
-			return Vector3.RIGHT
-		2:
-			return Vector3.FORWARD
-		3:
-			return Vector3.LEFT
-	return Vector3.BACK
+func _well_interaction_visual() -> Node3D:
+	return well_visual_root
 
 
-func _doorway_clear_point(
-	start: Vector3, forward_distance: float, rise: float
-) -> Vector3:
-	return start + _facing_forward() * forward_distance + Vector3.UP * rise
+## Everything targets the mouth: the well is radially symmetric, so unlike the
+## wardrobe's doorway none of these anchors depends on the rotation quarter.
+func _well_interaction_anchor() -> Vector3:
+	return _centre() + Vector3.UP * WELL_CLICK_ANCHOR_HEIGHT
 
 
-func _wardrobe_interaction_visual() -> Node3D:
-	return (
-		wardrobe_open
-		if wardrobe_open != null and wardrobe_open.visible
-		else wardrobe_closed
-	)
-
-
-func _wardrobe_interaction_anchor() -> Vector3:
-	return _centre() + Vector3.UP * 0.58 + _facing_forward() * 0.08
-
-
-func _wardrobe_swallow_anchor() -> Vector3:
-	return _centre() + Vector3.UP * 0.47 + _facing_forward() * 0.08
+func _well_mouth_anchor() -> Vector3:
+	return _centre() + Vector3.UP * WELL_MOUTH_ANCHOR_HEIGHT
 
 
 func _offering_anchor() -> Vector3:
-	return _centre() + Vector3.UP * 0.50 + _facing_forward() * 0.285
+	return _centre() + Vector3.UP * WELL_HOVER_HEIGHT
 
 
 func _meter_anchor() -> Vector3:
@@ -1274,20 +1161,24 @@ func _spit_exchange_reward(reward: Dictionary) -> void:
 		_exchange_reward_visual.queue_free()
 	_exchange_reward_visual = _create_reward_visual(reward)
 	_exchange_reward_visual.name = "WorldheartExchangeReward"
-	_exchange_reward_visual.position = _wardrobe_swallow_anchor()
+	_exchange_reward_visual.position = _well_mouth_anchor()
 	_exchange_reward_visual.scale = Vector3.ONE * 0.04
 	add_child(_exchange_reward_visual)
 	var reward_visual := _exchange_reward_visual
 	var reward_visual_instance_id := reward_visual.get_instance_id()
 	_begin_reward_launch(reward_visual_instance_id)
-	var start := _wardrobe_swallow_anchor()
-	var clear_point := _doorway_clear_point(start, 0.54, 0.10)
-	var finish := _doorway_clear_point(start, 0.92, 0.13)
+	var start := _well_mouth_anchor()
+	# An exchange has no reserved landing slot, so the direction is genuinely
+	# random: up out of the mouth, then out to a hover point on a random bearing
+	# around the well.
+	var bearing := randf() * TAU
+	var out := Vector3(cos(bearing), 0.0, sin(bearing))
+	var finish := start + out * 0.92 + Vector3.UP * 0.13
 	var launch := _create_reward_tween()
-	launch.tween_interval(WARDROBE_LAUNCH_DELAY)
+	launch.tween_interval(WELL_LAUNCH_DELAY)
 	launch.tween_method(
 		_animate_exchange_reward.bind(
-			reward_visual_instance_id, start, clear_point, finish
+			reward_visual_instance_id, start, finish
 		),
 		0.0,
 		1.0,
@@ -1319,20 +1210,21 @@ func _animate_exchange_reward(
 	value: float,
 	reward_visual_instance_id: int,
 	start: Vector3,
-	clear_point: Vector3,
 	finish: Vector3
 ) -> void:
 	var reward_visual := instance_from_id(reward_visual_instance_id) as Node3D
 	if not is_instance_valid(reward_visual):
 		return
+	# Same shape as the gift launch: vertically out of the mouth, then fall
+	# outward to the hover point.
+	var apex := Vector3(start.x, _centre().y + WELL_LAUNCH_APEX, start.z)
 	if value < 0.40:
-		var emerge := value / 0.40
-		reward_visual.position = start.lerp(clear_point, emerge)
-		reward_visual.position.y += sin(emerge * PI) * 0.08
+		var rise := value / 0.40
+		reward_visual.position = start.lerp(apex, 1.0 - (1.0 - rise) * (1.0 - rise))
 		return
 	var arc := (value - 0.40) / 0.60
-	reward_visual.position = clear_point.lerp(finish, arc)
-	reward_visual.position.y += sin(arc * PI) * 0.24
+	reward_visual.position = apex.lerp(finish, arc)
+	reward_visual.position.y = lerpf(apex.y, finish.y, arc * arc) + sin(arc * PI) * 0.10
 
 
 func _finish_exchange_reward(reward_visual_instance_id: int) -> void:
@@ -1363,17 +1255,17 @@ func _on_worldheart_moved(_from: Vector2i, _to: Vector2i) -> void:
 
 
 func _on_worldheart_rotated(_rotation_quarters: int) -> void:
-	_sync_wardrobe_rotation(true)
+	_sync_well_rotation(true)
 	_sync_entries()
 	if is_instance_valid(_offering_preview) and not _offering_dropping:
 		_offering_preview.position = _offering_anchor()
 
 
-func _sync_wardrobe_rotation(animated: bool) -> void:
+func _sync_well_rotation(animated: bool) -> void:
 	if vortex_pivot == null:
 		return
-	if _wardrobe_rotation_tween != null and _wardrobe_rotation_tween.is_valid():
-		_wardrobe_rotation_tween.kill()
+	if _well_rotation_tween != null and _well_rotation_tween.is_valid():
+		_well_rotation_tween.kill()
 	var target := (
 		float(core.diorama.worldheart.worldheart_rotation_quarters)
 		* PI
@@ -1385,19 +1277,19 @@ func _sync_wardrobe_rotation(animated: bool) -> void:
 	var resolved_target := vortex_pivot.rotation.y + angle_difference(
 		vortex_pivot.rotation.y, target
 	)
-	_wardrobe_rotation_tween = create_tween()
-	_wardrobe_rotation_tween.tween_property(
+	_well_rotation_tween = create_tween()
+	_well_rotation_tween.tween_property(
 		vortex_pivot, "rotation:y", resolved_target, 0.34
 	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_wardrobe_rotation_tween.parallel().tween_property(
-		wardrobe_motion_root, "scale", Vector3(0.94, 1.06, 0.94), 0.12
+	_well_rotation_tween.parallel().tween_property(
+		well_motion_root, "scale", Vector3(0.94, 1.06, 0.94), 0.12
 	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_wardrobe_rotation_tween.tween_property(
-		wardrobe_motion_root, "scale", Vector3.ONE, 0.20
+	_well_rotation_tween.tween_property(
+		well_motion_root, "scale", Vector3.ONE, 0.20
 	).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 
 
-func _style_wardrobe_meshes(root: Node3D) -> void:
+func _style_well_meshes(root: Node3D) -> void:
 	var meshes: Array[MeshInstance3D] = []
 	if root is MeshInstance3D:
 		meshes.append(root as MeshInstance3D)
@@ -1451,7 +1343,7 @@ func _set_reward_presentation_paused(paused: bool) -> void:
 		_move_paused_tweens.clear()
 		var candidates: Array[Tween] = _active_tweens.duplicate()
 		for special: Tween in [
-			_wardrobe_tween, _meter_tween, _wardrobe_rotation_tween
+			_well_tween, _meter_tween, _well_rotation_tween
 		]:
 			if special != null and not candidates.has(special):
 				candidates.append(special)
@@ -1477,19 +1369,14 @@ func _set_move_shadows_enabled(enabled: bool) -> void:
 		_move_shadow_modes.clear()
 		return
 	_move_shadow_modes.clear()
-	for model: Node3D in [wardrobe_closed, wardrobe_open]:
-		if model == null:
-			continue
-		var meshes: Array[MeshInstance3D] = []
-		if model is MeshInstance3D:
-			meshes.append(model as MeshInstance3D)
-		for candidate in model.find_children(
-			"*", "MeshInstance3D", true, false
-		):
-			meshes.append(candidate as MeshInstance3D)
-		for mesh: MeshInstance3D in meshes:
-			_move_shadow_modes[mesh] = mesh.cast_shadow
-			mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if well_visual_root == null:
+		return
+	for candidate in well_visual_root.find_children(
+		"*", "MeshInstance3D", true, false
+	):
+		var mesh := candidate as MeshInstance3D
+		_move_shadow_modes[mesh] = mesh.cast_shadow
+		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 func _finish_move_preview() -> void:
@@ -1515,13 +1402,13 @@ func _exit_tree() -> void:
 			&"player_interaction", false
 		)
 	_offering_swallowed_callback = Callable()
-	_kill_wardrobe_tween()
+	_kill_well_tween()
 	if (
-		_wardrobe_rotation_tween != null
-		and _wardrobe_rotation_tween.is_valid()
+		_well_rotation_tween != null
+		and _well_rotation_tween.is_valid()
 	):
-		_wardrobe_rotation_tween.kill()
-	_wardrobe_rotation_tween = null
+		_well_rotation_tween.kill()
+	_well_rotation_tween = null
 	if _meter_tween != null and _meter_tween.is_valid():
 		_meter_tween.kill()
 	_meter_tween = null

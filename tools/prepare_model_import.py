@@ -745,7 +745,24 @@ def assign_distinct_slots(
         def distance(name: str, cluster=cluster) -> float:
             return _perceptual_distance(cluster["srgb"], _palette_srgb(name))
 
-        overall = min(candidates, key=distance)
+        # A green paint lands on a green entry, full stop -- the invariant the
+        # tree profile already enforces for canopies. The distance metric alone
+        # cannot hold it: this palette's greens are all darker and duller than
+        # a bright moss, so the well's moss (hue 50, sat 0.38) scored closer to
+        # a warm tan than to any green even with the band-crossing penalty, and
+        # a green paint rendering tan is exactly the family error the bands
+        # exist to prevent.
+        pool = candidates
+        if _hue_band(cluster["srgb"]) == "green":
+            greens = tuple(
+                name
+                for name in candidates
+                if _hue_band(_palette_srgb(name)) == "green"
+            )
+            if greens:
+                pool = greens
+
+        overall = min(pool, key=distance)
         # Uniqueness is a preference, not a rule. Two clusters can be near
         # duplicates -- the mushroom had creams at (0.85,0.74,0.66) and
         # (0.85,0.77,0.68) -- and forcing the second onto a different entry sent
@@ -761,7 +778,8 @@ def assign_distinct_slots(
         ):
             chosen.append(overall)
             continue
-        best_free = min(remaining, key=distance)
+        free_pool = [name for name in remaining if name in pool] or remaining
+        best_free = min(free_pool, key=distance)
         chosen.append(best_free)
         remaining.remove(best_free)
         taken[best_free] = cluster["srgb"]
@@ -806,6 +824,14 @@ BAND_CROSSING_PENALTY = 0.10
 BAND_NEUTRAL_SATURATION = 0.10
 GREEN_BAND = (55.0, 160.0)
 COOL_BAND = (160.0, 330.0)
+# The 46-55 degree gap between gold and green is where mosses live, and a hue
+# boundary alone cannot classify it: the statue's moss samples 57 degrees and
+# banded green, the wishing well's samples 50 and banded warm, so one model's
+# moss rendered green and the other's tan. Saturation is what tells them apart
+# -- measured, the well's moss sits at 0.38-0.42 while every gold palette entry
+# is 0.55 or more vivid. A dull yellow-green is moss; a vivid one is gold.
+OLIVE_BAND = (46.0, 55.0)
+OLIVE_GOLD_SATURATION = 0.50
 
 
 def _hue_band(srgb: tuple[float, float, float]) -> str | None:
@@ -814,6 +840,11 @@ def _hue_band(srgb: tuple[float, float, float]) -> str | None:
         return None
     degrees = hue * 360.0
     if GREEN_BAND[0] <= degrees < GREEN_BAND[1]:
+        return "green"
+    if (
+        OLIVE_BAND[0] <= degrees < OLIVE_BAND[1]
+        and saturation < OLIVE_GOLD_SATURATION
+    ):
         return "green"
     if COOL_BAND[0] <= degrees < COOL_BAND[1]:
         return "cool"

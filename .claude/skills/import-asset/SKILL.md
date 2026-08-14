@@ -158,6 +158,30 @@ assigns colour from the source's own clusters, which follows the model's
 design. Recolouring by face normal on top of that flattens it and breaks how
 the colours read.
 
+### When the texture IS the detail: palette-shift it instead
+
+Some models carry their design in the TEXTURE — per-stone tonal variation,
+crevice shading, paint boundaries that run through faces. Flat per-face repaint
+destroys all three, and no cluster tuning can fix it, because the failure is
+granularity: the wishing well's moss is painted onto parts of faces, and
+per-face assignment turned whole faces green.
+
+For those, use `tools/palette_shift_texture.py` and follow
+**docs/TEXTURED_ASSET_IMPORT.md** — the exact, proven recipe. In one line: it
+classifies every texture pixel with the importer's band rules, shifts each
+class onto its palette entry while preserving each pixel's deviation from the
+class mean (so all baked detail survives), then splits the model into editable
+`<name>_stone` / `<name>_moss` material slots via an alpha-masked decal shell,
+so Asset Studio recolours each class at pixel accuracy.
+
+The doc lists six traps that each shipped a broken asset once, including:
+Blender's `image.pixels` are linear while palette maths are sRGB; only the
+base-colour map may be shifted; `baseColorFactor` only exports from a
+multiply-mix node pattern; textures normalize by class max, not by target;
+Blender 4.5 cannot export `alphaMode: MASK` (patch the glb); and material
+names must not collide with palette entry names. Read the doc before running
+the tool on a new asset.
+
 ### When the asset is assembled rather than imported
 
 Some assets are not one source model: the wardrobe is two, merged into one glb
@@ -432,8 +456,18 @@ collection prompt over the whole screen, so hide it before capturing; and
 smoothing has to be set BEFORE the model is built, since setting it afterwards
 leaves the mesh already made.
 
-Running the game rewrites `data/asset_edits.json`, so `git checkout` it
-afterwards unless you meant to change a profile.
+Running the game rewrites `data/asset_edits.json`. **Commit the imported
+asset's profile FIRST, then** `git checkout` the file after game runs. The
+reflex-checkout destroyed the well's uncommitted `smoothing: 0.0` profile
+once; the asset silently inherited the 0.85 default and arrived in game as a
+melted blob that read as ruined topology.
+
+The harness exits 1 without capturing if the studio cannot select the id --
+which is the case for any asset not yet wired into `structures.json` (step 8).
+It used to capture whatever was already selected (the default tile) under the
+requested asset's filename, and a wrong screenshot that looks authoritative is
+worse than none. **Look at the full captured frame before drawing conclusions
+from it** -- never crop by guessed coordinates and reason from the crop.
 
 ### Deciding whether a defect is colour or geometry
 
