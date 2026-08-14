@@ -16,6 +16,19 @@ extends RefCounted
 ## and collision remain authored.
 
 const DATA_PATH := "res://data/asset_edits.json"
+## Where a saved profile goes when res:// cannot be written.
+##
+## res:// is the SHIPPED baseline: editing in Asset Studio while running from
+## source writes it straight back into the project file, so the change is
+## committed with the repo and every player gets it in the build. That is what
+## "baked into the game" means here, and it only works because a source run has
+## a real writable file behind res://.
+##
+## An exported build does not: res:// lives inside the PCK and is read-only, so
+## a save there fails silently and the edit is lost on the next launch. Those
+## saves go to user:// instead, which is writable on every platform, and are
+## layered ON TOP of the shipped baseline at load.
+const USER_DATA_PATH := "user://asset_edits.json"
 const SOURCE_ASSET_META := "suma_source_asset_id"
 const SOURCE_MESH_META := "suma_asset_edit_source_mesh"
 const BASE_MATERIALS_META := "suma_asset_edit_base_materials"
@@ -51,10 +64,15 @@ var _smooth_mesh_cache: Dictionary = {}
 var _edited_material_cache: Dictionary = {}
 var _shell_field_cache: Dictionary = {}
 var _data_path := DATA_PATH
+var _user_data_path := USER_DATA_PATH
 
 
-func _init(profile_path: String = DATA_PATH) -> void:
+func _init(
+	profile_path: String = DATA_PATH,
+	user_profile_path: String = USER_DATA_PATH
+) -> void:
 	_data_path = profile_path
+	_user_data_path = user_profile_path
 	reload()
 
 
@@ -64,9 +82,17 @@ func reload() -> void:
 	_edited_material_cache.clear()
 	_shell_field_cache.clear()
 	_default_model_smoothing = DEFAULT_MODEL_SMOOTHING
-	if not FileAccess.file_exists(_data_path):
+	_ingest(_data_path)
+	# Player-side saves last, so they win over the shipped baseline entry by
+	# entry: an asset the player never touched keeps whatever shipped.
+	if _user_data_path != "" and _user_data_path != _data_path:
+		_ingest(_user_data_path)
+
+
+func _ingest(path: String) -> void:
+	if not FileAccess.file_exists(path):
 		return
-	var parsed = JSON.parse_string(FileAccess.get_file_as_string(_data_path))
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string(path))
 	if parsed is Dictionary:
 		var raw_defaults: Variant = parsed.get("defaults", {})
 		if raw_defaults is Dictionary:
@@ -157,13 +183,43 @@ func save_profile(asset_id: String, supplied: Dictionary) -> Error:
 		"version": PROFILE_VERSION,
 		"profiles": _profiles,
 	}
-	var absolute_path := ProjectSettings.globalize_path(_data_path)
-	var file := FileAccess.open(absolute_path, FileAccess.WRITE)
-	if file == null:
+	var body := JSON.stringify(payload, "\t", false) + "\n"
+	# Prefer the project file, so an edit made while running from source is
+	# baked into the repo and ships with the build. globalize_path resolves to
+	# a path beside the executable in an export, where writing would leave a
+	# stray file nothing ever reads -- so that case is rejected and the save
+	# falls back to user://, which is writable on every platform.
+	if _project_data_is_writable():
+		var absolute_path := ProjectSettings.globalize_path(_data_path)
+		var file := FileAccess.open(absolute_path, FileAccess.WRITE)
+		if file != null:
+			file.store_string(body)
+			file.close()
+			return OK
+	var user_file := FileAccess.open(_user_data_path, FileAccess.WRITE)
+	if user_file == null:
 		return FileAccess.get_open_error()
-	file.store_string(JSON.stringify(payload, "\t", false) + "\n")
-	file.close()
+	user_file.store_string(body)
+	user_file.close()
 	return OK
+
+
+## True only when res:// is a real, already-present file on disk that opens for
+## writing -- a source run or the editor. Probed rather than inferred from
+## feature flags, because whether the write survives is the actual question.
+func _project_data_is_writable() -> bool:
+	if _data_path.begins_with("user://"):
+		return true
+	var absolute_path := ProjectSettings.globalize_path(_data_path)
+	if absolute_path == "" or absolute_path.begins_with("res://"):
+		return false
+	if not FileAccess.file_exists(absolute_path):
+		return false
+	var probe := FileAccess.open(absolute_path, FileAccess.READ_WRITE)
+	if probe == null:
+		return false
+	probe.close()
+	return true
 
 
 func apply_to_instance(root: Node3D, asset_id: String) -> void:

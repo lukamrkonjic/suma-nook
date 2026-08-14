@@ -5,6 +5,8 @@ const AssetEditLibraryScript := preload(
 	"res://scripts/visuals/asset_edit_library.gd"
 )
 const PROFILE_PATH := "user://asset_edit_library_test.json"
+const SHIPPED_PATH := "user://asset_edit_library_test_shipped.json"
+const PLAYER_PATH := "user://asset_edit_library_test_player.json"
 
 var _failures := 0
 
@@ -219,11 +221,68 @@ func _ready() -> void:
 		"authored profile is absent after removal"
 	)
 
+	_check_shipped_and_player_layers()
+
 	if _failures == 0:
 		print("ASSET EDIT LIBRARY TEST PASSED")
 	_remove_test_profile()
 	get_tree().quit(_failures)
 
+
+## An Asset Studio save has to survive relaunching, and in an exported build
+## res:// is inside the PCK and cannot be written -- so those saves must fall
+## back to user:// and layer over the shipped baseline.
+func _check_shipped_and_player_layers() -> void:
+	for path in [SHIPPED_PATH, PLAYER_PATH]:
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+	# Fallback: a project file that cannot be written (which is every export)
+	# must not swallow the save.
+	var unwritable = AssetEditLibraryScript.new(
+		"res://data/__asset_edits_absent__.json", PLAYER_PATH
+	)
+	_expect(
+		unwritable.save_profile("prop_overridden", {
+			"scale": 2.25, "smoothing": 0.0, "materials": {},
+		}) == OK,
+		"a profile still saves when the project file cannot be written"
+	)
+	_expect(
+		FileAccess.file_exists(PLAYER_PATH),
+		"the save lands in the player-writable layer"
+	)
+
+	# Layering: the shipped baseline supplies everything the player never
+	# touched, and the player's own file wins where they overlap.
+	var shipped_file := FileAccess.open(SHIPPED_PATH, FileAccess.WRITE)
+	shipped_file.store_string(JSON.stringify({
+		"defaults": {"model_smoothing": 0.85},
+		"version": 2,
+		"profiles": {
+			"prop_shipped_only": {
+				"scale": 1.5, "smoothing": 0.0, "materials": {},
+			},
+			"prop_overridden": {
+				"scale": 1.0, "smoothing": 0.0, "materials": {},
+			},
+		},
+	}))
+	shipped_file.close()
+
+	# A fresh library is what the next launch sees.
+	var relaunched = AssetEditLibraryScript.new(SHIPPED_PATH, PLAYER_PATH)
+	_expect(
+		is_equal_approx(relaunched.model_scale_for("prop_overridden"), 2.25),
+		"a saved override survives relaunch and beats the shipped value"
+	)
+	_expect(
+		is_equal_approx(relaunched.model_scale_for("prop_shipped_only"), 1.5),
+		"an asset the player never edited keeps what shipped"
+	)
+	for path in [SHIPPED_PATH, PLAYER_PATH]:
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
 func _test_layer_material_override(library) -> void:
 	var asset_id := "tile_layer_surface_color_test"

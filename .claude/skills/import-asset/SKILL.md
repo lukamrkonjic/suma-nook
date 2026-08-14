@@ -462,6 +462,12 @@ reflex-checkout destroyed the well's uncommitted `smoothing: 0.0` profile
 once; the asset silently inherited the 0.85 default and arrived in game as a
 melted blob that read as ruined topology.
 
+**Read the diff before reverting it.** That file is now where Asset Studio
+saves land while running from source -- that is what bakes an F8 edit into the
+build -- so a blanket checkout throws away colour and smoothing work the user
+just did. Revert only when the diff is nothing but the game's whitespace
+reformatting of empty `materials` objects; otherwise commit it.
+
 The harness exits 1 without capturing if the studio cannot select the id --
 which is the case for any asset not yet wired into `structures.json` (step 8).
 It used to capture whatever was already selected (the default tile) under the
