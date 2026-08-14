@@ -1271,6 +1271,14 @@ func _cell_under_mouse() -> Vector2i:
 	return _slot_under_mouse()["coord"]
 
 
+## The grid coord under a screen point, using the same pick-then-ground-plane
+## fallback the build cursor uses. Multi-tile selection needs the identical
+## answer the build cursor would give, so it shares the resolver rather than
+## raycasting the ground plane on its own and disagreeing at stack edges.
+func cell_at_screen(screen_position: Vector2) -> Vector2i:
+	return _slot_under_mouse(screen_position)["coord"]
+
+
 func _update_hover_target() -> void:
 	_hover_support_instance_id = 0
 	_hover_support_slot = ""

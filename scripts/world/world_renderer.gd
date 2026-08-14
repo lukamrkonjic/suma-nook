@@ -50,6 +50,10 @@ var _curiosity_visual_factory: RefCounted
 var _outlined_meshes: Array[MeshInstance3D] = []
 var _hovered_structure_id := -1
 var _hover_signature := ""
+## A settled multi-tile selection owns the outline overlay. Hover shares the
+## same layer and would otherwise clear the selection the moment the pointer
+## crossed any other tile.
+var _selection_outline_active := false
 var _pending_rotation_slots: Dictionary = {}
 var _pending_wish_slots: Dictionary = {}
 var _pending_water_skip_slots: Dictionary = {}
@@ -1835,6 +1839,8 @@ func pick_structure_at_screen(camera: Camera3D, screen_position: Vector2) -> Dic
 
 
 func set_hovered_structure(instance_id: int, include_descendants := true) -> void:
+	if _selection_outline_active:
+		return
 	var signature := "structure:%d:%s" % [instance_id, str(include_descendants)]
 	if _hover_signature == signature:
 		return
@@ -1865,6 +1871,8 @@ func set_hovered_tile(
 	elevation: int,
 	include_above := true
 ) -> void:
+	if _selection_outline_active:
+		return
 	var signature := "tile:%d:%d:%d:%s" % [
 		coord.x,
 		coord.y,
@@ -1891,6 +1899,8 @@ func set_hovered_tile(
 ## not grid structures and should never make their supporting tile look selected.
 ## They can still use the same screen-space silhouette system directly.
 func set_hovered_visual(visual: Node3D, signature: String) -> void:
+	if _selection_outline_active:
+		return
 	if visual == null or not is_instance_valid(visual):
 		clear_structure_hover()
 		return
@@ -1927,6 +1937,50 @@ func _set_hover_nodes(
 			_outlined_meshes.append(mesh_instance)
 	_outline_overlay.visible = true
 	_outline_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+
+
+## Outlines a whole set of tile columns as one shape.
+##
+## This reuses the hover outline path deliberately rather than adding a second
+## one. That path puts every mesh on OUTLINE_VISIBILITY_LAYER and the overlay
+## shader dilates the layer's combined alpha and subtracts its interior, so what
+## it draws is the silhouette of the UNION -- seams between neighbouring tiles
+## never appear, and a selection reads as one large object exactly as it should.
+## Feeding it many columns instead of one hovered structure needs no new
+## machinery.
+func set_selection_outline(coords: Array) -> void:
+	_selection_outline_active = false
+	clear_structure_hover()
+	if coords.is_empty():
+		return
+	var nodes: Array[Node3D] = []
+	var signature := "tile_selection:%d:" % coords.size()
+	for coord: Vector2i in coords:
+		signature += "%d,%d;" % [coord.x, coord.y]
+		# The whole column, which is what a selected coord means.
+		for layer in range(0, core.grid.top_elevation(coord) + 1):
+			var holder: Node3D = (
+				_scalable_backend.hover_tile_node(coord, layer)
+				if _scalable_mode
+				else tile_node(coord, layer)
+			)
+			if holder != null and is_instance_valid(holder):
+				nodes.append(holder)
+	if nodes.is_empty():
+		return
+	_selection_outline_active = true
+	_set_hover_nodes(nodes, signature, -1)
+
+
+func clear_selection_outline() -> void:
+	if not _selection_outline_active:
+		return
+	_selection_outline_active = false
+	clear_structure_hover()
+
+
+func selection_outline_active() -> bool:
+	return _selection_outline_active
 
 
 func clear_structure_hover() -> void:

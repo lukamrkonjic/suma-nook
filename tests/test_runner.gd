@@ -178,6 +178,7 @@ func _run() -> void:
 	_test_content_assets()
 	_test_tile_slot_fill()
 	_test_masked_tile_surfaces_keep_their_materials()
+	_test_tile_selection_moves_whole_columns()
 	_test_world_model_scale_contract()
 	_test_catalog_expansion()
 	_test_gg_render_contract()
@@ -2487,6 +2488,81 @@ func _test_masked_tile_surfaces_keep_their_materials() -> void:
 			% structure_id
 		)
 	check(compared > 0, "the contact-mask equivalence audit examined structures")
+
+
+## Ctrl-drag multi-tile selection, modelled on Garden Galaxy: an inclusive coord
+## rectangle where every selected coord contributes its whole column.
+func _test_tile_selection_moves_whole_columns() -> void:
+	var core := fresh_core(818)
+	var grid := core.grid
+	var tile_id := String(core.registries.active_tile_ids()[0])
+	for x in range(0, 3):
+		for y in range(0, 2):
+			grid.place_tile(Vector2i(x, y), tile_id)
+	# A stacked column, so "stacked are selected together" is actually exercised.
+	grid.place_tile_at(Vector2i(1, 0), 1, tile_id)
+	grid.place_tile_at(Vector2i(1, 0), 2, tile_id)
+
+	var selection := TileSelection.new(grid)
+	selection.begin(Vector2i(0, 0))
+	selection.drag_to(Vector2i(2, 1))
+	check(
+		selection.is_dragging() and selection.size() == 6,
+		"dragging a rectangle selects every occupied coord inside it"
+	)
+	check(
+		selection.rectangle() == Rect2i(0, 0, 3, 2),
+		"the marquee rectangle is inclusive of both corners"
+	)
+	check(
+		selection.end_drag() and selection.has_selection(),
+		"releasing settles a selection that caught tiles"
+	)
+
+	# The move that matters: one step, so most destinations are cells the
+	# selection itself currently occupies. Validating before detaching would
+	# reject this.
+	var moved := selection.move_by(Vector2i(1, 0))
+	check(moved, "a settled selection slides one step into its own footprint")
+	check(
+		not grid.has_cell_at(Vector2i(0, 0), 0)
+		and grid.has_cell_at(Vector2i(3, 0), 0)
+		and grid.has_cell_at(Vector2i(3, 1), 0),
+		"every column in the selection moved, and the vacated edge is empty"
+	)
+	check(
+		grid.has_cell_at(Vector2i(2, 0), 1)
+		and grid.has_cell_at(Vector2i(2, 0), 2),
+		"the stacked tiles travelled with their column"
+	)
+	check(
+		selection.contains(Vector2i(3, 0))
+		and not selection.contains(Vector2i(0, 0)),
+		"the selection follows the tiles it moved"
+	)
+
+	# A structure rides along, since the column carries its cell states whole.
+	var structure_grid := fresh_core(819).grid
+	var structure_tile := String(structure_grid.registries.active_tile_ids()[0])
+	structure_grid.place_tile(Vector2i(0, 0), structure_tile)
+	var carried := TileSelection.new(structure_grid)
+	carried.begin(Vector2i(0, 0))
+	carried.drag_to(Vector2i(0, 0))
+	carried.end_drag()
+	var before_state := structure_grid.cell_at(Vector2i(0, 0), 0)
+	check(
+		carried.move_by(Vector2i(0, 4))
+		and structure_grid.cell_at(Vector2i(0, 4), 0) == before_state,
+		"a moved column keeps its exact cell state, structures included"
+	)
+
+	var empty := TileSelection.new(grid)
+	empty.begin(Vector2i(40, 40))
+	empty.drag_to(Vector2i(42, 42))
+	check(
+		not empty.end_drag() and not empty.has_selection(),
+		"dragging across empty space leaves no selection to swallow the next click"
+	)
 
 
 func _test_world_model_scale_contract() -> void:

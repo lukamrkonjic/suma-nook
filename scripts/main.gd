@@ -93,6 +93,10 @@ var pigeon_mascot: CharacterBody3D
 var pigeon_controller: PigeonMascotController
 var camera_rig: CameraRig
 var placement: PlacementController
+var tile_selection: TileSelection
+var _selection_pointer_down := false
+var _selection_moving := false
+var _selection_move_coord := Vector2i.ZERO
 var frontier_markers: NookFrontierMarkers
 var frontier_picker: CanvasLayer
 var nook_arrival_ghost
@@ -401,6 +405,7 @@ func _build_world_scene() -> void:
 	placement.name = "Placement"
 	world_root.add_child(placement)
 	placement.setup(core, assets, camera_rig, player, effects, renderer)
+	tile_selection = TileSelection.new(core.grid)
 	frontier_markers = NookFrontierMarkers.new()
 	frontier_markers.name = "NookFrontierMarkers"
 	world_root.add_child(frontier_markers)
@@ -1855,6 +1860,9 @@ func _input(event: InputEvent) -> void:
 		and not panels.is_open()
 		and (asset_viewer == null or not asset_viewer.is_open())
 	):
+		if _handle_tile_selection_input(event):
+			get_viewport().set_input_as_handled()
+			return
 		if event is InputEventMouseMotion and _worldheart_pointer_pressed:
 			var worldheart_motion := event as InputEventMouseMotion
 			if (
@@ -2008,6 +2016,95 @@ func _camera_input_blocked_by_ui() -> bool:
 	if asset_viewer != null and asset_viewer.is_open():
 		return true
 	return lighting_tuner != null and lighting_tuner.visible
+
+
+## Ctrl-drag selects a rectangle of tiles, and dragging from inside a settled
+## selection moves the whole set.
+##
+## Returns whether the gesture was claimed. This runs before every other pointer
+## path so a held Ctrl can never fall through to placement, camera orbit or the
+## Worldheart -- a modifier that sometimes edits the world and sometimes does
+## not would be worse than no modifier at all.
+func _handle_tile_selection_input(event: InputEvent) -> bool:
+	if tile_selection == null:
+		return false
+	if event is InputEventKey and event.is_action_pressed("cancel"):
+		if tile_selection.has_selection() or tile_selection.is_dragging():
+			_clear_tile_selection()
+			return true
+		return false
+
+	if event is InputEventMouseButton:
+		var mouse := event as InputEventMouseButton
+		if mouse.button_index != MOUSE_BUTTON_LEFT:
+			return false
+		if mouse.pressed:
+			if not mouse.ctrl_pressed:
+				# A plain click outside the selection dismisses it, the way
+				# clicking away from a marquee does everywhere else. The click
+				# itself still belongs to whatever it hit, so this does not
+				# claim the gesture.
+				if tile_selection.has_selection():
+					var plain_coord := placement.cell_at_screen(mouse.position)
+					if not tile_selection.contains(plain_coord):
+						_clear_tile_selection()
+				return false
+			if _screen_position_blocked_by_ui(mouse.position):
+				return false
+			var coord := placement.cell_at_screen(mouse.position)
+			_selection_pointer_down = true
+			camera_rig.begin_pointer_edit()
+			if tile_selection.has_selection() and tile_selection.contains(coord):
+				_selection_moving = true
+				_selection_move_coord = coord
+			else:
+				_selection_moving = false
+				tile_selection.begin(coord)
+				_refresh_tile_selection_outline()
+			return true
+		if not _selection_pointer_down:
+			return false
+		_selection_pointer_down = false
+		_selection_moving = false
+		camera_rig.end_pointer_edit()
+		tile_selection.end_drag()
+		_refresh_tile_selection_outline()
+		return true
+
+	if event is InputEventMouseMotion and _selection_pointer_down:
+		var coord := placement.cell_at_screen(
+			(event as InputEventMouseMotion).position
+		)
+		if _selection_moving:
+			# Moved a cell at a time as the cursor crosses them, rather than
+			# previewed and committed on release. The move goes through the real
+			# grid, so what is on screen mid-drag is the actual result -- and an
+			# illegal step simply does not happen instead of being taken back.
+			var delta := coord - _selection_move_coord
+			if delta != Vector2i.ZERO and tile_selection.move_by(delta):
+				_selection_move_coord = coord
+				_refresh_tile_selection_outline()
+		else:
+			tile_selection.drag_to(coord)
+			_refresh_tile_selection_outline()
+		return true
+	return false
+
+
+func _refresh_tile_selection_outline() -> void:
+	if renderer == null:
+		return
+	# Re-applied after every move because moving rebuilds the affected cells,
+	# freeing the very nodes the outline was holding.
+	renderer.set_selection_outline(tile_selection.coords())
+
+
+func _clear_tile_selection() -> void:
+	tile_selection.clear()
+	_selection_pointer_down = false
+	_selection_moving = false
+	if renderer != null:
+		renderer.clear_selection_outline()
 
 
 func _begin_build_pointer(screen_position: Vector2) -> void:
