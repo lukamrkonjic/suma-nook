@@ -2,12 +2,16 @@ class_name TileSelection
 extends RefCounted
 ## Rectangular multi-tile selection, and moving the whole set at once.
 ##
-## Modelled on how Garden Galaxy does it: the pointer drags an inclusive
-## rectangle of grid coords, and every coord in it contributes its ENTIRE
-## column -- ground tile, everything stacked on top, and every structure those
-## cells carry. You never select "the tile at elevation 2"; a coord is in or it
-## is out. That is what makes a selection behave like one object rather than a
-## pile of independently-moving parts.
+## Every selected coord contributes its ENTIRE column -- ground tile, everything
+## stacked on top, and every structure those cells carry. You never select "the
+## tile at elevation 2"; a coord is in or it is out. That is what makes a
+## selection behave like one object rather than a pile of independently-moving
+## parts, and it is how Garden Galaxy does it too.
+##
+## Which coords are in the set is decided by the caller from a screen rectangle
+## rather than here from a grid rectangle. The camera is at 45 degrees, so a
+## coord-space rectangle collapses to a one-cell strip whenever the pointer is
+## dragged along a screen diagonal -- see coords_in_screen_rect.
 ##
 ## The grid already had the primitives for this (detach_tile_stack /
 ## can_restore_tile_stack / restore_tile_stack); what this adds is the set
@@ -24,9 +28,8 @@ enum State {
 var grid: WorldGrid
 
 var _state: int = State.IDLE
-var _anchor := Vector2i.ZERO
-var _cursor := Vector2i.ZERO
 var _coords: Array[Vector2i] = []
+var _coord_lookup: Dictionary = {}
 
 
 func _init(world_grid: WorldGrid) -> void:
@@ -53,35 +56,39 @@ func size() -> int:
 	return _coords.size()
 
 
+## O(1) rather than a linear scan. This is asked once per pointer press and,
+## more importantly, once per candidate during a move.
 func contains(coord: Vector2i) -> bool:
-	return _coords.has(coord)
+	return _coord_lookup.has(coord)
 
 
-## The inclusive coord rectangle the marquee currently spans, occupied or not.
-func rectangle() -> Rect2i:
-	var minimum := Vector2i(mini(_anchor.x, _cursor.x), mini(_anchor.y, _cursor.y))
-	var maximum := Vector2i(maxi(_anchor.x, _cursor.x), maxi(_anchor.y, _cursor.y))
-	return Rect2i(minimum, maximum - minimum + Vector2i.ONE)
-
-
-func begin(coord: Vector2i) -> void:
+func begin_drag() -> void:
 	_state = State.DRAGGING
-	_anchor = coord
-	_cursor = coord
-	_refresh_coords()
+	_set_coords([])
 
 
-## Returns whether the selected set actually changed, so callers can skip
-## redecorating. Pointer motion fires many times per cell crossed, and the
-## overwhelming majority of those events land on the cell already under the
-## cursor.
-func drag_to(coord: Vector2i) -> bool:
+## Replaces the selected set. Returns whether it actually changed, so callers
+## can skip redecorating: pointer motion fires many times per cell crossed and
+## the overwhelming majority of those events resolve to the same set.
+func drag_to_coords(coords: Array[Vector2i]) -> bool:
 	if _state != State.DRAGGING:
 		return false
-	if coord == _cursor:
-		return false
-	_cursor = coord
-	_refresh_coords()
+	return _set_coords(coords)
+
+
+func _set_coords(coords: Array[Vector2i]) -> bool:
+	if coords.size() == _coords.size():
+		var identical := true
+		for coord: Vector2i in coords:
+			if not _coord_lookup.has(coord):
+				identical = false
+				break
+		if identical:
+			return false
+	_coords = coords.duplicate()
+	_coord_lookup.clear()
+	for coord: Vector2i in _coords:
+		_coord_lookup[coord] = true
 	return true
 
 
@@ -98,20 +105,7 @@ func end_drag() -> bool:
 func clear() -> void:
 	_state = State.IDLE
 	_coords.clear()
-
-
-## Every occupied coord inside the rectangle. A coord counts as occupied when it
-## has a ground cell, since that is what anchors the column.
-func _refresh_coords() -> void:
-	_coords.clear()
-	if grid == null:
-		return
-	var area := rectangle()
-	for x in range(area.position.x, area.position.x + area.size.x):
-		for y in range(area.position.y, area.position.y + area.size.y):
-			var coord := Vector2i(x, y)
-			if grid.has_cell_at(coord, BASE_ELEVATION):
-				_coords.append(coord)
+	_coord_lookup.clear()
 
 
 ## Slides the whole selection by a grid delta, carrying every stacked tile and
@@ -156,9 +150,7 @@ func move_by(delta: Vector2i) -> bool:
 		if accepted:
 			moved.append(destination)
 	if accepted:
-		_coords = moved
-		_anchor += delta
-		_cursor += delta
+		_set_coords(moved)
 	return accepted
 
 
@@ -169,14 +161,11 @@ func can_move_by(delta: Vector2i) -> bool:
 		return false
 	if delta == Vector2i.ZERO:
 		return true
-	var selected := {}
-	for coord: Vector2i in _coords:
-		selected[coord] = true
 	for coord: Vector2i in _coords:
 		var destination: Vector2i = coord + delta
 		# A destination still inside the selection is being vacated by this same
 		# move, so it is free even though the grid still reports it occupied.
-		if selected.has(destination):
+		if _coord_lookup.has(destination):
 			continue
 		var stack := grid.tile_stack_from(coord, BASE_ELEVATION)
 		if stack.is_empty():

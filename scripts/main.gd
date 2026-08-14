@@ -97,6 +97,10 @@ var tile_selection: TileSelection
 var _selection_pointer_down := false
 var _selection_moving := false
 var _selection_move_coord := Vector2i.ZERO
+var _selection_press_position := Vector2.ZERO
+var _selection_pointer_position := Vector2.ZERO
+var _selection_rect_dirty := false
+var _selection_preview_delta := Vector2i.ZERO
 var frontier_markers: NookFrontierMarkers
 var frontier_picker: CanvasLayer
 var nook_arrival_ghost
@@ -1618,6 +1622,8 @@ func _process(delta: float) -> void:
 	_update_frontier_marker_availability()
 	if not _gameplay_started:
 		return
+	if _selection_rect_dirty and _selection_pointer_down and not _selection_moving:
+		_resolve_tile_selection_rect()
 	if (
 		_worldheart_offer_pointer_pressed
 		and (
@@ -2051,6 +2057,7 @@ func _handle_tile_selection_input(event: InputEvent) -> bool:
 				_selection_pointer_down = true
 				_selection_moving = true
 				_selection_move_coord = coord
+				_selection_preview_delta = Vector2i.ZERO
 				camera_rig.begin_pointer_edit()
 				return true
 			if not mouse.ctrl_pressed:
@@ -2063,41 +2070,77 @@ func _handle_tile_selection_input(event: InputEvent) -> bool:
 				return false
 			_selection_pointer_down = true
 			_selection_moving = false
+			_selection_press_position = mouse.position
+			_selection_pointer_position = mouse.position
+			_selection_rect_dirty = true
 			camera_rig.begin_pointer_edit()
-			tile_selection.begin(coord)
-			_refresh_tile_selection_outline()
-			renderer.set_selection_marquee(tile_selection.rectangle())
+			tile_selection.begin_drag()
 			return true
 		if not _selection_pointer_down:
 			return false
 		_selection_pointer_down = false
 		_selection_moving = false
 		camera_rig.end_pointer_edit()
+		if _selection_moving:
+			var committed := _selection_preview_delta
+			_selection_preview_delta = Vector2i.ZERO
+			renderer.clear_selection_preview_offset()
+			if committed != Vector2i.ZERO and tile_selection.move_by(committed):
+				# The commit rebuilt those cells, so the cached meshes behind
+				# the shifted coords are freed and must be re-gathered.
+				_refresh_tile_selection_outline(true)
+			return true
+		if _selection_rect_dirty:
+			_resolve_tile_selection_rect()
 		tile_selection.end_drag()
 		renderer.clear_selection_marquee()
 		_refresh_tile_selection_outline()
 		return true
 
 	if event is InputEventMouseMotion and _selection_pointer_down:
-		var coord := placement.cell_at_screen(
-			(event as InputEventMouseMotion).position
-		)
+		var motion := event as InputEventMouseMotion
+		var coord := placement.cell_at_screen(motion.position)
 		if _selection_moving:
-			# Moved a cell at a time as the cursor crosses them, rather than
-			# previewed and committed on release. The move goes through the real
-			# grid, so what is on screen mid-drag is the actual result -- and an
-			# illegal step simply does not happen instead of being taken back.
+			# Preview only. The grid is untouched until release, so crossing a
+			# cell costs a handful of transform writes instead of rebuilding
+			# every selected column.
 			var delta := coord - _selection_move_coord
-			if delta != Vector2i.ZERO and tile_selection.move_by(delta):
-				_selection_move_coord = coord
-				# Forced: the move rebuilt those cells, so the cached meshes
-				# behind the shifted coords are already freed.
-				_refresh_tile_selection_outline(true)
-		elif tile_selection.drag_to(coord):
-			_refresh_tile_selection_outline()
-			renderer.set_selection_marquee(tile_selection.rectangle())
+			if delta != _selection_preview_delta and tile_selection.can_move_by(delta):
+				_selection_preview_delta = delta
+				renderer.set_selection_preview_offset(
+					_selection_world_offset(delta)
+				)
+		else:
+			# Marked dirty and resolved once in _process. Resolving here would
+			# run the whole screen-rectangle sweep for every motion event, and
+			# those arrive far more often than frames are drawn.
+			_selection_pointer_position = motion.position
+			_selection_rect_dirty = true
 		return true
 	return false
+
+
+## Resolves the pending drag rectangle. Called from _process so a burst of
+## motion events costs one sweep, not one per event.
+func _resolve_tile_selection_rect() -> void:
+	_selection_rect_dirty = false
+	var screen_rect := Rect2(
+		_selection_press_position, Vector2.ZERO
+	).expand(_selection_pointer_position)
+	renderer.set_selection_marquee_screen(screen_rect)
+	if tile_selection.drag_to_coords(
+		placement.coords_in_screen_rect(screen_rect)
+	):
+		_refresh_tile_selection_outline()
+
+
+## A grid delta as a world offset, taken as the difference between two cell
+## centres so it follows whatever tile size and layout the grid uses.
+func _selection_world_offset(delta: Vector2i) -> Vector3:
+	return (
+		core.grid.cell_to_world(delta, 0)
+		- core.grid.cell_to_world(Vector2i.ZERO, 0)
+	)
 
 
 func _refresh_tile_selection_outline(force := false) -> void:
@@ -2110,6 +2153,9 @@ func _clear_tile_selection() -> void:
 	tile_selection.clear()
 	_selection_pointer_down = false
 	_selection_moving = false
+	_selection_preview_delta = Vector2i.ZERO
+	if renderer != null:
+		renderer.clear_selection_preview_offset()
 	if renderer != null:
 		renderer.clear_selection_outline()
 		renderer.clear_selection_marquee()

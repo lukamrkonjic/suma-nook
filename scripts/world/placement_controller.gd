@@ -1279,6 +1279,58 @@ func cell_at_screen(screen_position: Vector2) -> Vector2i:
 	return _slot_under_mouse(screen_position)["coord"]
 
 
+## Every occupied coord whose visible top surface falls inside a SCREEN
+## rectangle.
+##
+## Selection is resolved on screen rather than as a rectangle of grid coords.
+## The camera sits at 45 degrees, so screen-right runs along grid (X-Y) and
+## screen-down along grid (X+Y): dragging on a screen diagonal moves along a
+## single grid axis, and a coord-space rectangle collapses to a one-cell strip.
+## Sweeping a box therefore has to mean what it looks like it means.
+##
+## The candidate range is bounded by unprojecting the box's own corners to the
+## ground plane, then padded, because a tall stack is drawn well above the
+## ground cell it stands on and would otherwise be missed at the top edge.
+func coords_in_screen_rect(screen_rect: Rect2) -> Array[Vector2i]:
+	var found: Array[Vector2i] = []
+	var camera := camera_rig.camera
+	if camera == null or not is_instance_valid(camera):
+		return found
+	var corners := [
+		screen_rect.position,
+		screen_rect.position + Vector2(screen_rect.size.x, 0.0),
+		screen_rect.position + Vector2(0.0, screen_rect.size.y),
+		screen_rect.end,
+	]
+	var minimum := Vector2i.ZERO
+	var maximum := Vector2i.ZERO
+	var seeded := false
+	for corner: Vector2 in corners:
+		var coord: Vector2i = _slot_under_mouse(corner)["coord"]
+		if not seeded:
+			minimum = coord
+			maximum = coord
+			seeded = true
+			continue
+		minimum = Vector2i(mini(minimum.x, coord.x), mini(minimum.y, coord.y))
+		maximum = Vector2i(maxi(maximum.x, coord.x), maxi(maximum.y, coord.y))
+	if not seeded:
+		return found
+	var pad := maxi(2, core.grid.max_stack_elevation + 1)
+	minimum -= Vector2i(pad, pad)
+	maximum += Vector2i(pad, pad)
+	for x in range(minimum.x, maximum.x + 1):
+		for y in range(minimum.y, maximum.y + 1):
+			var coord := Vector2i(x, y)
+			if not core.grid.has_cell_at(coord, 0):
+				continue
+			var top := maxi(0, core.grid.top_elevation(coord))
+			var centre := core.grid.cell_to_world(coord, top)
+			if screen_rect.has_point(camera.unproject_position(centre)):
+				found.append(coord)
+	return found
+
+
 func _update_hover_target() -> void:
 	_hover_support_instance_id = 0
 	_hover_support_slot = ""

@@ -2503,16 +2503,19 @@ func _test_tile_selection_moves_whole_columns() -> void:
 	grid.place_tile_at(Vector2i(1, 0), 1, tile_id)
 	grid.place_tile_at(Vector2i(1, 0), 2, tile_id)
 
+	var swept: Array[Vector2i] = []
+	for x in range(0, 3):
+		for y in range(0, 2):
+			swept.append(Vector2i(x, y))
 	var selection := TileSelection.new(grid)
-	selection.begin(Vector2i(0, 0))
-	selection.drag_to(Vector2i(2, 1))
+	selection.begin_drag()
 	check(
-		selection.is_dragging() and selection.size() == 6,
-		"dragging a rectangle selects every occupied coord inside it"
+		selection.drag_to_coords(swept) and selection.size() == 6,
+		"a swept set of coords becomes the selection"
 	)
 	check(
-		selection.rectangle() == Rect2i(0, 0, 3, 2),
-		"the marquee rectangle is inclusive of both corners"
+		not selection.drag_to_coords(swept),
+		"re-reporting the same set changes nothing, so no redecoration happens"
 	)
 	check(
 		selection.end_drag() and selection.has_selection(),
@@ -2546,8 +2549,9 @@ func _test_tile_selection_moves_whole_columns() -> void:
 	var structure_tile := String(structure_grid.registries.active_tile_ids()[0])
 	structure_grid.place_tile(Vector2i(0, 0), structure_tile)
 	var carried := TileSelection.new(structure_grid)
-	carried.begin(Vector2i(0, 0))
-	carried.drag_to(Vector2i(0, 0))
+	carried.begin_drag()
+	var single: Array[Vector2i] = [Vector2i(0, 0)]
+	carried.drag_to_coords(single)
 	carried.end_drag()
 	var before_state := structure_grid.cell_at(Vector2i(0, 0), 0)
 	check(
@@ -2556,9 +2560,39 @@ func _test_tile_selection_moves_whole_columns() -> void:
 		"a moved column keeps its exact cell state, structures included"
 	)
 
+	# can_move_by drives the drag preview, so it has to agree with move_by about
+	# the self-footprint case rather than rejecting every one-step nudge.
+	var probe_core := fresh_core(820)
+	var probe_grid := probe_core.grid
+	var probe_tile := String(probe_core.registries.active_tile_ids()[0])
+	# Far from the generated starter island, so the only occupancy is what this
+	# test places. Using coords near the origin made the first assertion fail
+	# against real world tiles rather than against the rule under test.
+	var origin := Vector2i(60, 60)
+	probe_grid.place_tile(origin, probe_tile)
+	probe_grid.place_tile(origin + Vector2i(1, 0), probe_tile)
+	probe_grid.place_tile(origin + Vector2i(2, 0), probe_tile)
+	var probe := TileSelection.new(probe_grid)
+	probe.begin_drag()
+	var pair: Array[Vector2i] = [origin, origin + Vector2i(1, 0)]
+	probe.drag_to_coords(pair)
+	probe.end_drag()
+	check(
+		probe.can_move_by(Vector2i(-1, 0)),
+		"a one-step move into free ground is allowed before it is made"
+	)
+	check(
+		not probe.can_move_by(Vector2i(1, 0)),
+		"a move onto an occupied cell outside the selection is refused"
+	)
+	check(
+		probe.can_move_by(Vector2i.ZERO),
+		"a zero move is trivially allowed, so a stationary drag is not refused"
+	)
+
 	var empty := TileSelection.new(grid)
-	empty.begin(Vector2i(40, 40))
-	empty.drag_to(Vector2i(42, 42))
+	empty.begin_drag()
+	empty.drag_to_coords([] as Array[Vector2i])
 	check(
 		not empty.end_drag() and not empty.has_selection(),
 		"dragging across empty space leaves no selection to swallow the next click"

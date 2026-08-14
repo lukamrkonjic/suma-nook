@@ -55,9 +55,8 @@ var _hover_signature := ""
 ## crossed any other tile.
 var _selection_outline_active := false
 var _selection_decorated: Dictionary = {}  # Vector2i -> Array[MeshInstance3D]
-var _selection_tint_material: StandardMaterial3D
-var _selection_marquee: MeshInstance3D
-var _selection_marquee_area := Rect2i()
+var _selection_holders: Dictionary = {}    # Vector2i -> Array[Node3D]
+var _selection_marquee: Panel
 var _pending_rotation_slots: Dictionary = {}
 var _pending_wish_slots: Dictionary = {}
 var _pending_water_skip_slots: Dictionary = {}
@@ -1701,6 +1700,11 @@ render_mode unshaded;
 
 uniform vec4 outline_color : source_color = vec4(1.0, 0.99, 0.96, 1.0);
 uniform float outline_width_pixels = 2.5;
+// Interior wash. Zero for hover, raised for a multi-tile selection so the
+// inside of the set reads as selected and not just its border. Filling from
+// this mask costs nothing: the mask is already the union of every selected
+// mesh, so no per-mesh material is involved.
+uniform float fill_alpha = 0.0;
 
 const int OUTLINE_SAMPLES = 16;
 
@@ -1721,7 +1725,9 @@ void fragment() {
 	float rounded_dilation = max(around, smoothstep(0.02, 0.28, coverage));
 	float exterior = 1.0 - smoothstep(0.04, 0.72, center);
 	float outline = smoothstep(0.04, 0.58, rounded_dilation) * exterior;
-	COLOR = vec4(outline_color.rgb, outline_color.a * outline);
+	float interior = smoothstep(0.04, 0.72, center);
+	float alpha = max(outline_color.a * outline, fill_alpha * interior);
+	COLOR = vec4(outline_color.rgb, alpha);
 }
 """
 	var material := ShaderMaterial.new()
@@ -2014,35 +2020,44 @@ func set_selection_outline(coords: Array, force := false) -> void:
 	if _outline_source_camera == null:
 		return
 	_sync_outline_camera()
+	_set_outline_fill(SELECTION_FILL_ALPHA)
 	_outline_overlay.visible = true
 	_outline_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 
 
-## A faint white wash over everything selected.
+## Interior wash strength for a selection. Applied to the outline overlay
+## shader, not to the tiles.
 ##
-## The outline marks the border of the set but says nothing about what is inside
-## it, which reads badly on a large selection whose middle looks untouched.
-## material_overlay draws on top of each surface's own material without
-## replacing it, so a tile keeps its colour and merely lightens.
-const SELECTION_TINT := Color(1.0, 1.0, 1.0, 0.055)
+## This used to be a material_overlay set on every mesh of every selected
+## column. That made each one an alpha-blended draw -- hundreds of them on a
+## large selection, sorted and without early-z -- and cost grew with the size of
+## the set, which is exactly when the drag became unusable. The outline mask is
+## already the union of the selection, so the fill comes from the same texture
+## the border does, for free, and no tile material is touched at all.
+const SELECTION_FILL_ALPHA := 0.10
 
 
-func _selection_tint() -> StandardMaterial3D:
-	if _selection_tint_material == null:
-		var tint := StandardMaterial3D.new()
-		tint.albedo_color = SELECTION_TINT
-		tint.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		tint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		tint.render_priority = 1
-		_selection_tint_material = tint
-	return _selection_tint_material
+## One traversal per column, and the result is cached on the holder.
+##
+## find_children is a recursive walk of the whole tile subtree. A move rebuilds
+## the cells it touched, so the selection has to be redecorated after every step
+## of a move drag, and without this cache that walk was repeated for every
+## column on every step.
+func _selection_meshes_for(holder: Node3D) -> Array:
+	if holder.has_meta("_selection_mesh_cache"):
+		var cached: Array = holder.get_meta("_selection_mesh_cache")
+		if not cached.is_empty() and is_instance_valid(cached[0]):
+			return cached
+	var found: Array = []
+	for child in holder.find_children("*", "MeshInstance3D", true, false):
+		found.append(child)
+	holder.set_meta("_selection_mesh_cache", found)
+	return found
 
 
-## One traversal per column, applying the outline layer and the wash together.
-## They were two passes over the same meshes for no reason.
 func _decorate_selection_coord(coord: Vector2i) -> void:
 	var meshes: Array[MeshInstance3D] = []
-	var tint := _selection_tint()
+	var holders: Array[Node3D] = []
 	for layer in range(0, core.grid.top_elevation(coord) + 1):
 		var holder: Node3D = (
 			_scalable_backend.hover_tile_node(coord, layer)
@@ -2051,16 +2066,16 @@ func _decorate_selection_coord(coord: Vector2i) -> void:
 		)
 		if holder == null or not is_instance_valid(holder):
 			continue
-		for child in holder.find_children("*", "MeshInstance3D", true, false):
-			var mesh_instance := child as MeshInstance3D
+		holders.append(holder)
+		for entry: Variant in _selection_meshes_for(holder):
+			var mesh_instance := entry as MeshInstance3D
+			if mesh_instance == null or not is_instance_valid(mesh_instance):
+				continue
 			mesh_instance.set_meta("_outline_previous_layers", mesh_instance.layers)
 			mesh_instance.layers |= OUTLINE_VISIBILITY_LAYER
-			mesh_instance.set_meta(
-				"_selection_previous_overlay", mesh_instance.material_overlay
-			)
-			mesh_instance.material_overlay = tint
 			meshes.append(mesh_instance)
 	_selection_decorated[coord] = meshes
+	_selection_holders[coord] = holders
 
 
 func _undecorate_selection_coord(coord: Vector2i) -> void:
@@ -2074,17 +2089,26 @@ func _undecorate_selection_coord(coord: Vector2i) -> void:
 			)
 		)
 		mesh_instance.remove_meta("_outline_previous_layers")
-		mesh_instance.material_overlay = (
-			mesh_instance.get_meta("_selection_previous_overlay", null) as Material
-		)
-		mesh_instance.remove_meta("_selection_previous_overlay")
+	for holder: Node3D in _selection_holders.get(coord, []):
+		if is_instance_valid(holder) and holder.has_meta("_selection_home"):
+			holder.position = holder.get_meta("_selection_home")
+			holder.remove_meta("_selection_home")
 	_selection_decorated.erase(coord)
+	_selection_holders.erase(coord)
 
 
 func _undecorate_all_selection() -> void:
 	for coord: Vector2i in _selection_decorated.keys():
 		_undecorate_selection_coord(coord)
 	_selection_decorated.clear()
+
+
+func _set_outline_fill(alpha: float) -> void:
+	if _outline_overlay == null:
+		return
+	var material := _outline_overlay.material as ShaderMaterial
+	if material != null:
+		material.set_shader_parameter("fill_alpha", alpha)
 
 
 func _hide_outline_overlay() -> void:
@@ -2099,90 +2123,72 @@ func clear_selection_outline() -> void:
 		return
 	_undecorate_all_selection()
 	_selection_outline_active = false
+	_set_outline_fill(0.0)
 	_hide_outline_overlay()
 
 
-## The drag rectangle itself, lying flat on the grid.
+## The drag box, drawn in screen space.
 ##
-## The outline traces the tiles already caught, which leaves the gesture feeling
-## unanchored over empty cells -- there is nothing to trace there, so sweeping
-## across a gap shows nothing at all. This is the marquee proper: a translucent
-## grid-aligned quad with a bright border, the same read as a desktop selection
-## box, so the swept area is legible whether or not it contains tiles.
-func set_selection_marquee(area: Rect2i) -> void:
-	if area.size.x <= 0 or area.size.y <= 0:
+## It was a grid-aligned quad lying on the ground. That was wrong twice over:
+## the selection it represents is resolved from a screen rectangle, and a
+## ground quad has to pick one elevation to sit at, so it floated over low
+## ground and sank into high. A screen rectangle is also what the gesture
+## actually is -- press here, drag there -- and reads the way a desktop
+## selection box does.
+func set_selection_marquee_screen(screen_rect: Rect2) -> void:
+	if screen_rect.size.x <= 0.0 or screen_rect.size.y <= 0.0:
 		clear_selection_marquee()
 		return
-	# Rebuilding scans every coord in the area for its top elevation, so an
-	# unchanged rectangle must not pay for it. Pointer motion is far finer than
-	# one cell.
-	if _selection_marquee_area == area and _selection_marquee != null and _selection_marquee.visible:
-		return
-	_selection_marquee_area = area
 	if _selection_marquee == null:
-		_selection_marquee = MeshInstance3D.new()
+		var canvas := CanvasLayer.new()
+		canvas.name = "TileSelectionCanvas"
+		canvas.layer = 0
+		add_child(canvas)
+		_selection_marquee = Panel.new()
 		_selection_marquee.name = "TileSelectionMarquee"
-		_selection_marquee.mesh = PlaneMesh.new()
-		_selection_marquee.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var marquee_material := ShaderMaterial.new()
-		var marquee_shader := Shader.new()
-		marquee_shader.code = """
-shader_type spatial;
-render_mode unshaded, blend_mix, cull_disabled, depth_draw_never;
-
-uniform vec4 fill_color : source_color = vec4(1.0, 1.0, 1.0, 0.14);
-uniform vec4 border_color : source_color = vec4(1.0, 1.0, 1.0, 0.9);
-// Border thickness as a fraction of the quad, per axis, so a long thin
-// selection keeps an even border instead of one that stretches with it.
-uniform vec2 border_fraction = vec2(0.02, 0.02);
-
-void fragment() {
-	vec2 edge = min(UV, vec2(1.0) - UV);
-	float border = 1.0 - step(border_fraction.x, edge.x) * step(border_fraction.y, edge.y);
-	vec4 result = mix(fill_color, border_color, border);
-	ALBEDO = result.rgb;
-	ALPHA = result.a;
-}
-"""
-		marquee_material.shader = marquee_shader
-		_selection_marquee.material_override = marquee_material
-		add_child(_selection_marquee)
-
-	var tile_size := core.grid.tile_size
-	var minimum := core.grid.cell_to_world(area.position, 0)
-	var maximum := core.grid.cell_to_world(
-		area.position + area.size - Vector2i.ONE, 0
-	)
-	var plane := _selection_marquee.mesh as PlaneMesh
-	plane.size = Vector2(
-		absf(maximum.x - minimum.x) + tile_size,
-		absf(maximum.z - minimum.z) + tile_size
-	)
-	var material := _selection_marquee.material_override as ShaderMaterial
-	material.set_shader_parameter(
-		"border_fraction",
-		Vector2(
-			clampf(tile_size * 0.06 / maxf(0.001, plane.size.x), 0.004, 0.2),
-			clampf(tile_size * 0.06 / maxf(0.001, plane.size.y), 0.004, 0.2)
-		)
-	)
-	# Sits just above the tallest surface it covers, so it stays visible over
-	# stacked terrain instead of being buried inside a raised block.
-	var highest := 0
-	for x in range(area.position.x, area.position.x + area.size.x):
-		for y in range(area.position.y, area.position.y + area.size.y):
-			highest = maxi(highest, core.grid.top_elevation(Vector2i(x, y)))
-	var surface := core.grid.cell_to_world(area.position, maxi(0, highest))
-	_selection_marquee.position = Vector3(
-		(minimum.x + maximum.x) * 0.5,
-		surface.y + 0.06,
-		(minimum.z + maximum.z) * 0.5
-	)
+		_selection_marquee.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color(1.0, 1.0, 1.0, 0.10)
+		style.border_color = Color(1.0, 0.99, 0.96, 0.85)
+		style.set_border_width_all(1)
+		_selection_marquee.add_theme_stylebox_override("panel", style)
+		canvas.add_child(_selection_marquee)
+	_selection_marquee.position = screen_rect.position
+	_selection_marquee.size = screen_rect.size
 	_selection_marquee.visible = true
 
 
+## Slides the selected columns visually, without touching the grid.
+##
+## A move used to detach and restore every selected stack on every cell the
+## cursor crossed. Each of those rebuilt the affected cells -- reinstantiating
+## the tile and every structure standing on it -- so dragging a hundred-column
+## selection one step reinstantiated a hundred columns, several times a second.
+## That, not the outline, is what made moving a large selection crawl.
+##
+## Nothing but transforms move during the drag. The grid is changed once, on
+## release, which is also the only point at which the result has to be legal.
+func set_selection_preview_offset(offset: Vector3) -> void:
+	for coord: Vector2i in _selection_holders:
+		for holder: Node3D in _selection_holders[coord]:
+			if not is_instance_valid(holder):
+				continue
+			if not holder.has_meta("_selection_home"):
+				holder.set_meta("_selection_home", holder.position)
+			holder.position = holder.get_meta("_selection_home") + offset
+
+
+func clear_selection_preview_offset() -> void:
+	for coord: Vector2i in _selection_holders:
+		for holder: Node3D in _selection_holders[coord]:
+			if not is_instance_valid(holder):
+				continue
+			if holder.has_meta("_selection_home"):
+				holder.position = holder.get_meta("_selection_home")
+				holder.remove_meta("_selection_home")
+
+
 func clear_selection_marquee() -> void:
-	_selection_marquee_area = Rect2i()
 	if _selection_marquee != null:
 		_selection_marquee.visible = false
 
