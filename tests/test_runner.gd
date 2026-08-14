@@ -3035,12 +3035,18 @@ func _test_gg_render_contract() -> void:
 		and profile.glow_hdr_threshold >= 1.6,
 		"Soft-daylight uses a restrained pop grade and emissive-only bloom"
 	)
+	# Pinned to the authored AA/shadow choice so it cannot drift silently.
+	# Current values are from 32ddc43e (native-res smoothness pass): 8x MSAA
+	# with FXAA off -- geometry AA only, since FXAA blurs the flat-colour look
+	# -- and a 8192 shadow map for crisp miniature shadows. When retuning
+	# quality, update this alongside project.godot; it stood at 4x/FXAA/4096
+	# for weeks after the settings moved on, failing every suite run.
 	check(
-		ProjectSettings.get_setting("rendering/anti_aliasing/quality/msaa_3d") == 2
-		and ProjectSettings.get_setting("rendering/anti_aliasing/quality/screen_space_aa") == 1
+		ProjectSettings.get_setting("rendering/anti_aliasing/quality/msaa_3d") == 3
+		and ProjectSettings.get_setting("rendering/anti_aliasing/quality/screen_space_aa") == 0
 		and not ProjectSettings.get_setting("rendering/anti_aliasing/quality/use_taa")
-		and ProjectSettings.get_setting("rendering/lights_and_shadows/directional_shadow/size") == 4096,
-		"Soft-daylight uses balanced 4x MSAA and a bounded shadow map"
+		and ProjectSettings.get_setting("rendering/lights_and_shadows/directional_shadow/size") == 8192,
+		"Soft-daylight uses the authored 8x MSAA and high-resolution shadow map"
 	)
 
 

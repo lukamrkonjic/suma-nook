@@ -46,6 +46,9 @@ const TILE_PERIMETER_EPSILON := 0.002
 var _profiles: Dictionary = {}
 var _default_model_smoothing := DEFAULT_MODEL_SMOOTHING
 var _smooth_mesh_cache: Dictionary = {}
+# (base material id + edit values) -> shared edited Material. See
+# _edited_material for why sharing, not duplication, is load-bearing here.
+var _edited_material_cache: Dictionary = {}
 var _shell_field_cache: Dictionary = {}
 var _data_path := DATA_PATH
 
@@ -58,6 +61,7 @@ func _init(profile_path: String = DATA_PATH) -> void:
 func reload() -> void:
 	_profiles.clear()
 	_smooth_mesh_cache.clear()
+	_edited_material_cache.clear()
 	_shell_field_cache.clear()
 	_default_model_smoothing = DEFAULT_MODEL_SMOOTHING
 	if not FileAccess.file_exists(_data_path):
@@ -112,6 +116,7 @@ func default_smoothing_for(asset_id: String) -> float:
 func set_default_model_smoothing(value: float) -> void:
 	_default_model_smoothing = clampf(value, 0.0, 1.0)
 	_smooth_mesh_cache.clear()
+	_edited_material_cache.clear()
 
 
 func _implicit_profile(asset_id: String) -> Dictionary:
@@ -146,6 +151,7 @@ func save_profile(asset_id: String, supplied: Dictionary) -> Error:
 	else:
 		_profiles[asset_id] = clean
 	_smooth_mesh_cache.clear()
+	_edited_material_cache.clear()
 	var payload := {
 		"defaults": {"model_smoothing": _default_model_smoothing},
 		"version": PROFILE_VERSION,
@@ -201,13 +207,10 @@ func apply_to_tree(
 			var base_override := mesh_instance.material_override
 			var override_key := material_key(base_override, 0)
 			if material_edits.has(override_key):
-				var edited_override := base_override.duplicate(true) as Material
-				_apply_material_values(
-					edited_override,
+				mesh_instance.material_override = _edited_material(
+					base_override,
 					material_edits[override_key]
 				)
-				edited_override.resource_name = base_override.resource_name
-				mesh_instance.material_override = edited_override
 			continue
 		for surface in mesh_instance.mesh.get_surface_count():
 			var base_material := mesh_instance.get_active_material(surface)
@@ -216,10 +219,36 @@ func apply_to_tree(
 			var key := material_key(base_material, surface)
 			if not material_edits.has(key):
 				continue
-			var edited := base_material.duplicate(true) as Material
-			_apply_material_values(edited, material_edits[key])
-			edited.resource_name = base_material.resource_name
-			mesh_instance.set_surface_override_material(surface, edited)
+			mesh_instance.set_surface_override_material(
+				surface,
+				_edited_material(base_material, material_edits[key])
+			)
+
+
+## One shared edited material per (base material, edit values).
+##
+## Every instance used to duplicate the base and apply the edit privately, so a
+## short-lived visual -- the contact-mask probe builds one per structure and
+## frees it in the same frame -- was the only owner of its duplicates. Freeing
+## the node freed those materials while the RenderingServer still held a queued
+## dependency update for the instance, and the update then ran against dead
+## RIDs: four "Parameter material is null" errors per edited material, spamming
+## on every world rebuild and every asset with Studio colour edits.
+##
+## An edited material is a pure function of the base and the edit values, so
+## instances can share one. The cache keeps it alive past any single node, which
+## removes the race, and every later instantiate of the same asset stops paying
+## for duplication and shader setup it does not need.
+func _edited_material(base: Material, raw_values: Variant) -> Material:
+	var cache_key := "%d|%s" % [base.get_instance_id(), str(raw_values)]
+	var cached: Material = _edited_material_cache.get(cache_key)
+	if cached != null:
+		return cached
+	var edited := base.duplicate(true) as Material
+	_apply_material_values(edited, raw_values)
+	edited.resource_name = base.resource_name
+	_edited_material_cache[cache_key] = edited
+	return edited
 
 
 func _apply_model_scale(
