@@ -13,16 +13,13 @@ const WELL_SCALE := 1.16
 ## The well's shaft, measured on the imported glb (unscaled): inner wall radius
 ## runs 0.20-0.23 from z 0.19 up to the rim at 0.87, with no floor.
 ##
-## A closed dark SHAFT, not a flat disc. The source model is a partial ruin --
-## roughly a third of its ring has no stones at all, verified by rendering the
-## untouched source from behind -- so a flat disc left the camera looking
-## through the back of the well into the scene. Walls plus a floor mean every
-## sightline into the well lands on darkness, which is what a deep well looks
-## like anyway. Radius sits just inside the stone so the wall is hidden where
-## the ring is intact and reads as the shaft where it is not.
-const WELL_SHAFT_RADIUS := 0.24
-const WELL_SHAFT_TOP := 0.60
-const WELL_SHAFT_DEPTH := 0.55
+## A flat disc sunk mid-shaft, oversized so its edge is buried inside the
+## opaque stone. A closed cylinder was tried instead, to stop sightlines
+## through the ruin's missing back -- it made things worse, not better: its
+## WALL is visible through that same gap, reading as a huge black mass rising
+## past the rim rather than a hole in the ground.
+const WELL_MOUTH_DISC_RADIUS := 0.27
+const WELL_MOUTH_DISC_HEIGHT := 0.21
 ## Interaction and animation heights, in world units after WELL_SCALE. The
 ## click anchor sits at the body's visual centre, NOT at the mouth: right-click
 ## targeting claims a 73px screen radius around it, and at mouth height that
@@ -535,16 +532,13 @@ func _build_portal() -> void:
 	hole = MeshInstance3D.new()
 	hole.name = "WellMouthHole"
 	var hole_mesh := CylinderMesh.new()
-	hole_mesh.top_radius = WELL_SHAFT_RADIUS
-	hole_mesh.bottom_radius = WELL_SHAFT_RADIUS
-	hole_mesh.height = WELL_SHAFT_DEPTH
+	hole_mesh.top_radius = WELL_MOUTH_DISC_RADIUS
+	hole_mesh.bottom_radius = WELL_MOUTH_DISC_RADIUS
+	hole_mesh.height = 0.02
 	hole_mesh.radial_segments = 24
-	hole_mesh.cap_top = false
-	hole_mesh.cap_bottom = true
+	hole_mesh.cap_bottom = false
 	hole.mesh = hole_mesh
-	hole.position = Vector3(
-		0.0, WELL_SHAFT_TOP - WELL_SHAFT_DEPTH * 0.5, 0.0
-	)
+	hole.position = Vector3(0.0, WELL_MOUTH_DISC_HEIGHT, 0.0)
 	hole.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var hole_material := StandardMaterial3D.new()
 	hole_material.albedo_color = Color.BLACK
