@@ -1707,6 +1707,11 @@ uniform float outline_width_pixels = 2.5;
 uniform float fill_alpha = 0.0;
 
 const int OUTLINE_SAMPLES = 16;
+// Half-circle of axes for the gap test; each is probed both ways.
+const int GAP_SAMPLES = 8;
+// Reach for that probe, as a multiple of the outline width. Wide enough to
+// span the gaps the dilation can fill, which is what has to be detected.
+const float GAP_PROBE_SCALE = 3.0;
 
 void fragment() {
 	vec2 px = TEXTURE_PIXEL_SIZE * outline_width_pixels;
@@ -1724,7 +1729,33 @@ void fragment() {
 	coverage /= float(OUTLINE_SAMPLES * 2);
 	float rounded_dilation = max(around, smoothstep(0.02, 0.28, coverage));
 	float exterior = 1.0 - smoothstep(0.04, 0.72, center);
-	float outline = smoothstep(0.04, 0.58, rounded_dilation) * exterior;
+	// Is this empty pixel INSIDE a narrow gap between two parts of the same
+	// object? The dilation cannot tell: it fills such a gap exactly as it fills
+	// the space outside a silhouette, so the gap comes out solid white and
+	// reads as a bright chip punched through the model. The wishing well is
+	// built from separate stone blocks and showed one on every tier.
+	//
+	// What separates the two cases is OPPOSITION, not how much mask is nearby:
+	// a gap has mask on both sides of some axis, a silhouette edge has mask on
+	// one side only. Simulated on synthetic masks before shipping -- a straight
+	// edge keeps outline 1.00, a 4px gap drops from 1.00 to 0.00. Coverage was
+	// tried first and cannot do it: it reads 0.09 at an edge and 0.16 in a gap.
+	float opposed = 0.0;
+	for (int i = 0; i < GAP_SAMPLES; i++) {
+		float angle = PI * float(i) / float(GAP_SAMPLES);
+		vec2 direction = vec2(cos(angle), sin(angle)) * px * GAP_PROBE_SCALE;
+		float forward = 0.0;
+		float backward = 0.0;
+		for (int step = 1; step <= 3; step++) {
+			float reach = float(step) / 3.0;
+			forward = max(forward, texture(TEXTURE, UV + direction * reach).a);
+			backward = max(backward, texture(TEXTURE, UV - direction * reach).a);
+		}
+		opposed = max(opposed, min(forward, backward));
+	}
+	float outline = smoothstep(0.04, 0.58, rounded_dilation)
+		* exterior
+		* (1.0 - smoothstep(0.25, 0.65, opposed));
 	float interior = smoothstep(0.04, 0.72, center);
 	float alpha = max(outline_color.a * outline, fill_alpha * interior);
 	COLOR = vec4(outline_color.rgb, alpha);
