@@ -81,12 +81,20 @@ Then, as for any import:
   the nodes BY NAME (`nodes.remove()` invalidates every other python node
   reference; removing by held references crashed) and pin metallic 0,
   roughness 1.
-- **Pad the atlas gutter and clamp the mask to real UV islands.** The unused
-  space between islands is filled with an arbitrary colour that no material
-  slot can ever own, and bilinear sampling reads it at every island border:
-  bright lines along every mesh edge, immune to recolouring. Rasterize the
-  UV coverage, bleed each island's border colours into the gutter (8 texels),
-  and AND the class mask with coverage so gutter texels cannot classify.
+- **FILL, do not pad, everything a material must never show.** For each
+  material, flood the atlas gutter — and, for the base, the other class's
+  regions — with that material's own mean colour. An 8-texel pad satisfies
+  bilinear sampling but NOT mipmaps, which average over ever-larger areas:
+  the green gutter kept bleeding into the stone at edges and at distance as
+  thin lines no slot could recolour. Rasterize UV coverage to find the
+  gutter, and AND the class mask with coverage so gutter texels never
+  classify. Verify by classifying `texture x baseColorFactor` — the base
+  material must report ZERO pixels of the other class's hue.
+- **Duplicate the WHOLE mesh for the shell, not just touching faces.** A
+  partial shell has a boundary edge around every patch, and since the shell
+  is offset outward, the base shows through along each one — thin lines
+  tracing the patches. Keep the offset small (0.0015): it is what opens the
+  wedge at convex edges where the base peeks through.
 - **Decide shell membership by rasterizing UV footprints, not sampling.** A
   moss sliver a few texels wide along one edge slips between corner/centroid
   samples; its face stays out of the shell and the sliver keeps its base

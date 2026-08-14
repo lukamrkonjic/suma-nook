@@ -390,19 +390,30 @@ def split_material_slots(
                 detail[..., 3] = numpy.where(
                     alpha_mask.reshape(height, width), 1.0, 0.0
                 )
+            # Fill everything this material must never show with its OWN mean
+            # colour: the atlas gutter, and (for stone) the moss regions. An
+            # 8-texel pad is enough for bilinear sampling but NOT for mipmaps,
+            # which average over ever-larger areas -- that is how the green
+            # gutter kept bleeding into the stone at edges and distance, as
+            # thin lines no slot could recolour.
+            fill_target = (~coverage).reshape(-1)
             if not moss_only:
-                # The shell's alpha cutoff leaves a sub-pixel rim where the
-                # BASE texture shows through -- and its moss pixels still wear
-                # the original green there, which no recolour of the moss slot
-                # can reach. Bleed the surrounding stone colour into the moss
-                # regions so the rim reads as stone; everything deeper inside
-                # the patch stays hidden beneath the shell.
-                detail[..., :3] = _pad_edges(
-                    detail[..., :3].reshape(-1, 3),
-                    (~mask).reshape(-1),
-                    width,
-                    height,
-                ).reshape(height, width, 3)
+                fill_target = fill_target | mask.reshape(-1)
+            flat_rgb = detail[..., :3].reshape(-1, 3)
+            keep = ~fill_target
+            if keep.any() and fill_target.any():
+                flat_rgb[fill_target] = flat_rgb[keep].mean(axis=0)
+                detail[..., :3] = flat_rgb.reshape(height, width, 3)
+            if not moss_only:
+                # ERASE every moss pixel from the base texture. The shell hides
+                # them, so their content is never meant to be seen -- but the
+                # shell is offset outward, so wherever the two meshes part
+                # company (convex edges, the silhouette) the base peeks
+                # through, and while it held the original moss green those
+                # peeks rendered as bright lines that belonged to NO slot and
+                # no recolour could reach. Filled with the stone class mean,
+                # any peek is stone-coloured and follows the stone slot.
+                pass
             image.pixels = detail.reshape(-1).tolist()
             image.pack()
             tree = material.node_tree
@@ -481,51 +492,11 @@ def split_material_slots(
         for polygon in mesh.polygons:
             polygon.material_index = 0
 
-        # Faces whose UV footprint touches any moss make up the overlay
-        # shell. Membership is decided by RASTERIZING each face's UV triangles
-        # against the (dilated) mask, not by sampling a handful of points --
-        # a moss sliver a few texels wide along one edge slipped between the
-        # corner/centroid samples, its face stayed out of the shell, and the
-        # sliver kept its base colour instead of switching with the moss slot.
-        shell_mask = _dilate(
-            flat_mask, width, height, 3
-        ).reshape(height, width)
-        overlay_face_set = set()
-        for triangle in mesh.loop_triangles:
-            if triangle.polygon_index in overlay_face_set:
-                continue
-            points = numpy.array(
-                [
-                    [uv_data[loop].uv.x * width, uv_data[loop].uv.y * height]
-                    for loop in triangle.loops
-                ],
-                dtype=numpy.float64,
-            )
-            x0 = max(int(numpy.floor(points[:, 0].min())) - 1, 0)
-            x1 = min(int(numpy.ceil(points[:, 0].max())) + 1, width - 1)
-            y0 = max(int(numpy.floor(points[:, 1].min())) - 1, 0)
-            y1 = min(int(numpy.ceil(points[:, 1].max())) + 1, height - 1)
-            if x1 < x0 or y1 < y0:
-                continue
-            window = shell_mask[y0 : y1 + 1, x0 : x1 + 1]
-            if not window.any():
-                continue
-            grid_y, grid_x = numpy.mgrid[y0 : y1 + 1, x0 : x1 + 1]
-            centres = numpy.stack(
-                (grid_x + 0.5, grid_y + 0.5), axis=-1
-            ).astype(numpy.float64)
-            a, b, c = points[0], points[1], points[2]
-            v0, v1 = b - a, c - a
-            v2 = centres - a
-            denominator = v0[0] * v1[1] - v1[0] * v0[1]
-            if abs(denominator) < 1e-9:
-                continue
-            u = (v2[..., 0] * v1[1] - v1[0] * v2[..., 1]) / denominator
-            v = (v0[0] * v2[..., 1] - v2[..., 0] * v0[1]) / denominator
-            inside = (u >= -0.02) & (v >= -0.02) & (u + v <= 1.02)
-            if (window & inside).any():
-                overlay_face_set.add(triangle.polygon_index)
-        overlay_faces = sorted(overlay_face_set)
+        # The shell duplicates the WHOLE mesh, not only moss-touching faces.
+        # A partial shell has a boundary edge around every patch, and because
+        # the shell is offset outward the base shows through along each one --
+        # thin lines tracing the patches. A full shell has no boundary except
+        # the model's own silhouette.
 
         overlay_object = mesh_object.copy()
         overlay_object.data = mesh_object.data.copy()
@@ -538,15 +509,11 @@ def split_material_slots(
         working = bmesh.new()
         working.from_mesh(overlay_object.data)
         working.faces.ensure_lookup_table()
-        wanted = set(overlay_faces)
-        doomed = [
-            face for face in working.faces if face.index not in wanted
-        ]
-        bmesh.ops.delete(working, geom=doomed, context="FACES")
         # A hair outward along the vertex normals, so the shell wins the depth
-        # test against the base it duplicates without a visible gap.
+        # test against the base it duplicates. Kept small: this offset is what
+        # opens the wedge at convex edges where the base peeks through.
         for vertex in working.verts:
-            vertex.co += vertex.normal * 0.004
+            vertex.co += vertex.normal * 0.0015
         working.to_mesh(overlay_object.data)
         working.free()
         overlay_object.data.materials.clear()
@@ -555,8 +522,8 @@ def split_material_slots(
             polygon.material_index = 0
         overlay_object.data.update()
         print(
-            "  %s: %d base faces, %d moss shell faces"
-            % (mesh_object.name, len(mesh.polygons), len(overlay_faces))
+            "  %s: %d base faces, %d shell faces (full duplicate)"
+            % (mesh_object.name, len(mesh.polygons), len(mesh.polygons))
         )
 
 
