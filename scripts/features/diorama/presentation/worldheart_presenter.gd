@@ -12,8 +12,13 @@ const WARDROBE_OPEN_SCENE: PackedScene = preload(
 )
 const WARDROBE_SCALE := 1.16
 const WARDROBE_BASE_HEIGHT := 0.58
-const LEFT_DOOR_CLOSED_YAW := deg_to_rad(125.0)
-const RIGHT_DOOR_CLOSED_YAW := deg_to_rad(-142.0)
+## Shut angles for the current hinged model, solved rather than eyeballed: each
+## door's yaw is swept and the angle that collapses its depth footprint -- the
+## one property a shut door has and an open one does not -- is taken, within the
+## half-turn that keeps it on its own side. Both land on a quarter turn, which is
+## the symmetry the old model's 125/-142 pair never had.
+const LEFT_DOOR_CLOSED_YAW := deg_to_rad(-90.0)
+const RIGHT_DOOR_CLOSED_YAW := deg_to_rad(90.0)
 const WARDROBE_LAUNCH_DELAY := 0.52
 const REWARD_LAUNCH_DURATION := 0.86
 const PROGRESS_CARD_VIEWPORT_SIZE := Vector2i(132, 52)
