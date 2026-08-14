@@ -679,18 +679,53 @@ func debug_prompt_skyfall() -> bool:
 	return wish_offer_panel.is_open()
 
 
-## Forces the Worldheart to surface a gift now, so the wardrobe's open/close
-## animation can be watched without waiting for a pulse.
+## Forces the Worldheart to surface a gift now, so the wardrobe's open and close
+## can be watched without waiting for a pulse.
+##
+## _roll_pulse_reward can legitimately return nothing -- it draws from the
+## collection members currently eligible for the next role, and with none
+## eligible there is no reward to roll. Relying on it alone made the button
+## report failure rather than do the one thing it exists for, so it falls back to
+## any registered piece.
 func debug_wardrobe_gift() -> bool:
 	if not OS.is_debug_build() or not core.diorama.enabled:
 		return false
 	var worldheart := core.diorama.worldheart
 	if worldheart == null:
 		return false
+	# A full queue is the normal state once gifts have accumulated -- reserve_cap
+	# defaults to 12 -- and enqueueing into it always fails. That is what made the
+	# button report "could not queue": there was nothing wrong except that the
+	# wardrobe already had twelve gifts waiting. So deliver one instead, which is
+	# what "give me an item" actually means, and only enqueue when it is empty.
+	if not worldheart.reward_queue.is_empty():
+		var waiting := String(
+			worldheart.reward_queue[0].get("entry_id", "")
+		)
+		return not worldheart.claim(waiting).is_empty()
 	var reward: Dictionary = worldheart._roll_pulse_reward()
 	if reward.is_empty():
+		reward = _any_debug_reward(worldheart)
+	if reward.is_empty():
 		return false
-	return worldheart.enqueue_external_reward(reward, "debug")
+	if not worldheart.enqueue_external_reward(reward, "debug"):
+		return false
+	var queued := String(worldheart.reward_queue[-1].get("entry_id", ""))
+	return not worldheart.claim(queued).is_empty()
+
+
+## Any valid reward, decorated the way a rolled one would be so the queue and the
+## presentation treat it identically.
+func _any_debug_reward(worldheart: Object) -> Dictionary:
+	for structure_id: String in core.registries.structures:
+		return worldheart._decorate_reward(
+			{"kind": "structure", "id": structure_id}, "detail"
+		)
+	for tile_id: String in core.registries.tiles:
+		return worldheart._decorate_reward(
+			{"kind": "tile", "id": tile_id}, "terrain"
+		)
+	return {}
 
 
 func debug_grant_all_items(amount := 99) -> int:
