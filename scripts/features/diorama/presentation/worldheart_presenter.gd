@@ -557,9 +557,14 @@ func _build_portal() -> void:
 	wardrobe_cavity = MeshInstance3D.new()
 	wardrobe_cavity.name = "WorldheartWardrobeCavity"
 	var cavity_mesh := BoxMesh.new()
-	cavity_mesh.size = Vector3(0.37, 0.44, 0.035)
+	# Fitted to the current model, measured: its body spans x +/-0.348, depth
+	# -0.134..0.331 and height 0..1.0, grounded at the base. The previous
+	# numbers were tuned for a centre-origined wardrobe and left the black
+	# interior floating below the floor of the new one, which is why the open
+	# state read as glitched rather than dark.
+	cavity_mesh.size = Vector3(0.52, 0.60, 0.04)
 	wardrobe_cavity.mesh = cavity_mesh
-	wardrobe_cavity.position = Vector3(0.0, -0.14, 0.075)
+	wardrobe_cavity.position = Vector3(0.0, 0.44, 0.16)
 	wardrobe_cavity.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var cavity_material := StandardMaterial3D.new()
 	cavity_material.albedo_color = Color.BLACK
@@ -576,9 +581,9 @@ func _build_portal() -> void:
 	wardrobe_upper_cavity_mask = MeshInstance3D.new()
 	wardrobe_upper_cavity_mask.name = "WardrobeUpperCavityMask"
 	var mask_mesh := QuadMesh.new()
-	mask_mesh.size = Vector2(0.15, 0.055)
+	mask_mesh.size = Vector2(0.22, 0.08)
 	wardrobe_upper_cavity_mask.mesh = mask_mesh
-	wardrobe_upper_cavity_mask.position = Vector3(0.0, 0.078, 0.19)
+	wardrobe_upper_cavity_mask.position = Vector3(0.0, 0.70, 0.24)
 	wardrobe_upper_cavity_mask.cast_shadow = (
 		GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	)

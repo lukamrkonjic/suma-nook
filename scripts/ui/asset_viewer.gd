@@ -1563,6 +1563,20 @@ func _export_tile_kit_glb() -> void:
 	)
 
 
+## State groups an asset ships for the game to toggle. The studio previews a
+## model on its own, with nothing to drive that toggle, so both the shut and the
+## swung-open wardrobe rendered at once and overlapped. Preview the resting
+## state and hide the rest.
+const PREVIEW_HIDDEN_STATES := ["StateOpen"]
+
+
+func _hide_preview_state_groups(root: Node) -> void:
+	for state_name: String in PREVIEW_HIDDEN_STATES:
+		var group := root.find_child(state_name, true, false) as Node3D
+		if group != null:
+			group.visible = false
+
+
 func _rebuild_preview() -> void:
 	if _asset_editor_content != null:
 		_asset_editor_content.visible = true
@@ -1617,6 +1631,7 @@ func _rebuild_preview() -> void:
 			else _assets.instantiate(_selected_asset_id)
 		)
 		_content_root.add_child(model)
+		_hide_preview_state_groups(model)
 		if definition != null and definition.has_capability("light"):
 			_add_production_warm_light(model, definition)
 	_title.text = _display_name(_selected_content_id)
