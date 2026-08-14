@@ -118,12 +118,67 @@ def _to_linear(srgb: numpy.ndarray) -> numpy.ndarray:
     )
 
 
+def _coherent_mask(
+    flat: numpy.ndarray, width: int, height: int
+) -> numpy.ndarray:
+    """Majority-smooths the pixel classification over a small neighbourhood.
+
+    Per-pixel banding leaves speckles at every paint boundary -- pixels a hair
+    under a threshold classify as stone inside a moss patch and vice versa,
+    and each speck becomes a wrong-coloured dot after the shift. Similar
+    neighbouring colours belong to the same paint, so each pixel follows the
+    majority of a 9x9 box around it: an integral-image box blur re-thresholded
+    at one half.
+    """
+    mask = flat.reshape(height, width).astype(numpy.float32)
+    radius = 4
+    size = 2 * radius + 1
+    padded = numpy.pad(mask, radius, mode="edge")
+    integral = numpy.zeros(
+        (padded.shape[0] + 1, padded.shape[1] + 1), dtype=numpy.float64
+    )
+    integral[1:, 1:] = padded.cumsum(axis=0).cumsum(axis=1)
+    summed = (
+        integral[size : size + height, size : size + width]
+        - integral[0:height, size : size + width]
+        - integral[size : size + height, 0:width]
+        + integral[0:height, 0:width]
+    )
+    return (summed / float(size * size) >= 0.5).reshape(-1)
+
+
+def _pad_edges(
+    rgb: numpy.ndarray, mask: numpy.ndarray, width: int, height: int
+) -> numpy.ndarray:
+    """Bleeds each class's colour a few pixels past its boundary.
+
+    MASK-mode cutouts sample RGB bilinearly across the alpha edge, so whatever
+    colour sits just OUTSIDE the mask tints the visible rim. Dilating the
+    inside colours outward puts class-coloured pixels there instead.
+    """
+    grid = rgb.reshape(height, width, 3).copy()
+    inside = mask.reshape(height, width).copy()
+    for _ in range(4):
+        outside = ~inside
+        grown = inside.copy()
+        for shift_y, shift_x in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            rolled = numpy.roll(inside, (shift_y, shift_x), axis=(0, 1))
+            fresh = outside & rolled & ~grown
+            if fresh.any():
+                source = numpy.roll(grid, (shift_y, shift_x), axis=(0, 1))
+                grid[fresh] = source[fresh]
+                grown |= fresh
+        inside = grown
+    return grid.reshape(-1, 3)
+
+
 def shift_image(image: bpy.types.Image) -> tuple:
     pixels = numpy.array(image.pixels[:], dtype=numpy.float32)
     pixels = pixels.reshape(-1, image.channels)
     rgb = _to_srgb(pixels[:, :3])
 
     green = classify_green(rgb)
+    green = _coherent_mask(green, image.size[0], image.size[1])
     print(
         "  %s: %dx%d, %.1f%% green"
         % (
@@ -227,16 +282,75 @@ def split_material_slots(
                 detail[..., :3] / factor[None, None, :], 0.0, 1.0
             )
             if moss_only and detail.shape[-1] >= 4:
+                detail[..., :3] = _pad_edges(
+                    detail[..., :3].reshape(-1, 3),
+                    mask.reshape(-1),
+                    width,
+                    height,
+                ).reshape(height, width, 3)
                 detail[..., 3] = numpy.where(mask, 1.0, 0.0)
+            if not moss_only:
+                # The shell's alpha cutoff leaves a sub-pixel rim where the
+                # BASE texture shows through -- and its moss pixels still wear
+                # the original green there, which no recolour of the moss slot
+                # can reach. Bleed the surrounding stone colour into the moss
+                # regions so the rim reads as stone; everything deeper inside
+                # the patch stays hidden beneath the shell.
+                detail[..., :3] = _pad_edges(
+                    detail[..., :3].reshape(-1, 3),
+                    (~mask).reshape(-1),
+                    width,
+                    height,
+                ).reshape(height, width, 3)
             image.pixels = detail.reshape(-1).tolist()
             image.pack()
             tree = material.node_tree
-            for node in tree.nodes:
-                if node.type == "TEX_IMAGE" and node.image is not None:
-                    node.image = image
             principled = next(
                 node for node in tree.nodes if node.type == "BSDF_PRINCIPLED"
             )
+            # Only the albedo may carry a texture. The source's other maps ride
+            # along on the copied node tree and export as a metallicRoughness
+            # texture -- fed by the DETAIL image, so roughness followed the
+            # picture: dark moss pixels went glossy and reflected the sky as
+            # cyan fringes along every edge. Strip every non-albedo texture
+            # node and pin metallic/roughness to the game's flat-prop values.
+            albedo_node = None
+            base_links = principled.inputs["Base Color"].links
+            if base_links:
+                current = base_links[0].from_node
+                seen = set()
+                while current is not None and current not in seen:
+                    seen.add(current)
+                    if current.type == "TEX_IMAGE":
+                        albedo_node = current
+                        break
+                    upstream = None
+                    for socket in current.inputs:
+                        if socket.links:
+                            upstream = socket.links[0].from_node
+                            break
+                    current = upstream
+            # nodes.remove() invalidates every other python node reference,
+            # so removal works on NAMES and everything is re-fetched after.
+            albedo_name = albedo_node.name if albedo_node is not None else ""
+            doomed_names = [
+                node.name
+                for node in tree.nodes
+                if node.type == "TEX_IMAGE" and node.name != albedo_name
+            ]
+            for name in doomed_names:
+                tree.nodes.remove(tree.nodes[name])
+            principled = next(
+                node for node in tree.nodes if node.type == "BSDF_PRINCIPLED"
+            )
+            albedo_node = tree.nodes.get(albedo_name)
+            if albedo_node is not None:
+                albedo_node.image = image
+            for input_name, value in (("Metallic", 0.0), ("Roughness", 1.0)):
+                socket = principled.inputs[input_name]
+                for link in list(socket.links):
+                    tree.links.remove(link)
+                socket.default_value = value
             base_input = principled.inputs["Base Color"]
             texture_socket = base_input.links[0].from_socket
             texture_node = base_input.links[0].from_node
