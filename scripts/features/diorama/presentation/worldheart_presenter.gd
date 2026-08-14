@@ -12,7 +12,12 @@ extends Node3D
 const WARDROBE_CLOSED_ASSET := "worldheart_wardrobe_closed"
 const WARDROBE_OPEN_ASSET := "worldheart_wardrobe_hinged"
 const WARDROBE_SCALE := 1.16
-const WARDROBE_BASE_HEIGHT := 0.58
+## Zero because the glbs are now grounded at their base like every imported
+## asset. The old 0.58 existed only to hoist a centre-origined model out of the
+## floor -- a constant that had to be retuned for every model swap, and the
+## reason the wardrobe clipped through its tile in Asset Studio, which never
+## applied it.
+const WARDROBE_BASE_HEIGHT := 0.0
 ## Shut angles for the current hinged model, solved rather than eyeballed: each
 ## door's yaw is swept and the angle that collapses its depth footprint -- the
 ## one property a shut door has and an open one does not -- is taken, within the
