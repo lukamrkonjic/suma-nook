@@ -81,6 +81,12 @@ Then, as for any import:
   the nodes BY NAME (`nodes.remove()` invalidates every other python node
   reference; removing by held references crashed) and pin metallic 0,
   roughness 1.
+- **Pad the atlas gutter and clamp the mask to real UV islands.** The unused
+  space between islands is filled with an arbitrary colour that no material
+  slot can ever own, and bilinear sampling reads it at every island border:
+  bright lines along every mesh edge, immune to recolouring. Rasterize the
+  UV coverage, bleed each island's border colours into the gutter (8 texels),
+  and AND the class mask with coverage so gutter texels cannot classify.
 - **Decide shell membership by rasterizing UV footprints, not sampling.** A
   moss sliver a few texels wide along one edge slips between corner/centroid
   samples; its face stays out of the shell and the sliver keeps its base

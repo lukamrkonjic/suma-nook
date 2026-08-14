@@ -253,6 +253,40 @@ def shift_image(image: bpy.types.Image) -> tuple:
     return green, targets
 
 
+def _uv_coverage(mesh, uv_data, width: int, height: int) -> numpy.ndarray:
+    """Boolean (height, width) mask of texels under any UV triangle."""
+    coverage = numpy.zeros((height, width), dtype=bool)
+    for triangle in mesh.loop_triangles:
+        points = numpy.array(
+            [
+                [uv_data[loop].uv.x * width, uv_data[loop].uv.y * height]
+                for loop in triangle.loops
+            ],
+            dtype=numpy.float64,
+        )
+        x0 = max(int(numpy.floor(points[:, 0].min())) - 1, 0)
+        x1 = min(int(numpy.ceil(points[:, 0].max())) + 1, width - 1)
+        y0 = max(int(numpy.floor(points[:, 1].min())) - 1, 0)
+        y1 = min(int(numpy.ceil(points[:, 1].max())) + 1, height - 1)
+        if x1 < x0 or y1 < y0:
+            continue
+        grid_y, grid_x = numpy.mgrid[y0 : y1 + 1, x0 : x1 + 1]
+        centres = numpy.stack(
+            (grid_x + 0.5, grid_y + 0.5), axis=-1
+        ).astype(numpy.float64)
+        a, b, c = points[0], points[1], points[2]
+        v0, v1 = b - a, c - a
+        v2 = centres - a
+        denominator = v0[0] * v1[1] - v1[0] * v0[1]
+        if abs(denominator) < 1e-9:
+            continue
+        u = (v2[..., 0] * v1[1] - v1[0] * v2[..., 1]) / denominator
+        v = (v0[0] * v2[..., 1] - v2[..., 0] * v0[1]) / denominator
+        inside = (u >= -0.02) & (v >= -0.02) & (u + v <= 1.02)
+        coverage[y0 : y1 + 1, x0 : x1 + 1] |= inside
+    return coverage
+
+
 def split_material_slots(
     class_masks: dict, class_targets: dict
 ) -> None:
@@ -300,10 +334,29 @@ def split_material_slots(
             continue
         flat_mask = class_masks[albedo.name]
         width, height = albedo.size[0], albedo.size[1]
-        mask = flat_mask.reshape(height, width)
         source_pixels = numpy.array(
             albedo.pixels[:], dtype=numpy.float32
         ).reshape(height, width, albedo.channels)
+
+        # The atlas GUTTER -- unused space between UV islands -- is filled
+        # with an arbitrary colour that no material slot can ever own, and
+        # bilinear sampling reads it at every island border: bright lines
+        # along every mesh edge, immune to recolouring. Standard edge
+        # padding: bleed each island's border colours into the gutter, and
+        # clamp the class mask to real islands so gutter texels cannot
+        # classify as moss.
+        mesh.calc_loop_triangles()
+        uv_data = mesh.uv_layers.active.data
+        coverage = _uv_coverage(mesh, uv_data, width, height)
+        flat_mask = flat_mask & coverage.reshape(-1)
+        mask = flat_mask.reshape(height, width)
+        source_pixels[..., :3] = _pad_edges(
+            source_pixels[..., :3].reshape(-1, 3),
+            coverage.reshape(-1),
+            width,
+            height,
+            steps=8,
+        ).reshape(height, width, 3)
 
         def build_material(class_name: str, moss_only: bool):
             material = base_material.copy()
@@ -437,8 +490,6 @@ def split_material_slots(
         shell_mask = _dilate(
             flat_mask, width, height, 3
         ).reshape(height, width)
-        mesh.calc_loop_triangles()
-        uv_data = mesh.uv_layers.active.data
         overlay_face_set = set()
         for triangle in mesh.loop_triangles:
             if triangle.polygon_index in overlay_face_set:
