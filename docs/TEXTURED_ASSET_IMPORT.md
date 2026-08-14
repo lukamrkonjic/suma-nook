@@ -90,6 +90,14 @@ Then, as for any import:
   gutter, and AND the class mask with coverage so gutter texels never
   classify. Verify by classifying `texture x baseColorFactor` — the base
   material must report ZERO pixels of the other class's hue.
+- **Offset the shell along POSITION-AVERAGED normals.** Flat-shaded meshes
+  have split vertices, each carrying its own face normal; offsetting along
+  those pushes every face in its own direction and tears the shell open at
+  every shared edge, leaving a wedge that shows the base as a hairline
+  outlining each block — visible the moment the two slots differ in colour.
+  Average the normals per welded position so the shell inflates as one
+  surface. Verify by patching the shell's `baseColorFactor` to black in a
+  scratch copy of the glb and rendering: no base-coloured lines may appear.
 - **Duplicate the WHOLE mesh for the shell, not just touching faces.** A
   partial shell has a boundary edge around every patch, and since the shell
   is offset outward, the base shows through along each one — thin lines

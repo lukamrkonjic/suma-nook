@@ -36,6 +36,7 @@ from pathlib import Path
 import bmesh
 import bpy
 import numpy
+from mathutils import Vector
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -509,11 +510,28 @@ def split_material_slots(
         working = bmesh.new()
         working.from_mesh(overlay_object.data)
         working.faces.ensure_lookup_table()
-        # A hair outward along the vertex normals, so the shell wins the depth
-        # test against the base it duplicates. Kept small: this offset is what
-        # opens the wedge at convex edges where the base peeks through.
+        # Outward along POSITION-AVERAGED normals. The mesh is flat shaded, so
+        # its vertices are split and each carries its own face normal: pushing
+        # along those moves every face along its own direction and tears the
+        # shell open at each shared edge, leaving a wedge that shows the base
+        # as a hairline outlining every block. Averaging per position welds
+        # the shell so it inflates as one surface and no gap can open.
+        by_position: dict = {}
         for vertex in working.verts:
-            vertex.co += vertex.normal * 0.0015
+            by_position.setdefault(
+                tuple(round(value, 5) for value in vertex.co), []
+            ).append(vertex)
+        offsets = []
+        for group in by_position.values():
+            averaged = Vector((0.0, 0.0, 0.0))
+            for vertex in group:
+                averaged += vertex.normal
+            if averaged.length > 1e-9:
+                averaged.normalize()
+                offsets.append((group, averaged * 0.0015))
+        for group, offset in offsets:
+            for vertex in group:
+                vertex.co += offset
         working.to_mesh(overlay_object.data)
         working.free()
         overlay_object.data.materials.clear()
