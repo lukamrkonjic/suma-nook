@@ -81,6 +81,13 @@ Then, as for any import:
   the nodes BY NAME (`nodes.remove()` invalidates every other python node
   reference; removing by held references crashed) and pin metallic 0,
   roughness 1.
+- **Painted patch EDGING belongs to the patch.** The well's texture edges its
+  moss in dark teal (hue 160-210), just past the green band -- classified
+  warm, it kept its blue cast through the stone transfer and rendered as cyan
+  outlines around every patch. Classify edging hues with their patch, and use
+  a LUMINANCE-only transfer for the moss class (exact target hue scaled by
+  brightness) so no within-class hue deviation survives; keep the channel-wise
+  transfer for stone, where warm variation is the charm.
 - **Dilate the alpha mask past every UV island border.** The mask ends
   exactly at each seam, so the cutoff discards a hair of shell along every
   seam edge inside a patch and the base shows through as thin lines that

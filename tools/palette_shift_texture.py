@@ -81,7 +81,12 @@ def classify_green(rgb: numpy.ndarray) -> numpy.ndarray:
         & (degrees < P.OLIVE_BAND[1])
         & (saturation < P.OLIVE_GOLD_SATURATION)
     )
-    return saturated & (in_green | in_olive)
+    # The well's texture edges its moss patches in dark TEAL (hue 160-210),
+    # just past the green band's end -- classified warm, those pixels kept
+    # their blue cast through the stone transfer and rendered as cyan
+    # outlines around every patch. Painted moss edging is moss.
+    in_teal = (degrees >= 160.0) & (degrees < 210.0)
+    return saturated & (in_green | in_olive | in_teal)
 
 
 def nearest_entry(mean: tuple[float, float, float], greens_only: bool) -> str:
@@ -218,11 +223,29 @@ def shift_image(image: bpy.types.Image) -> tuple:
             "    %s #%02X%02X%02X -> %s"
             % ("green" if greens_only else "base ", *(int(c * 255) for c in mean), entry)
         )
-        rgb[mask] = numpy.clip(
-            target[None, :] * rgb[mask] / numpy.maximum(mean[None, :], 1e-4),
-            0.0,
-            1.0,
-        )
+        if greens_only:
+            # Luminance-only transfer for moss: every pixel becomes exactly
+            # the target green scaled by its brightness. Channel-wise transfer
+            # preserves hue deviations, which is right for stone's warm
+            # variation and wrong here -- it let the teal patch edging stay
+            # teal instead of reading as dark moss.
+            luminance = rgb[mask] @ numpy.array(
+                [0.2126, 0.7152, 0.0722], dtype=numpy.float32
+            )
+            mean_luminance = max(float(luminance.mean()), 1e-4)
+            rgb[mask] = numpy.clip(
+                target[None, :] * (luminance / mean_luminance)[:, None],
+                0.0,
+                1.0,
+            )
+        else:
+            rgb[mask] = numpy.clip(
+                target[None, :]
+                * rgb[mask]
+                / numpy.maximum(mean[None, :], 1e-4),
+                0.0,
+                1.0,
+            )
 
     pixels[:, :3] = _to_linear(rgb)
     image.pixels = pixels.reshape(-1).tolist()
