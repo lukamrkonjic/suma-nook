@@ -54,9 +54,10 @@ var _hover_signature := ""
 ## same layer and would otherwise clear the selection the moment the pointer
 ## crossed any other tile.
 var _selection_outline_active := false
-var _selection_tinted_meshes: Array[MeshInstance3D] = []
+var _selection_decorated: Dictionary = {}  # Vector2i -> Array[MeshInstance3D]
 var _selection_tint_material: StandardMaterial3D
 var _selection_marquee: MeshInstance3D
+var _selection_marquee_area := Rect2i()
 var _pending_rotation_slots: Dictionary = {}
 var _pending_wish_slots: Dictionary = {}
 var _pending_water_skip_slots: Dictionary = {}
@@ -71,6 +72,7 @@ var _outline_source_camera: Camera3D
 var _scalable_backend
 var _scalable_mode := false
 var _bulk_update_depth := 0
+var _grid_rebuild_pending := false
 var _bulk_flushing := false
 var _bulk_dirty_slots: Dictionary = {}
 var _bulk_original_slots: Dictionary = {}
@@ -389,10 +391,32 @@ func _on_slot_changed(coord: Vector2i, elevation: int) -> void:
 		_rebuild_water_surface()
 
 
+## Coalesced to one rebuild per frame.
+##
+## _rebuild_edges walks every cell in the world and recreates its wall bodies,
+## so its cost is the size of the island, not the size of the edit. The grid
+## emits grid_changed once per detach and once per restore, which is fine for a
+## single tile and ruinous for a multi-tile move: sliding a 100-column selection
+## one step raised roughly 200 of them, each rebuilding every edge on the map.
+## Marking dirty and flushing on the next idle frame collapses any number of
+## emissions in a frame into a single rebuild, which is all the frame could
+## display anyway.
 func _on_grid_changed() -> void:
 	if _bulk_update_depth > 0 or _bulk_flushing:
 		return
 	if _scalable_mode:
+		return
+	if _grid_rebuild_pending:
+		return
+	_grid_rebuild_pending = true
+	_flush_grid_rebuild.call_deferred()
+
+
+func _flush_grid_rebuild() -> void:
+	if not _grid_rebuild_pending:
+		return
+	_grid_rebuild_pending = false
+	if _bulk_update_depth > 0 or _bulk_flushing or _scalable_mode:
 		return
 	_rebuild_edges()
 	_rebuild_water_surface()
@@ -1951,81 +1975,131 @@ func _set_hover_nodes(
 ## never appear, and a selection reads as one large object exactly as it should.
 ## Feeding it many columns instead of one hovered structure needs no new
 ## machinery.
-func set_selection_outline(coords: Array) -> void:
-	_selection_outline_active = false
-	_clear_outline_nodes()
-	_clear_selection_tint()
-	if coords.is_empty():
-		return
-	var nodes: Array[Node3D] = []
-	var signature := "tile_selection:%d:" % coords.size()
+## Decorating a selection is INCREMENTAL: only the coords that entered or left
+## the set are touched.
+##
+## The first version rebuilt everything on every pointer motion -- clearing the
+## layer flag and material overlay on every mesh of every selected column, then
+## re-walking all of them with two separate recursive find_children passes. A
+## 20x20 sweep is 400 columns, so that was thousands of node traversals per
+## motion event, several times a frame, and the drag ground to a halt on exactly
+## the large selections the feature exists for. Garden Galaxy diffs its live
+## coord set against the previous one for the same reason.
+##
+## Pass force when the tile nodes themselves have been replaced -- a move
+## rebuilds the cells it touched, so the cached meshes are freed even though the
+## coord set looks unchanged after shifting.
+func set_selection_outline(coords: Array, force := false) -> void:
+	if force:
+		_undecorate_all_selection()
+	if _selection_decorated.is_empty():
+		# Starting fresh. Hover keeps its own bookkeeping but shares the outline
+		# layer, so anything it left flagged would join the selection's union.
+		_clear_outline_nodes()
+	var wanted := {}
 	for coord: Vector2i in coords:
-		signature += "%d,%d;" % [coord.x, coord.y]
-		# The whole column, which is what a selected coord means.
-		for layer in range(0, core.grid.top_elevation(coord) + 1):
-			var holder: Node3D = (
-				_scalable_backend.hover_tile_node(coord, layer)
-				if _scalable_mode
-				else tile_node(coord, layer)
-			)
-			if holder != null and is_instance_valid(holder):
-				nodes.append(holder)
-	if nodes.is_empty():
+		wanted[coord] = true
+	for coord: Vector2i in _selection_decorated.keys():
+		if not wanted.has(coord):
+			_undecorate_selection_coord(coord)
+	for coord: Vector2i in wanted:
+		if not _selection_decorated.has(coord):
+			_decorate_selection_coord(coord)
+	_selection_outline_active = not _selection_decorated.is_empty()
+	if not _selection_outline_active:
+		_hide_outline_overlay()
 		return
-	_selection_outline_active = true
-	_set_hover_nodes(nodes, signature, -1)
-	_apply_selection_tint(nodes)
+	if _outline_source_camera == null or not is_instance_valid(_outline_source_camera):
+		_outline_source_camera = get_viewport().get_camera_3d()
+	if _outline_source_camera == null:
+		return
+	_sync_outline_camera()
+	_outline_overlay.visible = true
+	_outline_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 
 
 ## A faint white wash over everything selected.
 ##
-## The outline alone marks the border of the set but says nothing about what is
-## inside it, which reads badly on a large selection whose middle looks
-## untouched. material_overlay draws on top of each surface's own material
-## without replacing it, so the tile keeps its colour and simply lightens.
-const SELECTION_TINT := Color(1.0, 1.0, 1.0, 0.16)
+## The outline marks the border of the set but says nothing about what is inside
+## it, which reads badly on a large selection whose middle looks untouched.
+## material_overlay draws on top of each surface's own material without
+## replacing it, so a tile keeps its colour and merely lightens.
+const SELECTION_TINT := Color(1.0, 1.0, 1.0, 0.055)
 
 
-func _apply_selection_tint(nodes: Array[Node3D]) -> void:
+func _selection_tint() -> StandardMaterial3D:
 	if _selection_tint_material == null:
 		var tint := StandardMaterial3D.new()
 		tint.albedo_color = SELECTION_TINT
 		tint.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		tint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		# Without this the wash disappears wherever a tile is behind another
-		# tile's geometry, which on stacked terrain is most of it.
-		tint.no_depth_test = false
 		tint.render_priority = 1
 		_selection_tint_material = tint
-	for node: Node3D in nodes:
-		for child in node.find_children("*", "MeshInstance3D", true, false):
+	return _selection_tint_material
+
+
+## One traversal per column, applying the outline layer and the wash together.
+## They were two passes over the same meshes for no reason.
+func _decorate_selection_coord(coord: Vector2i) -> void:
+	var meshes: Array[MeshInstance3D] = []
+	var tint := _selection_tint()
+	for layer in range(0, core.grid.top_elevation(coord) + 1):
+		var holder: Node3D = (
+			_scalable_backend.hover_tile_node(coord, layer)
+			if _scalable_mode
+			else tile_node(coord, layer)
+		)
+		if holder == null or not is_instance_valid(holder):
+			continue
+		for child in holder.find_children("*", "MeshInstance3D", true, false):
 			var mesh_instance := child as MeshInstance3D
-			if mesh_instance.material_overlay == _selection_tint_material:
-				continue
+			mesh_instance.set_meta("_outline_previous_layers", mesh_instance.layers)
+			mesh_instance.layers |= OUTLINE_VISIBILITY_LAYER
 			mesh_instance.set_meta(
 				"_selection_previous_overlay", mesh_instance.material_overlay
 			)
-			mesh_instance.material_overlay = _selection_tint_material
-			_selection_tinted_meshes.append(mesh_instance)
+			mesh_instance.material_overlay = tint
+			meshes.append(mesh_instance)
+	_selection_decorated[coord] = meshes
 
 
-func _clear_selection_tint() -> void:
-	for mesh_instance: MeshInstance3D in _selection_tinted_meshes:
+func _undecorate_selection_coord(coord: Vector2i) -> void:
+	for mesh_instance: MeshInstance3D in _selection_decorated.get(coord, []):
 		if not is_instance_valid(mesh_instance):
 			continue
+		mesh_instance.layers = int(
+			mesh_instance.get_meta(
+				"_outline_previous_layers",
+				mesh_instance.layers & ~OUTLINE_VISIBILITY_LAYER
+			)
+		)
+		mesh_instance.remove_meta("_outline_previous_layers")
 		mesh_instance.material_overlay = (
 			mesh_instance.get_meta("_selection_previous_overlay", null) as Material
 		)
 		mesh_instance.remove_meta("_selection_previous_overlay")
-	_selection_tinted_meshes.clear()
+	_selection_decorated.erase(coord)
+
+
+func _undecorate_all_selection() -> void:
+	for coord: Vector2i in _selection_decorated.keys():
+		_undecorate_selection_coord(coord)
+	_selection_decorated.clear()
+
+
+func _hide_outline_overlay() -> void:
+	if _outline_overlay != null:
+		_outline_overlay.visible = false
+	if _outline_viewport != null:
+		_outline_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 
 
 func clear_selection_outline() -> void:
-	_clear_selection_tint()
-	if not _selection_outline_active:
+	if _selection_decorated.is_empty() and not _selection_outline_active:
 		return
+	_undecorate_all_selection()
 	_selection_outline_active = false
-	_clear_outline_nodes()
+	_hide_outline_overlay()
 
 
 ## The drag rectangle itself, lying flat on the grid.
@@ -2039,6 +2113,12 @@ func set_selection_marquee(area: Rect2i) -> void:
 	if area.size.x <= 0 or area.size.y <= 0:
 		clear_selection_marquee()
 		return
+	# Rebuilding scans every coord in the area for its top elevation, so an
+	# unchanged rectangle must not pay for it. Pointer motion is far finer than
+	# one cell.
+	if _selection_marquee_area == area and _selection_marquee != null and _selection_marquee.visible:
+		return
+	_selection_marquee_area = area
 	if _selection_marquee == null:
 		_selection_marquee = MeshInstance3D.new()
 		_selection_marquee.name = "TileSelectionMarquee"
@@ -2102,6 +2182,7 @@ void fragment() {
 
 
 func clear_selection_marquee() -> void:
+	_selection_marquee_area = Rect2i()
 	if _selection_marquee != null:
 		_selection_marquee.visible = false
 

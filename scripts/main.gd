@@ -2090,21 +2090,20 @@ func _handle_tile_selection_input(event: InputEvent) -> bool:
 			var delta := coord - _selection_move_coord
 			if delta != Vector2i.ZERO and tile_selection.move_by(delta):
 				_selection_move_coord = coord
-				_refresh_tile_selection_outline()
-		else:
-			tile_selection.drag_to(coord)
+				# Forced: the move rebuilt those cells, so the cached meshes
+				# behind the shifted coords are already freed.
+				_refresh_tile_selection_outline(true)
+		elif tile_selection.drag_to(coord):
 			_refresh_tile_selection_outline()
 			renderer.set_selection_marquee(tile_selection.rectangle())
 		return true
 	return false
 
 
-func _refresh_tile_selection_outline() -> void:
+func _refresh_tile_selection_outline(force := false) -> void:
 	if renderer == null:
 		return
-	# Re-applied after every move because moving rebuilds the affected cells,
-	# freeing the very nodes the outline was holding.
-	renderer.set_selection_outline(tile_selection.coords())
+	renderer.set_selection_outline(tile_selection.coords(), force)
 
 
 func _clear_tile_selection() -> void:

@@ -71,13 +71,18 @@ func begin(coord: Vector2i) -> void:
 	_refresh_coords()
 
 
-func drag_to(coord: Vector2i) -> void:
+## Returns whether the selected set actually changed, so callers can skip
+## redecorating. Pointer motion fires many times per cell crossed, and the
+## overwhelming majority of those events land on the cell already under the
+## cursor.
+func drag_to(coord: Vector2i) -> bool:
 	if _state != State.DRAGGING:
-		return
+		return false
 	if coord == _cursor:
-		return
+		return false
 	_cursor = coord
 	_refresh_coords()
+	return true
 
 
 ## Settles the marquee. Returns whether anything was actually caught: dragging
