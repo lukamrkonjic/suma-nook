@@ -1,7 +1,19 @@
 class_name GamePreferences
 extends RefCounted
-## Small, save-backed set of player-facing options. The values live inside the
-## normal game save so Save & Exit is sufficient to preserve them.
+## Small set of player-facing options, stored beside the save rather than in it.
+##
+## These used to live inside the game save, which caused two problems that were
+## really the same problem. Settings could not be read until the save had
+## loaded, so the window opened in whatever mode project.godot names and only
+## resized once the world was built -- the fullscreen-then-shrink flash. And
+## starting a new game or resetting discarded the save, which discarded the
+## player's window mode, volume and graphics choices with it.
+##
+## Display and audio settings belong to the machine, not to a playthrough, so
+## they now live in their own file: written whenever they change, read before
+## anything else, and never touched by new game or reset.
+
+const SETTINGS_PATH := "user://settings.json"
 
 const AA_OFF := "off"
 const AA_BALANCED := "balanced"
@@ -69,6 +81,62 @@ func to_dict() -> Dictionary:
 	}
 
 
+## Reads the settings file. Falls back to values carried in an older save so a
+## player upgrading does not lose choices they already made.
+func load_from_disk(legacy_save_values: Dictionary = {}) -> void:
+	if not FileAccess.file_exists(SETTINGS_PATH):
+		if not legacy_save_values.is_empty():
+			from_dict(legacy_save_values)
+			save_to_disk()
+		return
+	var parsed: Variant = JSON.parse_string(
+		FileAccess.get_file_as_string(SETTINGS_PATH)
+	)
+	if parsed is Dictionary:
+		from_dict(parsed)
+
+
+func save_to_disk() -> Error:
+	var file := FileAccess.open(SETTINGS_PATH, FileAccess.WRITE)
+	if file == null:
+		return FileAccess.get_open_error()
+	file.store_string(JSON.stringify(to_dict(), "\t", false) + "\n")
+	file.close()
+	return OK
+
+
+## Puts the window into the saved mode as early as possible.
+##
+## Called before the world is built so the player never sees the window resize
+## after load. The rest of apply() needs a viewport, a lighting rig and a HUD,
+## none of which exist that early -- window mode needs none of them.
+func apply_window_mode() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	var use_fullscreen := _resolved_fullscreen()
+	DisplayServer.window_set_mode(
+		DisplayServer.WINDOW_MODE_FULLSCREEN if use_fullscreen
+		else DisplayServer.WINDOW_MODE_WINDOWED
+	)
+	DisplayServer.window_set_flag(
+		DisplayServer.WINDOW_FLAG_BORDERLESS,
+		use_fullscreen
+	)
+
+
+func _resolved_fullscreen() -> bool:
+	var command_line := OS.get_cmdline_args()
+	var user_command_line := OS.get_cmdline_user_args()
+	if (
+		"--windowed" in command_line
+		or "--force-windowed" in user_command_line
+	):
+		return false
+	if "--fullscreen" in command_line:
+		return true
+	return fullscreen
+
+
 func apply(
 	viewport: Viewport,
 	lighting: LightingRig,
@@ -76,26 +144,7 @@ func apply(
 	pixel_look: PixelLook = null
 ) -> void:
 	if DisplayServer.get_name() != "headless":
-		var command_line := OS.get_cmdline_args()
-		var user_command_line := OS.get_cmdline_user_args()
-		var force_windowed := (
-			"--windowed" in command_line
-			or "--force-windowed" in user_command_line
-		)
-		var force_fullscreen := "--fullscreen" in command_line
-		var use_fullscreen := fullscreen
-		if force_windowed:
-			use_fullscreen = false
-		elif force_fullscreen:
-			use_fullscreen = true
-		DisplayServer.window_set_mode(
-			DisplayServer.WINDOW_MODE_FULLSCREEN if use_fullscreen
-			else DisplayServer.WINDOW_MODE_WINDOWED
-		)
-		DisplayServer.window_set_flag(
-			DisplayServer.WINDOW_FLAG_BORDERLESS,
-			use_fullscreen
-		)
+		apply_window_mode()
 		DisplayServer.window_set_vsync_mode(
 			DisplayServer.VSYNC_ENABLED if vsync else DisplayServer.VSYNC_DISABLED
 		)

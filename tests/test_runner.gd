@@ -177,6 +177,8 @@ func _run() -> void:
 	_test_hud_design_system()
 	_test_content_assets()
 	_test_tile_slot_fill()
+	_test_placement_effects_match_the_surface()
+	_test_preferences_live_outside_the_save()
 	_test_masked_tile_surfaces_keep_their_materials()
 	_test_tile_selection_moves_whole_columns()
 	_test_world_model_scale_contract()
@@ -2393,6 +2395,72 @@ func _test_content_assets() -> void:
 ## wrong material or none at all. Both invariants hold today; this pins them,
 ## because a null surface material is a renderer error rather than a visual
 ## glitch, and it is not otherwise visible from a headless run.
+## Placement debris follows what a tile is MADE of, not what it sounds like.
+func _test_placement_effects_match_the_surface() -> void:
+	var core := fresh_core(910)
+	var effects_script := load("res://scripts/visuals/effects_manager.gd")
+	var table: Dictionary = effects_script.PLACEMENT_POOF_EFFECTS
+	# Every profile the classifier can produce needs an entry, or that surface
+	# silently falls back to a stone puff.
+	for profile: String in [
+		"grass", "snow", "sand", "earth", "mud", "water", "wood", "stone"
+	]:
+		check(
+			table.has(profile),
+			"placement debris is defined for the %s surface" % profile
+		)
+	# Snow tiles carry placement_sound "grass", which is exactly why keying the
+	# effect off the sound scattered leaves over a snowdrift.
+	var snow_definition := core.registries.tile("tile_snowfield")
+	check(
+		snow_definition != null
+		and snow_definition.placement_sound == "grass"
+		and GroundImpactEffects.surface_profile_for_definition(
+			snow_definition
+		) == "snow",
+		"a snow tile classifies as snow despite sounding like grass"
+	)
+	var leafy: Array[String] = []
+	for tile_id: String in ["tile_snowfield", "tile_snow_drift", "tile_sand", "tile_dirt"]:
+		var definition := core.registries.tile(tile_id)
+		if definition == null:
+			continue
+		var profile := GroundImpactEffects.surface_profile_for_definition(definition)
+		if String(table.get(profile, "")) == "fx_leaf":
+			leafy.append(tile_id)
+	check(
+		leafy.is_empty(),
+		"no snow, sand or dirt tile scatters leaves (%s)" % str(leafy)
+	)
+	check(
+		GroundImpactEffects.surface_profile_for_sound("stone") == "stone"
+		and GroundImpactEffects.surface_profile_for_sound("wood") == "wood",
+		"structures without a tile definition still classify by their sound"
+	)
+
+
+## Display and audio settings belong to the machine, not to a playthrough.
+func _test_preferences_live_outside_the_save() -> void:
+	var core := fresh_core(911)
+	check(
+		not GamePreferences.SETTINGS_PATH.is_empty()
+		and GamePreferences.SETTINGS_PATH != core.save_manager.save_path,
+		"settings are stored separately from the save, so a reset cannot wipe them"
+	)
+	var written := GamePreferences.new()
+	written.fullscreen = false
+	written.master_volume = 0.21
+	written.pixel_size = 3
+	var restored := GamePreferences.new()
+	restored.from_dict(written.to_dict())
+	check(
+		restored.fullscreen == false
+		and is_equal_approx(restored.master_volume, 0.21)
+		and restored.pixel_size == 3,
+		"preferences round-trip through their serialised form"
+	)
+
+
 func _test_masked_tile_surfaces_keep_their_materials() -> void:
 	var core := fresh_core(717)
 	var palette := load(

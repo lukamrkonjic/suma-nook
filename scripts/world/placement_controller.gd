@@ -1967,7 +1967,10 @@ func _place_tile() -> bool:
 		)
 	_finish_placement_feedback(
 		effect_position,
-		def.placement_sound,
+		# What the tile is made of, not what it sounds like. Snow tiles carry
+		# placement_sound "grass", so passing the sound through scattered leaves
+		# over a snowdrift.
+		GroundImpactEffects.surface_profile_for_definition(def),
 		(
 			"Splosh! It bounced onto the nearest clear spot."
 			if not water_skip.is_empty()
@@ -2166,7 +2169,7 @@ func _place_structure() -> void:
 	core.autosave_soon()
 	_finish_placement_feedback(
 		effect_position,
-		"grass" if def.placement_sound == "grass" else "stone",
+		GroundImpactEffects.surface_profile_for_sound(def.placement_sound),
 		"",
 		landing_tween,
 		def.placement_sound

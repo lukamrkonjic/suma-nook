@@ -582,8 +582,32 @@ func visitor_container_burst(
 		tween.chain().tween_callback(fragment.queue_free)
 
 
+## What a tile throws up when it lands, by what the tile is made of.
+##
+## This was a two-way guess -- leaves for grass, a smoke puff for everything
+## else -- so setting down snow, ice, sand or planks scattered the wrong debris.
+## The keys are GroundImpactEffects surface profiles, the same vocabulary
+## footsteps and landings already use, so a tile sounds and scatters
+## consistently instead of classifying itself twice by different rules.
+const PLACEMENT_POOF_EFFECTS := {
+	"grass": "fx_leaf",
+	"snow": "fx_slow_flakes",
+	"sand": "fx_tile_dust",
+	"earth": "fx_tile_dust",
+	"mud": "fx_ripple_ring",
+	"water": "fx_ripple_ring",
+	"wood": "fx_wood_chip",
+	"stone": "fx_smoke_puff",
+}
+
+
 func placement_poof(point: Vector3, kind: String) -> void:
-	burst("fx_leaf" if kind == "grass" else "fx_smoke_puff", point + Vector3(0, 0.15, 0), 7, 1.6)
+	burst(
+		String(PLACEMENT_POOF_EFFECTS.get(kind, "fx_smoke_puff")),
+		point + Vector3(0, 0.15, 0),
+		7,
+		1.6
+	)
 
 
 ## A quiet screen-space confirmation at the literal cursor position. A thin

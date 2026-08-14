@@ -23,7 +23,6 @@ var _pitch_node: Node3D
 var _rotating := false
 var _pan_offset := Vector3.ZERO
 var _middle_panning := false
-var _middle_pan_origin := Vector3.ZERO
 var _creator_focus := false
 var _pointer_edit_locked := false
 var _input_blocker := Callable()
@@ -100,7 +99,7 @@ func focus_world_position() -> Vector3:
 
 ## Mouse releases can be consumed by UI controls before reaching
 ## _unhandled_input. Observe an active middle-drag release here as a safety net
-## so the camera can never remain stranded away from the player.
+## so a drag can never be left running after the button is up.
 func _input(event: InputEvent) -> void:
 	if (
 		_middle_panning
@@ -108,8 +107,20 @@ func _input(event: InputEvent) -> void:
 		and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_MIDDLE
 		and not (event as InputEventMouseButton).pressed
 	):
-		_middle_panning = false
-		_pan_offset = _middle_pan_origin
+		_end_middle_pan()
+
+
+## Middle-drag reframes the view and the new framing sticks.
+##
+## It used to snap back to where the drag started, making it a peek you had to
+## hold. Panning somewhere to work there and being thrown back on release is the
+## opposite of what the gesture is for. The offset now persists exactly like
+## zoom and orbit do, follows the player as a fixed offset, and is saved.
+func _end_middle_pan() -> void:
+	if not _middle_panning:
+		return
+	_middle_panning = false
+	core.autosave_soon()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -148,11 +159,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton:
 		var wheel := event as InputEventMouseButton
 		if wheel.button_index == MOUSE_BUTTON_MIDDLE:
-			_middle_panning = wheel.pressed
 			if wheel.pressed:
-				_middle_pan_origin = _pan_offset
+				_middle_panning = true
 			else:
-				_pan_offset = _middle_pan_origin
+				_end_middle_pan()
 			get_viewport().set_input_as_handled()
 		elif wheel.pressed:
 			var wheel_amount := maxf(0.1, wheel.factor)
@@ -252,9 +262,7 @@ func _camera_input_blocked() -> bool:
 
 func _suspend_camera_input() -> void:
 	_continuous_pan_armed = false
-	if _middle_panning:
-		_middle_panning = false
-		_pan_offset = _middle_pan_origin
+	_end_middle_pan()
 
 
 func _clamp_pan_offset() -> void:
@@ -367,7 +375,7 @@ func _default_gameplay_distance() -> float:
 
 
 func save_state() -> Dictionary:
-	var persisted_pan := _middle_pan_origin if _middle_panning else _pan_offset
+	var persisted_pan := _pan_offset
 	return {
 		"yaw": _yaw_target,
 		"distance": _size_target,
@@ -377,7 +385,6 @@ func save_state() -> Dictionary:
 
 func reset_pan() -> void:
 	_pan_offset = Vector3.ZERO
-	_middle_pan_origin = Vector3.ZERO
 	core.autosave_soon()
 
 
@@ -449,5 +456,4 @@ func restore_state(data: Dictionary) -> void:
 		float(stored_pan[1]) if stored_pan.size() > 1 else 0.0
 	)
 	_clamp_pan_offset()
-	_middle_pan_origin = _pan_offset
 	set_zoom_immediate(_size_target)

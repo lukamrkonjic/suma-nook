@@ -36,7 +36,9 @@ func setup(game_core: GameCore, ui_kit: UiKit, bridge: Main) -> void:
 
 
 func load_preferences_from_core() -> void:
-	preferences.from_dict(core.visual_state.get("preferences", {}))
+	# Settings come from their own file. The save is only consulted to migrate a
+	# player who last played before they moved out of it.
+	preferences.load_from_disk(core.visual_state.get("preferences", {}))
 	preferences.apply(
 		get_viewport(),
 		settings_bridge.lighting,
@@ -822,8 +824,9 @@ func _control_row(action: String, keys: Array, description: String) -> MarginCon
 
 
 func _apply_preferences() -> void:
-	core.visual_state["preferences"] = preferences.to_dict()
-	core.autosave_soon()
+	# Written immediately and independently of the save, so a change survives a
+	# crash, a new game and a reset.
+	preferences.save_to_disk()
 	preferences.apply(
 		get_viewport(),
 		settings_bridge.lighting,
@@ -833,14 +836,14 @@ func _apply_preferences() -> void:
 
 
 func _save_game() -> void:
-	core.visual_state["preferences"] = preferences.to_dict()
+	preferences.save_to_disk()
 	var ok := core.save()
 	_status_label.text = "Garden saved." if ok else "Could not save the garden."
 	_play("ui_confirm" if ok else "ui_cancel")
 
 
 func _save_and_exit() -> void:
-	core.visual_state["preferences"] = preferences.to_dict()
+	preferences.save_to_disk()
 	if not core.save():
 		_request_page("menu")
 		_play("ui_cancel")

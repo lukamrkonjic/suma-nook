@@ -121,7 +121,7 @@ static func surface_profile_for_definition(
 		return "mud"
 	if "sand" in tile_id:
 		return "sand"
-	if "snow" in tile_id or "frost" in tile_id:
+	if "snow" in tile_id or "frost" in tile_id or "ice" in tile_id:
 		return "snow"
 	if "wood" in tile_id or "plank" in tile_id:
 		return "wood"
@@ -132,6 +132,12 @@ static func surface_profile_for_definition(
 	):
 		return "earth"
 	return _profile_from_sound(definition.placement_sound)
+
+
+## The surface profile implied by a placement sound, for things that have a
+## sound but no tile definition to classify -- structures, mainly.
+static func surface_profile_for_sound(sound: String) -> String:
+	return _profile_from_sound(sound)
 
 
 static func _profile_from_sound(sound: String) -> String:

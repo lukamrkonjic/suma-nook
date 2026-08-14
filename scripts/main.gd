@@ -164,6 +164,14 @@ var _queued_frontier_expansions: Array[Dictionary] = []
 
 
 func _ready() -> void:
+	# Before anything else, and before the world is built. The window mode used
+	# to be applied only once the pause menu was constructed during
+	# _start_gameplay, so the game opened in whatever project.godot names and
+	# visibly resized after loading. Settings live in their own file precisely
+	# so this can happen this early.
+	var boot_preferences := GamePreferences.new()
+	boot_preferences.load_from_disk()
+	boot_preferences.apply_window_mode()
 	palette = load("res://assets/palettes/gg_material_palette.tres")
 	materials = MaterialLibrary.new(palette)
 	assets = AssetLibrary.new(materials)
