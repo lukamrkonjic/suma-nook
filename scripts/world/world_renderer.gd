@@ -465,7 +465,7 @@ func _build_cell(coord: Vector2i, elevation: int, animate := false) -> void:
 		_build_structure(holder, s)
 	_tile_visual_factory.apply_surface_exclusion_masks(
 		visual,
-		_structure_visual_factory.surface_masks_for_tile(state, state.rotation),
+		_surface_masks_with_extras(state, coord, state.rotation),
 		def.walk_surface_height
 	)
 
@@ -1815,6 +1815,59 @@ func _add_placeable_pick_target(
 		body.add_child(fallback)
 
 
+## Contact footprints from visuals the grid knows nothing about. Placed
+## structures declare theirs through StructureVisualFactory, but the Worldheart
+## vessel is owned by its presenter and never becomes a WorldGrid structure --
+## so nothing cleared the tile detail beneath it and the host tile's grass grew
+## straight up through the well's floor and out of its mouth.
+var _extra_surface_masks: Dictionary = {}
+
+
+func set_extra_surface_mask(coord: Vector2i, mask: PackedVector2Array) -> void:
+	var previous: PackedVector2Array = _extra_surface_masks.get(
+		coord, PackedVector2Array()
+	)
+	if previous == mask:
+		return
+	if mask.size() < 3:
+		_extra_surface_masks.erase(coord)
+	else:
+		_extra_surface_masks[coord] = mask
+	_rebuild_masked_cell(coord)
+
+
+func clear_extra_surface_mask(coord: Vector2i) -> void:
+	if not _extra_surface_masks.has(coord):
+		return
+	_extra_surface_masks.erase(coord)
+	_rebuild_masked_cell(coord)
+
+
+## Rebuilds every elevation of one cell so a changed mask takes effect.
+func _rebuild_masked_cell(coord: Vector2i) -> void:
+	if core == null or core.grid == null:
+		return
+	for elevation in range(core.grid.top_elevation(coord) + 1):
+		if core.grid.cell_at(coord, elevation) != null:
+			_build_cell(coord, elevation)
+
+
+func _surface_masks_with_extras(
+	state: WorldGrid.CellState, coord: Vector2i, rotation_quarters: int
+) -> Array[PackedVector2Array]:
+	var masks: Array[PackedVector2Array] = (
+		_structure_visual_factory.surface_masks_for_tile(
+			state, rotation_quarters
+		)
+	)
+	var extra: PackedVector2Array = _extra_surface_masks.get(
+		coord, PackedVector2Array()
+	)
+	if extra.size() >= 3:
+		masks.append(extra)
+	return masks
+
+
 func _add_tile_pick_target(
 	holder: Node3D,
 	visual: Node3D,
@@ -2474,9 +2527,7 @@ func _build_reveal_cover_transition_holder(
 	_tile_visual_factory.set_surface_covered(visual, false, false)
 	_tile_visual_factory.apply_surface_exclusion_masks(
 		visual,
-		_structure_visual_factory.surface_masks_for_tile(
-			state, state.rotation
-		),
+		_surface_masks_with_extras(state, coord, state.rotation),
 		definition.walk_surface_height
 	)
 	_apply_anchor_visual(holder, state, definition, false)

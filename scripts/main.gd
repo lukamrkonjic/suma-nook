@@ -431,6 +431,7 @@ func _build_world_scene() -> void:
 	audio.name = "Audio"
 	add_child(audio)
 	if worldheart_presenter != null:
+		worldheart_presenter.renderer = renderer
 		worldheart_presenter.setup(core, assets, audio, camera_rig.camera, kit)
 		worldheart_presenter.visible = false
 		interaction_targets.call("set_worldheart_presenter", worldheart_presenter)
@@ -1760,10 +1761,18 @@ func _sync_worldheart_offer_preview() -> void:
 				== core.diorama.worldheart.worldheart_cell
 		)
 	else:
-		over_hole = worldheart_presenter.hole_at_screen(
-			camera_rig.camera,
-			get_viewport().get_mouse_position(),
-			58.0 if worldheart_presenter.has_offering_preview() else 42.0
+		# Either test starts the offer: the tight screen radius around the mouth,
+		# or simply hovering the well's own cell. The cell test is what makes the
+		# handover seamless -- it is exactly the condition under which the
+		# placement ghost stands down, so the offering preview takes over in the
+		# same frame instead of leaving a gap the invalid state used to fill.
+		over_hole = (
+			worldheart_presenter.hole_at_screen(
+				camera_rig.camera,
+				get_viewport().get_mouse_position(),
+				58.0 if worldheart_presenter.has_offering_preview() else 42.0
+			)
+			or placement.hover_cell() == core.diorama.worldheart.worldheart_cell
 		)
 	var previewing := false
 	if over_hole:

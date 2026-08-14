@@ -884,6 +884,19 @@ func _process(delta: float) -> void:
 	world_renderer.clear_structure_hover()
 	_emit_hover_info("", "", "")
 	_update_hover_target()
+	# The Worldheart's own cell is never a placement target -- it is an offer
+	# target -- so the ghost yields to the offering preview instead of turning
+	# red. Without this, approaching the well flashed the invalid state for
+	# every frame between entering its tile and satisfying the tighter
+	# screen-radius test that starts the offer, which read as a bug.
+	if (
+		core.diorama.enabled
+		and _hover_cell == core.diorama.worldheart.worldheart_cell
+	):
+		_preview.hide_indicator()
+		if _ghost != null:
+			_ghost.visible = false
+		return
 	_hover_valid = _validate(_hover_cell, _hover_elevation)
 	_water_skip_preview_target = (
 		{}
@@ -1411,6 +1424,11 @@ func _resolve_highest_structure_target(coord: Vector2i, elevation: int) -> bool:
 
 func _highest_structure_instance_at(coord: Vector2i, elevation: int) -> int:
 	return _target_resolver.highest_structure_instance_at(coord, elevation)
+
+
+## The cell the held piece is currently aimed at.
+func hover_cell() -> Vector2i:
+	return _hover_cell
 
 
 func _validate(cell: Vector2i, elevation: int = 0) -> bool:

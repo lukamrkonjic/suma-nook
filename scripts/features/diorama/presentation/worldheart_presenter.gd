@@ -64,6 +64,12 @@ var progress_icon: TextureRect
 var progress_count_label: Label
 var _tile_factory: TileVisualFactory
 var _structure_factory: StructureVisualFactory
+## Set by Main. Used to clear the host tile's surface detail under the well:
+## the vessel is presenter-owned and never becomes a WorldGrid structure, so
+## nothing else registers its contact footprint and the tile's grass grew up
+## through the well's floor and out of its mouth.
+var renderer: WorldRenderer
+var _masked_cell := Vector2i(2147483647, 2147483647)
 var _entry_nodes: Dictionary = {}
 var _entry_cells: Dictionary = {}
 var _elapsed := 0.0
@@ -118,6 +124,7 @@ func setup(
 	core.diorama.worldheart.worldheart_moved.connect(_on_worldheart_moved)
 	core.diorama.worldheart.worldheart_rotated.connect(_on_worldheart_rotated)
 	_sync_well_rotation(false)
+	_sync_surface_mask()
 	_sync_entries()
 	_sync_progress_card()
 	set_process(true)
@@ -1248,7 +1255,32 @@ func _finish_exchange_reward(reward_visual_instance_id: int) -> void:
 	_end_reward_launch(reward_visual_instance_id)
 
 
+## Re-clears the detail under the well, and restores it wherever it left.
+func _sync_surface_mask() -> void:
+	if renderer == null or well_visual_root == null:
+		return
+	var cell: Vector2i = core.diorama.worldheart.worldheart_cell
+	if cell == _masked_cell:
+		return
+	if _masked_cell.x != 2147483647:
+		renderer.clear_extra_surface_mask(_masked_cell)
+	_masked_cell = cell
+	# Measured from the authored mesh the same way a placed structure's is, so
+	# the cleared shape follows the well's actual footprint rather than a box,
+	# and inherits the model's edit scale through well_visual_root.
+	var mask := StructureVisualFactory.surface_contact_mask_from_visual(
+		well_visual_root
+	)
+	if mask.size() < 3:
+		return
+	var scaled := PackedVector2Array()
+	for point: Vector2 in mask:
+		scaled.append(point * WELL_SCALE)
+	renderer.set_extra_surface_mask(cell, scaled)
+
+
 func _on_worldheart_moved(_from: Vector2i, _to: Vector2i) -> void:
+	_sync_surface_mask()
 	_finish_move_preview()
 	portal_fx_root.scale = Vector3.ONE
 	var settle := _create_tracked_tween()
