@@ -74,6 +74,20 @@ Then, as for any import:
 - **Do not name the materials after palette entries.** MaterialLibrary rebinds
   any material carrying a palette name to the flat palette material, which
   throws the texture away. `well_stone` / `well_moss`, not `sand_top`.
+- **Strip every non-albedo texture node from the copied materials.** The
+  source's other maps ride along and export as a metallicRoughnessTexture fed
+  by the detail image — roughness then follows the picture, dark pixels go
+  glossy, and a recoloured-dark class reflects the sky as cyan sheen. Remove
+  the nodes BY NAME (`nodes.remove()` invalidates every other python node
+  reference; removing by held references crashed) and pin metallic 0,
+  roughness 1.
+- **Guard both sides of the alpha edge.** Bilinear sampling blends RGB across
+  the cutoff, and the base texture shows through in a sub-pixel rim: pad the
+  shell's class colour outward past its mask, pad the base's OTHER-class
+  colour into the masked regions (the rim must not wear the original class
+  colour, which no slot recolour can reach), and majority-smooth the per-pixel
+  classification (9x9 box) so near-threshold pixels join the paint around
+  them instead of speckling.
 
 ## The decal shell — why the material split has exactly this shape
 
