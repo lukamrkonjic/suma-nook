@@ -229,6 +229,7 @@ func _build_layout() -> void:
 	_build_bar.visible = false
 	_build_bar.close_requested.connect(_close_build_library)
 	_build_bar.search_changed.connect(_on_build_search_changed)
+	_build_bar.category_selected.connect(_select_build_category)
 	_build_bar.gui_input.connect(_on_build_library_input)
 	root.add_child(_build_bar)
 	_build_search = _build_bar.search_field
@@ -239,7 +240,9 @@ func _build_layout() -> void:
 		func(event): _on_library_scroll_input(event, _build_item_scroll)
 	)
 	_build_item_scroll.get_v_scroll_bar().value_changed.connect(
-		func(value: float): _build_scroll_memory = int(round(value))
+		func(value: float):
+			_build_scroll_memory = int(round(value))
+			_sync_build_category_to_scroll()
 	)
 
 	# A tiny world-facing handle is all that remains after choosing a piece.
@@ -427,6 +430,7 @@ func _refresh_build_strip() -> void:
 		for entry: Dictionary in entries:
 			_add_build_item_cell(section, entry, category_id)
 		populated += 1
+	_refresh_build_categories()
 	if populated == 0:
 		var empty := kit.muted_label(
 			(
@@ -815,8 +819,71 @@ func _owned_build_count(kind: String, content_id: String) -> int:
 	return 0
 
 
+## The category row, built from the sections that actually exist.
+##
+## Offering a tab for a category the bag cannot fill would be a dead control, so
+## the row is derived from _build_section_nodes rather than from the full
+## category table.
+func _refresh_build_categories() -> void:
+	if _build_bar == null:
+		return
+	var entries: Array = []
+	for category: Dictionary in BUILD_CATEGORIES:
+		var category_id := String(category["id"])
+		if not _build_section_nodes.has(category_id):
+			continue
+		entries.append({
+			"id": category_id,
+			"label": _build_category_label(category_id),
+			"icon": _build_category_icon(category_id),
+			"accent": _build_category_accent(category_id),
+		})
+	if not _build_section_nodes.has(_selected_build_category):
+		_selected_build_category = (
+			String(entries[0]["id"]) if not entries.is_empty() else ""
+		)
+	_build_bar.set_categories(entries, _selected_build_category)
+
+
+## Marks whichever section the scroll has actually reached.
+##
+## The tabs scroll rather than filter, so the highlight has to follow the view or
+## it would keep pointing at the last tab clicked while the player is looking
+## somewhere else entirely.
+func _sync_build_category_to_scroll() -> void:
+	if _build_item_scroll == null or _build_bar == null:
+		return
+	if _build_section_nodes.is_empty():
+		return
+	var view_top := float(_build_item_scroll.scroll_vertical)
+	var current := _selected_build_category
+	var best := INF
+	for category_id: String in _build_section_nodes:
+		var section := _build_section_nodes[category_id] as Control
+		if section == null or not is_instance_valid(section):
+			continue
+		# Nearest section top at or above the viewport top: the one whose items
+		# fill the view.
+		var distance := absf(section.position.y - view_top)
+		if section.position.y <= view_top + 8.0 and distance < best:
+			best = distance
+			current = category_id
+	if current != _selected_build_category:
+		_selected_build_category = current
+		_build_bar.set_active_category(current)
+
+
+func _build_category_icon(category_id: String) -> Texture2D:
+	var path := BuildCategoryResolver.icon_path(category_id)
+	if path.is_empty() or not ResourceLoader.exists(path):
+		return null
+	return load(path) as Texture2D
+
+
 func _select_build_category(category_id: String) -> void:
 	_selected_build_category = category_id
+	if _build_bar != null:
+		_build_bar.set_active_category(category_id)
 	call_deferred("_scroll_to_build_category", category_id)
 
 

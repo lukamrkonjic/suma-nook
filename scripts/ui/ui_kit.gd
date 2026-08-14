@@ -553,6 +553,66 @@ func library_category_button(text: String, selected := false) -> Button:
 	return b
 
 
+## A slim icon-only tab for the Build Bag category row.
+##
+## Icon rather than label because eleven text tabs will not fit the sheet at any
+## reasonable width, and the category art already reads at a glance -- the label
+## lives in the tooltip. Selection is marked by an accent underline and a lift in
+## icon opacity rather than by a filled pill, so the row stays quiet against the
+## grid below it.
+func category_tab(
+	icon: Texture2D,
+	description: String,
+	accent: Color,
+	selected := false
+) -> Button:
+	var b := Button.new()
+	b.tooltip_text = description
+	b.toggle_mode = true
+	b.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
+	b.custom_minimum_size = Vector2(38, 32)
+	b.icon = icon
+	b.expand_icon = true
+	b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	b.focus_mode = Control.FOCUS_ALL
+
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color(palette.color("ui_surface"), 0.0)
+	normal.content_margin_left = 7
+	normal.content_margin_right = 7
+	normal.content_margin_top = 6
+	normal.content_margin_bottom = 5
+	# The underline is drawn on every state so the icon never shifts by a pixel
+	# as the selection moves; only its colour changes.
+	normal.border_width_bottom = 2
+	normal.border_color = Color(accent, 0.0)
+	var hover := normal.duplicate() as StyleBoxFlat
+	hover.bg_color = Color(palette.color("ui_category_hover"), 0.3)
+	hover.border_color = Color(accent, 0.4)
+	hover.set_corner_radius_all(tokens.control_corner_radius)
+	hover.corner_radius_bottom_left = 0
+	hover.corner_radius_bottom_right = 0
+	var pressed := normal.duplicate() as StyleBoxFlat
+	pressed.border_color = accent
+	var focus := pressed.duplicate() as StyleBoxFlat
+	focus.border_color = palette.color("ui_accent")
+	b.add_theme_stylebox_override("normal", normal)
+	b.add_theme_stylebox_override("hover", hover)
+	b.add_theme_stylebox_override("pressed", pressed)
+	b.add_theme_stylebox_override("focus", focus)
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	b.set_pressed_no_signal(selected)
+	set_category_tab_selected(b, selected)
+	return b
+
+
+## Selection state for a category tab. Opacity carries the unselected/selected
+## difference; the stylebox underline does the rest.
+func set_category_tab_selected(tab: Button, selected: bool) -> void:
+	tab.set_pressed_no_signal(selected)
+	tab.modulate.a = 1.0 if selected else 0.52
+
+
 func library_item_button(display_name: String, count: int) -> Button:
 	var b := Button.new()
 	b.text = "%s   x%d" % [display_name, count]
