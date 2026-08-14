@@ -2039,28 +2039,34 @@ func _handle_tile_selection_input(event: InputEvent) -> bool:
 		if mouse.button_index != MOUSE_BUTTON_LEFT:
 			return false
 		if mouse.pressed:
-			if not mouse.ctrl_pressed:
-				# A plain click outside the selection dismisses it, the way
-				# clicking away from a marquee does everywhere else. The click
-				# itself still belongs to whatever it hit, so this does not
-				# claim the gesture.
-				if tile_selection.has_selection():
-					var plain_coord := placement.cell_at_screen(mouse.position)
-					if not tile_selection.contains(plain_coord):
-						_clear_tile_selection()
-				return false
 			if _screen_position_blocked_by_ui(mouse.position):
 				return false
 			var coord := placement.cell_at_screen(mouse.position)
-			_selection_pointer_down = true
-			camera_rig.begin_pointer_edit()
+			# A settled selection owns every press that lands on it, modifier or
+			# not. Requiring ctrl again to move it meant a plain click inside the
+			# selection fell through to placement and picked up the single block
+			# under the cursor, destroying the selection to do it -- the opposite
+			# of what a selection is for.
 			if tile_selection.has_selection() and tile_selection.contains(coord):
+				_selection_pointer_down = true
 				_selection_moving = true
 				_selection_move_coord = coord
-			else:
-				_selection_moving = false
-				tile_selection.begin(coord)
-				_refresh_tile_selection_outline()
+				camera_rig.begin_pointer_edit()
+				return true
+			if not mouse.ctrl_pressed:
+				# Clicking away cancels, and the click is consumed rather than
+				# also acting on whatever it landed on. Dismissing and editing in
+				# one press makes an accidental click destructive.
+				if tile_selection.has_selection():
+					_clear_tile_selection()
+					return true
+				return false
+			_selection_pointer_down = true
+			_selection_moving = false
+			camera_rig.begin_pointer_edit()
+			tile_selection.begin(coord)
+			_refresh_tile_selection_outline()
+			renderer.set_selection_marquee(tile_selection.rectangle())
 			return true
 		if not _selection_pointer_down:
 			return false
@@ -2068,6 +2074,7 @@ func _handle_tile_selection_input(event: InputEvent) -> bool:
 		_selection_moving = false
 		camera_rig.end_pointer_edit()
 		tile_selection.end_drag()
+		renderer.clear_selection_marquee()
 		_refresh_tile_selection_outline()
 		return true
 
@@ -2087,6 +2094,7 @@ func _handle_tile_selection_input(event: InputEvent) -> bool:
 		else:
 			tile_selection.drag_to(coord)
 			_refresh_tile_selection_outline()
+			renderer.set_selection_marquee(tile_selection.rectangle())
 		return true
 	return false
 
@@ -2105,6 +2113,7 @@ func _clear_tile_selection() -> void:
 	_selection_moving = false
 	if renderer != null:
 		renderer.clear_selection_outline()
+		renderer.clear_selection_marquee()
 
 
 func _begin_build_pointer(screen_position: Vector2) -> void:

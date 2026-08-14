@@ -54,6 +54,9 @@ var _hover_signature := ""
 ## same layer and would otherwise clear the selection the moment the pointer
 ## crossed any other tile.
 var _selection_outline_active := false
+var _selection_tinted_meshes: Array[MeshInstance3D] = []
+var _selection_tint_material: StandardMaterial3D
+var _selection_marquee: MeshInstance3D
 var _pending_rotation_slots: Dictionary = {}
 var _pending_wish_slots: Dictionary = {}
 var _pending_water_skip_slots: Dictionary = {}
@@ -1950,7 +1953,8 @@ func _set_hover_nodes(
 ## machinery.
 func set_selection_outline(coords: Array) -> void:
 	_selection_outline_active = false
-	clear_structure_hover()
+	_clear_outline_nodes()
+	_clear_selection_tint()
 	if coords.is_empty():
 		return
 	var nodes: Array[Node3D] = []
@@ -1970,20 +1974,153 @@ func set_selection_outline(coords: Array) -> void:
 		return
 	_selection_outline_active = true
 	_set_hover_nodes(nodes, signature, -1)
+	_apply_selection_tint(nodes)
+
+
+## A faint white wash over everything selected.
+##
+## The outline alone marks the border of the set but says nothing about what is
+## inside it, which reads badly on a large selection whose middle looks
+## untouched. material_overlay draws on top of each surface's own material
+## without replacing it, so the tile keeps its colour and simply lightens.
+const SELECTION_TINT := Color(1.0, 1.0, 1.0, 0.16)
+
+
+func _apply_selection_tint(nodes: Array[Node3D]) -> void:
+	if _selection_tint_material == null:
+		var tint := StandardMaterial3D.new()
+		tint.albedo_color = SELECTION_TINT
+		tint.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		tint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		# Without this the wash disappears wherever a tile is behind another
+		# tile's geometry, which on stacked terrain is most of it.
+		tint.no_depth_test = false
+		tint.render_priority = 1
+		_selection_tint_material = tint
+	for node: Node3D in nodes:
+		for child in node.find_children("*", "MeshInstance3D", true, false):
+			var mesh_instance := child as MeshInstance3D
+			if mesh_instance.material_overlay == _selection_tint_material:
+				continue
+			mesh_instance.set_meta(
+				"_selection_previous_overlay", mesh_instance.material_overlay
+			)
+			mesh_instance.material_overlay = _selection_tint_material
+			_selection_tinted_meshes.append(mesh_instance)
+
+
+func _clear_selection_tint() -> void:
+	for mesh_instance: MeshInstance3D in _selection_tinted_meshes:
+		if not is_instance_valid(mesh_instance):
+			continue
+		mesh_instance.material_overlay = (
+			mesh_instance.get_meta("_selection_previous_overlay", null) as Material
+		)
+		mesh_instance.remove_meta("_selection_previous_overlay")
+	_selection_tinted_meshes.clear()
 
 
 func clear_selection_outline() -> void:
+	_clear_selection_tint()
 	if not _selection_outline_active:
 		return
 	_selection_outline_active = false
-	clear_structure_hover()
+	_clear_outline_nodes()
+
+
+## The drag rectangle itself, lying flat on the grid.
+##
+## The outline traces the tiles already caught, which leaves the gesture feeling
+## unanchored over empty cells -- there is nothing to trace there, so sweeping
+## across a gap shows nothing at all. This is the marquee proper: a translucent
+## grid-aligned quad with a bright border, the same read as a desktop selection
+## box, so the swept area is legible whether or not it contains tiles.
+func set_selection_marquee(area: Rect2i) -> void:
+	if area.size.x <= 0 or area.size.y <= 0:
+		clear_selection_marquee()
+		return
+	if _selection_marquee == null:
+		_selection_marquee = MeshInstance3D.new()
+		_selection_marquee.name = "TileSelectionMarquee"
+		_selection_marquee.mesh = PlaneMesh.new()
+		_selection_marquee.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var marquee_material := ShaderMaterial.new()
+		var marquee_shader := Shader.new()
+		marquee_shader.code = """
+shader_type spatial;
+render_mode unshaded, blend_mix, cull_disabled, depth_draw_never;
+
+uniform vec4 fill_color : source_color = vec4(1.0, 1.0, 1.0, 0.14);
+uniform vec4 border_color : source_color = vec4(1.0, 1.0, 1.0, 0.9);
+// Border thickness as a fraction of the quad, per axis, so a long thin
+// selection keeps an even border instead of one that stretches with it.
+uniform vec2 border_fraction = vec2(0.02, 0.02);
+
+void fragment() {
+	vec2 edge = min(UV, vec2(1.0) - UV);
+	float border = 1.0 - step(border_fraction.x, edge.x) * step(border_fraction.y, edge.y);
+	vec4 result = mix(fill_color, border_color, border);
+	ALBEDO = result.rgb;
+	ALPHA = result.a;
+}
+"""
+		marquee_material.shader = marquee_shader
+		_selection_marquee.material_override = marquee_material
+		add_child(_selection_marquee)
+
+	var tile_size := core.grid.tile_size
+	var minimum := core.grid.cell_to_world(area.position, 0)
+	var maximum := core.grid.cell_to_world(
+		area.position + area.size - Vector2i.ONE, 0
+	)
+	var plane := _selection_marquee.mesh as PlaneMesh
+	plane.size = Vector2(
+		absf(maximum.x - minimum.x) + tile_size,
+		absf(maximum.z - minimum.z) + tile_size
+	)
+	var material := _selection_marquee.material_override as ShaderMaterial
+	material.set_shader_parameter(
+		"border_fraction",
+		Vector2(
+			clampf(tile_size * 0.06 / maxf(0.001, plane.size.x), 0.004, 0.2),
+			clampf(tile_size * 0.06 / maxf(0.001, plane.size.y), 0.004, 0.2)
+		)
+	)
+	# Sits just above the tallest surface it covers, so it stays visible over
+	# stacked terrain instead of being buried inside a raised block.
+	var highest := 0
+	for x in range(area.position.x, area.position.x + area.size.x):
+		for y in range(area.position.y, area.position.y + area.size.y):
+			highest = maxi(highest, core.grid.top_elevation(Vector2i(x, y)))
+	var surface := core.grid.cell_to_world(area.position, maxi(0, highest))
+	_selection_marquee.position = Vector3(
+		(minimum.x + maximum.x) * 0.5,
+		surface.y + 0.06,
+		(minimum.z + maximum.z) * 0.5
+	)
+	_selection_marquee.visible = true
+
+
+func clear_selection_marquee() -> void:
+	if _selection_marquee != null:
+		_selection_marquee.visible = false
 
 
 func selection_outline_active() -> bool:
 	return _selection_outline_active
 
 
+## Hover's clear. A settled multi-tile selection owns the overlay, and this is
+## called from a dozen places on the ordinary hover path -- any one of them
+## would otherwise wipe the selection the moment the pointer moved. The
+## selection clears the overlay through _clear_outline_nodes directly.
 func clear_structure_hover() -> void:
+	if _selection_outline_active:
+		return
+	_clear_outline_nodes()
+
+
+func _clear_outline_nodes() -> void:
 	for mesh_instance: MeshInstance3D in _outlined_meshes:
 		if is_instance_valid(mesh_instance):
 			mesh_instance.layers = int(
