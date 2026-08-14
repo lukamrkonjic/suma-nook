@@ -175,6 +175,11 @@
 			"scale": 0.9,
 			"smoothing": 0.0,
 			"materials": {}
+		},
+		"prop_wishing_well": {
+			"scale": 1.0,
+			"materials": {},
+			"smoothing": 0.0
 		}
 	}
 }
