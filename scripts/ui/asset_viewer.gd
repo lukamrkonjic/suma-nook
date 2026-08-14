@@ -267,6 +267,13 @@ var _topology_load_failed := false
 var _topology_ready: Dictionary = {}
 ## Models owned by a presenter rather than by a structure definition. Their
 ## content_id is the asset id, since there is no definition to look one up from.
+static func presenter_model_name(asset_id: String) -> String:
+	for entry: Dictionary in PRESENTER_MODELS:
+		if String(entry.get("asset_id", "")) == asset_id:
+			return String(entry.get("name", ""))
+	return ""
+
+
 const PRESENTER_MODELS := [
 	{"asset_id": "worldheart_wardrobe_closed", "name": "Wardrobe (closed)"},
 	{"asset_id": "worldheart_wardrobe_hinged", "name": "Wardrobe (open)"},
@@ -391,10 +398,19 @@ func select_content(content_id: String) -> void:
 	elif _main.core.registries.structures.has(content_id):
 		_category = "models"
 		definition = _main.core.registries.structure(content_id)
+	elif presenter_model_name(content_id) != "":
+		# Presenter-owned models have no definition at all, so the id IS the asset
+		# id. Returning early here is why the wardrobe rows appeared in the
+		# catalogue but could not be clicked; it now falls through the same tail as
+		# everything else, with a null definition.
+		_category = "models"
+		definition = null
 	else:
 		return
 	_selected_content_id = content_id
-	_selected_asset_id = definition.asset_id
+	_selected_asset_id = (
+		content_id if definition == null else definition.asset_id
+	)
 	var had_search := not _search.text.is_empty()
 	_search.set_block_signals(true)
 	_search.text = ""
@@ -412,7 +428,10 @@ func select_content(content_id: String) -> void:
 	# selection block the main thread. The baked N/E/S/W variants stream in
 	# off-thread, then appear as one finished patch. Actual recipe edits still
 	# use the live generator through TileKitPanel.changed.
-	var loading_topology := _begin_published_topology_load(definition)
+	var loading_topology := (
+		false if definition == null
+		else _begin_published_topology_load(definition)
+	)
 	_rebuild_preview()
 	if loading_topology:
 		_content_root.visible = false
@@ -1300,7 +1319,7 @@ func _rebuild_catalog() -> void:
 		# registry would ever list them. The wardrobe is editable like any other
 		# model now that the presenter instantiates it through AssetLibrary, so it
 		# belongs in this catalogue too.
-		for extra: Dictionary in PRESENTER_MODELS:
+		for extra: Dictionary in PRESENTER_MODELS:  # noqa: presenter-owned
 			_entries.append({
 				"content_id": String(extra["asset_id"]),
 				"asset_id": String(extra["asset_id"]),
