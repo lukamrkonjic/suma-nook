@@ -4,12 +4,13 @@ extends Node3D
 ## miniatures. Targeting is screen/cell based so these visuals never need to
 ## occupy the authoritative build grid.
 
-const WARDROBE_CLOSED_SCENE: PackedScene = preload(
-	"res://assets/3d/reworked/worldheart_wardrobe_closed.glb"
-)
-const WARDROBE_OPEN_SCENE: PackedScene = preload(
-	"res://assets/3d/reworked/worldheart_wardrobe_hinged.glb"
-)
+## Instantiated through AssetLibrary by id, not preloaded as a PackedScene.
+##
+## AssetEditLibrary only reaches assets that come through AssetLibrary, so while
+## these were preloaded the wardrobe could not be smoothed or recoloured in Asset
+## Studio -- an edit would save and then visibly do nothing.
+const WARDROBE_CLOSED_ASSET := "worldheart_wardrobe_closed"
+const WARDROBE_OPEN_ASSET := "worldheart_wardrobe_hinged"
 const WARDROBE_SCALE := 1.16
 const WARDROBE_BASE_HEIGHT := 0.58
 ## Shut angles for the current hinged model, solved rather than eyeballed: each
@@ -511,11 +512,11 @@ func _build_portal() -> void:
 	wardrobe_visual_root.scale = Vector3.ONE * WARDROBE_SCALE
 	wardrobe_shake_root.add_child(wardrobe_visual_root)
 
-	wardrobe_closed = WARDROBE_CLOSED_SCENE.instantiate() as Node3D
+	wardrobe_closed = assets.instantiate(WARDROBE_CLOSED_ASSET)
 	wardrobe_closed.name = "WardrobeClosed"
 	wardrobe_visual_root.add_child(wardrobe_closed)
 	_style_wardrobe_meshes(wardrobe_closed)
-	wardrobe_open = WARDROBE_OPEN_SCENE.instantiate() as Node3D
+	wardrobe_open = assets.instantiate(WARDROBE_OPEN_ASSET)
 	wardrobe_open.name = "WardrobeOpen"
 	wardrobe_open.visible = false
 	wardrobe_visual_root.add_child(wardrobe_open)

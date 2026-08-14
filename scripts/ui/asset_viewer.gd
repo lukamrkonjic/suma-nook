@@ -265,6 +265,13 @@ var _pending_topology_assets: Dictionary = {}
 var _pending_topology_content_id := ""
 var _topology_load_failed := false
 var _topology_ready: Dictionary = {}
+## Models owned by a presenter rather than by a structure definition. Their
+## content_id is the asset id, since there is no definition to look one up from.
+const PRESENTER_MODELS := [
+	{"asset_id": "worldheart_wardrobe_closed", "name": "Wardrobe (closed)"},
+	{"asset_id": "worldheart_wardrobe_hinged", "name": "Wardrobe (open)"},
+]
+
 var _saved_visibility: Dictionary = {}
 var _saved_camera: Camera3D
 var _saved_lighting_state: Dictionary = {}
@@ -1289,6 +1296,19 @@ func _rebuild_catalog() -> void:
 				"catalog_order": definition.catalog_order,
 			})
 	else:
+		# Presenter-owned models have no structure definition, so nothing in the
+		# registry would ever list them. The wardrobe is editable like any other
+		# model now that the presenter instantiates it through AssetLibrary, so it
+		# belongs in this catalogue too.
+		for extra: Dictionary in PRESENTER_MODELS:
+			_entries.append({
+				"content_id": String(extra["asset_id"]),
+				"asset_id": String(extra["asset_id"]),
+				"name": String(extra["name"]),
+				"group": "Worldheart",
+				"group_key": "worldheart",
+				"catalog_order": 900,
+			})
 		for content_id: String in _main.core.registries.structures:
 			var definition := _main.core.registries.structure(content_id)
 			_entries.append({

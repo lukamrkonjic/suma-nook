@@ -702,7 +702,10 @@ func debug_wardrobe_gift() -> bool:
 		var waiting := String(
 			worldheart.reward_queue[0].get("entry_id", "")
 		)
-		return not worldheart.claim(waiting).is_empty()
+		if worldheart.claim(waiting).is_empty():
+			return false
+		_debug_swing_wardrobe()
+		return true
 	var reward: Dictionary = worldheart._roll_pulse_reward()
 	if reward.is_empty():
 		reward = _any_debug_reward(worldheart)
@@ -711,7 +714,22 @@ func debug_wardrobe_gift() -> bool:
 	if not worldheart.enqueue_external_reward(reward, "debug"):
 		return false
 	var queued := String(worldheart.reward_queue[-1].get("entry_id", ""))
-	return not worldheart.claim(queued).is_empty()
+	if worldheart.claim(queued).is_empty():
+		return false
+	_debug_swing_wardrobe()
+	return true
+
+
+## Runs the open/close swing directly. Claiming a gift changes state but does not
+## itself play the wardrobe, and watching the animation is the whole point of the
+## button.
+func _debug_swing_wardrobe() -> void:
+	if worldheart_presenter == null:
+		return
+	worldheart_presenter.call("_play_wardrobe_open")
+	await get_tree().create_timer(1.1).timeout
+	if worldheart_presenter != null:
+		worldheart_presenter.call("_play_wardrobe_close", true)
 
 
 ## Any valid reward, decorated the way a rolled one would be so the queue and the
