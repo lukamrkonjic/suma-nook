@@ -113,6 +113,14 @@ only because the asset underneath them was wrong.
 
 ## Already done (this session)
 
+- Asset rebuilt by `tools/rebuild_gift_wardrobe.py`, which records the whole
+  four-pass recipe. Two things it fixes for good: the sources author NO glTF
+  NORMAL attribute (which is what keeps them welded at 906 vertices and leaves
+  shading to the renderer), and every re-export was writing normals, splitting
+  the mesh to 5998 vertices -- the "jagged" look. And the palette split is on
+  hue/saturation, not value: the source bakes its shading into the texture, so
+  value varies WITHIN one paint while hue separates the two paints.
+
 - Both wardrobe glbs grounded at their base (were centre-origined, `z ∈ [-0.5,
   0.5]`, the cause of the tile clipping; every imported asset is grounded, these
   were copied in raw). `WARDROBE_BASE_HEIGHT` zeroed.

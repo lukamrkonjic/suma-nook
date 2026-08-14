@@ -40,6 +40,10 @@ import bmesh
 import bpy
 from mathutils import Vector
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import glb_export  # noqa: E402
+
 DOOR_FORWARD_LIMIT = -0.15
 ROOT_NAME = "WorldheartWardrobeHinged"
 
@@ -185,6 +189,7 @@ def main() -> None:
     arguments = parse_args()
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=str(arguments.source))
+    write_normals = glb_export.scene_authors_normals()
     source = next(o for o in bpy.context.scene.objects if o.type == "MESH")
     mesh = source.data
     roles = classify(mesh, arguments.forward_limit)
@@ -274,15 +279,8 @@ def main() -> None:
         )
 
     bpy.data.objects.remove(source, do_unlink=True)
-    arguments.output.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.object.select_all(action="SELECT")
-    bpy.ops.export_scene.gltf(
-        filepath=str(arguments.output),
-        export_format="GLB",
-        use_selection=True,
-        export_apply=False,
-        export_yup=True,
-    )
+    glb_export.export_selected(arguments.output, write_normals=write_normals)
     print(
         "CLOSED_YAW left=%.1f right=%.1f"
         % (closed_yaw["left"], closed_yaw["right"])

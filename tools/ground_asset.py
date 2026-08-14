@@ -24,6 +24,10 @@ from pathlib import Path
 
 import bpy
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import glb_export  # noqa: E402
+
 
 def parse_args() -> argparse.Namespace:
     argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
@@ -50,6 +54,7 @@ def main() -> None:
     arguments = parse_args()
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=str(arguments.source))
+    write_normals = glb_export.scene_authors_normals()
     bpy.context.view_layer.update()
 
     before = lowest_point()
@@ -60,15 +65,8 @@ def main() -> None:
     after = lowest_point()
     print("GROUNDED %s min_z %.4f -> %.4f" % (arguments.source.name, before, after))
 
-    arguments.output.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.object.select_all(action="SELECT")
-    bpy.ops.export_scene.gltf(
-        filepath=str(arguments.output),
-        export_format="GLB",
-        use_selection=True,
-        export_apply=False,
-        export_yup=True,
-    )
+    glb_export.export_selected(arguments.output, write_normals=write_normals)
     print(f"GROUND_OUT={arguments.output}")
 
 

@@ -37,6 +37,10 @@ from pathlib import Path
 
 import bpy
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import glb_export  # noqa: E402
+
 ROOT_NAME = "PropGiftWardrobe"
 
 
@@ -102,14 +106,9 @@ def main() -> None:
             % (item.name, item.type, item.parent.name if item.parent else "-")
         )
 
-    arguments.output.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.object.select_all(action="SELECT")
-    bpy.ops.export_scene.gltf(
-        filepath=str(arguments.output),
-        export_format="GLB",
-        use_selection=True,
-        export_apply=False,
-        export_yup=True,
+    glb_export.export_selected(
+        arguments.output, write_normals=glb_export.scene_authors_normals()
     )
     print(f"MERGE_OUT={arguments.output}")
 
