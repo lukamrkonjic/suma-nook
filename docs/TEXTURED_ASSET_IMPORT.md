@@ -81,6 +81,11 @@ Then, as for any import:
   the nodes BY NAME (`nodes.remove()` invalidates every other python node
   reference; removing by held references crashed) and pin metallic 0,
   roughness 1.
+- **Decide shell membership by rasterizing UV footprints, not sampling.** A
+  moss sliver a few texels wide along one edge slips between corner/centroid
+  samples; its face stays out of the shell and the sliver keeps its base
+  colour instead of switching with the moss slot. Rasterize each face's UV
+  triangles against the (dilated) mask and include any face that touches it.
 - **Painted patch EDGING belongs to the patch.** The well's texture edges its
   moss in dark teal (hue 160-210), just past the green band -- classified
   warm, it kept its blue cast through the stone transfer and rendered as cyan

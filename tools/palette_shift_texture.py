@@ -428,26 +428,53 @@ def split_material_slots(
         for polygon in mesh.polygons:
             polygon.material_index = 0
 
-        # Faces that sample any moss make up the overlay shell.
+        # Faces whose UV footprint touches any moss make up the overlay
+        # shell. Membership is decided by RASTERIZING each face's UV triangles
+        # against the (dilated) mask, not by sampling a handful of points --
+        # a moss sliver a few texels wide along one edge slipped between the
+        # corner/centroid samples, its face stayed out of the shell, and the
+        # sliver kept its base colour instead of switching with the moss slot.
+        shell_mask = _dilate(
+            flat_mask, width, height, 3
+        ).reshape(height, width)
+        mesh.calc_loop_triangles()
         uv_data = mesh.uv_layers.active.data
-        overlay_faces = []
-        for polygon in mesh.polygons:
-            touched = False
-            corners = [
-                uv_data[loop_index].uv.copy()
-                for loop_index in polygon.loop_indices
-            ]
-            centroid = sum(corners, corners[0] * 0.0) / len(corners)
-            for uv in corners + [centroid] + [
-                (corner + centroid) * 0.5 for corner in corners
-            ]:
-                x = min(max(int(uv.x * width), 0), width - 1)
-                y = min(max(int(uv.y * height), 0), height - 1)
-                if mask[y, x]:
-                    touched = True
-                    break
-            if touched:
-                overlay_faces.append(polygon.index)
+        overlay_face_set = set()
+        for triangle in mesh.loop_triangles:
+            if triangle.polygon_index in overlay_face_set:
+                continue
+            points = numpy.array(
+                [
+                    [uv_data[loop].uv.x * width, uv_data[loop].uv.y * height]
+                    for loop in triangle.loops
+                ],
+                dtype=numpy.float64,
+            )
+            x0 = max(int(numpy.floor(points[:, 0].min())) - 1, 0)
+            x1 = min(int(numpy.ceil(points[:, 0].max())) + 1, width - 1)
+            y0 = max(int(numpy.floor(points[:, 1].min())) - 1, 0)
+            y1 = min(int(numpy.ceil(points[:, 1].max())) + 1, height - 1)
+            if x1 < x0 or y1 < y0:
+                continue
+            window = shell_mask[y0 : y1 + 1, x0 : x1 + 1]
+            if not window.any():
+                continue
+            grid_y, grid_x = numpy.mgrid[y0 : y1 + 1, x0 : x1 + 1]
+            centres = numpy.stack(
+                (grid_x + 0.5, grid_y + 0.5), axis=-1
+            ).astype(numpy.float64)
+            a, b, c = points[0], points[1], points[2]
+            v0, v1 = b - a, c - a
+            v2 = centres - a
+            denominator = v0[0] * v1[1] - v1[0] * v0[1]
+            if abs(denominator) < 1e-9:
+                continue
+            u = (v2[..., 0] * v1[1] - v1[0] * v2[..., 1]) / denominator
+            v = (v0[0] * v2[..., 1] - v2[..., 0] * v0[1]) / denominator
+            inside = (u >= -0.02) & (v >= -0.02) & (u + v <= 1.02)
+            if (window & inside).any():
+                overlay_face_set.add(triangle.polygon_index)
+        overlay_faces = sorted(overlay_face_set)
 
         overlay_object = mesh_object.copy()
         overlay_object.data = mesh_object.data.copy()
