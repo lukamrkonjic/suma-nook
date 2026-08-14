@@ -284,9 +284,26 @@ func _run() -> void:
 	main.core.tick(30.0)
 	var emerging_entries := main.core.diorama.worldheart.visible_entries()
 	var emerging_id := String(emerging_entries[0].get("entry_id", ""))
-	var paused_emerging_node := (
-		main.worldheart_presenter._entry_nodes.get(emerging_id) as Node3D
+	# The presenter builds the miniature asynchronously, so it is not there on
+	# the frame the tick returns. Waiting for it is what keeps this runner from
+	# aborting here and hiding every check after it.
+	var paused_emerging_node: Node3D = null
+	var node_deadline := Time.get_ticks_msec() + 3000
+	while Time.get_ticks_msec() < node_deadline:
+		paused_emerging_node = (
+			main.worldheart_presenter._entry_nodes.get(emerging_id) as Node3D
+		)
+		if is_instance_valid(paused_emerging_node):
+			break
+		await get_tree().process_frame
+	check(
+		is_instance_valid(paused_emerging_node),
+		"a queued reward builds its world miniature"
 	)
+	if not is_instance_valid(paused_emerging_node):
+		main.core.save()
+		get_tree().quit(1)
+		return
 	main.worldheart_presenter.set_player_interaction_busy(true)
 	var paused_emergence_position := paused_emerging_node.position
 	await get_tree().create_timer(0.18).timeout
@@ -436,6 +453,7 @@ func _run() -> void:
 		not main.worldheart_presenter._well_is_stirred,
 		"moving the held item away settles the well without consuming it"
 	)
+
 	InputDeviceService.shared().input_method = InputDeviceService.InputMethod.KEYBOARD_MOUSE
 	main.placement.set_controller_mode(false)
 	main.worldheart_presenter.show_offering_preview(
@@ -604,6 +622,62 @@ func _run() -> void:
 	)
 	main.placement.set_controller_mode(false)
 	InputDeviceService.shared().input_method = InputDeviceService.InputMethod.KEYBOARD_MOUSE
+
+	# The offer preview owns the held piece while the cursor is on the well, and
+	# Main asks placement.hover_cell() whether it still is. When the offer
+	# branch stopped updating the hover target, that answer froze on the well's
+	# cell: the offer never released and every tile placed afterwards dropped
+	# into the well. Driven through the controller cursor so the aim is exact.
+	main.core.stock.add_tile("tile_grass_flower", 1)
+	main.placement.set_active(true)
+	main.placement.hold_new("tile", "tile_grass_flower")
+	InputDeviceService.shared().input_method = InputDeviceService.InputMethod.CONTROLLER
+	main.placement.set_controller_mode(true)
+	main.placement._controller_cursor_active = true
+	main.placement._controller_cell = main.core.diorama.worldheart.worldheart_cell
+	main.placement.set_external_offer_preview(true)
+	await get_tree().process_frame
+	var away_cell := main.core.diorama.worldheart.worldheart_cell + Vector2i(1, 0)
+	main.placement._controller_cell = away_cell
+	await get_tree().process_frame
+	await get_tree().process_frame
+	check(
+		main.placement.hover_cell() == away_cell,
+		"the hover target keeps tracking while the well offer is active"
+	)
+	main.placement.set_external_offer_preview(false)
+	main.placement.set_controller_mode(false)
+	InputDeviceService.shared().input_method = InputDeviceService.InputMethod.KEYBOARD_MOUSE
+	main.placement.store_held()
+
+	# Hovering a valid cell and then the Worldheart's must never leave the
+	# placement action armed: it once did, because hiding the ghost over the
+	# well skipped validation entirely and _hover_valid kept the previous
+	# cell's true. A click then stacked the held tile on top of the well.
+	main.core.stock.add_tile("tile_grass_flower", 1)
+	main.placement.set_active(true)
+	main.placement.hold_new("tile", "tile_grass_flower")
+	# Aim at the Worldheart and let the real update loop run. Hiding the ghost
+	# there once skipped validation entirely, so _hover_valid kept whatever the
+	# previously hovered cell had set and a click stacked the held tile on top
+	# of the well. Driven through the controller cursor because mouse hover
+	# reads the OS pointer, which a headless run cannot place.
+	InputDeviceService.shared().input_method = InputDeviceService.InputMethod.CONTROLLER
+	main.placement.set_controller_mode(true)
+	main.placement._controller_cursor_active = true
+	main.placement._controller_cell = main.core.diorama.worldheart.worldheart_cell
+	main.placement._hover_valid = true
+	await get_tree().process_frame
+	await get_tree().process_frame
+	check(
+		main.placement.hover_cell()
+			== main.core.diorama.worldheart.worldheart_cell
+		and not main.placement._placement_action_valid(),
+		"the Worldheart's cell is never an armed placement target"
+	)
+	main.placement.set_controller_mode(false)
+	InputDeviceService.shared().input_method = InputDeviceService.InputMethod.KEYBOARD_MOUSE
+	main.placement.store_held()
 
 	if failures.is_empty():
 		print("DIORAMA SCENE PASSED - %d checks" % checks)

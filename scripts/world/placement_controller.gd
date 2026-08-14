@@ -880,6 +880,16 @@ func _process(delta: float) -> void:
 		_preview.hide_indicator()
 		if _ghost != null:
 			_ghost.visible = false
+		# While the offer preview owns the held piece it is an offering, never a
+		# placement, so the action must be disarmed -- leaving a stale true here
+		# is how a tile ended up stacked on top of the well.
+		_hover_valid = false
+		_water_skip_preview_target = {}
+		# The hover target must stay live even so. Main asks hover_cell()
+		# whether the pointer is still on the Worldheart, and returning without
+		# updating it froze the answer at the well's cell: the offer then never
+		# released and every tile placed afterwards went into the well.
+		_update_hover_target()
 		return
 	world_renderer.clear_structure_hover()
 	_emit_hover_info("", "", "")
@@ -893,6 +903,14 @@ func _process(delta: float) -> void:
 		core.diorama.enabled
 		and _hover_cell == core.diorama.worldheart.worldheart_cell
 	):
+		# Hiding the ghost must NOT skip validation. Leaving _hover_valid at
+		# whatever the last cell set made the click path read a stale true and
+		# place the tile onto the Worldheart's cell -- a tile stacked on top of
+		# the well, which no model may ever do.
+		_hover_valid = false
+		# Same reasoning for the water-skip target: _placement_action_valid
+		# accepts a stale one as permission to act.
+		_water_skip_preview_target = {}
 		_preview.hide_indicator()
 		if _ghost != null:
 			_ghost.visible = false
