@@ -70,6 +70,47 @@ structural refactor, in its own commit — mechanical, reviewable, revertable.
    - `debug_wardrobe_gift` / debug menu label stay wardrobe-named only if the
      vessel does; prefer "Provision gift"
 
+## Step 1 attempt log — read before retrying the single-model split
+
+`tools/split_closed_wardrobe.py` exists and its DOOR SELECTION is correct and
+verified by render: the closed mesh arrives as 998 connected components (most a
+single face), so connectivity is useless and doors are selected by a region box
+instead. Measured bounds that isolate exactly the two door slabs, backs
+included: front plane `y < -0.04` (their back faces sit near -0.07, and cutting
+at -0.09 exported hollow doors), `x` within ±0.263, `z` within -0.365..0.418
+mesh-local. That yields body 663 / left 153 / right 184.
+
+What is NOT solved is the exported node frame. The attempt baked the object
+transform into the vertices to get identity-rotation nodes, and that is where it
+went wrong, three times:
+
+1. Baking while the mesh was still parented and deleting the parent afterwards
+   left the orphan holding the basis that had compensated for the parent --
+   reintroducing the rotation the bake removed. Order must be: capture
+   `matrix_world`, unparent, identity the basis, then `data.transform(...)`.
+2. Baking shifts the geometry by the grounding lift, so the region box's `z`
+   bounds must move with it (+0.5) or the split silently loses most door faces.
+3. With transforms baked the cabinet's front lands on glTF **+Z**, which is
+   backwards; a 180 degree Z flip fixes the facing but then front is `+y` in
+   Blender, inverting both the region test and the hinge-y pick. Even after
+   that, in game the shut pose read as turned with the doors hinging like a lid.
+
+**Do not bake.** The working two-model `worldheart_wardrobe_hinged.glb` was
+produced by `build_wardrobe_hinged.py`, which left the importer's `world` empty
+and its axis conversion untouched and simply parented the split parts under a
+new root. Rotation about Godot's `rotation.y` behaved correctly there. Repeat
+that structure for the closed split: keep the imported hierarchy, add the root,
+re-centre each door on its hinge line, export. Verify with
+`verify_wardrobe_doors.py --solve` (mind: glTF import leaves nodes in QUATERNION
+mode where `rotation_euler` assignment is silently ignored, and `matrix_world`
+is stale until `view_layer.update()`).
+
+The presenter edits for this step are straightforward and were proven to compile
+and boot: rest pose becomes shut (doors to `0.0` on close, to `LEFT/
+RIGHT_DOOR_OPEN_YAW` on open), `_set_wardrobe_open_visual` collapses to toggling
+the cavity, and `wardrobe_open` aliases the single instance. They were reverted
+only because the asset underneath them was wrong.
+
 ## Already done (this session)
 
 - Both wardrobe glbs grounded at their base (were centre-origined, `z ∈ [-0.5,
