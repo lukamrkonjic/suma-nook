@@ -2058,6 +2058,9 @@ func _handle_tile_selection_input(event: InputEvent) -> bool:
 				_selection_moving = true
 				_selection_move_coord = coord
 				_selection_preview_delta = Vector2i.ZERO
+				# A sweep left pending from an earlier gesture must not resolve
+				# against a stale rectangle once this move ends.
+				_selection_rect_dirty = false
 				camera_rig.begin_pointer_edit()
 				return true
 			if not mouse.ctrl_pressed:
@@ -2078,12 +2081,16 @@ func _handle_tile_selection_input(event: InputEvent) -> bool:
 			return true
 		if not _selection_pointer_down:
 			return false
+		# Captured before the flags are reset. Testing _selection_moving after
+		# clearing it made the commit branch unreachable, so a move drag ended by
+		# discarding its preview and snapping every tile home.
+		var was_moving := _selection_moving
+		var committed := _selection_preview_delta
 		_selection_pointer_down = false
 		_selection_moving = false
+		_selection_preview_delta = Vector2i.ZERO
 		camera_rig.end_pointer_edit()
-		if _selection_moving:
-			var committed := _selection_preview_delta
-			_selection_preview_delta = Vector2i.ZERO
+		if was_moving:
 			renderer.clear_selection_preview_offset()
 			if committed != Vector2i.ZERO and tile_selection.move_by(committed):
 				# The commit rebuilt those cells, so the cached meshes behind
