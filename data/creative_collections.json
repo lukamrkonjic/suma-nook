@@ -107,8 +107,14 @@
       "name": "Woodland",
       "description": "Trees, moss and quiet forest details.",
       "color_token": "ui_accent",
-      "starting_tile_id": "tile_dirt",
+      "starting_tile_id": "tile_grove_mature",
       "members": [
+        {
+          "kind": "tile",
+          "id": "tile_grove_mature",
+          "tier": 0,
+          "family": "ground"
+        },
         {
           "kind": "structure",
           "id": "struct_pine_young",

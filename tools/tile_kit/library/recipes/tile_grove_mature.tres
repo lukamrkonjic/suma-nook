@@ -47,21 +47,24 @@ params = {
 [sub_resource type="Resource" id="Resource_fxnkh"]
 script = ExtResource("1_ii8ws")
 kind = "clutter"
-enabled = false
 params = {
-"cluster_fraction": 0.7,
-"cluster_radius": 0.24,
-"corner_fraction": 0.0,
-"count": [7, 13],
-"diameter": [0.05, 0.11],
-"edge_fraction": 0.0,
-"edge_margin": 0.03,
-"height": [0.008, 0.018],
-"min_spacing": 0.06,
+"cluster_fraction": 0.12,
+"cluster_radius": 0.28,
+"color_weights": {
+"forest_clover_light": 50.0,
+"forest_floor_side": 50.0
+},
+"corner_fraction": 0.2,
+"count": [20, 24],
+"diameter": [0.12, 0.24],
+"edge_fraction": 0.35,
+"edge_margin": 0.1,
+"height": [0.006, 0.014],
+"min_spacing": 0.13,
 "on_dressing_fraction": 0.0,
 "placement_mode": "clusters",
 "scale_multiplier": 1.0,
-"shapes": ["pebble"]
+"shapes": ["clay_chip", "leaf_litter"]
 }
 
 [sub_resource type="Resource" id="Resource_3qsnc"]
@@ -100,27 +103,28 @@ params = {
 [sub_resource type="Resource" id="Resource_m0ivf"]
 script = ExtResource("1_ii8ws")
 kind = "forest_floor"
+enabled = false
 params = {
 "branch_forks": [1, 2],
-"clover_count": [20, 28],
-"clover_height": [0.018, 0.032],
-"clover_size": [0.04, 0.085],
+"clover_count": [5, 7],
+"clover_height": [0.012, 0.020],
+"clover_size": [0.035, 0.06],
 "clover_spacing": 0.095,
 "edge_margin": 0.06,
-"fern_count": [2, 4],
+"fern_count": [0, 0],
 "fern_height": [0.17, 0.25],
 "fern_reach": [0.25, 0.34],
 "fern_scale": [0.72, 1.3],
 "fern_spacing": 0.3,
 "four_leaf_chance": 0.22,
 "fronds_per_fern": [5, 7],
-"leaf_litter_count": [5, 8],
-"leaf_litter_size": [0.08, 0.14],
+"leaf_litter_count": [3, 5],
+"leaf_litter_size": [0.06, 0.10],
 "leaflet_pairs": [4, 5],
 "litter_spacing": 0.075,
 "raised_offshoot_chance": 0.48,
 "root_sink": 0.01,
-"twig_count": [2, 3],
+"twig_count": [0, 1],
 "twig_length": [0.17, 0.28]
 }
 

@@ -107,7 +107,7 @@ kind = "rooted_meadow"
 params = {
 "accent_flower_chance": 0.0,
 "blade_width": [0.082411676, 0.106563553],
-"blades_per_turf": [2, 3],
+"blades_per_turf": [2, 2],
 "clover_count": [0, 0],
 "clover_size": [0.05724, 0.063],
 "edge_margin": 0.025,
@@ -117,7 +117,7 @@ params = {
 "grass_height": [0.055, 0.095],
 "min_spacing": 0.22,
 "root_sink": 0.01,
-"turf_count": [5, 5]
+"turf_count": [2, 2]
 }
 
 [resource]
