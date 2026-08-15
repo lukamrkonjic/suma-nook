@@ -216,7 +216,13 @@
       "description": "Furniture, shelter and useful pieces for tiny settlements.",
       "color_token": "ui_accent",
       "starting_tile_id": "tile_wooden_planks",
-      "members": [
+      "members": [
+        {
+          "kind": "structure",
+          "id": "struct_air_conditioner",
+          "tier": 1,
+          "family": "furniture"
+        },
         {
           "kind": "structure",
           "id": "struct_stool",

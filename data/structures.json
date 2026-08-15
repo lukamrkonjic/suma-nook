@@ -131,6 +131,23 @@
       ]
     },
     {
+      "id": "struct_air_conditioner",
+      "name": "Air Conditioner",
+      "asset_id": "prop_air_conditioner",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "visitor_tags": [
+        "social"
+      ],
+      "placement_sound": "stone",
+      "placement_tags": [
+        "furniture",
+        "small"
+      ],
+      "can_be_stacked": false,
+      "support_slots": []
+    },
+    {
       "id": "struct_vintage_radio",
       "name": "Vintage Radio",
       "asset_id": "prop_vintage_radio",
