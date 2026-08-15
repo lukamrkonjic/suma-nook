@@ -63,8 +63,8 @@ params = {
 "placement_mode": "clusters",
 "scale_multiplier": 1.0,
 "color_weights": {
-"moss_plush_light": 50.0,
-"moss_plush_deep": 50.0
+"moss_top": 50.0,
+"moss_deep": 50.0
 },
 "shapes": ["clay_chip"]
 }
