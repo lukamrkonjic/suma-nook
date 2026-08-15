@@ -61,14 +61,17 @@
   "discovery_context_radius": 2.0,
   "first_void_reward": "tile_open_water",
   "active_tile_ids": [
-    "tile_sand",
-    "tile_concrete_brutalist",
     "tile_clay",
     "tile_cobblestone",
+    "tile_concrete_brutalist",
     "tile_dirt",
     "tile_dirt_crossroad",
+    "tile_dirt_low",
     "tile_dirt_road",
     "tile_flagstone",
+    "tile_grass",
+    "tile_grass_half",
+    "tile_grass_low",
     "tile_master_pavers",
     "tile_master_wood",
     "tile_open_water",
@@ -79,10 +82,8 @@
     "tile_proc_snow_field",
     "tile_proc_tilled_field",
     "tile_proc_wood_plank_deck",
-    "tile_wooden_planks",
-    "tile_grass_low",
-    "tile_grass_half",
-    "tile_dirt_low"
+    "tile_sand",
+    "tile_wooden_planks"
   ],
   "starter_land_options": [
     "tile_grove_mature",

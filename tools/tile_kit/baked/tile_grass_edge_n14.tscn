@@ -6,16 +6,16 @@
 _surfaces = [{
 "aabb": AABB(-0.85, -0.18, -0.85, 1.7, 0.18, 1e-05),
 "format": 34359742471,
-"index_count": 6,
-"index_data": PackedByteArray("AAACAAMAAAADAAEA"),
+"index_count": 120,
+"index_data": PackedByteArray("AAACAAMAAAADAAEAAgAEAAUAAgAFAAMABAAGAAcABAAHAAUABgAIAAkABgAJAAcACAAKAAsACAALAAkACgAMAA0ACgANAAsADAAOAA8ADAAPAA0ADgAQABEADgARAA8AEAASABMAEAATABEAEgAUABUAEgAVABMAFAAWABcAFAAXABUAFgAYABkAFgAZABcAGAAaABsAGAAbABkAGgAcAB0AGgAdABsAHAAeAB8AHAAfAB0AHgAgACEAHgAhAB8AIAAiACMAIAAjACEAIgAkACUAIgAlACMAJAAmACcAJAAnACUAJgAoACkAJgApACcA"),
 "material": ExtResource("1_w3cru"),
 "primitive": 3,
 "uv_scale": Vector4(0, 0, 0, 0),
-"vertex_count": 4,
-"vertex_data": PackedByteArray("mplZv+xROL6amVm/mplZvwAAAACamVm/mplZP+xROL6amVm/mplZPwAAAACamVm///////9/AID//////38AgP//////fwCA//////9/AIA=")
+"vertex_count": 42,
+"vertex_data": PackedByteArray("mplZv+xROL6amVm/mplZvwAAAACamVm/CtdDv+xROL6amVm/CtdDvwAAAACamVm/exQuv+xROL6amVm/exQuvwAAAACamVm/7FEYv+xROL6amVm/7FEYvwAAAACamVm/XI8Cv+xROL6amVm/XI8CvwAAAACamVm/mpnZvuxROL6amVm/mpnZvgAAAACamVm/exSuvuxROL6amVm/exSuvgAAAACamVm/XI+CvuxROL6amVm/XI+CvgAAAACamVm/exQuvuxROL6amVm/exQuvgAAAACamVm/exSuvexROL6amVm/exSuvQAAAACamVm/AAAApexROL6amVm/AAAApQAAAACamVm/exSuPexROL6amVm/exSuPQAAAACamVm/exQuPuxROL6amVm/exQuPgAAAACamVm/XI+CPuxROL6amVm/XI+CPgAAAACamVm/exSuPuxROL6amVm/exSuPgAAAACamVm/mpnZPuxROL6amVm/mpnZPgAAAACamVm/XI8CP+xROL6amVm/XI8CPwAAAACamVm/7FEYP+xROL6amVm/7FEYPwAAAACamVm/exQuP+xROL6amVm/exQuPwAAAACamVm/CtdDP+xROL6amVm/CtdDPwAAAACamVm/mplZP+xROL6amVm/mplZPwAAAACamVm///////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA")
 }]
 
-[node name="tile_kit_edge" type="Node3D" unique_id=1456979419]
+[node name="tile_kit_edge" type="Node3D" unique_id=1017088381]
 
-[node name="tile_cap_edge" type="MeshInstance3D" parent="." unique_id=312393105]
+[node name="tile_cap_edge" type="MeshInstance3D" parent="." unique_id=209982982]
 mesh = SubResource("ArrayMesh_os8is")

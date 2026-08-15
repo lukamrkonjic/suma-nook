@@ -85,6 +85,12 @@ const COLORS := {
 	"grass_gg_side": "tilekit_grass_gg_side",
 	"grass_gg_lower": "tilekit_grass_gg_lower",
 	"grass_gg_tuft": "tilekit_grass_gg_tuft",
+	# Two flecks a half-step either side of the top tone, for the scatter that
+	# gives grass the same non-repeating read Dirt Ground gets from its clay
+	# chips. Close enough that no fleck reads as an object, far enough that the
+	# plane stops looking printed.
+	"grass_gg_fleck_light": "grass_field_surface_light",
+	"grass_gg_fleck_dark": "tilekit_grass_gg_tuft",
 	# One white-albedo, vertex-tinted wind surface for the production rooted
 	# meadow. Individual vertices stay inside the canonical palette while the
 	# entire grass/fern/clover/flower composition remains one material surface.

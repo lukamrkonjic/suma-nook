@@ -32,40 +32,28 @@ func _ready() -> void:
 func _run() -> void:
 	await get_tree().create_timer(0.45).timeout
 	await get_tree().process_frame
-	check(
-		not main._gameplay_started
-		and main.collection_vibe_panel.is_open()
-		and main.core.grid.cells.is_empty()
-		and not main.hud.visible
-		and not main.project_panel.hud_visible()
-		and not main.project_panel.blocks_world_pointer(Vector2(40.0, 40.0))
-		and not main.player.visible
-		and not main.pigeon_mascot.visible
-		and not main.worldheart_presenter.visible,
-		"the vibe question appears over an empty backdrop with no old actors"
-	)
-	main.collection_vibe_panel._choose("winter")
-	await get_tree().create_timer(0.2).timeout
-	# Winter seeds whatever its collection names. tile_snowfield was archived
-	# with the other rejected art; reading the collection keeps this true
-	# through the rebuild instead of pinning a tile id that keeps moving.
-	var winter_start: String = main.core.registries.creative_collection("winter").starting_tile_id
-	var all_snow := true
+	# No vibe carousel any more: a world opens straight into play on the
+	# default collection, as a 3x3 of the most basic ground with the well on
+	# its centre tile.
+	var opening_tile: String = main.core.registries.creative_collection(
+		main.DEFAULT_VIBE
+	).starting_tile_id
+	var all_default := true
 	for state: WorldGrid.CellState in main.core.grid.cells.values():
-		if state.tile_id != winter_start:
-			all_snow = false
+		if state.tile_id != opening_tile:
+			all_default = false
 	check(
 		main._gameplay_started
-		and main.core.diorama.worldheart.vibe_collection_id == "winter"
+		and main.core.diorama.worldheart.vibe_collection_id == main.DEFAULT_VIBE
 		and not main.nook_offer_panel.is_open()
 		and main.core.grid.cells.size() == 9
 		and main.core.grid.has_cell(Vector2i.ZERO)
 		and main.core.grid.cell(Vector2i.ZERO).movement_locked
-		and all_snow
+		and all_default
 		and not main.project_panel.hud_visible()
 		and not main.player.visible
 		and not main.pigeon_mascot.visible,
-		"Winter creates exactly nine Snowfield tiles with only the centre Worldheart"
+		"a new world opens as nine tiles of the basic ground with the well centred"
 	)
 	check(
 		main.discovery_tray_panel == null
@@ -117,6 +105,9 @@ func _run() -> void:
 		well_mesh_count > 0 and well_materials_are_crisp,
 		"well textures use crisp sampling and stepped terrain-style lighting"
 	)
+	# The well model streams in after the world does; give it a moment before
+	# projecting and hovering it.
+	await get_tree().create_timer(0.6).timeout
 	var well_screen := main.camera_rig.camera.unproject_position(
 		main.worldheart_presenter._well_interaction_anchor()
 	)
@@ -125,6 +116,16 @@ func _run() -> void:
 	)
 	main.placement._show_interaction_hover(well_hover)
 	await get_tree().process_frame
+	# Without the vibe carousel this check runs sooner, and the well's meshes
+	# are not always instantiated on the frame the hover is shown. Wait for the
+	# outline pass rather than sampling a single frame.
+	var outline_deadline := Time.get_ticks_msec() + 2000
+	while (
+		main.renderer._outlined_meshes.is_empty()
+		and Time.get_ticks_msec() < outline_deadline
+	):
+		main.placement._show_interaction_hover(well_hover)
+		await get_tree().process_frame
 	check(
 		well_hover.get("visual")
 			== main.worldheart_presenter.well_visual_root

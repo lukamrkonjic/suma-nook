@@ -226,7 +226,7 @@ func _ready() -> void:
 			player_visual.apply_profile(core.profile)
 			player_visual.apply_equipment(core.equipment)
 			_prepare_diorama_vibe_choice()
-			collection_vibe_panel.open()
+			_begin_default_vibe()
 		elif core.onboarding.is_active() \
 			and OS.get_environment("SUMA_LEGACY_OPENING") != "1":
 			core.onboarding.set_stage(OnboardingState.COMPLETE)
@@ -247,7 +247,7 @@ func _ready() -> void:
 		if core.diorama.enabled:
 			_pending_vibe_fresh = true
 			_prepare_diorama_vibe_choice()
-			collection_vibe_panel.open()
+			_begin_default_vibe()
 		else:
 			_start_gameplay(true, false)
 	_apply_debug_visual_overrides()
@@ -1450,9 +1450,19 @@ func _on_first_arrival_landed() -> void:
 	call_deferred("_resume_guided_onboarding")
 
 
+## Every world opens the same way: a 3x3 of the most basic ground with the
+## well on its centre tile. The vibe carousel is gone -- it asked a question
+## before the player had seen anything, and once the rejected art was archived
+## it had nothing left to offer but empty cards.
+const DEFAULT_VIBE := "meadow"
+
+
+func _begin_default_vibe() -> void:
+	_on_starting_vibe_selected(DEFAULT_VIBE)
+
+
 func _on_starting_vibe_selected(collection_id: String) -> void:
 	if not core.choose_diorama_starting_vibe(collection_id):
-		collection_vibe_panel.open()
 		return
 	renderer.rebuild_all()
 	if worldheart_presenter != null:
