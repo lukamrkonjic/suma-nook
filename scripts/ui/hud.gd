@@ -52,6 +52,11 @@ var _build_item_buttons: Array[Button] = []
 var _build_scroll_memory := 0
 var _selected_build_category := ""
 var _selected_build_entry: Dictionary = {}
+## Distance from the bottom edge to the hover strip, and how long the pointer
+## may be off the sheet before it closes. The grace exists because moving
+## between the sheet's own child controls briefly reports an exit.
+const BAG_STRIP_MARGIN := 10
+const BAG_HOVER_CLOSE_GRACE := 0.18
 var _build_library_expanded := false
 var _build_library_pinned := false
 var _build_hover_expand_armed := true
@@ -60,6 +65,8 @@ var _build_library_tween: Tween
 var _build_bag_button_tween: Tween
 var _build_bag_idle_tween: Tween
 var _build_bag_open_pending := false
+var _bag_hover_strip: PanelContainer
+var _bag_hover_close_timer: Timer
 var _build_panel_expanded_style: StyleBoxFlat
 var _build_panel_collapsed_style: StyleBoxEmpty
 var _build_drop_overlay: PanelContainer
@@ -257,6 +264,36 @@ func _build_layout() -> void:
 		func(): set_build_library_expanded(true)
 	)
 	root.add_child(_build_expand_button)
+
+	# A quiet strip along the bottom edge that opens the bag on hover. Text and
+	# not a glyph: the design system carries this interface on warm paper and
+	# dark ink, and a symbol here would be the only icon on the HUD.
+	_bag_hover_strip = PanelContainer.new()
+	_bag_hover_strip.name = "BuildBagHoverStrip"
+	_bag_hover_strip.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_bag_hover_strip.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_bag_hover_strip.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_bag_hover_strip.position.y = -BAG_STRIP_MARGIN
+	_bag_hover_strip.mouse_filter = Control.MOUSE_FILTER_STOP
+	_bag_hover_strip.add_theme_stylebox_override(
+		"panel", kit.hud_tooltip_style()
+	)
+	_bag_hover_strip.add_child(kit.utility_label("Build Bag"))
+	_bag_hover_strip.mouse_entered.connect(_on_bag_strip_mouse_entered)
+	_bag_hover_strip.mouse_exited.connect(_on_bag_strip_mouse_exited)
+	root.add_child(_bag_hover_strip)
+
+	_bag_hover_close_timer = Timer.new()
+	_bag_hover_close_timer.name = "BuildBagHoverClose"
+	_bag_hover_close_timer.one_shot = true
+	_bag_hover_close_timer.wait_time = BAG_HOVER_CLOSE_GRACE
+	_bag_hover_close_timer.timeout.connect(
+		_collapse_build_library_after_mouse_exit
+	)
+	add_child(_bag_hover_close_timer)
+
+	_build_bar.mouse_entered.connect(_on_build_library_mouse_entered)
+	_build_bar.mouse_exited.connect(_on_build_library_mouse_exited)
 
 	_build_drop_overlay = PanelContainer.new()
 	_build_drop_overlay.name = "BuildLibraryStoreDrop"
@@ -1012,6 +1049,8 @@ func set_build_library_expanded(expanded: bool, animate := true) -> void:
 	if not expanded:
 		release_build_focus()
 	_build_expand_button.visible = placement_active and not expanded
+	if _bag_hover_strip != null:
+		_bag_hover_strip.visible = not expanded
 	if expanded:
 		_refresh_build_strip()
 		_build_bar.visible = true
@@ -1062,6 +1101,8 @@ func _finish_build_bag_collapse() -> void:
 	_build_bar.modulate.a = 1.0
 	_build_bar.apply_viewport(get_viewport().get_visible_rect().size)
 	_build_expand_button.visible = placement != null and placement.active
+	if _bag_hover_strip != null:
+		_bag_hover_strip.visible = true
 	_start_build_bag_idle()
 	_position_context_above_build_library()
 
@@ -1134,18 +1175,49 @@ func _close_build_library() -> void:
 	set_build_library_expanded(false)
 
 
+func _on_bag_strip_mouse_entered() -> void:
+	_cancel_bag_hover_close()
+	set_build_library_expanded(true)
+
+
+func _on_bag_strip_mouse_exited() -> void:
+	# Leaving the strip upward lands on the sheet, which cancels this again.
+	_queue_bag_hover_close()
+
+
 func _on_build_library_mouse_entered() -> void:
-	_build_mouse_exit_pending = false
+	_cancel_bag_hover_close()
 
 
 func _on_build_library_mouse_exited() -> void:
-	# The sheet only closes through explicit back/close input. Traversing a
-	# dense collection should never make the UI disappear under the pointer.
+	# Hover opens the bag from the bottom strip, so hover has to close it too;
+	# leaving it open after the pointer has gone traps the sheet over the
+	# world. This reverses an earlier rule that the sheet closes only on
+	# explicit input -- the grace timer is what keeps that rule's concern
+	# (traversing a dense collection) from closing it under the pointer.
+	_queue_bag_hover_close()
+
+
+func _cancel_bag_hover_close() -> void:
 	_build_mouse_exit_pending = false
+	if _bag_hover_close_timer != null:
+		_bag_hover_close_timer.stop()
+
+
+func _queue_bag_hover_close() -> void:
+	if not _build_library_expanded or _build_library_pinned:
+		return
+	_build_mouse_exit_pending = true
+	if _bag_hover_close_timer != null:
+		_bag_hover_close_timer.start(BAG_HOVER_CLOSE_GRACE)
 
 
 func _collapse_build_library_after_mouse_exit() -> void:
+	if not _build_mouse_exit_pending or _build_library_pinned:
+		_build_mouse_exit_pending = false
+		return
 	_build_mouse_exit_pending = false
+	set_build_library_expanded(false)
 
 
 func _on_build_drop_overlay_input(event: InputEvent) -> void:
