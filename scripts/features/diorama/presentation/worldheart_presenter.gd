@@ -23,10 +23,18 @@ const WELL_SCALE := 1.16
 ## past the rim rather than a hole in the ground.
 const WELL_MOUTH_DISC_RADIUS := 0.30
 const WELL_MOUTH_DISC_HEIGHT := 0.12
+## Pixels of slack outside a model's projected silhouette. Small on purpose --
+## the silhouette is the target, and more than a few pixels starts arming
+## before the pointer is over the model. It is not zero because the well
+## shakes and stirs: the silhouette moves a little under a stationary pointer,
+## and at 2px that flicker dropped the hover often enough to fail the well's
+## interaction checks about one run in five.
+const EDGE_FORGIVENESS_PX := 5.0
 ## Interaction and animation heights, in world units after WELL_SCALE. The
-## click anchor sits at the body's visual centre, NOT at the mouth: right-click
-## targeting claims a 73px screen radius around it, and at mouth height that
-## circle reached the neighbouring tile and stole its rotation clicks.
+## click anchor is now only a fallback for when the vessel has no projectable
+## geometry -- hover and clicks test the model's own screen bounds, because an
+## anchor plus a radius put the hot spot high on the rim, away from the body
+## the player is pointing at.
 const WELL_CLICK_ANCHOR_HEIGHT := 0.30
 const WELL_MOUTH_ANCHOR_HEIGHT := 0.48
 const WELL_HOVER_HEIGHT := 0.74
@@ -219,9 +227,13 @@ func interaction_at_screen(
 		var node := _entry_nodes[entry_id] as Node3D
 		if not is_instance_valid(node) or camera.is_position_behind(node.global_position):
 			continue
-		var distance := screen_position.distance_to(
-			camera.unproject_position(node.global_position + Vector3.UP * 0.08)
-		)
+		# Measured against the reward's own projected bounds rather than a
+		# circle around a point above it, so the hot spot is the model.
+		var distance := ScreenPick.distance_to(camera, screen_position, node)
+		if is_inf(distance):
+			distance = screen_position.distance_to(
+				camera.unproject_position(node.global_position + Vector3.UP * 0.08)
+			)
 		if distance <= radius and distance < closest_distance:
 			closest_distance = distance
 			closest = {
@@ -236,13 +248,18 @@ func interaction_at_screen(
 		return closest
 	var centre := _well_interaction_anchor()
 	if not camera.is_position_behind(centre):
-		var hole_distance := screen_position.distance_to(
-			camera.unproject_position(centre)
+		# Hit over the vessel the player can see, not inside a circle around an
+		# authored anchor. That anchor sits at 0.30 because the animations need
+		# it there, which put the hot spot high on the rim while the obvious
+		# place to point is the body below it.
+		var hole_distance := ScreenPick.distance_to(
+			camera, screen_position, well_visual_root
 		)
-		# No widening: the well is a compact round target, and the wardrobe's
-		# 1.3x fudge made this circle reach clicks meant for neighbouring
-		# tiles and rewards.
-		if hole_distance <= radius:
+		if is_inf(hole_distance):
+			hole_distance = screen_position.distance_to(
+				camera.unproject_position(centre)
+			)
+		if hole_distance <= EDGE_FORGIVENESS_PX:
 			return {
 				"kind": "worldheart_collect_all",
 				"point": centre,
@@ -287,6 +304,9 @@ func event_at_cell(cell: Vector2i) -> Dictionary:
 	return interaction_at_cell(cell)
 
 
+## The mouth specifically, for aiming an offering into it. This one stays a
+## radius around an anchor on purpose: the target is the opening, not the
+## vessel, so it must NOT grow to the whole silhouette.
 func hole_at_screen(
 	camera: Camera3D,
 	screen_position: Vector2,
@@ -295,17 +315,32 @@ func hole_at_screen(
 	var target := _well_interaction_anchor()
 	if camera == null or camera.is_position_behind(target):
 		return false
-	# Plain radius for the same reason as interaction_at_screen: the widened
-	# wardrobe-era circle stole right-click rotations from the tile beside it.
 	return screen_position.distance_to(camera.unproject_position(target)) <= radius
+
+
+## Anywhere on the vessel, for grabbing and turning it.
+func well_at_screen(camera: Camera3D, screen_position: Vector2) -> bool:
+	if camera == null:
+		return false
+	var distance := ScreenPick.distance_to(
+		camera, screen_position, well_visual_root
+	)
+	if is_inf(distance):
+		var target := _well_interaction_anchor()
+		if camera.is_position_behind(target):
+			return false
+		return screen_position.distance_to(
+			camera.unproject_position(target)
+		) <= EDGE_FORGIVENESS_PX * 9.0
+	return distance <= EDGE_FORGIVENESS_PX
 
 
 func rotate_at_screen(
 	view_camera: Camera3D,
 	screen_position: Vector2,
-	radius := 54.0
+	_radius := 54.0
 ) -> bool:
-	if not hole_at_screen(view_camera, screen_position, radius):
+	if not well_at_screen(view_camera, screen_position):
 		return false
 	rotate_clockwise()
 	return true
