@@ -200,7 +200,12 @@
     "tilekit_dirt_clay_side": "#715543",
     "tilekit_dirt_clay_lower": "#5D453A",
     "tilekit_dirt_clay_chip_light": "#9B6D50",
-    "tilekit_dirt_clay_chip_dark": "#715543"
+    "tilekit_dirt_clay_chip_dark": "#715543",
+    "tilekit_sand_top": "#D6B77F",
+    "tilekit_sand_bevel": "#D6B77F",
+    "tilekit_sand_side": "#AF865A",
+    "tilekit_sand_deep": "#76513A",
+    "tilekit_sand_patch": "#E8C98D"
   },
   "families": []
 }

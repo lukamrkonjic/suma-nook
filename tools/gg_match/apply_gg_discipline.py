@@ -97,18 +97,23 @@ DECORATIVE = ["dressing", "grass_clusters", "rooted_meadow", "forest_floor",
 # mounds instead of countable flecks.
 PATCHES = {
     "allow_overlap": "true",
-    "edge_softness": "0.6",
-    "height_scale": "1.5",
-    # A cushion patch is a dome, roughly 200 triangles each, so the mound
+    "edge_softness": "0.75",
+    # Real moss clings to the surface -- it is a flat irregular skin with a
+    # soft edge, not a field of standing domes. Tall mounds that all touch
+    # read as bubbles or as a lumpy custard; keeping the profile low and the
+    # patches apart leaves clean ground between them, which is what makes the
+    # growth look like growth.
+    "height_scale": "0.42",
+    # A cushion patch is a dome, roughly 200 triangles each, so the patch
     # count is what the triangle budget actually buys here.
-    "large_count": "[2, 2]",
-    "medium_count": "[1, 2]",
-    "small_count": "[1, 1]",
-    "large_radius": "[0.26, 0.38]",
-    "medium_radius": "[0.16, 0.25]",
-    "small_radius": "[0.09, 0.14]",
+    "large_count": "[1, 2]",
+    "medium_count": "[2, 2]",
+    "small_count": "[2, 3]",
+    "large_radius": "[0.20, 0.30]",
+    "medium_radius": "[0.13, 0.19]",
+    "small_radius": "[0.07, 0.11]",
     "patch_profile": '"cushion"',
-    "region_count": "[2, 3]",
+    "region_count": "[3, 4]",
     "scale_multiplier": "1.0",
 }
 

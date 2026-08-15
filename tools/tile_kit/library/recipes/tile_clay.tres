@@ -50,23 +50,23 @@ params = {
 script = ExtResource("1_6t6sn")
 kind = "clutter"
 params = {
-"cluster_fraction": 0.45,
-"cluster_radius": 0.30,
-"corner_fraction": 0.12,
-"count": [26, 34],
-"diameter": [0.07, 0.13],
-"edge_fraction": 0.22,
+"cluster_fraction": 0.55,
+"cluster_radius": 0.40,
+"corner_fraction": 0.0,
+"count": [5, 8],
+"diameter": [0.13, 0.34],
+"edge_fraction": 0.1,
 "edge_margin": 0.1,
 "height": [0.055, 0.105],
-"min_spacing": 0.085,
+"min_spacing": 0.16,
 "on_dressing_fraction": 0.0,
 "placement_mode": "clusters",
 "scale_multiplier": 1.0,
 "color_weights": {
-"dirt_clay_chip_light": 50.0,
-"moss_gg_stone_chip": 50.0
+"sand_top": 50.0,
+"sand_side": 50.0
 },
-"shapes": ["gg_shard", "clod"]
+"shapes": ["gg_shard", "gg_rock"]
 }
 
 [sub_resource type="Resource" id="Resource_pfl2v"]

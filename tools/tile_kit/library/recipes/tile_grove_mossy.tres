@@ -36,17 +36,17 @@ script = ExtResource("1_ukacy")
 kind = "dressing"
 params = {
 "allow_overlap": true,
-"edge_softness": 0.6,
-"height_scale": 1.5,
-"large_count": [2, 2],
-"large_radius": [0.26, 0.38],
-"medium_count": [1, 2],
-"medium_radius": [0.16, 0.25],
+"edge_softness": 0.75,
+"height_scale": 0.42,
+"large_count": [1, 2],
+"large_radius": [0.20, 0.30],
+"medium_count": [2, 2],
+"medium_radius": [0.13, 0.19],
 "patch_profile": "cushion",
-"region_count": [2, 3],
+"region_count": [3, 4],
 "scale_multiplier": 1.0,
-"small_count": [1, 1],
-"small_radius": [0.09, 0.14],
+"small_count": [2, 3],
+"small_radius": [0.07, 0.11],
 "color_weights": {
 "moss_cushion_light": 55.0,
 "moss_cushion_body": 45.0

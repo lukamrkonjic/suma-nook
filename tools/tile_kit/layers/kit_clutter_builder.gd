@@ -18,7 +18,7 @@ extends RefCounted
 
 const ALL_SHAPES := ["dot", "oval", "leaf_pair", "lobed_clump", "nub",
 	"clod", "clay_chip", "rock", "pebble", "stone_chip", "twig", "wood_chip",
-	"gg_shard",
+	"gg_shard", "gg_rock",
 	"leaf_litter", "mushroom", "snow_lump", "drift_mound", "bud", "boulder",
 	"lily_pad", "crystal", "footprint"]
 
@@ -188,6 +188,8 @@ static func _shape_radius_scale(shape: String) -> float:
 			return 0.72
 		"gg_shard":
 			return 0.42
+		"gg_rock":
+			return 0.60
 		"clay_chip", "lobed_clump", "oval", "pebble":
 			return 0.58
 		_:
@@ -219,6 +221,16 @@ static func _add_shape(batch: TileKitMeshUtils.MeshBatch, layer: TileKitLayer,
 				origin - Vector3(0.0, piece_height * 0.15, 0.0),
 				diameter * 0.55, diameter * 0.48,
 				piece_height * rng.randf_range(1.1, 1.6), yaw, rng, 0.26)
+		"gg_rock":
+			# A squat faceted boulder: clearly wider than it is tall, and sunk
+			# far enough to sit IN the ground rather than stand on it. The
+			# clod shape derives its height from its diameter, so asking for
+			# bigger stones there only made taller ones -- upright markers
+			# instead of rocks lying in the surface.
+			TileKitMeshUtils.add_faceted_chunk(batch, key, origin,
+				diameter * 0.54, diameter * 0.46,
+				diameter * rng.randf_range(0.26, 0.38), yaw, rng,
+				6, 0.62, rng.randf_range(0.30, 0.42))
 		"gg_shard":
 			# Garden Galaxy's own ground scatter, measured from its shipped
 			# meshes: "Soil Bits square" is 80 triangles across 80 separate
