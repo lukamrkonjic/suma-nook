@@ -8,6 +8,10 @@ signal event_played(event_name: String)
 
 const DIR := "res://audio/generated/"
 const POOL_SIZE := 10
+const MUSIC_TRACK := "res://audio/music/music1.ogg"
+## Headroom under the Music bus, which the player's own volume preference
+## already scales; the track should sit beneath gameplay sound, not over it.
+const MUSIC_VOLUME_DB := -4.0
 
 ## event -> {files, bus, volume_db, pitch_var}. Events with numbered files
 ## ("chop_impact_0..2") are declared by prefix.
@@ -42,6 +46,7 @@ var _players: Array[AudioStreamPlayer] = []
 var _next_player := 0
 var _wind: AudioStreamPlayer
 var _rain: AudioStreamPlayer
+var _music: AudioStreamPlayer
 var _bird_timer: Timer
 
 
@@ -53,10 +58,13 @@ func _ready() -> void:
 		_players.append(player)
 	_wind = _make_loop("ambience_wind")
 	_rain = _make_loop("ambience_rain")
+	_music = _make_music()
 	# The headless acceptance runner has no audible output and Godot's dummy
 	# audio driver otherwise retains a looping WAV playback through shutdown.
 	if DisplayServer.get_name() != "headless":
 		_wind.play()
+		if _music != null:
+			_music.play()
 	_bird_timer = Timer.new()
 	_bird_timer.wait_time = 7.0
 	_bird_timer.autostart = true
@@ -77,6 +85,9 @@ func _exit_tree() -> void:
 	if _rain != null:
 		_rain.stop()
 		_rain.stream = null
+	if _music != null:
+		_music.stop()
+		_music.stream = null
 	_streams.clear()
 
 
@@ -89,6 +100,30 @@ func _make_loop(event: String) -> AudioStreamPlayer:
 	player.stream = stream
 	player.bus = "Ambience"
 	player.volume_db = -6.0
+	add_child(player)
+	return player
+
+
+## The soundtrack. Looping is set on the Ogg stream itself rather than by
+## restarting the player on `finished`: a restart drops the playback buffer and
+## leaves an audible gap at the seam, while the stream's own loop wraps sample
+## to sample. The resource is shared through the ResourceLoader cache, so the
+## flag is set on a local copy to avoid mutating anything else that loads it.
+func _make_music() -> AudioStreamPlayer:
+	if not ResourceLoader.exists(MUSIC_TRACK):
+		push_warning("Soundtrack missing: %s" % MUSIC_TRACK)
+		return null
+	var stream := load(MUSIC_TRACK) as AudioStream
+	if stream == null:
+		return null
+	stream = stream.duplicate() as AudioStream
+	if stream is AudioStreamOggVorbis:
+		(stream as AudioStreamOggVorbis).loop = true
+		(stream as AudioStreamOggVorbis).loop_offset = 0.0
+	var player := AudioStreamPlayer.new()
+	player.stream = stream
+	player.bus = "Music"
+	player.volume_db = MUSIC_VOLUME_DB
 	add_child(player)
 	return player
 
