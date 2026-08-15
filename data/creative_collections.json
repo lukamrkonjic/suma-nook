@@ -101,7 +101,7 @@
       "name": "Woodland",
       "description": "Trees, moss and quiet forest details.",
       "color_token": "ui_accent",
-      "starting_tile_id": "tile_grove_autumn",
+      "starting_tile_id": "tile_dirt",
       "members": [
         {
           "kind": "structure",
@@ -162,12 +162,6 @@
           "id": "struct_fence",
           "tier": 1,
           "family": "woodwork"
-        },
-        {
-          "kind": "tile",
-          "id": "tile_grove_autumn",
-          "tier": 2,
-          "family": "forest_floor"
         },
         {
           "kind": "structure",
@@ -341,19 +335,13 @@
       "name": "Stone",
       "description": "Weathered masonry, ruins and rocky garden pieces.",
       "color_token": "ui_text_secondary",
-      "starting_tile_id": "tile_stone_clearing",
+      "starting_tile_id": "tile_cobblestone",
       "members": [
         {
           "kind": "tile",
           "id": "tile_cobblestone",
           "tier": 0,
           "family": "paving"
-        },
-        {
-          "kind": "tile",
-          "id": "tile_stone_clearing",
-          "tier": 0,
-          "family": "ground"
         },
         {
           "kind": "structure",

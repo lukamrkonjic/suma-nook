@@ -604,7 +604,7 @@
       "placement_sound": "grass",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_grove_autumn.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -1029,7 +1029,7 @@
       "placement_sound": "grass",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_garden_path.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -2343,7 +2343,7 @@
       "placement_sound": "stone",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_courtyard.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -3119,7 +3119,7 @@
       "placement_sound": "stone",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_stone_clearing.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -3241,7 +3241,7 @@
       "placement_sound": "stone",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_stone_mossy.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -3553,7 +3553,7 @@
       "placement_sound": "stone",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_stone_clearing.tres",
       "source_kind": "procedural",
       "source_revision": 2,
@@ -3615,7 +3615,7 @@
       "placement_sound": "stone",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_stone_mossy.tres",
       "source_kind": "procedural",
       "source_revision": 2,
