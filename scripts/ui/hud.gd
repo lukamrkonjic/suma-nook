@@ -57,6 +57,18 @@ var _selected_build_entry: Dictionary = {}
 ## between the sheet's own child controls briefly reports an exit.
 const BAG_STRIP_MARGIN := 10
 const BAG_HOVER_CLOSE_GRACE := 0.18
+## The bag opens showing one and a half rows: a full row to use, and the top of
+## the next one cut off by the sheet edge, which is what tells the player there
+## is more without a scrollbar having to. Scrolling grows it by two more rows.
+## The sheet travels its own height from below the screen edge, not the 12px
+## nudge the shared open_offset token gives every other panel -- at 12px the
+## overshoot measured 0.6px, which is invisible. A full-height slide needs its
+## own duration too, or a scroll unrolling looks like a snap.
+const BAG_SLIDE_OPEN := 0.34
+const BAG_SLIDE_CLOSE := 0.26
+const BAG_ROWS_COMPACT := 1.5
+const BAG_ROWS_SCROLLED := 3.5
+var _bag_rows := BAG_ROWS_COMPACT
 var _build_library_expanded := false
 var _build_library_pinned := false
 var _build_hover_expand_armed := true
@@ -242,6 +254,7 @@ func _build_layout() -> void:
 	_build_search = _build_bar.search_field
 	_build_close_button = _build_bar.close_button
 	_build_item_scroll = _build_bar.scroll
+	_build_item_scroll.gui_input.connect(_on_build_scroll_input)
 	_build_sections = _build_bar.sections
 	_build_item_scroll.gui_input.connect(
 		func(event): _on_library_scroll_input(event, _build_item_scroll)
@@ -992,11 +1005,56 @@ func _update_build_scroll_buttons() -> void:
 	pass
 
 
+## One place the sheet's size is decided, so the row count can never be
+## bypassed by a caller that only knows about the viewport.
+func _apply_bag_viewport(animate_height := false) -> void:
+	if _build_bar == null:
+		return
+	var viewport_size := get_viewport().get_visible_rect().size
+	var target_height := _build_bar.height_for_rows(_bag_rows, _build_cell_extent())
+	if not animate_height or not _build_bar.visible:
+		_build_bar.apply_viewport(viewport_size, target_height)
+		return
+	# Growing on scroll keeps the bottom edge planted and lifts the top, which
+	# is how a sheet gains room without appearing to jump.
+	var from_height := _build_bar.size.y
+	var grow := create_tween()
+	grow.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	grow.tween_method(
+		func(height: float) -> void:
+			_build_bar.apply_viewport(viewport_size, height),
+		from_height,
+		target_height,
+		kit.motion_duration(0.20)
+	)
+
+
+func _set_bag_rows(rows: float) -> void:
+	if is_equal_approx(_bag_rows, rows):
+		return
+	_bag_rows = rows
+	_apply_bag_viewport(true)
+	call_deferred("_position_context_above_build_library")
+
+
+func _on_build_scroll_input(event: InputEvent) -> void:
+	# Any scroll gesture is a request for more room, not just a wheel: the
+	# player has told us one and a half rows is not enough.
+	var wheel := event as InputEventMouseButton
+	var pan := event as InputEventPanGesture
+	if pan != null or (
+		wheel != null
+		and wheel.pressed
+		and wheel.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]
+	):
+		_set_bag_rows(BAG_ROWS_SCROLLED)
+
+
 func _resize_build_library() -> void:
 	if _build_bar == null:
 		return
 	var viewport_size := get_viewport().get_visible_rect().size
-	_build_bar.apply_viewport(viewport_size)
+	_apply_bag_viewport()
 	var columns := _build_columns()
 	for section_value in _build_section_nodes.values():
 		var section := section_value as CollectionSection
@@ -1054,42 +1112,50 @@ func set_build_library_expanded(expanded: bool, animate := true) -> void:
 	if expanded:
 		_refresh_build_strip()
 		_build_bar.visible = true
-		_build_bar.apply_viewport(get_viewport().get_visible_rect().size)
+		_apply_bag_viewport()
 		var resting_position := _build_bar.position
+		var travel := _build_bar.size.y + float(kit.tokens.sheet_bottom_margin)
 		_build_bar.modulate.a = 0.0 if animate and duration > 0.0 else 1.0
 		_build_bar.position = (
-			resting_position + Vector2(0, kit.tokens.open_offset)
+			resting_position + Vector2(0, travel)
 			if animate and duration > 0.0
 			else resting_position
 		)
 		_restore_build_scroll.call_deferred()
 		if animate and duration > 0.0:
+			# Unrolls like a scroll: it starts fully below its resting place
+			# and rises past it before settling. TRANS_BACK supplies that
+			# overshoot; the fade is quicker than the travel so the sheet is
+			# already solid while it is still moving, which reads as weight
+			# rather than as a fading panel.
 			_build_library_tween = create_tween().set_parallel(true)
-			_build_library_tween.set_trans(Tween.TRANS_QUAD)
-			_build_library_tween.set_ease(Tween.EASE_OUT)
+			var slide := kit.motion_duration(BAG_SLIDE_OPEN)
 			_build_library_tween.tween_property(
-				_build_bar, "modulate:a", 1.0, duration
-			)
+				_build_bar, "modulate:a", 1.0, slide * 0.35
+			).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 			_build_library_tween.tween_property(
-				_build_bar, "position", resting_position, duration
-			)
+				_build_bar, "position", resting_position, slide
+			).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		if InputDeviceService.shared().is_controller():
 			call_deferred("focus_build_library")
 	elif not animate or duration <= 0.0 or not _build_bar.visible:
 		_finish_build_bag_collapse()
 	else:
+		# The same motion in reverse: it gathers upward a little before rolling
+		# back down, so closing feels like the opposite of opening rather than
+		# like the sheet being switched off.
 		_build_library_tween = create_tween().set_parallel(true)
-		_build_library_tween.set_trans(Tween.TRANS_QUAD)
-		_build_library_tween.set_ease(Tween.EASE_IN)
+		var slide_out := kit.motion_duration(BAG_SLIDE_CLOSE)
 		_build_library_tween.tween_property(
-			_build_bar, "modulate:a", 0.0, duration
-		)
+			_build_bar, "modulate:a", 0.0, slide_out
+		).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 		_build_library_tween.tween_property(
 			_build_bar,
 			"position",
-			_build_bar.position + Vector2(0, kit.tokens.open_offset * 0.55),
-			duration
-		)
+			_build_bar.position
+				+ Vector2(0, _build_bar.size.y + float(kit.tokens.sheet_bottom_margin)),
+			slide_out
+		).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 		_build_library_tween.chain().tween_callback(_finish_build_bag_collapse)
 	_position_context_above_build_library()
 
@@ -1099,7 +1165,8 @@ func _finish_build_bag_collapse() -> void:
 		return
 	_build_bar.visible = false
 	_build_bar.modulate.a = 1.0
-	_build_bar.apply_viewport(get_viewport().get_visible_rect().size)
+	_bag_rows = BAG_ROWS_COMPACT
+	_apply_bag_viewport()
 	_build_expand_button.visible = placement != null and placement.active
 	if _bag_hover_strip != null:
 		_bag_hover_strip.visible = true

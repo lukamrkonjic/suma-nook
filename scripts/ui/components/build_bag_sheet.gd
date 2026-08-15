@@ -199,8 +199,22 @@ func show_focus_detail(text: String) -> void:
 	focus_detail.text = text.replace("\n", "  ·  ")
 
 
-func apply_viewport(viewport_size: Vector2) -> void:
+## Height for a given number of item rows, everything above the grid included.
+## A fractional count is the point: at 1.5 the second row is cut by the sheet's
+## edge, which says "there is more here" without a scrollbar having to say it.
+func height_for_rows(rows: float, cell_extent: float) -> float:
+	var chrome := (
+		TOOLBAR_HEIGHT
+		+ float(_kit.tokens.sheet_padding * 2)
+		+ float(_kit.tokens.cell_gap)
+	)
+	return chrome + rows * (cell_extent + float(_kit.tokens.cell_gap))
+
+
+func apply_viewport(viewport_size: Vector2, height_override := 0.0) -> void:
 	var target := _kit.tokens.sheet_size(viewport_size)
+	if height_override > 0.0:
+		target.y = minf(height_override, viewport_size.y - 48.0)
 	custom_minimum_size = target
 	size = target
 	position = Vector2(
