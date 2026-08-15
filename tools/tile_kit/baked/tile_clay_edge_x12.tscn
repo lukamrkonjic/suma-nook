@@ -1,6 +1,6 @@
 [gd_scene format=4]
 
-[ext_resource type="Material" path="res://tools/tile_kit/baked/materials/moss_ground_soil_side.tres" id="1_yxjoq"]
+[ext_resource type="Material" path="res://tools/tile_kit/baked/materials/sand_deep.tres" id="1_yxjoq"]
 
 [sub_resource type="ArrayMesh" id="ArrayMesh_wo00p"]
 _surfaces = [{
@@ -15,7 +15,7 @@ _surfaces = [{
 "vertex_data": PackedByteArray("mplZv+xROL6amVm/mplZvwAAAACamVm/VVU1v+xROL6amVm/VVU1vwAAAACamVm/ERERv+xROL6amVm/ERERvwAAAACamVm/mpnZvuxROL6amVm/mpnZvgAAAACamVm/ERGRvuxROL6amVm/ERGRvgAAAACamVm/ERERvuxROL6amVm/ERERvgAAAACamVm/AAAAAOxROL6amVm/AAAAAAAAAACamVm/ERERPuxROL6amVm/ERERPgAAAACamVm/ERGRPuxROL6amVm/ERGRPgAAAACamVm/mpnZPuxROL6amVm/mpnZPgAAAACamVm/ERERP+xROL6amVm/ERERPwAAAACamVm/VVU1P+xROL6amVm/VVU1PwAAAACamVm/mplZP+xROL6amVm/mplZPwAAAACamVm/mplZP+xROL6amVm/mplZPwAAAACamVm/mplZP+xROL5VVTW/mplZPwAAAABVVTW/mplZP+xROL4RERG/mplZPwAAAAARERG/mplZP+xROL6amdm+mplZPwAAAACamdm+mplZP+xROL4REZG+mplZPwAAAAAREZG+mplZP+xROL4RERG+mplZPwAAAAARERG+mplZP+xROL4AAAAAmplZPwAAAAAAAAAAmplZP+xROL4RERE+mplZPwAAAAARERE+mplZP+xROL4REZE+mplZPwAAAAAREZE+mplZP+xROL6amdk+mplZPwAAAACamdk+mplZP+xROL4RERE/mplZPwAAAAARERE/mplZP+xROL5VVTU/mplZPwAAAABVVTU/mplZP+xROL6amVk/mplZPwAAAACamVk///////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP//////fwCA//////9/AID//////38AgP///3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//7////9//3//v////3//f/+/////f/9//78=")
 }]
 
-[node name="tile_kit_edge" type="Node3D" unique_id=862501199]
+[node name="tile_kit_edge" type="Node3D" unique_id=1072057233]
 
-[node name="tile_cap_edge" type="MeshInstance3D" parent="." unique_id=997388268]
+[node name="tile_cap_edge" type="MeshInstance3D" parent="." unique_id=1850872387]
 mesh = SubResource("ArrayMesh_wo00p")

@@ -1,6 +1,6 @@
 [gd_scene format=4]
 
-[ext_resource type="Material" path="res://tools/tile_kit/baked/materials/moss_ground_soil_side.tres" id="1_htm3q"]
+[ext_resource type="Material" path="res://tools/tile_kit/baked/materials/sand_deep.tres" id="1_htm3q"]
 
 [sub_resource type="ArrayMesh" id="ArrayMesh_posbe"]
 _surfaces = [{
@@ -15,7 +15,7 @@ _surfaces = [{
 "vertex_data": PackedByteArray("mplZv+xROL6amVk/mplZvwAAAACamVk/mplZv+xROL5VVTU/mplZvwAAAABVVTU/mplZv+xROL4RERE/mplZvwAAAAARERE/mplZv+xROL6amdk+mplZvwAAAACamdk+mplZv+xROL4REZE+mplZvwAAAAAREZE+mplZv+xROL4RERE+mplZvwAAAAARERE+mplZv+xROL4AAAAAmplZvwAAAAAAAAAAmplZv+xROL4RERG+mplZvwAAAAARERG+mplZv+xROL4REZG+mplZvwAAAAAREZG+mplZv+xROL6amdm+mplZvwAAAACamdm+mplZv+xROL4RERG/mplZvwAAAAARERG/mplZv+xROL5VVTW/mplZvwAAAABVVTW/mplZv+xROL6amVm/mplZvwAAAACamVm/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vw==")
 }]
 
-[node name="tile_kit_edge" type="Node3D" unique_id=1405374505]
+[node name="tile_kit_edge" type="Node3D" unique_id=366707988]
 
-[node name="tile_cap_edge" type="MeshInstance3D" parent="." unique_id=1163813823]
+[node name="tile_cap_edge" type="MeshInstance3D" parent="." unique_id=858403954]
 mesh = SubResource("ArrayMesh_posbe")
