@@ -84,6 +84,10 @@ func _capture(file_name: String) -> void:
 	if image == null:
 		print("WORLDHEART CAPTURE SKIPPED (no framebuffer): %s" % file_name)
 		return
+	# Without this the saved PNG is the raw linear buffer, which reads far
+	# darker and more saturated than the screen. Every colour judgement made
+	# from an unencoded capture is wrong.
+	GGCaptureEncode.encode_srgb(image)
 	var path := ProjectSettings.globalize_path("%s/%s" % [OUTPUT_DIR, file_name])
 	var error := image.save_png(path)
 	if error != OK:

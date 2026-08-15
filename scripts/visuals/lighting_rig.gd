@@ -452,12 +452,16 @@ func apply_profile(profile: VisualStyleProfile) -> void:
 
 	_bg_layer.visible = uses_canvas_bg
 	if profile.background_gg_gradient:
-		_set_gg_background(profile.bg_color0, profile.bg_color1, profile.bg_sparkles_enabled)
+		_set_gg_background(
+			_lifted_background(profile.bg_color0),
+			_lifted_background(profile.bg_color1),
+			profile.bg_sparkles_enabled
+		)
 	elif profile.background_gradient:
 		_set_gradient_background(
-			profile.gradient_top,
-			profile.gradient_mid,
-			profile.gradient_bottom,
+			_lifted_background(profile.gradient_top),
+			_lifted_background(profile.gradient_mid),
+			_lifted_background(profile.gradient_bottom),
 			1.0 if profile.stars_enabled else 0.0
 		)
 
@@ -1091,6 +1095,25 @@ func _gg_time_state() -> Array:
 	return GG_TIME_STATES.get(time_of_day_id, ["default", 1.0])
 
 
+## Every authored backdrop reads darker in the diorama than it does as a
+## swatch: the island is small in frame, so the backdrop is most of what the
+## eye adapts to. Daylight backgrounds are lifted toward white where they are
+## read from the profile or palette, never inside the setters, because visual
+## transitions feed captured environment colours back through those and the
+## lift would compound frame by frame. Scaling by the daylight level keeps
+## night at its authored darkness without a separate branch per preset.
+const BACKGROUND_DAYLIGHT_LIFT := 0.30
+
+
+func _lifted_background(color: Color) -> Color:
+	# The GG backdrop uses a transparent zenith/accent as "fall back to a
+	# derived shade"; lifting that sentinel would give it an alpha and defeat
+	# the fallback.
+	if color.a <= 0.001:
+		return color
+	return color.lerp(Color.WHITE, BACKGROUND_DAYLIGHT_LIFT * _gg_light_level())
+
+
 func _gg_light_level() -> float:
 	return float(_gg_time_state()[1])
 
@@ -1098,13 +1121,17 @@ func _gg_light_level() -> float:
 func _gg_background_tint(theme: Dictionary, level: float) -> Color:
 	# Preserve the original warm Brown-theme night, with only a restrained
 	# darkening/cooling pass at the fully-night endpoint.
+	#
+	# Both ends lerp toward true white so that full daylight means "no tint".
+	# This used to lerp toward the palette's neutral_white, which is (0.872,
+	# 0.852, 0.79) rather than white, and the two factors multiply: every
+	# daylight backdrop was silently scaled by (0.76, 0.73, 0.62). That is
+	# what made the sky read dark and olive — blue lost nearly 40% while red
+	# kept 76% — no matter how light the theme colour was authored.
 	var time_colors := _palette.background_preset("time_of_day")
 	return (
-		(theme.night_bg as Color).lerp(_palette.color("neutral_white"), level)
-		* (time_colors.night_background_tint as Color).lerp(
-			_palette.color("neutral_white"),
-			level
-		)
+		(theme.night_bg as Color).lerp(Color.WHITE, level)
+		* (time_colors.night_background_tint as Color).lerp(Color.WHITE, level)
 	)
 
 
@@ -1216,25 +1243,40 @@ func _apply_time_of_day() -> void:
 			)
 
 
+## A profile's colours stay at the Color.MAGENTA "unresolved" sentinel until
+## the design system is applied to it, and that only happens when the profile
+## is made current. The cream and mist backdrops read colours off profiles
+## that are never made current, so the mist backdrop rendered as flat magenta.
+## Resolving on read is idempotent -- apply_color_design_system() returns
+## early once a profile matches its resolved id.
+func _resolved_profile(profile: VisualStyleProfile) -> VisualStyleProfile:
+	if profile != null:
+		profile.apply_color_design_system(_palette)
+	return profile
+
+
 func _apply_background_preset() -> void:
 	if current_profile == null:
 		return
 	match background_preset_id:
 		"cream":
-			_set_flat_background(day_profile.background_color)
+			_set_flat_background(
+				_lifted_background(_resolved_profile(day_profile).background_color)
+			)
 		"mist":
+			var mist := _resolved_profile(mist_profile)
 			_set_gradient_background(
-				mist_profile.gradient_top,
-				mist_profile.gradient_mid,
-				mist_profile.gradient_bottom,
+				_lifted_background(mist.gradient_top),
+				_lifted_background(mist.gradient_mid),
+				_lifted_background(mist.gradient_bottom),
 				0.0
 			)
 		"dusk":
 			var dusk := _palette.background_preset("dusk")
 			_set_gradient_background(
-				dusk.top,
-				dusk.middle,
-				dusk.bottom,
+				_lifted_background(dusk.top),
+				_lifted_background(dusk.middle),
+				_lifted_background(dusk.bottom),
 				0.0
 			)
 		"night":
@@ -1254,21 +1296,27 @@ func _apply_background_preset() -> void:
 					float(state[1])
 				)
 				_set_gg_background(
-					(theme.bg0 as Color) * bg_tint,
-					(theme.bg1 as Color) * bg_tint,
+					_lifted_background(theme.bg0 as Color) * bg_tint,
+					_lifted_background(theme.bg1 as Color) * bg_tint,
 					current_profile.bg_sparkles_enabled,
-					theme.get("bg_zenith", Color.TRANSPARENT),
-					theme.get("bg_accent", Color.TRANSPARENT)
+					_lifted_background(
+						theme.get("bg_zenith", Color.TRANSPARENT)
+					),
+					_lifted_background(
+						theme.get("bg_accent", Color.TRANSPARENT)
+					)
 				)
 			elif current_profile.background_gradient:
 				_set_gradient_background(
-					current_profile.gradient_top,
-					current_profile.gradient_mid,
-					current_profile.gradient_bottom,
+					_lifted_background(current_profile.gradient_top),
+					_lifted_background(current_profile.gradient_mid),
+					_lifted_background(current_profile.gradient_bottom),
 					1.0 if current_profile.stars_enabled else 0.0
 				)
 			else:
-				_set_flat_background(current_profile.background_color)
+				_set_flat_background(
+					_lifted_background(current_profile.background_color)
+				)
 
 
 func _set_flat_background(color: Color) -> void:
