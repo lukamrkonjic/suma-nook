@@ -57,6 +57,9 @@ var _selected_build_entry: Dictionary = {}
 ## between the sheet's own child controls briefly reports an exit.
 const BAG_STRIP_MARGIN := 10
 const BAG_HOVER_CLOSE_GRACE := 0.18
+## Slack around the sheet so the pointer may cross the gap to the strip, or
+## clip a rounded corner, without the bag reading it as having left.
+const BAG_HOVER_SLACK := 12.0
 ## The bag opens showing one and a half rows: a full row to use, and the top of
 ## the next one cut off by the sheet edge, which is what tells the player there
 ## is more without a scrollbar having to. Scrolling grows it by two more rows.
@@ -79,6 +82,11 @@ var _build_bag_idle_tween: Tween
 var _build_bag_open_pending := false
 var _bag_hover_strip: PanelContainer
 var _bag_hover_close_timer: Timer
+## Last pointer position seen on a motion event. Viewport.get_mouse_position()
+## reports the OS cursor, which synthetic events do not move, so reading it
+## made the bag untestable -- and it is the same number in play.
+var _pointer_position := Vector2.ZERO
+var _pointer_seen := false
 var _build_panel_expanded_style: StyleBoxFlat
 var _build_panel_collapsed_style: StyleBoxEmpty
 var _build_drop_overlay: PanelContainer
@@ -305,8 +313,6 @@ func _build_layout() -> void:
 	)
 	add_child(_bag_hover_close_timer)
 
-	_build_bar.mouse_entered.connect(_on_build_library_mouse_entered)
-	_build_bar.mouse_exited.connect(_on_build_library_mouse_exited)
 
 	_build_drop_overlay = PanelContainer.new()
 	_build_drop_overlay.name = "BuildLibraryStoreDrop"
@@ -1252,17 +1258,56 @@ func _on_bag_strip_mouse_exited() -> void:
 	_queue_bag_hover_close()
 
 
-func _on_build_library_mouse_entered() -> void:
-	_cancel_bag_hover_close()
+## Whether the pointer is over the bag, judged by rectangle rather than by the
+## sheet's mouse_entered/mouse_exited signals.
+##
+## Those signals cannot answer this question. Godot fires mouse_exited on a
+## container the moment the pointer moves onto a child that stops mouse input,
+## and fires no matching mouse_entered back on the container -- so hovering an
+## item, dragging the scrollbar or clicking into the search field all reported
+## "the pointer left the bag" and closed it. Measured: moving from the sheet's
+## own padding onto its first item button produced exits=1, enters=0, and the
+## sheet shut.
+func _pointer_over_bag() -> bool:
+	if _build_bar == null or not _build_bar.visible:
+		return false
+	var pointer := (
+		_pointer_position if _pointer_seen else get_viewport().get_mouse_position()
+	)
+	if _build_bar.get_global_rect().grow(BAG_HOVER_SLACK).has_point(pointer):
+		return true
+	# The strip's rect counts even while it is hidden. It is hidden precisely
+	# BECAUSE the bag is open, and the pointer that opened it is still sitting
+	# there -- below the sheet's resting rect while the sheet is still rising
+	# into place, which read as "outside" and shut it again immediately.
+	return (
+		_bag_hover_strip != null
+		and _bag_hover_strip.get_global_rect().grow(BAG_HOVER_SLACK).has_point(pointer)
+	)
 
 
-func _on_build_library_mouse_exited() -> void:
-	# Hover opens the bag from the bottom strip, so hover has to close it too;
-	# leaving it open after the pointer has gone traps the sheet over the
-	# world. This reverses an earlier rule that the sheet closes only on
-	# explicit input -- the grace timer is what keeps that rule's concern
-	# (traversing a dense collection) from closing it under the pointer.
-	_queue_bag_hover_close()
+func _update_bag_hover_close() -> void:
+	if not _build_library_expanded:
+		return
+	# The sheet's rect is meaningless mid-slide: it is still below its resting
+	# place, so any pointer reads as outside it.
+	if _build_library_tween != null and _build_library_tween.is_valid():
+		_cancel_bag_hover_close()
+		return
+	# Typing is not idling: a search field with focus keeps the bag open even
+	# though the pointer may be nowhere near it.
+	if (
+		_build_library_pinned
+		or _build_drop_active
+		or (_build_search != null and _build_search.has_focus())
+		or InputDeviceService.shared().is_controller()
+	):
+		_cancel_bag_hover_close()
+		return
+	if _pointer_over_bag():
+		_cancel_bag_hover_close()
+	else:
+		_queue_bag_hover_close()
 
 
 func _cancel_bag_hover_close() -> void:
@@ -1273,6 +1318,10 @@ func _cancel_bag_hover_close() -> void:
 
 func _queue_bag_hover_close() -> void:
 	if not _build_library_expanded or _build_library_pinned:
+		return
+	# Already counting down: restarting every frame would hold the timer at
+	# full and it would never fire.
+	if _build_mouse_exit_pending:
 		return
 	_build_mouse_exit_pending = true
 	if _bag_hover_close_timer != null:
@@ -1354,7 +1403,15 @@ func _on_build_library_input(event: InputEvent) -> void:
 		_build_bar.accept_event()
 
 
+func _input(event: InputEvent) -> void:
+	var motion := event as InputEventMouseMotion
+	if motion != null:
+		_pointer_position = motion.global_position
+		_pointer_seen = true
+
+
 func _process(_delta: float) -> void:
+	_update_bag_hover_close()
 	if _build_bar != null and _build_bar.visible:
 		_position_context_above_build_library()
 	if _store_bubble != null and _store_bubble.visible:

@@ -63,7 +63,10 @@ func _ready() -> void:
 	# audio driver otherwise retains a looping WAV playback through shutdown.
 	if DisplayServer.get_name() != "headless":
 		_wind.play()
-		if _music != null:
+		# Muted while developing. A two-minute loop running under every test
+		# capture and every hand-run of the game is a nuisance, not a feature;
+		# the soundtrack is for players, and an exported build still gets it.
+		if _music != null and not OS.has_feature("editor"):
 			_music.play()
 	_bird_timer = Timer.new()
 	_bird_timer.wait_time = 7.0
