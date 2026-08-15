@@ -44,6 +44,10 @@ var _tile_ids: PackedStringArray = PackedStringArray()
 var _out_dir := ""
 var _frames := 40
 var _tile_size := 1.0
+## Filled during _shoot: each tile's projected centre on the saved sheet.
+var sheet_points: Array[Dictionary] = []
+var _pending_points: Array[Dictionary] = []
+var sheet_view_size := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -137,6 +141,8 @@ func _run(mode: String) -> void:
 		var sheet_path := _out_dir.path_join("tile_sheet.png")
 		await _capture_sheet(sheet_path)
 		manifest["sheet"] = sheet_path
+		manifest["sheet_points"] = sheet_points
+		manifest["sheet_view_size"] = [sheet_view_size.x, sheet_view_size.y]
 	if mode in ["closeups", "both"]:
 		for tile_id in _tile_ids:
 			var path := _out_dir.path_join("tile_%s.png" % tile_id.trim_prefix("tile_"))
@@ -187,10 +193,16 @@ func _capture_sheet(path: String) -> bool:
 	var width := (cols - 1) * pitch + patch * _tile_size
 	var depth := (rows - 1) * pitch + patch * _tile_size
 	_frame(centre, maxf(width, depth) * 1.15)
+	# Camera projection and the resized viewport settle on the next frame.
+	# Projecting earlier can place every label outside the captured viewport.
+	await get_tree().process_frame
+	# Where each tile ends up on the sheet, so a mark made ON the image can be
+	# resolved back to a tile id by measurement instead of by eye. Projected
+	# inside _shoot, at the moment the image is grabbed: the requested window
+	# size is still settling here, and projecting now put every point in a
+	# 1920-wide space while the saved PNG was 3200 wide.
+	_pending_points = label_entries
 	if String(_options.get("labels", "0")) == "1":
-		# Camera projection and the resized viewport settle on the next frame.
-		# Projecting earlier can place every label outside the captured viewport.
-		await get_tree().process_frame
 		_add_sheet_labels(label_entries, cols, rows)
 	return await _shoot(path)
 
@@ -376,6 +388,20 @@ func _shoot(path: String) -> bool:
 	for _i in _frames:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
+	if not _pending_points.is_empty():
+		sheet_points.clear()
+		for entry: Dictionary in _pending_points:
+			var point := _camera.unproject_position(entry["position"])
+			sheet_points.append({
+				"tile_id": String(entry["tile_id"]),
+				"x": point.x,
+				"y": point.y,
+			})
+		_pending_points = []
+		# unproject_position works in the viewport's visible rect, which the
+		# project's stretch settings keep at 1920-wide while the captured image
+		# is whatever --width asked for. Record both so a consumer can scale.
+		sheet_view_size = get_viewport().get_visible_rect().size
 	var image := get_viewport().get_texture().get_image()
 	# Match the display blit and the official gameplay capture harness. With
 	# hdr_2d enabled this image is still linear; saving it directly produces a

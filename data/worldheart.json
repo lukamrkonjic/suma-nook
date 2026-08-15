@@ -7,7 +7,7 @@
   "contributions_required": 2,
   "roles": ["terrain", "substantial", "detail"],
   "starter_rewards": [
-    {"kind": "tile", "id": "tile_grass_flower"},
+    {"kind": "tile", "id": "tile_dirt_crossroad"},
     {"kind": "structure", "id": "struct_bench"},
     {"kind": "structure", "id": "struct_pot"}
   ],

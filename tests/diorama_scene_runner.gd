@@ -46,9 +46,13 @@ func _run() -> void:
 	)
 	main.collection_vibe_panel._choose("winter")
 	await get_tree().create_timer(0.2).timeout
+	# Winter seeds whatever its collection names. tile_snowfield was archived
+	# with the other rejected art; reading the collection keeps this true
+	# through the rebuild instead of pinning a tile id that keeps moving.
+	var winter_start: String = main.core.registries.creative_collection("winter").starting_tile_id
 	var all_snow := true
 	for state: WorldGrid.CellState in main.core.grid.cells.values():
-		if state.tile_id != "tile_snowfield":
+		if state.tile_id != winter_start:
 			all_snow = false
 	check(
 		main._gameplay_started
@@ -410,11 +414,11 @@ func _run() -> void:
 		always_build_cell.rotation == posmod(always_build_rotation_before + 1, 4),
 		"right-click rotates a hovered world tile while the Build Bag is closed"
 	)
-	main.core.stock.add_tile("tile_grass_flower", 3)
+	main.core.stock.add_tile("tile_dirt_crossroad", 3)
 	InputDeviceService.shared().input_method = InputDeviceService.InputMethod.KEYBOARD_MOUSE
 	main.placement.set_controller_mode(false)
 	main.placement.set_active(true)
-	main.placement.hold_new("tile", "tile_grass_flower")
+	main.placement.hold_new("tile", "tile_dirt_crossroad")
 	var held_rotation_before := int(main.placement.held.get("rotation", -1))
 	var held_right_click := InputEventMouseButton.new()
 	held_right_click.button_index = MOUSE_BUTTON_RIGHT
@@ -457,7 +461,7 @@ func _run() -> void:
 	InputDeviceService.shared().input_method = InputDeviceService.InputMethod.KEYBOARD_MOUSE
 	main.placement.set_controller_mode(false)
 	main.worldheart_presenter.show_offering_preview(
-		"tile", "tile_grass_flower"
+		"tile", "tile_dirt_crossroad"
 	)
 	main.placement.set_external_offer_preview(true)
 	check(
@@ -500,7 +504,7 @@ func _run() -> void:
 	)
 	check(
 		main.core.diorama.worldheart.contribution_progress("meadow") == 1
-		and main.core.stock.tile_count("tile_grass_flower") == 2
+		and main.core.stock.tile_count("tile_dirt_crossroad") == 2
 		and main.worldheart_presenter.progress_card_sprite.visible
 		and main.worldheart_presenter.progress_icon.texture != null
 		and main.worldheart_presenter.progress_count_label.text == "1 / 2"
@@ -515,11 +519,11 @@ func _run() -> void:
 		and not main.worldheart_presenter._well_is_stirred,
 		"dropping the first spare shows a tiny flat beige card in the shared UI font"
 	)
-	main.hud.worldheart_offer_requested.emit("tile", "tile_grass_flower")
+	main.hud.worldheart_offer_requested.emit("tile", "tile_dirt_crossroad")
 	await get_tree().create_timer(0.62).timeout
 	check(
 		main.core.diorama.worldheart.contribution_progress("meadow") == 0
-		and main.core.stock.tile_count("tile_grass_flower") == 1
+		and main.core.stock.tile_count("tile_dirt_crossroad") == 1
 		and main.worldheart_presenter.progress_count_label.text == "2 / 2",
 		"a second offering shows 2 / 2 before visibly spitting out the new member"
 	)
@@ -628,9 +632,9 @@ func _run() -> void:
 	# branch stopped updating the hover target, that answer froze on the well's
 	# cell: the offer never released and every tile placed afterwards dropped
 	# into the well. Driven through the controller cursor so the aim is exact.
-	main.core.stock.add_tile("tile_grass_flower", 1)
+	main.core.stock.add_tile("tile_dirt_crossroad", 1)
 	main.placement.set_active(true)
-	main.placement.hold_new("tile", "tile_grass_flower")
+	main.placement.hold_new("tile", "tile_dirt_crossroad")
 	InputDeviceService.shared().input_method = InputDeviceService.InputMethod.CONTROLLER
 	main.placement.set_controller_mode(true)
 	main.placement._controller_cursor_active = true
@@ -654,9 +658,9 @@ func _run() -> void:
 	# placement action armed: it once did, because hiding the ghost over the
 	# well skipped validation entirely and _hover_valid kept the previous
 	# cell's true. A click then stacked the held tile on top of the well.
-	main.core.stock.add_tile("tile_grass_flower", 1)
+	main.core.stock.add_tile("tile_dirt_crossroad", 1)
 	main.placement.set_active(true)
-	main.placement.hold_new("tile", "tile_grass_flower")
+	main.placement.hold_new("tile", "tile_dirt_crossroad")
 	# Aim at the Worldheart and let the real update loop run. Hiding the ghost
 	# there once skipped validation entirely, so _hover_valid kept whatever the
 	# previously hovered cell had set and a click stacked the held tile on top

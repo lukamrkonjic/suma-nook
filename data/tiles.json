@@ -57,7 +57,7 @@
       "placement_sound": "grass",
       "collection_hint": "The gentle default. Everything grows from here.",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_grass.tres",
       "source_kind": "procedural",
       "source_revision": 6,
@@ -119,7 +119,7 @@
       "placement_sound": "grass",
       "collection_hint": "Tile Kit: procedural clay-toy grass, baked from the in-game generator.",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_kit_grass.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -180,7 +180,7 @@
       "placement_sound": "grass",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_grass_flower.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -241,7 +241,7 @@
       "placement_sound": "grass",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_flower_meadow.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -302,7 +302,7 @@
       "placement_sound": "grass",
       "collection_hint": "Tile Forge master: sculpted meadow cap with composed clumps.",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_master_grass.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -424,7 +424,7 @@
       "placement_sound": "grass",
       "collection_hint": "A deep clover carpet where broad ferns unfurl.",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_grove_mature.tres",
       "source_kind": "procedural",
       "source_revision": 4,
@@ -484,7 +484,7 @@
       "placement_sound": "grass",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_grove_birch.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -543,7 +543,7 @@
       "placement_sound": "grass",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_grove_flowering.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -663,7 +663,7 @@
       "placement_sound": "grass",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_grove_mossy.tres",
       "source_kind": "procedural",
       "source_revision": 4,
@@ -726,7 +726,7 @@
       "placement_sound": "grass",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_mossy_forest_floor.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -787,7 +787,7 @@
       "placement_sound": "grass",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_autumn_litter.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -848,7 +848,7 @@
       "placement_sound": "grass",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_garden.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -909,7 +909,7 @@
       "placement_sound": "grass",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_mulch_dirt_floor.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -968,7 +968,7 @@
       "placement_sound": "stone",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_path.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -1088,7 +1088,7 @@
       "placement_sound": "stone",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_plain_ground.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -1454,7 +1454,7 @@
       "placement_sound": "water",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_grass_pond_edge.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -1512,7 +1512,7 @@
       "placement_sound": "grass",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_pond_basin.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -1637,7 +1637,7 @@
       "placement_sound": "grass",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_mud_bed.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -1696,7 +1696,7 @@
       "placement_sound": "water",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_mud.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -1815,7 +1815,7 @@
       "placement_sound": "grass",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_sandy_ground.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -1871,7 +1871,7 @@
       "placement_sound": "grass",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_sand_dunes_study.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -1992,7 +1992,7 @@
       "placement_sound": "grass",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_snowfield.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -2108,7 +2108,7 @@
       "placement_sound": "grass",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_snow_drift.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -2164,7 +2164,7 @@
       "placement_sound": "grass",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_snow_drifts_study.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -2223,7 +2223,7 @@
       "placement_sound": "stone",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_snow_path.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -2284,7 +2284,7 @@
       "placement_sound": "stone",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_frosted_stone.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -2995,7 +2995,7 @@
       "placement_sound": "grass",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_gravel_yard.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -3056,7 +3056,7 @@
       "placement_sound": "grass",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_proc_boulder_ground.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -3178,7 +3178,7 @@
       "placement_sound": "stone",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_stone_crystal.tres",
       "source_kind": "procedural",
       "source_revision": 2
@@ -3302,7 +3302,7 @@
       "placement_sound": "stone",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_stone_road.tres",
       "source_kind": "procedural",
       "source_revision": 2,
@@ -3366,7 +3366,7 @@
       "placement_sound": "stone",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": true,
+      "obtainable": false,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_stone_ruin.tres",
       "source_kind": "procedural",
       "source_revision": 2

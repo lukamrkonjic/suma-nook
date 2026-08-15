@@ -1317,11 +1317,16 @@ func _test_registries() -> void:
 		and not regs.tile("tile_grass").placeable_on_water,
 		"open water remains continuous while current land opts into playful shoreline skipping"
 	)
+	# 29 of the 61 compiled tiles are live. The other 32 were archived rather
+	# than deleted: Luka rejected them on art grounds (over-detailed, striped
+	# snow and sand, repeating patterns) and the library is being rebuilt one
+	# collection at a time against the Dirt Ground reference. Their records stay
+	# in tiles.json for reference; only the active roster shrank.
 	check(
-		regs.active_tile_ids().size() == 60
+		regs.active_tile_ids().size() == 29
 		and regs.preview_tile_ids().is_empty()
 		and regs.obtainable_tile_ids().all(func(tile_id: String) -> bool: return regs.is_tile_active(tile_id)),
-		"the 60 catalog tiles ship in the active gameplay roster"
+		"the surviving catalog tiles ship in the active gameplay roster"
 	)
 	check(
 		regs.tile("tile_proc_fenced_meadow") != null
@@ -1466,9 +1471,12 @@ func _test_endless_diorama_progression() -> void:
 		and core.grid.home_cell == Vector2i.ZERO,
 		"the chosen vibe creates exactly nine tiles with the Worldheart on its centre tile"
 	)
+	# Meadow seeds Dirt Ground while its grass is rebuilt -- read the collection
+	# rather than naming a tile, so this survives the next repoint too.
+	var meadow_start: String = core.registries.creative_collection("meadow").starting_tile_id
 	var all_meadow_tiles := true
 	for state: WorldGrid.CellState in core.grid.cells.values():
-		if state.tile_id != "tile_grass":
+		if state.tile_id != meadow_start:
 			all_meadow_tiles = false
 	check(
 		all_meadow_tiles,
@@ -1575,9 +1583,9 @@ func _test_endless_diorama_progression() -> void:
 		"unattended play accumulates a bounded reserve instead of overrunning the world"
 	)
 
-	core.stock.add_tile("tile_grass_flower", 2)
+	core.stock.add_tile("tile_dirt_crossroad", 2)
 	var first_contribution := core.diorama.worldheart.contribute_from_stock(
-		"tile", "tile_grass_flower"
+		"tile", "tile_dirt_crossroad"
 	)
 	check(
 		bool(first_contribution.get("accepted", false))
@@ -1587,21 +1595,21 @@ func _test_endless_diorama_progression() -> void:
 		"the first true spare fills half of its collection ritual"
 	)
 	var second_contribution := core.diorama.worldheart.contribute_from_stock(
-		"tile", "tile_grass_flower"
+		"tile", "tile_dirt_crossroad"
 	)
 	var exchange: Dictionary = second_contribution.get("reward", {})
 	check(
 		bool(second_contribution.get("completed", false))
 		and not exchange.is_empty()
-		and String(exchange.get("id", "")) != "tile_grass_flower"
+		and String(exchange.get("id", "")) != "tile_dirt_crossroad"
 		and String(exchange.get("creative_collection_id", "")) == "meadow"
 		and core.diorama.worldheart.contribution_progress("meadow") == 0,
 		"the second same-collection spare completes the circle and grants a different member"
 	)
-	while core.stock.tile_count("tile_grass_flower") > 1:
-		core.stock.take_tile("tile_grass_flower")
+	while core.stock.tile_count("tile_dirt_crossroad") > 1:
+		core.stock.take_tile("tile_dirt_crossroad")
 	check(
-		not core.diorama.worldheart.can_offer("tile", "tile_grass_flower"),
+		not core.diorama.worldheart.can_offer("tile", "tile_dirt_crossroad"),
 		"the exchange protects the last owned copy across bag and world"
 	)
 
