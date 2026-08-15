@@ -43,6 +43,16 @@ ARCHETYPES = {
         "cluster_fraction": "0.12", "cluster_radius": "0.28",
         "edge_fraction": "0.35", "corner_fraction": "0.2",
     },
+    # Garden Galaxy's own ground scatter, measured from its shipped meshes:
+    # "Soil Bits square" is 80 single-triangle pieces, each ~0.15 wide and
+    # ~0.09 tall, and that is the entire scatter layer of a soil tile. Many
+    # tiny shards rather than few sculpted chunks is what reads as minimal.
+    "gg": {
+        "count": "[62, 78]", "diameter": "[0.11, 0.19]",
+        "height": "[0.055, 0.105]", "min_spacing": "0.055",
+        "cluster_fraction": "0.45", "cluster_radius": "0.30",
+        "edge_fraction": "0.22", "corner_fraction": "0.12",
+    },
     # Sparser, chunkier, sitting in the surface rather than on it.
     "bits": {
         "count": "[5, 7]", "diameter": "[0.22, 0.36]",
@@ -78,7 +88,8 @@ DIRT_SCATTER = {
     "placement_mode": '"clusters"',
     "scale_multiplier": "1.0",
 }
-DECORATIVE = ["dressing", "grass_clusters", "rooted_meadow", "forest_floor"]
+DECORATIVE = ["dressing", "grass_clusters", "rooted_meadow", "forest_floor",
+              "pavers"]
 
 # The one archetype that is not a scatter. The dressing builder grows merged,
 # overlapping blobs rather than discrete pieces, which is what separates a moss
@@ -118,7 +129,8 @@ def rewrite_dressing(text, light, dark):
                         'kind = "dressing"\nparams = {\n' + params + weights)
 
 
-def rewrite_clutter(text, light, dark, shapes, archetype="particles"):
+def rewrite_clutter(text, light, dark, shapes, archetype="particles",
+                    placement="clusters"):
     block = re.search(r'kind = "clutter"\n(enabled = false\n)?params = \{.*?\n\}\n',
                       text, re.S)
     if block is None:
@@ -152,6 +164,8 @@ def main():
     ap.add_argument("--dark", required=True)
     ap.add_argument("--shapes", default="clay_chip")
     ap.add_argument("--base", default="")
+    ap.add_argument("--placement", default="clusters",
+                    choices=["clusters", "drift"])
     ap.add_argument("--archetype", default="particles",
                     choices=sorted(list(ARCHETYPES) + ["patches"]))
     args = ap.parse_args()
@@ -166,7 +180,7 @@ def main():
         text = rewrite_dressing(text, args.light, args.dark)
     else:
         text = rewrite_clutter(text, args.light, args.dark, args.shapes.split(","),
-                               args.archetype)
+                               args.archetype, args.placement)
     path.write_text(text, encoding="utf-8")
     print("%s: base + %s (%s / %s)"
           % (args.tile_id, args.archetype, args.light, args.dark))

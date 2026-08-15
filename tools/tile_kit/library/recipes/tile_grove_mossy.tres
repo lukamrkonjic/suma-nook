@@ -34,6 +34,7 @@ params = {
 [sub_resource type="Resource" id="Resource_nyk1p"]
 script = ExtResource("1_ukacy")
 kind = "dressing"
+enabled = false
 params = {
 "allow_overlap": true,
 "edge_softness": 0.6,
@@ -70,10 +71,10 @@ params = {
 "placement_mode": "clusters",
 "scale_multiplier": 1.0,
 "color_weights": {
-"moss_top": 50.0,
-"moss_deep": 50.0
+"moss_cushion_light": 50.0,
+"moss_cushion_body": 50.0
 },
-"shapes": ["clay_chip"]
+"shapes": ["gg_shard"]
 }
 
 [sub_resource type="Resource" id="Resource_joq0s"]

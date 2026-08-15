@@ -9,21 +9,21 @@ kind = "base"
 params = {
 "basin_depth": 0.0,
 "basin_rim": 0.17,
-"bevel_key": "earth_bevel",
+"bevel_key": "dirt_clay_bevel",
 "bevel_segments": 6,
 "bottom_chamfer": 0.016,
 "corner_radius": 0.075,
-"lower_key": "earth_deep",
-"relief_amplitude": 0.015,
+"lower_key": "dirt_clay_lower",
+"relief_amplitude": 0.0,
 "relief_bipolar": false,
 "relief_edge_feather": 0.2,
 "relief_frequency": 2.2,
-"relief_resolution": 24,
-"relief_style": "pillow",
-"side_key": "earth_side",
+"relief_resolution": 12,
+"relief_style": "none",
+"side_key": "dirt_clay_side",
 "surface_profile": "detailed_square",
 "top_bevel": 0.075,
-"top_key": "earth_top",
+"top_key": "dirt_clay_top",
 "turf_cap": false,
 "turf_thickness": 0.078,
 "turf_wobble": 0.013
@@ -47,6 +47,7 @@ params = {
 [sub_resource type="Resource" id="Resource_n7xh1"]
 script = ExtResource("1_pjwb1")
 kind = "pavers"
+enabled = false
 params = {
 "gap": 0.02,
 "pattern": "trail",
@@ -65,23 +66,23 @@ params = {
 script = ExtResource("1_pjwb1")
 kind = "clutter"
 params = {
-"cluster_fraction": 0.7,
-"cluster_radius": 0.24,
-"color_weights": {
-"autumn_amber": 55.0,
-"stone_medium": 45.0
-},
-"corner_fraction": 0.0,
-"count": [4, 7],
-"diameter": [0.06, 0.11],
-"edge_fraction": 0.0,
-"edge_margin": 0.035,
-"height": [0.01, 0.02],
-"min_spacing": 0.055,
-"on_dressing_fraction": 0.55,
+"cluster_fraction": 0.12,
+"cluster_radius": 0.28,
+"corner_fraction": 0.2,
+"count": [20, 24],
+"diameter": [0.12, 0.24],
+"edge_fraction": 0.35,
+"edge_margin": 0.1,
+"height": [0.006, 0.014],
+"min_spacing": 0.13,
+"on_dressing_fraction": 0.0,
 "placement_mode": "clusters",
 "scale_multiplier": 1.0,
-"shapes": ["pebble", "leaf_litter"]
+"color_weights": {
+"dirt_clay_chip_light": 50.0,
+"dirt_clay_chip_dark": 50.0
+},
+"shapes": ["gg_shard"]
 }
 
 [sub_resource type="Resource" id="Resource_pgy18"]

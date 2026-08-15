@@ -18,6 +18,7 @@ extends RefCounted
 
 const ALL_SHAPES := ["dot", "oval", "leaf_pair", "lobed_clump", "nub",
 	"clod", "clay_chip", "rock", "pebble", "stone_chip", "twig", "wood_chip",
+	"gg_shard",
 	"leaf_litter", "mushroom", "snow_lump", "drift_mound", "bud", "boulder",
 	"lily_pad", "crystal", "footprint"]
 
@@ -185,6 +186,8 @@ static func _shape_radius_scale(shape: String) -> float:
 			return 0.78
 		"leaf_pair", "mushroom", "bud":
 			return 0.72
+		"gg_shard":
+			return 0.42
 		"clay_chip", "lobed_clump", "oval", "pebble":
 			return 0.58
 		_:
@@ -216,6 +219,26 @@ static func _add_shape(batch: TileKitMeshUtils.MeshBatch, layer: TileKitLayer,
 				origin - Vector3(0.0, piece_height * 0.15, 0.0),
 				diameter * 0.55, diameter * 0.48,
 				piece_height * rng.randf_range(1.1, 1.6), yaw, rng, 0.26)
+		"gg_shard":
+			# Garden Galaxy's own ground scatter, measured from its shipped
+			# meshes: "Soil Bits square" is 80 triangles across 80 separate
+			# pieces -- one single tilted triangle each, ~0.15 wide and ~0.09
+			# tall. That is the whole scatter layer for a soil tile, and it is
+			# why GG's grounds read minimal while ours read busy: our chips are
+			# faceted chunks at roughly ten triangles apiece.
+			var tilt := rng.randf_range(0.35, 0.95)
+			var lean := Vector3(cos(yaw + PI * 0.5), 0.0, sin(yaw + PI * 0.5))
+			var forward := Vector3(cos(yaw), 0.0, sin(yaw))
+			var half := diameter * 0.5
+			TileKitMeshUtils.add_flat_triangle(
+				batch,
+				key,
+				origin - forward * half - lean * half * 0.30,
+				origin + forward * half - lean * half * 0.30,
+				origin
+					+ lean * half * rng.randf_range(0.55, 1.0)
+					+ Vector3.UP * piece_height * tilt
+			)
 		"nub":
 			TileKitMeshUtils.add_dome(batch, key, origin,
 				diameter * 0.42, diameter * 0.42, piece_height * 1.4, yaw)
