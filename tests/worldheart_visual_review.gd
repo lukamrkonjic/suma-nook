@@ -20,11 +20,10 @@ func _ready() -> void:
 
 func _run() -> void:
 	await get_tree().create_timer(0.8).timeout
-	await _capture("01_empty_vibe_choice.png")
-	main.collection_vibe_panel._choose("winter")
+	await _capture("01_opening_world.png")
 	main.camera_rig.set_zoom_immediate(10.0)
 	await get_tree().create_timer(0.9).timeout
-	await _capture("02_winter_nine_tiles.png")
+	await _capture("02_nine_tiles_around_the_well.png")
 	var well_screen := main.camera_rig.camera.unproject_position(
 		main.worldheart_presenter._well_interaction_anchor()
 	)
@@ -43,16 +42,16 @@ func _run() -> void:
 	main.lighting.set_time_of_day("noon")
 	main.lighting.set_background_preset("profile")
 	await get_tree().create_timer(0.35).timeout
-	main.core.stock.add_tile("tile_grass_flower", 3)
+	main.core.stock.add_tile("tile_dirt_crossroad", 3)
 	InputDeviceService.shared().input_method = InputDeviceService.InputMethod.CONTROLLER
 	main.placement.set_controller_mode(true)
-	main.placement.hold_new("tile", "tile_grass_flower")
+	main.placement.hold_new("tile", "tile_dirt_crossroad")
 	main.placement._controller_cell = Vector2i.ZERO
 	# Freeze Main's mouse/controller synchronizer while the presenter advances
 	# its own animation. This keeps automated captures independent of host input.
 	main.set_process(false)
 	main.worldheart_presenter.show_offering_preview(
-		"tile", "tile_grass_flower"
+		"tile", "tile_dirt_crossroad"
 	)
 	main.placement.set_external_offer_preview(true)
 	await get_tree().create_timer(0.16).timeout
@@ -67,7 +66,7 @@ func _run() -> void:
 	await _capture("05_offering_fall.png")
 	await get_tree().create_timer(0.64).timeout
 	await _capture("06_meter_one_of_two.png")
-	main.hud.worldheart_offer_requested.emit("tile", "tile_grass_flower")
+	main.hud.worldheart_offer_requested.emit("tile", "tile_dirt_crossroad")
 	await get_tree().create_timer(1.78).timeout
 	await _capture("07a_reward_launch_rising.png")
 	await get_tree().create_timer(0.30).timeout

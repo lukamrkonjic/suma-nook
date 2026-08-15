@@ -5,8 +5,14 @@
       "name": "Meadow",
       "description": "Soft ground, flowers and pieces for a lived-in garden.",
       "color_token": "ui_good",
-      "starting_tile_id": "tile_dirt",
+      "starting_tile_id": "tile_grass",
       "members": [
+        {
+          "kind": "tile",
+          "id": "tile_grass",
+          "tier": 0,
+          "family": "ground"
+        },
         {
           "kind": "tile",
           "id": "tile_dirt",
