@@ -118,29 +118,67 @@ def disable(text, kind):
     return pattern.sub(r'\1enabled = false\n', text)
 
 
+def _layer_block(text, kind):
+    """Span of one layer's `kind`/`params` block, matched by brace depth.
+
+    A regex ending at the first `\\n}\\n` stops early once params contains a
+    nested dict such as color_weights, which leaves the real closing brace
+    behind and produces an unparseable resource.
+    """
+    head = re.search(r'kind = "%s"\n(enabled = false\n)?params = \{' % kind, text)
+    if head is None:
+        return None
+    depth, i = 0, head.end() - 1
+    while i < len(text):
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return head.start(), i + 2  # include the trailing newline
+        i += 1
+    return None
+
+
+def _parse_overrides(raw):
+    """--set count=[26, 34] --set diameter=[0.07, 0.13]"""
+    out = {}
+    for item in raw or []:
+        if not item:
+            continue
+        key, _, value = item.partition("=")
+        out[key.strip()] = value.strip()
+    return out
+
+
+def _replace_layer(text, kind, body):
+    span = _layer_block(text, kind)
+    if span is None:
+        raise SystemExit("recipe has no %s layer to build on" % kind)
+    return text[:span[0]] + body + text[span[1]:]
+
+
 def rewrite_dressing(text, light, dark):
-    pattern = 'kind = "dressing"\\n(enabled = false\\n)?params = \\{.*?\\n\\}\\n'
-    block = re.search(pattern, text, re.S)
-    if block is None:
-        raise SystemExit("recipe has no dressing layer to build patches on")
     params = "".join('"%s": %s,\n' % (k, v) for k, v in sorted(PATCHES.items()))
-    weights = '"color_weights": {\n"%s": 55.0,\n"%s": 45.0\n}\n}\n' % (light, dark)
-    return text.replace(block.group(0),
-                        'kind = "dressing"\nparams = {\n' + params + weights)
+    body = ('kind = "dressing"\nparams = {\n' + params
+            + '"color_weights": {\n"%s": 55.0,\n"%s": 45.0\n}\n}\n' % (light, dark))
+    return _replace_layer(text, "dressing", body)
 
 
 def rewrite_clutter(text, light, dark, shapes, archetype="particles",
-                    placement="clusters"):
-    block = re.search(r'kind = "clutter"\n(enabled = false\n)?params = \{.*?\n\}\n',
-                      text, re.S)
-    if block is None:
-        raise SystemExit("recipe has no clutter layer to build on")
-    params = "".join('"%s": %s,\n' % (k, v) for k, v in sorted(DIRT_SCATTER.items()))
-    new = ('kind = "clutter"\nparams = {\n'
-           + params
-           + '"color_weights": {\n"%s": 50.0,\n"%s": 50.0\n},\n' % (light, dark)
-           + '"shapes": [%s]\n}\n' % ", ".join('"%s"' % s for s in shapes))
-    return text.replace(block.group(0), new)
+                    placement="clusters", overrides=None):
+    # Dirt Ground's scatter is the baseline; the archetype overrides the counts
+    # and dimensions on top of it. Losing this merge silently reduced every
+    # archetype to the baseline, so bits/cushion/gg differed only by shape.
+    values = dict(DIRT_SCATTER)
+    values.update(ARCHETYPES[archetype])
+    values["placement_mode"] = '"%s"' % placement
+    values.update(overrides or {})
+    params = "".join('"%s": %s,\n' % (k, v) for k, v in sorted(values.items()))
+    body = ('kind = "clutter"\nparams = {\n' + params
+            + '"color_weights": {\n"%s": 50.0,\n"%s": 50.0\n},\n' % (light, dark)
+            + '"shapes": [%s]\n}\n' % ", ".join('"%s"' % s for s in shapes))
+    return _replace_layer(text, "clutter", body)
 
 
 def rewrite_base(text, mapping):
@@ -166,6 +204,8 @@ def main():
     ap.add_argument("--base", default="")
     ap.add_argument("--placement", default="clusters",
                     choices=["clusters", "drift"])
+    # Per-tile tweaks on top of an archetype, e.g. --set count=[26, 34]
+    ap.add_argument("--set", dest="overrides", default=[], action="append")
     ap.add_argument("--archetype", default="particles",
                     choices=sorted(list(ARCHETYPES) + ["patches"]))
     args = ap.parse_args()
@@ -180,7 +220,8 @@ def main():
         text = rewrite_dressing(text, args.light, args.dark)
     else:
         text = rewrite_clutter(text, args.light, args.dark, args.shapes.split(","),
-                               args.archetype, args.placement)
+                               args.archetype, args.placement,
+                               _parse_overrides(args.overrides))
     path.write_text(text, encoding="utf-8")
     print("%s: base + %s (%s / %s)"
           % (args.tile_id, args.archetype, args.light, args.dark))

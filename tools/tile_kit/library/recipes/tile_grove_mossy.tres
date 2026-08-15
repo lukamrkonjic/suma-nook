@@ -34,7 +34,6 @@ params = {
 [sub_resource type="Resource" id="Resource_nyk1p"]
 script = ExtResource("1_ukacy")
 kind = "dressing"
-enabled = false
 params = {
 "allow_overlap": true,
 "edge_softness": 0.6,
@@ -58,15 +57,15 @@ params = {
 script = ExtResource("1_ukacy")
 kind = "clutter"
 params = {
-"cluster_fraction": 0.12,
-"cluster_radius": 0.28,
-"corner_fraction": 0.2,
-"count": [20, 24],
-"diameter": [0.12, 0.24],
-"edge_fraction": 0.35,
+"cluster_fraction": 0.45,
+"cluster_radius": 0.30,
+"corner_fraction": 0.12,
+"count": [62, 78],
+"diameter": [0.11, 0.19],
+"edge_fraction": 0.22,
 "edge_margin": 0.1,
-"height": [0.006, 0.014],
-"min_spacing": 0.13,
+"height": [0.055, 0.105],
+"min_spacing": 0.055,
 "on_dressing_fraction": 0.0,
 "placement_mode": "clusters",
 "scale_multiplier": 1.0,
