@@ -1,6 +1,6 @@
 [gd_scene format=4]
 
-[ext_resource type="Material" path="res://tools/tile_kit/baked/materials/forest_clover_light.tres" id="1_6cs02"]
+[ext_resource type="Material" path="res://tools/tile_kit/baked/materials/moss_clump.tres" id="1_6cs02"]
 [ext_resource type="Material" path="res://tools/tile_kit/baked/materials/forest_floor_side.tres" id="2_8sl41"]
 
 [sub_resource type="ArrayMesh" id="ArrayMesh_wwj02"]
@@ -26,8 +26,8 @@ _surfaces = [{
 "vertex_data": PackedByteArray("eO09PwAAAAAwCxs/ixc8PwAAAACPciU/Ry4yPwAAAAAgUS4/0vojPwAAAACbQzI/yukWPwAAAAAHyC8/4PgPPwAAAAAq0Sc/zc4RPwAAAADLaR0/EbgbPwAAAAA6ixQ/huspPwAAAAC/mBA/jvw2PwAAAABTFBM/ZNk6P28Sgzs85hs/bEI5P28SgzvI6CQ/Fq0wP28Sgzsmlyw/sGAkP28SgztAAjA/zg8ZP28SgzvT2y0/9AwTP28Sgzse9iY/7KMUP28SgzuS8x0/QjkdP28Sgzs0RRY/qIUpP28Sgzsa2hI/itY0P28SgzuHABU/UnAyP/sF4zuuPB4/XIUxP/sF4ztecCM/upAsP/sF4zun3yc//3YlP/sF4zvk2Ck/e+4eP/sF4zsamyg/BnYbP/sF4zusnyQ//GAcP/sF4zv8ax8/nlUhP/sF4zuz/Bo/WW8oP/sF4zt2Axk/3fcuP/sF4ztAQRo/LPMmP28SAzwtbiE/LPMmP28SAzwtbiE/LPMmP28SAzwtbiE/LPMmP28SAzwtbiE/LPMmP28SAzwtbiE/LPMmP28SAzwtbiE/LPMmP28SAzwtbiE/LPMmP28SAzwtbiE/LPMmP28SAzwtbiE/LPMmP28SAzwtbiE////Wm0CaWbyGz/9/nVj+s2us/39+WrechYb/f315bYMXVP9/PKVWnNYb/39Amlm8AAB4sJ1Y/rMAAJLTflq3nAAAePl9eW2D//8W1DylVpzPk37wsw/qyH6PDufSGSbH74ld4z0aOcMxgY7oRxlDvpF3bOdgG5q6fnAu7OcVRLgOZ3/wXhBBtF5jD/YBDfCwj2jN/rQFcbKSmJD3IAYSy1yHO/rCBYrD74Vw9rYJ5sLjg8f05Aq3wXOAGPecCOy/xnya9sgJOr48eqH4pQccvXF2D/oMBlC7yHQa/FUEQLoZd4r/DAFFu2SJxvzqAoLE/3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/7//f///AAD/v/9///8AAP+//3///wAA/78=")
 }]
 
-[node name="tile_kit_detail" type="Node3D" unique_id=1318238586]
+[node name="tile_kit_detail" type="Node3D" unique_id=620094171]
 
-[node name="tile_clutter" type="MeshInstance3D" parent="." unique_id=443438235]
+[node name="tile_clutter" type="MeshInstance3D" parent="." unique_id=515247500]
 cast_shadow = 0
 mesh = SubResource("ArrayMesh_wwj02")

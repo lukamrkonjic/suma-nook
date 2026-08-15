@@ -180,6 +180,18 @@
           "id": "struct_pine_tall",
           "tier": 2,
           "family": "pine"
+        },
+        {
+          "kind": "tile",
+          "id": "tile_grove_mossy",
+          "tier": 1,
+          "family": "ground"
+        },
+        {
+          "kind": "tile",
+          "id": "tile_stone_mossy",
+          "tier": 1,
+          "family": "ground"
         }
       ],
       "milestones": [

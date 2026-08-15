@@ -666,7 +666,7 @@
       "placement_sound": "grass",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": false,
+      "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_grove_mossy.tres",
       "source_kind": "procedural",
       "source_revision": 4,
@@ -3262,7 +3262,7 @@
       "placement_sound": "stone",
       "collection_hint": "",
       "special_trait": "",
-      "obtainable": false,
+      "obtainable": true,
       "source_manifest": "res://tools/tile_kit/library/manifests/tile_stone_mossy.tres",
       "source_kind": "procedural",
       "source_revision": 2

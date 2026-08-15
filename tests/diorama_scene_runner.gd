@@ -484,6 +484,7 @@ func _run() -> void:
 	var offer_hole_screen := main.camera_rig.camera.unproject_position(
 		main.worldheart_presenter._well_interaction_anchor()
 	)
+	var spares_before: int = main.core.stock.tile_count("tile_dirt_crossroad")
 	main._begin_build_pointer(offer_hole_screen)
 	check(
 		main._worldheart_offer_pointer_pressed
@@ -505,7 +506,7 @@ func _run() -> void:
 	)
 	check(
 		main.core.diorama.worldheart.contribution_progress("meadow") == 1
-		and main.core.stock.tile_count("tile_dirt_crossroad") == 2
+		and main.core.stock.tile_count("tile_dirt_crossroad") == spares_before - 1
 		and main.worldheart_presenter.progress_card_sprite.visible
 		and main.worldheart_presenter.progress_icon.texture != null
 		and main.worldheart_presenter.progress_count_label.text == "1 / 2"
@@ -524,7 +525,7 @@ func _run() -> void:
 	await get_tree().create_timer(0.62).timeout
 	check(
 		main.core.diorama.worldheart.contribution_progress("meadow") == 0
-		and main.core.stock.tile_count("tile_dirt_crossroad") == 1
+		and main.core.stock.tile_count("tile_dirt_crossroad") == spares_before - 2
 		and main.worldheart_presenter.progress_count_label.text == "2 / 2",
 		"a second offering shows 2 / 2 before visibly spitting out the new member"
 	)

@@ -14,14 +14,14 @@ params = {
 "bottom_chamfer": 0.024,
 "corner_radius": 0.11,
 "lower_key": "moss_ground_soil_lower",
-"relief_amplitude": 0.036,
+"relief_amplitude": 0.0,
 "relief_bipolar": false,
 "relief_edge_feather": 0.25,
 "relief_frequency": 1.15,
 "relief_heap_count": [4, 5],
 "relief_heap_radius": [0.24, 0.36],
-"relief_resolution": 32,
-"relief_style": "heaps",
+"relief_resolution": 12,
+"relief_style": "none",
 "side_key": "moss_ground_soil_side",
 "surface_profile": "detailed_square",
 "top_bevel": 0.055,
@@ -49,26 +49,30 @@ params = {
 [sub_resource type="Resource" id="Resource_2ffuy"]
 script = ExtResource("1_ukacy")
 kind = "clutter"
-enabled = false
 params = {
-"cluster_fraction": 0.7,
-"cluster_radius": 0.24,
-"corner_fraction": 0.0,
-"count": [7, 13],
-"diameter": [0.05, 0.11],
-"edge_fraction": 0.0,
-"edge_margin": 0.03,
-"height": [0.008, 0.018],
-"min_spacing": 0.06,
+"cluster_fraction": 0.12,
+"cluster_radius": 0.28,
+"corner_fraction": 0.2,
+"count": [20, 24],
+"diameter": [0.12, 0.24],
+"edge_fraction": 0.35,
+"edge_margin": 0.1,
+"height": [0.006, 0.014],
+"min_spacing": 0.13,
 "on_dressing_fraction": 0.0,
 "placement_mode": "clusters",
 "scale_multiplier": 1.0,
-"shapes": ["pebble"]
+"color_weights": {
+"moss_plush_light": 50.0,
+"moss_plush_deep": 50.0
+},
+"shapes": ["clay_chip"]
 }
 
 [sub_resource type="Resource" id="Resource_joq0s"]
 script = ExtResource("1_ukacy")
 kind = "grass_clusters"
+enabled = false
 params = {
 "accent_clumps": [1, 2],
 "blade_fraction": 0.42,

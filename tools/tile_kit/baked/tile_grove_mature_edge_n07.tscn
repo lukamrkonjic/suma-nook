@@ -6,16 +6,16 @@
 _surfaces = [{
 "aabb": AABB(-0.85, -0.18, -0.85, 1e-05, 0.18, 1.7),
 "format": 34359742471,
-"index_count": 120,
-"index_data": PackedByteArray("AAACAAMAAAADAAEAAgAEAAUAAgAFAAMABAAGAAcABAAHAAUABgAIAAkABgAJAAcACAAKAAsACAALAAkACgAMAA0ACgANAAsADAAOAA8ADAAPAA0ADgAQABEADgARAA8AEAASABMAEAATABEAEgAUABUAEgAVABMAFAAWABcAFAAXABUAFgAYABkAFgAZABcAGAAaABsAGAAbABkAGgAcAB0AGgAdABsAHAAeAB8AHAAfAB0AHgAgACEAHgAhAB8AIAAiACMAIAAjACEAIgAkACUAIgAlACMAJAAmACcAJAAnACUAJgAoACkAJgApACcA"),
+"index_count": 72,
+"index_data": PackedByteArray("AAACAAMAAAADAAEAAgAEAAUAAgAFAAMABAAGAAcABAAHAAUABgAIAAkABgAJAAcACAAKAAsACAALAAkACgAMAA0ACgANAAsADAAOAA8ADAAPAA0ADgAQABEADgARAA8AEAASABMAEAATABEAEgAUABUAEgAVABMAFAAWABcAFAAXABUAFgAYABkAFgAZABcA"),
 "material": ExtResource("1_uwrnl"),
 "primitive": 3,
 "uv_scale": Vector4(0, 0, 0, 0),
-"vertex_count": 42,
-"vertex_data": PackedByteArray("mplZv+xROL6amVk/mplZvwAAAACamVk/mplZv+xROL4K10M/mplZvwAAAAAK10M/mplZv+xROL57FC4/mplZvwAAAAB7FC4/mplZv+xROL7sURg/mplZvwAAAADsURg/mplZv+xROL5cjwI/mplZvwAAAABcjwI/mplZv+xROL6amdk+mplZvwAAAACamdk+mplZv+xROL57FK4+mplZvwAAAAB7FK4+mplZv+xROL5cj4I+mplZvwAAAABcj4I+mplZv+xROL57FC4+mplZvwAAAAB7FC4+mplZv+xROL57FK49mplZvwAAAAB7FK49mplZv+xROL4AAAAlmplZvwAAAAAAAAAlmplZv+xROL57FK69mplZvwAAAAB7FK69mplZv+xROL57FC6+mplZvwAAAAB7FC6+mplZv+xROL5cj4K+mplZvwAAAABcj4K+mplZv+xROL57FK6+mplZvwAAAAB7FK6+mplZv+xROL6amdm+mplZvwAAAACamdm+mplZv+xROL5cjwK/mplZvwAAAABcjwK/mplZv+xROL7sURi/mplZvwAAAADsURi/mplZv+xROL57FC6/mplZvwAAAAB7FC6/mplZv+xROL4K10O/mplZvwAAAAAK10O/mplZv+xROL6amVm/mplZvwAAAACamVm/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/")
+"vertex_count": 26,
+"vertex_data": PackedByteArray("mplZv+xROL6amVk/mplZvwAAAACamVk/mplZv+xROL5VVTU/mplZvwAAAABVVTU/mplZv+xROL4RERE/mplZvwAAAAARERE/mplZv+xROL6amdk+mplZvwAAAACamdk+mplZv+xROL4REZE+mplZvwAAAAAREZE+mplZv+xROL4RERE+mplZvwAAAAARERE+mplZv+xROL4AAAAAmplZvwAAAAAAAAAAmplZv+xROL4RERG+mplZvwAAAAARERG+mplZv+xROL4REZG+mplZvwAAAAAREZG+mplZv+xROL6amdm+mplZvwAAAACamdm+mplZv+xROL4RERG/mplZvwAAAAARERG/mplZv+xROL5VVTW/mplZvwAAAABVVTW/mplZv+xROL6amVm/mplZvwAAAACamVm/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vwAA/3//f/+/AAD/f/9//78AAP9//3//vw==")
 }]
 
-[node name="tile_kit_edge" type="Node3D" unique_id=1683849144]
+[node name="tile_kit_edge" type="Node3D" unique_id=1172358342]
 
-[node name="tile_cap_edge" type="MeshInstance3D" parent="." unique_id=1751892357]
+[node name="tile_cap_edge" type="MeshInstance3D" parent="." unique_id=2052822836]
 mesh = SubResource("ArrayMesh_3ac67")

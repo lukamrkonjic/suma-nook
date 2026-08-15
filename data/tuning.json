@@ -73,6 +73,7 @@
     "tile_grass_half",
     "tile_grass_low",
     "tile_grove_mature",
+    "tile_grove_mossy",
     "tile_master_pavers",
     "tile_master_wood",
     "tile_open_water",
@@ -84,6 +85,7 @@
     "tile_proc_tilled_field",
     "tile_proc_wood_plank_deck",
     "tile_sand",
+    "tile_stone_mossy",
     "tile_wooden_planks"
   ],
   "starter_land_options": [

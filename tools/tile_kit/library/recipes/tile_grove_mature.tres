@@ -18,7 +18,7 @@ params = {
 "relief_bipolar": false,
 "relief_edge_feather": 0.2,
 "relief_frequency": 2.2,
-"relief_resolution": 20,
+"relief_resolution": 12,
 "relief_style": "none",
 "side_key": "forest_floor_side",
 "surface_profile": "detailed_square",
@@ -50,10 +50,6 @@ kind = "clutter"
 params = {
 "cluster_fraction": 0.12,
 "cluster_radius": 0.28,
-"color_weights": {
-"forest_clover_light": 50.0,
-"forest_floor_side": 50.0
-},
 "corner_fraction": 0.2,
 "count": [20, 24],
 "diameter": [0.12, 0.24],
@@ -64,6 +60,10 @@ params = {
 "on_dressing_fraction": 0.0,
 "placement_mode": "clusters",
 "scale_multiplier": 1.0,
+"color_weights": {
+"moss_clump": 50.0,
+"forest_floor_side": 50.0
+},
 "shapes": ["clay_chip", "leaf_litter"]
 }
 

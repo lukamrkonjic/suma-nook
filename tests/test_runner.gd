@@ -1317,15 +1317,15 @@ func _test_registries() -> void:
 		and not regs.tile("tile_grass").placeable_on_water,
 		"open water remains continuous while current land opts into playful shoreline skipping"
 	)
-	# 24 of the 61 compiled tiles are live: Grass and Forest Floor are both back,
-	# rebuilt. The others were archived rather than deleted: Luka rejected them
+	# 26 of the 61 compiled tiles are live: Grass, Forest Floor, Mossy Forest
+	# Floor and Mossy Stone are all back, rebuilt. The others were archived rather than deleted: Luka rejected them
 	# on art grounds (over-detailed, striped snow and sand, repeating patterns)
 	# and the library is being rebuilt one collection at a time against the Dirt
 	# Ground reference -- base plus one scatter layer, inside its triangle
 	# budget. Their records stay in tiles.json for reference; only the active
 	# roster shrank.
 	check(
-		regs.active_tile_ids().size() == 24
+		regs.active_tile_ids().size() == 26
 		and regs.preview_tile_ids().is_empty()
 		and regs.obtainable_tile_ids().all(func(tile_id: String) -> bool: return regs.is_tile_active(tile_id)),
 		"the surviving catalog tiles ship in the active gameplay roster"
