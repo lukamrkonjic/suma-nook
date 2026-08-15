@@ -277,7 +277,7 @@ func _active_style_parameters(key: String, source: Dictionary) -> Dictionary:
 		["grass", "moss", "leaf", "foliage", "pine", "olive", "flora", "reed"]
 	):
 		result["roughness"] = 0.74
-		result["calm_cream_mix"] = 0.14
+		result["calm_cream_mix"] = 0.08
 	elif _contains_any(lower_key, ["earth", "soil", "sand"]):
 		result["roughness"] = 0.8
 		result["specular"] = 0.45

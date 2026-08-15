@@ -120,7 +120,10 @@
     "gold_primary": "#DDB626",
     "gold_highlight": "#EAD24A",
     "gold_deep": "#BF8E18",
-    "metal": "#565D63"
+    "metal": "#565D63",
+    "tilekit_grass_gg_bevel": "#586C49",
+    "tilekit_grass_gg_fleck_light": "#687A56",
+    "tilekit_grass_gg_fleck_dark": "#43563A"
   },
   "families": []
 }
