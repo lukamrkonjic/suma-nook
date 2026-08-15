@@ -15,6 +15,7 @@ top and its field tones.
 
 Usage:
   python tools/gg_match/apply_gg_discipline.py <tile_id> \
+      --archetype particles|bits|cushion|patches \
       --light <role> --dark <role> [--shapes clay_chip,leaf_litter] \
       [--base top=role,side=role,lower=role,bevel=role]
 """
@@ -79,10 +80,42 @@ DIRT_SCATTER = {
 }
 DECORATIVE = ["dressing", "grass_clusters", "rooted_meadow", "forest_floor"]
 
+# The one archetype that is not a scatter. The dressing builder grows merged,
+# overlapping blobs rather than discrete pieces, which is what separates a moss
+# carpet from "dirt with a green top": the surface is made of soft joined
+# mounds instead of countable flecks.
+PATCHES = {
+    "allow_overlap": "true",
+    "edge_softness": "0.6",
+    "height_scale": "1.5",
+    # A cushion patch is a dome, roughly 200 triangles each, so the mound
+    # count is what the triangle budget actually buys here.
+    "large_count": "[2, 2]",
+    "medium_count": "[1, 2]",
+    "small_count": "[1, 1]",
+    "large_radius": "[0.26, 0.38]",
+    "medium_radius": "[0.16, 0.25]",
+    "small_radius": "[0.09, 0.14]",
+    "patch_profile": '"cushion"',
+    "region_count": "[2, 3]",
+    "scale_multiplier": "1.0",
+}
+
 
 def disable(text, kind):
     pattern = re.compile(r'(kind = "%s"\n)(?!enabled = false)' % kind)
     return pattern.sub(r'\1enabled = false\n', text)
+
+
+def rewrite_dressing(text, light, dark):
+    pattern = 'kind = "dressing"\\n(enabled = false\\n)?params = \\{.*?\\n\\}\\n'
+    block = re.search(pattern, text, re.S)
+    if block is None:
+        raise SystemExit("recipe has no dressing layer to build patches on")
+    params = "".join('"%s": %s,\n' % (k, v) for k, v in sorted(PATCHES.items()))
+    weights = '"color_weights": {\n"%s": 55.0,\n"%s": 45.0\n}\n}\n' % (light, dark)
+    return text.replace(block.group(0),
+                        'kind = "dressing"\nparams = {\n' + params + weights)
 
 
 def rewrite_clutter(text, light, dark, shapes, archetype="particles"):
@@ -119,7 +152,8 @@ def main():
     ap.add_argument("--dark", required=True)
     ap.add_argument("--shapes", default="clay_chip")
     ap.add_argument("--base", default="")
-    ap.add_argument("--archetype", default="particles", choices=sorted(ARCHETYPES))
+    ap.add_argument("--archetype", default="particles",
+                    choices=sorted(list(ARCHETYPES) + ["patches"]))
     args = ap.parse_args()
 
     path = Path("tools/tile_kit/library/recipes/%s.tres" % args.tile_id)
@@ -128,8 +162,11 @@ def main():
         text = disable(text, kind)
     mapping = dict(p.split("=") for p in args.base.split(",")) if args.base else {}
     text = rewrite_base(text, mapping)
-    text = rewrite_clutter(text, args.light, args.dark, args.shapes.split(","),
-                           args.archetype)
+    if args.archetype == "patches":
+        text = rewrite_dressing(text, args.light, args.dark)
+    else:
+        text = rewrite_clutter(text, args.light, args.dark, args.shapes.split(","),
+                               args.archetype)
     path.write_text(text, encoding="utf-8")
     print("%s: base + %s (%s / %s)"
           % (args.tile_id, args.archetype, args.light, args.dark))

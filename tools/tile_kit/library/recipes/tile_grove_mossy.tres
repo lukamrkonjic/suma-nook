@@ -9,11 +9,11 @@ kind = "base"
 params = {
 "basin_depth": 0.0,
 "basin_rim": 0.17,
-"bevel_key": "moss_plush_edge",
+"bevel_key": "moss_cushion_base",
 "bevel_segments": 6,
 "bottom_chamfer": 0.024,
 "corner_radius": 0.11,
-"lower_key": "moss_ground_soil_lower",
+"lower_key": "moss_cushion_lower",
 "relief_amplitude": 0.0,
 "relief_bipolar": false,
 "relief_edge_feather": 0.25,
@@ -22,10 +22,10 @@ params = {
 "relief_heap_radius": [0.24, 0.36],
 "relief_resolution": 12,
 "relief_style": "none",
-"side_key": "moss_ground_soil_side",
+"side_key": "moss_cushion_side",
 "surface_profile": "detailed_square",
 "top_bevel": 0.055,
-"top_key": "moss_plush_base",
+"top_key": "moss_cushion_base",
 "turf_cap": false,
 "turf_thickness": 0.078,
 "turf_wobble": 0.013
@@ -34,16 +34,23 @@ params = {
 [sub_resource type="Resource" id="Resource_nyk1p"]
 script = ExtResource("1_ukacy")
 kind = "dressing"
-enabled = false
 params = {
 "allow_overlap": true,
-"edge_softness": 0.55,
-"height_scale": 1.0,
-"large_count": [2, 4],
-"medium_count": [3, 6],
+"edge_softness": 0.6,
+"height_scale": 1.5,
+"large_count": [2, 2],
+"large_radius": [0.26, 0.38],
+"medium_count": [1, 2],
+"medium_radius": [0.16, 0.25],
 "patch_profile": "cushion",
+"region_count": [2, 3],
 "scale_multiplier": 1.0,
-"small_count": [2, 5]
+"small_count": [1, 1],
+"small_radius": [0.09, 0.14],
+"color_weights": {
+"moss_cushion_light": 55.0,
+"moss_cushion_body": 45.0
+}
 }
 
 [sub_resource type="Resource" id="Resource_2ffuy"]

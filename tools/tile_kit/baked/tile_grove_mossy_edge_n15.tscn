@@ -2,7 +2,7 @@
 
 [sub_resource type="ArrayMesh" id="ArrayMesh_udb8k"]
 
-[node name="tile_kit_edge" type="Node3D" unique_id=900471637]
+[node name="tile_kit_edge" type="Node3D" unique_id=1442032005]
 
-[node name="tile_cap_edge" type="MeshInstance3D" parent="." unique_id=626171633]
+[node name="tile_cap_edge" type="MeshInstance3D" parent="." unique_id=1227734889]
 mesh = SubResource("ArrayMesh_udb8k")
