@@ -18,7 +18,7 @@ params = {
 "relief_bipolar": false,
 "relief_edge_feather": 0.2,
 "relief_frequency": 2.2,
-"relief_resolution": 20,
+"relief_resolution": 12,
 "relief_style": "none",
 "side_key": "grass_gg_side",
 "surface_profile": "detailed_square",
@@ -51,10 +51,6 @@ kind = "clutter"
 params = {
 "cluster_fraction": 0.12,
 "cluster_radius": 0.28,
-"color_weights": {
-"grass_gg_fleck_dark": 50.0,
-"grass_gg_fleck_light": 50.0
-},
 "corner_fraction": 0.2,
 "count": [20, 24],
 "diameter": [0.12, 0.24],
@@ -65,7 +61,11 @@ params = {
 "on_dressing_fraction": 0.0,
 "placement_mode": "clusters",
 "scale_multiplier": 1.0,
-"shapes": ["clay_chip"]
+"color_weights": {
+"grass_gg_fleck_light": 50.0,
+"grass_gg_fleck_dark": 50.0
+},
+"shapes": ["gg_shard"]
 }
 
 [sub_resource type="Resource" id="Resource_5wkl4"]
@@ -107,17 +107,20 @@ kind = "rooted_meadow"
 params = {
 "accent_flower_chance": 0.0,
 "blade_width": [0.082411676, 0.106563553],
-"blades_per_turf": [2, 2],
+"blades_per_turf": [3, 3],
 "clover_count": [0, 0],
 "clover_size": [0.05724, 0.063],
 "edge_margin": 0.025,
 "fern_count": [0, 0],
 "flower_count": [0, 0],
 "four_leaf_chance": 0.28,
-"grass_height": [0.055, 0.095],
-"min_spacing": 0.22,
+"grass_height": [0.115, 0.185],
+"min_spacing": 0.17,
 "root_sink": 0.01,
-"turf_count": [2, 2]
+"turf_count": [5, 6],
+"blade_rings": 2,
+"blade_segments": 3,
+"blade_tip_rings": 1
 }
 
 [resource]

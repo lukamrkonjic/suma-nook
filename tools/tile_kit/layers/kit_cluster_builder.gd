@@ -1378,9 +1378,17 @@ static func _add_tuft_blades(batch: TileKitMeshUtils.MeshBatch,
 		var p2 := p0 + Vector3.UP * (blade_height * 0.78) + lean * (reach * 0.52)
 		var p3 := p0 + Vector3.UP * blade_height + lean * reach
 		var key := secondary if rng.randf() < 0.3 else primary
+		# Blade tessellation is a recipe choice. The default stays at the
+		# premium 8x10 tube, but Garden Galaxy's foliage unit is a 14-triangle
+		# leaf (Hedge_single_lvs is 30 of them at 14 each; its clover and fern
+		# are 24), so a GG-register tile asks for a far coarser blade instead
+		# of paying fifty triangles a piece.
 		TileKitMeshUtils.add_blade(batch, key, p0, p1, p2, p3, blade_width,
 			rng.randf_range(float(thickness_band[0]),
-				float(thickness_band[1])), 8, 10, 3)
+				float(thickness_band[1])),
+			int(layer.value("blade_rings", 8)),
+			int(layer.value("blade_segments", 10)),
+			int(layer.value("blade_tip_rings", 3)))
 
 
 static func _blocked_by_stone(centre: Vector2, stones: Array,
