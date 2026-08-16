@@ -222,7 +222,7 @@
       "capabilities": {
         "light": {}
       },
-      "light_height": 0.17,
+      "light_height": 0.24,
       "light_flicker": true,
       "visitor_tags": [
         "viewing"

@@ -251,7 +251,7 @@
 			}
 		},
 		"prop_hand_lantern": {
-			"scale": 0.35,
+			"scale": 0.5,
 			"materials": {},
 			"smoothing": 0.0
 		}
