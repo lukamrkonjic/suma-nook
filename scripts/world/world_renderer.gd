@@ -1707,57 +1707,44 @@ uniform float outline_width_pixels = 2.5;
 uniform float fill_alpha = 0.0;
 
 const int OUTLINE_SAMPLES = 16;
-// Half-circle of axes for the gap test; each is probed both ways.
-const int GAP_SAMPLES = 8;
-// Reach for that probe, as a multiple of the outline width. Wide enough to
-// span the gaps the dilation can fill, which is what has to be detected.
-const float GAP_PROBE_SCALE = 3.0;
 
+// The outline is drawn INSIDE the silhouette, as an erosion rather than a
+// dilation. Two reasons, both visible in game:
+//
+// Contrast. Drawn outside, the line sits on whatever is behind the object --
+// and this game's background is near-white cream, against which a cream
+// outline is nearly invisible. Drawn inside, it always sits on the object's
+// own colour, so a selection reads on any background.
+//
+// Neighbours. A dilation spills outward over whatever is adjacent, so a tile
+// picked out of the middle of a grid was ringed by a band lying across the
+// tiles beside it, stepping in and out wherever their edges fell. Nothing is
+// drawn outside the silhouette now, so a tile in a grid reads exactly like a
+// tile standing alone.
+//
+// It also retires the gap-opposition test this shader used to need. That
+// existed because a dilation fills a narrow gap between two parts of one
+// object exactly as it fills open space, so the gap came out solid white --
+// the wishing well showed a bright chip on every tier. An erosion cannot do
+// that: the gap is empty, and empty pixels are never drawn.
 void fragment() {
 	vec2 px = TEXTURE_PIXEL_SIZE * outline_width_pixels;
 	float center = texture(TEXTURE, UV).a;
-	float around = 0.0;
-	float coverage = 0.0;
+	// Nearest empty neighbour. A pixel belongs to the rim when the silhouette
+	// ends within the outline's width of it in ANY direction, which is what
+	// makes the band follow the edge at a constant thickness.
+	float nearest_empty = 1.0;
 	for (int i = 0; i < OUTLINE_SAMPLES; i++) {
 		float angle = TAU * float(i) / float(OUTLINE_SAMPLES);
 		vec2 direction = vec2(cos(angle), sin(angle));
-		float outer_sample = texture(TEXTURE, UV + direction * px).a;
-		float inner_sample = texture(TEXTURE, UV + direction * px * 0.55).a;
-		around = max(around, max(outer_sample, inner_sample));
-		coverage += outer_sample + inner_sample;
+		nearest_empty = min(nearest_empty, texture(TEXTURE, UV + direction * px).a);
+		nearest_empty = min(
+			nearest_empty, texture(TEXTURE, UV + direction * px * 0.55).a
+		);
 	}
-	coverage /= float(OUTLINE_SAMPLES * 2);
-	float rounded_dilation = max(around, smoothstep(0.02, 0.28, coverage));
-	float exterior = 1.0 - smoothstep(0.04, 0.72, center);
-	// Is this empty pixel INSIDE a narrow gap between two parts of the same
-	// object? The dilation cannot tell: it fills such a gap exactly as it fills
-	// the space outside a silhouette, so the gap comes out solid white and
-	// reads as a bright chip punched through the model. The wishing well is
-	// built from separate stone blocks and showed one on every tier.
-	//
-	// What separates the two cases is OPPOSITION, not how much mask is nearby:
-	// a gap has mask on both sides of some axis, a silhouette edge has mask on
-	// one side only. Simulated on synthetic masks before shipping -- a straight
-	// edge keeps outline 1.00, a 4px gap drops from 1.00 to 0.00. Coverage was
-	// tried first and cannot do it: it reads 0.09 at an edge and 0.16 in a gap.
-	float opposed = 0.0;
-	for (int i = 0; i < GAP_SAMPLES; i++) {
-		float angle = PI * float(i) / float(GAP_SAMPLES);
-		vec2 direction = vec2(cos(angle), sin(angle)) * px * GAP_PROBE_SCALE;
-		float forward = 0.0;
-		float backward = 0.0;
-		for (int step = 1; step <= 3; step++) {
-			float reach = float(step) / 3.0;
-			forward = max(forward, texture(TEXTURE, UV + direction * reach).a);
-			backward = max(backward, texture(TEXTURE, UV - direction * reach).a);
-		}
-		opposed = max(opposed, min(forward, backward));
-	}
-	float outline = smoothstep(0.04, 0.58, rounded_dilation)
-		* exterior
-		* (1.0 - smoothstep(0.25, 0.65, opposed));
 	float interior = smoothstep(0.04, 0.72, center);
-	float alpha = max(outline_color.a * outline, fill_alpha * interior);
+	float rim = interior * (1.0 - smoothstep(0.04, 0.58, nearest_empty));
+	float alpha = max(outline_color.a * rim, fill_alpha * interior);
 	COLOR = vec4(outline_color.rgb, alpha);
 }
 """
@@ -2009,7 +1996,7 @@ func set_hovered_tile(
 		)
 		if holder != null:
 			nodes.append(holder)
-	_set_hover_nodes(nodes, signature, -1)
+	_set_hover_nodes(nodes, signature, -1, true)
 
 
 ## Transient interaction props such as visitors and their gift containers are
@@ -2028,10 +2015,29 @@ func set_hovered_visual(visual: Node3D, signature: String) -> void:
 	_set_hover_nodes(nodes, signature, -1)
 
 
+## A tile's outline covers only its top surface.
+##
+## The outline camera renders the outlined meshes on their own layer, with
+## nothing else in the scene to occlude them, so a tile's side faces contribute
+## to the mask even when neighbours hide them completely. Outlining the whole
+## block therefore traced a hexagon that stepped in and out across the tiles
+## beside it. The top surface is the part the player is pointing at and the
+## part that is never shared, so it reads the same in the middle of a grid as
+## it does on a tile standing alone.
+func _is_tile_top_surface(mesh_instance: MeshInstance3D) -> bool:
+	if String(mesh_instance.get_meta(TileVisualFactory.LAYER_ROLE_META, "")) in [
+		"surface", "detail"
+	]:
+		return true
+	var lower := mesh_instance.name.to_lower()
+	return lower.ends_with("_cap") or lower.begins_with("tile_cap")
+
+
 func _set_hover_nodes(
 	nodes: Array[Node3D],
 	signature: String,
-	structure_instance_id: int
+	structure_instance_id: int,
+	top_surface_only := false
 ) -> void:
 	if nodes.is_empty():
 		return
@@ -2046,6 +2052,8 @@ func _set_hover_nodes(
 	for node: Node3D in nodes:
 		for child in node.find_children("*", "MeshInstance3D", true, false):
 			var mesh_instance := child as MeshInstance3D
+			if top_surface_only and not _is_tile_top_surface(mesh_instance):
+				continue
 			if seen.has(mesh_instance.get_instance_id()):
 				continue
 			seen[mesh_instance.get_instance_id()] = true
