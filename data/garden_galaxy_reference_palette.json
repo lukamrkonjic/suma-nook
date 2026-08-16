@@ -205,7 +205,8 @@
     "tilekit_sand_bevel": "#D6B77F",
     "tilekit_sand_side": "#AF865A",
     "tilekit_sand_deep": "#76513A",
-    "tilekit_sand_patch": "#E8C98D"
+    "tilekit_sand_patch": "#E8C98D",
+    "fire_yellow": "#CFB940"
   },
   "families": []
 }

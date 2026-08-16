@@ -188,28 +188,28 @@
 			}
 		},
 		"prop_air_conditioner": {
-			"scale": 0.6,
+			"scale": 0.75,
 			"smoothing": 0.0,
 			"materials": {}
 		},
 		"prop_canvas_bag": {
-			"scale": 0.45,
+			"scale": 0.55,
 			"smoothing": 0.49,
 			"materials": {
 				"wood_highlight": {
 					"roughness": 0.72,
 					"metallic": 0.0,
-					"color": "8f6a51"
+					"color": "b07f5e"
 				},
 				"grass_field_tuft_light": {
 					"roughness": 0.66,
 					"metallic": 0.0,
-					"color": "7a604d"
+					"color": "c7a06c"
 				}
 			}
 		},
 		"prop_watering_can": {
-			"scale": 0.45,
+			"scale": 0.6,
 			"smoothing": 0.85,
 			"materials": {
 				"stone_light": {
@@ -225,7 +225,33 @@
 			}
 		},
 		"prop_log_pile": {
-			"scale": 1.0,
+			"scale": 0.65,
+			"smoothing": 0.28,
+			"materials": {
+				"sand_top": {
+					"roughness": 0.8,
+					"metallic": 0.0,
+					"color": "b28160"
+				},
+				"sand_deep": {
+					"roughness": 0.8,
+					"metallic": 0.0,
+					"color": "b38d62"
+				},
+				"sand_shadow": {
+					"roughness": 0.93,
+					"metallic": 0.0,
+					"color": "7a604d"
+				},
+				"soil": {
+					"roughness": 0.8,
+					"metallic": 0.0,
+					"color": "52352b"
+				}
+			}
+		},
+		"prop_hand_lantern": {
+			"scale": 0.35,
 			"materials": {},
 			"smoothing": 0.0
 		}

@@ -214,6 +214,29 @@
       "support_slots": []
     },
     {
+      "id": "struct_hand_lantern",
+      "name": "Hand Lantern",
+      "asset_id": "prop_hand_lantern",
+      "kind": "utility",
+      "socket_type": "decor",
+      "capabilities": {
+        "light": {}
+      },
+      "light_height": 0.17,
+      "light_flicker": true,
+      "visitor_tags": [
+        "viewing"
+      ],
+      "placement_sound": "wood",
+      "placement_tags": [
+        "light",
+        "small",
+        "tabletop_item"
+      ],
+      "can_be_stacked": true,
+      "support_slots": []
+    },
+    {
       "id": "struct_lantern",
       "name": "Warm Lantern",
       "asset_id": "prop_lantern",

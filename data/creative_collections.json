@@ -219,6 +219,12 @@
       "members": [
         {
           "kind": "structure",
+          "id": "struct_hand_lantern",
+          "tier": 1,
+          "family": "utilities"
+        },
+        {
+          "kind": "structure",
           "id": "struct_canvas_bag",
           "tier": 1,
           "family": "furniture"
