@@ -191,6 +191,11 @@
 			"scale": 0.6,
 			"materials": {},
 			"smoothing": 0.0
+		},
+		"prop_canvas_bag": {
+			"scale": 0.5,
+			"materials": {},
+			"smoothing": 0.0
 		}
 	}
 }

@@ -219,6 +219,12 @@
       "members": [
         {
           "kind": "structure",
+          "id": "struct_canvas_bag",
+          "tier": 1,
+          "family": "furniture"
+        },
+        {
+          "kind": "structure",
           "id": "struct_air_conditioner",
           "tier": 1,
           "family": "furniture"

@@ -148,6 +148,24 @@
       "support_slots": []
     },
     {
+      "id": "struct_canvas_bag",
+      "name": "Canvas Rucksack",
+      "asset_id": "prop_canvas_bag",
+      "kind": "decoration",
+      "socket_type": "decor",
+      "visitor_tags": [
+        "social"
+      ],
+      "placement_sound": "wood",
+      "placement_tags": [
+        "furniture",
+        "small",
+        "tabletop_item"
+      ],
+      "can_be_stacked": true,
+      "support_slots": []
+    },
+    {
       "id": "struct_vintage_radio",
       "name": "Vintage Radio",
       "asset_id": "prop_vintage_radio",

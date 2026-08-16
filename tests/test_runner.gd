@@ -4626,6 +4626,7 @@ func _test_object_support_graph() -> void:
 		"struct_watering_can": true,
 		"struct_milk_churn": true,
 		"struct_vintage_radio": true,
+		"struct_canvas_bag": true,
 		"struct_stone_wall_polished": true,
 	}
 	var expected_supports := {
@@ -4644,6 +4645,7 @@ func _test_object_support_graph() -> void:
 				"struct_watering_can",
 				"struct_milk_churn",
 				"struct_vintage_radio",
+				"struct_canvas_bag",
 			],
 		},
 		## Same tabletop surface as the round table, so it takes the same set.
@@ -4655,6 +4657,7 @@ func _test_object_support_graph() -> void:
 				"struct_watering_can",
 				"struct_milk_churn",
 				"struct_vintage_radio",
+				"struct_canvas_bag",
 			],
 		},
 		"struct_chest": {
